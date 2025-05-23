@@ -1,0 +1,391 @@
+.detail-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+.detail-header {
+  margin-bottom: 30px;
+}
+
+.detail-header h1 {
+  margin-top: 15px;
+  color: #333;
+  font-size: 28px;
+}
+
+.btn-back {
+  display: inline-block;
+  padding: 8px 12px;
+  color: #666;
+  font-size: 14px;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-back:hover {
+  background-color: #f3f4f6;
+  color: #333;
+}
+
+.detail-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+/* Image Section */
+.detail-images {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.main-image {
+  width: 100%;
+  height: 400px;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.main-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: #f8f9fa;
+}
+
+.no-image {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f9fa;
+  color: #6c757d;
+  font-size: 16px;
+}
+
+.additional-images h3 {
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #333;
+}
+
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.gallery-image {
+  height: 120px;
+  overflow: hidden;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.gallery-image:hover {
+  transform: scale(1.05);
+}
+
+.gallery-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Plate Preview */
+.plate-preview {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  background-color: #f8f9fa;
+  padding: 30px;
+  border-radius: 8px;
+}
+
+.uae-plate {
+  width: 80%;
+  aspect-ratio: 2 / 1;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 2px solid #333;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.uae-plate.center {
+  justify-content: center;
+  flex-direction: column;
+}
+
+.uae-plate.left {
+  justify-content: flex-start;
+  flex-direction: column;
+}
+
+.uae-plate.right {
+  justify-content: flex-end;
+  flex-direction: column;
+}
+
+.plate-code {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.plate-number {
+  font-size: 40px;
+  font-weight: bold;
+}
+
+.plate-logo {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+}
+
+.plate-text {
+  color: #333;
+}
+
+/* Info Section */
+.detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-panel {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  padding: 25px;
+}
+
+.info-panel h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 22px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 15px;
+}
+
+.info-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.info-label {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.info-value {
+  font-size: 16px;
+  color: #111827;
+}
+
+.info-value.price {
+  font-size: 20px;
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.negotiable-tag {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.features-section,
+.description-section,
+.contact-section,
+.compatibility-section {
+  margin-top: 25px;
+}
+
+.features-section h3,
+.description-section h3,
+.contact-section h3,
+.compatibility-section h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.features-list {
+  padding-left: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.description-section p {
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+.compatible-makes,
+.compatible-models,
+.compatible-years {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.listing-meta {
+  margin-top: 30px;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: right;
+}
+
+/* Action Panel */
+.action-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.action-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.2s;
+  text-decoration: none;
+}
+
+.call-btn {
+  background-color: #01351c;
+  color: white;
+  grid-column: 1 / -1;
+}
+
+.call-btn:hover {
+  background-color: #012513;
+}
+
+.chat-btn {
+  background-color: #01351c;
+  color: white;
+}
+
+.chat-btn:hover {
+  background-color: #012513;
+}
+
+.save-btn {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.save-btn:hover {
+  background-color: #e5e7eb;
+}
+
+.share-btn {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.share-btn:hover {
+  background-color: #e5e7eb;
+}
+
+/* Loading State */
+.detail-container.loading,
+.detail-container.error,
+.detail-container.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-message {
+  color: #dc2626;
+  margin-bottom: 20px;
+}
+
+.error-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.btn-retry {
+  padding: 8px 16px;
+  background-color: #01351c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-retry:hover {
+  background-color: #012513;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .detail-main {
+    grid-template-columns: 1fr;
+  }
+  
+  .info-group {
+    grid-template-columns: 1fr;
+  }
+  
+  .features-list {
+    grid-template-columns: 1fr;
+  }
+} 

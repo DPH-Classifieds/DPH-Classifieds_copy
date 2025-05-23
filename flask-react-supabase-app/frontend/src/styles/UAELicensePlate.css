@@ -1,0 +1,212 @@
+/* UAE License Plate Styles */
+.uae-license-plate {
+  width: 500px;
+  height: 140px;
+  background-color: #fff;
+  border: 3px solid #000;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  margin: 20px auto;
+  padding: 0 15px;
+  box-sizing: border-box;
+  font-family: 'Arial', sans-serif;
+}
+
+/* Common plate components */
+.plate-left, .plate-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.plate-left {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.plate-middle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  height: 100%;
+}
+
+.plate-right {
+  flex: 2;
+  justify-content: flex-end;
+}
+
+.plate-code {
+  font-size: 80px;
+  font-weight: bold;
+  color: #000;
+}
+
+.plate-number {
+  font-size: 80px;
+  font-weight: bold;
+  color: #000;
+  letter-spacing: 2px;
+}
+
+.plate-uae {
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+  margin-bottom: 5px;
+}
+
+.plate-city-arabic {
+  font-size: 28px;
+  font-weight: bold;
+  color: #000;
+  font-family: 'Noto Sans Arabic', 'Arial', sans-serif;
+}
+
+/* Dubai style plate */
+.uae-license-plate.dubai {
+  background-color: #fff;
+}
+
+/* Abu Dhabi style plate */
+.uae-license-plate.abu-dhabi {
+  background-color: #fff;
+}
+
+.uae-license-plate.abu-dhabi .plate-code {
+  font-size: 70px;
+}
+
+/* Number plate for Abu Dhabi can be different from letter plates */
+.uae-license-plate.abu-dhabi .plate-code.numeric {
+  font-size: 60px;
+}
+
+/* Sharjah style plate */
+.uae-license-plate.sharjah {
+  background-color: #fff;
+}
+
+/* Ajman style plate - with colorful design at the bottom */
+.uae-license-plate.ajman {
+  background-color: #fff;
+  position: relative;
+}
+
+.uae-license-plate.ajman:after {
+  content: '';
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 15px;
+  background: linear-gradient(to right, 
+    #e91e63 0%, 
+    #ff9800 33%, 
+    #2196f3 66%, 
+    #795548 100%
+  );
+  border-radius: 3px;
+}
+
+/* Fujairah style plate */
+.uae-license-plate.fujairah {
+  background-color: #fff;
+}
+
+/* Ras Al Khaimah style plate */
+.uae-license-plate.ras-al-khaimah {
+  background-color: #fff;
+}
+
+/* Umm Al Quwain style plate */
+.uae-license-plate.umm-al-quwain {
+  background-color: #fff;
+}
+
+/* Special State Styling */
+.uae-license-plate.sold {
+  position: relative;
+  overflow: hidden;
+}
+
+.uae-license-plate.sold:after {
+  content: 'SOLD';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%) rotate(-45deg);
+  background-color: #f00;
+  color: #fff;
+  padding: 10px 60px;
+  font-size: 24px;
+  font-weight: bold;
+  z-index: 10;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .uae-license-plate {
+    width: 400px;
+    height: 120px;
+  }
+  
+  .plate-code {
+    font-size: 60px;
+  }
+  
+  .plate-number {
+    font-size: 60px;
+  }
+  
+  .plate-uae {
+    font-size: 20px;
+  }
+  
+  .plate-city-arabic {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .uae-license-plate {
+    width: 300px;
+    height: 100px;
+    padding: 0 10px;
+  }
+  
+  .plate-code {
+    font-size: 45px;
+  }
+  
+  .plate-number {
+    font-size: 45px;
+    letter-spacing: 1px;
+  }
+  
+  .plate-uae {
+    font-size: 16px;
+    margin-bottom: 3px;
+  }
+  
+  .plate-city-arabic {
+    font-size: 18px;
+  }
+  
+  .uae-license-plate.ajman:after {
+    height: 10px;
+    bottom: 8px;
+  }
+  
+  .uae-license-plate.sold:after {
+    font-size: 18px;
+    padding: 8px 40px;
+  }
+} 

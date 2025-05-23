@@ -1,0 +1,325 @@
+.home-page {
+  min-height: 100vh;
+}
+
+/* Hero Section */
+.hero {
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+  height: 500px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 2rem;
+}
+
+.hero-content {
+  max-width: 800px;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.hero p {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.hero-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.btn {
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: #01351c;
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: #012513;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: white;
+  border: 2px solid white;
+}
+
+.btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Featured Section */
+.featured-section {
+  padding: 4rem 1rem;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-heading {
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+  color: #333;
+  position: relative;
+}
+
+.section-heading::after {
+  content: '';
+  display: block;
+  height: 3px;
+  width: 80px;
+  background-color: #4CAF50;
+  margin: 0.5rem auto;
+}
+
+/* Info Section */
+.info-section {
+  padding: 4rem 1rem;
+  background-color: #f9f9f9;
+}
+
+.info-cards {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.info-card {
+  flex: 1;
+  min-width: 250px;
+  max-width: 350px;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-10px);
+}
+
+.info-icon {
+  font-size: 2.5rem;
+  color: #4CAF50;
+  margin-bottom: 1rem;
+}
+
+.info-card h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.info-card p {
+  color: #666;
+  line-height: 1.6;
+}
+
+/* CTA Section */
+.cta-section {
+  padding: 4rem 1rem;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+  color: white;
+  text-align: center;
+}
+
+.cta-content {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.cta-content h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.cta-content p {
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+.btn-cta {
+  background-color: #4CAF50;
+  color: white;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  display: inline-block;
+}
+
+.btn-cta:hover {
+  background-color: #3e8e41;
+}
+
+/* Why Choose Us Section */
+.why-choose-us-section {
+  position: relative;
+  background-color: #01351c;
+  padding: 60px 0;
+  color: white;
+  overflow: hidden;
+  border-bottom-left-radius: 50% 20%;
+  border-top-left-radius: 50% 20%;
+}
+
+.why-choose-us-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: url('/src/assets/images/porsche.png') left center no-repeat;
+  background-size: contain;
+  opacity: 0.9;
+  z-index: 1;
+}
+
+.why-choose-us-content {
+  position: relative;
+  z-index: 2;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.why-choose-us-text {
+  width: 50%;
+  padding: 30px;
+}
+
+.why-choose-us-text h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+.why-choose-subtitle {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  opacity: 0.9;
+}
+
+.why-choose-us-text h3 {
+  font-size: 1.5rem;
+  margin: 30px 0 20px;
+  font-weight: 600;
+}
+
+.benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 30px;
+}
+
+.benefits-list li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.checkmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #4CAF50;
+  border-radius: 50%;
+  color: white;
+  margin-right: 15px;
+  font-weight: bold;
+}
+
+.btn-used-cars {
+  display: inline-block;
+  background-color: #01351c;
+  color: white;
+  padding: 12px 24px;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 1rem;
+  border: 2px solid white;
+  transition: all 0.3s ease;
+}
+
+.btn-used-cars:hover {
+  background-color: white;
+  color: #01351c;
+}
+
+@media (max-width: 991px) {
+  .why-choose-us-section::before {
+    opacity: 0.3;
+    width: 40%;
+  }
+  
+  .why-choose-us-content {
+    justify-content: center;
+  }
+  
+  .why-choose-us-text {
+    width: 80%;
+    background-color: rgba(1, 53, 28, 0.7);
+    border-radius: 8px;
+  }
+}
+
+@media (max-width: 767px) {
+  .why-choose-us-section::before {
+    width: 30%;
+    background-size: 80%;
+  }
+
+  .why-choose-us-text {
+    width: 100%;
+  }
+  
+  .why-choose-us-text h2 {
+    font-size: 2rem;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+  
+  .hero-buttons {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .info-card {
+    min-width: 100%;
+  }
+} 

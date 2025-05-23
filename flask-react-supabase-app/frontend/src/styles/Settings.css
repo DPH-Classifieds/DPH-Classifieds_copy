@@ -1,0 +1,50 @@
+.settings-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.settings-card {
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 30px;
+  margin-bottom: 30px;
+}
+
+.settings-card h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #333;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.settings-card form {
+  margin-top: 20px;
+}
+
+.danger-zone-warning {
+  color: #dc3545;
+  font-size: 14px;
+  margin-bottom: 20px;
+  padding: 8px 12px;
+  background-color: #fff8f8;
+  border-left: 3px solid #dc3545;
+  border-radius: 3px;
+}
+
+.settings-card .btn {
+  margin-top: 10px;
+}
+
+.settings-card .btn-danger {
+  margin-top: 0;
+}
+
+@media (max-width: 576px) {
+  .settings-card {
+    padding: 20px;
+  }
+} 

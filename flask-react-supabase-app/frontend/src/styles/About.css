@@ -1,0 +1,240 @@
+.about-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Welcome Section */
+.welcome-section {
+  text-align: center;
+  margin-bottom: 4rem;
+  padding: 3rem 1rem;
+}
+
+.welcome-section h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.welcome-description {
+  font-size: 1.5rem;
+  color: #555;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Info Sections */
+.info-sections {
+  margin-bottom: 5rem;
+}
+
+.info-section {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5rem;
+  gap: 4rem;
+}
+
+.info-section.reverse {
+  flex-direction: row-reverse;
+}
+
+.info-image {
+  flex: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 400px;
+  height: 300px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.info-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.info-content {
+  flex: 1;
+}
+
+.info-content h2 {
+  font-size: 2.5rem;
+  color: #333;
+  margin-bottom: 1.5rem;
+  font-weight: 700;
+}
+
+.info-content h2 span {
+  font-weight: 700;
+}
+
+.info-content p {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: #555;
+}
+
+/* Stats Section */
+.stats-section {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-bottom: 5rem;
+  padding: 3rem 0;
+  background-image: url('../assets/images/traffic-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+}
+
+.stats-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1;
+}
+
+.stat-card {
+  position: relative;
+  z-index: 2;
+  background-color: #01351c;
+  color: white;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.stat-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Community Section */
+.community-section {
+  margin-bottom: 5rem;
+}
+
+.community-title {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 3rem;
+  color: #333;
+  font-weight: 700;
+}
+
+.community-platforms {
+  display: flex;
+  justify-content: space-around;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.platform-card {
+  width: 300px;
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.platform-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.platform-image {
+  height: 200px;
+  overflow: hidden;
+}
+
+.platform-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.platform-card:hover .platform-image img {
+  transform: scale(1.1);
+}
+
+.platform-card h3 {
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 1.25rem;
+  color: #333;
+  font-weight: 600;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .welcome-section h1 {
+    font-size: 2.25rem;
+  }
+  
+  .welcome-description {
+    font-size: 1.2rem;
+  }
+  
+  .info-section {
+    flex-direction: column;
+    gap: 2rem;
+  }
+  
+  .info-section.reverse {
+    flex-direction: column;
+  }
+  
+  .info-content h2 {
+    font-size: 2rem;
+    text-align: center;
+  }
+  
+  .info-content p {
+    font-size: 1.1rem;
+    text-align: center;
+  }
+  
+  .stat-card {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .stat-number {
+    font-size: 2rem;
+  }
+  
+  .community-title {
+    font-size: 2rem;
+  }
+} 

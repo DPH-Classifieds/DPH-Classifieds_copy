@@ -1,0 +1,810 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import apiClient from '../utils/apiClient';
+import '../styles/PostForms.css';
+import { carMakes, carModels } from '../utils/carData';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+// Fix Leaflet default icon issue
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const PostCar = () => {
+  const navigate = useNavigate();
+  const { user, isLoading, syncWithSupabase } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [availableModels, setAvailableModels] = useState([]);
+  const locationInputRef = useRef(null);
+  const mapRef = useRef(null);
+  const [showExtras, setShowExtras] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previewImages, setPreviewImages] = useState([]);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapPosition, setMapPosition] = useState([25.276987, 55.296249]); // Default to Dubai coordinates
+  const [marker, setMarker] = useState([25.276987, 55.296249]);
+
+  const [formData, setFormData] = useState({
+    car_manufacturer: '',
+    car_model: '',
+    trim: '',
+    regional_spec: 'GCC Specs',
+    make_year: new Date().getFullYear(),
+    kilometer_driven: 100,
+    body_type: '',
+    is_insured: false,
+    expected_selling_price: '',
+    car_owner_phone_number: '',
+    car_city: 'Dubai',
+    listing_title: '',
+    tour_url: '',
+    car_description: '',
+    fuel_type: '',
+    transmission_type: '',
+    seating_capacity: '',
+    horsepower: '',
+    engine_capacity: '',
+    steering_side: '',
+    car_location: '',
+    vehicle_type: 'Used',
+    extras: [],
+    images: []
+  });
+  
+  // Car specifications arrays
+  const bodyTypes = ['Sedan', 'SUV', 'Hatchback', 'Coupe', 'Convertible', 'Wagon', 'Van', 'Truck', 'Other'];
+  const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'Other'];
+  const transmissionTypes = ['Automatic', 'Manual', 'CVT', 'Electric', 'Semi-Automatic', 'Other'];
+  const regionalSpecs = ['GCC Specs', 'American Specs', 'European Specs', 'Japanese Specs', 'Korean Specs', 'Chinese Specs', 'Other'];
+  const steeringSides = ['Left', 'Right'];
+  const seatingCapacities = ['2', '4', '5', '6', '7', '8', '9+'];
+  const horsepowerRanges = ['100-150', '150-200', '200-300', '300-400', '400-500', '500-600', '600-700', '700+'];
+  const engineCapacities = ['0-1000cc', '1100-2000cc', '2100-3000cc', '3100-4000cc', '4100-5000cc', '5100-6000cc', '6100-7000cc'];
+  const carExtras = [
+    'Climate Control', 
+    'DVD Player', 
+    'Keyless Entry', 
+    'Navigation System', 
+    'Premium Sound System'
+  ];
+
+  // Check if user is logged in when component loads
+  useEffect(() => {
+    const checkAuth = async () => {
+      await syncWithSupabase();
+    };
+    
+    checkAuth();
+    
+    if (!isLoading && !user) {
+      console.log('User not authenticated, showing auth modal');
+      setShowAuthModal(true);
+    } else if (user) {
+      console.log('User authenticated:', user.email);
+      setShowAuthModal(false);
+    }
+  }, [user, isLoading, syncWithSupabase]);
+
+  // Update models when manufacturer changes
+  useEffect(() => {
+    if (formData.car_manufacturer) {
+      const models = carModels[formData.car_manufacturer] || [];
+      setAvailableModels(models);
+      
+      // Clear model if it's not available for the selected manufacturer
+      if (formData.car_model && !models.includes(formData.car_model)) {
+        setFormData(prev => ({ ...prev, car_model: '' }));
+      }
+    } else {
+      setAvailableModels([]);
+    }
+  }, [formData.car_manufacturer, formData.car_model]);
+
+  // Update listing title when key fields change
+  useEffect(() => {
+    if (formData.car_manufacturer && formData.car_model && formData.make_year) {
+      const newTitle = `${formData.make_year} ${formData.car_manufacturer} ${formData.car_model}${formData.trim ? ` ${formData.trim}` : ''}`;
+      setFormData(prev => ({ ...prev, listing_title: newTitle }));
+    }
+  }, [formData.car_manufacturer, formData.car_model, formData.make_year, formData.trim]);
+
+  // Remove Google Maps related code and replace with Leaflet
+  useEffect(() => {
+    // If location is already set, try to geocode it to get coordinates
+    if (formData.car_location && formData.car_location.trim() !== '') {
+      geocodeAddress(formData.car_location);
+    }
+  }, []);
+
+  const geocodeAddress = async (address) => {
+    try {
+      // Using Nominatim for geocoding (OpenStreetMap's geocoder)
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const newPosition = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        setMapPosition(newPosition);
+        setMarker(newPosition);
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+    }
+  };
+
+  // Map click handler component
+  const MapClickHandler = () => {
+    const map = useMap();
+    
+    useEffect(() => {
+      if (!map) return;
+      
+      const handleMapClick = (e) => {
+        const { lat, lng } = e.latlng;
+        setMarker([lat, lng]);
+        reverseGeocode(lat, lng);
+      };
+      
+      map.on('click', handleMapClick);
+      
+      return () => {
+        map.off('click', handleMapClick);
+      };
+    }, [map]);
+    
+    return null;
+  };
+  
+  // Update marker position when map position changes
+  const MarkerWithDrag = useCallback(() => {
+    return (
+      <Marker 
+        position={marker} 
+        draggable={true}
+        eventHandlers={{
+          dragend: (e) => {
+            const { lat, lng } = e.target.getLatLng();
+            setMarker([lat, lng]);
+            reverseGeocode(lat, lng);
+          },
+        }}
+      />
+    );
+  }, [marker]);
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      // Using Nominatim for reverse geocoding
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+      );
+      const data = await response.json();
+      
+      if (data && data.display_name) {
+        setFormData(prev => ({
+          ...prev,
+          car_location: data.display_name
+        }));
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (type === 'checkbox') {
+      if (name === 'extras[]') {
+        const extrasValue = value;
+        const updatedExtras = [...formData.extras];
+        
+        if (checked) {
+          updatedExtras.push(extrasValue);
+        } else {
+          const index = updatedExtras.indexOf(extrasValue);
+          if (index > -1) {
+            updatedExtras.splice(index, 1);
+          }
+        }
+        
+        setFormData(prev => ({ ...prev, extras: updatedExtras }));
+      } else {
+        setFormData(prev => ({ ...prev, [name]: checked }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Limit to 10 images
+    if (files.length > 10) {
+      setError("You can only upload up to 10 images.");
+      return;
+    }
+    
+    setSelectedFiles(files);
+    
+    // Create preview URLs
+    const previews = files.map(file => URL.createObjectURL(file));
+    setPreviewImages(previews);
+  };
+
+  const uploadImages = async () => {
+    if (selectedFiles.length === 0) return [];
+    
+    try {
+      const formData = new FormData();
+      selectedFiles.forEach((file, index) => {
+        formData.append('images', file);
+      });
+      
+      const response = await apiClient.post('/api/upload-images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      console.log("Images uploaded successfully:", response.data);
+      return response.data.imageUrls || [];
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      setError("Failed to upload images. Please try again.");
+      return [];
+    }
+  };
+
+  const toggleExtras = (e) => {
+    e.preventDefault();
+    setShowExtras(!showExtras);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      // Upload images first (if any)
+      const imageUrls = await uploadImages();
+      
+      // Prepare submission data with image URLs
+      const submissionData = {
+        ...formData,
+        images: imageUrls
+      };
+      
+      const response = await apiClient.post('/api/cars', submissionData);
+      console.log('Car listing created:', response);
+      setSuccess(true);
+      
+      // Redirect to my listings after 2 seconds
+      setTimeout(() => {
+        navigate('/my-listings');
+      }, 2000);
+    } catch (err) {
+      console.error('Error creating car listing:', err);
+      setError(err.response?.data?.error || 'Failed to create car listing. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Show login/signup options if not logged in
+  if (showAuthModal) {
+    return (
+      <div className="auth-required">
+        <h2>Authentication Required</h2>
+        <p>You need to be logged in to post a car listing.</p>
+        <div className="auth-buttons">
+          <button onClick={() => navigate('/login')}>Log In</button>
+          <button onClick={() => navigate('/signup')}>Sign Up</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="post-form-container success-message">
+        <h2>🎉 Success!</h2>
+        <p>Your car listing has been successfully submitted and is pending approval.</p>
+        <p>You will be redirected to your listings page shortly...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="post-form-container">
+      <h1>Post Your Car</h1>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <form onSubmit={handleSubmit} id="carDetailsForm">
+        <div className="form-section">
+          <h2>Car Details</h2>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="car_city">Emirate *</label>
+              <select
+                id="car_city"
+                name="car_city"
+                value={formData.car_city}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="Abu Dhabi">Abu Dhabi</option>
+                <option value="Dubai">Dubai</option>
+                <option value="Sharjah">Sharjah</option>
+                <option value="Ajman">Ajman</option>
+                <option value="Umm Al Quwain">Umm Al Quwain</option>
+                <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                <option value="Fujairah">Fujairah</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="car_manufacturer">Make *</label>
+              <select
+                id="car_manufacturer"
+                name="car_manufacturer"
+                value={formData.car_manufacturer}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Make</option>
+                {carMakes.map(make => (
+                  <option key={make} value={make}>{make}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="car_model">Model *</label>
+              <select
+                id="car_model"
+                name="car_model"
+                value={formData.car_model}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Model</option>
+                {availableModels.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="trim">Trim</label>
+              <input
+                type="text"
+                id="trim"
+                name="trim"
+                value={formData.trim}
+                onChange={handleChange}
+                className="form-control"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="regional_spec">Regional Spec *</label>
+              <select
+                id="regional_spec"
+                name="regional_spec"
+                value={formData.regional_spec}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                {regionalSpecs.map(spec => (
+                  <option key={spec} value={spec}>{spec}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="make_year">Year *</label>
+              <input
+                type="number"
+                id="make_year"
+                name="make_year"
+                value={formData.make_year}
+                onChange={handleChange}
+                min="1900"
+                max={new Date().getFullYear() + 1}
+                required
+                className="form-control"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="kilometer_driven">Kilometers *</label>
+              <input
+                type="number"
+                id="kilometer_driven"
+                name="kilometer_driven"
+                value={formData.kilometer_driven}
+                onChange={handleChange}
+                min="0"
+                required
+                className="form-control"
+              />
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="body_type">Body Type *</label>
+              <select
+                id="body_type"
+                name="body_type"
+                value={formData.body_type}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Body Type</option>
+                {bodyTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="is_insured">Is your car insured in UAE?</label>
+              <select
+                id="is_insured"
+                name="is_insured"
+                value={formData.is_insured}
+                onChange={(e) => setFormData(prev => ({ ...prev, is_insured: e.target.value === 'true' }))}
+                className="form-control form-select"
+              >
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="expected_selling_price">Price (AED) *</label>
+              <input
+                type="number"
+                id="expected_selling_price"
+                name="expected_selling_price"
+                value={formData.expected_selling_price}
+                onChange={handleChange}
+                min="0"
+                required
+                className="form-control"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="car_owner_phone_number">Phone Number *</label>
+              <input
+                type="text"
+                id="car_owner_phone_number"
+                name="car_owner_phone_number"
+                value={formData.car_owner_phone_number}
+                onChange={handleChange}
+                required
+                placeholder="+971XXXXXXXXX"
+                className="form-control"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="tour_url">360 Tour URL (Optional)</label>
+              <input
+                type="url"
+                id="tour_url"
+                name="tour_url"
+                value={formData.tour_url}
+                onChange={handleChange}
+                placeholder="https://"
+                className="form-control"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group full-width">
+              <label htmlFor="car_description">Describe your car *</label>
+              <textarea
+                id="car_description"
+                name="car_description"
+                value={formData.car_description}
+                onChange={handleChange}
+                rows="5"
+                required
+                placeholder="Describe your car"
+                className="form-control"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+        
+        <div className="form-section">
+          <h2>Car Specifications</h2>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="fuel_type">Fuel Type *</label>
+              <select
+                id="fuel_type"
+                name="fuel_type"
+                value={formData.fuel_type}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Fuel Type</option>
+                {fuelTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <div className="form-text text-danger">This field is required.</div>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="transmission_type">Transmission Type *</label>
+              <select
+                id="transmission_type"
+                name="transmission_type"
+                value={formData.transmission_type}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Transmission Type</option>
+                {transmissionTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <div className="form-text text-danger">This field is required.</div>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="seating_capacity">Seating Capacity <span className="text-muted">(Optional)</span></label>
+              <select
+                id="seating_capacity"
+                name="seating_capacity"
+                value={formData.seating_capacity}
+                onChange={handleChange}
+                className="form-control form-select"
+              >
+                <option value="">Select Seating Capacity</option>
+                {seatingCapacities.map(capacity => (
+                  <option key={capacity} value={capacity}>{capacity} seats</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="horsepower">Horsepower *</label>
+              <select
+                id="horsepower"
+                name="horsepower"
+                value={formData.horsepower}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Horsepower</option>
+                {horsepowerRanges.map(range => (
+                  <option key={range} value={range}>{range}</option>
+                ))}
+              </select>
+              <div className="form-text text-danger">This field is required.</div>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="engine_capacity">Engine Capacity (cc) <span className="text-muted">(Optional)</span></label>
+              <select
+                id="engine_capacity"
+                name="engine_capacity"
+                value={formData.engine_capacity}
+                onChange={handleChange}
+                className="form-control form-select"
+              >
+                <option value="">Select Engine Capacity</option>
+                {engineCapacities.map(capacity => (
+                  <option key={capacity} value={capacity}>{capacity}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="steering_side">Steering Side *</label>
+              <select
+                id="steering_side"
+                name="steering_side"
+                value={formData.steering_side}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Steering Side</option>
+                {steeringSides.map(side => (
+                  <option key={side} value={side}>{side}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group full-width">
+              <label htmlFor="extras">Extras</label>
+              <button type="button" className="text-danger extras-toggle" onClick={toggleExtras}>
+                {showExtras ? 'Show less ▲' : 'Show all ▼'}
+              </button>
+              
+              <div id="extrasList" className="row" style={{ display: showExtras ? 'flex' : 'none' }}>
+                {carExtras.map(extra => (
+                  <div className="col-md-6" key={extra}>
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}
+                        name="extras[]"
+                        value={extra}
+                        checked={formData.extras.includes(extra)}
+                        onChange={handleChange}
+                      />
+                      <label className="form-check-label" htmlFor={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}>
+                        {extra}
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group full-width">
+              <label htmlFor="car_location">Locate your car <span className="text-muted">(Optional)</span></label>
+              <input
+                type="text"
+                id="car_location"
+                name="car_location"
+                value={formData.car_location}
+                onChange={(e) => {
+                  handleChange(e);
+                  if (e.target.value.trim() !== '') {
+                    geocodeAddress(e.target.value);
+                  }
+                }}
+                placeholder="Enter your location or click on the map"
+                className="form-control"
+                ref={locationInputRef}
+              />
+              <div className="map-instructions">
+                Click on the map to set your car's location or drag the marker to reposition it
+              </div>
+              <div className="map-container">
+                <MapContainer 
+                  center={mapPosition} 
+                  zoom={13} 
+                  scrollWheelZoom={false}
+                  style={{ height: '100%', width: '100%' }}
+                  key={`${mapPosition[0]}-${mapPosition[1]}`}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapClickHandler />
+                  <MarkerWithDrag />
+                </MapContainer>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="form-section">
+          <h2>Car Images</h2>
+          
+          <div className="form-row">
+            <div className="form-group full-width">
+              <label>Upload Images *</label>
+              <div className="image-upload-container">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileChange}
+                  className="form-control"
+                  required
+                />
+                <p className="text-muted mt-2">Please upload images of your car (Maximum 10 images)</p>
+                
+                {previewImages.length > 0 && (
+                  <div className="image-previews mt-3">
+                    <div className="row">
+                      {previewImages.map((preview, index) => (
+                        <div className="col-md-3 mb-2" key={index}>
+                          <div className="preview-thumbnail">
+                            <img src={preview} alt={`Preview ${index + 1}`} className="img-thumbnail" />
+                            <button 
+                              type="button" 
+                              className="btn btn-sm btn-danger remove-image"
+                              onClick={() => {
+                                // Remove image from preview and selected files
+                                const newPreviews = [...previewImages];
+                                const newSelectedFiles = [...selectedFiles];
+                                newPreviews.splice(index, 1);
+                                newSelectedFiles.splice(index, 1);
+                                setPreviewImages(newPreviews);
+                                setSelectedFiles(newSelectedFiles);
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="form-actions">
+          <button
+            type="submit"
+            className="btn btn-danger"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Listing'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default PostCar; 
