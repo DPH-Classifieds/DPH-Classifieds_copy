@@ -1,4 +1,4 @@
-#!/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/venv/bin/python3
+#!/Users/suhayl/Downloads/Flask-React-superbase-classified/flask-react-supabase-app/backend/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

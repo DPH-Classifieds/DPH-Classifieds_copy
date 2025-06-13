@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Panel{% endblock %} - My Classifieds</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .content-wrapper {
+            flex: 1;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 1rem 0;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <div class="content-wrapper">
+        {% block navbar %}
+            {# Default navbar can go here if layout.html doesn't define its own #}
+            {# For now, layout.html defines its own navbar block #}
+        {% endblock %}
+
+        <main class="container mt-4">
+            {% block content %}
+            {# Page-specific content will go here #}
+            {% endblock %}
+        </main>
+    </div>
+
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container text-center">
+            <span class="text-muted">&copy; {{ current_year }} Admin Panel - My Classifieds</span>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Bundle JS (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}
+    {% endblock %}
+</body>
+</html> 

@@ -1,0 +1,57 @@
+{% extends 'admin/layout.html' %}
+
+{% block title %}Approve {{ item_type_title }}{% endblock %}
+
+{% block content %}
+    <h2>Approve {{ item_type_title }}</h2>
+
+    {% if error_message %}
+        <p style="color: red;">Error: {{ error_message }}</p>
+    {% endif %}
+
+    {% if items %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    {# Add more headers based on common fields or make this dynamic #}
+                    <th>Title/Name</th> 
+                    <th>User ID</th>
+                    <th>Created At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td>{{ item.id }}</td>
+                        {# Adjust these fields based on actual data structure of items #}
+                        <td>{{ item.listing_title or item.name or item.plate_number or item.id }}</td> 
+                        <td>{{ item.user_id }}</td>
+                        <td>{{ item.created_at }}</td>
+                        <td>{{ item.status }}</td>
+                        <td class="actions">
+                            <form method="POST" action="{{ url_for('admin.approve_item', item_type=item_type, item_id=item.id) }}">
+                                <input type="hidden" name="action" value="approve">
+                                <button type="submit" class="approve-btn">Approve</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin.reject_item', item_type=item_type, item_id=item.id) }}">
+                                <input type="hidden" name="action" value="reject"> {# Or handle directly in route #}
+                                <button type="submit" class="reject-btn">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6">No {{ item_type_title }} pending approval.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        {% if not error_message %}
+            <p>No {{ item_type_title }} currently pending approval.</p>
+        {% endif %}
+    {% endif %}
+{% endblock %} 

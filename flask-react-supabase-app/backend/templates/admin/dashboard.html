@@ -1,0 +1,22 @@
+{% extends 'admin/layout.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+    <h2>Welcome to the Admin Dashboard, {{ session.get('admin_user_id', 'Admin') }}!</h2>
+    <p>This is where you can manage users, listings, and other aspects of the application.</p>
+    
+    <h3>Pending Approvals</h3>
+    {% if pending_counts %}
+        <ul>
+            <li>Cars: {{ pending_counts.get('cars', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='cars') }}">Manage</a></li>
+            <li>Bikes: {{ pending_counts.get('bikes', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='bikes') }}">Manage</a></li>
+            <li>Parts: {{ pending_counts.get('parts', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='parts') }}">Manage</a></li>
+            <li>Plates: {{ pending_counts.get('plates', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='plates') }}">Manage</a></li>
+        </ul>
+    {% else %}
+        <p>No pending approval information available or an error occurred.</p>
+    {% endif %}
+    
+    <p>Use the navigation bar above to access different admin sections.</p>
+{% endblock %} 
