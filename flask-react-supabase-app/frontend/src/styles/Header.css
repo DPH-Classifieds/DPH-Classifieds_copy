@@ -151,34 +151,24 @@
   gap: 1rem;
 }
 
+/* User section in header */
 .user-section {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-.my-listings-btn {
-  color: #4a5568;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.95rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
+  padding: 0.25rem;
   transition: all 0.2s ease;
 }
 
-.my-listings-btn:hover {
-  color: #01351c;
-  background-color: rgba(1, 53, 28, 0.05);
-}
-
 .user-email-display {
-  font-size: 0.9rem;
-  color: #4a5568;
-  max-width: 120px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #2c3e50;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: all 0.2s ease;
 }
 
 .btn {

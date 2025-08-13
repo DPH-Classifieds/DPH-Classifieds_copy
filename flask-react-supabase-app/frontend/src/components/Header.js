@@ -123,8 +123,8 @@ const Header = () => {
     <header className={`header ${scrolled ? 'scrolled' : ''}`} ref={headerRef}>
       <div className="header-container">
         <Link to="/" className="logo">
-          <span className="logo-icon">🚗</span>
-          <span className="logo-text">CarClassifieds</span>
+          <span className="logo-icon"></span>
+          <span className="logo-text">DPHClassifieds</span>
         </Link>
 
         <button 

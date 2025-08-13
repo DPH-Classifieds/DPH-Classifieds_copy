@@ -35,9 +35,12 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
     };
   }, []);
 
-  // Get first letter of email for avatar
-  const getInitial = () => {
-    return user?.email?.[0]?.toUpperCase() || 'U';
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user?.email) return 'U';
+    
+    // Get just the first letter of the email
+    return user.email[0].toUpperCase();
   };
 
   return (
@@ -49,17 +52,17 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
         aria-label="User profile menu"
       >
         <div className="avatar">
-          {getInitial()}
+          {getUserInitials()}
         </div>
       </button>
       
       {isOpen && (
         <div className="profile-dropdown">
           <div className="profile-header">
-            <div className="avatar">{getInitial()}</div>
+            <div className="avatar">{getUserInitials()}</div>
             <div className="user-info">
               <span className="user-email">{user.email}</span>
-              <span className="user-role">{user.is_admin ? 'Admin' : 'Member'}</span>
+              <span className="user-role">Member</span>
             </div>
           </div>
           
@@ -89,37 +92,6 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
             >
               <span className="profile-icon settings-icon">⚙️</span>
               Settings
-            </Link>
-            
-            {user.is_admin && (
-              <>
-                <div className="profile-menu-divider"></div>
-                <Link 
-                  to="/admin" 
-                  className="profile-menu-item"
-                  onClick={handleLinkClick}
-                >
-                  <span className="profile-icon admin-icon">🔐</span>
-                  Admin Dashboard
-                </Link>
-                <Link 
-                  to="/admin/users" 
-                  className="profile-menu-item"
-                  onClick={handleLinkClick}
-                >
-                  <span className="profile-icon users-icon">👥</span>
-                  Manage Users
-                </Link>
-              </>
-            )}
-            
-            <Link 
-              to="/admin/tools" 
-              className="profile-menu-item"
-              onClick={handleLinkClick}
-            >
-              <span className="profile-icon tools-icon">🛠️</span>
-              Admin Tools
             </Link>
             
             <div className="profile-menu-divider"></div>

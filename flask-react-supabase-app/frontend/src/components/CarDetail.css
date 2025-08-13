@@ -135,7 +135,7 @@
 .car-detail-price {
   font-size: 32px;
   font-weight: bold;
-  color: #dc3545;
+  color: #01351c;
 }
 
 .car-detail-location {
@@ -239,19 +239,24 @@
 }
 
 .car-description {
+  margin-top: 25px;
   margin-bottom: 25px;
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
 }
 
 .car-description h3 {
   font-size: 20px;
   margin-bottom: 15px;
   color: #333;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
 }
 
 .car-description p {
   line-height: 1.6;
-  color: #444;
-  white-space: pre-line;
+  color: #333;
 }
 
 .car-location {

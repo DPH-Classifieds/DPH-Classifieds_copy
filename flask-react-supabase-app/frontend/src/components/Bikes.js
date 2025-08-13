@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Bikes.css';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 const Bikes = () => {
   const [bikes, setBikes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,120 +19,135 @@ const Bikes = () => {
   });
   const { apiClient } = useAuth();
 
+  // Helper function to get proper image URL
+  const getImageUrl = (image) => {
+    if (!image) return null;
+    
+    // Try all possible image URL fields
+    const imageUrl = image.image_url || image.url;
+    
+    // Check if the URL is a relative URL that needs the API base URL
+    if (imageUrl && imageUrl.startsWith('/')) {
+      return `${API_URL}${imageUrl}`;
+    }
+    
+    return imageUrl;
+  };
+
   useEffect(() => {
     const fetchBikes = async () => {
       try {
         setLoading(true);
-        // In a real implementation, you would fetch bikes from your API
-        // const response = await apiClient.get('/api/bikes');
-        // setBikes(response.data);
-        
-        // For now, we'll use placeholder data
-        setTimeout(() => {
-          setBikes([
-            {
-              id: 1,
-              title: 'Ducati Panigale V4',
-              manufacturer: 'Ducati',
-              model: 'Panigale V4',
-              year: 2022,
-              type: 'Sport',
-              engine: '1103cc',
-              mileage: 1200,
-              price: 27000,
-              location: 'Dubai',
-              color: 'Red',
-              description: 'Pristine Ducati Panigale V4 with only 1,200 miles. Full service history, never dropped. Comes with Akrapovič exhaust and other premium upgrades.',
-              image: 'https://via.placeholder.com/600x400?text=Ducati+Panigale',
-              created_at: '2023-06-01T10:00:00Z'
-            },
-            {
-              id: 2,
-              title: 'Harley-Davidson Street Glide',
-              manufacturer: 'Harley-Davidson',
-              model: 'Street Glide',
-              year: 2021,
-              type: 'Cruiser',
-              engine: '1868cc',
-              mileage: 5000,
-              price: 24500,
-              location: 'Abu Dhabi',
-              color: 'Black',
-              description: 'Beautiful Harley-Davidson Street Glide with low miles. Equipped with premium audio system and touring pack. Perfect for long rides.',
-              image: 'https://via.placeholder.com/600x400?text=Harley+Davidson',
-              created_at: '2023-05-28T14:30:00Z'
-            },
-            {
-              id: 3,
-              title: 'BMW R 1250 GS Adventure',
-              manufacturer: 'BMW',
-              model: 'R 1250 GS Adventure',
-              year: 2023,
-              type: 'Adventure',
-              engine: '1254cc',
-              mileage: 800,
-              price: 22000,
-              location: 'Dubai',
-              color: 'Blue/White',
-              description: 'Nearly new BMW R 1250 GS Adventure. Full options including LED headlight, dynamic ESA, and touring package. Perfect condition.',
-              image: 'https://via.placeholder.com/600x400?text=BMW+GS+Adventure',
-              created_at: '2023-06-05T09:15:00Z'
-            },
-            {
-              id: 4,
-              title: 'Kawasaki Ninja 650',
-              manufacturer: 'Kawasaki',
-              model: 'Ninja 650',
-              year: 2020,
-              type: 'Sport',
-              engine: '649cc',
-              mileage: 3500,
-              price: 7500,
-              location: 'Sharjah',
-              color: 'Green',
-              description: 'Great condition Kawasaki Ninja 650. Perfect for both beginners and experienced riders. Includes frame sliders and tail tidy.',
-              image: 'https://via.placeholder.com/600x400?text=Kawasaki+Ninja',
-              created_at: '2023-05-20T11:45:00Z'
-            },
-            {
-              id: 5,
-              title: 'Honda Africa Twin',
-              manufacturer: 'Honda',
-              model: 'Africa Twin',
-              year: 2021,
-              type: 'Adventure',
-              engine: '1084cc',
-              mileage: 2200,
-              price: 14500,
-              location: 'Dubai',
-              color: 'Red/Black/White',
-              description: 'Honda Africa Twin in excellent condition. DCT model with cruise control and heated grips. Ready for your next adventure.',
-              image: 'https://via.placeholder.com/600x400?text=Honda+Africa+Twin',
-              created_at: '2023-06-02T16:20:00Z'
-            },
-            {
-              id: 6,
-              title: 'Yamaha MT-09',
-              manufacturer: 'Yamaha',
-              model: 'MT-09',
-              year: 2022,
-              type: 'Naked',
-              engine: '890cc',
-              mileage: 1800,
-              price: 11000,
-              location: 'Abu Dhabi',
-              color: 'Matte Black',
-              description: 'Powerful Yamaha MT-09 with low mileage. Includes quick shifter and Akrapovič exhaust. Excellent handling and performance.',
-              image: 'https://via.placeholder.com/600x400?text=Yamaha+MT-09',
-              created_at: '2023-05-25T13:10:00Z'
-            }
-          ]);
-          setLoading(false);
-        }, 500);
+        // Fetch bikes from the API
+        const response = await apiClient.get('/api/bikes');
+        console.log('Bikes API response:', response);
+        setBikes(response || []);
+        setError(null);
       } catch (err) {
         setError('Failed to load bikes. Please try again later.');
-        setLoading(false);
         console.error('Error fetching bikes:', err);
+        
+        // Fallback to placeholder data for development
+        setBikes([
+          {
+            id: 1,
+            title: 'Ducati Panigale V4',
+            manufacturer: 'Ducati',
+            model: 'Panigale V4',
+            year: 2022,
+            type: 'Sport',
+            engine: '1103cc',
+            mileage: 1200,
+            price: 27000,
+            location: 'Dubai',
+            color: 'Red',
+            description: 'Pristine Ducati Panigale V4 with only 1,200 miles. Full service history, never dropped. Comes with Akrapovič exhaust and other premium upgrades.',
+            image: 'https://via.placeholder.com/600x400?text=Ducati+Panigale',
+            created_at: '2023-06-01T10:00:00Z'
+          },
+          {
+            id: 2,
+            title: 'Harley-Davidson Street Glide',
+            manufacturer: 'Harley-Davidson',
+            model: 'Street Glide',
+            year: 2021,
+            type: 'Cruiser',
+            engine: '1868cc',
+            mileage: 5000,
+            price: 24500,
+            location: 'Abu Dhabi',
+            color: 'Black',
+            description: 'Beautiful Harley-Davidson Street Glide with low miles. Equipped with premium audio system and touring pack. Perfect for long rides.',
+            image: 'https://via.placeholder.com/600x400?text=Harley+Davidson',
+            created_at: '2023-05-28T14:30:00Z'
+          },
+          {
+            id: 3,
+            title: 'BMW R 1250 GS Adventure',
+            manufacturer: 'BMW',
+            model: 'R 1250 GS Adventure',
+            year: 2023,
+            type: 'Adventure',
+            engine: '1254cc',
+            mileage: 800,
+            price: 22000,
+            location: 'Dubai',
+            color: 'Blue/White',
+            description: 'Nearly new BMW R 1250 GS Adventure. Full options including LED headlight, dynamic ESA, and touring package. Perfect condition.',
+            image: 'https://via.placeholder.com/600x400?text=BMW+GS+Adventure',
+            created_at: '2023-06-05T09:15:00Z'
+          },
+          {
+            id: 4,
+            title: 'Kawasaki Ninja 650',
+            manufacturer: 'Kawasaki',
+            model: 'Ninja 650',
+            year: 2020,
+            type: 'Sport',
+            engine: '649cc',
+            mileage: 3500,
+            price: 7500,
+            location: 'Sharjah',
+            color: 'Green',
+            description: 'Great condition Kawasaki Ninja 650. Perfect for both beginners and experienced riders. Includes frame sliders and tail tidy.',
+            image: 'https://via.placeholder.com/600x400?text=Kawasaki+Ninja',
+            created_at: '2023-05-20T11:45:00Z'
+          },
+          {
+            id: 5,
+            title: 'Honda Africa Twin',
+            manufacturer: 'Honda',
+            model: 'Africa Twin',
+            year: 2021,
+            type: 'Adventure',
+            engine: '1084cc',
+            mileage: 2200,
+            price: 14500,
+            location: 'Dubai',
+            color: 'Red/Black/White',
+            description: 'Honda Africa Twin in excellent condition. DCT model with cruise control and heated grips. Ready for your next adventure.',
+            image: 'https://via.placeholder.com/600x400?text=Honda+Africa+Twin',
+            created_at: '2023-06-02T16:20:00Z'
+          },
+          {
+            id: 6,
+            title: 'Yamaha MT-09',
+            manufacturer: 'Yamaha',
+            model: 'MT-09',
+            year: 2022,
+            type: 'Naked',
+            engine: '890cc',
+            mileage: 1800,
+            price: 11000,
+            location: 'Abu Dhabi',
+            color: 'Matte Black',
+            description: 'Powerful Yamaha MT-09 with low mileage. Includes quick shifter and Akrapovič exhaust. Excellent handling and performance.',
+            image: 'https://via.placeholder.com/600x400?text=Yamaha+MT-09',
+            created_at: '2023-05-25T13:10:00Z'
+          }
+        ]);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -320,18 +337,41 @@ const Bikes = () => {
             filteredBikes.map(bike => (
               <div key={bike.id} className="bike-card">
                 <div className="bike-image">
-                  <img src={bike.image} alt={bike.title} />
+                  {bike.images && bike.images.length > 0 ? (
+                    <img 
+                      src={getImageUrl(bike.images[0])} 
+                      alt={`${bike.make} ${bike.model}`}
+                      onError={(e) => {
+                        console.error("Image failed to load:", e.target.src);
+                        e.target.onerror = null;
+                        e.target.src = "https://via.placeholder.com/600x400?text=No+Image+Available";
+                      }}
+                    />
+                  ) : bike.image ? (
+                    <img 
+                      src={bike.image} 
+                      alt={`${bike.make || bike.manufacturer} ${bike.model}`}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "https://via.placeholder.com/600x400?text=No+Image+Available";
+                      }}
+                    />
+                  ) : (
+                    <div className="no-image">No Image Available</div>
+                  )}
                   <div className="bike-price">AED {bike.price.toLocaleString()}</div>
                 </div>
                 <div className="bike-details">
-                  <h3>{bike.title}</h3>
+                  <h3>{bike.title || `${bike.make || bike.manufacturer} ${bike.model} ${bike.year}`}</h3>
                   <div className="bike-specs">
                     <span className="bike-year">{bike.year}</span>
-                    <span className="bike-engine">{bike.engine}</span>
-                    <span className="bike-mileage">{bike.mileage.toLocaleString()} km</span>
+                    <span className="bike-engine">{bike.engine || bike.engine_size}</span>
+                    <span className="bike-mileage">{(bike.mileage || bike.kilometer_driven || 0).toLocaleString()} km</span>
                   </div>
                   <div className="bike-location">{bike.location}</div>
-                  <p className="bike-description">{bike.description.substring(0, 120)}...</p>
+                  {bike.description && (
+                    <p className="bike-description">{bike.description.substring(0, 120)}...</p>
+                  )}
                   <div className="bike-actions">
                     <Link to={`/bikes/${bike.id}`} className="view-details-btn">
                       View Details

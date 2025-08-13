@@ -23,6 +23,7 @@ const PostBike = () => {
     price: '',
     location: '',
     description: '',
+    vin_number: '',
     features: [],
     images: []
   });
@@ -336,6 +337,21 @@ const PostBike = () => {
                 placeholder="e.g., 3500"
                 min="0"
               />
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="vin_number">VIN Number <span className="text-muted">(Vehicle Identification Number)</span></label>
+              <input
+                type="text"
+                id="vin_number"
+                name="vin_number"
+                value={formData.vin_number}
+                onChange={handleChange}
+                placeholder="e.g., 1HGCM82633A123456"
+              />
+              <div className="form-text">The VIN is typically a 17-character code found on your vehicle registration or insurance documents.</div>
             </div>
           </div>
           

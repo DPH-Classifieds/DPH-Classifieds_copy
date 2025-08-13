@@ -8,7 +8,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const BikeDetail = () => {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const [bike, setBike] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,6 +34,24 @@ const BikeDetail = () => {
       fetchBikeDetails();
     }
   }, [id]);
+
+  // Helper function to get proper image URL
+  const getImageUrl = (image) => {
+    if (!image) return null;
+    
+    // Try all possible image URL fields
+    const imageUrl = image.image_url || image.url;
+    console.log("Processing image URL:", imageUrl);
+    
+    // Check if the URL is a relative URL that needs the API base URL
+    if (imageUrl && imageUrl.startsWith('/')) {
+      const fullUrl = `${API_URL}${imageUrl}`;
+      console.log("Converted relative URL to absolute:", fullUrl);
+      return fullUrl;
+    }
+    
+    return imageUrl;
+  };
 
   if (loading) {
     return (
@@ -82,8 +100,13 @@ const BikeDetail = () => {
           <div className="main-image">
             {bike.images && bike.images.length > 0 ? (
               <img 
-                src={`${API_URL}${bike.images[0].url}`} 
-                alt={`${bike.make} ${bike.model}`} 
+                src={getImageUrl(bike.images[0])} 
+                alt={`${bike.make} ${bike.model}`}
+                onError={(e) => {
+                  console.error("Image failed to load:", e.target.src);
+                  e.target.onerror = null;
+                  e.target.src = "https://via.placeholder.com/800x600?text=Image+Not+Available";
+                }}
               />
             ) : (
               <div className="no-image">No Image Available</div>
@@ -98,8 +121,12 @@ const BikeDetail = () => {
                 {bike.images.slice(1).map((image, index) => (
                   <div key={index} className="gallery-image">
                     <img 
-                      src={`${API_URL}${image.url}`} 
-                      alt={`Bike image ${index + 1}`} 
+                      src={getImageUrl(image)} 
+                      alt={`${bike.make} ${bike.model} - view ${index + 1}`}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "https://via.placeholder.com/400x300?text=Image+Not+Available";
+                      }}
                     />
                   </div>
                 ))}
@@ -146,6 +173,11 @@ const BikeDetail = () => {
               <div className="info-item">
                 <span className="info-label">Color:</span>
                 <span className="info-value">{bike.color}</span>
+              </div>
+              
+              <div className="info-item">
+                <span className="info-label">VIN Number:</span>
+                <span className="info-value">{bike.vin_number || 'N/A'}</span>
               </div>
               
               <div className="info-item">

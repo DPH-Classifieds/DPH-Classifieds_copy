@@ -180,7 +180,7 @@ const MyListings = () => {
                   <div key={listing.id} className="my-listing-card">
                     <div className="my-listing-image">
                       {listing.images && listing.images.length > 0 ? (
-                        <img src={listing.images[0].url} alt={listing.listing_title || 'Car'} />
+                        <img src={listing.images[0].image_url} alt={listing.listing_title || 'Car'} />
                       ) : (
                         <div className="no-image">No Image</div>
                       )}

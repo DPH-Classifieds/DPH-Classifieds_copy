@@ -50,6 +50,21 @@ const CarList = () => {
   
   const emirates = ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah'];
   
+  // Helper function to get proper image URL
+  const getImageUrl = (image) => {
+    if (!image) return null;
+    
+    // Try all possible image URL fields
+    const imageUrl = image.image_url || image.url;
+    
+    // Check if the URL is a relative URL that needs the API base URL
+    if (imageUrl && imageUrl.startsWith('/')) {
+      return `${API_URL}${imageUrl}`;
+    }
+    
+    return imageUrl;
+  };
+
   const fetchCars = useCallback(async (filterParams = {}) => {
     setLoading(true);
     setError(null);
@@ -555,7 +570,15 @@ const CarList = () => {
                 <div key={car.id} className="car-card">
                   <div className="car-image">
                     {car.images && car.images.length > 0 ? (
-                      <img src={car.images[0].image_url} alt={car.listing_title} />
+                      <img 
+                        src={getImageUrl(car.images[0])} 
+                        alt={car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}
+                        onError={(e) => {
+                          console.error("Image failed to load:", e.target.src);
+                          e.target.onerror = null;
+                          e.target.src = "https://via.placeholder.com/400x300?text=No+Image+Available";
+                        }}
+                      />
                     ) : (
                       <div className="image-placeholder">No Image Available</div>
                     )}

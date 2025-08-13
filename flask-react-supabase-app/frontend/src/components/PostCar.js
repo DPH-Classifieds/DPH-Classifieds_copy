@@ -29,11 +29,9 @@ const PostCar = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [availableModels, setAvailableModels] = useState([]);
   const locationInputRef = useRef(null);
-  const mapRef = useRef(null);
   const [showExtras, setShowExtras] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
-  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [mapPosition, setMapPosition] = useState([25.276987, 55.296249]); // Default to Dubai coordinates
   const [marker, setMarker] = useState([25.276987, 55.296249]);
 
@@ -60,6 +58,7 @@ const PostCar = () => {
     steering_side: '',
     car_location: '',
     vehicle_type: 'Used',
+    vin_number: '',
     extras: [],
     images: []
   });
@@ -127,7 +126,7 @@ const PostCar = () => {
     if (formData.car_location && formData.car_location.trim() !== '') {
       geocodeAddress(formData.car_location);
     }
-  }, []);
+  }, [formData.car_location]);
 
   const geocodeAddress = async (address) => {
     try {
@@ -247,25 +246,43 @@ const PostCar = () => {
   };
 
   const uploadImages = async () => {
-    if (selectedFiles.length === 0) return [];
-    
     try {
+      // Check if user is still authenticated before uploading
+      if (!user) {
+        throw new Error('User authentication required. Please log in again.');
+      }
+
       const formData = new FormData();
       selectedFiles.forEach((file, index) => {
         formData.append('images', file);
       });
       
+      console.log('Uploading images for authenticated user:', user.email);
+      
       const response = await apiClient.post('/api/upload-images', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          // Don't set Content-Type for FormData - let the browser set it with boundary
         }
       });
       
-      console.log("Images uploaded successfully:", response.data);
-      return response.data.imageUrls || [];
+      console.log("Images uploaded successfully:", response);
+      
+      if (!response || !response.urls || !Array.isArray(response.urls)) {
+        console.error("Invalid response format from image upload:", response);
+        throw new Error("Server returned an invalid response format for uploaded images");
+      }
+      
+      return response.urls;
     } catch (error) {
       console.error("Error uploading images:", error);
-      setError("Failed to upload images. Please try again.");
+      
+      // Handle specific authentication errors
+      if (error.status === 401) {
+        setError("Your session has expired. Please log in again and try submitting your listing.");
+        setShowAuthModal(true);
+      } else {
+        setError(`Failed to upload images: ${error.message || 'Please try again.'}`);
+      }
       return [];
     }
   };
@@ -282,24 +299,23 @@ const PostCar = () => {
       setShowAuthModal(true);
       return;
     }
-    
+    if (selectedFiles.length === 0) {
+      setError('You must upload at least one image of your car.');
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
-    
     try {
       // Upload images first (if any)
       const imageUrls = await uploadImages();
-      
       // Prepare submission data with image URLs
       const submissionData = {
         ...formData,
         images: imageUrls
       };
-      
       const response = await apiClient.post('/api/cars', submissionData);
       console.log('Car listing created:', response);
       setSuccess(true);
-      
       // Redirect to my listings after 2 seconds
       setTimeout(() => {
         navigate('/my-listings');
@@ -669,6 +685,22 @@ const PostCar = () => {
                   <option key={side} value={side}>{side}</option>
                 ))}
               </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="vin_number">VIN Number <span className="text-muted">(Vehicle Identification Number)</span></label>
+              <input
+                type="text"
+                id="vin_number"
+                name="vin_number"
+                value={formData.vin_number}
+                onChange={handleChange}
+                placeholder="e.g. 1HGCM82633A123456"
+                className="form-control"
+              />
+              <div className="form-text">The VIN is typically a 17-character code found on your vehicle registration or insurance documents.</div>
             </div>
           </div>
           

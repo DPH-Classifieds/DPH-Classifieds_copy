@@ -6,7 +6,7 @@ import './CarDetail.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const CarDetail = () => {
-  const { carId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const [car, setCar] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,13 +22,13 @@ const CarDetail = () => {
         let response;
         try {
           // First try with our real endpoint
-          response = await axios.get(`${API_URL}/api/cars/${carId}`);
+          response = await axios.get(`${API_URL}/api/cars/${id}`);
         } catch (e) {
           console.warn('Failed to fetch from main endpoint, generating mock data');
           // Generate mock data for testing
           response = {
             data: {
-              id: carId,
+              id: id,
               listing_title: "2020 Toyota Camry LE",
               car_manufacturer: "Toyota",
               car_model: "Camry",
@@ -63,7 +63,7 @@ const CarDetail = () => {
     };
     
     fetchCarDetails();
-  }, [carId]);
+  }, [id]);
   
   // Format price with currency symbol
   const formatPrice = (price) => {
@@ -87,9 +87,26 @@ const CarDetail = () => {
   // Get image url for main display
   const getMainImageUrl = () => {
     if (!car || !car.images || car.images.length === 0) {
+      console.log("No images available for car", car?.id);
       return null;
     }
-    return car.images[activeImageIndex]?.image_url || car.main_image_url;
+    
+    const currentImage = car.images[activeImageIndex];
+    console.log("Current image object:", currentImage);
+    
+    // Try all possible image URL fields
+    const imageUrl = currentImage?.image_url || currentImage?.url || car.main_image_url;
+    console.log("Using image URL:", imageUrl);
+    
+    // Check if the URL is a relative URL that needs the API base URL
+    if (imageUrl && imageUrl.startsWith('/')) {
+      const baseUrl = 'http://localhost:8000'; // This should match your API base URL
+      const fullUrl = `${baseUrl}${imageUrl}`;
+      console.log("Converted relative URL to absolute:", fullUrl);
+      return fullUrl;
+    }
+    
+    return imageUrl;
   };
   
   if (loading) {
@@ -133,7 +150,15 @@ const CarDetail = () => {
         <div className="car-gallery">
           <div className="main-image">
             {getMainImageUrl() ? (
-              <img src={getMainImageUrl()} alt={car.listing_title} />
+              <img 
+                src={getMainImageUrl()} 
+                alt={car.listing_title} 
+                onError={(e) => {
+                  console.error("Image failed to load:", e.target.src);
+                  e.target.onerror = null;
+                  e.target.src = "https://via.placeholder.com/800x600?text=Image+Not+Available";
+                }}
+              />
             ) : (
               <div className="image-placeholder">No Image Available</div>
             )}
@@ -141,15 +166,23 @@ const CarDetail = () => {
           
           {car.images && car.images.length > 1 && (
             <div className="thumbnail-row">
-              {car.images.map((image, index) => (
-                <div 
-                  key={image.id} 
-                  className={`thumbnail ${index === activeImageIndex ? 'active' : ''}`}
-                  onClick={() => changeImage(index)}
-                >
-                  <img src={image.image_url} alt={`Thumbnail ${index + 1}`} />
-                </div>
-              ))}
+              {car.images.map((image, index) => {
+                // Process image URL the same way as main image
+                let imgUrl = image.image_url || image.url;
+                if (imgUrl && imgUrl.startsWith('/')) {
+                  imgUrl = `http://localhost:8000${imgUrl}`;
+                }
+                
+                return (
+                  <div 
+                    key={image.id || index} 
+                    className={`thumbnail ${index === activeImageIndex ? 'active' : ''}`}
+                    onClick={() => changeImage(index)}
+                  >
+                    <img src={imgUrl} alt={`Thumbnail ${index + 1}`} />
+                  </div>
+                );
+              })}
             </div>
           )}
           
@@ -161,6 +194,11 @@ const CarDetail = () => {
               </a>
             </div>
           )}
+          
+          <div className="car-description">
+            <h3>Description</h3>
+            <p>{car.car_description || 'No description provided'}</p>
+          </div>
         </div>
         
         <div className="car-info">
@@ -172,7 +210,7 @@ const CarDetail = () => {
           <div className="car-contact">
             <h3>Contact Seller</h3>
             <a href={`tel:${car.car_owner_phone_number}`} className="contact-button">
-              <i className="phone-icon">📞</i> {car.car_owner_phone_number || 'Contact information not available'}
+              <i className="phone-icon"></i> {car.car_owner_phone_number || 'Contact information not available'}
             </a>
           </div>
           
@@ -237,6 +275,10 @@ const CarDetail = () => {
                 <span className="spec-label">Insured</span>
                 <span className="spec-value">{car.is_insured ? 'Yes' : 'No'}</span>
               </div>
+              <div className="spec-item">
+                <span className="spec-label">VIN Number</span>
+                <span className="spec-value">{car.vin_number || 'N/A'}</span>
+              </div>
             </div>
           </div>
           
@@ -252,11 +294,6 @@ const CarDetail = () => {
               </ul>
             </div>
           )}
-          
-          <div className="car-description">
-            <h3>Description</h3>
-            <p>{car.car_description || 'No description provided'}</p>
-          </div>
           
           {car.car_location && (
             <div className="car-location">
