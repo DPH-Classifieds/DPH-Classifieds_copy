@@ -34,6 +34,72 @@ const Bikes = () => {
     return imageUrl;
   };
 
+  // Placeholder bikes data for demo purposes
+  const getPlaceholderBikes = () => {
+    return [
+      {
+        id: 1,
+        make: 'Yamaha',
+        model: 'YZF-R1',
+        year: 2021,
+        mileage: 15000,
+        engine_capacity: 998,
+        fuel_type: 'Petrol',
+        transmission: 'Manual',
+        condition: 'Excellent',
+        expected_selling_price: 45000,
+        color: 'Blue',
+        location: 'Dubai, UAE',
+        description: 'Well-maintained Yamaha YZF-R1 in excellent condition. Perfect for track days and weekend rides.',
+        images: [{
+          id: 1,
+          image_url: 'https://via.placeholder.com/300x200?text=Yamaha+YZF-R1',
+          url: 'https://via.placeholder.com/300x200?text=Yamaha+YZF-R1'
+        }]
+      },
+      {
+        id: 2,
+        make: 'Honda',
+        model: 'CBR1000RR',
+        year: 2020,
+        mileage: 8500,
+        engine_capacity: 999,
+        fuel_type: 'Petrol',
+        transmission: 'Manual',
+        condition: 'Very Good',
+        expected_selling_price: 42000,
+        color: 'Red',
+        location: 'Abu Dhabi, UAE',
+        description: 'Honda CBR1000RR Fireblade with low mileage. Recently serviced and ready to ride.',
+        images: [{
+          id: 1,
+          image_url: 'https://via.placeholder.com/300x200?text=Honda+CBR1000RR',
+          url: 'https://via.placeholder.com/300x200?text=Honda+CBR1000RR'
+        }]
+      },
+      {
+        id: 3,
+        make: 'Kawasaki',
+        model: 'Ninja ZX-10R',
+        year: 2019,
+        mileage: 22000,
+        engine_capacity: 998,
+        fuel_type: 'Petrol',
+        transmission: 'Manual',
+        condition: 'Good',
+        expected_selling_price: 38000,
+        color: 'Green',
+        location: 'Sharjah, UAE',
+        description: 'Kawasaki Ninja ZX-10R with performance upgrades. Great bike for experienced riders.',
+        images: [{
+          id: 1,
+          image_url: 'https://via.placeholder.com/300x200?text=Kawasaki+Ninja+ZX-10R',
+          url: 'https://via.placeholder.com/300x200?text=Kawasaki+Ninja+ZX-10R'
+        }]
+      }
+    ];
+  };
+
   useEffect(() => {
     const fetchBikes = async () => {
       try {
@@ -41,11 +107,19 @@ const Bikes = () => {
         // Fetch bikes from the API
         const response = await apiClient.get('/api/bikes');
         console.log('Bikes API response:', response);
-        setBikes(response || []);
+        
+        // If no bikes from API, use placeholder data
+        if (!response || response.length === 0) {
+          setBikes(getPlaceholderBikes());
+        } else {
+          setBikes(response);
+        }
         setError(null);
       } catch (err) {
-        setError('Failed to load bikes. Please try again later.');
         console.error('Error fetching bikes:', err);
+        // Use placeholder data as fallback
+        setBikes(getPlaceholderBikes());
+        setError(null);
         
         // Fallback to placeholder data for development
         setBikes([

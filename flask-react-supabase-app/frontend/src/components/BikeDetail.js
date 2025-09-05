@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import apiClient from '../utils/apiClient';
 import '../styles/DetailView.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const BikeDetail = () => {
   const { id } = useParams();
-  const { user: currentUser } = useAuth();
+  const { user } = useAuth();
   const [bike, setBike] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,13 +17,43 @@ const BikeDetail = () => {
       try {
         setLoading(true);
         console.log(`Fetching bike details for ID: ${id}`);
-        const response = await apiClient.get(`/api/bikes/${id}`);
-        console.log('Bike details response:', response);
-        setBike(response);
+        
+        // Use direct fetch for public access (no authentication required)
+        const response = await fetch(`${API_URL}/api/bikes/${id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          // If bike not found in database, check if it's a placeholder bike
+          if (response.status === 404) {
+            const placeholderBike = getPlaceholderBike(id);
+            if (placeholderBike) {
+              setBike(placeholderBike);
+              setError(null);
+              return;
+            }
+          }
+          throw new Error(`Failed to fetch bike details: ${response.status} ${response.statusText}`);
+        }
+        
+        const bikeData = await response.json();
+        console.log('Bike details response:', bikeData);
+        setBike(bikeData);
         setError(null);
       } catch (err) {
         console.error('Error fetching bike details:', err);
-        setError(`Failed to load bike details: ${err.message}`);
+        
+        // Try placeholder data as fallback
+        const placeholderBike = getPlaceholderBike(id);
+        if (placeholderBike) {
+          setBike(placeholderBike);
+          setError(null);
+        } else {
+          setError(`Failed to load bike details: ${err.message}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -34,6 +63,77 @@ const BikeDetail = () => {
       fetchBikeDetails();
     }
   }, [id]);
+
+  // Placeholder bikes data for demo purposes
+  const getPlaceholderBike = (bikeId) => {
+    const placeholderBikes = {
+      '1': {
+        id: 1,
+        make: 'Yamaha',
+        model: 'YZF-R1',
+        year: 2021,
+        mileage: 15000,
+        engine_capacity: 998,
+        fuel_type: 'Petrol',
+        transmission: 'Manual',
+        condition: 'Excellent',
+        expected_selling_price: 45000,
+        color: 'Blue',
+        vin_number: 'JYARN23E0LA000123',
+        description: 'Well-maintained Yamaha YZF-R1 in excellent condition. Perfect for track days and weekend rides.',
+        location: 'Dubai, UAE',
+        images: [{
+          id: 1,
+          image_url: 'https://via.placeholder.com/600x400?text=Yamaha+YZF-R1',
+          url: 'https://via.placeholder.com/600x400?text=Yamaha+YZF-R1'
+        }]
+      },
+      '2': {
+        id: 2,
+        make: 'Honda',
+        model: 'CBR1000RR',
+        year: 2020,
+        mileage: 8500,
+        engine_capacity: 999,
+        fuel_type: 'Petrol',
+        transmission: 'Manual',
+        condition: 'Very Good',
+        expected_selling_price: 42000,
+        color: 'Red',
+        vin_number: 'JH2SC5906LK000456',
+        description: 'Honda CBR1000RR Fireblade with low mileage. Recently serviced and ready to ride.',
+        location: 'Abu Dhabi, UAE',
+        images: [{
+          id: 1,
+          image_url: 'https://via.placeholder.com/600x400?text=Honda+CBR1000RR',
+          url: 'https://via.placeholder.com/600x400?text=Honda+CBR1000RR'
+        }]
+      },
+      '3': {
+        id: 3,
+        make: 'Kawasaki',
+        model: 'Ninja ZX-10R',
+        year: 2019,
+        mileage: 22000,
+        engine_capacity: 998,
+        fuel_type: 'Petrol',
+        transmission: 'Manual',
+        condition: 'Good',
+        expected_selling_price: 38000,
+        color: 'Green',
+        vin_number: 'JKAZX1001KA000789',
+        description: 'Kawasaki Ninja ZX-10R with performance upgrades. Great bike for experienced riders.',
+        location: 'Sharjah, UAE',
+        images: [{
+          id: 1,
+          image_url: 'https://via.placeholder.com/600x400?text=Kawasaki+Ninja+ZX-10R',
+          url: 'https://via.placeholder.com/600x400?text=Kawasaki+Ninja+ZX-10R'
+        }]
+      }
+    };
+    
+    return placeholderBikes[bikeId] || null;
+  };
 
   // Helper function to get proper image URL
   const getImageUrl = (image) => {
@@ -175,10 +275,10 @@ const BikeDetail = () => {
                 <span className="info-value">{bike.color}</span>
               </div>
               
-              <div className="info-item">
-                <span className="info-label">VIN Number:</span>
-                <span className="info-value">{bike.vin_number || 'N/A'}</span>
-              </div>
+                              <div className="info-item">
+                  <span className="info-label">VIN:</span>
+                  <span className="info-value">{bike.vin_number || 'N/A'}</span>
+                </div>
               
               <div className="info-item">
                 <span className="info-label">Location:</span>

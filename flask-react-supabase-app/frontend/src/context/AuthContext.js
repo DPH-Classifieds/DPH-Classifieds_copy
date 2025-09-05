@@ -391,7 +391,13 @@ export const AuthProvider = ({ children }) => {
     signOut,
     resetPassword,
     updatePassword,
-    syncWithSupabase
+    syncWithSupabase,
+    updateUser: (userData) => {
+      setUser(prevUser => ({
+        ...(prevUser || {}),
+        ...userData
+      }));
+    }
   };
 
   return (

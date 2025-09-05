@@ -230,7 +230,7 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  background-color: rgba(13, 110, 253, 0.9);
+  background-color: rgba(1, 53, 28, 0.9);
   color: white;
   padding: 8px 12px;
   font-weight: bold;
@@ -280,7 +280,7 @@
 .view-details-btn {
   display: block;
   text-align: center;
-  background-color: #0d6efd;
+  background-color: #01351c;
   color: white;
   padding: 8px 0;
   border-radius: 4px;
@@ -290,7 +290,7 @@
 }
 
 .view-details-btn:hover {
-  background-color: #0b5ed7;
+  background-color: #012513;
   color: white;
 }
 
@@ -327,7 +327,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border-left-color: #0d6efd;
+  border-left-color: #01351c;
   animation: spin 1s linear infinite;
   margin-bottom: 15px;
 }

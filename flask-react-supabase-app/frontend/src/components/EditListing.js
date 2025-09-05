@@ -22,7 +22,28 @@ const EditListing = () => {
     description: '',
     location: '',
     contact_phone: '',
-    contact_email: ''
+    contact_email: '',
+    vin_number: '',
+    body_type: '',
+    fuel_type: '',
+    transmission_type: '',
+    regional_spec: '',
+    seating_capacity: '',
+    horsepower: '',
+    engine_capacity: '',
+    steering_side: '',
+    is_insured: false,
+    // Features/Extras
+    climate_control: false,
+    dvd_player: false,
+    keyless_entry: false,
+    navigation_system: false,
+    premium_sound_system: false,
+    cooled_seats: false,
+    front_wheel_drive: false,
+    leather_seats: false,
+    parking_sensors: false,
+    rear_view_camera: false
   });
   
   const [images, setImages] = useState([]);
@@ -63,14 +84,35 @@ const EditListing = () => {
         car_model: data.car_model || '',
         car_variant: data.car_variant || '',
         make_year: data.make_year || '',
-        mileage: data.mileage || '',
+        mileage: data.mileage || data.kilometer_driven || '',
         exterior_color: data.exterior_color || '',
         interior_color: data.interior_color || '',
         expected_selling_price: data.expected_selling_price || '',
-        description: data.description || '',
-        location: data.location || '',
-        contact_phone: data.contact_phone || '',
-        contact_email: data.contact_email || ''
+        description: data.description || data.car_description || '',
+        location: data.location || data.car_location || data.car_city || '',
+        contact_phone: data.contact_phone || data.car_owner_phone_number || '',
+        contact_email: data.contact_email || '',
+        vin_number: data.vin_number || '',
+        body_type: data.body_type || '',
+        fuel_type: data.fuel_type || '',
+        transmission_type: data.transmission_type || '',
+        regional_spec: data.regional_spec || '',
+        seating_capacity: data.seating_capacity || '',
+        horsepower: data.horsepower || '',
+        engine_capacity: data.engine_capacity || '',
+        steering_side: data.steering_side || '',
+        is_insured: data.is_insured || false,
+        // Features/Extras
+        climate_control: data.climate_control || false,
+        dvd_player: data.dvd_player || false,
+        keyless_entry: data.keyless_entry || false,
+        navigation_system: data.navigation_system || false,
+        premium_sound_system: data.premium_sound_system || false,
+        cooled_seats: data.cooled_seats || false,
+        front_wheel_drive: data.front_wheel_drive || false,
+        leather_seats: data.leather_seats || false,
+        parking_sensors: data.parking_sensors || false,
+        rear_view_camera: data.rear_view_camera || false
       });
       
       // Set the existing images
@@ -87,10 +129,14 @@ const EditListing = () => {
   };
   
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     
-    // Convert numeric values
-    if (name === 'make_year' || name === 'mileage' || name === 'expected_selling_price') {
+    if (type === 'checkbox') {
+      setFormData({
+        ...formData,
+        [name]: checked
+      });
+    } else if (name === 'make_year' || name === 'mileage' || name === 'expected_selling_price') {
       setFormData({
         ...formData,
         [name]: value === '' ? '' : Number(value)
@@ -281,7 +327,7 @@ const EditListing = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="expected_selling_price">Price ($)</label>
+              <label htmlFor="expected_selling_price">Price (AED)</label>
               <input
                 type="number"
                 id="expected_selling_price"
@@ -322,6 +368,175 @@ const EditListing = () => {
           </div>
           
           <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="vin_number">VIN</label>
+              <input
+                type="text"
+                id="vin_number"
+                name="vin_number"
+                value={formData.vin_number}
+                onChange={(e) => handleChange({...e, target: {...e.target, value: e.target.value.toUpperCase()}})}
+                placeholder="Vehicle Identification Number"
+                maxLength="17"
+                style={{ textTransform: 'uppercase' }}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="body_type">Body Type</label>
+              <select
+                id="body_type"
+                name="body_type"
+                value={formData.body_type}
+                onChange={handleChange}
+              >
+                <option value="">Select Body Type</option>
+                <option value="Sedan">Sedan</option>
+                <option value="SUV">SUV</option>
+                <option value="Hatchback">Hatchback</option>
+                <option value="Coupe">Coupe</option>
+                <option value="Convertible">Convertible</option>
+                <option value="Wagon">Wagon</option>
+                <option value="Van">Van</option>
+                <option value="Truck">Truck</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="fuel_type">Fuel Type</label>
+              <select
+                id="fuel_type"
+                name="fuel_type"
+                value={formData.fuel_type}
+                onChange={handleChange}
+              >
+                <option value="">Select Fuel Type</option>
+                <option value="Petrol">Petrol</option>
+                <option value="Diesel">Diesel</option>
+                <option value="Electric">Electric</option>
+                <option value="Hybrid">Hybrid</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="transmission_type">Transmission</label>
+              <select
+                id="transmission_type"
+                name="transmission_type"
+                value={formData.transmission_type}
+                onChange={handleChange}
+              >
+                <option value="">Select Transmission</option>
+                <option value="Automatic">Automatic</option>
+                <option value="Manual">Manual</option>
+                <option value="CVT">CVT</option>
+                <option value="Electric">Electric</option>
+                <option value="Semi-Automatic">Semi-Automatic</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="regional_spec">Regional Specs</label>
+              <select
+                id="regional_spec"
+                name="regional_spec"
+                value={formData.regional_spec}
+                onChange={handleChange}
+              >
+                <option value="">Select Regional Specs</option>
+                <option value="GCC Specs">GCC Specs</option>
+                <option value="American Specs">American Specs</option>
+                <option value="European Specs">European Specs</option>
+                <option value="Japanese Specs">Japanese Specs</option>
+                <option value="Korean Specs">Korean Specs</option>
+                <option value="Chinese Specs">Chinese Specs</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="steering_side">Steering Side</label>
+              <select
+                id="steering_side"
+                name="steering_side"
+                value={formData.steering_side}
+                onChange={handleChange}
+              >
+                <option value="">Select Steering Side</option>
+                <option value="Left">Left</option>
+                <option value="Right">Right</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="seating_capacity">Seating Capacity</label>
+              <select
+                id="seating_capacity"
+                name="seating_capacity"
+                value={formData.seating_capacity}
+                onChange={handleChange}
+              >
+                <option value="">Select Seating</option>
+                <option value="2">2 Seats</option>
+                <option value="4">4 Seats</option>
+                <option value="5">5 Seats</option>
+                <option value="6">6 Seats</option>
+                <option value="7">7 Seats</option>
+                <option value="8">8 Seats</option>
+                <option value="9+">9+ Seats</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="horsepower">Horsepower</label>
+              <input
+                type="text"
+                id="horsepower"
+                name="horsepower"
+                value={formData.horsepower}
+                onChange={handleChange}
+                placeholder="e.g. 250 HP"
+              />
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="engine_capacity">Engine Capacity</label>
+              <input
+                type="text"
+                id="engine_capacity"
+                name="engine_capacity"
+                value={formData.engine_capacity}
+                onChange={handleChange}
+                placeholder="e.g. 2.5L or 2500cc"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="is_insured">
+                <input
+                  type="checkbox"
+                  id="is_insured"
+                  name="is_insured"
+                  checked={formData.is_insured}
+                  onChange={handleChange}
+                />
+                <span>Vehicle is Insured</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="form-row">
             <div className="form-group full-width">
               <label htmlFor="description">Description</label>
               <textarea
@@ -333,6 +548,142 @@ const EditListing = () => {
                 rows="6"
                 required
               ></textarea>
+            </div>
+          </div>
+        </div>
+        
+        <div className="form-section">
+          <h2>Features & Extras</h2>
+          
+          <div className="features-grid">
+            <div className="feature-item">
+              <label htmlFor="climate_control">
+                <input
+                  type="checkbox"
+                  id="climate_control"
+                  name="climate_control"
+                  checked={formData.climate_control}
+                  onChange={handleChange}
+                />
+                <span>Climate Control</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="dvd_player">
+                <input
+                  type="checkbox"
+                  id="dvd_player"
+                  name="dvd_player"
+                  checked={formData.dvd_player}
+                  onChange={handleChange}
+                />
+                <span>DVD Player</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="keyless_entry">
+                <input
+                  type="checkbox"
+                  id="keyless_entry"
+                  name="keyless_entry"
+                  checked={formData.keyless_entry}
+                  onChange={handleChange}
+                />
+                <span>Keyless Entry</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="navigation_system">
+                <input
+                  type="checkbox"
+                  id="navigation_system"
+                  name="navigation_system"
+                  checked={formData.navigation_system}
+                  onChange={handleChange}
+                />
+                <span>Navigation System</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="premium_sound_system">
+                <input
+                  type="checkbox"
+                  id="premium_sound_system"
+                  name="premium_sound_system"
+                  checked={formData.premium_sound_system}
+                  onChange={handleChange}
+                />
+                <span>Premium Sound System</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="cooled_seats">
+                <input
+                  type="checkbox"
+                  id="cooled_seats"
+                  name="cooled_seats"
+                  checked={formData.cooled_seats}
+                  onChange={handleChange}
+                />
+                <span>Cooled Seats</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="front_wheel_drive">
+                <input
+                  type="checkbox"
+                  id="front_wheel_drive"
+                  name="front_wheel_drive"
+                  checked={formData.front_wheel_drive}
+                  onChange={handleChange}
+                />
+                <span>Front Wheel Drive</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="leather_seats">
+                <input
+                  type="checkbox"
+                  id="leather_seats"
+                  name="leather_seats"
+                  checked={formData.leather_seats}
+                  onChange={handleChange}
+                />
+                <span>Leather Seats</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="parking_sensors">
+                <input
+                  type="checkbox"
+                  id="parking_sensors"
+                  name="parking_sensors"
+                  checked={formData.parking_sensors}
+                  onChange={handleChange}
+                />
+                <span>Parking Sensors</span>
+              </label>
+            </div>
+            
+            <div className="feature-item">
+              <label htmlFor="rear_view_camera">
+                <input
+                  type="checkbox"
+                  id="rear_view_camera"
+                  name="rear_view_camera"
+                  checked={formData.rear_view_camera}
+                  onChange={handleChange}
+                />
+                <span>Rear View Camera</span>
+              </label>
             </div>
           </div>
         </div>

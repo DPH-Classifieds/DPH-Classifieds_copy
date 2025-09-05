@@ -114,7 +114,7 @@ const Plates = () => {
           const directData = await directResponse.json();
           console.log('Direct fetch data:', directData && directData.length ? 
                        `Found ${directData.length} plates` : 'No plates or invalid data');
-          if (directData && directData.length) {
+          if (directData && Array.isArray(directData)) {
             console.log('Direct fetch status breakdown:', {
               total: directData.length,
               approved: directData.filter(p => p.status === 'approved').length,
@@ -123,19 +123,35 @@ const Plates = () => {
               other: directData.filter(p => !['approved', 'pending', 'rejected'].includes(p.status)).length
             });
             console.log('Sample plate from direct fetch:', directData[0]);
+            
+            // Use direct fetch data - filter approved plates for public viewing
+            const approvedPlates = directData.filter(plate => plate.status === 'approved');
+            console.log(`Found ${approvedPlates.length} approved plates from direct fetch`);
+            
+            setPlates(approvedPlates);
+            
+            // Extract unique cities and codes for filters
+            const uniqueCities = [...new Set(approvedPlates.map(plate => plate.city))];
+            const uniqueCodes = [...new Set(approvedPlates.map(plate => plate.code))];
+            setCities(uniqueCities);
+            setCodes(uniqueCodes);
+            setError(null);
+            setLoading(false);
+            return; // Success! No need to try apiClient
           }
         }
       } catch (fetchErr) {
         console.error('Direct fetch failed:', fetchErr);
       }
       
-      // Now try with the apiClient
-      try {
-        console.log('Using apiClient to fetch plates...');
-        // Add timestamp to avoid caching
-        const timestamp = new Date().getTime();
-        const response = await apiClient.get(`/api/plates?_t=${timestamp}`);
-        console.log('Received plates from apiClient:', response);
+      // Only try apiClient if user is logged in and direct fetch failed
+      if (user) {
+        try {
+          console.log('User is logged in, trying apiClient to fetch plates...');
+          // Add timestamp to avoid caching
+          const timestamp = new Date().getTime();
+          const response = await apiClient.get(`/api/plates?_t=${timestamp}`);
+          console.log('Received plates from apiClient:', response);
         
         if (Array.isArray(response)) {
           console.log('Status breakdown:', {
@@ -164,14 +180,20 @@ const Plates = () => {
           setCities(uniqueCities);
           setCodes(uniqueCodes);
           setError(null);
-        } else {
-          console.error('Unexpected response format:', response);
-          setError('Failed to load plates. Response was not an array.');
-          setPlates([]);
+          } else {
+            console.error('Unexpected response format:', response);
+            setError('Failed to load plates. Response was not an array.');
+            setPlates([]);
+          }
+        } catch (apiErr) {
+          console.error('apiClient.get failed:', apiErr);
+          setError(`API client error: ${apiErr.message}`);
         }
-      } catch (apiErr) {
-        console.error('apiClient.get failed:', apiErr);
-        setError(`API client error: ${apiErr.message}`);
+      } else {
+        // User not logged in and direct fetch failed
+        console.log('User not logged in and direct fetch failed');
+        setError('Unable to load plates. Please check your connection and try again.');
+        setPlates([]);
       }
     } catch (err) {
       console.error('Error in overall fetch process:', err);

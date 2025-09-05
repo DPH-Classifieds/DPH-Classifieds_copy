@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import '../styles/Auth.css';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -17,8 +17,8 @@ const Login = () => {
     setLoading(true);
     
     // Basic validation
-    if (!email.trim()) {
-      setError('Email is required');
+    if (!emailOrUsername.trim()) {
+      setError('Email or username is required');
       setLoading(false);
       return;
     }
@@ -30,8 +30,8 @@ const Login = () => {
     }
     
     try {
-      console.log('Attempting to sign in with email:', email);
-      const result = await signIn(email, password);
+      console.log('Attempting to sign in with:', emailOrUsername);
+      const result = await signIn(emailOrUsername, password);
       console.log('Login successful, syncing with Supabase');
       
       // Force sync to ensure we have the token
@@ -41,7 +41,7 @@ const Login = () => {
       if (result && result.data && result.data.session) {
         console.log('Storing session and token in localStorage');
         localStorage.setItem('supabase_access_token', result.data.session.access_token);
-        localStorage.setItem('user_email', email);
+        localStorage.setItem('user_identifier', emailOrUsername);
       }
       
       console.log('Login and sync successful, navigating to profile');
@@ -70,14 +70,15 @@ const Login = () => {
         
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="emailOrUsername">Email or Username</label>
             <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              id="emailOrUsername"
+              value={emailOrUsername}
+              onChange={(e) => setEmailOrUsername(e.target.value)}
+              placeholder="Enter your email or username"
               required
-              autoComplete="email"
+              autoComplete="username"
             />
           </div>
           

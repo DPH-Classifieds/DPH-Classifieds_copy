@@ -23,7 +23,7 @@ const CarParts = () => {
             {
               id: 1,
               name: 'Engine Oil Filter',
-              price: 15.99,
+              price: 60,
               description: 'High-quality oil filter for most vehicle makes and models',
               image: 'https://via.placeholder.com/300x200?text=Oil+Filter',
               category: 'Engine Parts'
@@ -31,7 +31,7 @@ const CarParts = () => {
             {
               id: 2,
               name: 'Brake Pads (Set of 4)',
-              price: 45.99,
+              price: 170,
               description: 'Premium ceramic brake pads for improved stopping power',
               image: 'https://via.placeholder.com/300x200?text=Brake+Pads',
               category: 'Brake System'
@@ -39,7 +39,7 @@ const CarParts = () => {
             {
               id: 3,
               name: 'LED Headlight Bulbs',
-              price: 29.99,
+              price: 110,
               description: 'Ultra-bright LED replacement bulbs, 6000K white light',
               image: 'https://via.placeholder.com/300x200?text=LED+Headlights',
               category: 'Lighting'
@@ -47,7 +47,7 @@ const CarParts = () => {
             {
               id: 4,
               name: 'Air Filter',
-              price: 12.99,
+              price: 50,
               description: 'Replacement air filter for improved engine performance',
               image: 'https://via.placeholder.com/300x200?text=Air+Filter',
               category: 'Engine Parts'
@@ -55,7 +55,7 @@ const CarParts = () => {
             {
               id: 5,
               name: 'Windshield Wiper Blades',
-              price: 19.99,
+              price: 75,
               description: 'All-season silicone wiper blades for clear visibility',
               image: 'https://via.placeholder.com/300x200?text=Wiper+Blades',
               category: 'Exterior Accessories'
@@ -63,7 +63,7 @@ const CarParts = () => {
             {
               id: 6,
               name: 'Car Battery',
-              price: 89.99,
+              price: 330,
               description: '12V maintenance-free battery with 3-year warranty',
               image: 'https://via.placeholder.com/300x200?text=Car+Battery',
               category: 'Electrical System'
@@ -144,11 +144,10 @@ const CarParts = () => {
               <p className="part-category">{part.category}</p>
               <p className="part-description">{part.description}</p>
               <div className="part-price-actions">
-                <span className="part-price">${part.price.toFixed(2)}</span>
+                <span className="part-price">AED {part.price.toLocaleString()}</span>
                 <div className="part-actions">
-                  <button className="add-to-cart">Add to Cart</button>
-                  <Link to={`/car-parts/${part.id}`} className="view-details">
-                    Details
+                  <Link to={`/car-parts/${part.id}`} className="view-details-btn">
+                    View Details
                   </Link>
                 </div>
               </div>

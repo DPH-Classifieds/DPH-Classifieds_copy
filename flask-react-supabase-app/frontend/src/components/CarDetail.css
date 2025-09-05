@@ -259,6 +259,19 @@
   color: #333;
 }
 
+.loan-calculator {
+  margin-top: 25px;
+  margin-bottom: 25px;
+}
+
+.loan-calculator h3 {
+  font-size: 20px;
+  margin-bottom: 15px;
+  color: #01351c;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+
 .car-location {
   margin-bottom: 25px;
 }

@@ -24,6 +24,7 @@ const CreateListing = () => {
     color: '',
     interior_color: '',
     engine: '',
+    vin_number: '',
     car_description: '',
     contact_phone: '',
     contact_email: ''
@@ -206,7 +207,7 @@ const CreateListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="expected_selling_price">Price (USD) *</label>
+              <label htmlFor="expected_selling_price">Price (AED) *</label>
               <input 
                 type="number" 
                 id="expected_selling_price" 
@@ -322,6 +323,40 @@ const CreateListing = () => {
                 onChange={handleChange} 
                 placeholder="e.g., Black, Tan, etc."
               />
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="engine">Engine</label>
+              <input 
+                type="text" 
+                id="engine" 
+                name="engine" 
+                value={formData.engine} 
+                onChange={handleChange} 
+                placeholder="e.g., 2.0L Turbo, V6 3.5L"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="vin_number">VIN <span className="text-muted">(Vehicle Identification Number)</span></label>
+              <input 
+                type="text" 
+                id="vin_number" 
+                name="vin_number" 
+                value={formData.vin_number} 
+                onChange={(e) => {
+                  const upperValue = e.target.value.toUpperCase();
+                  setFormData(prev => ({ ...prev, vin_number: upperValue }));
+                }}
+                placeholder="e.g., 1HGCM82633A123456"
+                style={{ textTransform: 'uppercase' }}
+                maxLength="17"
+              />
+              <small className="form-text text-muted">
+                The VIN is typically a 17-character code found on your vehicle registration or insurance documents.
+              </small>
             </div>
           </div>
           

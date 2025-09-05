@@ -17,7 +17,7 @@ import Signup from './components/Signup';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import Profile from './components/Profile';
-import Settings from './components/Settings';
+import AccountSettings from './components/AccountSettings';
 import MyListings from './components/MyListings';
 import CreateListing from './components/CreateListing';
 import EditListing from './components/EditListing';
@@ -63,7 +63,7 @@ function App() {
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route path="/settings" element={<AccountSettings />} />
                 <Route path="/my-listings" element={<MyListings />} />
                 <Route path="/create-listing" element={<CreateListing />} />
                 <Route path="/edit-listing/:id" element={<EditListing />} />

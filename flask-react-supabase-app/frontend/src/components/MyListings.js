@@ -188,7 +188,7 @@ const MyListings = () => {
                     
                     <div className="my-listing-details">
                       <h3>{listing.listing_title || `${listing.make_year} ${listing.car_manufacturer} ${listing.car_model}`}</h3>
-                      <p className="my-listing-price">${listing.expected_selling_price?.toLocaleString()}</p>
+                      <p className="my-listing-price">AED {listing.expected_selling_price?.toLocaleString()}</p>
                       <p className="my-listing-date">
                         Posted on {new Date(listing.created_at).toLocaleDateString()}
                       </p>

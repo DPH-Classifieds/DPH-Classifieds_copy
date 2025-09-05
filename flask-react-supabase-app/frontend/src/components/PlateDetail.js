@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import apiClient from '../utils/apiClient';
 import '../styles/DetailView.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -20,9 +19,22 @@ const PlateDetail = () => {
       try {
         setLoading(true);
         console.log(`Fetching plate details for ID: ${id}`);
-        const response = await apiClient.get(`/api/plates/${id}`);
-        console.log('Plate details response:', response);
-        setPlate(response);
+        
+        // Use direct fetch for public access (no authentication required)
+        const response = await fetch(`${API_URL}/api/plates/${id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch plate details: ${response.status} ${response.statusText}`);
+        }
+        
+        const plateData = await response.json();
+        console.log('Plate details response:', plateData);
+        setPlate(plateData);
         setError(null);
       } catch (err) {
         console.error('Error fetching plate details:', err);

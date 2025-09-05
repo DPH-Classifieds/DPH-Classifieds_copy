@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import LoanCalculator from './LoanCalculator';
 import './CarDetail.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -67,7 +68,7 @@ const CarDetail = () => {
   
   // Format price with currency symbol
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-AE', {
       style: 'currency',
       currency: 'AED',
       maximumFractionDigits: 0
@@ -199,6 +200,11 @@ const CarDetail = () => {
             <h3>Description</h3>
             <p>{car.car_description || 'No description provided'}</p>
           </div>
+          
+          <div className="loan-calculator">
+            <h3>Loan Calculator</h3>
+            <LoanCalculator carPrice={car.expected_selling_price} />
+          </div>
         </div>
         
         <div className="car-info">
@@ -276,7 +282,7 @@ const CarDetail = () => {
                 <span className="spec-value">{car.is_insured ? 'Yes' : 'No'}</span>
               </div>
               <div className="spec-item">
-                <span className="spec-label">VIN Number</span>
+                <span className="spec-label">VIN</span>
                 <span className="spec-value">{car.vin_number || 'N/A'}</span>
               </div>
             </div>

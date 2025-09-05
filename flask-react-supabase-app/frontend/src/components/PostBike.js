@@ -342,14 +342,19 @@ const PostBike = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="vin_number">VIN Number <span className="text-muted">(Vehicle Identification Number)</span></label>
+              <label htmlFor="vin_number">VIN <span className="text-muted">(Vehicle Identification Number)</span></label>
               <input
                 type="text"
                 id="vin_number"
                 name="vin_number"
                 value={formData.vin_number}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const upperValue = e.target.value.toUpperCase();
+                  handleChange({ target: { name: 'vin_number', value: upperValue } });
+                }}
                 placeholder="e.g., 1HGCM82633A123456"
+                style={{ textTransform: 'uppercase' }}
+                maxLength="17"
               />
               <div className="form-text">The VIN is typically a 17-character code found on your vehicle registration or insurance documents.</div>
             </div>

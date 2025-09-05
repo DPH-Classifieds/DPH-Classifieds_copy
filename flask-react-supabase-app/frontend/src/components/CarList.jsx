@@ -180,7 +180,7 @@ const CarList = () => {
   
   // Format price with currency symbol
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-AE', {
       style: 'currency',
       currency: 'AED',
       maximumFractionDigits: 0

@@ -41,14 +41,14 @@
   padding: 6px 12px;
   border: none;
   border-radius: 4px;
-  background-color: #007bff;
+  background-color: #01351c;
   color: white;
   cursor: pointer;
   transition: background-color 0.3s;
 }
 
 .make-admin-btn:hover {
-  background-color: #0056b3;
+  background-color: #012513;
 }
 
 .error-message {

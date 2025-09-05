@@ -106,7 +106,7 @@ const AdminTools = () => {
           disabled={refreshing}
           style={{
             padding: '8px 15px',
-            background: '#007bff',
+            background: '#01351c',
             color: 'white',
             border: 'none',
             borderRadius: '4px',

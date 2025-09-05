@@ -54,7 +54,7 @@
   width: 50px;
   height: 50px;
   margin-right: 1rem;
-  background-color: #3498db;
+  background-color: #01351c;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -144,9 +144,9 @@
 
 .form-group input:focus,
 .form-group textarea:focus {
-  border-color: #3498db;
+  border-color: #01351c;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  box-shadow: 0 0 0 2px rgba(1, 53, 28, 0.2);
 }
 
 .form-group textarea {

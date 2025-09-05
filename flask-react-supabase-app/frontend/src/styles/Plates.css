@@ -67,12 +67,12 @@ select.filter-input {
 
 .filter-input:focus {
   outline: none;
-  border-color: #0d6efd;
-  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+  border-color: #01351c;
+  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.1);
 }
 
 .search-button {
-  background-color: #0d6efd;
+  background-color: #01351c;
   color: white;
   border: none;
   border-radius: 25px;
@@ -88,7 +88,7 @@ select.filter-input {
 }
 
 .search-button:hover {
-  background-color: #0b5ed7;
+  background-color: #012513;
 }
 
 .search-icon {
@@ -183,7 +183,7 @@ select.filter-input {
 .plate-price {
   font-size: 20px;
   font-weight: 700;
-  color: #4a90e2;
+  color: #01351c;
   margin-bottom: 8px;
 }
 
@@ -393,7 +393,7 @@ select.filter-input {
 .refresh-btn {
   padding: 8px 16px;
   border: none;
-  background-color: #457b9d;
+  background-color: #01351c;
   color: white;
   border-radius: 4px;
   cursor: pointer;
@@ -434,5 +434,5 @@ select.filter-input {
 }
 
 .reset-filters-btn:hover {
-  background-color: #357abd;
+  background-color: #012513;
 } 

@@ -37,10 +37,28 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
 
   // Get user initials for avatar
   const getUserInitials = () => {
-    if (!user?.email) return 'U';
-    
-    // Get just the first letter of the email
-    return user.email[0].toUpperCase();
+    if (user?.display_name || user?.displayName) {
+      const name = user.display_name || user.displayName;
+      return name[0].toUpperCase();
+    }
+    if (user?.username) {
+      return user.username[0].toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Get display name for user
+  const getDisplayName = () => {
+    if (user?.display_name || user?.displayName) {
+      return user.display_name || user.displayName;
+    }
+    if (user?.username) {
+      return user.username;
+    }
+    return user?.email || 'User';
   };
 
   return (
@@ -52,17 +70,35 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
         aria-label="User profile menu"
       >
         <div className="avatar">
-          {getUserInitials()}
+          {(user?.profile_photo_url || user?.profilePhotoUrl) ? (
+            <img 
+              src={user.profile_photo_url || user.profilePhotoUrl} 
+              alt="Profile" 
+              className="avatar-image"
+            />
+          ) : (
+            getUserInitials()
+          )}
         </div>
       </button>
       
       {isOpen && (
         <div className="profile-dropdown">
           <div className="profile-header">
-            <div className="avatar">{getUserInitials()}</div>
+            <div className="avatar">
+              {(user?.profile_photo_url || user?.profilePhotoUrl) ? (
+                <img 
+                  src={user.profile_photo_url || user.profilePhotoUrl} 
+                  alt="Profile" 
+                  className="avatar-image"
+                />
+              ) : (
+                getUserInitials()
+              )}
+            </div>
             <div className="user-info">
+              <span className="user-name">{getDisplayName()}</span>
               <span className="user-email">{user.email}</span>
-              <span className="user-role">Member</span>
             </div>
           </div>
           
