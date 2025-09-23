@@ -32,6 +32,8 @@ import Contact from './components/Contact';
 import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
 import AdminTools from './components/AdminTools';
+import PrivacyPolicy from './components/PrivacyPolicy'; // Added Privacy Policy import
+import TermsOfUse from './components/TermsOfUse'; // Added Terms of Use import
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -59,6 +61,8 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} /> {/* Added Privacy Policy route */}
+              <Route path="/terms-of-use" element={<TermsOfUse />} /> {/* Added Terms of Use route */}
               
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>

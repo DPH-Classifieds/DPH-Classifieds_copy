@@ -11,6 +11,11 @@ const AdminDashboard = () => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [selectedListing, setSelectedListing] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [rejectionNote, setRejectionNote] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [listingToReject, setListingToReject] = useState(null);
 
   useEffect(() => {
     const fetchListings = async () => {
@@ -103,13 +108,14 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleReject = async (id, type) => {
+  const handleReject = async (id, type, note = '') => {
     try {
-      console.log(`Rejecting ${type} with ID: ${id}`);
+      console.log(`Rejecting ${type} with ID: ${id} and note: ${note}`);
       setIsLoading(true);
       
-      // Make the rejection request
-      const response = await apiClient.post(`/api/${type}/${id}/reject`);
+      // Make the rejection request with optional note
+      const requestData = note ? { rejection_note: note } : {};
+      const response = await apiClient.post(`/api/${type}/${id}/reject`, requestData);
       console.log('Rejection response:', response);
       
       // Show success message
@@ -145,6 +151,26 @@ const AdminDashboard = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const openRejectModal = (listing) => {
+    setListingToReject(listing);
+    setRejectionNote('');
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (listingToReject) {
+      await handleReject(listingToReject.id, activeTab.slice(0, -1), rejectionNote);
+      setShowRejectModal(false);
+      setListingToReject(null);
+      setRejectionNote('');
+    }
+  };
+
+  const openDetailModal = (listing) => {
+    setSelectedListing(listing);
+    setShowDetailModal(true);
   };
 
   if (!user || !user.is_admin) {
@@ -303,6 +329,12 @@ const AdminDashboard = () => {
                       </div>
                       <div className="listing-actions">
                         <button 
+                          className="view-btn"
+                          onClick={() => openDetailModal(listing)}
+                        >
+                          View Details
+                        </button>
+                        <button 
                           className="approve-btn"
                           onClick={() => handleApprove(listing.id, activeTab)}
                           disabled={isLoading}
@@ -311,7 +343,7 @@ const AdminDashboard = () => {
                         </button>
                         <button 
                           className="reject-btn"
-                          onClick={() => handleReject(listing.id, activeTab)}
+                          onClick={() => openRejectModal(listing)}
                           disabled={isLoading}
                         >
                           Reject
@@ -392,6 +424,238 @@ const AdminDashboard = () => {
           </>
         )}
       </div>
+
+      {/* Listing Detail Modal */}
+      {showDetailModal && selectedListing && (
+        <div className="modal-overlay" onClick={() => setShowDetailModal(false)}>
+          <div className="modal-content listing-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Listing Details</h3>
+              <button className="close-btn" onClick={() => setShowDetailModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="listing-detail-content">
+                <h4>{getListingTitle(selectedListing, activeTab.slice(0, -1))}</h4>
+                
+                {/* Images Section */}
+                {selectedListing.images && selectedListing.images.length > 0 && (
+                  <div className="listing-images">
+                    <h5>Images:</h5>
+                    <div className="image-gallery">
+                      {selectedListing.images.map((image, index) => (
+                        <img 
+                          key={index}
+                          src={image.url || image.image_url || image}
+                          alt={`Listing ${index + 1}`}
+                          className="listing-image"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Listing Details by Type */}
+                {activeTab === 'cars' && (
+                  <div className="car-details">
+                    <div className="detail-row">
+                      <strong>Make:</strong> {selectedListing.car_manufacturer || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Model:</strong> {selectedListing.car_model || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Year:</strong> {selectedListing.make_year || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Price:</strong> {selectedListing.expected_selling_price ? `AED ${selectedListing.expected_selling_price.toLocaleString()}` : 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Mileage:</strong> {selectedListing.kilometer_driven ? `${selectedListing.kilometer_driven.toLocaleString()} km` : 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Body Type:</strong> {selectedListing.body_type || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Fuel Type:</strong> {selectedListing.fuel_type || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Transmission:</strong> {selectedListing.transmission || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>VIN:</strong> {selectedListing.vin_number || 'N/A'}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'bikes' && (
+                  <div className="bike-details">
+                    <div className="detail-row">
+                      <strong>Make:</strong> {selectedListing.make || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Model:</strong> {selectedListing.model || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Year:</strong> {selectedListing.year || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Price:</strong> {selectedListing.price ? `AED ${selectedListing.price.toLocaleString()}` : 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Type:</strong> {selectedListing.bike_type || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Condition:</strong> {selectedListing.condition || 'N/A'}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'parts' && (
+                  <div className="parts-details">
+                    <div className="detail-row">
+                      <strong>Name:</strong> {selectedListing.name || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Type:</strong> {selectedListing.part_type || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Category:</strong> {selectedListing.category || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Condition:</strong> {selectedListing.condition || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Price:</strong> {selectedListing.price ? `AED ${selectedListing.price.toLocaleString()}` : 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Compatible Makes:</strong> {selectedListing.compatible_makes ? selectedListing.compatible_makes.join(', ') : 'N/A'}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'plates' && (
+                  <div className="plates-details">
+                    <div className="detail-row">
+                      <strong>City:</strong> {selectedListing.city || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Code:</strong> {selectedListing.code || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Number:</strong> {selectedListing.number || selectedListing.digits || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Price:</strong> {selectedListing.price ? `AED ${selectedListing.price.toLocaleString()}` : 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Format:</strong> {selectedListing.plate_format || 'N/A'}
+                    </div>
+                  </div>
+                )}
+
+                <div className="contact-details">
+                  <h5>Contact Information:</h5>
+                  <div className="detail-row">
+                    <strong>Email:</strong> {selectedListing.user_email || 'N/A'}
+                  </div>
+                  <div className="detail-row">
+                    <strong>Phone:</strong> {selectedListing.car_owner_phone_number || selectedListing.contact_phone || 'N/A'}
+                  </div>
+                  <div className="detail-row">
+                    <strong>Name:</strong> {selectedListing.contact_name || selectedListing.car_owner_name || 'N/A'}
+                  </div>
+                </div>
+
+                {selectedListing.description && (
+                  <div className="description-section">
+                    <h5>Description:</h5>
+                    <p>{selectedListing.description}</p>
+                  </div>
+                )}
+
+                <div className="status-info">
+                  <div className="detail-row">
+                    <strong>Status:</strong> {selectedListing.status || 'N/A'}
+                  </div>
+                  <div className="detail-row">
+                    <strong>Created:</strong> {new Date(selectedListing.created_at).toLocaleString()}
+                  </div>
+                  {selectedListing.rejection_note && (
+                    <div className="detail-row">
+                      <strong>Rejection Note:</strong> {selectedListing.rejection_note}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button 
+                className="approve-btn"
+                onClick={() => {
+                  handleApprove(selectedListing.id, activeTab);
+                  setShowDetailModal(false);
+                }}
+                disabled={isLoading}
+              >
+                Approve
+              </button>
+              <button 
+                className="reject-btn"
+                onClick={() => {
+                  setShowDetailModal(false);
+                  openRejectModal(selectedListing);
+                }}
+                disabled={isLoading}
+              >
+                Reject
+              </button>
+              <button className="cancel-btn" onClick={() => setShowDetailModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectModal && listingToReject && (
+        <div className="modal-overlay" onClick={() => setShowRejectModal(false)}>
+          <div className="modal-content rejection-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Reject Listing</h3>
+              <button className="close-btn" onClick={() => setShowRejectModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to reject this listing?</p>
+              <h4>{getListingTitle(listingToReject, activeTab.slice(0, -1))}</h4>
+              
+              <div className="rejection-note-section">
+                <label htmlFor="rejection-note">Rejection Reason (Optional):</label>
+                <textarea
+                  id="rejection-note"
+                  value={rejectionNote}
+                  onChange={(e) => setRejectionNote(e.target.value)}
+                  placeholder="Provide a reason for rejection to help the user understand..."
+                  rows="4"
+                  className="rejection-note-input"
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button 
+                className="confirm-reject-btn"
+                onClick={confirmReject}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+              <button className="cancel-btn" onClick={() => setShowRejectModal(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

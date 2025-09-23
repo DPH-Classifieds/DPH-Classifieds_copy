@@ -9,7 +9,11 @@ const Footer = () => {
       <div className="footer-container">
         <div className="footer-section">
           <h3>About Us</h3>
-          <p>We're dedicated to connecting car buyers and sellers with the most reliable and user-friendly platform.</p>
+          <ul>
+            <li><a href="/about">About</a></li>
+            <li><a href="/privacy-policy">Privacy Policy</a></li>
+            <li><a href="/terms-of-use">Terms of Use</a></li>
+          </ul>
         </div>
         
         <div className="footer-section">
@@ -18,7 +22,6 @@ const Footer = () => {
             <li><a href="/">Home</a></li>
             <li><a href="/cars">Browse Cars</a></li>
             <li><a href="/create-listing">Sell Your Car</a></li>
-            <li><a href="/about">About</a></li>
           </ul>
         </div>
         
@@ -47,4 +50,4 @@ const Footer = () => {
   );
 };
 
-export default Footer; 
+export default Footer;
