@@ -16,6 +16,7 @@ const AdminDashboard = () => {
   const [rejectionNote, setRejectionNote] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [listingToReject, setListingToReject] = useState(null);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
 
   useEffect(() => {
     const fetchListings = async () => {
@@ -24,24 +25,25 @@ const AdminDashboard = () => {
         let endpoint = '';
         switch (activeTab) {
           case 'plates':
-            endpoint = '/api/plates';
+            endpoint = '/api/admin/plates';
             break;
           case 'cars':
-            endpoint = '/api/cars';
+            endpoint = '/api/admin/cars';
             break;
           case 'bikes':
-            endpoint = '/api/bikes';
+            endpoint = '/api/admin/bikes';
             break;
           case 'parts':
-            endpoint = '/api/parts';
+            endpoint = '/api/admin/parts';
             break;
           default:
-            endpoint = '/api/plates';
+            endpoint = '/api/admin/plates';
         }
         
         console.log(`Fetching listings from ${endpoint}...`);
         const response = await apiClient.get(endpoint);
         console.log('Response received:', response);
+        console.log('Sample listing data:', response[0]); // Log first listing to see structure
         
         if (Array.isArray(response)) {
           console.log(`Received ${response.length} listings`);
@@ -81,7 +83,7 @@ const AdminDashboard = () => {
       
       // Refresh the listings to reflect the changes
       console.log(`Reloading ${activeTab} after approval`);
-      const updatedListings = await apiClient.get(`/api/${activeTab}`);
+      const updatedListings = await apiClient.get(`/api/admin/${activeTab}`);
       console.log('Updated listings:', updatedListings);
       
       if (Array.isArray(updatedListings)) {
@@ -126,7 +128,7 @@ const AdminDashboard = () => {
       
       // Refresh the listings to reflect the changes
       console.log(`Reloading ${activeTab} after rejection`);
-      const updatedListings = await apiClient.get(`/api/${activeTab}`);
+      const updatedListings = await apiClient.get(`/api/admin/${activeTab}`);
       console.log('Updated listings:', updatedListings);
       
       if (Array.isArray(updatedListings)) {
@@ -173,6 +175,22 @@ const AdminDashboard = () => {
     setShowDetailModal(true);
   };
 
+  // Helper function to get proper image URL
+  const getImageUrl = (image) => {
+    if (!image) return null;
+    
+    // Try all possible image URL fields
+    const imageUrl = image.url || image.image_url || image;
+    
+    // Check if the URL is a relative URL that needs the API base URL
+    if (imageUrl && imageUrl.startsWith('/')) {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      return `${API_URL}${imageUrl}`;
+    }
+    
+    return imageUrl;
+  };
+
   if (!user || !user.is_admin) {
     return (
       <div className="admin-dashboard">
@@ -186,13 +204,22 @@ const AdminDashboard = () => {
   const getListingTitle = (listing, type) => {
     switch (type) {
       case 'plates':
-        return `${listing.city || ''} ${listing.code || ''} ${listing.number || ''}`;
+        return `${listing.city || ''} ${listing.code || ''} ${listing.number || listing.digits || ''}`;
       case 'cars':
-        return `${listing.listing_title || ''} ${listing.make_year ? `(${listing.make_year})` : ''} - ${formatPrice(listing.expected_selling_price || 0)}`;
+        // Try multiple field combinations for car title
+        const carMake = listing.car_manufacturer || listing.make || '';
+        const carModel = listing.car_model || listing.model || '';
+        const carYear = listing.make_year || listing.year || '';
+        const carPrice = listing.expected_selling_price || listing.price || 0;
+        const carTitle = listing.listing_title || `${carMake} ${carModel}`.trim() || 'Car Listing';
+        return `${carTitle} ${carYear ? `(${carYear})` : ''} - ${formatPrice(carPrice)}`.trim();
       case 'bikes':
-        return `${listing.make || ''} ${listing.model || ''}`;
+        const bikeMake = listing.make || '';
+        const bikeModel = listing.model || '';
+        const bikeYear = listing.year || '';
+        return `${bikeMake} ${bikeModel} ${bikeYear ? `(${bikeYear})` : ''}`.trim() || 'Bike Listing';
       case 'parts':
-        return listing.name || 'Unnamed part';
+        return listing.name || listing.part_name || 'Car Part';
       default:
         return 'Unknown listing';
     }
@@ -211,13 +238,27 @@ const AdminDashboard = () => {
   const getListingSummary = (listing, type) => {
     switch (type) {
       case 'plates':
-        return `Price: ${listing.price ? `AED ${listing.price.toLocaleString()}` : 'N/A'} | Contact: ${listing.contact_phone || 'N/A'}`;
+        const platePrice = listing.price ? `AED ${listing.price.toLocaleString()}` : 'N/A';
+        const plateContact = listing.contact_phone || listing.car_owner_phone_number || 'N/A';
+        return `Price: ${platePrice} | Contact: ${plateContact}`;
       case 'cars':
-        return `${listing.car_manufacturer || ''} ${listing.car_model || ''} | ${listing.body_type || ''} | ${listing.fuel_type || ''} | ${listing.kilometer_driven ? `${listing.kilometer_driven.toLocaleString()} km` : 'N/A'}`;
+        const carMake = listing.car_manufacturer || listing.make || 'N/A';
+        const carModel = listing.car_model || listing.model || 'N/A';
+        const bodyType = listing.body_type || 'N/A';
+        const fuelType = listing.fuel_type || 'N/A';
+        const mileage = listing.kilometer_driven ? `${listing.kilometer_driven.toLocaleString()} km` : 'N/A';
+        return `${carMake} ${carModel} | ${bodyType} | ${fuelType} | ${mileage}`;
       case 'bikes':
-        return `Year: ${listing.year || 'N/A'} | Price: ${listing.price ? `AED ${listing.price.toLocaleString()}` : 'N/A'}`;
+        const bikeYear = listing.year || 'N/A';
+        const bikePrice = listing.price || listing.expected_selling_price;
+        const bikePriceStr = bikePrice ? `AED ${bikePrice.toLocaleString()}` : 'N/A';
+        const bikeType = listing.bike_type || listing.type || 'N/A';
+        return `Year: ${bikeYear} | Price: ${bikePriceStr} | Type: ${bikeType}`;
       case 'parts':
-        return `Category: ${listing.category || 'N/A'} | Price: ${listing.price ? `AED ${listing.price.toLocaleString()}` : 'N/A'}`;
+        const partCategory = listing.category || listing.part_type || 'N/A';
+        const partPrice = listing.price ? `AED ${listing.price.toLocaleString()}` : 'N/A';
+        const partCondition = listing.condition || 'N/A';
+        return `Category: ${partCategory} | Price: ${partPrice} | Condition: ${partCondition}`;
       default:
         return '';
     }
@@ -335,6 +376,16 @@ const AdminDashboard = () => {
                           View Details
                         </button>
                         <button 
+                          className="view-btn"
+                          onClick={() => {
+                            console.log('Listing data:', listing);
+                            setShowDebugInfo(!showDebugInfo);
+                          }}
+                          style={{backgroundColor: '#6366f1'}}
+                        >
+                          Debug
+                        </button>
+                        <button 
                           className="approve-btn"
                           onClick={() => handleApprove(listing.id, activeTab)}
                           disabled={isLoading}
@@ -445,9 +496,14 @@ const AdminDashboard = () => {
                       {selectedListing.images.map((image, index) => (
                         <img 
                           key={index}
-                          src={image.url || image.image_url || image}
+                          src={getImageUrl(image)}
                           alt={`Listing ${index + 1}`}
                           className="listing-image"
+                          onError={(e) => {
+                            console.error("Image failed to load:", e.target.src);
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/150x120?text=Image+Not+Available";
+                          }}
                         />
                       ))}
                     </div>
@@ -458,16 +514,16 @@ const AdminDashboard = () => {
                 {activeTab === 'cars' && (
                   <div className="car-details">
                     <div className="detail-row">
-                      <strong>Make:</strong> {selectedListing.car_manufacturer || 'N/A'}
+                      <strong>Make:</strong> {selectedListing.car_manufacturer || selectedListing.make || 'N/A'}
                     </div>
                     <div className="detail-row">
-                      <strong>Model:</strong> {selectedListing.car_model || 'N/A'}
+                      <strong>Model:</strong> {selectedListing.car_model || selectedListing.model || 'N/A'}
                     </div>
                     <div className="detail-row">
-                      <strong>Year:</strong> {selectedListing.make_year || 'N/A'}
+                      <strong>Year:</strong> {selectedListing.make_year || selectedListing.year || 'N/A'}
                     </div>
                     <div className="detail-row">
-                      <strong>Price:</strong> {selectedListing.expected_selling_price ? `AED ${selectedListing.expected_selling_price.toLocaleString()}` : 'N/A'}
+                      <strong>Price:</strong> {(selectedListing.expected_selling_price || selectedListing.price) ? `AED ${(selectedListing.expected_selling_price || selectedListing.price).toLocaleString()}` : 'N/A'}
                     </div>
                     <div className="detail-row">
                       <strong>Mileage:</strong> {selectedListing.kilometer_driven ? `${selectedListing.kilometer_driven.toLocaleString()} km` : 'N/A'}
@@ -479,10 +535,16 @@ const AdminDashboard = () => {
                       <strong>Fuel Type:</strong> {selectedListing.fuel_type || 'N/A'}
                     </div>
                     <div className="detail-row">
-                      <strong>Transmission:</strong> {selectedListing.transmission || 'N/A'}
+                      <strong>Transmission:</strong> {selectedListing.transmission || selectedListing.transmission_type || 'N/A'}
                     </div>
                     <div className="detail-row">
                       <strong>VIN:</strong> {selectedListing.vin_number || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Location:</strong> {selectedListing.car_city || selectedListing.location || 'N/A'}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Regional Spec:</strong> {selectedListing.regional_spec || 'N/A'}
                     </div>
                   </div>
                 )}

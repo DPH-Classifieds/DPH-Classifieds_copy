@@ -24,7 +24,8 @@ const PostPlate = () => {
     plate_format: 'Any format',
     contact_name: '',
     contact_phone: '',
-    description: ''
+    description: '',
+    is_dealer: false
   });
   const [codeOptions, setCodeOptions] = useState([]);
   const [debugInfo, setDebugInfo] = useState('');
@@ -501,6 +502,24 @@ const PostPlate = () => {
                 rows="4"
                 placeholder="Provide any additional information about the plate, history, or reasons for selling"
               ></textarea>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  id="is_dealer"
+                  name="is_dealer"
+                  checked={formData.is_dealer}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
+                  className="form-check-input"
+                />
+                <span className="checkmark"></span>
+                I am a dealer
+              </label>
+              <small className="form-text text-muted">Check this box if you are posting this listing as a plate dealer</small>
             </div>
           </div>
         </div>

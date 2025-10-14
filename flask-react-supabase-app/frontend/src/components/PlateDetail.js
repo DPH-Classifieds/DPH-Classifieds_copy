@@ -14,6 +14,21 @@ const PlateDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Function to track view count
+  const trackView = async (plateId) => {
+    try {
+      await fetch(`${API_URL}/api/plates/${plateId}/view`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.warn('Failed to track view:', error);
+      // Don't show error to user, just log it
+    }
+  };
+
   useEffect(() => {
     const fetchPlateDetails = async () => {
       try {
@@ -36,6 +51,9 @@ const PlateDetail = () => {
         console.log('Plate details response:', plateData);
         setPlate(plateData);
         setError(null);
+        
+        // Track the view after successfully fetching plate details
+        await trackView(id);
       } catch (err) {
         console.error('Error fetching plate details:', err);
         setError(`Failed to load plate details: ${err.message}`);
@@ -185,6 +203,22 @@ const PlateDetail = () => {
                 <span className="info-label">Price:</span>
                 <span className="info-value price">AED {plate.price?.toLocaleString()}</span>
               </div>
+              
+              {plate.is_dealer && (
+                <div className="info-item">
+                  <span className="dealer-badge">
+                    <span className="badge">Dealer</span>
+                  </span>
+                </div>
+              )}
+              
+              {user && user.id === plate.user_id && (
+                <div className="info-item">
+                  <span className="view-counter">
+                    <span className="views">👁️ {plate.view_count || 0} views</span>
+                  </span>
+                </div>
+              )}
             </div>
             
             {plate.description && (

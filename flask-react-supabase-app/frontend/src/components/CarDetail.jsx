@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoanCalculator from './LoanCalculator';
+import { useAuth } from '../context/AuthContext';
 import './CarDetail.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -9,10 +10,21 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const CarDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [car, setCar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Function to track view count
+  const trackView = async (carId) => {
+    try {
+      await axios.post(`${API_URL}/api/cars/${carId}/view`);
+    } catch (error) {
+      console.warn('Failed to track view:', error);
+      // Don't show error to user, just log it
+    }
+  };
 
   useEffect(() => {
     const fetchCarDetails = async () => {
@@ -24,6 +36,9 @@ const CarDetail = () => {
         try {
           // First try with our real endpoint
           response = await axios.get(`${API_URL}/api/cars/${id}`);
+          
+          // Track the view after successfully fetching car details
+          await trackView(id);
         } catch (e) {
           console.warn('Failed to fetch from main endpoint, generating mock data');
           // Generate mock data for testing
@@ -211,6 +226,16 @@ const CarDetail = () => {
           <div className="car-price-location">
             <div className="car-detail-price">{formatPrice(car.expected_selling_price)}</div>
             <div className="car-detail-location">{car.car_city || 'Location not specified'}</div>
+            {car.is_dealer && (
+              <div className="dealer-badge">
+                <span className="badge">Dealer</span>
+              </div>
+            )}
+            {user && user.id === car.user_id && (
+              <div className="view-counter">
+                <span className="views">👁️ {car.view_count || 0} views</span>
+              </div>
+            )}
           </div>
           
           <div className="car-contact">

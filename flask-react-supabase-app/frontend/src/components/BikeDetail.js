@@ -12,6 +12,21 @@ const BikeDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Function to track view count
+  const trackView = async (bikeId) => {
+    try {
+      await fetch(`${API_URL}/api/bikes/${bikeId}/view`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.warn('Failed to track view:', error);
+      // Don't show error to user, just log it
+    }
+  };
+
   useEffect(() => {
     const fetchBikeDetails = async () => {
       try {
@@ -43,6 +58,9 @@ const BikeDetail = () => {
         console.log('Bike details response:', bikeData);
         setBike(bikeData);
         setError(null);
+        
+        // Track the view after successfully fetching bike details
+        await trackView(id);
       } catch (err) {
         console.error('Error fetching bike details:', err);
         
@@ -289,6 +307,22 @@ const BikeDetail = () => {
                 <span className="info-label">Price:</span>
                 <span className="info-value price">AED {bike.price?.toLocaleString()}</span>
               </div>
+              
+              {bike.is_dealer && (
+                <div className="info-item">
+                  <span className="dealer-badge">
+                    <span className="badge">Dealer</span>
+                  </span>
+                </div>
+              )}
+              
+              {user && user.id === bike.user_id && (
+                <div className="info-item">
+                  <span className="view-counter">
+                    <span className="views">👁️ {bike.view_count || 0} views</span>
+                  </span>
+                </div>
+              )}
             </div>
             
             {bike.features && bike.features.length > 0 && (

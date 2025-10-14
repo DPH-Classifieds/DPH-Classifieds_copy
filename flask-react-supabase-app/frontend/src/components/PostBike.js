@@ -24,6 +24,7 @@ const PostBike = () => {
     location: '',
     description: '',
     vin_number: '',
+    is_dealer: false,
     features: [],
     images: []
   });
@@ -532,6 +533,24 @@ const PostBike = () => {
                 rows="5"
                 placeholder="Provide detailed information about your bike, including its condition, history, modifications, and any additional features"
               ></textarea>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  id="is_dealer"
+                  name="is_dealer"
+                  checked={formData.is_dealer}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
+                  className="form-check-input"
+                />
+                <span className="checkmark"></span>
+                I am a dealer
+              </label>
+              <small className="form-text text-muted">Check this box if you are posting this listing as a bike dealer</small>
             </div>
           </div>
         </div>

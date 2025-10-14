@@ -389,3 +389,24 @@
     grid-template-columns: 1fr;
   }
 } 
+
+/* Dealer badge and view counter styles */
+.dealer-badge .badge {
+  background-color: #007bff;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.view-counter .views {
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

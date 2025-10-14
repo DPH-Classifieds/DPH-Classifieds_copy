@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import '../styles/PostForms.css';
-import { carMakes, carModels } from '../utils/carData';
+import { carMakes, carModels, carTrims } from '../utils/carData';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -34,6 +34,13 @@ const PostCar = () => {
   const [previewImages, setPreviewImages] = useState([]);
   const [mapPosition, setMapPosition] = useState([25.276987, 55.296249]); // Default to Dubai coordinates
   const [marker, setMarker] = useState([25.276987, 55.296249]);
+  
+  // Enhanced map features state
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geoError, setGeoError] = useState(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   const [formData, setFormData] = useState({
     car_manufacturer: '',
@@ -57,8 +64,11 @@ const PostCar = () => {
     engine_capacity: '',
     steering_side: '',
     car_location: '',
+    latitude: null,
+    longitude: null,
     vehicle_type: 'Used',
     vin_number: '',
+    is_dealer: false,
     extras: [],
     images: []
   });
@@ -72,13 +82,71 @@ const PostCar = () => {
   const seatingCapacities = ['2', '4', '5', '6', '7', '8', '9+'];
   const horsepowerRanges = ['100-150', '150-200', '200-300', '300-400', '400-500', '500-600', '600-700', '700+'];
   const engineCapacities = ['0-1000cc', '1100-2000cc', '2100-3000cc', '3100-4000cc', '4100-5000cc', '5100-6000cc', '6100-7000cc'];
-  const carExtras = [
-    'Climate Control', 
-    'DVD Player', 
-    'Keyless Entry', 
-    'Navigation System', 
-    'Premium Sound System'
-  ];
+  // Organized car extras by category
+  const carExtrasCategories = {
+    '🎧 Comfort & Convenience': [
+      'Dual-zone Climate Control',
+      'Tri-zone Climate Control',
+      'Ventilated Seats (Cooling Seats)',
+      'Heated Seats',
+      'Massage Seats',
+      'Panoramic Sunroof / Moonroof',
+      'Ambient Lighting (Multi-color)',
+      'Soft-Close Doors',
+      'Heads-Up Display (HUD)',
+      'Wireless Phone Charger',
+      'Rear Window Sunshades (Manual)',
+      'Rear Window Sunshades (Electric)',
+      'Power Tailgate / Hands-Free Trunk',
+      'Auto-Dimming Mirrors',
+      'Memory Seats and Steering'
+    ],
+    '🔊 Infotainment & Tech': [
+      'Apple CarPlay (Wireless)',
+      'Apple CarPlay (Wired)',
+      'Android Auto (Wireless)',
+      'Android Auto (Wired)',
+      'Rear Entertainment Screens',
+      'Bluetooth Audio Streaming',
+      'USB-C Fast Charging Ports',
+      '360° Surround Camera',
+      'Digital Cockpit / Fully Digital Instrument Cluster',
+      'Voice Command / AI Assistant',
+      'Built-In Spotify / Streaming Apps',
+      'Wi-Fi Hotspot'
+    ],
+    '🛡 Safety & Driver Assistance': [
+      'Adaptive Cruise Control (Radar Cruise)',
+      'Lane Keep Assist / Lane Departure Warning',
+      'Blind Spot Monitoring',
+      'Automatic Emergency Braking',
+      'Traffic Sign Recognition',
+      'Rear Cross Traffic Alert',
+      'Night Vision Camera',
+      'Off-Road Crawl Control / Terrain Response Modes'
+    ],
+    '🌟 Luxury & Styling': [
+      'Leather Dashboard Wrapping',
+      'Suede / Alcantara Headliner',
+      'Carbon Fiber Trim',
+      'Woodgrain Trim',
+      'Illuminated Door Sills',
+      'Chrome Appearance Package',
+      'Blackout / Night Package (Black Badges, Black Trim)',
+      'Sport Body Kit / Aero Kit'
+    ],
+    '🏜 Off-Road / Performance': [
+      'Diff Lock (Rear / Front / Center)',
+      'Air Suspension (Height Adjustable)',
+      'Skid Plates',
+      'Snorkel / Desert Air Intake',
+      'Off-Road Camera Modes',
+      'All-Terrain Drive Modes (Sand, Rock, Mud, Snow)',
+      'Tow Hook / Recovery Package'
+    ]
+  };
+
+  // Note: carExtras is now organized by categories above
 
   // Check if user is logged in when component loads
   useEffect(() => {
@@ -105,12 +173,20 @@ const PostCar = () => {
       
       // Clear model if it's not available for the selected manufacturer
       if (formData.car_model && !models.includes(formData.car_model)) {
-        setFormData(prev => ({ ...prev, car_model: '' }));
+        setFormData(prev => ({ ...prev, car_model: '', trim: '' }));
       }
     } else {
       setAvailableModels([]);
     }
   }, [formData.car_manufacturer, formData.car_model]);
+
+  // Get available trims for selected manufacturer and model
+  const getAvailableTrims = () => {
+    if (formData.car_manufacturer && formData.car_model && carTrims[formData.car_manufacturer]) {
+      return carTrims[formData.car_manufacturer][formData.car_model] || [];
+    }
+    return [];
+  };
 
   // Update listing title when key fields change
   useEffect(() => {
@@ -128,20 +204,73 @@ const PostCar = () => {
     }
   }, [formData.car_location]);
 
+  // Enhanced geocoding with address suggestions
   const geocodeAddress = async (address) => {
+    if (!address || address.trim().length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsGeocoding(true);
+    setGeoError(null);
+    
     try {
       // Using Nominatim for geocoding (OpenStreetMap's geocoder)
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+      // Focus on UAE for better results
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+        `format=json&` +
+        `q=${encodeURIComponent(address)}&` +
+        `countrycodes=ae&` +
+        `limit=5&` +
+        `addressdetails=1`
+      );
       const data = await response.json();
       
       if (data && data.length > 0) {
-        const newPosition = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-        setMapPosition(newPosition);
-        setMarker(newPosition);
+        setAddressSuggestions(data);
+        setShowSuggestions(true);
+      } else {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+        setGeoError('No addresses found. Try a different search term.');
       }
     } catch (error) {
       console.error('Geocoding error:', error);
+      setGeoError('Failed to search addresses. Please try again.');
+    } finally {
+      setIsGeocoding(false);
     }
+  };
+
+  // Debounced address search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.car_location && formData.car_location.length >= 3) {
+        geocodeAddress(formData.car_location);
+      } else {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [formData.car_location]);
+
+  // Handle address selection from suggestions
+  const handleAddressSelect = (suggestion) => {
+    const newPosition = [parseFloat(suggestion.lat), parseFloat(suggestion.lon)];
+    setMapPosition(newPosition);
+    setMarker(newPosition);
+    setFormData(prev => ({
+      ...prev,
+      car_location: suggestion.display_name,
+      latitude: suggestion.lat,
+      longitude: suggestion.lon
+    }));
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
   };
 
   // Map click handler component
@@ -184,23 +313,72 @@ const PostCar = () => {
     );
   }, [marker]);
 
+  // Enhanced reverse geocoding with loading state
   const reverseGeocode = async (lat, lng) => {
+    setIsGeocoding(true);
+    setGeoError(null);
+    
     try {
       // Using Nominatim for reverse geocoding
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+        `https://nominatim.openstreetmap.org/reverse?` +
+        `format=json&` +
+        `lat=${lat}&` +
+        `lon=${lng}&` +
+        `addressdetails=1`
       );
       const data = await response.json();
       
       if (data && data.display_name) {
         setFormData(prev => ({
           ...prev,
-          car_location: data.display_name
+          car_location: data.display_name,
+          latitude: lat,
+          longitude: lng
         }));
+      } else {
+        setGeoError('Could not find address for this location.');
       }
     } catch (error) {
       console.error('Reverse geocoding error:', error);
+      setGeoError('Failed to get address. Please try again.');
+    } finally {
+      setIsGeocoding(false);
     }
+  };
+
+  // Get current location using browser geolocation
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsGettingLocation(true);
+    setGeoError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const newPosition = [lat, lng];
+        
+        setMapPosition(newPosition);
+        setMarker(newPosition);
+        reverseGeocode(lat, lng);
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        setGeoError('Failed to get your location. Please enable location services.');
+        setIsGettingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
   };
 
   const handleChange = (e) => {
@@ -423,14 +601,30 @@ const PostCar = () => {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="trim">Trim</label>
-              <input
-                type="text"
-                id="trim"
-                name="trim"
-                value={formData.trim}
-                onChange={handleChange}
-                className="form-control"
-              />
+              {getAvailableTrims().length > 0 ? (
+                <select
+                  id="trim"
+                  name="trim"
+                  value={formData.trim}
+                  onChange={handleChange}
+                  className="form-control form-select"
+                >
+                  <option value="">Select Trim (Optional)</option>
+                  {getAvailableTrims().map(trim => (
+                    <option key={trim} value={trim}>{trim}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  id="trim"
+                  name="trim"
+                  value={formData.trim}
+                  onChange={handleChange}
+                  className="form-control"
+                  placeholder="Enter trim (optional)"
+                />
+              )}
             </div>
             
             <div className="form-group">
@@ -574,6 +768,24 @@ const PostCar = () => {
               ></textarea>
             </div>
           </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  id="is_dealer"
+                  name="is_dealer"
+                  checked={formData.is_dealer}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
+                  className="form-check-input"
+                />
+                <span className="checkmark"></span>
+                I am a dealer
+              </label>
+              <small className="form-text text-muted">Check this box if you are posting this listing as a car dealer</small>
+            </div>
+          </div>
         </div>
         
         <div className="form-section">
@@ -711,27 +923,34 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group full-width">
-              <label htmlFor="extras">Extras</label>
+              <label htmlFor="extras">Car Extras & Features</label>
               <button type="button" className="text-danger extras-toggle" onClick={toggleExtras}>
                 {showExtras ? 'Show less ▲' : 'Show all ▼'}
               </button>
               
-              <div id="extrasList" className="row" style={{ display: showExtras ? 'flex' : 'none' }}>
-                {carExtras.map(extra => (
-                  <div className="col-md-6" key={extra}>
-                    <div className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}
-                        name="extras[]"
-                        value={extra}
-                        checked={formData.extras.includes(extra)}
-                        onChange={handleChange}
-                      />
-                      <label className="form-check-label" htmlFor={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}>
-                        {extra}
-                      </label>
+              <div id="extrasList" style={{ display: showExtras ? 'block' : 'none' }}>
+                {Object.entries(carExtrasCategories).map(([category, extras]) => (
+                  <div key={category} className="extras-category">
+                    <h4 className="extras-category-title">{category}</h4>
+                    <div className="row">
+                      {extras.map(extra => (
+                        <div className="col-md-6 col-lg-4" key={extra}>
+                          <div className="form-check">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}
+                              name="extras[]"
+                              value={extra}
+                              checked={formData.extras.includes(extra)}
+                              onChange={handleChange}
+                            />
+                            <label className="form-check-label" htmlFor={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}>
+                              {extra}
+                            </label>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -742,25 +961,92 @@ const PostCar = () => {
           <div className="form-row">
             <div className="form-group full-width">
               <label htmlFor="car_location">Locate your car <span className="text-muted">(Optional)</span></label>
-              <input
-                type="text"
-                id="car_location"
-                name="car_location"
-                value={formData.car_location}
-                onChange={(e) => {
-                  handleChange(e);
-                  if (e.target.value.trim() !== '') {
-                    geocodeAddress(e.target.value);
-                  }
-                }}
-                placeholder="Enter your location or click on the map"
-                className="form-control"
-                ref={locationInputRef}
-              />
-              <div className="map-instructions">
-                Click on the map to set your car's location or drag the marker to reposition it
+              
+              <div className="location-search-container">
+                <div className="search-input-wrapper">
+                  <input
+                    type="text"
+                    id="car_location"
+                    name="car_location"
+                    value={formData.car_location}
+                    onChange={handleChange}
+                    onFocus={() => {
+                      if (addressSuggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    placeholder="Search for an address in UAE..."
+                    className="form-control location-search-input"
+                    ref={locationInputRef}
+                    autoComplete="off"
+                  />
+                  {isGeocoding && (
+                    <div className="search-loading-indicator">
+                      <span className="spinner-small"></span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Address Suggestions Dropdown */}
+                {showSuggestions && addressSuggestions.length > 0 && (
+                  <div className="address-suggestions-dropdown">
+                    {addressSuggestions.map((suggestion, index) => (
+                      <div
+                        key={index}
+                        className="suggestion-item"
+                        onClick={() => handleAddressSelect(suggestion)}
+                      >
+                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-text">
+                          <div className="suggestion-main">{suggestion.display_name}</div>
+                          {suggestion.address && (
+                            <div className="suggestion-sub">
+                              {suggestion.address.city || suggestion.address.town || suggestion.address.state}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {geoError && (
+                  <div className="geo-error-message">
+                    ⚠️ {geoError}
+                  </div>
+                )}
+
+                {/* Current Location Button */}
+                <button
+                  type="button"
+                  className="current-location-btn"
+                  onClick={getCurrentLocation}
+                  disabled={isGettingLocation}
+                >
+                  {isGettingLocation ? (
+                    <>
+                      <span className="spinner-small"></span> Getting location...
+                    </>
+                  ) : (
+                    <>
+                      📍 Use Current Location
+                    </>
+                  )}
+                </button>
               </div>
+
+              <div className="map-instructions">
+                💡 Type to search, click "Use Current Location", or click/drag on the map
+              </div>
+
               <div className="map-container">
+                {isGeocoding && (
+                  <div className="map-loading-overlay">
+                    <div className="spinner"></div>
+                    <p>Loading location...</p>
+                  </div>
+                )}
                 <MapContainer 
                   center={mapPosition} 
                   zoom={13} 
