@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, abort, send_from_directory, session, redirect, url_for, flash, Blueprint, render_template
+from flask import Flask, jsonify, request, abort, send_from_directory, session, redirect, url_for, flash, Blueprint, render_template, make_response
 from dotenv import load_dotenv
 import os
 import requests
@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 import uuid
 import threading
 import datetime
+import secrets
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -476,6 +477,7 @@ def create_car(current_user):
         
         car_data = request.json
         car_data['user_id'] = current_user
+        car_data['status'] = 'pending'  # Set status as pending for admin approval
         
         # Extract and transform extras array to individual boolean fields
         extras = car_data.pop('extras', [])
@@ -547,13 +549,27 @@ def create_car(current_user):
         logger.error(f"Error creating car listing: {e}")
         return jsonify({"error": str(e)}), 500
 
+# Handle OPTIONS preflight for car update
+@app.route('/api/cars/<string:car_id>', methods=['OPTIONS'])
+def update_car_options(car_id):
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add('Access-Control-Allow-Headers', "*")
+    response.headers.add('Access-Control-Allow-Methods', "*")
+    return response
+
 # Update a car listing (authenticated)
 @app.route('/api/cars/<string:car_id>', methods=['PUT'])
 @token_required
 def update_car(current_user, car_id):
+        
     try:
-        # Validate input
-        if not request.json:
+        logger.info(f"Updating car {car_id} for user {current_user}")
+        
+        # Check if this is FormData or JSON
+        is_form_data = request.content_type and 'multipart/form-data' in request.content_type
+        
+        if not is_form_data and not request.json:
             return jsonify({'error': 'Invalid request data'}), 400
         
         # Verify car ownership
@@ -573,7 +589,37 @@ def update_car(current_user, car_id):
         if car_data[0]['user_id'] != current_user:
             return jsonify({'error': 'You do not have permission to update this car'}), 403
         
-        update_data = request.json
+        # Extract data based on content type
+        if is_form_data:
+            logger.info("Processing FormData request")
+            update_data = {}
+            
+            # Extract form fields
+            for key in request.form.keys():
+                value = request.form.get(key)
+                if key not in ['keep_image_ids'] and value not in ['', 'false', 'undefined', 'null']:
+                    # Convert boolean strings
+                    if value == 'true':
+                        update_data[key] = True
+                    elif value == 'false':
+                        update_data[key] = False
+                    # Convert numeric strings
+                    elif key in ['make_year', 'mileage', 'expected_selling_price'] and value.isdigit():
+                        update_data[key] = int(value)
+                    else:
+                        update_data[key] = value
+            
+            logger.info(f"Extracted form data: {update_data}")
+            
+            # Handle new images
+            new_images = request.files.getlist('images') if 'images' in request.files else []
+            keep_image_ids = request.form.getlist('keep_image_ids')
+            
+        else:
+            logger.info("Processing JSON request")
+            update_data = request.json
+            new_images = []
+            keep_image_ids = []
         
         # Extract and transform extras array to individual boolean fields
         if 'extras' in update_data:
@@ -602,8 +648,6 @@ def update_car(current_user, car_id):
                 if extra in extras_mapping:
                     update_data[extras_mapping[extra]] = True
         
-        images = update_data.pop('images', None)
-        
         # Update the car
         data, status_code = supabase_request(
             'put', 
@@ -616,32 +660,65 @@ def update_car(current_user, car_id):
         if status_code >= 400:
             return jsonify(data), status_code
         
-        # Update images if provided
-        if images is not None:
-            # First, delete all existing images
-            delete_resp, delete_status = supabase_request(
-                'delete', 
+        # Handle image updates for FormData requests
+        if is_form_data and (new_images or keep_image_ids):
+            logger.info(f"Managing images: keeping {len(keep_image_ids)} existing, uploading {len(new_images)} new")
+            
+            # Get all current images
+            current_images_resp, current_images_status = supabase_request(
+                'get', 
                 '/rest/v1/car_images', 
-                params={'car_id': f'eq.{car_id}'},
+                params={'select': '*', 'car_id': f'eq.{car_id}'},
                 user_id=current_user
             )
             
-            # Add new images
-            if images:
-                image_inserts = []
-                for image_url in images:
-                    image_inserts.append({
-                        'car_id': car_id,
-                        'url': image_url,
-                        'image_url': image_url  # Add image_url field for frontend compatibility
-                    })
+            current_images = current_images_resp if current_images_status < 400 else []
+            
+            # Delete images not in keep_image_ids
+            for img in current_images:
+                if img['id'] not in keep_image_ids:
+                    logger.info(f"Deleting image {img['id']}")
+                    supabase_request(
+                        'delete', 
+                        '/rest/v1/car_images', 
+                        params={'id': f'eq.{img["id"]}'},
+                        user_id=current_user
+                    )
+            
+            # Upload new images
+            if new_images:
+                upload_dir = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
                 
-                images_data, images_status = supabase_request(
-                    'post', 
-                    '/rest/v1/car_images', 
-                    data=image_inserts,
-                    user_id=current_user
-                )
+                for file in new_images:
+                    if file and file.filename:
+                        # Generate unique filename
+                        filename = secure_filename(file.filename)
+                        timestamp = int(time.time())
+                        file_extension = os.path.splitext(filename)[1]
+                        unique_filename = f"{timestamp}_{uuid.uuid4().hex[:8]}{file_extension}"
+                        
+                        # Save file
+                        file_path = os.path.join(upload_dir, unique_filename)
+                        file.save(file_path)
+                        logger.info(f"Saved new image to {file_path}")
+                        
+                        # Generate URL
+                        image_url = f"/static/uploads/{unique_filename}"
+                        
+                        # Save to database
+                        image_data = {
+                            'car_id': car_id,
+                            'url': image_url,
+                            'image_url': image_url
+                        }
+                        
+                        supabase_request(
+                            'post', 
+                            '/rest/v1/car_images', 
+                            data=image_data,
+                            user_id=current_user
+                        )
         
         # Get updated car with images
         updated_car, updated_status = supabase_request(
@@ -937,18 +1014,313 @@ def get_user_profile(current_user):
         logger.error(f"Error in get_user_profile: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# Profile management routes
+@app.route('/api/user/update-profile', methods=['PUT'])
+@token_required
+def update_user_profile(current_user):
+    """Update user profile information"""
+    try:
+        data = request.json
+        logger.info(f"Updating profile for user ID: {current_user}")
+        
+        if not data:
+            return jsonify({'message': 'No data provided'}), 400
+        
+        # Map frontend field names to database field names
+        field_mapping = {
+            'email': 'email',
+            'firstName': 'first_name',
+            'lastName': 'last_name',
+            'username': 'username',
+            'displayName': 'display_name',
+            'phone': 'phone',
+            'countryCode': 'country_code',
+            'whatsappNumber': 'whatsapp_number',
+            'city': 'city',
+            'emirate': 'emirate',
+            'country': 'country',
+            'postalCode': 'postal_code',
+            'address': 'address',
+            'bio': 'bio',
+            'companyName': 'company_name',
+            'companyRegistrationNumber': 'company_registration_number',
+            'tradeLicenseNumber': 'trade_license_number',
+            'taxRegistrationNumber': 'tax_registration_number',
+            'websiteUrl': 'website_url',
+            'facebookUrl': 'facebook_url',
+            'instagramUrl': 'instagram_url',
+            'twitterUrl': 'twitter_url',
+            'emailNotifications': 'email_notifications',
+            'smsNotifications': 'sms_notifications',
+            'marketingEmails': 'marketing_emails',
+            'profilePhotoUrl': 'profile_photo_url'
+        }
+        
+        # Prepare update data - only include fields that are provided
+        update_fields = {}
+        for frontend_field, db_field in field_mapping.items():
+            if frontend_field in data:
+                update_fields[db_field] = data[frontend_field]
+        
+        if not update_fields:
+            return jsonify({'message': 'No valid fields to update'}), 400
+        
+        # Add updated timestamp
+        update_fields['updated_at'] = 'now()'
+        
+        # Build SET clause for the query
+        set_clauses = []
+        params = {}
+        param_count = 1
+        
+        for field, value in update_fields.items():
+            if field == 'updated_at':
+                set_clauses.append(f"{field} = now()")
+            else:
+                placeholder = f"${param_count}"
+                set_clauses.append(f"{field} = {placeholder}")
+                params[str(param_count)] = value
+                param_count += 1
+        
+        # Use direct request with service role key for profile updates
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Update using the REST API with eq filter
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}"
+        
+        # Prepare the update payload
+        update_payload = {}
+        for field, value in update_fields.items():
+            if field != 'updated_at':  # Let Supabase handle the timestamp
+                update_payload[field] = value
+        
+        logger.info(f"Updating user profile with payload: {update_payload}")
+        response = requests.patch(url, headers=headers, json=update_payload)
+        
+        if response.status_code == 200 or response.status_code == 204:
+            # Fetch updated user data
+            get_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
+            get_response = requests.get(get_url, headers=headers)
+            
+            if get_response.status_code == 200:
+                users = get_response.json()
+                if users:
+                    updated_user = users[0]
+                    logger.info(f"Profile updated successfully for user: {updated_user.get('email')}")
+                    return jsonify(updated_user), 200
+            
+            return jsonify({'message': 'Profile updated successfully'}), 200
+        else:
+            logger.error(f"Failed to update profile: {response.status_code} - {response.text}")
+            error_data = response.json() if response.text else {}
+            return jsonify({'message': 'Failed to update profile', 'error': error_data}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in update_user_profile: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/user/upload-profile-photo', methods=['POST'])
+@token_required
+def upload_profile_photo(current_user):
+    """Upload profile photo to Supabase Storage"""
+    try:
+        logger.info(f"Uploading profile photo for user ID: {current_user}")
+        
+        if 'profile_photo' not in request.files:
+            return jsonify({'message': 'No file provided'}), 400
+        
+        file = request.files['profile_photo']
+        if file.filename == '':
+            return jsonify({'message': 'No file selected'}), 400
+        
+        # Validate file type
+        allowed_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif'}
+        if file.content_type not in allowed_types:
+            return jsonify({'message': 'Invalid file type. Only JPG, PNG, and GIF are allowed'}), 400
+        
+        # Validate file size (5MB max)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 5 * 1024 * 1024:  # 5MB
+            return jsonify({'message': 'File size too large. Maximum size is 5MB'}), 400
+        
+        # Generate unique filename
+        import uuid
+        from datetime import datetime
+        file_extension = file.filename.rsplit('.', 1)[1].lower()
+        unique_filename = f"{current_user}/{uuid.uuid4()}.{file_extension}"
+        
+        # Upload to Supabase Storage
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        upload_url = f"{app.config['SUPABASE_URL']}/storage/v1/object/profile-photos/{unique_filename}"
+        
+        headers = {
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': file.content_type
+        }
+        
+        file_data = file.read()
+        logger.info(f"Uploading file to: {upload_url}")
+        
+        upload_response = requests.post(upload_url, headers=headers, data=file_data)
+        
+        if upload_response.status_code in [200, 201]:
+            # Generate public URL
+            public_url = f"{app.config['SUPABASE_URL']}/storage/v1/object/public/profile-photos/{unique_filename}"
+            
+            logger.info(f"Profile photo uploaded successfully: {public_url}")
+            return jsonify({
+                'message': 'Photo uploaded successfully',
+                'profile_photo_url': public_url
+            }), 200
+        else:
+            logger.error(f"Failed to upload photo: {upload_response.status_code} - {upload_response.text}")
+            return jsonify({'message': 'Failed to upload photo'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in upload_profile_photo: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/user/statistics', methods=['GET'])
+@token_required
+def get_user_statistics(current_user):
+    """Get user listing statistics"""
+    try:
+        logger.info(f"Getting statistics for user ID: {current_user}")
+        
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        base_url = app.config['SUPABASE_URL']
+        
+        # Count cars
+        cars_response = requests.get(
+            f"{base_url}/rest/v1/cars?user_id=eq.{current_user}&select=id,status,view_count",
+            headers=headers
+        )
+        
+        # Count bikes  
+        bikes_response = requests.get(
+            f"{base_url}/rest/v1/bikes?user_id=eq.{current_user}&select=id,status,view_count",
+            headers=headers
+        )
+        
+        # Count plates
+        plates_response = requests.get(
+            f"{base_url}/rest/v1/license_plates?user_id=eq.{current_user}&select=id,status,view_count",
+            headers=headers
+        )
+        
+        # Count parts
+        parts_response = requests.get(
+            f"{base_url}/rest/v1/car_parts?user_id=eq.{current_user}&select=id,status",
+            headers=headers
+        )
+        
+        # Process results
+        cars = cars_response.json() if cars_response.status_code == 200 else []
+        bikes = bikes_response.json() if bikes_response.status_code == 200 else []
+        plates = plates_response.json() if plates_response.status_code == 200 else []
+        parts = parts_response.json() if parts_response.status_code == 200 else []
+        
+        all_listings = cars + bikes + plates + parts
+        
+        # Calculate statistics
+        total_listings = len(all_listings)
+        active_listings = sum(1 for item in all_listings if item.get('status') == 'approved')
+        pending_listings = sum(1 for item in all_listings if item.get('status') == 'pending')
+        
+        # Calculate total views (only cars, bikes, and plates have view counts)
+        total_views = sum(item.get('view_count', 0) for item in (cars + bikes + plates))
+        
+        # Get user creation date
+        user_response = requests.get(
+            f"{base_url}/rest/v1/users?id=eq.{current_user}&select=created_at",
+            headers=headers
+        )
+        
+        member_since = None
+        if user_response.status_code == 200:
+            users = user_response.json()
+            if users:
+                member_since = users[0].get('created_at')
+        
+        statistics = {
+            'total_listings': total_listings,
+            'active_listings': active_listings,
+            'sold_listings': 0,  # Placeholder for future feature
+            'pending_listings': pending_listings,
+            'total_views': total_views,
+            'member_since': member_since
+        }
+        
+        logger.info(f"Statistics calculated for user: {statistics}")
+        return jsonify(statistics), 200
+        
+    except Exception as e:
+        logger.error(f"Error in get_user_statistics: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+def find_user_email_by_username(username):
+    """Find user's email by username for login"""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Search for user by username
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=eq.{username}&select=email"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            users = response.json()
+            if users and len(users) > 0:
+                return users[0].get('email')
+        
+        return None
+    except Exception as e:
+        logger.error(f"Error finding user by username: {str(e)}")
+        return None
+
 # User authentication routes
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.json
-    logger.info(f"[Login] Attempt for email: {data.get('email', 'unknown')}")
+    identifier = data.get('email', '')  # This can now be either email or username
+    logger.info(f"[Login] Attempt for identifier: {identifier}")
     
-    if not data or not data.get('email') or not data.get('password'):
-        logger.warning("[Login] Missing email or password in request.")
-        return jsonify({'message': 'Missing email or password'}), 400
+    if not data or not identifier or not data.get('password'):
+        logger.warning("[Login] Missing email/username or password in request.")
+        return jsonify({'message': 'Missing email/username or password'}), 400
     
-    email = data.get('email')
     password = data.get('password')
+    
+    # Determine if the identifier is an email or username
+    email = identifier
+    if '@' not in identifier:
+        # It's a username, find the corresponding email
+        logger.info(f"[Login] Identifier appears to be username: {identifier}")
+        email = find_user_email_by_username(identifier)
+        if not email:
+            logger.warning(f"[Login] No user found with username: {identifier}")
+            return jsonify({'message': 'Invalid username or password'}), 401
+        logger.info(f"[Login] Found email for username {identifier}: {email}")
+    else:
+        logger.info(f"[Login] Identifier appears to be email: {identifier}")
     
     url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
     headers = { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' }
@@ -1012,6 +1384,24 @@ def signup():
     email = data.get('email')
     password = data.get('password')
     
+    # Extract additional user metadata
+    user_metadata = {
+        'first_name': data.get('firstName', ''),
+        'last_name': data.get('lastName', ''),
+        'username': data.get('username', ''),
+        'phone': data.get('phone', ''),
+        'country_code': data.get('countryCode', '+971'),
+        'city': data.get('city', ''),
+        'emirate': data.get('emirate', ''),
+        'is_dealer': data.get('isDealer', False),
+        'company_name': data.get('companyName', ''),
+        'company_registration_number': data.get('companyRegistrationNumber', ''),
+        'display_name': data.get('displayName', ''),
+        'email_notifications': data.get('emailNotifications', True),
+        'sms_notifications': data.get('smsNotifications', True),
+        'marketing_emails': data.get('marketingEmails', False)
+    }
+    
     # Sign up with Supabase
     url = f"{SUPABASE_URL}/auth/v1/signup"
     headers = {
@@ -1020,7 +1410,8 @@ def signup():
     }
     payload = {
         'email': email,
-        'password': password
+        'password': password,
+        'data': user_metadata  # This will be stored in raw_user_meta_data
     }
     
     try:
@@ -1474,6 +1865,7 @@ def create_bike(current_user):
         
         bike_data = request.json
         bike_data['user_id'] = current_user
+        bike_data['status'] = 'pending'  # Set status as pending for admin approval
         
         # Extract images from the request
         images = bike_data.pop('images', [])
@@ -1668,24 +2060,63 @@ def get_plates():
         # Get query parameters
         limit = int(request.args.get('limit', 50))
         offset = int(request.args.get('offset', 0))
-        order = request.args.get('order', 'created_at')
         
-        # Construct parameters for Supabase query
-        params = {
-            'limit': limit,
-            'offset': offset,
-            'order': order,
-            'status': 'eq.approved',  # Only show approved plates
-            'is_approved': 'eq.true'  # Ensure consistency
+        logger.info(f"Fetching plates with limit: {limit}, offset: {offset}")
+        
+        # Use direct request with service role key
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
         }
         
-        # Filter out any underscore parameters
-        params = {k: v for k, v in params.items() if not k.startswith('_')}
+        # Build query - only get approved plates
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc&limit={limit}&offset={offset}&select=*"
         
-        logger.info(f"Fetching plates with params: {params}")
+        logger.info(f"Fetching plates from: {url}")
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            plates = response.json()
+            logger.info(f"Found {len(plates)} plates")
+            
+            # Fetch images for each plate
+            for plate in plates:
+                plate_id = plate.get('id')
+                if plate_id:
+                    try:
+                        image_url = f"{app.config['SUPABASE_URL']}/rest/v1/plate_images?plate_id=eq.{plate_id}&select=*"
+                        image_response = requests.get(image_url, headers=headers, timeout=5)
+                        
+                        if image_response.status_code == 200:
+                            images = image_response.json()
+                            plate['images'] = [img.get('image_url') for img in images if img.get('image_url')]
+                        else:
+                            plate['images'] = []
+                    except Exception as img_error:
+                        logger.error(f"Error fetching images for plate {plate_id}: {str(img_error)}")
+                        plate['images'] = []
+                else:
+                    plate['images'] = []
+            
+            return jsonify(plates), 200
+        else:
+            logger.error(f"Failed to fetch plates: {response.status_code} - {response.text}")
+            return jsonify([]), 200  # Return empty array instead of error
+    
+    except Exception as e:
+        logger.error(f"Error fetching plates: {str(e)}", exc_info=True)
+        return jsonify([]), 200  # Return empty array instead of error to prevent frontend crash
+
+@app.route('/api/plates/<plate_id>', methods=['GET'])
+def get_plate_details(plate_id):
+    """Get details for a specific plate by ID"""
+    try:
+        logger.info(f"Fetching plate details for ID: {plate_id}")
         
         try:
-            # Use direct request with service role key for admin operations
+            # Use direct request with service role key
             service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
             headers = {
                 'apikey': service_role_key,
@@ -1693,66 +2124,70 @@ def get_plates():
                 'Content-Type': 'application/json'
             }
             
-            # Construct query string
-            query_params = []
-            for key, value in params.items():
-                if key == 'order':
-                    query_params.append(f"order={value}")
-                else:
-                    query_params.append(f"{key}={value}")
-            
-            query_string = '&'.join(query_params)
-            url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?{query_string}"
-            
+            # Get the specific plate
+            url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?id=eq.{plate_id}&select=*"
             logger.info(f"Making direct request to: {url}")
             response = requests.get(url, headers=headers)
             
             if response.status_code == 200:
                 plates = response.json()
+                if not plates:
+                    logger.warning(f"No plate found with ID: {plate_id}")
+                    return jsonify({"error": "Plate not found"}), 404
+                    
+                plate = plates[0]
+                logger.info(f"Found plate: {plate.get('city')} {plate.get('code')} {plate.get('number')}")
                 
-                # Fetch images for each plate
-                for plate in plates:
-                    plate_id = plate['id']
-                    image_url = f"{app.config['SUPABASE_URL']}/rest/v1/plate_images?plate_id=eq.{plate_id}"
+                # Fetch images for this plate
+                try:
+                    image_url = f"{app.config['SUPABASE_URL']}/rest/v1/plate_images?plate_id=eq.{plate['id']}&select=*"
                     image_response = requests.get(image_url, headers=headers)
                     
                     if image_response.status_code == 200:
                         images = image_response.json()
-                        plate['images'] = [img['image_url'] for img in images]
+                        plate['images'] = images
+                        logger.info(f"Found {len(images)} images for plate")
                     else:
                         plate['images'] = []
+                        logger.warning(f"No images found for plate {plate_id}")
+                except Exception as img_err:
+                    logger.error(f"Error fetching images for plate {plate['id']}: {img_err}")
+                    plate['images'] = []
                 
-                return jsonify(plates)
+                return jsonify(plate), 200
             else:
-                logger.error(f"Direct request failed: {response.status_code} - {response.text}")
-                # Fallback to regular method
-                raise Exception("Direct request failed")
+                logger.error(f"Error fetching plate details: {response.status_code} - {response.text}")
+                return jsonify({"error": "Failed to fetch plate details"}), 500
                 
         except Exception as e:
             logger.error(f"Error in direct request: {str(e)}")
             # Fallback to regular Supabase client
-            response, status_code = supabase_request('get', '/rest/v1/license_plates', params=params)
-            if status_code < 400 and response:
-                # Fetch images for each plate in fallback
-                for plate in response:
-                    plate_id = plate['id']
-                    images_response, images_status = supabase_request(
-                        'get',
-                        '/rest/v1/plate_images',
-                        params={'select': '*', 'plate_id': f'eq.{plate_id}'}
-                    )
-                    if images_status < 400 and images_response:
-                        plate['images'] = images_response
-                    else:
-                        plate['images'] = []
-                return jsonify(response)
+            response, status_code = supabase_request(
+                'get', 
+                '/rest/v1/license_plates', 
+                params={'id': f'eq.{plate_id}', 'select': '*'}
+            )
+            if status_code < 400 and response and len(response) > 0:
+                plate = response[0]
+                
+                # Fetch images for this plate in fallback
+                images_response, images_status = supabase_request(
+                    'get',
+                    '/rest/v1/plate_images',
+                    params={'select': '*', 'plate_id': f'eq.{plate_id}'}
+                )
+                if images_status < 400 and images_response:
+                    plate['images'] = images_response
+                else:
+                    plate['images'] = []
+                    
+                return jsonify(plate), 200
             else:
-                return jsonify([])
-    
+                return jsonify({"error": "Plate not found"}), 404
+            
     except Exception as e:
-        logger.error(f"Error fetching plates: {str(e)}")
-        logger.error(f"Error creating plate directly: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error in get_plate_details: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # Car Parts Endpoints
 @app.route('/api/parts', methods=['GET'])
@@ -1845,6 +2280,197 @@ def get_parts():
     except Exception as e:
         logger.error(f"Error fetching parts: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# Create a new car parts listing (authenticated)
+@app.route('/api/parts', methods=['POST'])
+@token_required
+def create_part(current_user):
+    try:
+        logger.info("Creating new car part listing")
+        
+        # Check if this is FormData or JSON
+        is_form_data = request.content_type and 'multipart/form-data' in request.content_type
+        
+        if is_form_data:
+            # Handle FormData (with file uploads)
+            part_data = {}
+            
+            # Get form fields
+            for key, value in request.form.items():
+                if key.startswith('image_'):
+                    continue  # Skip image fields, handle separately
+                elif key == 'compatible_makes' or key == 'compatible_models':
+                    # Parse JSON strings back to arrays
+                    try:
+                        part_data[key] = json.loads(value) if value else []
+                    except:
+                        part_data[key] = []
+                else:
+                    part_data[key] = value
+            
+            # Handle file uploads
+            uploaded_files = []
+            for key, file in request.files.items():
+                if key.startswith('image_') and file and file.filename:
+                    # Save the uploaded file
+                    filename = secure_filename(file.filename)
+                    timestamp = int(time.time())
+                    random_suffix = secrets.token_hex(4)
+                    file_extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else 'jpg'
+                    unique_filename = f"{timestamp}_{random_suffix}.{file_extension}"
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                    
+                    file.save(file_path)
+                    
+                    # Store the URL for the database
+                    file_url = f"/static/uploads/{unique_filename}"
+                    uploaded_files.append(file_url)
+                    logger.info(f"Saved part image: {unique_filename}")
+            
+        else:
+            # Handle JSON data
+            if not request.json:
+                return jsonify({'error': 'Invalid request data'}), 400
+            part_data = request.json.copy()
+            uploaded_files = part_data.pop('images', [])
+        
+        # Set required fields
+        part_data['user_id'] = current_user
+        part_data['status'] = 'pending'  # Set status as pending for admin approval
+        
+        # Validate required fields
+        required_fields = ['name', 'part_type', 'price']
+        for field in required_fields:
+            if not part_data.get(field):
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Create the part entry
+        logger.info(f"Creating part with data: {part_data}")
+        data, status_code = supabase_request(
+            'post', 
+            '/rest/v1/car_parts', 
+            data=part_data,
+            user_id=current_user
+        )
+        
+        if status_code >= 400:
+            logger.error(f"Error creating part: {data}")
+            return jsonify(data), status_code
+        
+        part_id = data[0]['id']
+        logger.info(f"Created part with ID: {part_id}")
+        
+        # Add images if any
+        if uploaded_files:
+            image_inserts = []
+            for image_url in uploaded_files:
+                image_inserts.append({
+                    'part_id': part_id,
+                    'url': image_url,
+                    'image_url': image_url  # Add image_url field for frontend compatibility
+                })
+            
+            images_data, images_status = supabase_request(
+                'post', 
+                '/rest/v1/part_images', 
+                data=image_inserts,
+                user_id=current_user
+            )
+            
+            if images_status < 400:
+                data[0]['images'] = images_data
+                logger.info(f"Added {len(images_data)} images to part")
+            else:
+                data[0]['images'] = []
+                logger.warning(f"Failed to add images: {images_data}")
+        else:
+            data[0]['images'] = []
+        
+        return jsonify(data[0]), 201
+        
+    except Exception as e:
+        logger.error(f"Error creating car part listing: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/parts/<part_id>', methods=['GET'])
+def get_part_details(part_id):
+    """Get details for a specific car part by ID"""
+    try:
+        logger.info(f"Fetching part details for ID: {part_id}")
+        
+        try:
+            # Use direct request with service role key
+            service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+            headers = {
+                'apikey': service_role_key,
+                'Authorization': f'Bearer {service_role_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Get the specific part
+            url = f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?id=eq.{part_id}&select=*"
+            logger.info(f"Making direct request to: {url}")
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                parts = response.json()
+                if not parts:
+                    logger.warning(f"No part found with ID: {part_id}")
+                    return jsonify({"error": "Part not found"}), 404
+                    
+                part = parts[0]
+                logger.info(f"Found part: {part.get('name', 'Unknown part')}")
+                
+                # Fetch images for this part
+                try:
+                    image_url = f"{app.config['SUPABASE_URL']}/rest/v1/part_images?part_id=eq.{part['id']}&select=*"
+                    image_response = requests.get(image_url, headers=headers)
+                    
+                    if image_response.status_code == 200:
+                        images = image_response.json()
+                        part['images'] = images
+                        logger.info(f"Found {len(images)} images for part")
+                    else:
+                        part['images'] = []
+                        logger.warning(f"No images found for part {part_id}")
+                except Exception as img_err:
+                    logger.error(f"Error fetching images for part {part['id']}: {img_err}")
+                    part['images'] = []
+                
+                return jsonify(part), 200
+            else:
+                logger.error(f"Error fetching part details: {response.status_code} - {response.text}")
+                return jsonify({"error": "Failed to fetch part details"}), 500
+                
+        except Exception as e:
+            logger.error(f"Error in direct request: {str(e)}")
+            # Fallback to regular Supabase client
+            response, status_code = supabase_request(
+                'get', 
+                '/rest/v1/car_parts', 
+                params={'id': f'eq.{part_id}', 'select': '*'}
+            )
+            if status_code < 400 and response and len(response) > 0:
+                part = response[0]
+                
+                # Fetch images for this part in fallback
+                images_response, images_status = supabase_request(
+                    'get',
+                    '/rest/v1/part_images',
+                    params={'select': '*', 'part_id': f'eq.{part_id}'}
+                )
+                if images_status < 400 and images_response:
+                    part['images'] = images_response
+                else:
+                    part['images'] = []
+                    
+                return jsonify(part), 200
+            else:
+                return jsonify({"error": "Part not found"}), 404
+            
+    except Exception as e:
+        logger.error(f"Error in get_part_details: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # Diagnostic endpoint to check if service role key is available
 @app.route('/api/diagnostics/config', methods=['GET'])
@@ -2159,6 +2785,291 @@ def get_user_email(user_id):
         logger.error(f"Error getting user email: {str(e)}")
         return 'unknown@example.com'
 
+# Admin-only endpoints to fetch ALL listings (including pending) for admin dashboard
+@app.route('/api/admin/cars', methods=['GET'])
+@token_required
+def admin_get_cars(current_user):
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        # Get ALL cars regardless of status for admin review
+        response, status_code = supabase_request(
+            'get',
+            '/rest/v1/cars',
+            params={'select': '*', 'order': 'created_at.desc'},
+            use_service_role=True
+        )
+        
+        if status_code >= 400:
+            return jsonify({'error': 'Failed to fetch cars'}), status_code
+        
+        if not response:
+            response = []
+        
+        # Fetch images for each car
+        for car in response:
+            car_id = car.get('id')
+            if car_id:
+                images_response, images_status = supabase_request(
+                    'get',
+                    '/rest/v1/car_images',
+                    params={'select': '*', 'car_id': f'eq.{car_id}'},
+                    use_service_role=True
+                )
+                
+                if images_status < 400:
+                    for image in images_response:
+                        if 'url' in image and 'image_url' not in image:
+                            image['image_url'] = image['url']
+                    car['images'] = images_response
+                else:
+                    car['images'] = []
+            else:
+                car['images'] = []
+        
+        logger.info(f"Admin fetched {len(response)} cars (all statuses)")
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error in admin_get_cars: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/bikes', methods=['GET'])
+@token_required
+def admin_get_bikes(current_user):
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        # Get ALL bikes regardless of status for admin review
+        response, status_code = supabase_request(
+            'get',
+            '/rest/v1/bikes',
+            params={'select': '*', 'order': 'created_at.desc'},
+            use_service_role=True
+        )
+        
+        if status_code >= 400:
+            return jsonify({'error': 'Failed to fetch bikes'}), status_code
+        
+        if not response:
+            response = []
+        
+        # Fetch images for each bike
+        for bike in response:
+            bike_id = bike.get('id')
+            if bike_id:
+                images_response, images_status = supabase_request(
+                    'get',
+                    '/rest/v1/bike_images',
+                    params={'select': '*', 'bike_id': f'eq.{bike_id}'},
+                    use_service_role=True
+                )
+                
+                if images_status < 400:
+                    for image in images_response:
+                        if 'url' in image and 'image_url' not in image:
+                            image['image_url'] = image['url']
+                    bike['images'] = images_response
+                else:
+                    bike['images'] = []
+            else:
+                bike['images'] = []
+        
+        logger.info(f"Admin fetched {len(response)} bikes (all statuses)")
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error in admin_get_bikes: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/parts', methods=['GET'])
+@token_required
+def admin_get_parts(current_user):
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        # Get ALL parts regardless of status for admin review
+        response, status_code = supabase_request(
+            'get',
+            '/rest/v1/car_parts',
+            params={'select': '*', 'order': 'created_at.desc'},
+            use_service_role=True
+        )
+        
+        if status_code >= 400:
+            return jsonify({'error': 'Failed to fetch parts'}), status_code
+        
+        if not response:
+            response = []
+        
+        # Fetch images for each part
+        for part in response:
+            part_id = part.get('id')
+            if part_id:
+                images_response, images_status = supabase_request(
+                    'get',
+                    '/rest/v1/part_images',
+                    params={'select': '*', 'part_id': f'eq.{part_id}'},
+                    use_service_role=True
+                )
+                
+                if images_status < 400:
+                    for image in images_response:
+                        if 'url' in image and 'image_url' not in image:
+                            image['image_url'] = image['url']
+                    part['images'] = images_response
+                else:
+                    part['images'] = []
+            else:
+                part['images'] = []
+        
+        logger.info(f"Admin fetched {len(response)} parts (all statuses)")
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error in admin_get_parts: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/plates', methods=['GET'])
+@token_required
+def admin_get_plates(current_user):
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        # Get ALL plates regardless of status for admin review
+        response, status_code = supabase_request(
+            'get',
+            '/rest/v1/license_plates',
+            params={'select': '*', 'order': 'created_at.desc'},
+            use_service_role=True
+        )
+        
+        if status_code >= 400:
+            return jsonify({'error': 'Failed to fetch plates'}), status_code
+        
+        if not response:
+            response = []
+        
+        # License plates may have images, but they're often generated
+        for plate in response:
+            if 'images' not in plate:
+                plate['images'] = []
+        
+        logger.info(f"Admin fetched {len(response)} plates (all statuses)")
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error in admin_get_plates: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Generic API approval/rejection endpoints for admin dashboard
+@app.route('/api/<item_type>/<item_id>/approve', methods=['POST'])
+@token_required
+def api_approve_item(current_user, item_type, item_id):
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        # Map item types to table names
+        valid_item_types = {
+            'cars': 'cars',
+            'bikes': 'bikes',
+            'parts': 'car_parts',
+            'plates': 'license_plates'
+        }
+        
+        if item_type not in valid_item_types:
+            return jsonify({'error': f'Invalid item type: {item_type}'}), 400
+        
+        table_name = valid_item_types[item_type]
+        
+        # Update the item status to approved
+        patch_data = {'status': 'approved'}
+        if item_type == 'cars':
+            patch_data['is_approved'] = True
+        
+        response, status_code = supabase_request(
+            'patch',
+            f'/rest/v1/{table_name}?id=eq.{item_id}',
+            data=patch_data,
+            use_service_role=True
+        )
+        
+        if status_code >= 200 and status_code < 300:
+            logger.info(f"Admin {current_user} approved {item_type} {item_id}")
+            return jsonify({'success': True, 'message': f'{item_type} approved successfully'}), 200
+        else:
+            logger.error(f"Error approving {item_type} {item_id}: {status_code} - {response}")
+            return jsonify({'error': f'Failed to approve {item_type}'}), status_code
+            
+    except Exception as e:
+        logger.error(f"Exception in api_approve_item: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/<item_type>/<item_id>/reject', methods=['POST'])
+@token_required
+def api_reject_item(current_user, item_type, item_id):
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        # Map item types to table names
+        valid_item_types = {
+            'cars': 'cars',
+            'bikes': 'bikes',
+            'parts': 'car_parts',
+            'plates': 'license_plates'
+        }
+        
+        if item_type not in valid_item_types:
+            return jsonify({'error': f'Invalid item type: {item_type}'}), 400
+        
+        table_name = valid_item_types[item_type]
+        
+        # Get rejection note from request if provided
+        rejection_note = ''
+        if request.is_json and request.json:
+            rejection_note = request.json.get('rejection_note', '')
+        
+        # Update the item status to rejected and add rejection note
+        patch_data = {'status': 'rejected'}
+        if rejection_note:
+            patch_data['rejection_note'] = rejection_note
+        
+        response, status_code = supabase_request(
+            'patch',
+            f'/rest/v1/{table_name}?id=eq.{item_id}',
+            data=patch_data,
+            use_service_role=True
+        )
+        
+        if status_code >= 200 and status_code < 300:
+            logger.info(f"Admin {current_user} rejected {item_type} {item_id} with note: {rejection_note}")
+            return jsonify({'success': True, 'message': f'{item_type} rejected successfully'}), 200
+        else:
+            logger.error(f"Error rejecting {item_type} {item_id}: {status_code} - {response}")
+            return jsonify({'error': f'Failed to reject {item_type}'}), status_code
+            
+    except Exception as e:
+        logger.error(f"Exception in api_reject_item: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -2189,9 +3100,19 @@ admin_bp = Blueprint(
 @admin_required
 def admin_dashboard():
     pending_counts = get_pending_counts()
+    
+    # Get dealer statistics
+    dealer_stats = get_dealer_statistics()
+    
+    # Get user statistics
+    user_stats = get_user_statistics_admin()
+    
     # The template 'dashboard.html' is implicitly looked for in 'templates/admin/'
     # because of the admin_bp.template_folder setting.
-    return render_template('dashboard.html', pending_counts=pending_counts)
+    return render_template('dashboard.html', 
+                         pending_counts=pending_counts,
+                         dealer_stats=dealer_stats,
+                         user_stats=user_stats)
 
 @admin_bp.route('/login', methods=['GET', 'POST'])
 def admin_login():
@@ -2270,6 +3191,72 @@ def admin_logout():
 
 # Move blueprint registration to after all routes are defined
 # app.register_blueprint(admin_bp)  # Remove this line from here
+
+def get_dealer_statistics():
+    """Get dealer statistics for admin dashboard"""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Get total dealers
+        dealers_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=id,dealer_verified",
+            headers=headers
+        )
+        
+        if dealers_response.status_code == 200:
+            dealers = dealers_response.json()
+            total_dealers = len(dealers)
+            verified_dealers = sum(1 for d in dealers if d.get('dealer_verified'))
+            pending_dealers = total_dealers - verified_dealers
+            
+            return {
+                'total': total_dealers,
+                'verified': verified_dealers,
+                'pending': pending_dealers
+            }
+        return {'total': 0, 'verified': 0, 'pending': 0}
+    except Exception as e:
+        logger.error(f"Error getting dealer statistics: {str(e)}")
+        return {'total': 0, 'verified': 0, 'pending': 0}
+
+def get_user_statistics_admin():
+    """Get user statistics for admin dashboard"""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Get total users
+        users_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?select=id,created_at",
+            headers=headers
+        )
+        
+        if users_response.status_code == 200:
+            users = users_response.json()
+            total_users = len(users)
+            
+            # Count users from last 7 days
+            from datetime import datetime, timedelta
+            week_ago = datetime.now() - timedelta(days=7)
+            new_users = sum(1 for u in users if datetime.fromisoformat(u['created_at'].replace('Z', '+00:00')) > week_ago)
+            
+            return {
+                'total': total_users,
+                'new_this_week': new_users
+            }
+        return {'total': 0, 'new_this_week': 0}
+    except Exception as e:
+        logger.error(f"Error getting user statistics: {str(e)}")
+        return {'total': 0, 'new_this_week': 0}
 
 def get_pending_counts():
     counts = {}
@@ -2427,7 +3414,468 @@ def reject_item(item_type, item_id):
         
     return redirect(url_for('admin.list_pending_items', item_type=item_type))
 
+# Dealer Management Routes
+@admin_bp.route('/dealers')
+@admin_required
+def list_dealers():
+    """List all dealers with their status"""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Get all dealers
+        dealers_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=*&order=created_at.desc",
+            headers=headers
+        )
+        
+        if dealers_response.status_code == 200:
+            dealers = dealers_response.json()
+            return render_template('dealers.html', dealers=dealers)
+        else:
+            flash('Error loading dealers', 'danger')
+            return render_template('dealers.html', dealers=[])
+    except Exception as e:
+        logger.error(f"Error listing dealers: {str(e)}")
+        flash(f'Error loading dealers: {str(e)}', 'danger')
+        return render_template('dealers.html', dealers=[])
+
+@admin_bp.route('/dealers/pending')
+@admin_required
+def list_pending_dealers():
+    """List dealers awaiting verification"""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Get pending dealers
+        dealers_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&dealer_verified=eq.false&select=*&order=created_at.desc",
+            headers=headers
+        )
+        
+        if dealers_response.status_code == 200:
+            dealers = dealers_response.json()
+            return render_template('pending_dealers.html', dealers=dealers)
+        else:
+            flash('Error loading pending dealers', 'danger')
+            return render_template('pending_dealers.html', dealers=[])
+    except Exception as e:
+        logger.error(f"Error listing pending dealers: {str(e)}")
+        flash(f'Error loading pending dealers: {str(e)}', 'danger')
+        return render_template('pending_dealers.html', dealers=[])
+
+@admin_bp.route('/dealers/<dealer_id>/verify', methods=['POST'])
+@admin_required
+def verify_dealer(dealer_id):
+    """Verify a dealer account"""
+    try:
+        from datetime import datetime
+        
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Update dealer verification
+        update_data = {
+            'dealer_verified': True,
+            'dealer_verified_at': datetime.utcnow().isoformat(),
+            'dealer_verified_by': session.get('admin_user_id')
+        }
+        
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{dealer_id}",
+            headers=headers,
+            json=update_data
+        )
+        
+        if response.status_code in [200, 204]:
+            flash('Dealer verified successfully!', 'success')
+        else:
+            flash(f'Error verifying dealer: {response.text}', 'danger')
+            
+    except Exception as e:
+        logger.error(f"Error verifying dealer: {str(e)}")
+        flash(f'Error verifying dealer: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin.list_pending_dealers'))
+
+@admin_bp.route('/dealers/<dealer_id>/reject', methods=['POST'])
+@admin_required
+def reject_dealer(dealer_id):
+    """Reject a dealer verification request"""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Get rejection note from form
+        rejection_note = request.form.get('rejection_note', 'Verification rejected by admin')
+        
+        # Update user - set is_dealer to false or keep it but mark as not verified
+        update_data = {
+            'is_dealer': False,  # Remove dealer status
+            'rejection_note': rejection_note
+        }
+        
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{dealer_id}",
+            headers=headers,
+            json=update_data
+        )
+        
+        if response.status_code in [200, 204]:
+            flash('Dealer verification rejected', 'warning')
+        else:
+            flash(f'Error rejecting dealer: {response.text}', 'danger')
+            
+    except Exception as e:
+        logger.error(f"Error rejecting dealer: {str(e)}")
+        flash(f'Error rejecting dealer: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin.list_pending_dealers'))
+
+@admin_bp.route('/users')
+@admin_required
+def list_users():
+    """List all users"""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Get all users
+        users_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?select=*&order=created_at.desc",
+            headers=headers
+        )
+        
+        if users_response.status_code == 200:
+            users = users_response.json()
+            return render_template('users.html', users=users)
+        else:
+            flash('Error loading users', 'danger')
+            return render_template('users.html', users=[])
+    except Exception as e:
+        logger.error(f"Error listing users: {str(e)}")
+        flash(f'Error loading users: {str(e)}', 'danger')
+        return render_template('users.html', users=[])
+
 # ... (End of admin_bp blueprint, before app.register_blueprint(admin_bp) if it was moved, or before if __name__ ...)
+
+# =====================
+# Reports API Routes
+# =====================
+
+@app.route('/api/reports', methods=['POST'])
+@token_required
+def create_report(current_user):
+    """Submit a report for a listing"""
+    try:
+        data = request.json
+        
+        # Validate required fields
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        listing_id = data.get('listing_id')
+        listing_type = data.get('listing_type')
+        reason = data.get('reason')
+        details = data.get('details', '')
+        
+        if not listing_id or not listing_type or not reason:
+            return jsonify({'error': 'Missing required fields: listing_id, listing_type, or reason'}), 400
+        
+        # Validate listing_type
+        valid_types = ['car', 'bike', 'plate', 'part']
+        if listing_type not in valid_types:
+            return jsonify({'error': f'Invalid listing_type. Must be one of: {", ".join(valid_types)}'}), 400
+        
+        # Validate reason
+        valid_reasons = ['spam', 'fraud', 'inappropriate', 'wrong_category', 'duplicate', 'sold', 'incorrect_info', 'other']
+        if reason not in valid_reasons:
+            return jsonify({'error': f'Invalid reason. Must be one of: {", ".join(valid_reasons)}'}), 400
+        
+        # Create the report in Supabase
+        report_data = {
+            'listing_id': listing_id,
+            'listing_type': listing_type,
+            'reporter_id': current_user,
+            'reason': reason,
+            'details': details,
+            'status': 'pending'
+        }
+        
+        response, status_code = supabase_request(
+            'post',
+            '/rest/v1/reports',
+            data=report_data,
+            user_id=current_user
+        )
+        
+        if status_code >= 400:
+            logger.error(f"Failed to create report: {response}")
+            return jsonify({'error': 'Failed to submit report'}), status_code
+        
+        logger.info(f"Report created successfully by user {current_user} for {listing_type} {listing_id}")
+        return jsonify({'message': 'Report submitted successfully', 'report': response}), 201
+        
+    except Exception as e:
+        logger.error(f"Error creating report: {str(e)}")
+        return jsonify({'error': 'An error occurred while submitting the report'}), 500
+
+@app.route('/api/reports', methods=['GET'])
+@token_required
+def get_reports(current_user):
+    """Get reports - users see their own, admins see all"""
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        is_admin = user_details and user_details.get('is_admin', False)
+        
+        if is_admin:
+            # Admins can see all reports
+            response, status_code = supabase_request(
+                'get',
+                '/rest/v1/reports?order=created_at.desc',
+                user_id=current_user
+            )
+        else:
+            # Regular users can only see their own reports
+            response, status_code = supabase_request(
+                'get',
+                f'/rest/v1/reports?reporter_id=eq.{current_user}&order=created_at.desc',
+                user_id=current_user
+            )
+        
+        if status_code >= 400:
+            logger.error(f"Failed to fetch reports: {response}")
+            return jsonify({'error': 'Failed to fetch reports'}), status_code
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching reports: {str(e)}")
+        return jsonify({'error': 'An error occurred while fetching reports'}), 500
+
+@app.route('/api/admin/reports', methods=['GET'])
+@token_required
+def get_admin_reports(current_user):
+    """Get all reports for admin dashboard"""
+    try:
+        # Verify admin status
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Unauthorized - Admin access required'}), 403
+        
+        # Get query parameters for filtering
+        status = request.args.get('status')
+        listing_type = request.args.get('listing_type')
+        
+        # Build query
+        query = '/rest/v1/reports?order=created_at.desc'
+        
+        if status:
+            query += f'&status=eq.{status}'
+        if listing_type:
+            query += f'&listing_type=eq.{listing_type}'
+        
+        response, status_code = supabase_request(
+            'get',
+            query,
+            user_id=current_user
+        )
+        
+        if status_code >= 400:
+            logger.error(f"Failed to fetch admin reports: {response}")
+            return jsonify({'error': 'Failed to fetch reports'}), status_code
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching admin reports: {str(e)}")
+        return jsonify({'error': 'An error occurred while fetching reports'}), 500
+
+@app.route('/api/admin/dealers', methods=['GET'])
+@token_required
+def get_admin_dealers(current_user):
+    """Get all dealers for admin dashboard"""
+    try:
+        # Verify admin status
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Unauthorized - Admin access required'}), 403
+        
+        # Get query parameters for filtering
+        verified_only = request.args.get('verified')
+        pending_only = request.args.get('pending')
+        
+        # Build query
+        query = '/rest/v1/users?is_dealer=eq.true&order=created_at.desc'
+        
+        if verified_only == 'true':
+            query += '&dealer_verified=eq.true'
+        elif pending_only == 'true':
+            query += '&dealer_verified=eq.false'
+        
+        # Add select to get relevant fields
+        query += '&select=id,email,first_name,last_name,company_name,company_registration_number,trade_license_number,is_dealer,dealer_verified,dealer_verified_at,created_at,phone,city,emirate,profile_completion_percentage'
+        
+        response, status_code = supabase_request(
+            'get',
+            query,
+            use_service_role=True
+        )
+        
+        if status_code >= 400:
+            logger.error(f"Failed to fetch dealers: {response}")
+            return jsonify({'error': 'Failed to fetch dealers'}), status_code
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching dealers: {str(e)}")
+        return jsonify({'error': 'An error occurred while fetching dealers'}), 500
+
+@app.route('/api/admin/dealers/<dealer_id>/verify', methods=['POST'])
+@token_required
+def api_verify_dealer(current_user, dealer_id):
+    """Verify a dealer account"""
+    try:
+        # Verify admin status
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Unauthorized - Admin access required'}), 403
+        
+        from datetime import datetime
+        
+        # Update dealer verification
+        update_data = {
+            'dealer_verified': True,
+            'dealer_verified_at': datetime.utcnow().isoformat()
+        }
+        
+        response, status_code = supabase_request(
+            'patch',
+            f'/rest/v1/users?id=eq.{dealer_id}',
+            data=update_data,
+            use_service_role=True
+        )
+        
+        if status_code in [200, 204]:
+            logger.info(f"Admin {current_user} verified dealer {dealer_id}")
+            return jsonify({'success': True, 'message': 'Dealer verified successfully'}), 200
+        else:
+            logger.error(f"Error verifying dealer {dealer_id}: {status_code} - {response}")
+            return jsonify({'error': 'Failed to verify dealer'}), status_code
+            
+    except Exception as e:
+        logger.error(f"Exception in api_verify_dealer: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/dealers/<dealer_id>/reject', methods=['POST'])
+@token_required
+def api_reject_dealer(current_user, dealer_id):
+    """Reject a dealer verification request"""
+    try:
+        # Verify admin status
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Unauthorized - Admin access required'}), 403
+        
+        # Get rejection note from request
+        rejection_note = ''
+        if request.is_json and request.json:
+            rejection_note = request.json.get('rejection_note', '')
+        
+        # Update user - set is_dealer to false and add rejection note
+        update_data = {
+            'is_dealer': False,
+            'rejection_note': rejection_note
+        }
+        
+        response, status_code = supabase_request(
+            'patch',
+            f'/rest/v1/users?id=eq.{dealer_id}',
+            data=update_data,
+            use_service_role=True
+        )
+        
+        if status_code in [200, 204]:
+            logger.info(f"Admin {current_user} rejected dealer {dealer_id}")
+            return jsonify({'success': True, 'message': 'Dealer verification rejected'}), 200
+        else:
+            logger.error(f"Error rejecting dealer {dealer_id}: {status_code} - {response}")
+            return jsonify({'error': 'Failed to reject dealer'}), status_code
+            
+    except Exception as e:
+        logger.error(f"Exception in api_reject_dealer: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reports/<report_id>', methods=['PATCH'])
+@token_required
+def update_report(current_user, report_id):
+    """Update a report (admin only)"""
+    try:
+        # Verify admin status
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Unauthorized - Admin access required'}), 403
+        
+        data = request.json
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Prepare update data
+        update_data = {}
+        if 'status' in data:
+            valid_statuses = ['pending', 'reviewed', 'resolved', 'dismissed']
+            if data['status'] not in valid_statuses:
+                return jsonify({'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}), 400
+            update_data['status'] = data['status']
+        
+        if 'admin_note' in data:
+            update_data['admin_note'] = data['admin_note']
+        
+        if 'status' in data and data['status'] in ['reviewed', 'resolved', 'dismissed']:
+            update_data['reviewed_by'] = current_user
+            update_data['reviewed_at'] = 'now()'
+        
+        # Update the report
+        response, status_code = supabase_request(
+            'patch',
+            f'/rest/v1/reports?id=eq.{report_id}',
+            data=update_data,
+            user_id=current_user
+        )
+        
+        if status_code >= 400:
+            logger.error(f"Failed to update report: {response}")
+            return jsonify({'error': 'Failed to update report'}), status_code
+        
+        logger.info(f"Report {report_id} updated by admin {current_user}")
+        return jsonify({'message': 'Report updated successfully', 'report': response}), 200
+        
+    except Exception as e:
+        logger.error(f"Error updating report: {str(e)}")
+        return jsonify({'error': 'An error occurred while updating the report'}), 500
 
 @app.route('/api/check-session', methods=['GET'])
 def check_session_route():

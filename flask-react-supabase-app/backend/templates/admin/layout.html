@@ -10,28 +10,49 @@
         <div class="collapse navbar-collapse" id="navbarNavDropdown">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
+                    <a class="nav-link" href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
                 </li>
+                
+                <!-- Listing Approvals Dropdown -->
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Approve Items
+                    <a class="nav-link dropdown-toggle" href="#" id="approvalsDropdown" role="button" data-bs-toggle="dropdown">
+                        Listing Approvals
                     </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-                        {# Temporarily comment out these links to bypass BuildError #}
-                        {#
-                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='cars') }}">Approve Cars ({{ (pending_counts|default({})).get('cars', 0) }})</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='bikes') }}">Approve Bikes ({{ (pending_counts|default({})).get('bikes', 0) }})</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='parts') }}">Approve Parts ({{ (pending_counts|default({})).get('parts', 0) }})</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='plates') }}">Approve Plates ({{ (pending_counts|default({})).get('plates', 0) }})</a></li>
-                        #}
-                        <li><a class="dropdown-item" href="#">Approve Cars ({{ (pending_counts|default({})).get('cars', 0) }}) (Link Disabled)</a></li>
-                        <li><a class="dropdown-item" href="#">Approve Bikes ({{ (pending_counts|default({})).get('bikes', 0) }}) (Link Disabled)</a></li>
-                        <li><a class="dropdown-item" href="#">Approve Parts ({{ (pending_counts|default({})).get('parts', 0) }}) (Link Disabled)</a></li>
-                        <li><a class="dropdown-item" href="#">Approve Plates ({{ (pending_counts|default({})).get('plates', 0) }}) (Link Disabled)</a></li>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='cars') }}">
+                            Cars <span class="badge bg-primary">{{ (pending_counts|default({})).get('cars', 0) }}</span>
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='bikes') }}">
+                            Bikes <span class="badge bg-primary">{{ (pending_counts|default({})).get('bikes', 0) }}</span>
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='parts') }}">
+                            Parts <span class="badge bg-primary">{{ (pending_counts|default({})).get('parts', 0) }}</span>
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_items', item_type='plates') }}">
+                            Plates <span class="badge bg-primary">{{ (pending_counts|default({})).get('plates', 0) }}</span>
+                        </a></li>
                     </ul>
                 </li>
-                {# Add other admin navigation links here as needed #}
+                
+                <!-- Dealer Management Dropdown -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="dealersDropdown" role="button" data-bs-toggle="dropdown">
+                        Dealers
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('admin.list_dealers') }}">All Dealers</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.list_pending_dealers') }}">
+                            Pending Verifications <span class="badge bg-warning text-dark">{{ (dealer_stats|default({})).get('pending', 0) }}</span>
+                        </a></li>
+                    </ul>
+                </li>
+                
+                <!-- Users Menu -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('admin.list_users') }}">Users</a>
+                </li>
             </ul>
+            
             <ul class="navbar-nav">
                 {% if session.get('is_admin') and session.get('admin_user_email') %}
                     <li class="nav-item">
@@ -56,16 +77,20 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    // Any admin-specific JavaScript can go here
+    // Make active nav link more prominent
     document.addEventListener('DOMContentLoaded', function () {
-        // Example: Make active nav link more prominent if needed
         var currentPath = window.location.pathname;
-        var navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+        var navLinks = document.querySelectorAll('.navbar-nav .nav-link, .dropdown-item');
         navLinks.forEach(function(link) {
             if (link.getAttribute('href') === currentPath) {
-                link.classList.add('fw-bold'); // Make it bold for example
+                link.classList.add('active');
+                // If it's in a dropdown, also highlight the dropdown toggle
+                var dropdown = link.closest('.dropdown');
+                if (dropdown) {
+                    dropdown.querySelector('.dropdown-toggle').classList.add('active');
+                }
             }
         });
     });
 </script>
-{% endblock %} 
+{% endblock %}

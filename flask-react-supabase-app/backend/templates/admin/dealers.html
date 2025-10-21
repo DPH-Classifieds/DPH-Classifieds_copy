@@ -1,0 +1,124 @@
+{% extends 'admin/layout.html' %}
+
+{% block title %}All Dealers{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>All Dealers</h2>
+        <a href="{{ url_for('admin.list_pending_dealers') }}" class="btn btn-warning">
+            View Pending Verifications
+        </a>
+    </div>
+    
+    {% if dealers %}
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Email</th>
+                                <th>Name</th>
+                                <th>Company</th>
+                                <th>Status</th>
+                                <th>Registration Number</th>
+                                <th>Joined</th>
+                                <th>Verified</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dealer in dealers %}
+                            <tr>
+                                <td>{{ dealer.email }}</td>
+                                <td>
+                                    {% if dealer.first_name or dealer.last_name %}
+                                        {{ dealer.first_name }} {{ dealer.last_name }}
+                                    {% else %}
+                                        {{ dealer.username or '-' }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ dealer.company_name or '-' }}</td>
+                                <td>
+                                    {% if dealer.dealer_verified %}
+                                        <span class="badge bg-success">Verified Dealer</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ dealer.company_registration_number or '-' }}</td>
+                                <td>{{ dealer.created_at[:10] if dealer.created_at else '-' }}</td>
+                                <td>
+                                    {% if dealer.dealer_verified and dealer.dealer_verified_at %}
+                                        {{ dealer.dealer_verified_at[:10] }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not dealer.dealer_verified %}
+                                        <form method="POST" action="{{ url_for('admin.verify_dealer', dealer_id=dealer.id) }}" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-success">Verify</button>
+                                        </form>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#dealerModal{{ dealer.id }}">
+                                        Details
+                                    </button>
+                                </td>
+                            </tr>
+                            
+                            <!-- Dealer Details Modal -->
+                            <div class="modal fade" id="dealerModal{{ dealer.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Dealer Details</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h6>Personal Information</h6>
+                                                    <p><strong>Email:</strong> {{ dealer.email }}</p>
+                                                    <p><strong>Name:</strong> {{ dealer.first_name }} {{ dealer.last_name }}</p>
+                                                    <p><strong>Phone:</strong> {{ dealer.country_code }} {{ dealer.phone or '-' }}</p>
+                                                    <p><strong>Location:</strong> {{ dealer.city }}, {{ dealer.emirate }}</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6>Business Information</h6>
+                                                    <p><strong>Company:</strong> {{ dealer.company_name or '-' }}</p>
+                                                    <p><strong>Registration:</strong> {{ dealer.company_registration_number or '-' }}</p>
+                                                    <p><strong>Trade License:</strong> {{ dealer.trade_license_number or '-' }}</p>
+                                                    <p><strong>Tax Number:</strong> {{ dealer.tax_registration_number or '-' }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <h6>Additional Information</h6>
+                                                    <p><strong>Website:</strong> {{ dealer.website_url or '-' }}</p>
+                                                    <p><strong>Profile Completion:</strong> {{ dealer.profile_completion_percentage or 0 }}%</p>
+                                                    <p><strong>User ID:</strong> <code>{{ dealer.id }}</code></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No dealers found in the system.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+

@@ -3,20 +3,149 @@
 {% block title %}Admin Dashboard{% endblock %}
 
 {% block content %}
-    <h2>Welcome to the Admin Dashboard, {{ session.get('admin_user_id', 'Admin') }}!</h2>
-    <p>This is where you can manage users, listings, and other aspects of the application.</p>
+<div class="container-fluid">
+    <h2 class="mb-4">Welcome to the Admin Dashboard, {{ session.get('admin_user_email', 'Admin') }}!</h2>
     
-    <h3>Pending Approvals</h3>
-    {% if pending_counts %}
-        <ul>
-            <li>Cars: {{ pending_counts.get('cars', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='cars') }}">Manage</a></li>
-            <li>Bikes: {{ pending_counts.get('bikes', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='bikes') }}">Manage</a></li>
-            <li>Parts: {{ pending_counts.get('parts', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='parts') }}">Manage</a></li>
-            <li>Plates: {{ pending_counts.get('plates', 0) }} <a href="{{ url_for('admin.list_pending_items', item_type='plates') }}">Manage</a></li>
-        </ul>
-    {% else %}
-        <p>No pending approval information available or an error occurred.</p>
-    {% endif %}
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Users</h5>
+                    <h2 class="card-text">{{ user_stats.get('total', 0) }}</h2>
+                    <p class="card-text"><small>{{ user_stats.get('new_this_week', 0) }} new this week</small></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Dealers</h5>
+                    <h2 class="card-text">{{ dealer_stats.get('total', 0) }}</h2>
+                    <p class="card-text"><small>{{ dealer_stats.get('verified', 0) }} verified</small></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Pending Dealers</h5>
+                    <h2 class="card-text">{{ dealer_stats.get('pending', 0) }}</h2>
+                    <p class="card-text">
+                        <a href="{{ url_for('admin.list_pending_dealers') }}" class="btn btn-sm btn-dark">Review</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Pending Approvals</h5>
+                    <h2 class="card-text">{{ (pending_counts.get('cars', 0) + pending_counts.get('bikes', 0) + pending_counts.get('parts', 0) + pending_counts.get('plates', 0)) }}</h2>
+                    <p class="card-text"><small>All listings</small></p>
+                </div>
+            </div>
+        </div>
+    </div>
     
-    <p>Use the navigation bar above to access different admin sections.</p>
-{% endblock %} 
+    <!-- Pending Approvals Section -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Pending Listing Approvals</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_counts %}
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Cars
+                                <span>
+                                    <span class="badge bg-primary rounded-pill">{{ pending_counts.get('cars', 0) }}</span>
+                                    <a href="{{ url_for('admin.list_pending_items', item_type='cars') }}" class="btn btn-sm btn-outline-primary ms-2">Manage</a>
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Bikes
+                                <span>
+                                    <span class="badge bg-primary rounded-pill">{{ pending_counts.get('bikes', 0) }}</span>
+                                    <a href="{{ url_for('admin.list_pending_items', item_type='bikes') }}" class="btn btn-sm btn-outline-primary ms-2">Manage</a>
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Parts
+                                <span>
+                                    <span class="badge bg-primary rounded-pill">{{ pending_counts.get('parts', 0) }}</span>
+                                    <a href="{{ url_for('admin.list_pending_items', item_type='parts') }}" class="btn btn-sm btn-outline-primary ms-2">Manage</a>
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                License Plates
+                                <span>
+                                    <span class="badge bg-primary rounded-pill">{{ pending_counts.get('plates', 0) }}</span>
+                                    <a href="{{ url_for('admin.list_pending_items', item_type='plates') }}" class="btn btn-sm btn-outline-primary ms-2">Manage</a>
+                                </span>
+                            </li>
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No pending approval information available or an error occurred.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Dealer Management</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            All Dealers
+                            <a href="{{ url_for('admin.list_dealers') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Pending Verifications
+                            <span>
+                                <span class="badge bg-warning text-dark rounded-pill">{{ dealer_stats.get('pending', 0) }}</span>
+                                <a href="{{ url_for('admin.list_pending_dealers') }}" class="btn btn-sm btn-outline-warning ms-2">Review</a>
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            All Users
+                            <a href="{{ url_for('admin.list_users') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h5>Quick Actions</h5>
+                <p>Use the navigation bar above to access different admin sections including listing approvals, dealer management, and user administration.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    margin-bottom: 1rem;
+}
+
+.card h2 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.card small {
+    opacity: 0.9;
+}
+</style>
+{% endblock %}
