@@ -103,7 +103,7 @@ const Plates = () => {
       try {
         // Add timestamp to avoid caching
         const timestamp = new Date().getTime();
-        const directResponse = await fetch(`http://localhost:8000/api/plates?_t=${timestamp}`);
+        const directResponse = await fetch(`${API_URL}/api/plates?_t=${timestamp}`);
         console.log('Direct fetch response:', {
           status: directResponse.status,
           ok: directResponse.ok,

@@ -1,8 +1,8 @@
 import { getBestAccessToken } from './supabaseClient';
 import * as authService from './authService';
 
-// Base URL for API requests
-const API_BASE_URL = 'http://localhost:8000';
+// Base URL for API requests - use environment variable or fallback to localhost
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Check if we need to use 127.0.0.1 instead of localhost due to CORS
 // Some backends have CORS configured only for 127.0.0.1
