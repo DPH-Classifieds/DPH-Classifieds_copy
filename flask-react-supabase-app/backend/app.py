@@ -16,8 +16,12 @@ import threading
 import datetime
 import secrets
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
+# Set up logging with conditional verbosity
+log_level = logging.INFO if os.getenv('FLASK_ENV') == 'production' else logging.DEBUG
+logging.basicConfig(
+    level=log_level,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static')
@@ -38,10 +42,16 @@ print(f"DEBUG: Value of SUPABASE_SERVICE_ROLE_KEY from os.getenv is: {os.getenv(
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+# Add service role key to app config for easy access
+app.config['SUPABASE_URL'] = SUPABASE_URL
+app.config['SUPABASE_SERVICE_ROLE_KEY'] = SUPABASE_SERVICE_ROLE_KEY
 
 logger.info(f"SUPABASE_URL: {SUPABASE_URL}")
 logger.info(f"SUPABASE_KEY exists: {bool(SUPABASE_KEY)}")
 logger.info(f"SUPABASE_JWT_SECRET exists: {bool(SUPABASE_JWT_SECRET)}")
+logger.info(f"SUPABASE_SERVICE_ROLE_KEY exists: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
 
 @app.context_processor
 def inject_current_year():
@@ -324,8 +334,28 @@ def get_cars():
                     else:
                         filtered_params[f"{key}"] = f"eq.{value}"
         
-        # Handle extras parameter specially (ignore it as it doesn't exist in the table)
-        # The extras are stored as individual boolean columns, not as an array
+        # Handle extras filtering - map frontend extras to database boolean columns
+        if 'extras' in request.args:
+            extras_list = request.args.getlist('extras')
+            
+            # Mapping from frontend extras to database boolean columns
+            extras_mapping = {
+                'Keyless Entry': 'keyless_entry',
+                'DVD Player': 'dvd_player',
+                'Climate Control': 'climate_control',
+                'Navigation System': 'navigation_system',
+                'Premium Sound System': 'premium_sound_system',
+                'Cooled Seats': 'cooled_seats',
+                'Front Wheel Drive': 'front_wheel_drive',
+                'Leather Seats': 'leather_seats',
+                'Parking Sensors': 'parking_sensors',
+                'Rear View Camera': 'rear_view_camera'
+            }
+            
+            for extra in extras_list:
+                db_field = extras_mapping.get(extra)
+                if db_field:
+                    filtered_params[db_field] = 'eq.true'
         
         logger.info(f"Fetching cars with params: {filtered_params}")
         
@@ -1036,7 +1066,8 @@ def update_user_profile(current_user):
             'phone': 'phone',
             'countryCode': 'country_code',
             'whatsappNumber': 'whatsapp_number',
-            'city': 'city',
+            'area': 'area',  # Changed from city to area
+            'city': 'area',  # Support legacy city field
             'emirate': 'emirate',
             'country': 'country',
             'postalCode': 'postal_code',
@@ -1100,7 +1131,12 @@ def update_user_profile(current_user):
                 update_payload[field] = value
         
         logger.info(f"Updating user profile with payload: {update_payload}")
-        response = requests.patch(url, headers=headers, json=update_payload)
+        logger.info(f"Update URL: {url}")
+        response = requests.patch(url, headers=headers, json=update_payload, timeout=10)
+        
+        logger.info(f"Update response status: {response.status_code}")
+        if response.status_code >= 400:
+            logger.error(f"Update failed with response: {response.text}")
         
         if response.status_code == 200 or response.status_code == 204:
             # Fetch updated user data
@@ -1121,8 +1157,8 @@ def update_user_profile(current_user):
             return jsonify({'message': 'Failed to update profile', 'error': error_data}), 500
             
     except Exception as e:
-        logger.error(f"Error in update_user_profile: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error in update_user_profile: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e), 'message': 'Internal server error during profile update'}), 500
 
 @app.route('/api/user/upload-profile-photo', methods=['POST'])
 @token_required
@@ -1193,7 +1229,7 @@ def upload_profile_photo(current_user):
 def get_user_statistics(current_user):
     """Get user listing statistics"""
     try:
-        logger.info(f"Getting statistics for user ID: {current_user}")
+        logger.debug(f"Getting statistics for user ID: {current_user}")
         
         service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
         headers = {
@@ -1265,7 +1301,7 @@ def get_user_statistics(current_user):
             'member_since': member_since
         }
         
-        logger.info(f"Statistics calculated for user: {statistics}")
+        logger.debug(f"Statistics calculated for user: {statistics}")
         return jsonify(statistics), 200
         
     except Exception as e:
@@ -3877,6 +3913,54 @@ def update_report(current_user, report_id):
         logger.error(f"Error updating report: {str(e)}")
         return jsonify({'error': 'An error occurred while updating the report'}), 500
 
+@app.route('/api/<item_type>/<item_id>/delete', methods=['DELETE'])
+@token_required
+def delete_listing(current_user, item_type, item_id):
+    """Delete a listing (admin only)"""
+    try:
+        # Check if user is admin
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        # Validate item_type
+        valid_types = ['car', 'bike', 'car-part', 'plate']
+        if item_type not in valid_types:
+            return jsonify({'error': 'Invalid item type'}), 400
+        
+        # Map item_type to table name
+        table_mapping = {
+            'car': 'cars',
+            'bike': 'bikes', 
+            'car-part': 'car_parts',
+            'plate': 'license_plates'
+        }
+        
+        table_name = table_mapping[item_type]
+        
+        # Delete the listing using service role
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/{table_name}?id=eq.{item_id}"
+        
+        response = requests.delete(url, headers=headers)
+        
+        if response.status_code == 200 or response.status_code == 204:
+            logger.info(f"Admin {current_user} deleted {item_type} {item_id}")
+            return jsonify({'message': f'{item_type.title()} deleted successfully'}), 200
+        else:
+            logger.error(f"Failed to delete {item_type} {item_id}: {response.status_code}")
+            return jsonify({'error': 'Failed to delete listing'}), response.status_code
+            
+    except Exception as e:
+        logger.error(f"Error deleting {item_type} {item_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/check-session', methods=['GET'])
 def check_session_route():
     logger.info(f"[Check Session] Session data: {dict(session)}")
@@ -3889,8 +3973,13 @@ def check_session_route():
         'admin_id_from_session': admin_id_in_session
     }), 200
 
-# Register the admin blueprint after all routes are defined
-app.register_blueprint(admin_bp)
+# Import and register admin routes
+try:
+    from routes.admin import admin_bp
+    app.register_blueprint(admin_bp)
+    logger.info("Admin routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Could not import admin routes: {e}")
 
 if __name__ == "__main__":
     logger.info("Starting Flask application on port 8000")
