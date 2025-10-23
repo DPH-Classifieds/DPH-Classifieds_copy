@@ -6,9 +6,19 @@ import './CarList.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const CarList = () => {
-  const [cars, setCars] = useState([]);
+  const [cars, setCarsState] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Safe wrapper to ensure cars is always an array
+  const setCars = (data) => {
+    if (Array.isArray(data)) {
+      setCarsState(data);
+    } else {
+      console.error('Attempted to set cars with non-array data:', typeof data, data);
+      setCarsState([]);
+    }
+  };
   const [filters, setFilters] = useState({
     car_manufacturer: '',
     car_model: '',
@@ -152,23 +162,40 @@ const CarList = () => {
       
       const queryString = params.toString() ? `?${params.toString()}` : '';
       
-      // First try with our real endpoint
-      let response;
-      try {
-        response = await axios.get(`${API_URL}/api/cars${queryString}`);
-      } catch (e) {
-        console.warn('Failed to fetch from main endpoint, falling back to test endpoint');
-        response = await axios.get(`${API_URL}/api/test`);
+      console.log('Fetching from:', `${API_URL}/api/cars${queryString}`);
+      console.log('API_URL value:', API_URL);
+      
+      const response = await axios.get(`${API_URL}/api/cars${queryString}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        validateStatus: function (status) {
+          return status < 500; // Accept any status code less than 500
+        }
+      });
+      
+      console.log('API Response status:', response.status);
+      console.log('API Response data type:', typeof response.data);
+      console.log('API Response data:', response.data);
+      
+      // Check if response is HTML (error page)
+      if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+        console.error('Received HTML instead of JSON. API might be down or URL is wrong.');
+        console.error('Current API_URL:', API_URL);
+        throw new Error('API returned HTML instead of JSON. Check if backend is running.');
       }
       
-      console.log('API Response:', response.data);
-      setCars(response.data);
+      // Ensure we have an array
+      const carsData = Array.isArray(response.data) ? response.data : [];
+      console.log('Setting cars data, length:', carsData.length);
+      setCars(carsData);
       
       // Extract unique values for filters
-      if (response.data && response.data.length > 0) {
-        const uniqueManufacturers = [...new Set(response.data.map(car => car.car_manufacturer).filter(Boolean))];
-        const uniqueModels = [...new Set(response.data.map(car => car.car_model).filter(Boolean))];
-        const uniqueYears = [...new Set(response.data.map(car => car.make_year).filter(Boolean))];
+      if (carsData && carsData.length > 0) {
+        const uniqueManufacturers = [...new Set(carsData.map(car => car.car_manufacturer).filter(Boolean))];
+        const uniqueModels = [...new Set(carsData.map(car => car.car_model).filter(Boolean))];
+        const uniqueYears = [...new Set(carsData.map(car => car.make_year).filter(Boolean))];
         
         setManufacturers(uniqueManufacturers.sort());
         setModels(uniqueModels.sort());
@@ -176,7 +203,8 @@ const CarList = () => {
       }
     } catch (err) {
       console.error('Error fetching cars:', err);
-      setError('Failed to load cars. Please try again later.');
+      console.error('Error details:', err.response?.data || err.message);
+      setError('Failed to load cars. Please check if the API is running.');
     } finally {
       setLoading(false);
     }
