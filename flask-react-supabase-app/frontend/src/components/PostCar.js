@@ -407,9 +407,14 @@ const PostCar = () => {
     }
   };
 
+  const [isDragOver, setIsDragOver] = useState(false);
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    
+    processFiles(files);
+  };
+
+  const processFiles = (files) => {
     // Limit to 10 images
     if (files.length > 10) {
       setError("You can only upload up to 10 images.");
@@ -421,6 +426,32 @@ const PostCar = () => {
     // Create preview URLs
     const previews = files.map(file => URL.createObjectURL(file));
     setPreviewImages(previews);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files).filter(file => 
+      file.type.startsWith('image/')
+    );
+    
+    if (files.length === 0) {
+      setError("Please drop only image files.");
+      return;
+    }
+    
+    processFiles(files);
   };
 
   const uploadImages = async () => {
@@ -771,19 +802,32 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  id="is_dealer"
-                  name="is_dealer"
-                  checked={formData.is_dealer}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
-                  className="form-check-input"
-                />
-                <span className="checkmark"></span>
-                I am a dealer
-              </label>
-              <small className="form-text text-muted">Check this box if you are posting this listing as a car dealer</small>
+              <label className="form-label">Are you a dealer?</label>
+              <div className="radio-group" style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="is_dealer"
+                    value="yes"
+                    checked={formData.is_dealer === true}
+                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: true }))}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  <span>Yes</span>
+                </label>
+                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="is_dealer"
+                    value="no"
+                    checked={formData.is_dealer === false}
+                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: false }))}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  <span>No</span>
+                </label>
+              </div>
+              <small className="form-text text-muted">Select "Yes" if you are posting this listing as a car dealer</small>
             </div>
           </div>
         </div>
@@ -902,7 +946,18 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="vin_number">VIN <span className="text-muted">(Vehicle Identification Number)</span></label>
+              <label htmlFor="vin_number">
+                <span 
+                  className="vin-label-tooltip"
+                  title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies your vehicle. You can find it on your vehicle registration document, insurance papers, or on the driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood."
+                  style={{ 
+                    cursor: 'help',
+                    borderBottom: '1px dotted #666'
+                  }}
+                >
+                  VIN
+                </span> <span className="text-muted">(Vehicle Identification Number)</span>
+              </label>
               <input
                 type="text"
                 id="vin_number"
@@ -917,7 +972,9 @@ const PostCar = () => {
                 style={{ textTransform: 'uppercase' }}
                 maxLength="17"
               />
-              <div className="form-text">The VIN is typically a 17-character code found on your vehicle registration or insurance documents.</div>
+              <div className="form-text">
+                <strong>Where to find your VIN:</strong> Check your vehicle registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.
+              </div>
             </div>
           </div>
           
@@ -1072,16 +1129,29 @@ const PostCar = () => {
           <div className="form-row">
             <div className="form-group full-width">
               <label>Upload Images *</label>
-              <div className="image-upload-container">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileChange}
-                  className="form-control"
-                  required
-                />
-                <p className="text-muted mt-2">Please upload images of your car (Maximum 10 images)</p>
+              <div 
+                className={`image-upload-container ${isDragOver ? 'drag-over' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="upload-area">
+                  <div className="upload-icon">📷</div>
+                  <h4>Drag & Drop Images Here</h4>
+                  <p>or</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileChange}
+                    className="file-input"
+                    required
+                  />
+                  <button type="button" className="browse-btn">
+                    Browse Files
+                  </button>
+                  <p className="upload-hint">Maximum 10 images • JPG, PNG, GIF supported</p>
+                </div>
                 
                 {previewImages.length > 0 && (
                   <div className="image-previews mt-3">

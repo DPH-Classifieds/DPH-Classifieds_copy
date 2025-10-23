@@ -1,10 +1,11 @@
 import axios from 'axios';
+import logger from './logger';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Add axios debug interceptors
 axios.interceptors.request.use(request => {
-  console.log('Starting Request', {
+  logger.debug('Starting Request', {
     url: request.url,
     method: request.method,
     headers: request.headers,
@@ -15,7 +16,7 @@ axios.interceptors.request.use(request => {
 
 axios.interceptors.response.use(
   response => {
-    console.log('Response:', {
+    logger.debug('Response:', {
       status: response.status,
       headers: response.headers,
       data: response.data
@@ -23,7 +24,7 @@ axios.interceptors.response.use(
     return response;
   },
   error => {
-    console.error('Response Error:', {
+    logger.error('Response Error:', {
       message: error.message,
       status: error.response?.status,
       data: error.response?.data
@@ -34,7 +35,7 @@ axios.interceptors.response.use(
 
 // Save auth data to local storage
 const saveAuthData = (authData) => {
-  console.log('Saving auth data to localStorage', { ...authData, access_token: '[REDACTED]' });
+  logger.debug('Saving auth data to localStorage', { ...authData, access_token: '[REDACTED]' });
   localStorage.setItem('authData', JSON.stringify(authData));
 };
 
@@ -42,29 +43,36 @@ const saveAuthData = (authData) => {
 const getAuthData = () => {
   const authData = localStorage.getItem('authData');
   const parsedData = authData ? JSON.parse(authData) : null;
-  console.log('Retrieved auth data from localStorage', parsedData ? 
+  logger.debug('Retrieved auth data from localStorage', parsedData ? 
     { ...parsedData, access_token: parsedData.access_token ? '[REDACTED]' : null } : null);
   return parsedData;
 };
 
 // Clear auth data from local storage
 const clearAuthData = () => {
-  console.log('Clearing auth data from localStorage');
+  logger.debug('Clearing auth data from localStorage');
   localStorage.removeItem('authData');
 };
 
 // Helper function to get the access token
 export const getAccessToken = () => {
+  // Try multiple sources for the token
   const authData = getAuthData();
-  const token = authData?.access_token || null;
-  console.log('Access token retrieved:', token ? '[REDACTED TOKEN PRESENT]' : 'No token found');
+  let token = authData?.access_token || null;
+  
+  // Fallback to supabase_access_token if authData doesn't have it
+  if (!token) {
+    token = localStorage.getItem('supabase_access_token');
+  }
+  
+  logger.debug('Access token retrieved:', token ? '[REDACTED TOKEN PRESENT]' : 'No token found');
   return token;
 };
 
 // Set authorization header for API requests
 export const setAuthHeader = (token) => {
   if (token) {
-    console.log('Setting Authorization header with token');
+    logger.debug('Setting Authorization header with token');
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     
     // Also update localStorage with the latest token
@@ -77,16 +85,16 @@ export const setAuthHeader = (token) => {
     // Add to supabase_access_token as well for the apiClient usage
     localStorage.setItem('supabase_access_token', token);
   } else {
-    console.log('Removing Authorization header');
+    logger.debug('Removing Authorization header');
     delete axios.defaults.headers.common['Authorization'];
   }
 };
 
 // Function to validate a token is working
 export const validateToken = async (token) => {
-  console.log('Validating token');
+  logger.debug('Validating token');
   if (!token) {
-    console.warn('No token provided to validate');
+    logger.warn('No token provided to validate');
     return false;
   }
   
@@ -97,36 +105,36 @@ export const validateToken = async (token) => {
     });
     
     if (response.status === 200) {
-      console.log('Token is valid');
+      logger.debug('Token is valid');
       return true;
     } else {
-      console.warn('Token validation failed with status:', response.status);
+      logger.warn('Token validation failed with status:', response.status);
       return false;
     }
   } catch (error) {
-    console.error('Token validation error:', error);
+    logger.error('Token validation error:', error);
     return false;
   }
 };
 
 // Login user with email and password
 export const signIn = async (email, password) => {
-  console.log(`Attempting to sign in user: ${email}`);
+  logger.info(`Attempting to sign in user: ${email}`);
   try {
-    console.log(`Sending login request to ${API_URL}/api/auth/login`);
+    logger.debug(`Sending login request to ${API_URL}/api/auth/login`);
     const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
     
     if (response.data && response.data.access_token) {
-      console.log('Login successful, received token');
+      logger.info('Login successful, received token');
       saveAuthData(response.data);
       setAuthHeader(response.data.access_token);
       return { data: response.data, error: null };
     } else {
-      console.error('Invalid response format from server:', response.data);
+      logger.error('Invalid response format from server:', response.data);
       throw new Error('Invalid response from server');
     }
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     return { 
       data: null, 
       error: error.response?.data?.message || error.message || 'Failed to sign in' 
@@ -135,15 +143,21 @@ export const signIn = async (email, password) => {
 };
 
 // Register user with email and password
-export const signUp = async (email, password) => {
+export const signUp = async (email, password, additionalData = {}) => {
   try {
-    const response = await axios.post(`${API_URL}/api/auth/signup`, { email, password });
+    const signupPayload = {
+      email,
+      password,
+      ...additionalData
+    };
+    
+    const response = await axios.post(`${API_URL}/api/auth/signup`, signupPayload);
     
     // Note: Depending on your Supabase config, this might not return tokens immediately
     // as email confirmation might be required
     return { data: response.data, error: null };
   } catch (error) {
-    console.error('Signup error:', error);
+    logger.error('Signup error:', error);
     return { 
       data: null, 
       error: error.response?.data?.message || error.message || 'Failed to sign up' 
@@ -166,7 +180,7 @@ export const signOut = async () => {
     setAuthHeader(null);
     return { error: null };
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Logout error:', error);
     // Still clear local data even if the API call fails
     clearAuthData();
     setAuthHeader(null);
@@ -176,27 +190,27 @@ export const signOut = async () => {
 
 // Get current user information
 export const getCurrentUser = async () => {
-  console.log('Getting current user information');
+  logger.debug('Getting current user information');
   try {
     const token = getAccessToken();
     if (!token) {
-      console.log('No access token available, user not logged in');
+      logger.debug('No access token available, user not logged in');
       return { user: null, error: null };
     }
     
-    console.log(`Sending request to ${API_URL}/api/auth/me with token`);
+    logger.debug(`Sending request to ${API_URL}/api/auth/me with token`);
     const response = await axios.get(`${API_URL}/api/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     
-    console.log('User info retrieved successfully:', response.data);
+    logger.info('User info retrieved successfully:', response.data);
     return { user: response.data, error: null };
   } catch (error) {
-    console.error('Get user error:', error);
+    logger.error('Get user error:', error);
     
     // If unauthorized (e.g., token expired), clear local data
     if (error.response && error.response.status === 401) {
-      console.warn('Unauthorized, clearing auth data');
+      logger.warn('Unauthorized, clearing auth data');
       clearAuthData();
       setAuthHeader(null);
     }
@@ -228,7 +242,7 @@ export const refreshToken = async () => {
       throw new Error('Invalid response from server');
     }
   } catch (error) {
-    console.error('Token refresh error:', error);
+    logger.error('Token refresh error:', error);
     return { 
       data: null, 
       error: error.response?.data?.message || error.message || 'Failed to refresh token' 
@@ -238,12 +252,12 @@ export const refreshToken = async () => {
 
 // Initialize auth - call this once when the app starts
 export const initializeAuth = () => {
-  console.log('Initializing authentication');
+  logger.info('Initializing authentication');
   const token = getAccessToken();
   if (token) {
-    console.log('Found existing token, setting auth header');
+    logger.debug('Found existing token, setting auth header');
     setAuthHeader(token);
   } else {
-    console.log('No existing token found');
+    logger.debug('No existing token found');
   }
 }; 

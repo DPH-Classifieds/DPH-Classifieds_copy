@@ -6,6 +6,21 @@ import '../styles/MyListings.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
+// Helper function to get proper image URL
+const getImageUrl = (image) => {
+  if (!image) return null;
+  
+  // Try all possible image URL fields
+  const imageUrl = image.image_url || image.url || image;
+  
+  // Check if the URL is a relative URL that needs the API base URL
+  if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('/')) {
+    return `${API_URL}${imageUrl}`;
+  }
+  
+  return imageUrl;
+};
+
 const MyListings = () => {
   const { user } = useAuth();
   const [carListings, setCarListings] = useState([]);
@@ -180,7 +195,15 @@ const MyListings = () => {
                   <div key={listing.id} className="my-listing-card">
                     <div className="my-listing-image">
                       {listing.images && listing.images.length > 0 ? (
-                        <img src={listing.images[0].image_url} alt={listing.listing_title || 'Car'} />
+                        <img 
+                          src={getImageUrl(listing.images[0])} 
+                          alt={listing.listing_title || 'Car'}
+                          onError={(e) => {
+                            console.error("Image failed to load:", e.target.src);
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/400x300?text=No+Image+Available";
+                          }}
+                        />
                       ) : (
                         <div className="no-image">No Image</div>
                       )}
@@ -232,8 +255,13 @@ const MyListings = () => {
                     <div className="my-listing-image">
                       {plate.images && plate.images.length > 0 ? (
                         <img 
-                          src={`${API_URL}${plate.images.find(img => img.is_primary)?.url || plate.images[0].url}`} 
-                          alt={`${plate.city} ${plate.code} ${plate.number}`} 
+                          src={getImageUrl(plate.images.find(img => img.is_primary) || plate.images[0])} 
+                          alt={`${plate.city} ${plate.code} ${plate.number}`}
+                          onError={(e) => {
+                            console.error("Image failed to load:", e.target.src);
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/400x300?text=No+Image+Available";
+                          }}
                         />
                       ) : (
                         <div className="no-image">No Image</div>

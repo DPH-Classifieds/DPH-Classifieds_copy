@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
+import ReportButton from './ReportButton';
 import '../styles/DetailView.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -206,8 +206,11 @@ const PartDetail = () => {
   return (
     <div className="detail-container">
       <div className="detail-header">
-        <Link to="/car-parts" className="btn-back">← Back to Car Parts</Link>
-        <h1>{part.name || part.part_name}</h1>
+        <div className="detail-header-left">
+          <Link to="/car-parts" className="btn-back">← Back to Car Parts</Link>
+          <h1>{part.name || part.part_name}</h1>
+        </div>
+        <ReportButton listingId={id} listingType="part" />
       </div>
 
       <div className="detail-main">

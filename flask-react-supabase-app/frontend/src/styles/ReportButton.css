@@ -1,0 +1,260 @@
+/* Report Button Styles */
+.report-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  color: #495057;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.report-button:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+  color: #212529;
+}
+
+.report-icon {
+  font-size: 1rem;
+}
+
+/* Modal Overlay */
+.report-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+/* Modal Content */
+.report-modal-content {
+  background-color: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal Header */
+.report-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.report-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #212529;
+}
+
+.report-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.report-modal-close:hover {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+/* Report Form */
+.report-form {
+  padding: 1.5rem;
+}
+
+.report-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.report-form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #212529;
+}
+
+/* Report Reasons */
+.report-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.report-reason-option {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.report-reason-option:hover {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.report-reason-option input[type="radio"] {
+  margin-right: 0.75rem;
+  cursor: pointer;
+}
+
+.report-reason-option input[type="radio"]:checked + span {
+  font-weight: 500;
+  color: #007bff;
+}
+
+.report-reason-option span {
+  flex: 1;
+  color: #495057;
+}
+
+/* Textarea */
+.report-form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.report-form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.char-count {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #6c757d;
+  text-align: right;
+}
+
+/* Modal Actions */
+.report-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.report-cancel-btn,
+.report-submit-btn {
+  padding: 0.5rem 1.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.report-cancel-btn {
+  background-color: #f8f9fa;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.report-cancel-btn:hover:not(:disabled) {
+  background-color: #e9ecef;
+}
+
+.report-submit-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.report-submit-btn:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.report-submit-btn:disabled,
+.report-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Success Message */
+.report-success-message {
+  padding: 2rem;
+  text-align: center;
+}
+
+.report-success-message p {
+  margin: 0;
+  color: #28a745;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Error Message */
+.report-error-message {
+  padding: 0.75rem;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  color: #721c24;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+  .report-modal-content {
+    max-width: 100%;
+    margin: 1rem;
+  }
+
+  .report-modal-header {
+    padding: 1rem;
+  }
+
+  .report-form {
+    padding: 1rem;
+  }
+
+  .report-modal-actions {
+    flex-direction: column;
+  }
+
+  .report-cancel-btn,
+  .report-submit-btn {
+    width: 100%;
+  }
+}
+

@@ -49,6 +49,16 @@ a {
   color: inherit;
 }
 
+/* Global image styling with curved edges */
+img {
+  border-radius: 8px;
+}
+
+/* Override for specific cases where square edges are needed */
+img.no-curve {
+  border-radius: 0;
+}
+
 ul {
   list-style: none;
 }

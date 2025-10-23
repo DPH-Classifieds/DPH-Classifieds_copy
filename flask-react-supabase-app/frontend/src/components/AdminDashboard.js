@@ -7,6 +7,8 @@ const AdminDashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('plates');
   const [listings, setListings] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,54 +18,95 @@ const AdminDashboard = () => {
   const [rejectionNote, setRejectionNote] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [listingToReject, setListingToReject] = useState(null);
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportedListing, setReportedListing] = useState(null);
+  const [loadingReportedListing, setLoadingReportedListing] = useState(false);
+  const [selectedDealer, setSelectedDealer] = useState(null);
+  const [showDealerModal, setShowDealerModal] = useState(false);
 
   useEffect(() => {
-    const fetchListings = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        let endpoint = '';
-        switch (activeTab) {
-          case 'plates':
-            endpoint = '/api/admin/plates';
-            break;
-          case 'cars':
-            endpoint = '/api/admin/cars';
-            break;
-          case 'bikes':
-            endpoint = '/api/admin/bikes';
-            break;
-          case 'parts':
-            endpoint = '/api/admin/parts';
-            break;
-          default:
-            endpoint = '/api/admin/plates';
-        }
         
-        console.log(`Fetching listings from ${endpoint}...`);
-        const response = await apiClient.get(endpoint);
-        console.log('Response received:', response);
-        console.log('Sample listing data:', response[0]); // Log first listing to see structure
-        
-        if (Array.isArray(response)) {
-          console.log(`Received ${response.length} listings`);
-          setListings(response);
+        if (activeTab === 'reports') {
+          // Fetch reports
+          console.log('Fetching reports...');
+          const response = await apiClient.get('/api/admin/reports');
+          console.log('Reports received:', response);
+          
+          if (Array.isArray(response)) {
+            console.log(`Received ${response.length} reports`);
+            setReports(response);
+          } else {
+            console.error('Unexpected response format:', response);
+            setReports([]);
+          }
+        } else if (activeTab === 'dealers') {
+          // Fetch dealers
+          console.log('Fetching dealers...');
+          const response = await apiClient.get('/api/admin/dealers');
+          console.log('Dealers received:', response);
+          
+          if (Array.isArray(response)) {
+            console.log(`Received ${response.length} dealers`);
+            setDealers(response);
+          } else {
+            console.error('Unexpected response format:', response);
+            setDealers([]);
+          }
         } else {
-          console.error('Unexpected response format:', response);
-          setListings([]);
+          // Fetch listings
+          let endpoint = '';
+          switch (activeTab) {
+            case 'plates':
+              endpoint = '/api/admin/plates';
+              break;
+            case 'cars':
+              endpoint = '/api/admin/cars';
+              break;
+            case 'bikes':
+              endpoint = '/api/admin/bikes';
+              break;
+            case 'parts':
+              endpoint = '/api/admin/parts';
+              break;
+            default:
+              endpoint = '/api/admin/plates';
+          }
+          
+          console.log(`Fetching listings from ${endpoint}...`);
+          const response = await apiClient.get(endpoint);
+          console.log('Response received:', response);
+          console.log('Sample listing data:', response[0]); // Log first listing to see structure
+          
+          if (Array.isArray(response)) {
+            console.log(`Received ${response.length} listings`);
+            setListings(response);
+          } else {
+            console.error('Unexpected response format:', response);
+            setListings([]);
+          }
         }
         
         setError(null);
       } catch (err) {
-        console.error('Error fetching listings:', err);
-        setError(`Failed to fetch listings: ${err.message || 'Unknown error'}`);
-        setListings([]);
+        console.error('Error fetching data:', err);
+        setError(`Failed to fetch data: ${err.message || 'Unknown error'}`);
+        if (activeTab === 'reports') {
+          setReports([]);
+        } else if (activeTab === 'dealers') {
+          setDealers([]);
+        } else {
+          setListings([]);
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchListings();
+    fetchData();
   }, [activeTab]);
 
   const handleApprove = async (id, type) => {
@@ -100,6 +143,54 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error(`Error approving ${type}:`, error);
       setError(`Failed to approve ${type}: ${error.message || 'Unknown error'}`);
+      
+      // Clear error message after 3 seconds
+      setTimeout(() => {
+        setError('');
+      }, 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (id, type) => {
+    try {
+      if (!window.confirm('Are you sure you want to permanently delete this listing? This action cannot be undone.')) {
+        return;
+      }
+      
+      console.log(`Deleting ${type} with ID: ${id}`);
+      setIsLoading(true);
+      
+      // Make the delete request
+      const response = await apiClient.delete(`/api/${type}/${id}/delete`);
+      console.log('Delete response:', response);
+      
+      // Show success message
+      setSuccessMessage(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully`);
+      
+      // Wait a brief moment to ensure the backend has processed the change
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh the listings to reflect the changes
+      console.log(`Reloading ${activeTab} after deletion`);
+      const updatedListings = await apiClient.get(`/api/admin/${activeTab}`);
+      console.log('Updated listings:', updatedListings);
+      
+      if (Array.isArray(updatedListings)) {
+        console.log(`Found ${updatedListings.length} updated listings`);
+        setListings(updatedListings);
+      } else {
+        console.error('Unexpected response format after deletion:', updatedListings);
+      }
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (error) {
+      console.error(`Error deleting ${type}:`, error);
+      setError(`Failed to delete ${type}: ${error.message || 'Unknown error'}`);
       
       // Clear error message after 3 seconds
       setTimeout(() => {
@@ -175,6 +266,81 @@ const AdminDashboard = () => {
     setShowDetailModal(true);
   };
 
+  const handleReportAction = async (reportId, status) => {
+    try {
+      setIsLoading(true);
+      
+      await apiClient.patch(`/api/reports/${reportId}`, { status });
+      
+      setSuccessMessage(`Report ${status} successfully`);
+      
+      // Refresh reports
+      const updatedReports = await apiClient.get('/api/admin/reports');
+      if (Array.isArray(updatedReports)) {
+        setReports(updatedReports);
+      }
+      
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (error) {
+      console.error(`Error updating report:`, error);
+      setError(`Failed to update report: ${error.message || 'Unknown error'}`);
+      
+      setTimeout(() => {
+        setError('');
+      }, 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRemoveListing = async (listingId, listingType) => {
+    if (!window.confirm('Are you sure you want to permanently delete this listing? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Delete the listing based on type
+      const endpoint = `/api/${listingType}s/${listingId}`;
+      await apiClient.delete(endpoint);
+      
+      setSuccessMessage(`${listingType.charAt(0).toUpperCase() + listingType.slice(1)} listing removed successfully`);
+      
+      // Refresh reports to update the display
+      const updatedReports = await apiClient.get('/api/admin/reports');
+      if (Array.isArray(updatedReports)) {
+        setReports(updatedReports);
+      }
+      
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (error) {
+      console.error(`Error removing listing:`, error);
+      setError(`Failed to remove listing: ${error.message || 'Unknown error'}`);
+      
+      setTimeout(() => {
+        setError('');
+      }, 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchReportedListing = async (listingId, listingType) => {
+    try {
+      const endpoint = `/api/${listingType}s/${listingId}`;
+      const listing = await apiClient.get(endpoint);
+      return listing;
+    } catch (error) {
+      console.error(`Error fetching reported listing:`, error);
+      return null;
+    }
+  };
+
   // Helper function to get proper image URL
   const getImageUrl = (image) => {
     if (!image) return null;
@@ -200,26 +366,30 @@ const AdminDashboard = () => {
     );
   }
 
-  // Format the listing title based on the type
+  // Format the listing title based on the type - Enhanced for admin view
   const getListingTitle = (listing, type) => {
     switch (type) {
       case 'plates':
         return `${listing.city || ''} ${listing.code || ''} ${listing.number || listing.digits || ''}`;
       case 'cars':
-        // Try multiple field combinations for car title
+        // Enhanced admin title: Make Model Year + Poster info
         const carMake = listing.car_manufacturer || listing.make || '';
         const carModel = listing.car_model || listing.model || '';
         const carYear = listing.make_year || listing.year || '';
-        const carPrice = listing.expected_selling_price || listing.price || 0;
-        const carTitle = listing.listing_title || `${carMake} ${carModel}`.trim() || 'Car Listing';
-        return `${carTitle} ${carYear ? `(${carYear})` : ''} - ${formatPrice(carPrice)}`.trim();
+        const posterName = listing.user_email || listing.car_owner_name || 'Unknown User';
+        const carTitle = `${carMake} ${carModel} ${carYear}`.trim() || 'Car Listing';
+        return `${carTitle} - Posted by ${posterName}`;
       case 'bikes':
         const bikeMake = listing.make || '';
         const bikeModel = listing.model || '';
         const bikeYear = listing.year || '';
-        return `${bikeMake} ${bikeModel} ${bikeYear ? `(${bikeYear})` : ''}`.trim() || 'Bike Listing';
+        const bikePosterName = listing.user_email || listing.bike_owner_name || 'Unknown User';
+        const bikeTitle = `${bikeMake} ${bikeModel} ${bikeYear ? `(${bikeYear})` : ''}`.trim() || 'Bike Listing';
+        return `${bikeTitle} - Posted by ${bikePosterName}`;
       case 'parts':
-        return listing.name || listing.part_name || 'Car Part';
+        const partName = listing.name || listing.part_name || 'Car Part';
+        const partPosterName = listing.user_email || listing.contact_name || 'Unknown User';
+        return `${partName} - Posted by ${partPosterName}`;
       default:
         return 'Unknown listing';
     }
@@ -293,6 +463,18 @@ const AdminDashboard = () => {
         >
           Parts
         </button>
+        <button 
+          className={activeTab === 'reports' ? 'active' : ''} 
+          onClick={() => setActiveTab('reports')}
+        >
+          Reports
+        </button>
+        <button 
+          className={activeTab === 'dealers' ? 'active' : ''} 
+          onClick={() => setActiveTab('dealers')}
+        >
+          Dealers
+        </button>
       </div>
       
       {successMessage && (
@@ -308,12 +490,305 @@ const AdminDashboard = () => {
       )}
       
       <div className="admin-content">
-        <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Listings</h2>
-        
-        {loading ? (
-          <div className="loading-message">Loading listings...</div>
+        {activeTab === 'reports' ? (
+          <>
+            <h2>User Reports</h2>
+            {loading ? (
+              <div className="loading-message">Loading reports...</div>
+            ) : (
+              <>
+                <div className="listings-stats">
+                  <div className="stat-item">
+                    <span className="stat-value">{reports.length}</span>
+                    <span className="stat-label">Total Reports</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {reports.filter(r => r.status === 'pending').length}
+                    </span>
+                    <span className="stat-label">Pending Review</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {reports.filter(r => r.status === 'resolved').length}
+                    </span>
+                    <span className="stat-label">Resolved</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {reports.filter(r => r.status === 'dismissed').length}
+                    </span>
+                    <span className="stat-label">Dismissed</span>
+                  </div>
+                </div>
+
+                <div className="listings-filter">
+                  <h3>Pending Reports</h3>
+                  {reports.filter(r => r.status === 'pending').length === 0 && (
+                    <p className="no-listings">No pending reports found.</p>
+                  )}
+                  <div className="listings-grid">
+                    {reports
+                      .filter(r => r.status === 'pending')
+                      .map(report => (
+                        <div key={report.id} className="listing-card">
+                          <div className="listing-header">
+                            <h4 className="listing-title">
+                              {report.listing_type.charAt(0).toUpperCase() + report.listing_type.slice(1)} ID: {report.listing_id}
+                            </h4>
+                            <span className="listing-date">
+                              {new Date(report.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="listing-body">
+                            <p className="listing-summary">
+                              <strong>Reason:</strong> {report.reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </p>
+                            {report.details && (
+                              <p className="listing-details">
+                                <strong>Details:</strong> {report.details}
+                              </p>
+                            )}
+                            <p className="listing-contact">
+                              <strong>Reporter ID:</strong> {report.reporter_id}
+                            </p>
+                          </div>
+                          <div className="listing-actions">
+                            <button 
+                              className="view-btn"
+                              onClick={() => {
+                                setSelectedReport(report);
+                                setShowReportModal(true);
+                              }}
+                            >
+                              View Details
+                            </button>
+                            <button 
+                              className="approve-btn"
+                              onClick={() => handleReportAction(report.id, 'resolved')}
+                              disabled={isLoading}
+                            >
+                              Resolve
+                            </button>
+                            <button 
+                              className="reject-btn"
+                              onClick={() => handleReportAction(report.id, 'dismissed')}
+                              disabled={isLoading}
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                <div className="listings-filter">
+                  <h3>Resolved Reports</h3>
+                  {reports.filter(r => r.status === 'resolved').length === 0 && (
+                    <p className="no-listings">No resolved reports found.</p>
+                  )}
+                  <div className="listings-grid">
+                    {reports
+                      .filter(r => r.status === 'resolved')
+                      .slice(0, 10)
+                      .map(report => (
+                        <div key={report.id} className="listing-card approved">
+                          <div className="listing-header">
+                            <h4 className="listing-title">
+                              {report.listing_type.charAt(0).toUpperCase() + report.listing_type.slice(1)} ID: {report.listing_id}
+                            </h4>
+                            <span className="listing-date">
+                              {new Date(report.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="listing-body">
+                            <p className="listing-summary">
+                              <strong>Reason:</strong> {report.reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </p>
+                            <p className="listing-status">
+                              <span className="status-indicator approved"></span> Resolved
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        ) : activeTab === 'dealers' ? (
+          <>
+            <h2>Dealer Management</h2>
+            {loading ? (
+              <div className="loading-message">Loading dealers...</div>
+            ) : (
+              <>
+                <div className="listings-stats">
+                  <div className="stat-item">
+                    <span className="stat-value">{dealers.length}</span>
+                    <span className="stat-label">Total Dealers</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {dealers.filter(d => d.dealer_verified).length}
+                    </span>
+                    <span className="stat-label">Verified</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {dealers.filter(d => !d.dealer_verified).length}
+                    </span>
+                    <span className="stat-label">Pending Verification</span>
+                  </div>
+                </div>
+
+                <div className="listings-filter">
+                  <h3>Pending Dealer Verifications</h3>
+                  {dealers.filter(d => !d.dealer_verified).length === 0 && (
+                    <p className="no-listings">No pending dealer verifications found.</p>
+                  )}
+                  <div className="listings-grid">
+                    {dealers
+                      .filter(d => !d.dealer_verified)
+                      .map(dealer => (
+                        <div key={dealer.id} className="listing-card">
+                          <div className="listing-header">
+                            <h4 className="listing-title">
+                              {dealer.company_name || 'Unknown Company'}
+                            </h4>
+                            <span className="listing-date">
+                              Registered: {new Date(dealer.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="listing-body">
+                            <p className="listing-summary">
+                              <strong>Contact:</strong> {dealer.first_name} {dealer.last_name}
+                            </p>
+                            <p className="listing-contact">
+                              <strong>Email:</strong> {dealer.email}
+                            </p>
+                            {dealer.phone && (
+                              <p className="listing-contact">
+                                <strong>Phone:</strong> {dealer.phone}
+                              </p>
+                            )}
+                            {dealer.company_registration_number && (
+                              <p className="listing-details">
+                                <strong>Registration #:</strong> {dealer.company_registration_number}
+                              </p>
+                            )}
+                            {dealer.trade_license_number && (
+                              <p className="listing-details">
+                                <strong>Trade License #:</strong> {dealer.trade_license_number}
+                              </p>
+                            )}
+                            {dealer.city && (
+                              <p className="listing-location">
+                                <strong>Location:</strong> {dealer.city}, {dealer.emirate || 'UAE'}
+                              </p>
+                            )}
+                          </div>
+                          <div className="listing-actions">
+                            <button 
+                              className="view-btn"
+                              onClick={() => {
+                                setSelectedDealer(dealer);
+                                setShowDealerModal(true);
+                              }}
+                            >
+                              View Details
+                            </button>
+                            <button 
+                              className="approve-btn"
+                              onClick={async () => {
+                                try {
+                                  await apiClient.post(`/api/admin/dealers/${dealer.id}/verify`);
+                                  setSuccessMessage('Dealer verified successfully!');
+                                  // Refresh dealers list
+                                  const updatedDealers = await apiClient.get('/api/admin/dealers');
+                                  setDealers(updatedDealers);
+                                  setTimeout(() => setSuccessMessage(''), 3000);
+                                } catch (error) {
+                                  setError(`Failed to verify dealer: ${error.message}`);
+                                }
+                              }}
+                              disabled={isLoading}
+                            >
+                              Verify Dealer
+                            </button>
+                            <button 
+                              className="reject-btn"
+                              onClick={async () => {
+                                const note = prompt('Enter rejection reason (optional):');
+                                try {
+                                  await apiClient.post(`/api/admin/dealers/${dealer.id}/reject`, {
+                                    rejection_note: note || ''
+                                  });
+                                  setSuccessMessage('Dealer verification rejected');
+                                  // Refresh dealers list
+                                  const updatedDealers = await apiClient.get('/api/admin/dealers');
+                                  setDealers(updatedDealers);
+                                  setTimeout(() => setSuccessMessage(''), 3000);
+                                } catch (error) {
+                                  setError(`Failed to reject dealer: ${error.message}`);
+                                }
+                              }}
+                              disabled={isLoading}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                <div className="listings-filter">
+                  <h3>Verified Dealers</h3>
+                  {dealers.filter(d => d.dealer_verified).length === 0 && (
+                    <p className="no-listings">No verified dealers found.</p>
+                  )}
+                  <div className="listings-grid">
+                    {dealers
+                      .filter(d => d.dealer_verified)
+                      .slice(0, 10)
+                      .map(dealer => (
+                        <div key={dealer.id} className="listing-card approved">
+                          <div className="listing-header">
+                            <h4 className="listing-title">
+                              {dealer.company_name || 'Unknown Company'}
+                            </h4>
+                            <span className="listing-date">
+                              Verified: {new Date(dealer.dealer_verified_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="listing-body">
+                            <p className="listing-summary">
+                              <strong>Contact:</strong> {dealer.first_name} {dealer.last_name}
+                            </p>
+                            <p className="listing-contact">
+                              <strong>Email:</strong> {dealer.email}
+                            </p>
+                            <p className="listing-status">
+                              <span className="status-indicator approved"></span> Verified Dealer
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <>
+            <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Listings</h2>
+            
+            {loading ? (
+              <div className="loading-message">Loading listings...</div>
+            ) : (
+              <>
             <div className="listings-stats">
               <div className="stat-item">
                 <span className="stat-value">{listings.length}</span>
@@ -376,16 +851,6 @@ const AdminDashboard = () => {
                           View Details
                         </button>
                         <button 
-                          className="view-btn"
-                          onClick={() => {
-                            console.log('Listing data:', listing);
-                            setShowDebugInfo(!showDebugInfo);
-                          }}
-                          style={{backgroundColor: '#6366f1'}}
-                        >
-                          Debug
-                        </button>
-                        <button 
                           className="approve-btn"
                           onClick={() => handleApprove(listing.id, activeTab)}
                           disabled={isLoading}
@@ -434,6 +899,22 @@ const AdminDashboard = () => {
                           <span className="status-indicator approved"></span> Approved
                         </p>
                       </div>
+                      <div className="listing-actions">
+                        <button 
+                          className="view-btn"
+                          onClick={() => openDetailModal(listing)}
+                        >
+                          View Details
+                        </button>
+                        <button 
+                          className="delete-btn"
+                          onClick={() => handleDelete(listing.id, activeTab.slice(0, -1))}
+                          disabled={isLoading}
+                          style={{backgroundColor: '#dc3545'}}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
@@ -472,6 +953,8 @@ const AdminDashboard = () => {
                   ))}
               </div>
             </div>
+          </>
+            )}
           </>
         )}
       </div>
@@ -672,6 +1155,196 @@ const AdminDashboard = () => {
                 Reject
               </button>
               <button className="cancel-btn" onClick={() => setShowDetailModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Detail Modal */}
+      {showReportModal && selectedReport && (
+        <div className="modal-overlay" onClick={() => {
+          setShowReportModal(false);
+          setReportedListing(null);
+        }}>
+          <div className="modal-content listing-detail-modal report-modal-large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Report Details</h3>
+              <button className="close-btn" onClick={() => {
+                setShowReportModal(false);
+                setReportedListing(null);
+              }}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="listing-detail-content">
+                <div className="report-section">
+                  <h4>Report Information</h4>
+                  <div className="detail-row">
+                    <strong>Listing Type:</strong> {selectedReport.listing_type.charAt(0).toUpperCase() + selectedReport.listing_type.slice(1)}
+                  </div>
+                  <div className="detail-row">
+                    <strong>Listing ID:</strong> {selectedReport.listing_id}
+                  </div>
+                  <div className="detail-row">
+                    <strong>Reason:</strong> {selectedReport.reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </div>
+                  {selectedReport.details && (
+                    <div className="detail-row">
+                      <strong>Details:</strong> {selectedReport.details}
+                    </div>
+                  )}
+                  <div className="detail-row">
+                    <strong>Reporter ID:</strong> {selectedReport.reporter_id}
+                  </div>
+                  <div className="detail-row">
+                    <strong>Status:</strong> <span className={`status-badge ${selectedReport.status}`}>{selectedReport.status}</span>
+                  </div>
+                  <div className="detail-row">
+                    <strong>Reported On:</strong> {new Date(selectedReport.created_at).toLocaleString()}
+                  </div>
+                  {selectedReport.admin_note && (
+                    <div className="detail-row">
+                      <strong>Admin Note:</strong> {selectedReport.admin_note}
+                    </div>
+                  )}
+                </div>
+
+                <div className="reported-listing-section">
+                  <h4>Reported Listing</h4>
+                  {!reportedListing && !loadingReportedListing && (
+                    <button 
+                      className="view-btn"
+                      onClick={async () => {
+                        setLoadingReportedListing(true);
+                        const listing = await fetchReportedListing(selectedReport.listing_id, selectedReport.listing_type);
+                        setReportedListing(listing);
+                        setLoadingReportedListing(false);
+                      }}
+                    >
+                      Load Listing Details
+                    </button>
+                  )}
+                  {loadingReportedListing && <p>Loading listing...</p>}
+                  {reportedListing && (
+                    <div className="reported-listing-details">
+                      {selectedReport.listing_type === 'car' && (
+                        <>
+                          <div className="detail-row">
+                            <strong>Title:</strong> {reportedListing.listing_title || `${reportedListing.car_manufacturer} ${reportedListing.car_model}`}
+                          </div>
+                          <div className="detail-row">
+                            <strong>Year:</strong> {reportedListing.make_year}
+                          </div>
+                          <div className="detail-row">
+                            <strong>Price:</strong> AED {reportedListing.expected_selling_price?.toLocaleString()}
+                          </div>
+                          <div className="detail-row">
+                            <strong>Contact:</strong> {reportedListing.contact_phone || reportedListing.car_owner_phone_number}
+                          </div>
+                        </>
+                      )}
+                      {selectedReport.listing_type === 'bike' && (
+                        <>
+                          <div className="detail-row">
+                            <strong>Title:</strong> {reportedListing.make} {reportedListing.model} {reportedListing.year}
+                          </div>
+                          <div className="detail-row">
+                            <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
+                          </div>
+                        </>
+                      )}
+                      {selectedReport.listing_type === 'plate' && (
+                        <>
+                          <div className="detail-row">
+                            <strong>Plate:</strong> {reportedListing.city} {reportedListing.code} {reportedListing.number}
+                          </div>
+                          <div className="detail-row">
+                            <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
+                          </div>
+                        </>
+                      )}
+                      {selectedReport.listing_type === 'part' && (
+                        <>
+                          <div className="detail-row">
+                            <strong>Name:</strong> {reportedListing.name || reportedListing.part_name}
+                          </div>
+                          <div className="detail-row">
+                            <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
+                          </div>
+                        </>
+                      )}
+                      {reportedListing.images && reportedListing.images.length > 0 && (
+                        <div className="detail-row">
+                          <strong>Images:</strong>
+                          <div className="listing-preview-images">
+                            {reportedListing.images.slice(0, 3).map((img, idx) => (
+                              <img 
+                                key={idx}
+                                src={getImageUrl(img)} 
+                                alt={`Preview ${idx + 1}`}
+                                style={{width: '100px', height: '75px', objectFit: 'cover', margin: '5px', borderRadius: '4px'}}
+                                onError={(e) => {
+                                  e.target.src = "https://via.placeholder.com/100x75?text=No+Image";
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {reportedListing === null && !loadingReportedListing && (
+                    <p className="listing-not-found">Listing may have been removed or does not exist.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="modal-actions">
+              {selectedReport.status === 'pending' && (
+                <>
+                  <button 
+                    className="approve-btn"
+                    onClick={() => {
+                      handleReportAction(selectedReport.id, 'resolved');
+                      setShowReportModal(false);
+                      setReportedListing(null);
+                    }}
+                    disabled={isLoading}
+                  >
+                    Resolve
+                  </button>
+                  <button 
+                    className="reject-btn"
+                    onClick={() => {
+                      handleReportAction(selectedReport.id, 'dismissed');
+                      setShowReportModal(false);
+                      setReportedListing(null);
+                    }}
+                    disabled={isLoading}
+                  >
+                    Dismiss
+                  </button>
+                  {reportedListing && (
+                    <button 
+                      className="delete-btn"
+                      onClick={() => {
+                        handleRemoveListing(selectedReport.listing_id, selectedReport.listing_type);
+                        setShowReportModal(false);
+                        setReportedListing(null);
+                      }}
+                      disabled={isLoading}
+                      style={{backgroundColor: '#dc3545', color: 'white'}}
+                    >
+                      Remove Listing
+                    </button>
+                  )}
+                </>
+              )}
+              <button className="cancel-btn" onClick={() => {
+                setShowReportModal(false);
+                setReportedListing(null);
+              }}>
                 Close
               </button>
             </div>

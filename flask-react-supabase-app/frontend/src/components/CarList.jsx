@@ -46,7 +46,72 @@ const CarList = () => {
   const seatingCapacities = ['2', '4', '5', '6', '7', '8', '9+'];
   const horsepowerRanges = ['100-150', '150-200', '200-300', '300-400', '400-500', '500-600', '600-700', '700+'];
   const engineCapacities = ['0-1000cc', '1100-2000cc', '2100-3000cc', '3100-4000cc', '4100-5000cc', '5100-6000cc', '6100-7000cc'];
-  const extras = ['Climate Control', 'DVD Player', 'Keyless Entry', 'Navigation System', 'Premium Sound System'];
+  // Comprehensive car extras organized by category
+  const carExtrasCategories = {
+    '🎧 Comfort & Convenience': [
+      'Dual-zone Climate Control',
+      'Tri-zone Climate Control',
+      'Ventilated Seats (Cooling Seats)',
+      'Heated Seats',
+      'Massage Seats',
+      'Panoramic Sunroof / Moonroof',
+      'Ambient Lighting (Multi-color)',
+      'Soft-Close Doors',
+      'Heads-Up Display (HUD)',
+      'Wireless Phone Charger',
+      'Rear Window Sunshades (Manual)',
+      'Rear Window Sunshades (Electric)',
+      'Power Tailgate / Hands-Free Trunk',
+      'Auto-Dimming Mirrors',
+      'Memory Seats and Steering'
+    ],
+    '🔊 Infotainment & Tech': [
+      'Apple CarPlay (Wireless)',
+      'Apple CarPlay (Wired)',
+      'Android Auto (Wireless)',
+      'Android Auto (Wired)',
+      'Rear Entertainment Screens',
+      'Bluetooth Audio Streaming',
+      'USB-C Fast Charging Ports',
+      '360° Surround Camera',
+      'Digital Cockpit / Fully Digital Instrument Cluster',
+      'Voice Command / AI Assistant',
+      'Built-In Spotify / Streaming Apps',
+      'Wi-Fi Hotspot'
+    ],
+    '🛡 Safety & Driver Assistance': [
+      'Adaptive Cruise Control (Radar Cruise)',
+      'Lane Keep Assist / Lane Departure Warning',
+      'Blind Spot Monitoring',
+      'Automatic Emergency Braking',
+      'Traffic Sign Recognition',
+      'Rear Cross Traffic Alert',
+      'Night Vision Camera',
+      'Off-Road Crawl Control / Terrain Response Modes'
+    ],
+    '🌟 Luxury & Styling': [
+      'Leather Dashboard Wrapping',
+      'Suede / Alcantara Headliner',
+      'Carbon Fiber Trim',
+      'Woodgrain Trim',
+      'Illuminated Door Sills',
+      'Chrome Appearance Package',
+      'Blackout / Night Package (Black Badges, Black Trim)',
+      'Sport Body Kit / Aero Kit'
+    ],
+    '🏜 Off-Road / Performance': [
+      'Diff Lock (Rear / Front / Center)',
+      'Air Suspension (Height Adjustable)',
+      'Skid Plates',
+      'Snorkel / Desert Air Intake',
+      'Off-Road Camera Modes',
+      'All-Terrain Drive Modes (Sand, Rock, Mud, Snow)',
+      'Tow Hook / Recovery Package'
+    ]
+  };
+
+  // Flatten all extras for easy filtering
+  const allExtras = Object.values(carExtrasCategories).flat();
   
   const emirates = ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah'];
   
@@ -498,40 +563,155 @@ const CarList = () => {
                 </div>
               </div>
               
-              <div className="filter-row">
-                <div className="filter-group extras-filter">
-                  <label>Extras</label>
-                  <div className="extras-checkboxes">
-                    {extras.map(extra => (
-                      <div key={extra} className="form-check">
-                        <input 
-                          type="checkbox" 
-                          id={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}
-                          name="extras"
-                          value={extra}
-                          checked={filters.extras.includes(extra)}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const isChecked = e.target.checked;
-                            setFilters(prev => ({
-                              ...prev,
-                              extras: isChecked 
-                                ? [...prev.extras, value] 
-                                : prev.extras.filter(item => item !== value)
-                            }));
+              {/* Car Extras - Redesigned for cleaner UI */}
+              <div className="filter-section">
+                <div className="filter-section-header">
+                  <label>🌟 Special Features</label>
+                  {filters.extras.length > 0 && (
+                    <button 
+                      type="button" 
+                      onClick={() => setFilters(prev => ({ ...prev, extras: [] }))}
+                      className="clear-extras-btn"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#007bff',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Clear all ({filters.extras.length})
+                    </button>
+                  )}
+                </div>
+                
+                <div className="extras-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                  gap: '8px',
+                  marginTop: '10px'
+                }}>
+                  {Object.entries(carExtrasCategories).map(([category, extras]) => (
+                    <div key={category} style={{ marginBottom: '15px' }}>
+                      <div style={{ 
+                        fontSize: '13px', 
+                        fontWeight: '600', 
+                        marginBottom: '8px',
+                        color: '#555',
+                        borderBottom: '1px solid #e0e0e0',
+                        paddingBottom: '4px'
+                      }}>
+                        {category}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {extras.map(extra => (
+                          <label 
+                            key={extra}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              transition: 'background-color 0.2s',
+                              backgroundColor: filters.extras.includes(extra) ? '#e3f2fd' : 'transparent'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!filters.extras.includes(extra)) {
+                                e.currentTarget.style.backgroundColor = '#f5f5f5';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!filters.extras.includes(extra)) {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }
+                            }}
+                          >
+                            <input 
+                              type="checkbox"
+                              value={extra}
+                              checked={filters.extras.includes(extra)}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const isChecked = e.target.checked;
+                                setFilters(prev => ({
+                                  ...prev,
+                                  extras: isChecked 
+                                    ? [...prev.extras, value] 
+                                    : prev.extras.filter(item => item !== value)
+                                }));
+                              }}
+                              style={{ marginRight: '8px', cursor: 'pointer' }}
+                            />
+                            <span style={{ 
+                              color: filters.extras.includes(extra) ? '#1976d2' : '#333',
+                              fontWeight: filters.extras.includes(extra) ? '500' : '400'
+                            }}>
+                              {extra}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Selected Extras Summary */}
+                {filters.extras.length > 0 && (
+                  <div style={{
+                    marginTop: '15px',
+                    padding: '10px',
+                    backgroundColor: '#f0f7ff',
+                    borderRadius: '6px',
+                    border: '1px solid #b3d9ff'
+                  }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#1976d2' }}>
+                      Selected Features ({filters.extras.length}):
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {filters.extras.map(extra => (
+                        <span 
+                          key={extra}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '4px 10px',
+                            backgroundColor: '#fff',
+                            border: '1px solid #1976d2',
+                            borderRadius: '16px',
+                            fontSize: '12px',
+                            color: '#1976d2'
                           }}
-                          className="form-check-input"
-                        />
-                        <label 
-                          htmlFor={`extra-${extra.replace(/\s+/g, '-').toLowerCase()}`}
-                          className="form-check-label"
                         >
                           {extra}
-                        </label>
-                      </div>
-                    ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFilters(prev => ({
+                                ...prev,
+                                extras: prev.extras.filter(item => item !== extra)
+                              }));
+                            }}
+                            style={{
+                              marginLeft: '6px',
+                              background: 'none',
+                              border: 'none',
+                              color: '#1976d2',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              padding: '0',
+                              lineHeight: '1'
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -567,41 +747,43 @@ const CarList = () => {
           <div className="car-grid">
             {cars.length > 0 ? (
               cars.map(car => (
-                <div key={car.id} className="car-card">
-                  <div className="car-image">
-                    {car.images && car.images.length > 0 ? (
-                      <img 
-                        src={getImageUrl(car.images[0])} 
-                        alt={car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}
-                        onError={(e) => {
-                          console.error("Image failed to load:", e.target.src);
-                          e.target.onerror = null;
-                          e.target.src = "https://via.placeholder.com/400x300?text=No+Image+Available";
-                        }}
-                      />
-                    ) : (
-                      <div className="image-placeholder">No Image Available</div>
-                    )}
-                    <div className="car-price">{formatPrice(car.expected_selling_price)}</div>
-                  </div>
-                  <div className="car-content">
-                    <h3 className="car-title">{car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}</h3>
-                    <div className="car-details">
-                      <p className="car-year">{car.make_year}</p>
-                      <div className="car-specs">
-                        <span>{car.kilometer_driven?.toLocaleString() || 'N/A'} KM</span>
-                        <span>•</span>
-                        <span>{car.transmission_type || 'N/A'}</span>
-                        <span>•</span>
-                        <span>{car.fuel_type || 'N/A'}</span>
-                      </div>
-                      <p className="car-location">{car.car_city || 'Location not specified'}</p>
+                <Link key={car.id} to={`/cars/${car.id}`} className="car-card-link">
+                  <div className="car-card">
+                    <div className="car-image">
+                      {car.images && car.images.length > 0 ? (
+                        <img 
+                          src={getImageUrl(car.images[0])} 
+                          alt={car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}
+                          onError={(e) => {
+                            console.error("Image failed to load:", e.target.src);
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/400x300?text=No+Image+Available";
+                          }}
+                        />
+                      ) : (
+                        <div className="image-placeholder">No Image Available</div>
+                      )}
+                      <div className="car-price">{formatPrice(car.expected_selling_price)}</div>
                     </div>
-                    <Link to={`/cars/${car.id}`} className="view-details-btn">
-                      View Details
-                    </Link>
+                    <div className="car-content">
+                      <h3 className="car-title">{car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}</h3>
+                      <div className="car-details">
+                        <p className="car-year">{car.make_year}</p>
+                        <div className="car-specs">
+                          <span>{car.kilometer_driven?.toLocaleString() || 'N/A'} KM</span>
+                          <span>•</span>
+                          <span>{car.transmission_type || 'N/A'}</span>
+                          <span>•</span>
+                          <span>{car.fuel_type || 'N/A'}</span>
+                        </div>
+                        <p className="car-location">{car.car_city || 'Location not specified'}</p>
+                      </div>
+                      <div className="view-details-btn">
+                        View Details
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </Link>
               ))
             ) : (
               <div className="no-cars-message">

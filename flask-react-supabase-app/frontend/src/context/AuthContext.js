@@ -247,11 +247,11 @@ export const AuthProvider = ({ children }) => {
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   // We can't add syncWithSupabase to the deps array as it would cause infinite loops
 
-  const signUp = async (email, password) => {
+  const signUp = async (email, password, additionalData = {}) => {
     try {
       setError(null);
       
-      const { data, error } = await authService.signUp(email, password);
+      const { data, error } = await authService.signUp(email, password, additionalData);
       
       if (error) {
         throw error;
@@ -260,7 +260,7 @@ export const AuthProvider = ({ children }) => {
       // Also sync with Supabase after signup
       await syncWithSupabase();
       
-      return data;
+      return { data, error: null };
     } catch (err) {
       setError(err.message);
       throw err;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
+import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import '../styles/CreateListing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -26,6 +27,7 @@ const CreateListing = () => {
     engine: '',
     vin_number: '',
     car_description: '',
+    country_code: defaultCountryCode,
     contact_phone: '',
     contact_email: ''
   });
@@ -340,7 +342,18 @@ const CreateListing = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="vin_number">VIN <span className="text-muted">(Vehicle Identification Number)</span></label>
+              <label htmlFor="vin_number">
+                <span 
+                  className="vin-label-tooltip"
+                  title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies your vehicle. You can find it on your vehicle registration document, insurance papers, or on the driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood."
+                  style={{ 
+                    cursor: 'help',
+                    borderBottom: '1px dotted #666'
+                  }}
+                >
+                  VIN
+                </span> <span className="text-muted">(Vehicle Identification Number)</span>
+              </label>
               <input 
                 type="text" 
                 id="vin_number" 
@@ -355,7 +368,7 @@ const CreateListing = () => {
                 maxLength="17"
               />
               <small className="form-text text-muted">
-                The VIN is typically a 17-character code found on your vehicle registration or insurance documents.
+                <strong>Where to find your VIN:</strong> Check your vehicle registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.
               </small>
             </div>
           </div>
@@ -379,15 +392,33 @@ const CreateListing = () => {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="contact_phone">Phone Number *</label>
-              <input 
-                type="tel" 
-                id="contact_phone" 
-                name="contact_phone" 
-                value={formData.contact_phone} 
-                onChange={handleChange} 
-                placeholder="Your contact phone number"
-                required
-              />
+              <div className="phone-input-group">
+                <select 
+                  className="country-code-select"
+                  name="country_code"
+                  value={formData.country_code}
+                  onChange={handleChange}
+                >
+                  {countryCodes.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </select>
+                <input 
+                  type="tel" 
+                  id="contact_phone" 
+                  name="contact_phone" 
+                  className="phone-number-input"
+                  value={formData.contact_phone} 
+                  onChange={handleChange} 
+                  placeholder="Enter phone number"
+                  required
+                />
+              </div>
+              <small className="form-text text-muted">
+                Select your country code and enter your phone number
+              </small>
             </div>
             
             <div className="form-group">

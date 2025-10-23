@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoanCalculator from './LoanCalculator';
+import ReportButton from './ReportButton';
 import { useAuth } from '../context/AuthContext';
+import { formatPhoneNumber } from '../utils/countryCodes';
 import './CarDetail.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -156,9 +158,12 @@ const CarDetail = () => {
   
   return (
     <div className="car-detail-container">
-      <button onClick={goBack} className="back-button">
-        <span>&#8592;</span> Back to Listings
-      </button>
+      <div className="car-detail-header">
+        <button onClick={goBack} className="back-button">
+          <span>&#8592;</span> Back to Listings
+        </button>
+        <ReportButton listingId={id} listingType="car" />
+      </div>
       
       <h1 className="car-detail-title">{car.listing_title}</h1>
       
@@ -240,8 +245,8 @@ const CarDetail = () => {
           
           <div className="car-contact">
             <h3>Contact Seller</h3>
-            <a href={`tel:${car.car_owner_phone_number}`} className="contact-button">
-              <i className="phone-icon"></i> {car.car_owner_phone_number || 'Contact information not available'}
+            <a href={`tel:${car.country_code || ''}${car.car_owner_phone_number || car.contact_phone}`} className="contact-button">
+              <i className="phone-icon"></i> {formatPhoneNumber(car.country_code, car.car_owner_phone_number || car.contact_phone)}
             </a>
           </div>
           
@@ -306,10 +311,24 @@ const CarDetail = () => {
                 <span className="spec-label">Insured</span>
                 <span className="spec-value">{car.is_insured ? 'Yes' : 'No'}</span>
               </div>
-              <div className="spec-item">
-                <span className="spec-label">VIN</span>
-                <span className="spec-value">{car.vin_number || 'N/A'}</span>
-              </div>
+              {car.vin_number && (
+                <div className="spec-item">
+                  <span className="spec-label">
+                    <span 
+                      className="vin-tooltip"
+                      title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies your vehicle. You can find it on your vehicle registration document, insurance papers, or on the driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood."
+                      style={{ 
+                        cursor: 'help',
+                        borderBottom: '1px dotted #007bff',
+                        color: '#007bff'
+                      }}
+                    >
+                      VIN
+                    </span>
+                  </span>
+                  <span className="spec-value">{car.vin_number}</span>
+                </div>
+              )}
             </div>
           </div>
           

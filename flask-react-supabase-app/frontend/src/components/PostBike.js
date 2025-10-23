@@ -343,7 +343,18 @@ const PostBike = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="vin_number">VIN <span className="text-muted">(Vehicle Identification Number)</span></label>
+              <label htmlFor="vin_number">
+                <span 
+                  className="vin-label-tooltip"
+                  title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies your bike. You can find it on your vehicle registration document, insurance papers, on the frame neck (under handlebars), on the frame near the engine, or on the engine casing."
+                  style={{ 
+                    cursor: 'help',
+                    borderBottom: '1px dotted #666'
+                  }}
+                >
+                  VIN
+                </span> <span className="text-muted">(Vehicle Identification Number)</span>
+              </label>
               <input
                 type="text"
                 id="vin_number"
@@ -357,7 +368,9 @@ const PostBike = () => {
                 style={{ textTransform: 'uppercase' }}
                 maxLength="17"
               />
-              <div className="form-text">The VIN is typically a 17-character code found on your vehicle registration or insurance documents.</div>
+              <div className="form-text">
+                <strong>Where to find your VIN:</strong> Check your bike registration, insurance documents, frame neck (under handlebars), frame near the engine, or on the engine casing.
+              </div>
             </div>
           </div>
           
@@ -538,19 +551,32 @@ const PostBike = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  id="is_dealer"
-                  name="is_dealer"
-                  checked={formData.is_dealer}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
-                  className="form-check-input"
-                />
-                <span className="checkmark"></span>
-                I am a dealer
-              </label>
-              <small className="form-text text-muted">Check this box if you are posting this listing as a bike dealer</small>
+              <label className="form-label">Are you a dealer?</label>
+              <div className="radio-group" style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="is_dealer"
+                    value="yes"
+                    checked={formData.is_dealer === true}
+                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: true }))}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  <span>Yes</span>
+                </label>
+                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="is_dealer"
+                    value="no"
+                    checked={formData.is_dealer === false}
+                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: false }))}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  <span>No</span>
+                </label>
+              </div>
+              <small className="form-text text-muted">Select "Yes" if you are posting this listing as a bike dealer</small>
             </div>
           </div>
         </div>

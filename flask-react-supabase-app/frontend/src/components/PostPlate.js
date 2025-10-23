@@ -507,19 +507,32 @@ const PostPlate = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  id="is_dealer"
-                  name="is_dealer"
-                  checked={formData.is_dealer}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
-                  className="form-check-input"
-                />
-                <span className="checkmark"></span>
-                I am a dealer
-              </label>
-              <small className="form-text text-muted">Check this box if you are posting this listing as a plate dealer</small>
+              <label className="form-label">Are you a dealer?</label>
+              <div className="radio-group" style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="is_dealer"
+                    value="yes"
+                    checked={formData.is_dealer === true}
+                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: true }))}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  <span>Yes</span>
+                </label>
+                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="is_dealer"
+                    value="no"
+                    checked={formData.is_dealer === false}
+                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: false }))}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  <span>No</span>
+                </label>
+              </div>
+              <small className="form-text text-muted">Select "Yes" if you are posting this listing as a plate dealer</small>
             </div>
           </div>
         </div>

@@ -6,6 +6,14 @@
 
 .detail-header {
   margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.detail-header-left {
+  flex: 1;
 }
 
 .detail-header h1 {

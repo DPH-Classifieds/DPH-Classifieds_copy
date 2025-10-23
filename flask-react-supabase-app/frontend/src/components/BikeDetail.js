@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ReportButton from './ReportButton';
 import '../styles/DetailView.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -208,8 +209,11 @@ const BikeDetail = () => {
   return (
     <div className="detail-container">
       <div className="detail-header">
-        <Link to="/bikes" className="btn-back">← Back to Bikes</Link>
-        <h1>{bike.make} {bike.model} {bike.year}</h1>
+        <div className="detail-header-left">
+          <Link to="/bikes" className="btn-back">← Back to Bikes</Link>
+          <h1>{bike.make} {bike.model} {bike.year}</h1>
+        </div>
+        <ReportButton listingId={id} listingType="bike" />
       </div>
 
       <div className="detail-main">
@@ -294,7 +298,18 @@ const BikeDetail = () => {
               </div>
               
                               <div className="info-item">
-                  <span className="info-label">VIN:</span>
+                  <span className="info-label">
+                    <span 
+                      className="vin-tooltip"
+                      title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies this bike. You can find it on the vehicle registration document, insurance papers, on the frame neck (under handlebars), on the frame near the engine, or on the engine casing."
+                      style={{ 
+                        cursor: 'help',
+                        borderBottom: '1px dotted #007bff'
+                      }}
+                    >
+                      VIN:
+                    </span>
+                  </span>
                   <span className="info-value">{bike.vin_number || 'N/A'}</span>
                 </div>
               

@@ -29,7 +29,7 @@ const HomePage = () => {
           <p>Browse thousands of listings from verified sellers</p>
           <div className="hero-buttons">
             <Link to="/cars" className="btn btn-primary">Browse Cars</Link>
-            <Link to="/create-listing" className="btn btn-secondary">Sell Your Car</Link>
+            <Link to="/post-car" className="btn btn-secondary">Sell Your Car</Link>
           </div>
         </div>
       </section>
@@ -85,7 +85,7 @@ const HomePage = () => {
           <div className="cta-content">
             <h2 className="white-text" style={{ color: '#ffffff', fontWeight: 600, textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>Ready to sell your car?</h2>
             <p className="white-text" style={{ color: '#ffffff', fontWeight: 500, textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>List your car with us and reach thousands of potential buyers.</p>
-            <Link to="/create-listing" className="btn btn-cta" style={{ boxShadow: '0 4px 8px rgba(0,0,0,0.2)' }}>Create a Listing</Link>
+            <Link to="/post-car" className="btn btn-cta" style={{ boxShadow: '0 4px 8px rgba(0,0,0,0.2)' }}>Sell Your Car</Link>
           </div>
         </div>
       </section>

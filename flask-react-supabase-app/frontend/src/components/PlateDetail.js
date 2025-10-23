@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ReportButton from './ReportButton';
 import '../styles/DetailView.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -135,8 +136,11 @@ const PlateDetail = () => {
   return (
     <div className="detail-container">
       <div className="detail-header">
-        <Link to="/plates" className="btn-back">← Back to Plates</Link>
-        <h1>{plate.city} License Plate {plate.code} {plate.number}</h1>
+        <div className="detail-header-left">
+          <Link to="/plates" className="btn-back">← Back to Plates</Link>
+          <h1>{plate.city} License Plate {plate.code} {plate.number}</h1>
+        </div>
+        <ReportButton listingId={id} listingType="plate" />
       </div>
 
       <div className="detail-main">

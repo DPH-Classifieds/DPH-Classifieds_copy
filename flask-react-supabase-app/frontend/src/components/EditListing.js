@@ -369,17 +369,31 @@ const EditListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="vin_number">VIN</label>
+              <label htmlFor="vin_number">
+                <span 
+                  className="vin-label-tooltip"
+                  title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies your vehicle. You can find it on your vehicle registration document, insurance papers, or on the driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood."
+                  style={{ 
+                    cursor: 'help',
+                    borderBottom: '1px dotted #666'
+                  }}
+                >
+                  VIN
+                </span>
+              </label>
               <input
                 type="text"
                 id="vin_number"
                 name="vin_number"
                 value={formData.vin_number}
                 onChange={(e) => handleChange({...e, target: {...e.target, value: e.target.value.toUpperCase()}})}
-                placeholder="Vehicle Identification Number"
+                placeholder="Vehicle Identification Number (17 characters)"
                 maxLength="17"
                 style={{ textTransform: 'uppercase' }}
               />
+              <small className="form-text text-muted">
+                <strong>Where to find:</strong> Registration, insurance docs, dashboard, door jamb, or under hood
+              </small>
             </div>
             
             <div className="form-group">
