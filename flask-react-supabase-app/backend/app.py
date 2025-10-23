@@ -27,7 +27,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='static')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # Enable CORS for all routes, with specific origins for security
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000",
+    "https://dph-classifieds.vercel.app"
+]}}, supports_credentials=True)
 
 # Configure a secret key for session management
 # IMPORTANT: In a production environment, use a strong, randomly generated key set via environment variable.
