@@ -22,7 +22,9 @@ const AdminDashboard = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportedListing, setReportedListing] = useState(null);
   const [loadingReportedListing, setLoadingReportedListing] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [selectedDealer, setSelectedDealer] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [showDealerModal, setShowDealerModal] = useState(false);
 
   useEffect(() => {
@@ -396,6 +398,7 @@ const AdminDashboard = () => {
   };
 
   // Format price with currency symbol
+  // eslint-disable-next-line no-unused-vars
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-AE', {
       style: 'currency',

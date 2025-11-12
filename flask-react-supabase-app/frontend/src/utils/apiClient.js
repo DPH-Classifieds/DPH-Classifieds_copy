@@ -1,4 +1,5 @@
 import { getBestAccessToken } from './supabaseClient';
+// eslint-disable-next-line no-unused-vars
 import * as authService from './authService';
 
 // Base URL for API requests - use environment variable or fallback to localhost

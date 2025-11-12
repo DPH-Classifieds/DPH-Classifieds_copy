@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+// eslint-disable-next-line no-unused-vars
 import { getBestAccessToken } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import html2canvas from 'html2canvas';
@@ -28,6 +29,7 @@ const PostPlate = () => {
     is_dealer: false
   });
   const [codeOptions, setCodeOptions] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [debugInfo, setDebugInfo] = useState('');
   const [showDebug, setShowDebug] = useState(false);
 

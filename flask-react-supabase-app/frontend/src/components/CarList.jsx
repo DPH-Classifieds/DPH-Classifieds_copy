@@ -135,6 +135,7 @@ const CarList = () => {
     return imageUrl;
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchCars = useCallback(async (filterParams = {}) => {
     setLoading(true);
     setError(null);

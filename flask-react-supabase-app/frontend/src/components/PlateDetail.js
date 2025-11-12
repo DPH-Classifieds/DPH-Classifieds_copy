@@ -69,6 +69,7 @@ const PlateDetail = () => {
   }, [id]);
 
   // For the plate preview rendering
+  // eslint-disable-next-line no-unused-vars
   const getPlateLayout = (city) => {
     if (!city) return 'center';
     
@@ -82,6 +83,7 @@ const PlateDetail = () => {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const getLogoPath = (city) => {
     if (!city) return '/images/plates/dubai.png';
     
@@ -164,7 +166,7 @@ const PlateDetail = () => {
                   <div key={index} className="gallery-image">
                     <img 
                       src={`${API_URL}${image.url}`} 
-                      alt={`Plate image ${index + 1}`} 
+                      alt={`Plate ${index + 1}`} 
                     />
                   </div>
                 ))}

@@ -8,6 +8,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const PartDetail = () => {
   const { id } = useParams();
+  // eslint-disable-next-line no-unused-vars
   const { user } = useAuth();
   const [part, setPart] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -236,7 +237,7 @@ const PartDetail = () => {
                   <div key={index} className="gallery-image">
                     <img 
                       src={image.image_url || image.url || `${API_URL}${image.url}`} 
-                      alt={`Part image ${index + 1}`} 
+                      alt={`Part ${index + 1}`} 
                     />
                   </div>
                 ))}

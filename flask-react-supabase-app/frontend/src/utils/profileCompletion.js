@@ -127,9 +127,11 @@ export const getNextSuggestedField = (missingFields) => {
   return missingFields.sort((a, b) => b.weight - a.weight)[0];
 };
 
-export default {
+const profileCompletionUtils = {
   calculateProfileCompletion,
   getProfileCompletionColor,
   getProfileCompletionMessage,
   getNextSuggestedField
 };
+
+export default profileCompletionUtils;

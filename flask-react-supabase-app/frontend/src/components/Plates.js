@@ -12,6 +12,7 @@ const Plates = () => {
   const [plates, setPlates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [cities, setCities] = useState([]);
   const [codes, setCodes] = useState([]);
   const [debugInfo, setDebugInfo] = useState('');
@@ -206,6 +207,7 @@ const Plates = () => {
 
   useEffect(() => {
     fetchPlates();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Add useEffect to update code options based on selected city
