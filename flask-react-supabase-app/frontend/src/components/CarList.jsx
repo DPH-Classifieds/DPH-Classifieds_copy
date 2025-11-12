@@ -118,9 +118,6 @@ const CarList = () => {
     ]
   };
 
-  // Flatten all extras for easy filtering
-  const allExtras = Object.values(carExtrasCategories).flat();
-  
   const emirates = ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah'];
   
   // Helper function to get proper image URL
