@@ -135,7 +135,6 @@ const CarList = () => {
     return imageUrl;
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchCars = useCallback(async (filterParams = {}) => {
     setLoading(true);
     setError(null);
@@ -204,7 +203,7 @@ const CarList = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, sortOption, API_URL]);
+  }, [filters, sortOption]);
   
   useEffect(() => {
     fetchCars();
