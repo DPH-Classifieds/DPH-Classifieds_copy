@@ -45,31 +45,27 @@ const HomePage = () => {
         <div className="why-choose-us-content">
           <div className="why-choose-us-text">
             <h2>Why choose DPH-Classifieds?</h2>
-            <p className="why-choose-subtitle">We are one of the largest Car Clubs in the country.</p>
-            <p className="why-choose-subtitle">A Classifieds website for the people by the people.</p>
+            <p className="why-choose-subtitle">A car community in the middle-east with over 60,000 members.</p>
+            <p className="why-choose-subtitle">For petrolheads by petrolheads.</p>
             
-            <h3>Why Choose us?</h3>
+            <h3>Why Choose Us:</h3>
             
             <ul className="benefits-list">
               <li>
                 <span className="checkmark">✓</span>
-                <span>Search desired Vehicle</span>
+                <span>Petrolhead created, with a focus on details that matter</span>
               </li>
               <li>
                 <span className="checkmark">✓</span>
-                <span>Select your Vehicle</span>
+                <span>Transparent ads</span>
               </li>
               <li>
                 <span className="checkmark">✓</span>
-                <span>Get complete detail</span>
+                <span>No fees</span>
               </li>
               <li>
                 <span className="checkmark">✓</span>
-                <span>Verify Your phone number</span>
-              </li>
-              <li>
-                <span className="checkmark">✓</span>
-                <span>Get Contact Detail of Car Owner</span>
+                <span>A community of over 25 million petrolhead viewers</span>
               </li>
             </ul>
             

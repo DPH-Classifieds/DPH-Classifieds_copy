@@ -161,21 +161,48 @@
   color: #333;
 }
 
+.contact-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .contact-button {
   display: flex;
   align-items: center;
-  background-color: #28a745;
+  justify-content: center;
   color: white;
   padding: 12px 20px;
   text-decoration: none;
   border-radius: 4px;
   font-size: 16px;
   font-weight: 600;
+  flex: 1;
+  min-width: 150px;
+  transition: all 0.3s ease;
 }
 
-.phone-icon {
-  margin-right: 10px;
+.phone-button {
+  background-color: #01351c;
+}
+
+.phone-button:hover {
+  background-color: #012513;
+}
+
+.whatsapp-button {
+  background-color: #25D366;
+}
+
+.whatsapp-button:hover {
+  background-color: #20BA5A;
+}
+
+.phone-icon,
+.whatsapp-icon {
+  margin-right: 8px;
   font-style: normal;
+  font-size: 18px;
 }
 
 .car-specs-section {

@@ -76,12 +76,12 @@ const PostCar = () => {
   // Car specifications arrays
   const bodyTypes = ['Sedan', 'SUV', 'Hatchback', 'Coupe', 'Convertible', 'Wagon', 'Van', 'Truck', 'Other'];
   const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'Other'];
-  const transmissionTypes = ['Automatic', 'Manual', 'CVT', 'Electric', 'Semi-Automatic', 'Other'];
-  const regionalSpecs = ['GCC Specs', 'American Specs', 'European Specs', 'Japanese Specs', 'Korean Specs', 'Chinese Specs', 'Other'];
+  const transmissionTypes = ['Automatic', 'Manual'];
+  const regionalSpecs = ['GCC', 'North American', 'European', 'Japanese', 'Korean', 'Chinese', 'Other'];
   const steeringSides = ['Left', 'Right'];
   const seatingCapacities = ['2', '4', '5', '6', '7', '8', '9+'];
-  const horsepowerRanges = ['100-150', '150-200', '200-300', '300-400', '400-500', '500-600', '600-700', '700+'];
-  const engineCapacities = ['0-1000cc', '1100-2000cc', '2100-3000cc', '3100-4000cc', '4100-5000cc', '5100-6000cc', '6100-7000cc'];
+  const horsepowerRanges = ['>100', '100-199', '200-299', '300-399', '400-499', '500-599', '600-699', '700-799', '800-899', '900-999', '1000+'];
+  const engineCapacities = ['0-999cc', '1000cc-1499cc', '1500cc-1999cc', '2000cc-2999cc', '3000cc-3999cc', '4000cc-4999cc', '5000cc-5999cc', '6000cc-6999cc', '7000cc-7999cc', '8000cc+'];
   // Organized car extras by category
   const carExtrasCategories = {
     '🎧 Comfort & Convenience': [
@@ -102,10 +102,8 @@ const PostCar = () => {
       'Memory Seats and Steering'
     ],
     '🔊 Infotainment & Tech': [
-      'Apple CarPlay (Wireless)',
-      'Apple CarPlay (Wired)',
-      'Android Auto (Wireless)',
-      'Android Auto (Wired)',
+      'Apple CarPlay',
+      'Android Auto',
       'Rear Entertainment Screens',
       'Bluetooth Audio Streaming',
       'USB-C Fast Charging Ports',
@@ -620,6 +618,7 @@ const PostCar = () => {
                 onChange={handleChange}
                 required
                 className="form-control form-select"
+                disabled={!formData.car_manufacturer}
               >
                 <option value="">Select Model</option>
                 {availableModels.map(model => (
@@ -684,7 +683,7 @@ const PostCar = () => {
                 name="make_year"
                 value={formData.make_year}
                 onChange={handleChange}
-                min="1900"
+                min="1886"
                 max={new Date().getFullYear() + 1}
                 required
                 className="form-control"

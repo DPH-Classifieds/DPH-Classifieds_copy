@@ -63,7 +63,11 @@ export const defaultCountryCode = '+971';
 // Helper function to format phone number for display
 export const formatPhoneNumber = (countryCode, phoneNumber) => {
   if (!phoneNumber) return 'N/A';
-  return `${countryCode || defaultCountryCode} ${phoneNumber}`;
+  
+  // Remove leading zeros from phone number
+  const cleanedNumber = String(phoneNumber).replace(/^0+/, '');
+  
+  return `${countryCode || defaultCountryCode}${cleanedNumber}`;
 };
 
 // Helper function to get country info by code

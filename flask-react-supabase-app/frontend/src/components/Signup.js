@@ -65,6 +65,9 @@ const Signup = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, text: '', color: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [allErrors, setAllErrors] = useState([]);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -112,9 +115,48 @@ const Signup = () => {
       [name]: newValue
     }));
 
+    // Clear field-specific error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+
     // Update password strength when password changes
     if (name === 'password') {
       setPasswordStrength(calculatePasswordStrength(value));
+      
+      // Check password match in real-time
+      if (formData.confirmPassword && value !== formData.confirmPassword) {
+        setFieldErrors(prev => ({
+          ...prev,
+          confirmPassword: 'Passwords do not match'
+        }));
+      } else if (formData.confirmPassword) {
+        setFieldErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.confirmPassword;
+          return newErrors;
+        });
+      }
+    }
+
+    // Check confirm password match in real-time
+    if (name === 'confirmPassword') {
+      if (value !== formData.password) {
+        setFieldErrors(prev => ({
+          ...prev,
+          confirmPassword: 'Passwords do not match'
+        }));
+      } else {
+        setFieldErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.confirmPassword;
+          return newErrors;
+        });
+      }
     }
 
     // Clear dealer fields if switching from dealer to individual
@@ -128,56 +170,83 @@ const Signup = () => {
   };
 
   const validateForm = () => {
+    const errors = [];
+    const newFieldErrors = {};
+
     // Required fields
-    if (!formData.email || !formData.password || !formData.confirmPassword) {
-      setError('Please fill in all required fields');
-      return false;
+    if (!formData.firstName) {
+      errors.push('First name is required');
+      newFieldErrors.firstName = 'Required';
+    }
+    
+    if (!formData.lastName) {
+      errors.push('Last name is required');
+      newFieldErrors.lastName = 'Required';
     }
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError('Please enter a valid email address');
-      return false;
+    if (!formData.email) {
+      errors.push('Email is required');
+      newFieldErrors.email = 'Required';
+    } else {
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        errors.push('Please enter a valid email address');
+        newFieldErrors.email = 'Invalid email format';
+      }
     }
 
     // Password validation
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return false;
+    if (!formData.password) {
+      errors.push('Password is required');
+      newFieldErrors.password = 'Required';
+    } else if (formData.password.length < 8) {
+      errors.push('Password must be at least 8 characters long');
+      newFieldErrors.password = 'Must be at least 8 characters';
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return false;
+    if (!formData.confirmPassword) {
+      errors.push('Please confirm your password');
+      newFieldErrors.confirmPassword = 'Required';
+    } else if (formData.password !== formData.confirmPassword) {
+      errors.push('Passwords do not match');
+      newFieldErrors.confirmPassword = 'Passwords do not match';
     }
 
     // Username validation
     if (formData.username && !/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      setError('Username can only contain letters, numbers, and underscores');
-      return false;
+      errors.push('Username can only contain letters, numbers, and underscores');
+      newFieldErrors.username = 'Invalid format';
     }
 
     // Phone validation
     if (formData.phone && !/^\d{7,15}$/.test(formData.phone.replace(/[\s-]/g, ''))) {
-      setError('Please enter a valid phone number');
-      return false;
+      errors.push('Please enter a valid phone number');
+      newFieldErrors.phone = 'Invalid phone number';
     }
 
     // Dealer validation
     if (formData.isDealer && !formData.companyName) {
-      setError('Company name is required for dealer accounts');
-      return false;
+      errors.push('Company name is required for dealer accounts');
+      newFieldErrors.companyName = 'Required for dealers';
     }
 
     // Terms acceptance
     if (!formData.acceptTerms) {
-      setError('You must accept the Terms of Service to continue');
-      return false;
+      errors.push('You must accept the Terms of Service to continue');
+      newFieldErrors.acceptTerms = 'Required';
     }
 
     if (!formData.acceptPrivacy) {
-      setError('You must accept the Privacy Policy to continue');
+      errors.push('You must accept the Privacy Policy to continue');
+      newFieldErrors.acceptPrivacy = 'Required';
+    }
+
+    setFieldErrors(newFieldErrors);
+    setAllErrors(errors);
+
+    if (errors.length > 0) {
+      setError(`Please fix the following errors: ${errors.join(', ')}`);
       return false;
     }
 
@@ -265,7 +334,6 @@ const Signup = () => {
         <h1 className="auth-title">Create Your Account</h1>
         <p className="auth-subtitle">Join thousands of buyers and sellers</p>
         
-        {error && <div className="auth-error">{error}</div>}
         {successMessage && <div className="auth-success">{successMessage}</div>}
         
         <form className="auth-form signup-form" onSubmit={handleSubmit}>
@@ -468,17 +536,31 @@ const Signup = () => {
             <h3 className="form-section-title">Security</h3>
             <div className="form-group">
               <label htmlFor="password">Password <span className="required">*</span></label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                minLength="8"
-                placeholder="Create a strong password"
-                autoComplete="new-password"
-              />
+              <div className="password-input-wrapper">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                  minLength="8"
+                  placeholder="Create a strong password"
+                  autoComplete="new-password"
+                  className={fieldErrors.password ? 'error-input' : ''}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+              {fieldErrors.password && (
+                <div className="field-error">{fieldErrors.password}</div>
+              )}
               {formData.password && (
                 <div className="password-strength">
                   <div className="strength-bar">
@@ -512,7 +594,11 @@ const Signup = () => {
                 minLength="8"
                 placeholder="Re-enter your password"
                 autoComplete="new-password"
+                className={fieldErrors.confirmPassword ? 'error-input' : ''}
               />
+              {fieldErrors.confirmPassword && (
+                <div className="field-error">{fieldErrors.confirmPassword}</div>
+              )}
             </div>
           </div>
 
@@ -579,6 +665,17 @@ const Signup = () => {
               </label>
             </div>
           </div>
+          
+          {error && allErrors.length > 0 && (
+            <div className="auth-error bottom-error">
+              <strong>Please fix the following errors:</strong>
+              <ul>
+                {allErrors.map((err, index) => (
+                  <li key={index}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           
           <button 
             type="submit" 

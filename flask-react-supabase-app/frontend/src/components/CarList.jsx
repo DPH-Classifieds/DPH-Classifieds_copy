@@ -50,12 +50,12 @@ const CarList = () => {
   // Car specifications arrays
   const bodyTypes = ['Sedan', 'SUV', 'Hatchback', 'Coupe', 'Convertible', 'Wagon', 'Van', 'Truck', 'Other'];
   const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'Other'];
-  const transmissionTypes = ['Automatic', 'Manual', 'CVT', 'Electric', 'Semi-Automatic', 'Other'];
-  const regionalSpecs = ['GCC Specs', 'American Specs', 'European Specs', 'Japanese Specs', 'Korean Specs', 'Chinese Specs', 'Other'];
+  const transmissionTypes = ['Automatic', 'Manual'];
+  const regionalSpecs = ['GCC', 'North American', 'European', 'Japanese', 'Korean', 'Chinese', 'Other'];
   const steeringSides = ['Left', 'Right'];
   const seatingCapacities = ['2', '4', '5', '6', '7', '8', '9+'];
-  const horsepowerRanges = ['100-150', '150-200', '200-300', '300-400', '400-500', '500-600', '600-700', '700+'];
-  const engineCapacities = ['0-1000cc', '1100-2000cc', '2100-3000cc', '3100-4000cc', '4100-5000cc', '5100-6000cc', '6100-7000cc'];
+  const horsepowerRanges = ['>100', '100-199', '200-299', '300-399', '400-499', '500-599', '600-699', '700-799', '800-899', '900-999', '1000+'];
+  const engineCapacities = ['0-999cc', '1000cc-1499cc', '1500cc-1999cc', '2000cc-2999cc', '3000cc-3999cc', '4000cc-4999cc', '5000cc-5999cc', '6000cc-6999cc', '7000cc-7999cc', '8000cc+'];
   // Comprehensive car extras organized by category
   const carExtrasCategories = {
     '🎧 Comfort & Convenience': [
@@ -76,10 +76,8 @@ const CarList = () => {
       'Memory Seats and Steering'
     ],
     '🔊 Infotainment & Tech': [
-      'Apple CarPlay (Wireless)',
-      'Apple CarPlay (Wired)',
-      'Android Auto (Wireless)',
-      'Android Auto (Wired)',
+      'Apple CarPlay',
+      'Android Auto',
       'Rear Entertainment Screens',
       'Bluetooth Audio Streaming',
       'USB-C Fast Charging Ports',
@@ -335,6 +333,7 @@ const CarList = () => {
                 value={filters.car_model} 
                 onChange={handleFilterChange}
                 className="form-select"
+                disabled={!filters.car_manufacturer}
               >
                 <option value="">All Models</option>
                 {models.map(model => (
@@ -386,7 +385,7 @@ const CarList = () => {
                 onChange={handleFilterChange}
                 className="form-select"
               >
-                <option value="">Min Year</option>
+                <option value="">Min Year (1886)</option>
                 {years.map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
@@ -419,6 +418,7 @@ const CarList = () => {
                 onChange={handleFilterChange}
                 placeholder="Min Price"
                 className="form-control"
+                min="0"
               />
             </div>
             
@@ -432,6 +432,7 @@ const CarList = () => {
                 onChange={handleFilterChange}
                 placeholder="Max Price"
                 className="form-control"
+                min="0"
               />
             </div>
           </div>
@@ -508,6 +509,7 @@ const CarList = () => {
                     onChange={handleFilterChange}
                     placeholder="Min KM"
                     className="form-control"
+                    min="0"
                   />
                 </div>
                 
@@ -521,6 +523,7 @@ const CarList = () => {
                     onChange={handleFilterChange}
                     placeholder="Max KM"
                     className="form-control"
+                    min="0"
                   />
                 </div>
               </div>
@@ -595,23 +598,6 @@ const CarList = () => {
               <div className="filter-section">
                 <div className="filter-section-header">
                   <label>🌟 Special Features</label>
-                  {filters.extras.length > 0 && (
-                    <button 
-                      type="button" 
-                      onClick={() => setFilters(prev => ({ ...prev, extras: [] }))}
-                      className="clear-extras-btn"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#007bff',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        textDecoration: 'underline'
-                      }}
-                    >
-                      Clear all ({filters.extras.length})
-                    </button>
-                  )}
                 </div>
                 
                 <div className="extras-grid" style={{

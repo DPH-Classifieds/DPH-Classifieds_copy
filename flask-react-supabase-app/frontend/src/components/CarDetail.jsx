@@ -245,9 +245,19 @@ const CarDetail = () => {
           
           <div className="car-contact">
             <h3>Contact Seller</h3>
-            <a href={`tel:${car.country_code || ''}${car.car_owner_phone_number || car.contact_phone}`} className="contact-button">
-              <i className="phone-icon"></i> {formatPhoneNumber(car.country_code, car.car_owner_phone_number || car.contact_phone)}
-            </a>
+            <div className="contact-buttons">
+              <a href={`tel:${car.country_code || ''}${car.car_owner_phone_number || car.contact_phone}`} className="contact-button phone-button">
+                <i className="phone-icon">📞</i> {formatPhoneNumber(car.country_code, car.car_owner_phone_number || car.contact_phone)}
+              </a>
+              <a 
+                href={`https://wa.me/${(car.country_code || '').replace('+', '')}${(car.car_owner_phone_number || car.contact_phone || '').replace(/^0+/, '')}`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="contact-button whatsapp-button"
+              >
+                <i className="whatsapp-icon">💬</i> WhatsApp
+              </a>
+            </div>
           </div>
           
           <div className="car-specs-section">
@@ -319,8 +329,8 @@ const CarDetail = () => {
                       title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies your vehicle. You can find it on your vehicle registration document, insurance papers, or on the driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood."
                       style={{ 
                         cursor: 'help',
-                        borderBottom: '1px dotted #007bff',
-                        color: '#007bff'
+                        borderBottom: '1px dotted #666',
+                        color: '#000'
                       }}
                     >
                       VIN
