@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import BlinkBlur from './BlinkBlur';
 import '../styles/Bikes.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -285,12 +286,7 @@ const Bikes = () => {
   const filteredBikes = applyFilters();
 
   if (loading) {
-    return (
-      <div className="bikes-container loading">
-        <div className="loading-spinner"></div>
-        <p>Loading bikes...</p>
-      </div>
-    );
+    return <BlinkBlur color="#1f481f" size="large" text="Loading bikes..." textColor="#555" />;
   }
 
   if (error) {

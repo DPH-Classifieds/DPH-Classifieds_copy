@@ -370,30 +370,31 @@ const AdminDashboard = () => {
 
   // Format the listing title based on the type - Enhanced for admin view
   const getListingTitle = (listing, type) => {
+    // Get user info
+    const userName = listing.user_name || listing.user_email || 'Unknown User';
+    const userPhone = listing.car_owner_phone_number || listing.contact_phone || listing.phone || 'N/A';
+    
     switch (type) {
-      case 'plates':
-        return `${listing.city || ''} ${listing.code || ''} ${listing.number || listing.digits || ''}`;
-      case 'cars':
-        // Enhanced admin title: Make Model Year + Poster info
+      case 'plate':
+        const plateNumber = `${listing.city || ''} ${listing.code || ''} ${listing.number || listing.digits || ''}`.trim();
+        return `${plateNumber || 'License Plate'} - ${userName} (${userPhone})`;
+      case 'car':
         const carMake = listing.car_manufacturer || listing.make || '';
         const carModel = listing.car_model || listing.model || '';
         const carYear = listing.make_year || listing.year || '';
-        const posterName = listing.user_email || listing.car_owner_name || 'Unknown User';
-        const carTitle = `${carMake} ${carModel} ${carYear}`.trim() || 'Car Listing';
-        return `${carTitle} - Posted by ${posterName}`;
-      case 'bikes':
+        const carTitle = `${carYear} ${carMake} ${carModel}`.trim() || 'Car Listing';
+        return `${carTitle} - ${userName} (${userPhone})`;
+      case 'bike':
         const bikeMake = listing.make || '';
         const bikeModel = listing.model || '';
         const bikeYear = listing.year || '';
-        const bikePosterName = listing.user_email || listing.bike_owner_name || 'Unknown User';
-        const bikeTitle = `${bikeMake} ${bikeModel} ${bikeYear ? `(${bikeYear})` : ''}`.trim() || 'Bike Listing';
-        return `${bikeTitle} - Posted by ${bikePosterName}`;
-      case 'parts':
+        const bikeTitle = `${bikeYear} ${bikeMake} ${bikeModel}`.trim() || 'Bike Listing';
+        return `${bikeTitle} - ${userName} (${userPhone})`;
+      case 'part':
         const partName = listing.name || listing.part_name || 'Car Part';
-        const partPosterName = listing.user_email || listing.contact_name || 'Unknown User';
-        return `${partName} - Posted by ${partPosterName}`;
+        return `${partName} - ${userName} (${userPhone})`;
       default:
-        return 'Unknown listing';
+        return `Listing - ${userName} (${userPhone})`;
     }
   };
 
@@ -409,31 +410,31 @@ const AdminDashboard = () => {
 
   // Get a summary of the listing details based on type
   const getListingSummary = (listing, type) => {
+    const viewCount = listing.view_count || 0;
+    const viewsText = `👁 ${viewCount} view${viewCount !== 1 ? 's' : ''}`;
+    
     switch (type) {
       case 'plates':
         const platePrice = listing.price ? `AED ${listing.price.toLocaleString()}` : 'N/A';
-        const plateContact = listing.contact_phone || listing.car_owner_phone_number || 'N/A';
-        return `Price: ${platePrice} | Contact: ${plateContact}`;
+        return `Price: ${platePrice} | ${viewsText}`;
       case 'cars':
-        const carMake = listing.car_manufacturer || listing.make || 'N/A';
-        const carModel = listing.car_model || listing.model || 'N/A';
+        const carPrice = listing.expected_selling_price ? `AED ${listing.expected_selling_price.toLocaleString()}` : 'N/A';
         const bodyType = listing.body_type || 'N/A';
         const fuelType = listing.fuel_type || 'N/A';
         const mileage = listing.kilometer_driven ? `${listing.kilometer_driven.toLocaleString()} km` : 'N/A';
-        return `${carMake} ${carModel} | ${bodyType} | ${fuelType} | ${mileage}`;
+        return `${bodyType} | ${fuelType} | ${mileage} | Price: ${carPrice} | ${viewsText}`;
       case 'bikes':
-        const bikeYear = listing.year || 'N/A';
         const bikePrice = listing.price || listing.expected_selling_price;
         const bikePriceStr = bikePrice ? `AED ${bikePrice.toLocaleString()}` : 'N/A';
         const bikeType = listing.bike_type || listing.type || 'N/A';
-        return `Year: ${bikeYear} | Price: ${bikePriceStr} | Type: ${bikeType}`;
+        return `Type: ${bikeType} | Price: ${bikePriceStr} | ${viewsText}`;
       case 'parts':
         const partCategory = listing.category || listing.part_type || 'N/A';
         const partPrice = listing.price ? `AED ${listing.price.toLocaleString()}` : 'N/A';
         const partCondition = listing.condition || 'N/A';
-        return `Category: ${partCategory} | Price: ${partPrice} | Condition: ${partCondition}`;
+        return `${partCategory} | ${partCondition} | Price: ${partPrice} | ${viewsText}`;
       default:
-        return '';
+        return viewsText;
     }
   };
 
@@ -836,15 +837,27 @@ const AdminDashboard = () => {
                         </span>
                       </div>
                       <div className="listing-body">
-                        <p className="listing-summary">
-                          {getListingSummary(listing, activeTab)}
-                        </p>
-                        <p className="listing-contact">
-                          <strong>Contact:</strong> {listing.car_owner_phone_number || listing.contact_phone || 'N/A'}
-                        </p>
-                        <p className="listing-email">
-                          <strong>Email:</strong> {listing.user_email || 'N/A'}
-                        </p>
+                        {listing.images && listing.images.length > 0 && (
+                          <img 
+                            src={getImageUrl(listing.images[0])}
+                            alt="Listing thumbnail"
+                            className="listing-thumbnail"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="listing-info">
+                          <p className="listing-summary">
+                            {getListingSummary(listing, activeTab)}
+                          </p>
+                          <p className="listing-contact">
+                            <strong>Contact:</strong> {listing.car_owner_phone_number || listing.contact_phone || 'N/A'}
+                          </p>
+                          <p className="listing-email">
+                            <strong>Email:</strong> {listing.user_email || 'N/A'}
+                          </p>
+                        </div>
                       </div>
                       <div className="listing-actions">
                         <button 
@@ -892,15 +905,27 @@ const AdminDashboard = () => {
                         </span>
                       </div>
                       <div className="listing-body">
-                        <p className="listing-summary">
-                          {getListingSummary(listing, activeTab)}
-                        </p>
-                        <p className="listing-contact">
-                          <strong>Contact:</strong> {listing.car_owner_phone_number || listing.contact_phone || 'N/A'}
-                        </p>
-                        <p className="listing-status">
-                          <span className="status-indicator approved"></span> Approved
-                        </p>
+                        {listing.images && listing.images.length > 0 && (
+                          <img 
+                            src={getImageUrl(listing.images[0])}
+                            alt="Listing thumbnail"
+                            className="listing-thumbnail"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="listing-info">
+                          <p className="listing-summary">
+                            {getListingSummary(listing, activeTab)}
+                          </p>
+                          <p className="listing-contact">
+                            <strong>Contact:</strong> {listing.car_owner_phone_number || listing.contact_phone || 'N/A'}
+                          </p>
+                          <p className="listing-status">
+                            <span className="status-indicator approved"></span> Approved
+                          </p>
+                        </div>
                       </div>
                       <div className="listing-actions">
                         <button 
@@ -942,15 +967,27 @@ const AdminDashboard = () => {
                         </span>
                       </div>
                       <div className="listing-body">
-                        <p className="listing-summary">
-                          {getListingSummary(listing, activeTab)}
-                        </p>
-                        <p className="listing-contact">
-                          <strong>Contact:</strong> {listing.car_owner_phone_number || listing.contact_phone || 'N/A'}
-                        </p>
-                        <p className="listing-status">
-                          <span className="status-indicator rejected"></span> Rejected
-                        </p>
+                        {listing.images && listing.images.length > 0 && (
+                          <img 
+                            src={getImageUrl(listing.images[0])}
+                            alt="Listing thumbnail"
+                            className="listing-thumbnail"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="listing-info">
+                          <p className="listing-summary">
+                            {getListingSummary(listing, activeTab)}
+                          </p>
+                          <p className="listing-contact">
+                            <strong>Contact:</strong> {listing.car_owner_phone_number || listing.contact_phone || 'N/A'}
+                          </p>
+                          <p className="listing-status">
+                            <span className="status-indicator rejected"></span> Rejected
+                          </p>
+                        </div>
                       </div>
                     </div>
                   ))}

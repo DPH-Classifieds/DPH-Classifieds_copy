@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import BlinkBlur from './BlinkBlur';
+import { carMakes, carModels } from '../utils/carData';
 import './CarList.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -43,9 +45,8 @@ const CarList = () => {
   const [sortOption, setSortOption] = useState('created_at.desc');
 
   // Get unique values for filter dropdowns
-  const [manufacturers, setManufacturers] = useState([]);
-  const [models, setModels] = useState([]);
   const [years, setYears] = useState([]);
+  const [availableModels, setAvailableModels] = useState([]);
   
   // Car specifications arrays
   const bodyTypes = ['Sedan', 'SUV', 'Hatchback', 'Coupe', 'Convertible', 'Wagon', 'Van', 'Truck', 'Other'];
@@ -186,14 +187,9 @@ const CarList = () => {
       console.log('Setting cars data, length:', carsData.length);
       setCars(carsData);
       
-      // Extract unique values for filters
+      // Extract unique years from actual data
       if (carsData && carsData.length > 0) {
-        const uniqueManufacturers = [...new Set(carsData.map(car => car.car_manufacturer).filter(Boolean))];
-        const uniqueModels = [...new Set(carsData.map(car => car.car_model).filter(Boolean))];
         const uniqueYears = [...new Set(carsData.map(car => car.make_year).filter(Boolean))];
-        
-        setManufacturers(uniqueManufacturers.sort());
-        setModels(uniqueModels.sort());
         setYears(uniqueYears.sort((a, b) => b - a)); // Sort years in descending order
       }
     } catch (err) {
@@ -211,7 +207,15 @@ const CarList = () => {
   
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    
+    // If manufacturer changes, update available models and reset model selection
+    if (name === 'car_manufacturer') {
+      const models = carModels[value] || [];
+      setAvailableModels(models);
+      setFilters(prev => ({ ...prev, car_manufacturer: value, car_model: '' }));
+    } else {
+      setFilters(prev => ({ ...prev, [name]: value }));
+    }
   };
   
   const handleSortChange = (e) => {
@@ -316,8 +320,8 @@ const CarList = () => {
                 className="form-select"
               >
                 <option value="">All Makes</option>
-                {manufacturers.map(m => (
-                  <option key={m} value={m}>{m}</option>
+                {carMakes.map(make => (
+                  <option key={make} value={make}>{make}</option>
                 ))}
               </select>
             </div>
@@ -333,7 +337,7 @@ const CarList = () => {
                 disabled={!filters.car_manufacturer}
               >
                 <option value="">All Models</option>
-                {models.map(model => (
+                {availableModels.map(model => (
                   <option key={model} value={model}>{model}</option>
                 ))}
               </select>
@@ -748,10 +752,7 @@ const CarList = () => {
       
       {/* Loading State */}
       {loading ? (
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading cars...</p>
-        </div>
+        <BlinkBlur color="#1f481f" size="large" text="Loading cars..." textColor="#555" />
       ) : (
         <>
           {/* Car Listings */}

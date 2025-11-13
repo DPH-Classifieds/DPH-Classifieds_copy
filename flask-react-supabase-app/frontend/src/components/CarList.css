@@ -11,13 +11,14 @@
   text-align: center;
 }
 
-/* Filters styling */
+/* Filters styling - Matching PostForms.css */
 .car-filters {
-  background: #f8f9fa;
+  background: #fff;
   border-radius: 8px;
-  padding: 20px;
+  padding: 24px;
   margin-bottom: 25px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
 }
 
 .filter-header {
@@ -68,17 +69,27 @@
 .filter-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 600;
-  color: #555;
+  font-weight: 500;
+  color: #4b5563;
+  font-size: 14px;
 }
 
 .filter-group select,
 .filter-group input {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 4px;
-  border: 1px solid #ced4da;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
   background-color: white;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+  outline: none;
+  border-color: #01351c;
+  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.1);
 }
 
 .form-select {
@@ -113,10 +124,11 @@
 }
 
 .advanced-filters {
-  background: #f1f1f1;
-  border-radius: 6px;
-  padding: 15px;
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 20px;
   margin-bottom: 20px;
+  border: 1px solid #e5e7eb;
 }
 
 .advanced-filters h3 {
@@ -160,30 +172,36 @@
 
 .apply-filters,
 .reset-filters {
-  padding: 10px 20px;
-  border-radius: 4px;
+  padding: 12px 24px;
+  border-radius: 6px;
   font-weight: 600;
   min-width: 140px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .apply-filters {
-  background-color: #dc3545;
+  background-color: #01351c;
   color: white;
   border: none;
 }
 
 .apply-filters:hover {
-  background-color: #c82333;
+  background-color: #012513;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(1, 53, 28, 0.2);
 }
 
 .reset-filters {
-  background-color: #f8f9fa;
-  color: #555;
-  border: 1px solid #ced4da;
+  background-color: #fff;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 }
 
 .reset-filters:hover {
-  background-color: #e2e6ea;
+  background-color: #f9fafb;
+  border-color: #9ca3af;
 }
 
 /* Car cards styling */

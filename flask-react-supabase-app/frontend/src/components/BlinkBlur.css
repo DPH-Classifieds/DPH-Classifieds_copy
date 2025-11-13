@@ -1,0 +1,53 @@
+/* BlinkBlur Loading Component */
+.blink-blur-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: 40px 20px;
+}
+
+.blink-blur-spinner {
+  border: 4px solid;
+  border-radius: 50%;
+  animation: blink-blur-spin 1s linear infinite, blink-blur-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes blink-blur-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes blink-blur-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+  50% {
+    opacity: 0.6;
+    filter: blur(2px);
+  }
+}
+
+.blink-blur-text {
+  margin-top: 20px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .blink-blur-container {
+    min-height: 200px;
+    padding: 30px 15px;
+  }
+  
+  .blink-blur-text {
+    font-size: 14px;
+  }
+}

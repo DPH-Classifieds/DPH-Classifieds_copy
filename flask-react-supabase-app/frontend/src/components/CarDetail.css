@@ -198,12 +198,7 @@
   background-color: #20BA5A;
 }
 
-.phone-icon,
-.whatsapp-icon {
-  margin-right: 8px;
-  font-style: normal;
-  font-size: 18px;
-}
+/* Icons are now inline emojis, no separate styling needed */
 
 .car-specs-section {
   margin-bottom: 25px;

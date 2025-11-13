@@ -132,49 +132,80 @@
 
 .listing-card {
   background-color: #fff;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  border: 1px solid #eee;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.listing-card:hover {
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
 }
 
 .listing-card.approved {
-  border-left: 5px solid #28a745;
+  border-left: 4px solid #10b981;
 }
 
 .listing-card.rejected {
-  border-left: 5px solid #dc3545;
+  border-left: 4px solid #ef4444;
 }
 
 .listing-header {
-  padding: 15px;
+  padding: 16px 20px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #eee;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .listing-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: #111827;
+  line-height: 1.4;
+  flex: 1;
+  padding-right: 12px;
 }
 
 .listing-date {
-  font-size: 14px;
-  color: #888;
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+  background-color: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 500;
 }
 
 .listing-body {
-  padding: 15px;
+  padding: 16px 20px;
+  display: flex;
+  gap: 16px;
+}
+
+.listing-thumbnail {
+  width: 100px;
+  height: 75px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.listing-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .listing-summary {
   margin-bottom: 10px;
-  color: #666;
+  color: #4b5563;
   font-size: 14px;
+  line-height: 1.6;
 }
 
 .listing-contact, 
@@ -416,16 +447,24 @@
 
 .image-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
 }
 
 .listing-image {
   width: 100%;
-  height: 120px;
+  height: 140px;
   object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.listing-image:hover {
+  border-color: #dc3545;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Rejection Modal Styles */
