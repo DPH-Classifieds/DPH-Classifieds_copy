@@ -123,20 +123,14 @@ const AdminDashboard = () => {
       // Show success message
       setSuccessMessage(`${type.charAt(0).toUpperCase() + type.slice(0, -1)} approved successfully`);
       
-      // Wait a brief moment to ensure the backend has processed the change
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Refresh the listings to reflect the changes
-      console.log(`Reloading ${activeTab} after approval`);
-      const updatedListings = await apiClient.get(`/api/admin/${activeTab}`);
-      console.log('Updated listings:', updatedListings);
-      
-      if (Array.isArray(updatedListings)) {
-        console.log(`Found ${updatedListings.length} updated listings`);
-        setListings(updatedListings);
-      } else {
-        console.error('Unexpected response format after approval:', updatedListings);
-      }
+      // Real-time update: Remove from current list and update state immediately
+      setListings(prevListings => 
+        prevListings.map(listing => 
+          listing.id === id 
+            ? { ...listing, status: 'approved', is_approved: true }
+            : listing
+        )
+      );
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -171,20 +165,14 @@ const AdminDashboard = () => {
       // Show success message
       setSuccessMessage(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully`);
       
-      // Wait a brief moment to ensure the backend has processed the change
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Refresh the listings to reflect the changes
-      console.log(`Reloading ${activeTab} after deletion`);
-      const updatedListings = await apiClient.get(`/api/admin/${activeTab}`);
-      console.log('Updated listings:', updatedListings);
-      
-      if (Array.isArray(updatedListings)) {
-        console.log(`Found ${updatedListings.length} updated listings`);
-        setListings(updatedListings);
-      } else {
-        console.error('Unexpected response format after deletion:', updatedListings);
-      }
+      // Real-time update: Mark as deleted immediately
+      setListings(prevListings => 
+        prevListings.map(listing => 
+          listing.id === id 
+            ? { ...listing, status: 'deleted', deleted_at: new Date().toISOString() }
+            : listing
+        )
+      );
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -216,20 +204,14 @@ const AdminDashboard = () => {
       // Show success message
       setSuccessMessage(`${type.charAt(0).toUpperCase() + type.slice(0, -1)} rejected successfully`);
       
-      // Wait a brief moment to ensure the backend has processed the change
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Refresh the listings to reflect the changes
-      console.log(`Reloading ${activeTab} after rejection`);
-      const updatedListings = await apiClient.get(`/api/admin/${activeTab}`);
-      console.log('Updated listings:', updatedListings);
-      
-      if (Array.isArray(updatedListings)) {
-        console.log(`Found ${updatedListings.length} updated listings`);
-        setListings(updatedListings);
-      } else {
-        console.error('Unexpected response format after rejection:', updatedListings);
-      }
+      // Real-time update: Update status immediately
+      setListings(prevListings => 
+        prevListings.map(listing => 
+          listing.id === id 
+            ? { ...listing, status: 'rejected', is_approved: false, rejection_note: note }
+            : listing
+        )
+      );
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -334,14 +316,26 @@ const AdminDashboard = () => {
 
   const fetchReportedListing = async (listingId, listingType) => {
     try {
+      setLoadingReportedListing(true);
       const endpoint = `/api/${listingType}s/${listingId}`;
       const listing = await apiClient.get(endpoint);
+      setReportedListing(listing);
       return listing;
     } catch (error) {
       console.error(`Error fetching reported listing:`, error);
+      setReportedListing(null);
       return null;
+    } finally {
+      setLoadingReportedListing(false);
     }
   };
+  
+  // Auto-fetch reported listing when report modal opens
+  useEffect(() => {
+    if (showReportModal && selectedReport && !reportedListing) {
+      fetchReportedListing(selectedReport.listing_id, selectedReport.listing_type);
+    }
+  }, [showReportModal, selectedReport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper function to get proper image URL
   const getImageUrl = (image) => {
@@ -816,6 +810,12 @@ const AdminDashboard = () => {
                 </span>
                 <span className="stat-label">Rejected</span>
               </div>
+              <div className="stat-item">
+                <span className="stat-value">
+                  {listings.filter(item => item.status === 'deleted').length}
+                </span>
+                <span className="stat-label">Deleted</span>
+              </div>
             </div>
             
             <div className="listings-filter">
@@ -988,6 +988,60 @@ const AdminDashboard = () => {
                             <span className="status-indicator rejected"></span> Rejected
                           </p>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+            
+            <div className="listings-filter">
+              <h3>Deleted Listings</h3>
+              {listings.filter(item => item.status === 'deleted').length === 0 && (
+                <p className="no-listings">No deleted listings found.</p>
+              )}
+              <div className="listings-grid">
+                {listings
+                  .filter(item => item.status === 'deleted')
+                  .map(listing => (
+                    <div key={listing.id} className="listing-card" style={{borderLeft: '4px solid #6c757d', opacity: 0.7}}>
+                      <div className="listing-header">
+                        <h4 className="listing-title">
+                          {getListingTitle(listing, activeTab.slice(0, -1))}
+                        </h4>
+                        <span className="listing-date">
+                          Deleted: {listing.deleted_at ? new Date(listing.deleted_at).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="listing-body">
+                        {listing.images && listing.images.length > 0 && (
+                          <img 
+                            src={getImageUrl(listing.images[0])}
+                            alt="Listing thumbnail"
+                            className="listing-thumbnail"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="listing-info">
+                          <p className="listing-summary">
+                            {getListingSummary(listing, activeTab)}
+                          </p>
+                          <p className="listing-contact">
+                            <strong>Contact:</strong> {listing.car_owner_phone_number || listing.contact_phone || 'N/A'}
+                          </p>
+                          <p className="listing-status">
+                            <span className="status-indicator" style={{backgroundColor: '#6c757d'}}></span> Deleted
+                          </p>
+                        </div>
+                      </div>
+                      <div className="listing-actions">
+                        <button 
+                          className="view-btn"
+                          onClick={() => openDetailModal(listing)}
+                        >
+                          View Details
+                        </button>
                       </div>
                     </div>
                   ))}
