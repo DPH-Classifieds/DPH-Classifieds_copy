@@ -57,6 +57,14 @@ logger.info(f"SUPABASE_KEY exists: {bool(SUPABASE_KEY)}")
 logger.info(f"SUPABASE_JWT_SECRET exists: {bool(SUPABASE_JWT_SECRET)}")
 logger.info(f"SUPABASE_SERVICE_ROLE_KEY exists: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
 
+# Import and register admin routes
+try:
+    from routes.admin import admin_bp
+    app.register_blueprint(admin_bp)
+    logger.info("Admin routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register admin routes: {e}")
+
 @app.context_processor
 def inject_current_year():
     return {'current_year': datetime.datetime.now().year}
@@ -421,6 +429,34 @@ def get_car_by_id(car_id):
     try:
         logger.info(f"Fetching car details for ID: {car_id}")
         
+        # Increment view count (async, don't wait for response)
+        try:
+            headers = {
+                'apikey': SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
+                'Content-Type': 'application/json'
+            }
+            current_view_count = 0
+            
+            # Get current view count
+            view_response = requests.get(
+                f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}&select=view_count",
+                headers=headers,
+                timeout=2
+            )
+            if view_response.status_code == 200 and view_response.json():
+                current_view_count = view_response.json()[0].get('view_count', 0) or 0
+            
+            # Increment view count
+            requests.patch(
+                f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}",
+                headers=headers,
+                json={'view_count': current_view_count + 1, 'last_viewed_at': 'now()'},
+                timeout=2
+            )
+        except Exception as view_error:
+            logger.warning(f"Failed to increment view count: {view_error}")
+        
         # Get car details
         query = f"/rest/v1/cars?id=eq.{car_id}&select=*"
         car_response, car_status = supabase_request('get', query)
@@ -430,7 +466,7 @@ def get_car_by_id(car_id):
             return jsonify({"error": "Car not found"}), 404
             
         car = car_response[0]
-        logger.info(f"Found car: {car['listing_title']} (ID: {car['id']})")
+        logger.info(f"Found car: {car.get('listing_title', 'Untitled')} (ID: {car['id']})")
         
         # Get car images
         images_query = f"/rest/v1/car_images?car_id=eq.{car_id}&select=*"
@@ -441,25 +477,18 @@ def get_car_by_id(car_id):
             logger.info(f"Found {len(images_response)} images for car {car_id}")
             # Transform images for frontend compatibility
             for image in images_response:
-                logger.info(f"Processing image: {image}")
                 # Ensure both url and image_url fields are present
                 if 'url' in image and not image.get('image_url'):
                     image['image_url'] = image['url']
-                    logger.info(f"Added image_url from url: {image['url']}")
                 elif 'image_url' in image and not image.get('url'):
                     image['url'] = image['image_url']
-                    logger.info(f"Added url from image_url: {image['image_url']}")
-                # If neither field exists, create a placeholder
-                elif not image.get('url') and not image.get('image_url'):
-                    logger.warning(f"Image {image.get('id', 'unknown')} has no URL fields")
             
             car["images"] = images_response
-            logger.info(f"Processed images: {car['images']}")
         else:
             logger.warning(f"Failed to fetch images for car {car_id}: status {images_status}")
             car["images"] = []
         
-        logger.info(f"Returning car with {len(car['images'])} images")
+        logger.info(f"Returning car with {len(car['images'])} images (Views: {car.get('view_count', 0)})")
         return jsonify(car), 200
     except Exception as e:
         logger.error(f"Error fetching car details: {e}", exc_info=True)
@@ -3977,13 +4006,8 @@ def check_session_route():
         'admin_id_from_session': admin_id_in_session
     }), 200
 
-# Import and register admin routes
-try:
-    from routes.admin import admin_bp
-    app.register_blueprint(admin_bp)
-    logger.info("Admin routes registered successfully")
-except ImportError as e:
-    logger.warning(f"Could not import admin routes: {e}")
+# Admin routes are registered at the top of the file (after imports)
+# No need to register again here
 
 if __name__ == "__main__":
     logger.info("Starting Flask application on port 8000")
