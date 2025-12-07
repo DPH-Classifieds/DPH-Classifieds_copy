@@ -12,7 +12,7 @@ const About = () => {
       {/* Welcome Section */}
       <div className="welcome-section">
         <h1>Welcome to DPH Classifieds</h1>
-        <p className="welcome-description">We provide a platform for Buying and Selling used vehicles.</p>
+        <p className="welcome-description">We provide a transparent and hassle-free platform for buying and selling vehicles.</p>
       </div>
 
       {/* Info Sections */}
@@ -23,7 +23,7 @@ const About = () => {
           </div>
           <div className="info-content">
             <h2>Who <span>Are We</span></h2>
-            <p>A platform that connects the buyer to the seller. A platform that helps people to get used vehicles hassle-free.</p>
+            <p>DubaiPetrolHeads is the largest car community in the middle-east with over 60,000 active petrolheads. We have created a classifieds page by Petrol Heads for Petrol Heads in order to create and view hassle-free and transparent listings.</p>
           </div>
         </div>
 
@@ -33,7 +33,7 @@ const About = () => {
           </div>
           <div className="info-content">
             <h2>Our <span>Mission</span></h2>
-            <p>Our mission is to provide Used vehicles nearby in one place. So that the potential buyer does not need to hassle between dealers.</p>
+            <p>To ensure every listing in the country is transparent and buyers have full knowledge about the vehicle before purchasing. We want to make sure the service is completely transparent and there are no hidden defects on the vehicles. We want to also make it easy to sell a car online by guiding sellers to the right customer base.</p>
           </div>
         </div>
       </div>
@@ -44,8 +44,8 @@ const About = () => {
           <div className="stat-icon">
             <i className="fas fa-calendar-alt"></i>
           </div>
-          <div className="stat-number">14+</div>
-          <div className="stat-label">Years In Business</div>
+          <div className="stat-number">5</div>
+          <div className="stat-label">Years Online</div>
         </div>
         
         <div className="stat-card">
@@ -53,23 +53,23 @@ const About = () => {
             <i className="fas fa-car"></i>
           </div>
           <div className="stat-number">1000+</div>
-          <div className="stat-label">Cars Deal Completed</div>
+          <div className="stat-label">Ads Listed</div>
         </div>
         
         <div className="stat-card">
           <div className="stat-icon">
-            <i className="fas fa-car-alt"></i>
+            <i className="fas fa-eye"></i>
           </div>
-          <div className="stat-number">1000+</div>
-          <div className="stat-label">Used Cars For Sale</div>
+          <div className="stat-number">25M</div>
+          <div className="stat-label">Annual Viewers</div>
         </div>
         
         <div className="stat-card">
           <div className="stat-icon">
             <i className="fas fa-users"></i>
           </div>
-          <div className="stat-number">600+</div>
-          <div className="stat-label">Satisfied Customers</div>
+          <div className="stat-number">100s</div>
+          <div className="stat-label">Happy Buyers and Sellers</div>
         </div>
       </div>
 

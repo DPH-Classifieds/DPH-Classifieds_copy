@@ -25,6 +25,8 @@ const PostBike = () => {
     description: '',
     vin_number: '',
     is_dealer: false,
+    cylinders: '',
+    wheels: '2',
     features: [],
     images: []
   });
@@ -245,6 +247,12 @@ const PostBike = () => {
                 name="year"
                 value={formData.year}
                 onChange={handleChange}
+                onInput={(e) => {
+                  // Prevent values outside valid range
+                  const currentYear = new Date().getFullYear();
+                  if (e.target.value < 1900) e.target.value = 1900;
+                  if (e.target.value > currentYear) e.target.value = currentYear;
+                }}
                 required
                 placeholder="e.g., 2022"
                 min="1900"
@@ -343,6 +351,39 @@ const PostBike = () => {
           
           <div className="form-row">
             <div className="form-group">
+              <label htmlFor="cylinders">Number of Cylinders</label>
+              <select
+                id="cylinders"
+                name="cylinders"
+                value={formData.cylinders}
+                onChange={handleChange}
+              >
+                <option value="">Select Cylinders</option>
+                <option value="1">1 Cylinder</option>
+                <option value="2">2 Cylinders</option>
+                <option value="3">3 Cylinders</option>
+                <option value="4">4 Cylinders</option>
+                <option value="6">6 Cylinders</option>
+                <option value="8">8 Cylinders</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="wheels">Number of Wheels</label>
+              <select
+                id="wheels"
+                name="wheels"
+                value={formData.wheels}
+                onChange={handleChange}
+              >
+                <option value="2">2 Wheels (Motorcycle)</option>
+                <option value="3">3 Wheels (Trike)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
               <label htmlFor="vin_number">
                 <span 
                   className="vin-label-tooltip"
@@ -383,9 +424,14 @@ const PostBike = () => {
                 name="price"
                 value={formData.price}
                 onChange={handleChange}
+                onInput={(e) => {
+                  // Prevent negative values
+                  if (e.target.value < 1) e.target.value = '';
+                }}
                 required
                 placeholder="e.g., 25000"
-                min="0"
+                min="1"
+                step="1"
               />
             </div>
             

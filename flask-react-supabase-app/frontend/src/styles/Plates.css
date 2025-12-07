@@ -275,13 +275,25 @@ select.filter-input {
   margin-top: 40px;
 }
 
+.cta-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.cta-icon {
+  color: #01351c;
+  opacity: 0.8;
+}
+
 .cta-content h2 {
-  margin-bottom: 16px;
+  margin: 0;
   color: #333;
 }
 
 .cta-content p {
-  margin-bottom: 24px;
+  margin: 0;
   color: #666;
 }
 
@@ -298,6 +310,15 @@ select.filter-input {
 
 .sell-plate-btn:hover {
   background-color: #012513;
+}
+
+/* Standardize plate format select options */
+select.filter-input option,
+select#plate_format option {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-size: 14px;
+  padding: 8px;
+  line-height: 1.5;
 }
 
 .loading-container,

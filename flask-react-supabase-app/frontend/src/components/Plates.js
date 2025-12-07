@@ -213,26 +213,44 @@ const Plates = () => {
   // Add useEffect to update code options based on selected city
   useEffect(() => {
     if (filters.city === 'Dubai') {
-      // Dubai-specific codes (include both single letters and special codes)
+      // Dubai-specific codes (include both single letters and special codes including EE)
       const dubaiCodes = [
         ...Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)),
-        'AA', 'BB', 'CC', 'DD', 'CR'
+        'AA', 'BB', 'CC', 'DD', 'EE', 'CR'
       ];
       setCodes(dubaiCodes);
     } else if (filters.city === 'Abu Dhabi') {
       // Numbers from 1 to 20, plus 50
       setCodes([...Array.from({length: 20}, (_, i) => (i + 1).toString()), '50']);
     } else if (filters.city === 'Sharjah') {
-      // Numbers from 1 to 10
-      setCodes([...Array.from({length: 10}, (_, i) => (i + 1).toString())]);
+      // Code White, 1, 2, and 3 only
+      setCodes(['White', '1', '2', '3']);
     } else if (filters.city === 'All cities') {
-      // Get codes from plates if available
-      if (plates.length > 0) {
-        const uniqueCodes = [...new Set(plates.map(plate => plate.code))];
-        setCodes(uniqueCodes);
-      }
+      // Show all possible codes from all cities
+      const allCodes = [
+        // Dubai codes
+        ...Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)),
+        'AA', 'BB', 'CC', 'DD', 'EE', 'CR',
+        // Abu Dhabi codes
+        ...Array.from({length: 20}, (_, i) => (i + 1).toString()),
+        '50',
+        // Sharjah codes
+        'White'
+        // Other cities use A-Z which is already included
+      ];
+      // Remove duplicates and sort
+      const uniqueCodes = [...new Set(allCodes)].sort((a, b) => {
+        // Sort numbers first, then letters
+        const aIsNum = !isNaN(a);
+        const bIsNum = !isNaN(b);
+        if (aIsNum && !bIsNum) return -1;
+        if (!aIsNum && bIsNum) return 1;
+        if (aIsNum && bIsNum) return parseInt(a) - parseInt(b);
+        return a.localeCompare(b);
+      });
+      setCodes(uniqueCodes);
     } else {
-      // A to Z for other cities
+      // A to Z for other cities (Ajman, RAK, Fujairah, UAQ)
       setCodes(Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)));
     }
   }, [filters.city, plates]);
@@ -491,9 +509,17 @@ const Plates = () => {
       
       <div className="plate-sell-cta">
         <div className="cta-content">
+          <div className="cta-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <circle cx="7" cy="12" r="1"></circle>
+              <circle cx="17" cy="12" r="1"></circle>
+            </svg>
+          </div>
           <h2>Sell Your License Plate</h2>
           <p>List your license plate for free and reach thousands of interested buyers.</p>
-          <Link to="/post-plate" className="sell-plate-btn">Post Your License Plate</Link>
+          <Link to="/post-plate" className="sell-plate-btn">Post Your License Plate for Sale</Link>
         </div>
       </div>
     </div>

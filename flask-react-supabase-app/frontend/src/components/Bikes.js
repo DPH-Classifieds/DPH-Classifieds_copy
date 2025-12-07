@@ -12,10 +12,15 @@ const Bikes = () => {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     type: 'all',
+    brand: 'all',
     priceMin: '',
     priceMax: '',
     yearMin: '',
     yearMax: '',
+    engineMin: '',
+    engineMax: '',
+    cylinders: 'all',
+    wheels: 'all',
     sortBy: 'newest'
   });
   const { apiClient } = useAuth();
@@ -240,8 +245,16 @@ const Bikes = () => {
   const applyFilters = () => {
     return bikes.filter(bike => {
       // Apply bike type filter
-      if (filters.type !== 'all' && bike.type !== filters.type) {
+      if (filters.type !== 'all' && bike.type !== filters.type && bike.bike_category !== filters.type) {
         return false;
+      }
+      
+      // Apply brand filter
+      if (filters.brand !== 'all') {
+        const bikeBrand = bike.make || bike.manufacturer || bike.bike_brand || '';
+        if (bikeBrand.toLowerCase() !== filters.brand.toLowerCase()) {
+          return false;
+        }
       }
       
       // Apply price min filter
@@ -261,6 +274,32 @@ const Bikes = () => {
       
       // Apply year max filter
       if (filters.yearMax && bike.year > Number(filters.yearMax)) {
+        return false;
+      }
+      
+      // Apply engine size min filter
+      if (filters.engineMin) {
+        const engineSize = parseInt((bike.engine || bike.engine_capacity || '0').replace(/\D/g, ''));
+        if (engineSize < Number(filters.engineMin)) {
+          return false;
+        }
+      }
+      
+      // Apply engine size max filter
+      if (filters.engineMax) {
+        const engineSize = parseInt((bike.engine || bike.engine_capacity || '0').replace(/\D/g, ''));
+        if (engineSize > Number(filters.engineMax)) {
+          return false;
+        }
+      }
+      
+      // Apply cylinders filter
+      if (filters.cylinders !== 'all' && bike.cylinders && bike.cylinders !== Number(filters.cylinders)) {
+        return false;
+      }
+      
+      // Apply wheels filter
+      if (filters.wheels !== 'all' && bike.wheels && bike.wheels !== Number(filters.wheels)) {
         return false;
       }
       
@@ -324,6 +363,34 @@ const Bikes = () => {
               <option value="Naked">Naked</option>
               <option value="Touring">Touring</option>
               <option value="Off-road">Off-road</option>
+              <option value="Dual Sport">Dual Sport</option>
+              <option value="Scooter">Scooter</option>
+              <option value="Commuter">Commuter</option>
+              <option value="Electric">Electric</option>
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label htmlFor="brand">Brand</label>
+            <select 
+              id="brand" 
+              name="brand" 
+              value={filters.brand} 
+              onChange={handleFilterChange}
+            >
+              <option value="all">All Brands</option>
+              <option value="Yamaha">Yamaha</option>
+              <option value="Honda">Honda</option>
+              <option value="Kawasaki">Kawasaki</option>
+              <option value="Suzuki">Suzuki</option>
+              <option value="Ducati">Ducati</option>
+              <option value="BMW">BMW</option>
+              <option value="Harley-Davidson">Harley-Davidson</option>
+              <option value="KTM">KTM</option>
+              <option value="Triumph">Triumph</option>
+              <option value="Aprilia">Aprilia</option>
+              <option value="MV Agusta">MV Agusta</option>
+              <option value="Indian">Indian</option>
             </select>
           </div>
           
@@ -354,6 +421,7 @@ const Bikes = () => {
               placeholder="Min Price" 
               value={filters.priceMin} 
               onChange={handleFilterChange}
+              min="0"
             />
           </div>
           
@@ -366,11 +434,10 @@ const Bikes = () => {
               placeholder="Max Price" 
               value={filters.priceMax} 
               onChange={handleFilterChange}
+              min="0"
             />
           </div>
-        </div>
-        
-        <div className="filter-row">
+          
           <div className="filter-group">
             <label htmlFor="yearMin">Min Year</label>
             <input 
@@ -380,6 +447,7 @@ const Bikes = () => {
               placeholder="Min Year" 
               value={filters.yearMin} 
               onChange={handleFilterChange}
+              min="1900"
             />
           </div>
           
@@ -392,7 +460,67 @@ const Bikes = () => {
               placeholder="Max Year" 
               value={filters.yearMax} 
               onChange={handleFilterChange}
+              max={new Date().getFullYear()}
             />
+          </div>
+        </div>
+        
+        <div className="filter-row">
+          <div className="filter-group">
+            <label htmlFor="engineMin">Min Engine Size (cc)</label>
+            <input 
+              type="number" 
+              id="engineMin" 
+              name="engineMin" 
+              placeholder="e.g., 250" 
+              value={filters.engineMin} 
+              onChange={handleFilterChange}
+              min="0"
+            />
+          </div>
+          
+          <div className="filter-group">
+            <label htmlFor="engineMax">Max Engine Size (cc)</label>
+            <input 
+              type="number" 
+              id="engineMax" 
+              name="engineMax" 
+              placeholder="e.g., 1200" 
+              value={filters.engineMax} 
+              onChange={handleFilterChange}
+              min="0"
+            />
+          </div>
+          
+          <div className="filter-group">
+            <label htmlFor="cylinders">Cylinders</label>
+            <select 
+              id="cylinders" 
+              name="cylinders" 
+              value={filters.cylinders} 
+              onChange={handleFilterChange}
+            >
+              <option value="all">All Cylinders</option>
+              <option value="1">1 Cylinder</option>
+              <option value="2">2 Cylinders</option>
+              <option value="3">3 Cylinders</option>
+              <option value="4">4 Cylinders</option>
+              <option value="6">6 Cylinders</option>
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label htmlFor="wheels">Wheels</label>
+            <select 
+              id="wheels" 
+              name="wheels" 
+              value={filters.wheels} 
+              onChange={handleFilterChange}
+            >
+              <option value="all">All</option>
+              <option value="2">2 Wheels</option>
+              <option value="3">3 Wheels (Trike)</option>
+            </select>
           </div>
         </div>
       </div>

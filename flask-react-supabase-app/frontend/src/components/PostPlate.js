@@ -146,16 +146,19 @@ const PostPlate = () => {
     if (formData.city) {
       switch (formData.city) {
         case 'Dubai':
-          // A to Z (26 English letters)
-          setCodeOptions(Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)));
+          // A to Z (26 English letters) plus special codes including EE
+          setCodeOptions([
+            ...Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)),
+            'AA', 'BB', 'CC', 'DD', 'EE', 'CR'
+          ]);
           break;
         case 'Abu Dhabi':
-          // Numbers from 1 to 20, plus 50, and a question mark
-          setCodeOptions([...Array.from({length: 20}, (_, i) => (i + 1).toString()), '50', '?']);
+          // Numbers from 1 to 20, plus 50
+          setCodeOptions([...Array.from({length: 20}, (_, i) => (i + 1).toString()), '50']);
           break;
         case 'Sharjah':
-          // Numbers from 1 to 10, and a question mark
-          setCodeOptions([...Array.from({length: 10}, (_, i) => (i + 1).toString()), '?']);
+          // Code White, 1, 2, and 3 only
+          setCodeOptions(['White', '1', '2', '3']);
           break;
         case 'Ajman':
         case 'Ras Al Khaimah':
@@ -414,9 +417,15 @@ const PostPlate = () => {
                 id="number"
                 name="number"
                 value={formData.number}
-                onChange={handleChange}
+                onChange={(e) => {
+                  // Only allow numbers
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  handleChange({ target: { name: 'number', value } });
+                }}
                 required
                 placeholder="e.g., 123, 55, 9999"
+                pattern="[0-9]*"
+                inputMode="numeric"
               />
             </div>
           </div>
@@ -448,9 +457,14 @@ const PostPlate = () => {
                 name="price"
                 value={formData.price}
                 onChange={handleChange}
+                onInput={(e) => {
+                  // Prevent negative values
+                  if (e.target.value < 1) e.target.value = '';
+                }}
                 required
                 placeholder="e.g., 15000"
-                min="0"
+                min="1"
+                step="1"
               />
             </div>
           </div>
