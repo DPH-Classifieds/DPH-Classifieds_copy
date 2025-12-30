@@ -108,7 +108,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item"
               onClick={handleLinkClick}
             >
-              <span className="profile-icon user-icon">👤</span>
+              <span className="profile-icon user-icon" aria-hidden="true"></span>
               Profile
             </Link>
             
@@ -117,7 +117,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item"
               onClick={handleLinkClick}
             >
-              <span className="profile-icon listings-icon">📋</span>
+              <span className="profile-icon listings-icon" aria-hidden="true"></span>
               My Listings
             </Link>
             
@@ -126,7 +126,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item"
               onClick={handleLinkClick}
             >
-              <span className="profile-icon settings-icon">⚙️</span>
+              <span className="profile-icon settings-icon" aria-hidden="true"></span>
               Settings
             </Link>
             
@@ -136,7 +136,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item logout-button"
               onClick={handleLogout}
             >
-              <span className="profile-icon logout-icon">🚪</span>
+              <span className="profile-icon logout-icon" aria-hidden="true"></span>
               Log Out
             </button>
           </div>

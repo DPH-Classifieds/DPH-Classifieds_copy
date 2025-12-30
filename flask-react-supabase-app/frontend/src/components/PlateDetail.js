@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ReportButton from './ReportButton';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/DetailView.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -103,10 +104,7 @@ const PlateDetail = () => {
 
   if (loading) {
     return (
-      <div className="detail-container loading">
-        <div className="loading-spinner"></div>
-        <p>Loading plate details...</p>
-      </div>
+      <LoadingSpinner message="Loading plate details..." size="large" />
     );
   }
 
@@ -221,7 +219,7 @@ const PlateDetail = () => {
               {user && user.id === plate.user_id && (
                 <div className="info-item">
                   <span className="view-counter">
-                    <span className="views">👁️ {plate.view_count || 0} views</span>
+                    <span className="views">{plate.view_count || 0} views</span>
                   </span>
                 </div>
               )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/MyListings.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -147,10 +148,7 @@ const MyListings = () => {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading your listings...</p>
-      </div>
+      <LoadingSpinner message="Loading your listings..." size="large" />
     );
   }
   

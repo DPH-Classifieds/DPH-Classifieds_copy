@@ -350,7 +350,7 @@ const Signup = () => {
                   onChange={() => setFormData(prev => ({ ...prev, isDealer: false }))}
                 />
                 <div className="option-content">
-                  <span className="option-icon">👤</span>
+                  <span className="option-icon" aria-hidden="true"></span>
                   <span className="option-title">No - Individual</span>
                   <span className="option-desc">Personal buyer or seller</span>
                 </div>
@@ -363,7 +363,7 @@ const Signup = () => {
                   onChange={() => setFormData(prev => ({ ...prev, isDealer: true }))}
                 />
                 <div className="option-content">
-                  <span className="option-icon">🏢</span>
+                  <span className="option-icon" aria-hidden="true"></span>
                   <span className="option-title">Yes - Dealer/Business</span>
                   <span className="option-desc">Professional seller</span>
                 </div>
@@ -555,7 +555,7 @@ const Signup = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                  {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
               {fieldErrors.password && (

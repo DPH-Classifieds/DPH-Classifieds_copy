@@ -54,6 +54,21 @@
   color: #fff;
 }
 
+.footer-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #ccc;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: color 0.3s;
+}
+
+.footer-button:hover {
+  color: #fff;
+}
+
 .social-links {
   display: flex;
   flex-direction: column;

@@ -5,6 +5,7 @@ import apiClient from '../utils/apiClient';
 import '../styles/Plates.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
+import LoadingSpinner from './LoadingSpinner';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -320,10 +321,7 @@ const Plates = () => {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading plates...</p>
-      </div>
+      <LoadingSpinner message="Loading plates..." size="large" />
     );
   }
 
@@ -467,7 +465,7 @@ const Plates = () => {
               </select>
               
               <button type="submit" className="search-button">
-                <span className="search-icon">🔍</span> Search
+                <span className="search-icon" aria-hidden="true"></span> Search
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from './LoadingSpinner';
 
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
@@ -8,10 +9,7 @@ const ProtectedRoute = () => {
   // If auth is still loading, show a loading indicator
   if (isLoading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner"></div>
-        <p>Loading...</p>
-      </div>
+      <LoadingSpinner message="Loading..." size="large" />
     );
   }
 

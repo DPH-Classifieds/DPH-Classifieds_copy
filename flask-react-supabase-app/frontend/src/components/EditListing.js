@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/CreateListing.css'; // Reuse the same styles as CreateListing
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -218,10 +219,7 @@ const EditListing = () => {
   
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading listing data...</p>
-      </div>
+      <LoadingSpinner message="Loading listing data..." size="large" />
     );
   }
   

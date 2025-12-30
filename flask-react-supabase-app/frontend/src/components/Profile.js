@@ -8,6 +8,7 @@ import {
   getProfileCompletionMessage,
   getNextSuggestedField 
 } from '../utils/profileCompletion';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/Profile.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -108,10 +109,7 @@ const Profile = () => {
   
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading profile...</p>
-      </div>
+      <LoadingSpinner message="Loading profile..." size="large" />
     );
   }
 
@@ -217,11 +215,11 @@ const Profile = () => {
                   )}
                   {userData?.is_dealer && (
                     <span className={`badge ${userData?.dealer_verified ? 'badge-dealer-verified' : 'badge-dealer'}`}>
-                      {userData?.dealer_verified ? '🏢 Verified Dealer' : '🏢 Dealer'}
+                      {userData?.dealer_verified ? 'Verified Dealer' : 'Dealer'}
                     </span>
                   )}
                   {userData?.is_admin && (
-                    <span className="badge badge-admin">👑 Admin</span>
+                    <span className="badge badge-admin">Admin</span>
                   )}
                 </div>
 
@@ -271,7 +269,7 @@ const Profile = () => {
                 
                 <div className="profile-info-row">
                   <div className="profile-info-label">
-                    <span className="info-icon">✉️</span>
+                    <span className="info-icon" aria-hidden="true"></span>
                     Email
                   </div>
                   <div className="profile-info-value">{userData?.email}</div>
@@ -280,7 +278,7 @@ const Profile = () => {
                 {userData?.phone && (
                   <div className="profile-info-row">
                     <div className="profile-info-label">
-                      <span className="info-icon">📱</span>
+                      <span className="info-icon" aria-hidden="true"></span>
                       Phone
                     </div>
                     <div className="profile-info-value">
@@ -292,7 +290,7 @@ const Profile = () => {
                 {(userData?.area || userData?.emirate) && (
                   <div className="profile-info-row">
                     <div className="profile-info-label">
-                      <span className="info-icon">📍</span>
+                      <span className="info-icon" aria-hidden="true"></span>
                       Emirate & Area
                     </div>
                     <div className="profile-info-value">
@@ -310,7 +308,7 @@ const Profile = () => {
                   {userData?.company_name && (
                     <div className="profile-info-row">
                       <div className="profile-info-label">
-                        <span className="info-icon">🏢</span>
+                        <span className="info-icon" aria-hidden="true"></span>
                         Company
                       </div>
                       <div className="profile-info-value">{userData.company_name}</div>
@@ -320,7 +318,7 @@ const Profile = () => {
                   {userData?.company_registration_number && (
                     <div className="profile-info-row">
                       <div className="profile-info-label">
-                        <span className="info-icon">📄</span>
+                        <span className="info-icon" aria-hidden="true"></span>
                         Registration
                       </div>
                       <div className="profile-info-value">{userData.company_registration_number}</div>
@@ -330,7 +328,7 @@ const Profile = () => {
                   {userData?.trade_license_number && (
                     <div className="profile-info-row">
                       <div className="profile-info-label">
-                        <span className="info-icon">🪪</span>
+                        <span className="info-icon" aria-hidden="true"></span>
                         Trade License
                       </div>
                       <div className="profile-info-value">{userData.trade_license_number}</div>
@@ -370,22 +368,22 @@ const Profile = () => {
                   <div className="social-links">
                     {userData?.website_url && (
                       <a href={userData.website_url} target="_blank" rel="noopener noreferrer" className="social-link">
-                        🌐 Website
+                        Website
                       </a>
                     )}
                     {userData?.instagram_url && (
                       <a href={userData.instagram_url} target="_blank" rel="noopener noreferrer" className="social-link">
-                        📷 Instagram
+                        Instagram
                       </a>
                     )}
                     {userData?.facebook_url && (
                       <a href={userData.facebook_url} target="_blank" rel="noopener noreferrer" className="social-link">
-                        📘 Facebook
+                        Facebook
                       </a>
                     )}
                     {userData?.twitter_url && (
                       <a href={userData.twitter_url} target="_blank" rel="noopener noreferrer" className="social-link">
-                        🐦 Twitter
+                        Twitter
                       </a>
                     )}
                   </div>
@@ -398,7 +396,7 @@ const Profile = () => {
                 
                 <div className="profile-info-row">
                   <div className="profile-info-label">
-                    <span className="info-icon">🆔</span>
+                    <span className="info-icon" aria-hidden="true"></span>
                     User ID
                   </div>
                   <div className="profile-info-value user-id">{userData?.id}</div>
@@ -406,7 +404,7 @@ const Profile = () => {
                 
                 <div className="profile-info-row">
                   <div className="profile-info-label">
-                    <span className="info-icon">📅</span>
+                    <span className="info-icon" aria-hidden="true"></span>
                     Account Created
                   </div>
                   <div className="profile-info-value">
@@ -417,7 +415,7 @@ const Profile = () => {
                 {userData?.last_login_at && (
                   <div className="profile-info-row">
                     <div className="profile-info-label">
-                      <span className="info-icon">🕐</span>
+                      <span className="info-icon" aria-hidden="true"></span>
                       Last Login
                     </div>
                     <div className="profile-info-value">
@@ -428,7 +426,7 @@ const Profile = () => {
 
                 <div className="profile-info-row">
                   <div className="profile-info-label">
-                    <span className="info-icon">📊</span>
+                    <span className="info-icon" aria-hidden="true"></span>
                     Account Status
                   </div>
                   <div className="profile-info-value">
@@ -444,7 +442,7 @@ const Profile = () => {
             {/* Action Buttons */}
             <div className="profile-actions">
               <button onClick={() => navigate('/my-listings')} className="btn btn-primary">
-                📋 My Listings
+                My Listings
               </button>
               <button onClick={() => navigate('/post')} className="btn btn-success">
                 ➕ Create Listing
@@ -453,7 +451,7 @@ const Profile = () => {
                 ⚙️ Account Settings
               </button>
               <button onClick={handleSignOut} className="btn btn-danger">
-                🚪 Sign Out
+                Sign Out
               </button>
             </div>
           </div>

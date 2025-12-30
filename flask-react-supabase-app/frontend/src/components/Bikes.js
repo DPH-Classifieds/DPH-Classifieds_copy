@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import BlinkBlur from './BlinkBlur';
+import apiClient from '../utils/apiClient';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/Bikes.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -23,8 +23,6 @@ const Bikes = () => {
     wheels: 'all',
     sortBy: 'newest'
   });
-  const { apiClient } = useAuth();
-
   // Helper function to get proper image URL
   const getImageUrl = (image) => {
     if (!image) return null;
@@ -40,72 +38,6 @@ const Bikes = () => {
     return imageUrl;
   };
 
-  // Placeholder bikes data for demo purposes
-  const getPlaceholderBikes = () => {
-    return [
-      {
-        id: 1,
-        make: 'Yamaha',
-        model: 'YZF-R1',
-        year: 2021,
-        mileage: 15000,
-        engine_capacity: 998,
-        fuel_type: 'Petrol',
-        transmission: 'Manual',
-        condition: 'Excellent',
-        expected_selling_price: 45000,
-        color: 'Blue',
-        location: 'Dubai, UAE',
-        description: 'Well-maintained Yamaha YZF-R1 in excellent condition. Perfect for track days and weekend rides.',
-        images: [{
-          id: 1,
-          image_url: 'https://via.placeholder.com/300x200?text=Yamaha+YZF-R1',
-          url: 'https://via.placeholder.com/300x200?text=Yamaha+YZF-R1'
-        }]
-      },
-      {
-        id: 2,
-        make: 'Honda',
-        model: 'CBR1000RR',
-        year: 2020,
-        mileage: 8500,
-        engine_capacity: 999,
-        fuel_type: 'Petrol',
-        transmission: 'Manual',
-        condition: 'Very Good',
-        expected_selling_price: 42000,
-        color: 'Red',
-        location: 'Abu Dhabi, UAE',
-        description: 'Honda CBR1000RR Fireblade with low mileage. Recently serviced and ready to ride.',
-        images: [{
-          id: 1,
-          image_url: 'https://via.placeholder.com/300x200?text=Honda+CBR1000RR',
-          url: 'https://via.placeholder.com/300x200?text=Honda+CBR1000RR'
-        }]
-      },
-      {
-        id: 3,
-        make: 'Kawasaki',
-        model: 'Ninja ZX-10R',
-        year: 2019,
-        mileage: 22000,
-        engine_capacity: 998,
-        fuel_type: 'Petrol',
-        transmission: 'Manual',
-        condition: 'Good',
-        expected_selling_price: 38000,
-        color: 'Green',
-        location: 'Sharjah, UAE',
-        description: 'Kawasaki Ninja ZX-10R with performance upgrades. Great bike for experienced riders.',
-        images: [{
-          id: 1,
-          image_url: 'https://via.placeholder.com/300x200?text=Kawasaki+Ninja+ZX-10R',
-          url: 'https://via.placeholder.com/300x200?text=Kawasaki+Ninja+ZX-10R'
-        }]
-      }
-    ];
-  };
-
   useEffect(() => {
     const fetchBikes = async () => {
       try {
@@ -114,125 +46,21 @@ const Bikes = () => {
         const response = await apiClient.get('/api/bikes');
         console.log('Bikes API response:', response);
         
-        // If no bikes from API, use placeholder data
-        if (!response || response.length === 0) {
-          setBikes(getPlaceholderBikes());
-        } else {
-          setBikes(response);
+        if (!Array.isArray(response)) {
+          throw new Error('Unexpected response for bikes list.');
         }
+        setBikes(response);
         setError(null);
       } catch (err) {
         console.error('Error fetching bikes:', err);
-        // Use placeholder data as fallback
-        setBikes(getPlaceholderBikes());
-        setError(null);
-        
-        // Fallback to placeholder data for development
-        setBikes([
-          {
-            id: 1,
-            title: 'Ducati Panigale V4',
-            manufacturer: 'Ducati',
-            model: 'Panigale V4',
-            year: 2022,
-            type: 'Sport',
-            engine: '1103cc',
-            mileage: 1200,
-            price: 27000,
-            location: 'Dubai',
-            color: 'Red',
-            description: 'Pristine Ducati Panigale V4 with only 1,200 miles. Full service history, never dropped. Comes with Akrapovič exhaust and other premium upgrades.',
-            image: 'https://via.placeholder.com/600x400?text=Ducati+Panigale',
-            created_at: '2023-06-01T10:00:00Z'
-          },
-          {
-            id: 2,
-            title: 'Harley-Davidson Street Glide',
-            manufacturer: 'Harley-Davidson',
-            model: 'Street Glide',
-            year: 2021,
-            type: 'Cruiser',
-            engine: '1868cc',
-            mileage: 5000,
-            price: 24500,
-            location: 'Abu Dhabi',
-            color: 'Black',
-            description: 'Beautiful Harley-Davidson Street Glide with low miles. Equipped with premium audio system and touring pack. Perfect for long rides.',
-            image: 'https://via.placeholder.com/600x400?text=Harley+Davidson',
-            created_at: '2023-05-28T14:30:00Z'
-          },
-          {
-            id: 3,
-            title: 'BMW R 1250 GS Adventure',
-            manufacturer: 'BMW',
-            model: 'R 1250 GS Adventure',
-            year: 2023,
-            type: 'Adventure',
-            engine: '1254cc',
-            mileage: 800,
-            price: 22000,
-            location: 'Dubai',
-            color: 'Blue/White',
-            description: 'Nearly new BMW R 1250 GS Adventure. Full options including LED headlight, dynamic ESA, and touring package. Perfect condition.',
-            image: 'https://via.placeholder.com/600x400?text=BMW+GS+Adventure',
-            created_at: '2023-06-05T09:15:00Z'
-          },
-          {
-            id: 4,
-            title: 'Kawasaki Ninja 650',
-            manufacturer: 'Kawasaki',
-            model: 'Ninja 650',
-            year: 2020,
-            type: 'Sport',
-            engine: '649cc',
-            mileage: 3500,
-            price: 7500,
-            location: 'Sharjah',
-            color: 'Green',
-            description: 'Great condition Kawasaki Ninja 650. Perfect for both beginners and experienced riders. Includes frame sliders and tail tidy.',
-            image: 'https://via.placeholder.com/600x400?text=Kawasaki+Ninja',
-            created_at: '2023-05-20T11:45:00Z'
-          },
-          {
-            id: 5,
-            title: 'Honda Africa Twin',
-            manufacturer: 'Honda',
-            model: 'Africa Twin',
-            year: 2021,
-            type: 'Adventure',
-            engine: '1084cc',
-            mileage: 2200,
-            price: 14500,
-            location: 'Dubai',
-            color: 'Red/Black/White',
-            description: 'Honda Africa Twin in excellent condition. DCT model with cruise control and heated grips. Ready for your next adventure.',
-            image: 'https://via.placeholder.com/600x400?text=Honda+Africa+Twin',
-            created_at: '2023-06-02T16:20:00Z'
-          },
-          {
-            id: 6,
-            title: 'Yamaha MT-09',
-            manufacturer: 'Yamaha',
-            model: 'MT-09',
-            year: 2022,
-            type: 'Naked',
-            engine: '890cc',
-            mileage: 1800,
-            price: 11000,
-            location: 'Abu Dhabi',
-            color: 'Matte Black',
-            description: 'Powerful Yamaha MT-09 with low mileage. Includes quick shifter and Akrapovič exhaust. Excellent handling and performance.',
-            image: 'https://via.placeholder.com/600x400?text=Yamaha+MT-09',
-            created_at: '2023-05-25T13:10:00Z'
-          }
-        ]);
+        setError('Failed to load bikes. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchBikes();
-  }, [apiClient]);
+  }, []);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -244,6 +72,9 @@ const Bikes = () => {
 
   const applyFilters = () => {
     return bikes.filter(bike => {
+      const bikePrice = Number(bike.price ?? bike.expected_selling_price ?? 0);
+      const bikeYear = Number(bike.year ?? bike.make_year ?? 0);
+
       // Apply bike type filter
       if (filters.type !== 'all' && bike.type !== filters.type && bike.bike_category !== filters.type) {
         return false;
@@ -258,22 +89,22 @@ const Bikes = () => {
       }
       
       // Apply price min filter
-      if (filters.priceMin && bike.price < Number(filters.priceMin)) {
+      if (filters.priceMin && bikePrice < Number(filters.priceMin)) {
         return false;
       }
       
       // Apply price max filter
-      if (filters.priceMax && bike.price > Number(filters.priceMax)) {
+      if (filters.priceMax && bikePrice > Number(filters.priceMax)) {
         return false;
       }
       
       // Apply year min filter
-      if (filters.yearMin && bike.year < Number(filters.yearMin)) {
+      if (filters.yearMin && bikeYear < Number(filters.yearMin)) {
         return false;
       }
       
       // Apply year max filter
-      if (filters.yearMax && bike.year > Number(filters.yearMax)) {
+      if (filters.yearMax && bikeYear > Number(filters.yearMax)) {
         return false;
       }
       
@@ -306,18 +137,25 @@ const Bikes = () => {
       return true;
     }).sort((a, b) => {
       // Apply sorting
+      const aPrice = Number(a.price ?? a.expected_selling_price ?? 0);
+      const bPrice = Number(b.price ?? b.expected_selling_price ?? 0);
+      const aYear = Number(a.year ?? a.make_year ?? 0);
+      const bYear = Number(b.year ?? b.make_year ?? 0);
+      const aDate = new Date(a.created_at || 0);
+      const bDate = new Date(b.created_at || 0);
+
       switch (filters.sortBy) {
         case 'price-low':
-          return a.price - b.price;
+          return aPrice - bPrice;
         case 'price-high':
-          return b.price - a.price;
+          return bPrice - aPrice;
         case 'year-new':
-          return b.year - a.year;
+          return bYear - aYear;
         case 'year-old':
-          return a.year - b.year;
+          return aYear - bYear;
         case 'newest':
         default:
-          return new Date(b.created_at) - new Date(a.created_at);
+          return bDate - aDate;
       }
     });
   };
@@ -325,7 +163,7 @@ const Bikes = () => {
   const filteredBikes = applyFilters();
 
   if (loading) {
-    return <BlinkBlur color="#1f481f" size="large" text="Loading bikes..." textColor="#555" />;
+    return <LoadingSpinner message="Loading bikes..." size="large" />;
   }
 
   if (error) {
@@ -538,7 +376,7 @@ const Bikes = () => {
                   {bike.images && bike.images.length > 0 ? (
                     <img 
                       src={getImageUrl(bike.images[0])} 
-                      alt={`${bike.make} ${bike.model}`}
+                      alt={`${bike.make || bike.manufacturer || ''} ${bike.model || ''}`.trim() || 'Bike'}
                       onError={(e) => {
                         console.error("Image failed to load:", e.target.src);
                         e.target.onerror = null;
@@ -548,7 +386,7 @@ const Bikes = () => {
                   ) : bike.image ? (
                     <img 
                       src={bike.image} 
-                      alt={`${bike.make || bike.manufacturer} ${bike.model}`}
+                      alt={`${bike.make || bike.manufacturer || ''} ${bike.model || ''}`.trim() || 'Bike'}
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = "https://via.placeholder.com/600x400?text=No+Image+Available";
@@ -557,16 +395,18 @@ const Bikes = () => {
                   ) : (
                     <div className="no-image">No Image Available</div>
                   )}
-                  <div className="bike-price">AED {bike.price.toLocaleString()}</div>
+                  <div className="bike-price">
+                    AED {Number(bike.price ?? bike.expected_selling_price ?? 0).toLocaleString()}
+                  </div>
                 </div>
                 <div className="bike-details">
-                  <h3>{bike.title || `${bike.make || bike.manufacturer} ${bike.model} ${bike.year}`}</h3>
+                  <h3>{bike.title || `${bike.make || bike.manufacturer || ''} ${bike.model || ''} ${bike.year || bike.make_year || ''}`.trim()}</h3>
                   <div className="bike-specs">
-                    <span className="bike-year">{bike.year}</span>
-                    <span className="bike-engine">{bike.engine || bike.engine_size}</span>
-                    <span className="bike-mileage">{(bike.mileage || bike.kilometer_driven || 0).toLocaleString()} km</span>
+                    <span className="bike-year">{bike.year || bike.make_year || 'N/A'}</span>
+                    <span className="bike-engine">{bike.engine || bike.engine_size || bike.engine_capacity || 'N/A'}</span>
+                    <span className="bike-mileage">{Number(bike.mileage || bike.kilometer_driven || 0).toLocaleString()} km</span>
                   </div>
-                  <div className="bike-location">{bike.location}</div>
+                  <div className="bike-location">{bike.location || 'Location N/A'}</div>
                   {bike.description && (
                     <p className="bike-description">{bike.description.substring(0, 120)}...</p>
                   )}

@@ -91,34 +91,22 @@ const CreateListing = () => {
       if (submitData.expected_selling_price) submitData.expected_selling_price = parseFloat(submitData.expected_selling_price);
       if (submitData.mileage) submitData.mileage = parseInt(submitData.mileage);
       
-      // Add a fallback for demo purposes - in reality, use the actual API
-      try {
-        // Make authenticated request
-        const response = await axios.post(`${API_URL}/api/cars`, submitData, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        setSuccess(true);
-        
-        // Navigate to the new listing after a brief delay
-        setTimeout(() => {
-          navigate(`/cars/${response.data.id}`);
-        }, 2000);
-      } catch (e) {
-        console.warn('Error posting to API, simulating success for demo purposes');
-        // For demo purposes - simulate success
-        setSuccess(true);
-        
-        // Navigate back to listings after a delay
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
-      }
+      // Make authenticated request
+      const response = await axios.post(`${API_URL}/api/cars`, submitData, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setSuccess(true);
+      
+      // Navigate to the new listing after a brief delay
+      setTimeout(() => {
+        navigate(`/cars/${response.data.id}`);
+      }, 2000);
     } catch (err) {
       console.error('Error creating listing:', err);
-      setError('Failed to create listing. Please try again.');
+      setError(err.response?.data?.error || 'Failed to create listing. Please try again.');
     } finally {
       setLoading(false);
     }

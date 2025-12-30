@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminUsers.css';
 
 const AdminUsers = () => {
@@ -59,7 +60,7 @@ const AdminUsers = () => {
       {success && <div className="success-message">{success}</div>}
 
       {loading ? (
-        <div className="loading">Loading users...</div>
+        <LoadingSpinner message="Loading users..." size="large" />
       ) : (
         <div className="users-container">
           {users.length === 0 ? (

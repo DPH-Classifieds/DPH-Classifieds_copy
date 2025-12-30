@@ -143,7 +143,7 @@ const Header = () => {
                 className={`nav-link ${isActive('/') ? 'active' : ''}`} 
                 onClick={() => setMobileMenuOpen(false)}
               >
-                🏠 Home
+                Home
               </Link>
             </li>
             <li className="browse-dropdown-container" ref={browseDropdownRef}>
@@ -152,7 +152,7 @@ const Header = () => {
                 onClick={toggleBrowseDropdown}
                 aria-expanded={browseDropdownOpen}
               >
-                🔍 Browse <span className="dropdown-arrow">▾</span>
+                Browse <span className="dropdown-arrow">▾</span>
               </button>
               {browseDropdownOpen && (
                 <div className="browse-dropdown">
@@ -164,7 +164,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🚗 Browse Cars
+                    Browse Cars
                   </Link>
                   <Link 
                     to="/car-parts" 
@@ -174,7 +174,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🔧 Browse Car Parts
+                    Browse Car Parts
                   </Link>
                   <Link 
                     to="/plates" 
@@ -184,7 +184,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🔢 Browse Plates
+                    Browse Plates
                   </Link>
                   <Link 
                     to="/bikes" 
@@ -194,7 +194,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🏍️ Browse Bikes
+                    Browse Bikes
                   </Link>
                 </div>
               )}
@@ -217,7 +217,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🚗 Post a Car
+                    Post a Car
                   </Link>
                   <Link 
                     to={getPostUrl("/post-bike")} 
@@ -227,7 +227,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🏍️ Post a Bike
+                    Post a Bike
                   </Link>
                   <Link 
                     to={getPostUrl("/post-plate")} 
@@ -237,7 +237,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🔢 Post a Plate
+                    Post a Plate
                   </Link>
                   <Link 
                     to={getPostUrl("/post-car-parts")} 
@@ -247,7 +247,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    🔧 Post Car Parts
+                    Post Car Parts
                   </Link>
                 </div>
               )}
@@ -258,7 +258,7 @@ const Header = () => {
                 className={`nav-link ${isActive('/about') ? 'active' : ''}`} 
                 onClick={() => setMobileMenuOpen(false)}
               >
-                📄 About
+                About
               </Link>
             </li>
             {/* Contact page link removed as requested */}
@@ -269,7 +269,7 @@ const Header = () => {
                   className={`nav-link ${isActive('/my-listings') ? 'active' : ''}`} 
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  📋 My Listings
+                  My Listings
                 </Link>
               </li>
             )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -315,6 +316,11 @@ const AdminDashboard = () => {
   };
 
   const fetchReportedListing = async (listingId, listingType) => {
+    if (listingType === 'bug') {
+      setReportedListing(null);
+      return null;
+    }
+
     try {
       setLoadingReportedListing(true);
       const endpoint = `/api/${listingType}s/${listingId}`;
@@ -392,6 +398,14 @@ const AdminDashboard = () => {
     }
   };
 
+  const getReportTypeLabel = (listingType) => {
+    if (listingType === 'bug') {
+      return 'Bug Report';
+    }
+
+    return listingType.charAt(0).toUpperCase() + listingType.slice(1);
+  };
+
   // Format price with currency symbol
   // eslint-disable-next-line no-unused-vars
   const formatPrice = (price) => {
@@ -405,7 +419,7 @@ const AdminDashboard = () => {
   // Get a summary of the listing details based on type
   const getListingSummary = (listing, type) => {
     const viewCount = listing.view_count || 0;
-    const viewsText = `👁 ${viewCount} view${viewCount !== 1 ? 's' : ''}`;
+    const viewsText = `${viewCount} view${viewCount !== 1 ? 's' : ''}`;
     
     switch (type) {
       case 'plates':
@@ -492,7 +506,7 @@ const AdminDashboard = () => {
           <>
             <h2>User Reports</h2>
             {loading ? (
-              <div className="loading-message">Loading reports...</div>
+              <LoadingSpinner message="Loading reports..." size="large" />
             ) : (
               <>
                 <div className="listings-stats">
@@ -532,7 +546,7 @@ const AdminDashboard = () => {
                         <div key={report.id} className="listing-card">
                           <div className="listing-header">
                             <h4 className="listing-title">
-                              {report.listing_type.charAt(0).toUpperCase() + report.listing_type.slice(1)} ID: {report.listing_id}
+                              {getReportTypeLabel(report.listing_type)} ID: {report.listing_id}
                             </h4>
                             <span className="listing-date">
                               {new Date(report.created_at).toLocaleDateString()}
@@ -594,7 +608,7 @@ const AdminDashboard = () => {
                         <div key={report.id} className="listing-card approved">
                           <div className="listing-header">
                             <h4 className="listing-title">
-                              {report.listing_type.charAt(0).toUpperCase() + report.listing_type.slice(1)} ID: {report.listing_id}
+                              {getReportTypeLabel(report.listing_type)} ID: {report.listing_id}
                             </h4>
                             <span className="listing-date">
                               {new Date(report.created_at).toLocaleDateString()}
@@ -619,7 +633,7 @@ const AdminDashboard = () => {
           <>
             <h2>Dealer Management</h2>
             {loading ? (
-              <div className="loading-message">Loading dealers...</div>
+              <LoadingSpinner message="Loading dealers..." size="large" />
             ) : (
               <>
                 <div className="listings-stats">
@@ -784,7 +798,7 @@ const AdminDashboard = () => {
             <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Listings</h2>
             
             {loading ? (
-              <div className="loading-message">Loading listings...</div>
+              <LoadingSpinner message="Loading listings..." size="large" />
             ) : (
               <>
             <div className="listings-stats">
@@ -1275,7 +1289,7 @@ const AdminDashboard = () => {
                 <div className="report-section">
                   <h4>Report Information</h4>
                   <div className="detail-row">
-                    <strong>Listing Type:</strong> {selectedReport.listing_type.charAt(0).toUpperCase() + selectedReport.listing_type.slice(1)}
+                    <strong>Listing Type:</strong> {getReportTypeLabel(selectedReport.listing_type)}
                   </div>
                   <div className="detail-row">
                     <strong>Listing ID:</strong> {selectedReport.listing_id}
@@ -1306,90 +1320,100 @@ const AdminDashboard = () => {
 
                 <div className="reported-listing-section">
                   <h4>Reported Listing</h4>
-                  {!reportedListing && !loadingReportedListing && (
-                    <button 
-                      className="view-btn"
-                      onClick={async () => {
-                        setLoadingReportedListing(true);
-                        const listing = await fetchReportedListing(selectedReport.listing_id, selectedReport.listing_type);
-                        setReportedListing(listing);
-                        setLoadingReportedListing(false);
-                      }}
-                    >
-                      Load Listing Details
-                    </button>
-                  )}
-                  {loadingReportedListing && <p>Loading listing...</p>}
-                  {reportedListing && (
-                    <div className="reported-listing-details">
-                      {selectedReport.listing_type === 'car' && (
-                        <>
-                          <div className="detail-row">
-                            <strong>Title:</strong> {reportedListing.listing_title || `${reportedListing.car_manufacturer} ${reportedListing.car_model}`}
-                          </div>
-                          <div className="detail-row">
-                            <strong>Year:</strong> {reportedListing.make_year}
-                          </div>
-                          <div className="detail-row">
-                            <strong>Price:</strong> AED {reportedListing.expected_selling_price?.toLocaleString()}
-                          </div>
-                          <div className="detail-row">
-                            <strong>Contact:</strong> {reportedListing.contact_phone || reportedListing.car_owner_phone_number}
-                          </div>
-                        </>
+                  {selectedReport.listing_type === 'bug' ? (
+                    <p className="listing-not-found">
+                      This report is for a site bug and is not tied to a listing.
+                    </p>
+                  ) : (
+                    <>
+                      {!reportedListing && !loadingReportedListing && (
+                        <button 
+                          className="view-btn"
+                          onClick={async () => {
+                            setLoadingReportedListing(true);
+                            const listing = await fetchReportedListing(selectedReport.listing_id, selectedReport.listing_type);
+                            setReportedListing(listing);
+                            setLoadingReportedListing(false);
+                          }}
+                        >
+                          Load Listing Details
+                        </button>
                       )}
-                      {selectedReport.listing_type === 'bike' && (
-                        <>
-                          <div className="detail-row">
-                            <strong>Title:</strong> {reportedListing.make} {reportedListing.model} {reportedListing.year}
-                          </div>
-                          <div className="detail-row">
-                            <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
-                          </div>
-                        </>
+                      {loadingReportedListing && (
+                        <LoadingSpinner message="Loading listing..." size="small" compact />
                       )}
-                      {selectedReport.listing_type === 'plate' && (
-                        <>
-                          <div className="detail-row">
-                            <strong>Plate:</strong> {reportedListing.city} {reportedListing.code} {reportedListing.number}
-                          </div>
-                          <div className="detail-row">
-                            <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
-                          </div>
-                        </>
-                      )}
-                      {selectedReport.listing_type === 'part' && (
-                        <>
-                          <div className="detail-row">
-                            <strong>Name:</strong> {reportedListing.name || reportedListing.part_name}
-                          </div>
-                          <div className="detail-row">
-                            <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
-                          </div>
-                        </>
-                      )}
-                      {reportedListing.images && reportedListing.images.length > 0 && (
-                        <div className="detail-row">
-                          <strong>Images:</strong>
-                          <div className="listing-preview-images">
-                            {reportedListing.images.slice(0, 3).map((img, idx) => (
-                              <img 
-                                key={idx}
-                                src={getImageUrl(img)} 
-                                alt={`Preview ${idx + 1}`}
-                                style={{width: '100px', height: '75px', objectFit: 'cover', margin: '5px', borderRadius: '4px'}}
-                                onError={(e) => {
-                                  e.target.src = "https://via.placeholder.com/100x75?text=No+Image";
-                                }}
-                              />
-                            ))}
-                          </div>
+                      {reportedListing && (
+                        <div className="reported-listing-details">
+                          {selectedReport.listing_type === 'car' && (
+                            <>
+                              <div className="detail-row">
+                                <strong>Title:</strong> {reportedListing.listing_title || `${reportedListing.car_manufacturer} ${reportedListing.car_model}`}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Year:</strong> {reportedListing.make_year}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Price:</strong> AED {reportedListing.expected_selling_price?.toLocaleString()}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Contact:</strong> {reportedListing.contact_phone || reportedListing.car_owner_phone_number}
+                              </div>
+                            </>
+                          )}
+                          {selectedReport.listing_type === 'bike' && (
+                            <>
+                              <div className="detail-row">
+                                <strong>Title:</strong> {reportedListing.make} {reportedListing.model} {reportedListing.year}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
+                              </div>
+                            </>
+                          )}
+                          {selectedReport.listing_type === 'plate' && (
+                            <>
+                              <div className="detail-row">
+                                <strong>Plate:</strong> {reportedListing.city} {reportedListing.code} {reportedListing.number}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
+                              </div>
+                            </>
+                          )}
+                          {selectedReport.listing_type === 'part' && (
+                            <>
+                              <div className="detail-row">
+                                <strong>Name:</strong> {reportedListing.name || reportedListing.part_name}
+                              </div>
+                              <div className="detail-row">
+                                <strong>Price:</strong> AED {reportedListing.price?.toLocaleString()}
+                              </div>
+                            </>
+                          )}
+                          {reportedListing.images && reportedListing.images.length > 0 && (
+                            <div className="detail-row">
+                              <strong>Images:</strong>
+                              <div className="listing-preview-images">
+                                {reportedListing.images.slice(0, 3).map((img, idx) => (
+                                  <img 
+                                    key={idx}
+                                    src={getImageUrl(img)} 
+                                    alt={`Preview ${idx + 1}`}
+                                    style={{width: '100px', height: '75px', objectFit: 'cover', margin: '5px', borderRadius: '4px'}}
+                                    onError={(e) => {
+                                      e.target.src = "https://via.placeholder.com/100x75?text=No+Image";
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
-                    </div>
-                  )}
-                  {reportedListing === null && !loadingReportedListing && (
-                    <p className="listing-not-found">Listing may have been removed or does not exist.</p>
+                      {reportedListing === null && !loadingReportedListing && (
+                        <p className="listing-not-found">Listing may have been removed or does not exist.</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1419,7 +1443,7 @@ const AdminDashboard = () => {
                   >
                     Dismiss
                   </button>
-                  {reportedListing && (
+                  {selectedReport.listing_type !== 'bug' && reportedListing && (
                     <button 
                       className="delete-btn"
                       onClick={() => {

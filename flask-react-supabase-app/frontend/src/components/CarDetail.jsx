@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import BlinkBlur from './BlinkBlur';
+import LoadingSpinner from './LoadingSpinner';
 import LoanCalculator from './LoanCalculator';
 import ReportButton from './ReportButton';
 import { useAuth } from '../context/AuthContext';
@@ -129,7 +129,7 @@ const CarDetail = () => {
   };
   
   if (loading) {
-    return <BlinkBlur color="#1f481f" size="large" text="Loading car details..." textColor="#555" />;
+    return <LoadingSpinner message="Loading car details..." size="large" />;
   }
   
   if (error) {
@@ -234,7 +234,7 @@ const CarDetail = () => {
             )}
             {user && user.id === car.user_id && (
               <div className="view-counter">
-                <span className="views">👁️ {car.view_count || 0} views</span>
+                <span className="views">{car.view_count || 0} views</span>
               </div>
             )}
           </div>
@@ -243,7 +243,7 @@ const CarDetail = () => {
             <h3>Contact Seller</h3>
             <div className="contact-buttons">
               <a href={`tel:${car.country_code || ''}${car.car_owner_phone_number || car.contact_phone}`} className="contact-button phone-button">
-                📞 {formatPhoneNumber(car.country_code, car.car_owner_phone_number || car.contact_phone)}
+                {formatPhoneNumber(car.country_code, car.car_owner_phone_number || car.contact_phone)}
               </a>
               <a 
                 href={`https://wa.me/${(car.country_code || '').replace('+', '')}${(car.car_owner_phone_number || car.contact_phone || '').replace(/^0+/, '')}`} 
@@ -251,7 +251,7 @@ const CarDetail = () => {
                 rel="noopener noreferrer" 
                 className="contact-button whatsapp-button"
               >
-                💬 WhatsApp
+                WhatsApp
               </a>
             </div>
           </div>

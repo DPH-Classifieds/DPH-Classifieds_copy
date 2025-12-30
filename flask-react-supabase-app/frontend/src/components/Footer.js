@@ -1,4 +1,5 @@
 import React from 'react';
+import ReportBugButton from './ReportBugButton';
 import '../styles/Footer.css';
 
 const Footer = () => {
@@ -22,6 +23,9 @@ const Footer = () => {
             <li><a href="/">Home</a></li>
             <li><a href="/cars">Browse Cars</a></li>
             <li><a href="/create-listing">Sell Your Car</a></li>
+            <li>
+              <ReportBugButton className="footer-button" buttonText="Report a Bug" />
+            </li>
           </ul>
         </div>
         
