@@ -242,7 +242,7 @@ const BikeDetail = () => {
                 </div>
               )}
               
-              {user && user.id === bike.user_id && (
+              {bike.view_count !== undefined && bike.view_count !== null && (
                 <div className="info-item">
                   <span className="view-counter">
                     <span className="views">{bike.view_count || 0} views</span>
