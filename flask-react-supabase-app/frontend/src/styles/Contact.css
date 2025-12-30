@@ -87,19 +87,19 @@
 }
 
 .location-icon:before {
-  content: '📍';
+  content: '';
 }
 
 .email-icon:before {
-  content: '✉️';
+  content: '';
 }
 
 .phone-icon:before {
-  content: '📞';
+  content: '';
 }
 
 .hours-icon:before {
-  content: '🕒';
+  content: '';
 }
 
 .contact-form-container {

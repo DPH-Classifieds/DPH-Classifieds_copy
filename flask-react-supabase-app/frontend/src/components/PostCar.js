@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import '../styles/PostForms.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
+import LoadingSpinner from './LoadingSpinner';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -84,7 +85,7 @@ const PostCar = () => {
   const engineCapacities = ['0-999cc', '1000cc-1499cc', '1500cc-1999cc', '2000cc-2999cc', '3000cc-3999cc', '4000cc-4999cc', '5000cc-5999cc', '6000cc-6999cc', '7000cc-7999cc', '8000cc+'];
   // Organized car extras by category
   const carExtrasCategories = {
-    '🎧 Comfort & Convenience': [
+    'Comfort & Convenience': [
       'Dual-zone Climate Control',
       'Tri-zone Climate Control',
       'Ventilated Seats (Cooling Seats)',
@@ -101,7 +102,7 @@ const PostCar = () => {
       'Auto-Dimming Mirrors',
       'Memory Seats and Steering'
     ],
-    '🔊 Infotainment & Tech': [
+    'Infotainment & Tech': [
       'Apple CarPlay',
       'Android Auto',
       'Rear Entertainment Screens',
@@ -113,7 +114,7 @@ const PostCar = () => {
       'Built-In Spotify / Streaming Apps',
       'Wi-Fi Hotspot'
     ],
-    '🛡 Safety & Driver Assistance': [
+    'Safety & Driver Assistance': [
       'Adaptive Cruise Control (Radar Cruise)',
       'Lane Keep Assist / Lane Departure Warning',
       'Blind Spot Monitoring',
@@ -123,7 +124,7 @@ const PostCar = () => {
       'Night Vision Camera',
       'Off-Road Crawl Control / Terrain Response Modes'
     ],
-    '🌟 Luxury & Styling': [
+    'Luxury & Styling': [
       'Leather Dashboard Wrapping',
       'Suede / Alcantara Headliner',
       'Carbon Fiber Trim',
@@ -133,7 +134,7 @@ const PostCar = () => {
       'Blackout / Night Package (Black Badges, Black Trim)',
       'Sport Body Kit / Aero Kit'
     ],
-    '🏜 Off-Road / Performance': [
+    'Off-Road / Performance': [
       'Diff Lock (Rear / Front / Center)',
       'Air Suspension (Height Adjustable)',
       'Skid Plates',
@@ -552,7 +553,7 @@ const PostCar = () => {
   if (success) {
     return (
       <div className="post-form-container success-message">
-        <h2>🎉 Success!</h2>
+        <h2>Success!</h2>
         <p>Your car listing has been successfully submitted and is pending approval.</p>
         <p>You will be redirected to your listings page shortly...</p>
       </div>
@@ -1036,11 +1037,11 @@ const PostCar = () => {
                     ref={locationInputRef}
                     autoComplete="off"
                   />
-                  {isGeocoding && (
-                    <div className="search-loading-indicator">
-                      <span className="spinner-small"></span>
-                    </div>
-                  )}
+                {isGeocoding && (
+                  <div className="search-loading-indicator">
+                    <LoadingSpinner size="small" message={null} compact inline />
+                  </div>
+                )}
                 </div>
 
                 {/* Address Suggestions Dropdown */}
@@ -1052,7 +1053,7 @@ const PostCar = () => {
                         className="suggestion-item"
                         onClick={() => handleAddressSelect(suggestion)}
                       >
-                        <div className="suggestion-icon">📍</div>
+                        <div className="suggestion-icon" aria-hidden="true"></div>
                         <div className="suggestion-text">
                           <div className="suggestion-main">{suggestion.display_name}</div>
                           {suggestion.address && (
@@ -1069,7 +1070,7 @@ const PostCar = () => {
                 {/* Error Message */}
                 {geoError && (
                   <div className="geo-error-message">
-                    ⚠️ {geoError}
+                    {geoError}
                   </div>
                 )}
 
@@ -1081,26 +1082,23 @@ const PostCar = () => {
                   disabled={isGettingLocation}
                 >
                   {isGettingLocation ? (
-                    <>
-                      <span className="spinner-small"></span> Getting location...
-                    </>
+                    <LoadingSpinner size="small" message="Getting location..." inline />
                   ) : (
                     <>
-                      📍 Use Current Location
+                      Use Current Location
                     </>
                   )}
                 </button>
               </div>
 
               <div className="map-instructions">
-                💡 Type to search, click "Use Current Location", or click/drag on the map
+                Type to search, click "Use Current Location", or click/drag on the map
               </div>
 
               <div className="map-container">
                 {isGeocoding && (
                   <div className="map-loading-overlay">
-                    <div className="spinner"></div>
-                    <p>Loading location...</p>
+                    <LoadingSpinner size="small" message="Loading location..." compact />
                   </div>
                 )}
                 <MapContainer 
@@ -1135,7 +1133,7 @@ const PostCar = () => {
                 onDrop={handleDrop}
               >
                 <div className="upload-area">
-                  <div className="upload-icon">📷</div>
+                  <div className="upload-icon" aria-hidden="true"></div>
                   <h4>Drag & Drop Images Here</h4>
                   <p>or</p>
                   <input

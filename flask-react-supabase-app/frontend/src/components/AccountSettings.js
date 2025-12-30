@@ -439,7 +439,7 @@ const AccountSettings = () => {
                         <img src={photoPreview} alt="Profile" className="profile-photo-preview" />
                       ) : (
                         <div className="no-photo-placeholder">
-                          <span className="photo-icon">📷</span>
+                          <span className="photo-icon" aria-hidden="true"></span>
                           <span>No photo</span>
                         </div>
                       )}

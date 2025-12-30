@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import BlinkBlur from './BlinkBlur';
+import LoadingSpinner from './LoadingSpinner';
 import { carMakes, carModels } from '../utils/carData';
 import './CarList.css';
 
@@ -59,7 +59,7 @@ const CarList = () => {
   const engineCapacities = ['0-999cc', '1000cc-1499cc', '1500cc-1999cc', '2000cc-2999cc', '3000cc-3999cc', '4000cc-4999cc', '5000cc-5999cc', '6000cc-6999cc', '7000cc-7999cc', '8000cc+'];
   // Comprehensive car extras organized by category
   const carExtrasCategories = {
-    '🎧 Comfort & Convenience': [
+    'Comfort & Convenience': [
       'Dual-zone Climate Control',
       'Tri-zone Climate Control',
       'Ventilated Seats (Cooling Seats)',
@@ -76,7 +76,7 @@ const CarList = () => {
       'Auto-Dimming Mirrors',
       'Memory Seats and Steering'
     ],
-    '🔊 Infotainment & Tech': [
+    'Infotainment & Tech': [
       'Apple CarPlay',
       'Android Auto',
       'Rear Entertainment Screens',
@@ -88,7 +88,7 @@ const CarList = () => {
       'Built-In Spotify / Streaming Apps',
       'Wi-Fi Hotspot'
     ],
-    '🛡 Safety & Driver Assistance': [
+    'Safety & Driver Assistance': [
       'Adaptive Cruise Control (Radar Cruise)',
       'Lane Keep Assist / Lane Departure Warning',
       'Blind Spot Monitoring',
@@ -98,7 +98,7 @@ const CarList = () => {
       'Night Vision Camera',
       'Off-Road Crawl Control / Terrain Response Modes'
     ],
-    '🌟 Luxury & Styling': [
+    'Luxury & Styling': [
       'Leather Dashboard Wrapping',
       'Suede / Alcantara Headliner',
       'Carbon Fiber Trim',
@@ -108,7 +108,7 @@ const CarList = () => {
       'Blackout / Night Package (Black Badges, Black Trim)',
       'Sport Body Kit / Aero Kit'
     ],
-    '🏜 Off-Road / Performance': [
+    'Off-Road / Performance': [
       'Diff Lock (Rear / Front / Center)',
       'Air Suspension (Height Adjustable)',
       'Skid Plates',
@@ -598,7 +598,7 @@ const CarList = () => {
               {/* Car Extras - Redesigned for cleaner UI */}
               <div className="filter-section">
                 <div className="filter-section-header">
-                  <label>🌟 Special Features</label>
+                  <label>Special Features</label>
                 </div>
                 
                 <div className="extras-grid" style={{
@@ -752,7 +752,7 @@ const CarList = () => {
       
       {/* Loading State */}
       {loading ? (
-        <BlinkBlur color="#1f481f" size="large" text="Loading cars..." textColor="#555" />
+        <LoadingSpinner message="Loading cars..." size="large" />
       ) : (
         <>
           {/* Car Listings */}

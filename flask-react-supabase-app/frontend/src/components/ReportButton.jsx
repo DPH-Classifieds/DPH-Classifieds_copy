@@ -80,7 +80,7 @@ const ReportButton = ({ listingId, listingType }) => {
         onClick={() => setShowModal(true)}
         title="Report this listing"
       >
-        <span className="report-icon">⚠️</span> Report
+        <span className="report-icon" aria-hidden="true"></span> Report
       </button>
 
       {showModal && (
@@ -169,4 +169,3 @@ const ReportButton = ({ listingId, listingType }) => {
 };
 
 export default ReportButton;
-

@@ -99,18 +99,18 @@ export const getProfileCompletionColor = (percentage) => {
  */
 export const getProfileCompletionMessage = (percentage) => {
   if (percentage === 100) {
-    return '🎉 Your profile is complete! Great job!';
+    return 'Your profile is complete! Great job!';
   }
   if (percentage >= 80) {
-    return '👍 Almost there! Just a few more details to go.';
+    return 'Almost there! Just a few more details to go.';
   }
   if (percentage >= 50) {
-    return '📝 You\'re halfway there! Keep going.';
+    return 'You\'re halfway there! Keep going.';
   }
   if (percentage >= 25) {
-    return '🚀 Good start! Add more details to stand out.';
+    return 'Good start! Add more details to stand out.';
   }
-  return '👋 Welcome! Complete your profile to get started.';
+  return 'Welcome! Complete your profile to get started.';
 };
 
 /**

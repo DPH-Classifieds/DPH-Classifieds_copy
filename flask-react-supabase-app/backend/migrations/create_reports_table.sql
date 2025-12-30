@@ -2,9 +2,9 @@
 CREATE TABLE IF NOT EXISTS public.reports (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     listing_id TEXT NOT NULL,
-    listing_type TEXT NOT NULL CHECK (listing_type IN ('car', 'bike', 'plate', 'part')),
+    listing_type TEXT NOT NULL CHECK (listing_type IN ('car', 'bike', 'plate', 'part', 'bug')),
     reporter_id UUID NOT NULL REFERENCES auth.users(id),
-    reason TEXT NOT NULL CHECK (reason IN ('spam', 'fraud', 'inappropriate', 'wrong_category', 'duplicate', 'sold', 'incorrect_info', 'other')),
+    reason TEXT NOT NULL CHECK (reason IN ('spam', 'fraud', 'inappropriate', 'wrong_category', 'duplicate', 'sold', 'incorrect_info', 'other', 'bug')),
     details TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved', 'dismissed')),
     admin_note TEXT,
@@ -71,5 +71,4 @@ CREATE TRIGGER update_reports_updated_at_trigger
     EXECUTE FUNCTION public.update_reports_updated_at();
 
 -- Add comment to table
-COMMENT ON TABLE public.reports IS 'User-submitted reports for listings (cars, bikes, plates, parts)';
-
+COMMENT ON TABLE public.reports IS 'User-submitted reports for listings (cars, bikes, plates, parts) and site bugs';

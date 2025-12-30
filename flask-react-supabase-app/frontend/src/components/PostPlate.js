@@ -314,7 +314,7 @@ const PostPlate = () => {
   if (success) {
     return (
       <div className="post-form-container success-message">
-        <h2>🎉 Success!</h2>
+        <h2>Success!</h2>
         <p>Your license plate listing has been successfully submitted and is pending approval.</p>
         <p>You will be redirected to your listings page shortly...</p>
       </div>

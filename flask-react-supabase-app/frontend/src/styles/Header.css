@@ -266,12 +266,12 @@
 
 /* Nav icon styles - customized to match the screenshot */
 .home-icon::before {
-  content: '🏠';
+  content: '';
   font-size: 0.95rem;
 }
 
 .browse-icon::before {
-  content: '🚗';
+  content: '';
   font-size: 0.95rem;
 }
 
@@ -282,17 +282,17 @@
 }
 
 .about-icon::before {
-  content: '📄';
+  content: '';
   font-size: 0.95rem;
 }
 
 .contact-icon::before {
-  content: '✉️';
+  content: '';
   font-size: 0.95rem;
 }
 
 .listings-icon::before {
-  content: '📋';
+  content: '';
   font-size: 0.95rem;
 }
 

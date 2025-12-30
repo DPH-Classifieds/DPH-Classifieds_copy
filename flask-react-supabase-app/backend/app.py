@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
 
 def _get_cors_origins():
     origins_env = os.getenv("CORS_ORIGINS", "")
@@ -51,7 +53,15 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-please-change")
 os.makedirs(os.path.join('static', 'uploads', 'plates'), exist_ok=True)
 
 load_dotenv()  # Loads the environment variables from .env
-print(f"DEBUG: Value of SUPABASE_SERVICE_ROLE_KEY from os.getenv is: {os.getenv('SUPABASE_SERVICE_ROLE_KEY')}")
+
+@app.after_request
+def add_security_headers(response):
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    if os.getenv('FLASK_ENV') == 'production':
+        response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    return response
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -3683,12 +3693,12 @@ def create_report(current_user):
             return jsonify({'error': 'Missing required fields: listing_id, listing_type, or reason'}), 400
         
         # Validate listing_type
-        valid_types = ['car', 'bike', 'plate', 'part']
+        valid_types = ['car', 'bike', 'plate', 'part', 'bug']
         if listing_type not in valid_types:
             return jsonify({'error': f'Invalid listing_type. Must be one of: {", ".join(valid_types)}'}), 400
         
         # Validate reason
-        valid_reasons = ['spam', 'fraud', 'inappropriate', 'wrong_category', 'duplicate', 'sold', 'incorrect_info', 'other']
+        valid_reasons = ['spam', 'fraud', 'inappropriate', 'wrong_category', 'duplicate', 'sold', 'incorrect_info', 'other', 'bug']
         if reason not in valid_reasons:
             return jsonify({'error': f'Invalid reason. Must be one of: {", ".join(valid_reasons)}'}), 400
         
