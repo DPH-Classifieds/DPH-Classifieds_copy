@@ -277,7 +277,12 @@ const PostPlate = () => {
       
     } catch (error) {
       console.error('Error creating plate listing:', error);
-      setError(`Failed to list your plate: ${error.message || 'Unknown error'}`);
+      const apiMessage = error.response?.data?.error;
+      if (apiMessage) {
+        setError(apiMessage);
+      } else {
+        setError(`Failed to list your plate: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setIsSubmitting(false);
     }

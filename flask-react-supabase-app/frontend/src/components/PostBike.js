@@ -163,16 +163,17 @@ const PostBike = () => {
       console.error('API submission error:', err);
       
       // More specific error handling
-      let errorMessage = 'Failed to submit bike listing';
-      if (err.status === 401) {
+      let errorMessage = err.response?.data?.error || 'Failed to submit bike listing';
+      const status = err.response?.status || err.status;
+      if (status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
-      } else if (err.status === 403) {
+      } else if (status === 403) {
         errorMessage = 'You do not have permission to perform this action.';
-      } else if (err.status === 404) {
+      } else if (status === 404) {
         errorMessage = 'API endpoint not found. Please contact support.';
-      } else if (err.status === 500) {
+      } else if (status === 500) {
         errorMessage = 'Server error. Please try again later.';
-      } else if (err.message) {
+      } else if (err.message && !err.response?.data?.error) {
         errorMessage = `${errorMessage}: ${err.message}`;
       }
       

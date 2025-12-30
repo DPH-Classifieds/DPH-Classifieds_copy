@@ -28,6 +28,7 @@ app = Flask(__name__, static_folder='static')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
+MAX_LISTINGS_PER_USER = int(os.getenv('MAX_LISTINGS_PER_USER', '4'))
 
 def _get_cors_origins():
     origins_env = os.getenv("CORS_ORIGINS", "")
@@ -62,6 +63,44 @@ def add_security_headers(response):
     if os.getenv('FLASK_ENV') == 'production':
         response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
     return response
+
+def _get_user_listing_count(user_id):
+    tables = ['cars', 'bikes', 'license_plates', 'car_parts']
+    total = 0
+
+    for table in tables:
+        data, status_code = supabase_request(
+            'get',
+            f'/rest/v1/{table}',
+            params={
+                'select': 'id',
+                'user_id': f'eq.{user_id}',
+                'limit': MAX_LISTINGS_PER_USER + 1
+            },
+            use_service_role=True
+        )
+
+        if status_code >= 400:
+            return None, data
+
+        total += len(data)
+        if total >= MAX_LISTINGS_PER_USER:
+            break
+
+    return total, None
+
+def _enforce_listing_limit(user_id):
+    total, error = _get_user_listing_count(user_id)
+    if error is not None:
+        return jsonify({'error': 'Failed to verify listing limit'}), 500
+    if total >= MAX_LISTINGS_PER_USER:
+        return jsonify({
+            'error': f'Listing limit reached. You can only post {MAX_LISTINGS_PER_USER} ads.',
+            'code': 'listing_limit',
+            'limit': MAX_LISTINGS_PER_USER,
+            'current': total
+        }), 403
+    return None
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -557,6 +596,10 @@ def create_car(current_user):
         # Validate input
         if not request.json:
             return jsonify({'error': 'Invalid request data'}), 400
+
+        limit_response = _enforce_listing_limit(current_user)
+        if limit_response:
+            return limit_response
         
         car_data = request.json
         car_data['user_id'] = current_user
@@ -1951,6 +1994,10 @@ def create_bike(current_user):
         # Validate input
         if not request.json:
             return jsonify({'error': 'Invalid request data'}), 400
+
+        limit_response = _enforce_listing_limit(current_user)
+        if limit_response:
+            return limit_response
         
         bike_data = request.json
         bike_data['user_id'] = current_user
@@ -2376,6 +2423,10 @@ def get_parts():
 def create_part(current_user):
     try:
         logger.info("Creating new car part listing")
+
+        limit_response = _enforce_listing_limit(current_user)
+        if limit_response:
+            return limit_response
         
         # Check if this is FormData or JSON
         is_form_data = request.content_type and 'multipart/form-data' in request.content_type
@@ -2732,6 +2783,10 @@ def create_plate_with_image(current_user):
         # Validate required fields
         if not city or not code or not digits or not price:
             return jsonify({'error': 'Missing required fields'}), 400
+
+        limit_response = _enforce_listing_limit(current_user)
+        if limit_response:
+            return limit_response
         
         # Create plate entry
         plate_data = {
