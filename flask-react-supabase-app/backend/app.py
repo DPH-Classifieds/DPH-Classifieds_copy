@@ -26,12 +26,22 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+def _get_cors_origins():
+    origins_env = os.getenv("CORS_ORIGINS", "")
+    if origins_env:
+        origins = [origin.strip() for origin in origins_env.split(",") if origin.strip()]
+        if origins:
+            return origins
+    return [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://dph-classifieds.vercel.app",
+        "https://dph-classifieds-three.vercel.app",
+    ]
+
 # Enable CORS for all routes, with specific origins for security
-CORS(app, resources={r"/*": {"origins": [
-    "http://localhost:3000", 
-    "http://127.0.0.1:3000",
-    "https://dph-classifieds.vercel.app"
-]}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": _get_cors_origins()}}, supports_credentials=True)
 
 # Configure a secret key for session management
 # IMPORTANT: In a production environment, use a strong, randomly generated key set via environment variable.
