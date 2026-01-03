@@ -1157,45 +1157,58 @@ def test_data():
 @app.route('/api/user/profile', methods=['GET'])
 @token_required
 def get_user_profile(current_user):
-    # Get user details from Supabase auth
-    logger.info(f"Getting profile for user ID: {current_user}")
+    """Get complete user profile from users table"""
+    logger.info(f"=" * 50)
+    logger.info(f"GET USER PROFILE REQUEST")
+    logger.info(f"User ID: {current_user}")
     
     try:
-        # Get the token from the request header
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith('Bearer '):
-            logger.error("Invalid Authorization header format in profile request")
-            return jsonify({'message': 'Invalid Authorization header'}), 401
-            
-        token = auth_header.split()[1]
-        
-        # Use the same method we use in token_required for consistency
-        url = f"{SUPABASE_URL}/auth/v1/user"
+        # Fetch user data from the users table (not auth table)
+        # This is where profile updates are stored
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
         headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {token}'
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
         }
         
-        logger.info(f"Fetching user profile data from Supabase")
-        response = requests.get(url, headers=headers)
+        # Get user from users table
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
+        
+        logger.info(f"Fetching user profile from users table: {url}")
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        logger.info(f"Profile fetch response status: {response.status_code}")
         
         if response.status_code == 200:
-            user_data = response.json()
-            logger.info(f"Successfully retrieved user profile for: {user_data.get('email')}")
+            users = response.json()
             
-            # Remove sensitive data
-            if 'phone' in user_data:
-                del user_data['phone']
-            if 'password' in user_data:
-                del user_data['password']
-            
-            return jsonify(user_data), 200
+            if users and len(users) > 0:
+                user_data = users[0]
+                logger.info(f"✓ Successfully retrieved profile for: {user_data.get('email')}")
+                logger.info(f"Profile fields: {list(user_data.keys())}")
+                logger.info(f"=" * 50)
+                
+                # Remove sensitive data
+                sensitive_fields = ['password', 'encrypted_password']
+                for field in sensitive_fields:
+                    if field in user_data:
+                        del user_data[field]
+                
+                return jsonify(user_data), 200
+            else:
+                logger.error(f"✗ No user found with ID: {current_user}")
+                logger.info(f"=" * 50)
+                return jsonify({'message': 'User not found'}), 404
         else:
-            logger.error(f"Failed to get user profile: {response.status_code} - {response.text}")
+            logger.error(f"✗ Failed to get user profile: {response.status_code}")
+            logger.error(f"Response: {response.text}")
+            logger.info(f"=" * 50)
             return jsonify({'message': 'Failed to get user profile'}), response.status_code
         
     except Exception as e:
-        logger.error(f"Error in get_user_profile: {str(e)}")
+        logger.error(f"✗ Exception in get_user_profile: {str(e)}", exc_info=True)
+        logger.info(f"=" * 50)
         return jsonify({'error': str(e)}), 500
 
 # Profile management routes
@@ -1205,8 +1218,10 @@ def update_user_profile(current_user):
     """Update user profile information"""
     try:
         data = request.json
-        logger.info(f"Updating profile for user ID: {current_user}")
-        logger.info(f"Received data: {data}")
+        logger.info(f"=" * 50)
+        logger.info(f"PROFILE UPDATE REQUEST")
+        logger.info(f"User ID: {current_user}")
+        logger.info(f"Received data: {json.dumps(data, indent=2)}")
         
         if not data:
             return jsonify({'message': 'No data provided'}), 400
@@ -1221,7 +1236,7 @@ def update_user_profile(current_user):
             'phone': 'phone',
             'countryCode': 'country_code',
             'whatsappNumber': 'whatsapp_number',
-            'area': 'area',  # Changed from city to area
+            'area': 'area',
             'city': 'area',  # Support legacy city field
             'emirate': 'emirate',
             'country': 'country',
@@ -1242,57 +1257,87 @@ def update_user_profile(current_user):
             'profilePhotoUrl': 'profile_photo_url'
         }
         
-        # Prepare update data - only include fields that are provided
+        # Prepare update data - only include fields that are provided and not empty
         update_payload = {}
         for frontend_field, db_field in field_mapping.items():
             if frontend_field in data:
                 value = data[frontend_field]
-                # Skip empty strings for optional fields
-                if value != '' or frontend_field in ['email', 'firstName', 'lastName']:
+                # Include the value if it's not an empty string, or if it's a required field
+                if value or value is False or value == 0:  # Include False and 0 but not empty strings
                     update_payload[db_field] = value
         
         if not update_payload:
+            logger.warning("No valid fields to update")
             return jsonify({'message': 'No valid fields to update'}), 400
         
-        logger.info(f"Update payload: {update_payload}")
+        logger.info(f"Update payload: {json.dumps(update_payload, indent=2)}")
         
-        # Use direct request with service role key for profile updates
+        # First, verify the user exists
         service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
         headers = {
             'apikey': service_role_key,
             'Authorization': f'Bearer {service_role_key}',
             'Content-Type': 'application/json',
-            'Prefer': 'return=representation'  # Important: tells Supabase to return the updated row
+            'Prefer': 'return=representation'
         }
+        
+        # Check if user exists
+        check_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=id,email"
+        check_response = requests.get(check_url, headers=headers, timeout=10)
+        
+        if check_response.status_code != 200 or not check_response.json():
+            logger.error(f"User not found: {current_user}")
+            return jsonify({'message': 'User not found'}), 404
+        
+        logger.info(f"User exists, proceeding with update")
         
         # Update using the REST API with eq filter
         url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}"
         
         logger.info(f"Sending PATCH request to: {url}")
+        logger.info(f"Headers: {json.dumps({k: v for k, v in headers.items() if k != 'Authorization'}, indent=2)}")
+        
         response = requests.patch(url, headers=headers, json=update_payload, timeout=10)
         
-        logger.info(f"Update response status: {response.status_code}")
-        logger.info(f"Update response body: {response.text}")
+        logger.info(f"PATCH response status: {response.status_code}")
+        logger.info(f"PATCH response headers: {dict(response.headers)}")
+        logger.info(f"PATCH response body: {response.text}")
         
         if response.status_code in [200, 204]:
-            # Fetch the updated user data to ensure we have the latest
+            logger.info("Update successful, fetching updated user data")
+            
+            # Always fetch the updated user data
             get_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
             get_response = requests.get(get_url, headers=headers, timeout=10)
             
+            logger.info(f"GET response status: {get_response.status_code}")
+            
             if get_response.status_code == 200:
                 users = get_response.json()
+                logger.info(f"Fetched {len(users)} user(s)")
+                
                 if users and len(users) > 0:
                     updated_user = users[0]
-                    logger.info(f"Profile updated successfully for user: {updated_user.get('email')}")
+                    logger.info(f"✓ Profile updated successfully for: {updated_user.get('email')}")
+                    logger.info(f"Updated fields: {list(update_payload.keys())}")
+                    logger.info(f"=" * 50)
+                    
                     return jsonify({
                         'message': 'Profile updated successfully',
-                        'user': updated_user
+                        'user': updated_user,
+                        'updated_fields': list(update_payload.keys())
                     }), 200
-            
-            # Fallback if we can't fetch the updated user
-            return jsonify({'message': 'Profile updated successfully'}), 200
+                else:
+                    logger.error("No users returned after update")
+                    return jsonify({'message': 'Update succeeded but could not fetch user data'}), 500
+            else:
+                logger.error(f"Failed to fetch updated user: {get_response.status_code}")
+                return jsonify({'message': 'Update succeeded but could not fetch user data'}), 500
         else:
-            logger.error(f"Failed to update profile: {response.status_code} - {response.text}")
+            logger.error(f"✗ Failed to update profile: {response.status_code}")
+            logger.error(f"Response: {response.text}")
+            logger.info(f"=" * 50)
+            
             error_data = {}
             try:
                 error_data = response.json()
@@ -1306,7 +1351,8 @@ def update_user_profile(current_user):
             }), response.status_code
             
     except Exception as e:
-        logger.error(f"Error in update_user_profile: {str(e)}", exc_info=True)
+        logger.error(f"✗ Exception in update_user_profile: {str(e)}", exc_info=True)
+        logger.info(f"=" * 50)
         return jsonify({'error': str(e), 'message': 'Internal server error during profile update'}), 500
 
 @app.route('/api/user/upload-profile-photo', methods=['POST'])
