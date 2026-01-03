@@ -217,13 +217,17 @@ const AccountSettings = () => {
 
       let profilePhotoUrl = profileData.profilePhotoUrl;
       if (profilePhoto) {
+        console.log('Uploading profile photo...');
         profilePhotoUrl = await uploadProfilePhoto();
+        console.log('Profile photo uploaded:', profilePhotoUrl);
       }
 
       const updateData = {
         ...profileData,
         profilePhotoUrl
       };
+
+      console.log('Sending profile update request with data:', updateData);
 
       const response = await fetch(`${API_URL}/api/user/update-profile`, {
         method: 'PUT',
@@ -234,27 +238,75 @@ const AccountSettings = () => {
         body: JSON.stringify(updateData)
       });
 
+      console.log('Profile update response status:', response.status);
+      const responseData = await response.json();
+      console.log('Profile update response data:', responseData);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update profile');
+        throw new Error(responseData.message || responseData.error || 'Failed to update profile');
       }
 
-      const updatedUser = await response.json();
-      updateUser(updatedUser);
+      // Handle the response - it might return { message, user } or just the user object
+      const updatedUser = responseData.user || responseData;
       
-      // Recalculate profile completion
-      const newCompletion = calculateProfileCompletion(updatedUser);
-      setProfileCompletion(newCompletion);
+      // Update the auth context with the new user data
+      if (updatedUser && updatedUser.id) {
+        console.log('Updating user context with:', updatedUser);
+        updateUser(updatedUser);
+        
+        // Update local profile data state
+        setProfileData({
+          email: updatedUser.email || '',
+          firstName: updatedUser.first_name || '',
+          lastName: updatedUser.last_name || '',
+          username: updatedUser.username || '',
+          displayName: updatedUser.display_name || '',
+          phone: updatedUser.phone || '',
+          countryCode: updatedUser.country_code || '+971',
+          whatsappNumber: updatedUser.whatsapp_number || '',
+          city: updatedUser.area || '',
+          emirate: updatedUser.emirate || '',
+          country: updatedUser.country || 'United Arab Emirates',
+          postalCode: updatedUser.postal_code || '',
+          address: updatedUser.address || '',
+          bio: updatedUser.bio || '',
+          companyName: updatedUser.company_name || '',
+          companyRegistrationNumber: updatedUser.company_registration_number || '',
+          tradeLicenseNumber: updatedUser.trade_license_number || '',
+          taxRegistrationNumber: updatedUser.tax_registration_number || '',
+          websiteUrl: updatedUser.website_url || '',
+          instagramUrl: updatedUser.instagram_url || '',
+          facebookUrl: updatedUser.facebook_url || '',
+          twitterUrl: updatedUser.twitter_url || '',
+          emailNotifications: updatedUser.email_notifications ?? true,
+          smsNotifications: updatedUser.sms_notifications ?? false,
+          marketingEmails: updatedUser.marketing_emails ?? false,
+          profilePhotoUrl: updatedUser.profile_photo_url || ''
+        });
+        
+        // Recalculate profile completion
+        const newCompletion = calculateProfileCompletion(updatedUser);
+        setProfileCompletion(newCompletion);
+        
+        setMessage(`✓ Profile updated successfully! Your profile is now ${newCompletion.percentage}% complete.`);
+      } else {
+        setMessage('✓ Profile updated successfully!');
+      }
       
-      setMessage(`Profile updated successfully! Your profile is now ${newCompletion.percentage}% complete.`);
       setProfilePhoto(null);
       
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+
+      // Scroll to top to show success message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
     } catch (err) {
       console.error('Error updating profile:', err);
       setError(err.message || 'Failed to update profile. Please try again.');
+      // Scroll to top to show error message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }

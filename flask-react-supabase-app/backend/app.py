@@ -962,6 +962,73 @@ def upload_car_images(current_user, car_id):
         logger.error(f"Error uploading images: {e}")
         return jsonify({"error": str(e)}), 500
 
+def upload_to_supabase_storage(file, bucket_name='listing-images', folder=''):
+    """
+    Upload a file to Supabase Storage and return the public URL.
+    Uses image compression for faster loading.
+    """
+    try:
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        file_extension = os.path.splitext(filename)[1].lower()
+        unique_filename = f"{folder}/{uuid.uuid4().hex}{file_extension}" if folder else f"{uuid.uuid4().hex}{file_extension}"
+        
+        # Read and compress image
+        img = Image.open(file)
+        
+        # Convert RGBA to RGB if needed
+        if img.mode == 'RGBA':
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[3])
+            img = background
+        
+        # Resize if too large (max 1920px width)
+        max_width = 1920
+        if img.width > max_width:
+            ratio = max_width / img.width
+            new_size = (max_width, int(img.height * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # Save to bytes with compression
+        from io import BytesIO
+        output = BytesIO()
+        
+        # Use WebP for better compression, fallback to JPEG
+        if file_extension in ['.jpg', '.jpeg', '.png']:
+            img.save(output, format='JPEG', quality=85, optimize=True)
+            unique_filename = unique_filename.rsplit('.', 1)[0] + '.jpg'
+            content_type = 'image/jpeg'
+        else:
+            img.save(output, format=img.format or 'JPEG', quality=85)
+            content_type = f'image/{img.format.lower()}' if img.format else 'image/jpeg'
+        
+        output.seek(0)
+        file_data = output.read()
+        
+        # Upload to Supabase Storage
+        upload_url = f"{SUPABASE_URL}/storage/v1/object/{bucket_name}/{unique_filename}"
+        headers = {
+            'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
+            'Content-Type': content_type
+        }
+        
+        response = requests.post(upload_url, headers=headers, data=file_data, timeout=30)
+        
+        if response.status_code in [200, 201]:
+            # Return public URL
+            public_url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{unique_filename}"
+            logger.info(f"Image uploaded to Supabase Storage: {public_url}")
+            return public_url, None
+        else:
+            error_msg = f"Supabase Storage upload failed: {response.status_code} - {response.text}"
+            logger.error(error_msg)
+            return None, error_msg
+            
+    except Exception as e:
+        logger.error(f"Error uploading to Supabase Storage: {str(e)}", exc_info=True)
+        return None, str(e)
+
 @app.route('/api/upload-images', methods=['POST'])
 @token_required
 def upload_images(current_user):
@@ -980,38 +1047,29 @@ def upload_images(current_user):
         
         logger.info(f"Processing {len(files)} images")
         image_urls = []
-        upload_dir = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
-        
-        # Create uploads directory if it doesn't exist
-        os.makedirs(upload_dir, exist_ok=True)
+        errors = []
         
         for file in files:
             if file and file.filename:
-                # Generate unique filename
-                filename = secure_filename(file.filename)
-                timestamp = int(time.time())
-                file_extension = os.path.splitext(filename)[1]
-                unique_filename = f"{timestamp}_{uuid.uuid4().hex[:8]}{file_extension}"
+                # Upload to Supabase Storage
+                public_url, error = upload_to_supabase_storage(file, bucket_name='listing-images', folder=current_user)
                 
-                # Save file
-                file_path = os.path.join(upload_dir, unique_filename)
-                file.save(file_path)
-                logger.info(f"Saved image to {file_path}")
-                
-                # Generate URL (relative to the API base)
-                image_url = f"/static/uploads/{unique_filename}"
-                image_urls.append(image_url)
+                if public_url:
+                    image_urls.append(public_url)
+                else:
+                    errors.append(f"Failed to upload {file.filename}: {error}")
+                    logger.error(f"Failed to upload {file.filename}: {error}")
         
-        logger.info(f"Successfully uploaded {len(image_urls)} images: {image_urls}")
+        if not image_urls and errors:
+            return jsonify({"error": "All image uploads failed", "details": errors}), 500
         
-        # Return both URLs and absolute URLs for better frontend compatibility
-        host_url = request.host_url.rstrip('/')
-        absolute_urls = [f"{host_url}{url}" for url in image_urls]
+        logger.info(f"Successfully uploaded {len(image_urls)} images to Supabase Storage")
         
         return jsonify({
             "urls": image_urls,
-            "absolute_urls": absolute_urls,
-            "count": len(image_urls)
+            "absolute_urls": image_urls,  # Already absolute URLs from Supabase
+            "count": len(image_urls),
+            "errors": errors if errors else None
         }), 200
     except Exception as e:
         logger.error(f"Error in upload_images: {str(e)}", exc_info=True)
@@ -1148,6 +1206,7 @@ def update_user_profile(current_user):
     try:
         data = request.json
         logger.info(f"Updating profile for user ID: {current_user}")
+        logger.info(f"Received data: {data}")
         
         if not data:
             return jsonify({'message': 'No data provided'}), 400
@@ -1184,73 +1243,67 @@ def update_user_profile(current_user):
         }
         
         # Prepare update data - only include fields that are provided
-        update_fields = {}
+        update_payload = {}
         for frontend_field, db_field in field_mapping.items():
             if frontend_field in data:
-                update_fields[db_field] = data[frontend_field]
+                value = data[frontend_field]
+                # Skip empty strings for optional fields
+                if value != '' or frontend_field in ['email', 'firstName', 'lastName']:
+                    update_payload[db_field] = value
         
-        if not update_fields:
+        if not update_payload:
             return jsonify({'message': 'No valid fields to update'}), 400
         
-        # Add updated timestamp
-        update_fields['updated_at'] = 'now()'
-        
-        # Build SET clause for the query
-        set_clauses = []
-        params = {}
-        param_count = 1
-        
-        for field, value in update_fields.items():
-            if field == 'updated_at':
-                set_clauses.append(f"{field} = now()")
-            else:
-                placeholder = f"${param_count}"
-                set_clauses.append(f"{field} = {placeholder}")
-                params[str(param_count)] = value
-                param_count += 1
+        logger.info(f"Update payload: {update_payload}")
         
         # Use direct request with service role key for profile updates
         service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
         headers = {
             'apikey': service_role_key,
             'Authorization': f'Bearer {service_role_key}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'  # Important: tells Supabase to return the updated row
         }
         
         # Update using the REST API with eq filter
         url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}"
         
-        # Prepare the update payload
-        update_payload = {}
-        for field, value in update_fields.items():
-            if field != 'updated_at':  # Let Supabase handle the timestamp
-                update_payload[field] = value
-        
-        logger.info(f"Updating user profile with payload: {update_payload}")
-        logger.info(f"Update URL: {url}")
+        logger.info(f"Sending PATCH request to: {url}")
         response = requests.patch(url, headers=headers, json=update_payload, timeout=10)
         
         logger.info(f"Update response status: {response.status_code}")
-        if response.status_code >= 400:
-            logger.error(f"Update failed with response: {response.text}")
+        logger.info(f"Update response body: {response.text}")
         
-        if response.status_code == 200 or response.status_code == 204:
-            # Fetch updated user data
+        if response.status_code in [200, 204]:
+            # Fetch the updated user data to ensure we have the latest
             get_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
-            get_response = requests.get(get_url, headers=headers)
+            get_response = requests.get(get_url, headers=headers, timeout=10)
             
             if get_response.status_code == 200:
                 users = get_response.json()
-                if users:
+                if users and len(users) > 0:
                     updated_user = users[0]
                     logger.info(f"Profile updated successfully for user: {updated_user.get('email')}")
-                    return jsonify(updated_user), 200
+                    return jsonify({
+                        'message': 'Profile updated successfully',
+                        'user': updated_user
+                    }), 200
             
+            # Fallback if we can't fetch the updated user
             return jsonify({'message': 'Profile updated successfully'}), 200
         else:
             logger.error(f"Failed to update profile: {response.status_code} - {response.text}")
-            error_data = response.json() if response.text else {}
-            return jsonify({'message': 'Failed to update profile', 'error': error_data}), 500
+            error_data = {}
+            try:
+                error_data = response.json()
+            except:
+                error_data = {'detail': response.text}
+            
+            return jsonify({
+                'message': 'Failed to update profile', 
+                'error': error_data,
+                'status': response.status_code
+            }), response.status_code
             
     except Exception as e:
         logger.error(f"Error in update_user_profile: {str(e)}", exc_info=True)
