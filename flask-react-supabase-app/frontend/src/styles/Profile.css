@@ -234,45 +234,56 @@
 /* Statistics Section */
 .profile-statistics {
   padding: 24px 40px;
-  border-bottom: 1px solid #e0e0e0;
-  background: #f8f9fa;
+  border-bottom: 1px solid #e3e8e5;
+  background: linear-gradient(135deg, #f6fbf8 0%, #ffffff 100%);
 }
 
 .profile-statistics h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: #01351c;
   margin: 0 0 20px;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 18px;
 }
 
 .stat-item {
   text-align: center;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 16px 14px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e6e3;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-1px);
+  border-color: #c7d1cc;
 }
 
 .stat-number {
   display: block;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
-  color: #01351c;
+  color: #0f3d26;
   margin-bottom: 4px;
+  line-height: 1;
+  text-shadow: none;
 }
 
 .stat-label {
   display: block;
-  font-size: 13px;
-  color: #6c757d;
+  font-size: 12px;
+  color: #01692c;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+  background: transparent;
+  text-shadow: none;
 }
 
 /* Profile Details Sections */

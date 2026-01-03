@@ -23,12 +23,13 @@ const Profile = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch extended profile info from the backend if needed
+    // Always fetch fresh profile data when component mounts
     if (user) {
+      console.log('Profile component mounted, fetching fresh data for user:', user.id);
       fetchProfileData();
       fetchUserStatistics();
     }
-  }, [user]);
+  }, [user, user?.id]); // Re-fetch when user or user.id changes
 
   // Calculate profile completion whenever userData changes
   useEffect(() => {
@@ -51,10 +52,15 @@ const Profile = () => {
         throw new Error('Not authenticated');
       }
       
-      console.log('Fetching profile data with token');
-      const response = await fetch(`${API_URL}/api/user/profile`, {
+      console.log('Fetching fresh profile data with token');
+      
+      // Add cache-busting parameter to force fresh data
+      const timestamp = new Date().getTime();
+      const response = await fetch(`${API_URL}/api/user/profile?_t=${timestamp}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         }
       });
 
@@ -65,7 +71,7 @@ const Profile = () => {
       }
 
       const data = await response.json();
-      console.log('Profile data fetched successfully:', data);
+      console.log('Fresh profile data fetched successfully:', data);
       setProfileData(data);
     } catch (err) {
       console.error('Error fetching profile:', err);

@@ -83,24 +83,37 @@
 .stat-item {
   flex: 1;
   min-width: 150px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 14px;
   text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e6e3;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-1px);
+  border-color: #c7d1cc;
 }
 
 .stat-value {
   display: block;
-  font-size: 32px;
-  font-weight: bold;
-  color: #dc3545;
-  margin-bottom: 5px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f3d26;
+  margin-bottom: 4px;
+  line-height: 1;
+  text-shadow: none;
 }
 
 .stat-label {
-  font-size: 14px;
-  color: #666;
+  font-size: 12px;
+  color: #01692c;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+  background: transparent;
+  text-shadow: none;
 }
 
 .listings-filter {
@@ -290,11 +303,11 @@
   
   .stat-item {
     min-width: 120px;
-    padding: 15px;
+    padding: 20px 15px;
   }
   
   .stat-value {
-    font-size: 24px;
+    font-size: 28px;
   }
 }
 
