@@ -1,0 +1,106 @@
+.beta-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f1f6f3 0%, #ffffff 100%);
+  padding: 24px;
+}
+
+.beta-gate__card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e6e3;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(15, 61, 38, 0.08);
+}
+
+.beta-gate__title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f3d26;
+  margin-bottom: 8px;
+}
+
+.beta-gate__subtitle {
+  font-size: 15px;
+  color: #3f4a45;
+  margin-bottom: 24px;
+}
+
+.beta-gate__form {
+  text-align: left;
+}
+
+.beta-gate__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f3d26;
+  margin-bottom: 8px;
+}
+
+.beta-gate__input {
+  width: 100%;
+  border: 1px solid #c7d1cc;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: #1d2b24;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.beta-gate__input:focus {
+  border-color: #0f3d26;
+  box-shadow: 0 0 0 3px rgba(15, 61, 38, 0.12);
+}
+
+.beta-gate__error {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #b42318;
+}
+
+.beta-gate__button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #0f3d26;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.beta-gate__button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 61, 38, 0.18);
+}
+
+.beta-gate__button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.beta-gate__footnote {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #5a6760;
+}
+
+@media (max-width: 480px) {
+  .beta-gate__card {
+    padding: 24px;
+  }
+
+  .beta-gate__title {
+    font-size: 24px;
+  }
+}
