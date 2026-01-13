@@ -191,6 +191,13 @@ logger.info(f"SUPABASE_KEY exists: {bool(SUPABASE_KEY)}")
 logger.info(f"SUPABASE_JWT_SECRET exists: {bool(SUPABASE_JWT_SECRET)}")
 logger.info(f"SUPABASE_SERVICE_ROLE_KEY exists: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
 
+# Check Turnstile configuration
+TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY")
+if TURNSTILE_SECRET_KEY:
+    logger.info(f"✓ TURNSTILE_SECRET_KEY is configured (length: {len(TURNSTILE_SECRET_KEY)})")
+else:
+    logger.warning("✗ TURNSTILE_SECRET_KEY is NOT configured - Captcha validation will be skipped!")
+
 # Import and register admin routes
 try:
     from routes.admin import admin_bp
