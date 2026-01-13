@@ -1771,15 +1771,21 @@ def signup():
     }
     
     try:
-        response = requests.post(url, headers=headers, json=payload)
-        
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+
         if response.status_code == 200:
-            # Return the response to the client
             return jsonify(response.json()), 200
-        else:
+
+        # Try to parse error details; fall back to raw text
+        try:
             error_data = response.json()
-            return jsonify({'message': error_data.get('error_description', 'Signup failed')}), response.status_code
-    
+        except Exception:
+            logger.error(f"Signup failed with non-JSON response: {response.text}")
+            return jsonify({'message': 'Signup failed', 'details': response.text}), response.status_code
+
+        logger.error(f"Signup failed: {error_data}")
+        return jsonify({'message': error_data.get('error_description', 'Signup failed'), 'details': error_data}), response.status_code
+
     except Exception as e:
         logger.error(f"Signup error: {str(e)}")
         return jsonify({'message': 'An error occurred during signup'}), 500
