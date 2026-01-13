@@ -102,43 +102,6 @@ def add_security_headers(response):
         response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
     return response
 
-def _verify_turnstile(response_token):
-    secret = os.getenv("TURNSTILE_SECRET_KEY")
-    if not secret:
-        logger.warning("TURNSTILE_SECRET_KEY not configured; skipping captcha verification.")
-        return True, None
-
-    if not response_token:
-        return False, 'Missing captcha token'
-
-    payload = {
-        'secret': secret,
-        'response': response_token
-    }
-
-    remote_ip = request.headers.get('CF-Connecting-IP') or request.remote_addr
-    if remote_ip:
-        payload['remoteip'] = remote_ip
-
-    try:
-        resp = requests.post(
-            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-            data=payload,
-            timeout=10
-        )
-        if resp.status_code != 200:
-            logger.warning(f"Turnstile verification failed with status: {resp.status_code}")
-            return False, resp.text
-
-        result = resp.json()
-        if result.get('success'):
-            return True, result
-
-        return False, result.get('error-codes', result)
-    except Exception as exc:
-        logger.error(f"Error verifying Turnstile token: {exc}")
-        return False, str(exc)
-
 def _get_user_listing_count(user_id):
     tables = ['cars', 'bikes', 'license_plates', 'car_parts']
     total = 0
@@ -1693,11 +1656,6 @@ def find_user_email_by_username(username):
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.json
-    turnstile_token = data.get('turnstileToken') or data.get('turnstile_token') if data else None
-    valid, details = _verify_turnstile(turnstile_token)
-    if not valid:
-        logger.warning(f"Turnstile failed during login: {details}")
-        return jsonify({'message': 'Captcha validation failed', 'details': details}), 400
     identifier = data.get('email', '')  # This can now be either email or username
     logger.info(f"[Login] Attempt for identifier: {identifier}")
     
@@ -1778,12 +1736,6 @@ def signup():
     data = request.json
     if not data or not data.get('email') or not data.get('password'):
         return jsonify({'message': 'Missing email or password'}), 400
-    
-    turnstile_token = data.get('turnstileToken') or data.get('turnstile_token')
-    valid, details = _verify_turnstile(turnstile_token)
-    if not valid:
-        logger.warning(f"Turnstile failed: {details}")
-        return jsonify({'message': 'Captcha validation failed', 'details': details}), 400
     
     email = data.get('email')
     password = data.get('password')

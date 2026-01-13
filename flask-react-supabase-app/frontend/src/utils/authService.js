@@ -118,14 +118,13 @@ export const validateToken = async (token) => {
 };
 
 // Login user with email and password
-export const signIn = async (email, password, turnstileToken = '') => {
+export const signIn = async (email, password) => {
   logger.info(`Attempting to sign in user: ${email}`);
   try {
     logger.debug(`Sending login request to ${API_URL}/api/auth/login`);
     const response = await axios.post(`${API_URL}/api/auth/login`, {
       email,
-      password,
-      turnstileToken
+      password
     });
     
     if (response.data && response.data.access_token) {
@@ -147,16 +146,13 @@ export const signIn = async (email, password, turnstileToken = '') => {
 };
 
 // Register user with email and password
-export const signUp = async (email, password, additionalData = {}, turnstileToken = '') => {
+export const signUp = async (email, password, additionalData = {}) => {
   try {
     const signupPayload = {
       email,
       password,
       ...additionalData
     };
-    if (turnstileToken) {
-      signupPayload.turnstileToken = turnstileToken;
-    }
     
     const response = await axios.post(`${API_URL}/api/auth/signup`, signupPayload);
     

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import useTurnstile from '../hooks/useTurnstile';
 import '../styles/Auth.css';
 
 // UAE Emirates list
@@ -71,8 +70,6 @@ const Signup = () => {
   const [allErrors, setAllErrors] = useState([]);
   const { signUp } = useAuth();
   const navigate = useNavigate();
-  const turnstile = useTurnstile();
-  const captchaRequired = Boolean(process.env.REACT_APP_TURNSTILE_SITE_KEY);
 
   // Calculate password strength
   const calculatePasswordStrength = (password) => {
@@ -265,11 +262,6 @@ const Signup = () => {
       return;
     }
 
-    if (captchaRequired && !turnstile.token) {
-      setError('Please complete the captcha to proceed.');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -297,8 +289,7 @@ const Signup = () => {
       const { data } = await signUp(
         signupData.email,
         signupData.password,
-        signupData,
-        captchaRequired ? turnstile.token : ''
+        signupData
       );
 
       if (data?.user && !data?.session) {
@@ -315,9 +306,6 @@ const Signup = () => {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
       setLoading(false);
-      if (captchaRequired) {
-        turnstile.reset();
-      }
     }
   };
 
@@ -670,11 +658,6 @@ const Signup = () => {
             </div>
           )}
           
-          {captchaRequired && (
-            <div className="turnstile-wrapper">
-              <div ref={turnstile.containerRef} className="cf-turnstile-holder" />
-            </div>
-          )}
           <button 
             type="submit" 
             className="auth-button primary-button"
