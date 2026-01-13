@@ -1757,6 +1757,13 @@ def signup():
         'sms_notifications': data.get('smsNotifications', True),
         'marketing_emails': data.get('marketingEmails', False)
     }
+
+    # Remove empty strings so unique constraints (e.g., username) are not violated by blank values
+    cleaned_metadata = {}
+    for key, value in user_metadata.items():
+        if isinstance(value, str) and value.strip() == '':
+            continue
+        cleaned_metadata[key] = value
     
     # Sign up with Supabase
     url = f"{SUPABASE_URL}/auth/v1/signup"
@@ -1767,7 +1774,7 @@ def signup():
     payload = {
         'email': email,
         'password': password,
-        'data': user_metadata  # This will be stored in raw_user_meta_data
+        'data': cleaned_metadata  # This will be stored in raw_user_meta_data
     }
     
     try:
