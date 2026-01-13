@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import useTurnstile from '../hooks/useTurnstile';
 import '../styles/Auth.css';
 
 // UAE Emirates list
@@ -70,6 +71,8 @@ const Signup = () => {
   const [allErrors, setAllErrors] = useState([]);
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const turnstile = useTurnstile();
+  const captchaRequired = Boolean(process.env.REACT_APP_TURNSTILE_SITE_KEY);
 
   // Calculate password strength
   const calculatePasswordStrength = (password) => {
@@ -257,15 +260,19 @@ const Signup = () => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
+    if (captchaRequired && !turnstile.token) {
+      setError('Please complete the captcha to proceed.');
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
-      // Prepare signup data
       const signupData = {
         email: formData.email,
         password: formData.password,
@@ -279,7 +286,7 @@ const Signup = () => {
         isDealer: formData.isDealer,
         companyName: formData.companyName,
         companyRegistrationNumber: formData.companyRegistrationNumber,
-        displayName: formData.firstName && formData.lastName 
+        displayName: formData.firstName && formData.lastName
           ? `${formData.firstName} ${formData.lastName}`
           : formData.username,
         emailNotifications: formData.emailNotifications,
@@ -287,36 +294,19 @@ const Signup = () => {
         marketingEmails: formData.marketingEmails
       };
 
-      const { data } = await signUp(signupData.email, signupData.password, signupData);
-      
+      const { data } = await signUp(
+        signupData.email,
+        signupData.password,
+        signupData,
+        captchaRequired ? turnstile.token : ''
+      );
+
       if (data?.user && !data?.session) {
-        // Email confirmation required
-        setSuccessMessage(
-          'Registration successful! Please check your email to confirm your account before logging in.'
-        );
-        // Clear form
-        setFormData({
-          email: '',
-          password: '',
-          confirmPassword: '',
-          firstName: '',
-          lastName: '',
-          username: '',
-          phone: '',
-          countryCode: '+971',
-          Area: '',
-          emirate: '',
-          isDealer: false,
-          companyName: '',
-          companyRegistrationNumber: '',
-          emailNotifications: true,
-          smsNotifications: true,
-          marketingEmails: false,
-          acceptTerms: false,
-          acceptPrivacy: false
-        });
-      } else if (data?.user && data?.session) {
-        // Auto-confirmed, redirect to profile
+        navigate('/check-email', { state: { email: signupData.email } });
+        return;
+      }
+
+      if (data?.user && data?.session) {
         setSuccessMessage('Account created successfully! Redirecting...');
         setTimeout(() => navigate('/profile'), 2000);
       }
@@ -325,6 +315,9 @@ const Signup = () => {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
       setLoading(false);
+      if (captchaRequired) {
+        turnstile.reset();
+      }
     }
   };
 
@@ -677,6 +670,11 @@ const Signup = () => {
             </div>
           )}
           
+          {captchaRequired && (
+            <div className="turnstile-wrapper">
+              <div ref={turnstile.containerRef} className="cf-turnstile-holder" />
+            </div>
+          )}
           <button 
             type="submit" 
             className="auth-button primary-button"

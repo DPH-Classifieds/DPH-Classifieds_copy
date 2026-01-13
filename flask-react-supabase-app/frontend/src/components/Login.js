@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import useTurnstile from '../hooks/useTurnstile';
 import '../styles/Auth.css';
 
 const Login = () => {
@@ -10,6 +11,8 @@ const Login = () => {
   const [error, setError] = useState(null);
   const { signIn, syncWithSupabase } = useAuth();
   const navigate = useNavigate();
+  const turnstile = useTurnstile();
+  const captchaRequired = Boolean(process.env.REACT_APP_TURNSTILE_SITE_KEY);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,10 +31,16 @@ const Login = () => {
       setLoading(false);
       return;
     }
+
+    if (captchaRequired && !turnstile.token) {
+      setError('Please complete the captcha challenge.');
+      setLoading(false);
+      return;
+    }
     
     try {
       console.log('Attempting to sign in with:', emailOrUsername);
-      const result = await signIn(emailOrUsername, password);
+      const result = await signIn(emailOrUsername, password, captchaRequired ? turnstile.token : '');
       console.log('Login successful, syncing with Supabase');
       
       // Force sync to ensure we have the token
@@ -58,6 +67,9 @@ const Login = () => {
       }
     } finally {
       setLoading(false);
+      if (captchaRequired) {
+        turnstile.reset();
+      }
     }
   };
 
@@ -93,6 +105,12 @@ const Login = () => {
               autoComplete="current-password"
             />
           </div>
+          
+          {captchaRequired && (
+            <div className="turnstile-wrapper">
+              <div ref={turnstile.containerRef} className="cf-turnstile-holder" />
+            </div>
+          )}
           
           <button 
             type="submit" 

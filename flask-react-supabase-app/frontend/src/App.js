@@ -16,6 +16,7 @@ import BikeDetail from './components/BikeDetail';
 import PartDetail from './components/PartDetail';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import CheckEmail from './components/CheckEmail';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import Profile from './components/Profile';
@@ -89,6 +90,7 @@ function App() {
               <Route path="/bikes/:id" element={<BikeDetail />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/check-email" element={<CheckEmail />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/about" element={<About />} />
