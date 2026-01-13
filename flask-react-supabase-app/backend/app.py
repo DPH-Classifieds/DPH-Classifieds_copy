@@ -8,6 +8,8 @@ from functools import wraps
 import jwt
 import json
 import time
+import re
+from collections import defaultdict, deque
 from werkzeug.utils import secure_filename
 import psycopg2
 from PIL import Image, ImageDraw, ImageFont
@@ -15,6 +17,8 @@ import uuid
 import threading
 import datetime
 import secrets
+
+load_dotenv()  # Loads the environment variables from .env
 
 # Set up logging with conditional verbosity
 log_level = logging.INFO if os.getenv('FLASK_ENV') == 'production' else logging.DEBUG
@@ -29,6 +33,12 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
 MAX_LISTINGS_PER_USER = int(os.getenv('MAX_LISTINGS_PER_USER', '4'))
+MAX_UPLOAD_SIZE_MB = int(os.getenv('MAX_UPLOAD_SIZE_MB', '10'))
+Image.MAX_IMAGE_PIXELS = int(os.getenv('MAX_IMAGE_PIXELS', '25000000'))
+CONTACT_RATE_LIMIT_WINDOW_SEC = int(os.getenv('CONTACT_RATE_LIMIT_WINDOW_SEC', '3600'))
+CONTACT_RATE_LIMIT_MAX = int(os.getenv('CONTACT_RATE_LIMIT_MAX', '5'))
+CONTACT_RATE_LIMIT = defaultdict(deque)
+EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 def _get_cors_origins():
     origins_env = os.getenv("CORS_ORIGINS", "")
@@ -49,11 +59,39 @@ CORS(app, resources={r"/*": {"origins": _get_cors_origins()}}, supports_credenti
 # Configure a secret key for session management
 # IMPORTANT: In a production environment, use a strong, randomly generated key set via environment variable.
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-please-change")
+if os.getenv('FLASK_ENV') == 'production' and app.secret_key == "dev-secret-key-please-change":
+    raise RuntimeError("FLASK_SECRET_KEY must be set in production.")
+
+def _get_safe_frontend_origin(request_origin):
+    allowed_origins = _get_cors_origins()
+    if request_origin in allowed_origins:
+        return request_origin
+    return os.getenv("FRONTEND_URL", allowed_origins[0] if allowed_origins else "http://localhost:3000")
+
+def _redact_headers(headers):
+    if not headers:
+        return {}
+    redacted = dict(headers)
+    for key in ['Authorization', 'apikey', 'X-Postgres-Role']:
+        if key in redacted:
+            redacted[key] = 'redacted'
+    return redacted
+
+def _contact_rate_limited(client_ip):
+    if not client_ip:
+        return False
+    now = time.time()
+    window_start = now - CONTACT_RATE_LIMIT_WINDOW_SEC
+    entries = CONTACT_RATE_LIMIT[client_ip]
+    while entries and entries[0] < window_start:
+        entries.popleft()
+    if len(entries) >= CONTACT_RATE_LIMIT_MAX:
+        return True
+    entries.append(now)
+    return False
 
 # Create static directory for file uploads if it doesn't exist
 os.makedirs(os.path.join('static', 'uploads', 'plates'), exist_ok=True)
-
-load_dotenv()  # Loads the environment variables from .env
 
 @app.after_request
 def add_security_headers(response):
@@ -309,11 +347,9 @@ def supabase_request(method, path, data=None, params=None, user_id=None, use_ser
         headers['X-User-Id'] = user_id
     
     logger.info(f"Making {method.upper()} request to {url}")
-    logger.info(f"Headers: {headers}")
-    if data:
-        logger.info(f"Data: {data}")
+    logger.debug(f"Headers: {_redact_headers(headers)}")
     if params:
-        logger.info(f"Params: {params}")
+        logger.debug(f"Params: {params}")
     
     try:
         if method.lower() == 'get':
@@ -679,7 +715,9 @@ def create_car(current_user):
 @app.route('/api/cars/<string:car_id>', methods=['OPTIONS'])
 def update_car_options(car_id):
     response = make_response()
-    response.headers.add("Access-Control-Allow-Origin", "*")
+    origin = request.headers.get("Origin")
+    if origin in _get_cors_origins():
+        response.headers.add("Access-Control-Allow-Origin", origin)
     response.headers.add('Access-Control-Allow-Headers', "*")
     response.headers.add('Access-Control-Allow-Methods', "*")
     return response
@@ -968,12 +1006,28 @@ def upload_to_supabase_storage(file, bucket_name='listing-images', folder=''):
     Uses image compression for faster loading.
     """
     try:
+        if not file or not file.filename:
+            return None, "No file provided"
+
+        allowed_types = {'image/jpeg', 'image/png', 'image/webp'}
+        if file.mimetype not in allowed_types:
+            return None, "Unsupported image type"
+
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+            return None, f"File too large (max {MAX_UPLOAD_SIZE_MB}MB)"
+
         # Generate unique filename
         filename = secure_filename(file.filename)
         file_extension = os.path.splitext(filename)[1].lower()
         unique_filename = f"{folder}/{uuid.uuid4().hex}{file_extension}" if folder else f"{uuid.uuid4().hex}{file_extension}"
         
         # Read and compress image
+        img = Image.open(file)
+        img.verify()
+        file.seek(0)
         img = Image.open(file)
         
         # Convert RGBA to RGB if needed
@@ -1115,6 +1169,70 @@ def get_advertisements():
     except Exception as e:
         logger.error(f"Error fetching advertisements: {e}")
         return jsonify({"error": str(e)}), 500
+
+def _send_resend_email(payload):
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    if not resend_api_key:
+        return None, "Missing RESEND_API_KEY"
+
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        },
+        json=payload,
+        timeout=10
+    )
+
+    if response.status_code >= 400:
+        return None, response.text
+    return response.json(), None
+
+@app.route('/api/contact', methods=['POST'])
+def send_contact_message():
+    try:
+        data = request.json or {}
+        name = (data.get('name') or '').strip()
+        email = (data.get('email') or '').strip()
+        subject = (data.get('subject') or '').strip()
+        message = (data.get('message') or '').strip()
+
+        if not name or not email or not subject or not message:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        if not EMAIL_REGEX.match(email):
+            return jsonify({'error': 'Invalid email address'}), 400
+
+        if len(name) > 100 or len(subject) > 200 or len(message) > 5000:
+            return jsonify({'error': 'Message is too long'}), 400
+
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if _contact_rate_limited(client_ip):
+            return jsonify({'error': 'Too many requests. Please try again later.'}), 429
+
+        from_email = os.getenv("RESEND_FROM_EMAIL")
+        to_email = os.getenv("RESEND_TO_EMAIL")
+        if not from_email or not to_email:
+            return jsonify({'error': 'Email service is not configured'}), 500
+
+        payload = {
+            "from": from_email,
+            "to": [to_email],
+            "subject": f"[Contact] {subject}",
+            "reply_to": email,
+            "text": f"From: {name} <{email}>\nSubject: {subject}\n\n{message}"
+        }
+
+        result, error = _send_resend_email(payload)
+        if error:
+            logger.error(f"Resend email failed: {error}")
+            return jsonify({'error': 'Failed to send message'}), 502
+
+        return jsonify({'message': 'Message sent successfully'}), 200
+    except Exception as e:
+        logger.error(f"Error sending contact message: {str(e)}")
+        return jsonify({'error': 'Failed to send message'}), 500
 
 # Get license plates
 @app.route('/api/license-plates', methods=['GET'])
@@ -1691,7 +1809,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
         'Content-Type': 'application/json',
         'X-Postgres-Role': 'service_role'
     }
-    logger.info(f"[_get_user_details_with_admin_status] Using headers for Supabase requests: {headers}") # Log headers
+    logger.debug(f"[_get_user_details_with_admin_status] Using headers for Supabase requests: {_redact_headers(headers)}")
 
     auth_email = None
     auth_user_data = None
@@ -1860,9 +1978,10 @@ def reset_password():
         'apikey': SUPABASE_KEY,
         'Content-Type': 'application/json'
     }
+    redirect_origin = _get_safe_frontend_origin(request.headers.get('Origin'))
     payload = {
         'email': email,
-        'redirect_to': f"{request.headers.get('Origin', 'http://localhost:3000')}/reset-password"
+        'redirect_to': f"{redirect_origin}/reset-password"
     }
     
     try:
@@ -2713,8 +2832,15 @@ def get_part_details(part_id):
 
 # Diagnostic endpoint to check if service role key is available
 @app.route('/api/diagnostics/config', methods=['GET'])
-def check_config():
+@token_required
+def check_config(current_user):
     try:
+        if os.getenv("ENABLE_DIAGNOSTICS", "false").lower() != "true":
+            return jsonify({'error': 'Not found'}), 404
+
+        if not get_user_admin_status(current_user):
+            return jsonify({'error': 'Unauthorized'}), 403
+
         # Get the keys for diagnostic purposes
         service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "not-set")
         regular_key = SUPABASE_KEY
@@ -2747,6 +2873,14 @@ def check_config():
 @token_required
 def make_self_admin(current_user):
     try:
+        if os.getenv("ENABLE_ADMIN_BOOTSTRAP", "false").lower() != "true":
+            return jsonify({'error': 'Admin bootstrap is disabled'}), 403
+
+        bootstrap_token = os.getenv("ADMIN_BOOTSTRAP_TOKEN")
+        request_token = request.headers.get("X-Admin-Bootstrap-Token")
+        if not bootstrap_token or request_token != bootstrap_token:
+            return jsonify({'error': 'Invalid admin bootstrap token'}), 403
+
         logger.info(f"Attempting to make user {current_user} an admin")
         
         # Get the service role key for admin operations
@@ -2759,7 +2893,7 @@ def make_self_admin(current_user):
             logger.error("No Supabase API key available")
             return jsonify({'error': 'Server configuration error - no API key available'}), 500
             
-        logger.info(f"Using service key (first 5 chars): {service_key[:5]}...")
+        logger.info("Using service key for admin bootstrap")
         
         # Create a simple users table if it doesn't exist
         try:
@@ -4169,13 +4303,18 @@ def delete_listing(current_user, item_type, item_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/check-session', methods=['GET'])
-def check_session_route():
-    logger.info(f"[Check Session] Session data: {dict(session)}")
+@token_required
+def check_session_route(current_user):
+    if os.getenv("ENABLE_DIAGNOSTICS", "false").lower() != "true":
+        return jsonify({'error': 'Not found'}), 404
+
+    if not get_user_admin_status(current_user):
+        return jsonify({'error': 'Unauthorized'}), 403
+
     is_admin_in_session = session.get('is_admin', False)
     admin_id_in_session = session.get('admin_user_id')
     return jsonify({
         'message': 'Session check',
-        'session_data_on_backend': dict(session),
         'is_admin_flag_from_session': is_admin_in_session,
         'admin_id_from_session': admin_id_in_session
     }), 200
@@ -4185,4 +4324,5 @@ def check_session_route():
 
 if __name__ == "__main__":
     logger.info("Starting Flask application on port 8000")
-    app.run(debug=True, host='0.0.0.0', port=8000) 
+    debug_mode = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"} or os.getenv("FLASK_ENV") != "production"
+    app.run(debug=debug_mode, host='0.0.0.0', port=8000) 

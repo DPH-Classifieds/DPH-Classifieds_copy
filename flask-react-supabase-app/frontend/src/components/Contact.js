@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import '../styles/Contact.css';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 const Contact = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -23,24 +25,40 @@ const Contact = () => {
     e.preventDefault();
     setSubmitting(true);
     setSubmitStatus(null);
-    
-    // Here you would normally send the form data to your backend
-    // Simulating an API call with setTimeout
-    setTimeout(() => {
-      setSubmitting(false);
+
+    try {
+      const response = await fetch(`${API_URL}/api/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to send message');
+      }
+
       setSubmitStatus({
         success: true,
         message: 'Your message has been sent successfully! We\'ll get back to you soon.'
       });
-      
-      // Reset form after successful submission
+
       setFormData({
         name: '',
         email: '',
         subject: '',
         message: ''
       });
-    }, 1500);
+    } catch (error) {
+      setSubmitStatus({
+        success: false,
+        message: error.message || 'Failed to send message. Please try again.'
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

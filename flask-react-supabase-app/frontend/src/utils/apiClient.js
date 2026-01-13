@@ -57,11 +57,7 @@ export const apiClient = {
       // Get authorization token
       const token = await getBestAccessToken();
       
-      // Log token info for debugging (obscured for security)
-      if (token) {
-        const tokenPreview = token.substring(0, 10) + '...' + token.substring(token.length - 5);
-        console.log(`Got token: ${tokenPreview}`);
-      } else {
+      if (!token) {
         console.error('No authentication token available - user might not be logged in');
         
         // Create a descriptive error for better user experience
