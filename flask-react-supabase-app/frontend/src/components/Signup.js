@@ -286,21 +286,31 @@ const Signup = () => {
         marketingEmails: formData.marketingEmails
       };
 
-      const { data } = await signUp(
+      const { data, error } = await signUp(
         signupData.email,
         signupData.password,
         signupData
       );
 
+      if (error) {
+        throw new Error(error);
+      }
+
+      // Supabase email-confirm flow typically returns user with null session
       if (data?.user && !data?.session) {
         navigate('/check-email', { state: { email: signupData.email } });
         return;
       }
 
+      // If we ever get a session immediately, treat it as full success
       if (data?.user && data?.session) {
         setSuccessMessage('Account created successfully! Redirecting...');
         setTimeout(() => navigate('/profile'), 2000);
+        return;
       }
+
+      // Fallback: successful HTTP but unexpected shape — still send to check-email
+      navigate('/check-email', { state: { email: signupData.email } });
     } catch (err) {
       console.error('Sign up error:', err);
       setError(err.message || 'Failed to create account. Please try again.');
