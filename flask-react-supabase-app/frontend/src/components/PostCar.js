@@ -5,21 +5,22 @@ import apiClient from '../utils/apiClient';
 import '../styles/PostForms.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import LoadingSpinner from './LoadingSpinner';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-// Fix Leaflet default icon issue
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+// Map disabled: using simple text address input without map render
+// import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+// import L from 'leaflet';
+// import 'leaflet/dist/leaflet.css';
+// // Fix Leaflet default icon issue
+// import icon from 'leaflet/dist/images/marker-icon.png';
+// import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
-});
+// let DefaultIcon = L.icon({
+//   iconUrl: icon,
+//   shadowUrl: iconShadow,
+//   iconSize: [25, 41],
+//   iconAnchor: [12, 41]
+// });
 
-L.Marker.prototype.options.icon = DefaultIcon;
+// L.Marker.prototype.options.icon = DefaultIcon;
 
 const PostCar = () => {
   const navigate = useNavigate();
@@ -203,58 +204,17 @@ const PostCar = () => {
     }
   }, [formData.car_location]);
 
-  // Enhanced geocoding with address suggestions
-  const geocodeAddress = async (address) => {
-    if (!address || address.trim().length < 3) {
-      setAddressSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    setIsGeocoding(true);
+  // Geocoding disabled (previously Nominatim). Keep suggestions empty and avoid network calls.
+  const geocodeAddress = async () => {
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
     setGeoError(null);
-    
-    try {
-      // Using Nominatim for geocoding (OpenStreetMap's geocoder)
-      // Focus on UAE for better results
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?` +
-        `format=json&` +
-        `q=${encodeURIComponent(address)}&` +
-        `countrycodes=ae&` +
-        `limit=5&` +
-        `addressdetails=1`
-      );
-      const data = await response.json();
-      
-      if (data && data.length > 0) {
-        setAddressSuggestions(data);
-        setShowSuggestions(true);
-      } else {
-        setAddressSuggestions([]);
-        setShowSuggestions(false);
-        setGeoError('No addresses found. Try a different search term.');
-      }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      setGeoError('Failed to search addresses. Please try again.');
-    } finally {
-      setIsGeocoding(false);
-    }
   };
 
-  // Debounced address search
+  // Debounced address search (disabled geocoding)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (formData.car_location && formData.car_location.length >= 3) {
-        geocodeAddress(formData.car_location);
-      } else {
-        setAddressSuggestions([]);
-        setShowSuggestions(false);
-      }
-    }, 500); // Wait 500ms after user stops typing
-
-    return () => clearTimeout(timer);
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
   }, [formData.car_location]);
 
   // Handle address selection from suggestions
@@ -955,7 +915,7 @@ const PostCar = () => {
                     borderBottom: '1px dotted #666'
                   }}
                 >
-                  VIN
+                  VIN <span style={{ color: 'red' }}>*</span>
                 </span> <span className="text-muted">(Vehicle Identification Number)</span>
               </label>
               <input
@@ -971,6 +931,7 @@ const PostCar = () => {
                 className="form-control"
                 style={{ textTransform: 'uppercase' }}
                 maxLength="17"
+                required
               />
               <div className="form-text">
                 <strong>Where to find your VIN:</strong> Check your vehicle registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.
@@ -1092,29 +1053,7 @@ const PostCar = () => {
               </div>
 
               <div className="map-instructions">
-                Type to search, click "Use Current Location", or click/drag on the map
-              </div>
-
-              <div className="map-container">
-                {isGeocoding && (
-                  <div className="map-loading-overlay">
-                    <LoadingSpinner size="small" message="Loading location..." compact />
-                  </div>
-                )}
-                <MapContainer 
-                  center={mapPosition} 
-                  zoom={13} 
-                  scrollWheelZoom={false}
-                  style={{ height: '100%', width: '100%' }}
-                  key={`${mapPosition[0]}-${mapPosition[1]}`}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <MapClickHandler />
-                  <MarkerWithDrag />
-                </MapContainer>
+                Map preview disabled. Please enter the location text above (city/area).
               </div>
             </div>
           </div>
