@@ -646,7 +646,6 @@ def create_car(current_user):
         
         car_data = request.json
         car_data['user_id'] = current_user
-        car_data['status'] = 'pending'  # Set status as pending for admin approval
         
         # Extract and transform extras array to individual boolean fields
         extras = car_data.pop('extras', [])
@@ -678,13 +677,14 @@ def create_car(current_user):
         images = car_data.pop('images', [])
 
         # Whitelist allowed columns for cars to avoid schema cache errors
+        # Cars table schema (per cars_schema.sql) - keep only these fields
         allowed_fields = {
             'car_manufacturer', 'car_model', 'trim', 'regional_spec', 'make_year',
             'kilometer_driven', 'body_type', 'is_insured', 'expected_selling_price',
             'car_owner_phone_number', 'car_city', 'listing_title', 'tour_url',
             'car_description', 'fuel_type', 'transmission_type', 'seating_capacity',
             'horsepower', 'engine_capacity', 'steering_side', 'car_location',
-            'latitude', 'longitude', 'vehicle_type', 'vin_number', 'status', 'user_id',
+            'vehicle_type', 'is_approved', 'user_id',
             'keyless_entry', 'dvd_player', 'climate_control', 'navigation_system',
             'premium_sound_system', 'cooled_seats', 'front_wheel_drive', 'leather_seats',
             'parking_sensors', 'rear_view_camera'
@@ -835,6 +835,20 @@ def update_car(current_user, car_id):
             for extra in extras:
                 if extra in extras_mapping:
                     update_data[extras_mapping[extra]] = True
+
+        # Whitelist allowed columns (cars schema)
+        allowed_fields = {
+            'car_manufacturer', 'car_model', 'trim', 'regional_spec', 'make_year',
+            'kilometer_driven', 'body_type', 'is_insured', 'expected_selling_price',
+            'car_owner_phone_number', 'car_city', 'listing_title', 'tour_url',
+            'car_description', 'fuel_type', 'transmission_type', 'seating_capacity',
+            'horsepower', 'engine_capacity', 'steering_side', 'car_location',
+            'vehicle_type', 'is_approved',
+            'keyless_entry', 'dvd_player', 'climate_control', 'navigation_system',
+            'premium_sound_system', 'cooled_seats', 'front_wheel_drive', 'leather_seats',
+            'parking_sensors', 'rear_view_camera'
+        }
+        update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
         
         # Update the car
         data, status_code = supabase_request(
