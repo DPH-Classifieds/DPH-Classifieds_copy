@@ -679,6 +679,12 @@ def create_car(current_user):
 
         # Drop fields that don't exist in the cars table schema
         car_data.pop('is_dealer', None)
+        car_data.pop('rejection_note', None)
+        car_data.pop('dealer_verified_by', None)
+        car_data.pop('dealer_verification_requested_at', None)
+        car_data.pop('dealer_verified_at', None)
+        car_data.pop('dealer_verified', None)
+        car_data.pop('dealer_verification_requested', None)
         
         # Enforce at least one image
         if not images or len(images) == 0:
