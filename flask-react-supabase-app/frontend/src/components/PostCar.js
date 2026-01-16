@@ -1020,7 +1020,29 @@ const PostCar = () => {
               </div>
 
               <div className="map-instructions">
-                Map preview disabled. Please enter the location text above (city/area).
+                Type to search, click "Use Current Location", or click/drag on the map
+              </div>
+
+              <div className="map-container">
+                {isGeocoding && (
+                  <div className="map-loading-overlay">
+                    <LoadingSpinner size="small" message="Loading location..." compact />
+                  </div>
+                )}
+                <MapContainer 
+                  center={mapPosition} 
+                  zoom={13} 
+                  scrollWheelZoom={false}
+                  style={{ height: '100%', width: '100%' }}
+                  key={`${mapPosition[0]}-${mapPosition[1]}`}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapClickHandler />
+                  <MarkerWithDrag />
+                </MapContainer>
               </div>
             </div>
           </div>
