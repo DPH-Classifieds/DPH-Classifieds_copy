@@ -217,93 +217,27 @@ const PostCar = () => {
     setShowSuggestions(false);
   }, [formData.car_location]);
 
-  // Handle address selection from suggestions
-  const handleAddressSelect = (suggestion) => {
-    const newPosition = [parseFloat(suggestion.lat), parseFloat(suggestion.lon)];
-    setMapPosition(newPosition);
-    setMarker(newPosition);
-    setFormData(prev => ({
-      ...prev,
-      car_location: suggestion.display_name,
-      latitude: suggestion.lat,
-      longitude: suggestion.lon
-    }));
+  // Handle address selection from suggestions (disabled suggestions)
+  const handleAddressSelect = () => {
     setShowSuggestions(false);
     setAddressSuggestions([]);
   };
 
   // Map click handler component
-  const MapClickHandler = () => {
-    const map = useMap();
-    
-    useEffect(() => {
-      if (!map) return;
-      
-      const handleMapClick = (e) => {
-        const { lat, lng } = e.latlng;
-        setMarker([lat, lng]);
-        reverseGeocode(lat, lng);
-      };
-      
-      map.on('click', handleMapClick);
-      
-      return () => {
-        map.off('click', handleMapClick);
-      };
-    }, [map]);
-    
-    return null;
-  };
+  const MapClickHandler = () => null;
   
   // Update marker position when map position changes
-  const MarkerWithDrag = useCallback(() => {
-    return (
-      <Marker 
-        position={marker} 
-        draggable={true}
-        eventHandlers={{
-          dragend: (e) => {
-            const { lat, lng } = e.target.getLatLng();
-            setMarker([lat, lng]);
-            reverseGeocode(lat, lng);
-          },
-        }}
-      />
-    );
-  }, [marker]);
+  const MarkerWithDrag = useCallback(() => null, []);
 
   // Enhanced reverse geocoding with loading state
   const reverseGeocode = async (lat, lng) => {
-    setIsGeocoding(true);
+    setIsGeocoding(false);
     setGeoError(null);
-    
-    try {
-      // Using Nominatim for reverse geocoding
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?` +
-        `format=json&` +
-        `lat=${lat}&` +
-        `lon=${lng}&` +
-        `addressdetails=1`
-      );
-      const data = await response.json();
-      
-      if (data && data.display_name) {
-        setFormData(prev => ({
-          ...prev,
-          car_location: data.display_name,
-          latitude: lat,
-          longitude: lng
-        }));
-      } else {
-        setGeoError('Could not find address for this location.');
-      }
-    } catch (error) {
-      console.error('Reverse geocoding error:', error);
-      setGeoError('Failed to get address. Please try again.');
-    } finally {
-      setIsGeocoding(false);
-    }
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng
+    }));
   };
 
   // Get current location using browser geolocation
