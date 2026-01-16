@@ -676,6 +676,9 @@ def create_car(current_user):
         
         # Extract images from the request
         images = car_data.pop('images', [])
+
+        # Drop fields that don't exist in the cars table schema
+        car_data.pop('is_dealer', None)
         
         # Enforce at least one image
         if not images or len(images) == 0:
@@ -791,6 +794,9 @@ def update_car(current_user, car_id):
             update_data = request.json
             new_images = []
             keep_image_ids = []
+
+        # Drop fields that don't exist in the cars table schema
+        update_data.pop('is_dealer', None)
         
         # Extract and transform extras array to individual boolean fields
         if 'extras' in update_data:
