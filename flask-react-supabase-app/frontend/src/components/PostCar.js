@@ -5,22 +5,21 @@ import apiClient from '../utils/apiClient';
 import '../styles/PostForms.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import LoadingSpinner from './LoadingSpinner';
-// Map disabled: using simple text address input without map render
-// import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
-// import L from 'leaflet';
-// import 'leaflet/dist/leaflet.css';
-// // Fix Leaflet default icon issue
-// import icon from 'leaflet/dist/images/marker-icon.png';
-// import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+// Fix Leaflet default icon issue
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// let DefaultIcon = L.icon({
-//   iconUrl: icon,
-//   shadowUrl: iconShadow,
-//   iconSize: [25, 41],
-//   iconAnchor: [12, 41]
-// });
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
 
-// L.Marker.prototype.options.icon = DefaultIcon;
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const PostCar = () => {
   const navigate = useNavigate();
@@ -224,12 +223,46 @@ const PostCar = () => {
   };
 
   // Map click handler component
-  const MapClickHandler = () => null;
+  const MapClickHandler = () => {
+    const map = useMap();
+    
+    useEffect(() => {
+      if (!map) return;
+      
+      const handleMapClick = (e) => {
+        const { lat, lng } = e.latlng;
+        setMarker([lat, lng]);
+        reverseGeocode(lat, lng);
+      };
+      
+      map.on('click', handleMapClick);
+      
+      return () => {
+        map.off('click', handleMapClick);
+      };
+    }, [map]);
+    
+    return null;
+  };
   
   // Update marker position when map position changes
-  const MarkerWithDrag = useCallback(() => null, []);
+  const MarkerWithDrag = useCallback(() => {
+    return (
+      <Marker 
+        position={marker} 
+        draggable={true}
+        eventHandlers={{
+          dragend: (e) => {
+            const { lat, lng } = e.target.getLatLng();
+            setMarker([lat, lng]);
+            reverseGeocode(lat, lng);
+          },
+        }}
+      />
+    );
+  }, [marker]);
 
-  // Enhanced reverse geocoding with loading state
+  // Reverse geocoding disabled; just capture coordinates if provided
   const reverseGeocode = async (lat, lng) => {
     setIsGeocoding(false);
     setGeoError(null);
