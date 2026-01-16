@@ -677,14 +677,19 @@ def create_car(current_user):
         # Extract images from the request
         images = car_data.pop('images', [])
 
-        # Drop fields that don't exist in the cars table schema
-        car_data.pop('is_dealer', None)
-        car_data.pop('rejection_note', None)
-        car_data.pop('dealer_verified_by', None)
-        car_data.pop('dealer_verification_requested_at', None)
-        car_data.pop('dealer_verified_at', None)
-        car_data.pop('dealer_verified', None)
-        car_data.pop('dealer_verification_requested', None)
+        # Whitelist allowed columns for cars to avoid schema cache errors
+        allowed_fields = {
+            'car_manufacturer', 'car_model', 'trim', 'regional_spec', 'make_year',
+            'kilometer_driven', 'body_type', 'is_insured', 'expected_selling_price',
+            'car_owner_phone_number', 'car_city', 'listing_title', 'tour_url',
+            'car_description', 'fuel_type', 'transmission_type', 'seating_capacity',
+            'horsepower', 'engine_capacity', 'steering_side', 'car_location',
+            'latitude', 'longitude', 'vehicle_type', 'vin_number', 'status', 'user_id',
+            'keyless_entry', 'dvd_player', 'climate_control', 'navigation_system',
+            'premium_sound_system', 'cooled_seats', 'front_wheel_drive', 'leather_seats',
+            'parking_sensors', 'rear_view_camera'
+        }
+        car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
         
         # Enforce at least one image
         if not images or len(images) == 0:
