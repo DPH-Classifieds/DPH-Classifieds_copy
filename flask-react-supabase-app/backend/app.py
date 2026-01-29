@@ -498,7 +498,8 @@ def get_cars():
                     images_response, images_status = supabase_request(
                         'get',
                         '/rest/v1/car_images',
-                        params={'select': '*', 'car_id': f'eq.{car_id}'}
+                        params={'select': '*', 'car_id': f'eq.{car_id}'},
+                        use_service_role=True
                     )
                     
                     if images_status < 400:
@@ -573,7 +574,7 @@ def get_car_by_id(car_id):
         # Get car images
         images_query = f"/rest/v1/car_images?car_id=eq.{car_id}&select=*"
         logger.info(f"Fetching images with query: {images_query}")
-        images_response, images_status = supabase_request('get', images_query)
+        images_response, images_status = supabase_request('get', images_query, use_service_role=True)
         
         if images_status < 400:
             logger.info(f"Found {len(images_response)} images for car {car_id}")
@@ -1226,6 +1227,98 @@ def _send_resend_email(payload):
     if response.status_code >= 400:
         return None, response.text
     return response.json(), None
+
+def _build_listing_title(item_type, listing):
+    if not listing:
+        return "your listing"
+    if item_type == 'cars':
+        return listing.get('listing_title') or " ".join(
+            part for part in [
+                str(listing.get('make_year', '')).strip(),
+                str(listing.get('car_manufacturer', '')).strip(),
+                str(listing.get('car_model', '')).strip()
+            ] if part
+        ) or "your car listing"
+    if item_type == 'bikes':
+        return listing.get('title') or " ".join(
+            part for part in [
+                str(listing.get('make_year', '')).strip(),
+                str(listing.get('make', '')).strip(),
+                str(listing.get('model', '')).strip()
+            ] if part
+        ) or "your bike listing"
+    if item_type == 'plates':
+        return " ".join(
+            part for part in [
+                str(listing.get('city', '')).strip(),
+                str(listing.get('code', '')).strip(),
+                str(listing.get('number', '')).strip()
+            ] if part
+        ) or "your plate listing"
+    if item_type == 'parts':
+        return listing.get('name') or listing.get('part_name') or listing.get('title') or "your car part listing"
+    return "your listing"
+
+def _build_listing_url(item_type, item_id, request_origin=None):
+    base_url = _get_safe_frontend_origin(request_origin).rstrip('/')
+    path_map = {
+        'cars': '/cars',
+        'bikes': '/bikes',
+        'plates': '/plates',
+        'parts': '/car-parts'
+    }
+    path = path_map.get(item_type)
+    if not path:
+        return None
+    return f"{base_url}{path}/{item_id}"
+
+def _send_listing_status_email(user_email, item_type, listing, status, request_origin=None):
+    if not user_email:
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    item_label_map = {
+        'cars': 'car',
+        'bikes': 'bike',
+        'plates': 'plate',
+        'parts': 'car part'
+    }
+    item_label = item_label_map.get(item_type, 'listing')
+    listing_title = _build_listing_title(item_type, listing)
+    listing_url = _build_listing_url(item_type, listing.get('id') if listing else None, request_origin)
+
+    subject = f"Your {item_label} listing has been {status}"
+    lines = [
+        f"Hi there,",
+        "",
+        f"Your {item_label} listing has been {status}.",
+        f"Listing: {listing_title}"
+    ]
+    if listing_url:
+        lines.append(f"View listing: {listing_url}")
+    lines.extend([
+        "",
+        "Thanks,",
+        "DPH Classifieds"
+    ])
+
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "text": "\n".join(lines)
+    }
+
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    return _send_resend_email(payload)
 
 @app.route('/api/contact', methods=['POST'])
 def send_contact_message():
@@ -3438,8 +3531,52 @@ def api_approve_item(current_user, item_type, item_id):
         )
         
         if status_code >= 200 and status_code < 300:
+            listing = None
+            if isinstance(response, list) and response:
+                listing = response[0]
+            elif isinstance(response, dict) and response.get('id'):
+                listing = response
+            if not listing:
+                listing_response, listing_status = supabase_request(
+                    'get',
+                    f'/rest/v1/{table_name}?id=eq.{item_id}&select=*',
+                    use_service_role=True
+                )
+                if listing_status < 400 and listing_response:
+                    listing = listing_response[0]
+
+            email_sent = False
+            email_error = None
+            if listing:
+                user_email = listing.get('user_email') or listing.get('contact_email')
+                if not user_email:
+                    user_id = listing.get('user_id')
+                    if user_id:
+                        user_email = get_user_email(user_id)
+                if user_email and EMAIL_REGEX.match(user_email):
+                    _, email_error = _send_listing_status_email(
+                        user_email,
+                        item_type,
+                        listing,
+                        'approved',
+                        request.headers.get('Origin')
+                    )
+                    if email_error:
+                        logger.error(f"Approval email failed for {item_type} {item_id}: {email_error}")
+                    else:
+                        email_sent = True
+                else:
+                    email_error = "Missing or invalid recipient email"
+                    logger.warning(f"Approval email skipped for {item_type} {item_id}: {email_error}")
+            else:
+                email_error = "Listing not found for email notification"
+                logger.warning(f"Approval email skipped for {item_type} {item_id}: {email_error}")
+
             logger.info(f"Admin {current_user} approved {item_type} {item_id}")
-            return jsonify({'success': True, 'message': f'{item_type} approved successfully'}), 200
+            payload = {'success': True, 'message': f'{item_type} approved successfully', 'email_sent': email_sent}
+            if email_error:
+                payload['email_error'] = 'Approval email was not sent'
+            return jsonify(payload), 200
         else:
             logger.error(f"Error approving {item_type} {item_id}: {status_code} - {response}")
             return jsonify({'error': f'Failed to approve {item_type}'}), status_code
