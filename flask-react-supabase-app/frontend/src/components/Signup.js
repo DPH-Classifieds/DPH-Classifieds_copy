@@ -71,14 +71,22 @@ const Signup = () => {
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
+  const getPasswordChecks = (password) => ({
+    length: password.length >= 10,
+    lower: /[a-z]/.test(password),
+    upper: /[A-Z]/.test(password),
+    number: /[0-9]/.test(password),
+    symbol: /[^a-zA-Z0-9]/.test(password)
+  });
+
   // Calculate password strength
   const calculatePasswordStrength = (password) => {
     let score = 0;
     if (!password) return { score: 0, text: '', color: '' };
 
     // Length check
-    if (password.length >= 8) score += 1;
-    if (password.length >= 12) score += 1;
+    if (password.length >= 10) score += 1;
+    if (password.length >= 14) score += 1;
 
     // Character variety
     if (/[a-z]/.test(password)) score += 1;
@@ -89,13 +97,13 @@ const Signup = () => {
     // Determine strength text and color
     let text = '';
     let color = '';
-    if (score < 2) {
+    if (score < 3) {
       text = 'Weak';
       color = '#ff4444';
-    } else if (score < 4) {
+    } else if (score < 5) {
       text = 'Fair';
       color = '#ffaa00';
-    } else if (score < 5) {
+    } else if (score < 6) {
       text = 'Good';
       color = '#88cc00';
     } else {
@@ -200,9 +208,12 @@ const Signup = () => {
     if (!formData.password) {
       errors.push('Password is required');
       newFieldErrors.password = 'Required';
-    } else if (formData.password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-      newFieldErrors.password = 'Must be at least 8 characters';
+    } else {
+      const checks = getPasswordChecks(formData.password);
+      if (!checks.length || !checks.lower || !checks.upper || !checks.number || !checks.symbol) {
+        errors.push('Password must be 10+ characters and include upper/lowercase, a number, and a symbol');
+        newFieldErrors.password = 'Use 10+ chars with upper/lower, number, symbol';
+      }
     }
 
     if (!formData.confirmPassword) {
@@ -536,7 +547,7 @@ const Signup = () => {
                   value={formData.password}
                   onChange={handleInputChange}
                   required
-                  minLength="8"
+                  minLength="10"
                   placeholder="Create a strong password"
                   autoComplete="new-password"
                   className={fieldErrors.password ? 'error-input' : ''}
@@ -570,7 +581,7 @@ const Signup = () => {
                 </div>
               )}
               <small className="form-hint">
-                Use at least 8 characters with a mix of letters, numbers & symbols
+                Use 10+ characters with uppercase, lowercase, a number, and a symbol
               </small>
             </div>
             
@@ -583,7 +594,7 @@ const Signup = () => {
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
                 required
-                minLength="8"
+                minLength="10"
                 placeholder="Re-enter your password"
                 autoComplete="new-password"
                 className={fieldErrors.confirmPassword ? 'error-input' : ''}

@@ -14,6 +14,30 @@ const ResetPassword = () => {
   const [accessToken, setAccessToken] = useState('');
   const navigate = useNavigate();
 
+  const getPasswordErrors = (value) => {
+    const errors = [];
+    if (!value) {
+      errors.push('Password is required');
+      return errors;
+    }
+    if (value.length < 10) {
+      errors.push('Password must be at least 10 characters long');
+    }
+    if (!/[a-z]/.test(value)) {
+      errors.push('Password must include a lowercase letter');
+    }
+    if (!/[A-Z]/.test(value)) {
+      errors.push('Password must include an uppercase letter');
+    }
+    if (!/[0-9]/.test(value)) {
+      errors.push('Password must include a number');
+    }
+    if (!/[^a-zA-Z0-9]/.test(value)) {
+      errors.push('Password must include a symbol');
+    }
+    return errors;
+  };
+
   useEffect(() => {
     const hashFragment = window.location.hash;
     if (!hashFragment) {
@@ -55,8 +79,9 @@ const ResetPassword = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    const passwordErrors = getPasswordErrors(password);
+    if (passwordErrors.length > 0) {
+      setError(passwordErrors.join('. '));
       setLoading(false);
       return;
     }
@@ -111,8 +136,12 @@ const ResetPassword = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter new password"
+              minLength="10"
               disabled={loading || success || !accessToken}
             />
+            <small className="form-hint">
+              Use 10+ characters with uppercase, lowercase, a number, and a symbol
+            </small>
           </div>
           
           <div className="form-group">
@@ -123,6 +152,7 @@ const ResetPassword = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
+              minLength="10"
               disabled={loading || success || !accessToken}
             />
           </div>

@@ -317,13 +317,38 @@ const AccountSettings = () => {
     setMessage(null);
     setError(null);
 
+    const getPasswordErrors = (value) => {
+      const errors = [];
+      if (!value) {
+        errors.push('Password is required');
+        return errors;
+      }
+      if (value.length < 10) {
+        errors.push('Password must be at least 10 characters long');
+      }
+      if (!/[a-z]/.test(value)) {
+        errors.push('Password must include a lowercase letter');
+      }
+      if (!/[A-Z]/.test(value)) {
+        errors.push('Password must include an uppercase letter');
+      }
+      if (!/[0-9]/.test(value)) {
+        errors.push('Password must include a number');
+      }
+      if (!/[^a-zA-Z0-9]/.test(value)) {
+        errors.push('Password must include a symbol');
+      }
+      return errors;
+    };
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setError('New passwords do not match');
       return;
     }
 
-    if (passwordData.newPassword.length < 8) {
-      setError('Password must be at least 8 characters long');
+    const passwordErrors = getPasswordErrors(passwordData.newPassword);
+    if (passwordErrors.length > 0) {
+      setError(passwordErrors.join('. '));
       return;
     }
 
@@ -935,7 +960,7 @@ const AccountSettings = () => {
                     value={passwordData.currentPassword}
                     onChange={handlePasswordInputChange}
                     required
-                    minLength="8"
+                    minLength="10"
                   />
                 </div>
 
@@ -948,7 +973,7 @@ const AccountSettings = () => {
                     value={passwordData.newPassword}
                     onChange={handlePasswordInputChange}
                     required
-                    minLength="8"
+                    minLength="10"
                   />
                   <small className="form-text">Minimum 8 characters</small>
                 </div>
@@ -962,7 +987,7 @@ const AccountSettings = () => {
                     value={passwordData.confirmPassword}
                     onChange={handlePasswordInputChange}
                     required
-                    minLength="8"
+                    minLength="10"
                   />
                 </div>
               </div>

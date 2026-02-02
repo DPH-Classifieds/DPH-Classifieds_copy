@@ -14,6 +14,30 @@ const Settings = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const getPasswordErrors = (value) => {
+    const errors = [];
+    if (!value) {
+      errors.push('Password is required');
+      return errors;
+    }
+    if (value.length < 10) {
+      errors.push('Password must be at least 10 characters long');
+    }
+    if (!/[a-z]/.test(value)) {
+      errors.push('Password must include a lowercase letter');
+    }
+    if (!/[A-Z]/.test(value)) {
+      errors.push('Password must include an uppercase letter');
+    }
+    if (!/[0-9]/.test(value)) {
+      errors.push('Password must include a number');
+    }
+    if (!/[^a-zA-Z0-9]/.test(value)) {
+      errors.push('Password must include a symbol');
+    }
+    return errors;
+  };
+
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
     setMessage(null);
@@ -25,8 +49,9 @@ const Settings = () => {
       return;
     }
     
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long');
+    const passwordErrors = getPasswordErrors(newPassword);
+    if (passwordErrors.length > 0) {
+      setError(passwordErrors.join('. '));
       return;
     }
     
@@ -140,7 +165,7 @@ const Settings = () => {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
-              minLength="8"
+              minLength="10"
             />
           </div>
           
@@ -152,7 +177,7 @@ const Settings = () => {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              minLength="8"
+              minLength="10"
             />
           </div>
           
@@ -164,7 +189,7 @@ const Settings = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              minLength="8"
+              minLength="10"
             />
           </div>
           

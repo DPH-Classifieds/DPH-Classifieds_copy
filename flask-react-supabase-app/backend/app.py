@@ -1946,6 +1946,24 @@ def login():
         logger.error(f"[Login] Exception during login: {str(e)}", exc_info=True)
         return jsonify({'message': 'An error occurred during login'}), 500
 
+def _get_password_policy_errors(password):
+    errors = []
+    if not password:
+        return ['Password is required']
+
+    if len(password) < 10:
+        errors.append('Password must be at least 10 characters long')
+    if not re.search(r'[a-z]', password):
+        errors.append('Password must include a lowercase letter')
+    if not re.search(r'[A-Z]', password):
+        errors.append('Password must include an uppercase letter')
+    if not re.search(r'[0-9]', password):
+        errors.append('Password must include a number')
+    if not re.search(r'[^a-zA-Z0-9]', password):
+        errors.append('Password must include a symbol')
+
+    return errors
+
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     data = request.json
@@ -1954,6 +1972,9 @@ def signup():
     
     email = data.get('email')
     password = data.get('password')
+    password_errors = _get_password_policy_errors(password)
+    if password_errors:
+        return jsonify({'message': 'Password does not meet requirements', 'details': password_errors}), 400
     
     # Extract additional user metadata
     user_metadata = {
@@ -2289,6 +2310,9 @@ def update_password():
         return jsonify({'message': 'Missing password'}), 400
     
     password = data.get('password')
+    password_errors = _get_password_policy_errors(password)
+    if password_errors:
+        return jsonify({'message': 'Password does not meet requirements', 'details': password_errors}), 400
     access_token = data.get('access_token')
     hash_token = data.get('hash')
 
