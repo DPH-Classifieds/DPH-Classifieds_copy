@@ -268,6 +268,7 @@ const Signup = () => {
       const signupData = {
         email: formData.email,
         password: formData.password,
+        redirectTo: `${window.location.origin}/auth/callback`,
         firstName: formData.firstName,
         lastName: formData.lastName,
         username: formData.username,

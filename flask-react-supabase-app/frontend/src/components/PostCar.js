@@ -5,6 +5,7 @@ import apiClient from '../utils/apiClient';
 import '../styles/PostForms.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import LoadingSpinner from './LoadingSpinner';
+import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -53,6 +54,7 @@ const PostCar = () => {
     body_type: '',
     is_insured: false,
     expected_selling_price: '',
+    country_code: defaultCountryCode,
     car_owner_phone_number: '',
     car_city: 'Dubai',
     listing_title: '',
@@ -683,16 +685,31 @@ const PostCar = () => {
             
             <div className="form-group">
               <label htmlFor="car_owner_phone_number">Phone Number *</label>
-              <input
-                type="text"
-                id="car_owner_phone_number"
-                name="car_owner_phone_number"
-                value={formData.car_owner_phone_number}
-                onChange={handleChange}
-                required
-                placeholder="+971XXXXXXXXX"
-                className="form-control"
-              />
+              <div className="phone-input-group">
+                <select
+                  id="country_code"
+                  name="country_code"
+                  className="form-control country-code-select"
+                  value={formData.country_code}
+                  onChange={handleChange}
+                >
+                  {countryCodes.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  id="car_owner_phone_number"
+                  name="car_owner_phone_number"
+                  value={formData.car_owner_phone_number}
+                  onChange={handleChange}
+                  required
+                  placeholder="501234567"
+                  className="form-control phone-number-input"
+                />
+              </div>
             </div>
           </div>
 

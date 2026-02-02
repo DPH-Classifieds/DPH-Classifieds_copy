@@ -8,8 +8,11 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [resetStatus, setResetStatus] = useState(null);
+  const [resetLoading, setResetLoading] = useState(false);
   const { signIn, syncWithSupabase } = useAuth();
   const navigate = useNavigate();
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,12 +64,45 @@ const Login = () => {
     }
   };
 
+  const handleResendReset = async () => {
+    setResetStatus(null);
+
+    if (!emailOrUsername || !emailOrUsername.includes('@')) {
+      setResetStatus('Enter your email address above to resend the reset link.');
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailOrUsername,
+          redirectTo: `${window.location.origin}/reset-password`
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setResetStatus('Password reset email sent. Please check your inbox.');
+      } else {
+        setResetStatus(data?.message || 'Failed to send reset email.');
+      }
+    } catch (err) {
+      setResetStatus('Failed to send reset email. Please try again.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="auth-container">
       <div className="auth-card">
         <h1 className="auth-title">Log In</h1>
         
         {error && <div className="auth-error">{error}</div>}
+        {resetStatus && <div className="auth-note">{resetStatus}</div>}
         
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -111,6 +147,16 @@ const Login = () => {
           <Link to="/signup" className="auth-link">
             Create Account
           </Link>
+        </div>
+        <div className="auth-links">
+          <button
+            type="button"
+            className="auth-button"
+            onClick={handleResendReset}
+            disabled={resetLoading}
+          >
+            {resetLoading ? 'Sending reset link...' : 'Resend reset link'}
+          </button>
         </div>
       </div>
     </div>

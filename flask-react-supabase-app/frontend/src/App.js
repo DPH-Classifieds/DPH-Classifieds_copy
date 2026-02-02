@@ -19,6 +19,7 @@ import Signup from './components/Signup';
 import CheckEmail from './components/CheckEmail';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
+import AuthCallback from './components/AuthCallback';
 import Profile from './components/Profile';
 import AccountSettings from './components/AccountSettings';
 import MyListings from './components/MyListings';
@@ -93,6 +94,7 @@ function App() {
               <Route path="/check-email" element={<CheckEmail />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} /> {/* Added Privacy Policy route */}

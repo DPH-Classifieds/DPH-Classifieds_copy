@@ -17,6 +17,7 @@ import uuid
 import threading
 import datetime
 import secrets
+from urllib.parse import quote, parse_qs, urlparse
 
 load_dotenv()  # Loads the environment variables from .env
 
@@ -51,6 +52,10 @@ def _get_cors_origins():
         "http://127.0.0.1:3000",
         "https://dph-classifieds.vercel.app",
         "https://dph-classifieds-three.vercel.app",
+        "https://dphclassifieds.com",
+        "https://www.dphclassifieds.com",
+        "https://dphclassifieds.ae",
+        "https://www.dphclassifieds.ae",
     ]
 
 # Enable CORS for all routes, with specific origins for security
@@ -67,6 +72,22 @@ def _get_safe_frontend_origin(request_origin):
     if request_origin in allowed_origins:
         return request_origin
     return os.getenv("FRONTEND_URL", allowed_origins[0] if allowed_origins else "http://localhost:3000")
+
+def _get_safe_redirect_url(request_origin, provided_url=None, fallback_path="/"):
+    allowed_origins = _get_cors_origins()
+
+    if provided_url:
+        try:
+            parsed = urlparse(provided_url)
+            if parsed.scheme and parsed.netloc:
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+                if origin in allowed_origins:
+                    return provided_url
+        except Exception as parse_err:
+            logger.warning(f"Invalid redirect URL provided: {parse_err}")
+
+    origin = _get_safe_frontend_origin(request_origin).rstrip('/')
+    return f"{origin}{fallback_path}"
 
 def _redact_headers(headers):
     if not headers:
@@ -685,7 +706,8 @@ def create_car(current_user):
             'car_owner_phone_number', 'car_city', 'listing_title', 'tour_url',
             'car_description', 'fuel_type', 'transmission_type', 'seating_capacity',
             'horsepower', 'engine_capacity', 'steering_side', 'car_location',
-            'vehicle_type', 'is_approved', 'user_id',
+            'vehicle_type', 'is_approved', 'user_id', 'country_code',
+            'latitude', 'longitude',
             'keyless_entry', 'dvd_player', 'climate_control', 'navigation_system',
             'premium_sound_system', 'cooled_seats', 'front_wheel_drive', 'leather_seats',
             'parking_sensors', 'rear_view_camera'
@@ -726,7 +748,34 @@ def create_car(current_user):
         if images_status < 400:
             data[0]['images'] = images_data
         else:
-            data[0]['images'] = []
+            logger.error(f"Bulk image insert failed for car {car_id}: {images_status} - {images_data}")
+            inserted_images = []
+            for image_insert in image_inserts:
+                img_resp, img_status = supabase_request(
+                    'post',
+                    '/rest/v1/car_images',
+                    data=image_insert,
+                    user_id=current_user
+                )
+                if img_status < 400 and img_resp:
+                    if isinstance(img_resp, list):
+                        inserted_images.extend(img_resp)
+                    else:
+                        inserted_images.append(img_resp)
+                else:
+                    logger.error(f"Image insert failed for car {car_id}: {img_status} - {img_resp}")
+
+            if not inserted_images:
+                # Roll back the car listing if no images could be saved
+                supabase_request(
+                    'delete',
+                    '/rest/v1/cars',
+                    params={'id': f'eq.{car_id}'},
+                    user_id=current_user
+                )
+                return jsonify({'error': 'Failed to save listing images. Please try again.'}), 500
+
+            data[0]['images'] = inserted_images
         
         return jsonify(data[0]), 201
     except Exception as e:
@@ -844,7 +893,8 @@ def update_car(current_user, car_id):
             'car_owner_phone_number', 'car_city', 'listing_title', 'tour_url',
             'car_description', 'fuel_type', 'transmission_type', 'seating_capacity',
             'horsepower', 'engine_capacity', 'steering_side', 'car_location',
-            'vehicle_type', 'is_approved',
+            'vehicle_type', 'is_approved', 'country_code',
+            'latitude', 'longitude',
             'keyless_entry', 'dvd_player', 'climate_control', 'navigation_system',
             'premium_sound_system', 'cooled_seats', 'front_wheel_drive', 'leather_seats',
             'parking_sensors', 'rear_view_camera'
@@ -1302,6 +1352,47 @@ def _send_listing_status_email(user_email, item_type, listing, status, request_o
     if listing_url:
         lines.append(f"View listing: {listing_url}")
     lines.extend([
+        "",
+        "Thanks,",
+        "DPH Classifieds"
+    ])
+
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "text": "\n".join(lines)
+    }
+
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    return _send_resend_email(payload)
+
+def _send_dealer_status_email(user_email, status, request_origin=None, rejection_note=None):
+    if not user_email:
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    base_url = _get_safe_frontend_origin(request_origin).rstrip('/')
+    profile_url = f"{base_url}/profile"
+
+    subject = f"Your dealer verification has been {status}"
+    lines = [
+        "Hi there,",
+        "",
+        f"Your dealer verification request has been {status}."
+    ]
+    if rejection_note and status == 'rejected':
+        lines.append(f"Reason: {rejection_note}")
+    lines.extend([
+        f"Manage your account: {profile_url}",
         "",
         "Thanks,",
         "DPH Classifieds"
@@ -1890,7 +1981,12 @@ def signup():
         cleaned_metadata[key] = value
     
     # Sign up with Supabase
-    url = f"{SUPABASE_URL}/auth/v1/signup"
+    redirect_to = _get_safe_redirect_url(
+        request.headers.get('Origin'),
+        data.get('redirectTo') if data else None,
+        fallback_path="/auth/callback"
+    )
+    url = f"{SUPABASE_URL}/auth/v1/signup?redirect_to={quote(redirect_to)}"
     headers = {
         'apikey': SUPABASE_KEY,
         'Content-Type': 'application/json'
@@ -1898,7 +1994,8 @@ def signup():
     payload = {
         'email': email,
         'password': password,
-        'data': cleaned_metadata  # This will be stored in raw_user_meta_data
+        'data': cleaned_metadata,  # This will be stored in raw_user_meta_data
+        'redirect_to': redirect_to
     }
     
     try:
@@ -2122,10 +2219,14 @@ def reset_password():
         'apikey': SUPABASE_KEY,
         'Content-Type': 'application/json'
     }
-    redirect_origin = _get_safe_frontend_origin(request.headers.get('Origin'))
+    redirect_to = _get_safe_redirect_url(
+        request.headers.get('Origin'),
+        data.get('redirectTo') if data else None,
+        fallback_path="/reset-password"
+    )
     payload = {
         'email': email,
-        'redirect_to': f"{redirect_origin}/reset-password"
+        'redirect_to': redirect_to
     }
     
     try:
@@ -2141,25 +2242,72 @@ def reset_password():
         logger.error(f"Password reset error: {str(e)}")
         return jsonify({'message': 'An error occurred during password reset'}), 500
 
+@app.route('/api/auth/resend-confirmation', methods=['POST'])
+def resend_confirmation():
+    data = request.json
+    if not data or not data.get('email'):
+        return jsonify({'message': 'Missing email'}), 400
+
+    email = data.get('email')
+    redirect_to = _get_safe_redirect_url(
+        request.headers.get('Origin'),
+        data.get('redirectTo') if data else None,
+        fallback_path="/auth/callback"
+    )
+
+    url = f"{SUPABASE_URL}/auth/v1/resend"
+    headers = {
+        'apikey': SUPABASE_KEY,
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        'type': 'signup',
+        'email': email,
+        'redirect_to': redirect_to
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+
+        if response.status_code == 200:
+            return jsonify({'message': 'Confirmation email resent successfully'}), 200
+
+        try:
+            error_data = response.json()
+        except Exception:
+            return jsonify({'message': 'Failed to resend confirmation email', 'details': response.text}), response.status_code
+
+        return jsonify({'message': error_data.get('error_description', 'Failed to resend confirmation email'), 'details': error_data}), response.status_code
+    except Exception as e:
+        logger.error(f"Resend confirmation error: {str(e)}")
+        return jsonify({'message': 'An error occurred while resending confirmation email'}), 500
+
 @app.route('/api/auth/update-password', methods=['POST'])
 def update_password():
     data = request.json
-    if not data or not data.get('password') or not data.get('hash'):
-        return jsonify({'message': 'Missing password or reset token'}), 400
+    if not data or not data.get('password'):
+        return jsonify({'message': 'Missing password'}), 400
     
     password = data.get('password')
+    access_token = data.get('access_token')
     hash_token = data.get('hash')
-    
-    # Parse the hash to extract parameters
-    # Note: This depends on how your Supabase instance formats the reset token
-    # The implementation might need to be adjusted
+
+    if not access_token and hash_token:
+        try:
+            parsed = parse_qs(hash_token, keep_blank_values=True)
+            access_token = (parsed.get('access_token') or [None])[0]
+        except Exception as parse_err:
+            logger.error(f"Failed to parse reset hash: {parse_err}")
+
+    if not access_token:
+        return jsonify({'message': 'Missing or invalid reset token'}), 400
     
     # Update password with Supabase
     url = f"{SUPABASE_URL}/auth/v1/user"
     headers = {
         'apikey': SUPABASE_KEY,
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {hash_token}'  # This might not work directly - adjust as needed
+        'Authorization': f'Bearer {access_token}'
     }
     payload = {
         'password': password
@@ -3547,7 +3695,9 @@ def api_approve_item(current_user, item_type, item_id):
 
             email_sent = False
             email_error = None
-            if listing:
+            if item_type == 'cars':
+                email_error = "Queued via Supabase email events"
+            elif listing:
                 user_email = listing.get('user_email') or listing.get('contact_email')
                 if not user_email:
                     user_id = listing.get('user_id')
@@ -3625,8 +3775,54 @@ def api_reject_item(current_user, item_type, item_id):
         )
         
         if status_code >= 200 and status_code < 300:
+            listing = None
+            if isinstance(response, list) and response:
+                listing = response[0]
+            elif isinstance(response, dict) and response.get('id'):
+                listing = response
+            if not listing:
+                listing_response, listing_status = supabase_request(
+                    'get',
+                    f'/rest/v1/{table_name}?id=eq.{item_id}&select=*',
+                    use_service_role=True
+                )
+                if listing_status < 400 and listing_response:
+                    listing = listing_response[0]
+
+            email_sent = False
+            email_error = None
+            if item_type == 'cars':
+                email_error = "Queued via Supabase email events"
+            elif listing:
+                user_email = listing.get('user_email') or listing.get('contact_email')
+                if not user_email:
+                    user_id = listing.get('user_id')
+                    if user_id:
+                        user_email = get_user_email(user_id)
+                if user_email and EMAIL_REGEX.match(user_email):
+                    _, email_error = _send_listing_status_email(
+                        user_email,
+                        item_type,
+                        listing,
+                        'rejected',
+                        request.headers.get('Origin')
+                    )
+                    if email_error:
+                        logger.error(f"Rejection email failed for {item_type} {item_id}: {email_error}")
+                    else:
+                        email_sent = True
+                else:
+                    email_error = "Missing or invalid recipient email"
+                    logger.warning(f"Rejection email skipped for {item_type} {item_id}: {email_error}")
+            else:
+                email_error = "Listing not found for email notification"
+                logger.warning(f"Rejection email skipped for {item_type} {item_id}: {email_error}")
+
             logger.info(f"Admin {current_user} rejected {item_type} {item_id} with note: {rejection_note}")
-            return jsonify({'success': True, 'message': f'{item_type} rejected successfully'}), 200
+            payload = {'success': True, 'message': f'{item_type} rejected successfully', 'email_sent': email_sent}
+            if email_error:
+                payload['email_error'] = 'Rejection email was not sent'
+            return jsonify(payload), 200
         else:
             logger.error(f"Error rejecting {item_type} {item_id}: {status_code} - {response}")
             return jsonify({'error': f'Failed to reject {item_type}'}), status_code
@@ -4066,6 +4262,23 @@ def verify_dealer(dealer_id):
         )
         
         if response.status_code in [200, 204]:
+            try:
+                dealer_lookup = requests.get(
+                    f"{SUPABASE_URL}/rest/v1/users?id=eq.{dealer_id}&select=email",
+                    headers=headers
+                )
+                if dealer_lookup.status_code == 200 and dealer_lookup.json():
+                    dealer_email = dealer_lookup.json()[0].get('email')
+                    _, email_error = _send_dealer_status_email(
+                        dealer_email,
+                        'approved',
+                        request.headers.get('Origin')
+                    )
+                    if email_error:
+                        logger.error(f"Dealer approval email failed for {dealer_id}: {email_error}")
+            except Exception as email_err:
+                logger.error(f"Dealer approval email exception for {dealer_id}: {email_err}")
+
             flash('Dealer verified successfully!', 'success')
         else:
             flash(f'Error verifying dealer: {response.text}', 'danger')
@@ -4104,6 +4317,24 @@ def reject_dealer(dealer_id):
         )
         
         if response.status_code in [200, 204]:
+            try:
+                dealer_lookup = requests.get(
+                    f"{SUPABASE_URL}/rest/v1/users?id=eq.{dealer_id}&select=email",
+                    headers=headers
+                )
+                if dealer_lookup.status_code == 200 and dealer_lookup.json():
+                    dealer_email = dealer_lookup.json()[0].get('email')
+                    _, email_error = _send_dealer_status_email(
+                        dealer_email,
+                        'rejected',
+                        request.headers.get('Origin'),
+                        rejection_note=rejection_note
+                    )
+                    if email_error:
+                        logger.error(f"Dealer rejection email failed for {dealer_id}: {email_error}")
+            except Exception as email_err:
+                logger.error(f"Dealer rejection email exception for {dealer_id}: {email_err}")
+
             flash('Dealer verification rejected', 'warning')
         else:
             flash(f'Error rejecting dealer: {response.text}', 'danger')
@@ -4345,6 +4576,21 @@ def api_verify_dealer(current_user, dealer_id):
         )
         
         if status_code in [200, 204]:
+            dealer_response, dealer_status = supabase_request(
+                'get',
+                f'/rest/v1/users?id=eq.{dealer_id}&select=email',
+                use_service_role=True
+            )
+            if dealer_status < 400 and dealer_response:
+                dealer_email = dealer_response[0].get('email')
+                _, email_error = _send_dealer_status_email(
+                    dealer_email,
+                    'approved',
+                    request.headers.get('Origin')
+                )
+                if email_error:
+                    logger.error(f"Dealer approval email failed for {dealer_id}: {email_error}")
+
             logger.info(f"Admin {current_user} verified dealer {dealer_id}")
             return jsonify({'success': True, 'message': 'Dealer verified successfully'}), 200
         else:
@@ -4384,6 +4630,22 @@ def api_reject_dealer(current_user, dealer_id):
         )
         
         if status_code in [200, 204]:
+            dealer_response, dealer_status = supabase_request(
+                'get',
+                f'/rest/v1/users?id=eq.{dealer_id}&select=email',
+                use_service_role=True
+            )
+            if dealer_status < 400 and dealer_response:
+                dealer_email = dealer_response[0].get('email')
+                _, email_error = _send_dealer_status_email(
+                    dealer_email,
+                    'rejected',
+                    request.headers.get('Origin'),
+                    rejection_note=rejection_note
+                )
+                if email_error:
+                    logger.error(f"Dealer rejection email failed for {dealer_id}: {email_error}")
+
             logger.info(f"Admin {current_user} rejected dealer {dealer_id}")
             return jsonify({'success': True, 'message': 'Dealer verification rejected'}), 200
         else:

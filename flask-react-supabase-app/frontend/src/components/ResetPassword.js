@@ -11,14 +11,33 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [hash, setHash] = useState('');
+  const [accessToken, setAccessToken] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Extract hash from URL
     const hashFragment = window.location.hash;
-    if (hashFragment) {
-      setHash(hashFragment);
+    if (!hashFragment) {
+      setError('Invalid or expired password reset link');
+      return;
+    }
+
+    const params = new URLSearchParams(hashFragment.substring(1));
+    const token = params.get('access_token');
+    const type = params.get('type');
+    const errorDescription = params.get('error_description');
+
+    if (errorDescription) {
+      setError(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
+      return;
+    }
+
+    if (type && type !== 'recovery') {
+      setError('Invalid password reset link');
+      return;
+    }
+
+    if (token) {
+      setAccessToken(token);
     } else {
       setError('Invalid or expired password reset link');
     }
@@ -52,7 +71,7 @@ const ResetPassword = () => {
       // Note: We need to implement this endpoint in the backend
       const response = await axios.post(`${API_URL}/api/auth/update-password`, {
         password,
-        hash: hash.substring(1) // Remove the leading '#'
+        access_token: accessToken
       });
       
       if (response.status === 200) {
@@ -92,7 +111,7 @@ const ResetPassword = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter new password"
-              disabled={loading || success || !hash}
+              disabled={loading || success || !accessToken}
             />
           </div>
           
@@ -104,14 +123,14 @@ const ResetPassword = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
-              disabled={loading || success || !hash}
+              disabled={loading || success || !accessToken}
             />
           </div>
           
           <button 
             type="submit" 
             className="auth-button"
-            disabled={loading || success || !hash}
+            disabled={loading || success || !accessToken}
           >
             {loading ? 'Resetting...' : 'Reset Password'}
           </button>

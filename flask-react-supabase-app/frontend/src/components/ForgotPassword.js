@@ -33,7 +33,10 @@ const ForgotPassword = () => {
 
     try {
       // Note: We need to implement this endpoint in the backend
-      const response = await axios.post(`${API_URL}/api/auth/reset-password`, { email });
+      const response = await axios.post(`${API_URL}/api/auth/reset-password`, {
+        email,
+        redirectTo: `${window.location.origin}/reset-password`
+      });
       
       if (response.status === 200) {
         setSuccess(true);

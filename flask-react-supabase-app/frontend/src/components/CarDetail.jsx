@@ -7,6 +7,20 @@ import ReportButton from './ReportButton';
 import { useAuth } from '../context/AuthContext';
 import { formatPhoneNumber } from '../utils/countryCodes';
 import './CarDetail.css';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -356,8 +370,22 @@ const CarDetail = () => {
               <h3>Location</h3>
               <p>{car.car_location}</p>
               <div className="map-container">
-                {/* Map would be displayed here if implemented */}
-                <div className="map-placeholder">Map location unavailable</div>
+                {car.latitude && car.longitude ? (
+                  <MapContainer
+                    center={[car.latitude, car.longitude]}
+                    zoom={13}
+                    scrollWheelZoom={false}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution="&copy; OpenStreetMap contributors"
+                    />
+                    <Marker position={[car.latitude, car.longitude]} />
+                  </MapContainer>
+                ) : (
+                  <div className="map-placeholder">Map location unavailable</div>
+                )}
               </div>
             </div>
           )}

@@ -78,6 +78,32 @@
   width: 100%;
 }
 
+.phone-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.country-code-select {
+  flex: 0 0 140px;
+}
+
+.phone-number-input {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 768px) {
+  .phone-input-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .country-code-select {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+}
+
 .form-group label {
   margin-bottom: 8px;
   font-weight: 500;
