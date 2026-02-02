@@ -1951,12 +1951,8 @@ def _get_password_policy_errors(password):
     if not password:
         return ['Password is required']
 
-    if len(password) < 10:
-        errors.append('Password must be at least 10 characters long')
-    if not re.search(r'[a-z]', password):
-        errors.append('Password must include a lowercase letter')
-    if not re.search(r'[A-Z]', password):
-        errors.append('Password must include an uppercase letter')
+    if len(password) < 8:
+        errors.append('Password must be at least 8 characters long')
     if not re.search(r'[0-9]', password):
         errors.append('Password must include a number')
     if not re.search(r'[^a-zA-Z0-9]', password):

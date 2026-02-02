@@ -20,14 +20,8 @@ const Settings = () => {
       errors.push('Password is required');
       return errors;
     }
-    if (value.length < 10) {
-      errors.push('Password must be at least 10 characters long');
-    }
-    if (!/[a-z]/.test(value)) {
-      errors.push('Password must include a lowercase letter');
-    }
-    if (!/[A-Z]/.test(value)) {
-      errors.push('Password must include an uppercase letter');
+    if (value.length < 8) {
+      errors.push('Password must be at least 8 characters long');
     }
     if (!/[0-9]/.test(value)) {
       errors.push('Password must include a number');
@@ -165,7 +159,7 @@ const Settings = () => {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
-              minLength="10"
+              minLength="8"
             />
           </div>
           
@@ -177,7 +171,7 @@ const Settings = () => {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              minLength="10"
+              minLength="8"
             />
           </div>
           
@@ -189,7 +183,7 @@ const Settings = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              minLength="10"
+              minLength="8"
             />
           </div>
           

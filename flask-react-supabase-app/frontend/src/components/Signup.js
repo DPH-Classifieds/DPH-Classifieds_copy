@@ -66,15 +66,14 @@ const Signup = () => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, text: '', color: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordChecks, setPasswordChecks] = useState({ length: false, number: false, symbol: false });
   const [fieldErrors, setFieldErrors] = useState({});
   const [allErrors, setAllErrors] = useState([]);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const getPasswordChecks = (password) => ({
-    length: password.length >= 10,
-    lower: /[a-z]/.test(password),
-    upper: /[A-Z]/.test(password),
+    length: password.length >= 8,
     number: /[0-9]/.test(password),
     symbol: /[^a-zA-Z0-9]/.test(password)
   });
@@ -85,25 +84,23 @@ const Signup = () => {
     if (!password) return { score: 0, text: '', color: '' };
 
     // Length check
-    if (password.length >= 10) score += 1;
-    if (password.length >= 14) score += 1;
+    if (password.length >= 8) score += 1;
+    if (password.length >= 12) score += 1;
 
     // Character variety
-    if (/[a-z]/.test(password)) score += 1;
-    if (/[A-Z]/.test(password)) score += 1;
     if (/[0-9]/.test(password)) score += 1;
     if (/[^a-zA-Z0-9]/.test(password)) score += 1;
 
     // Determine strength text and color
     let text = '';
     let color = '';
-    if (score < 3) {
+    if (score < 2) {
       text = 'Weak';
       color = '#ff4444';
-    } else if (score < 5) {
+    } else if (score < 3) {
       text = 'Fair';
       color = '#ffaa00';
-    } else if (score < 6) {
+    } else if (score < 4) {
       text = 'Good';
       color = '#88cc00';
     } else {
@@ -134,6 +131,7 @@ const Signup = () => {
 
     // Update password strength when password changes
     if (name === 'password') {
+      setPasswordChecks(getPasswordChecks(value));
       setPasswordStrength(calculatePasswordStrength(value));
       
       // Check password match in real-time
@@ -210,9 +208,9 @@ const Signup = () => {
       newFieldErrors.password = 'Required';
     } else {
       const checks = getPasswordChecks(formData.password);
-      if (!checks.length || !checks.lower || !checks.upper || !checks.number || !checks.symbol) {
-        errors.push('Password must be 10+ characters and include upper/lowercase, a number, and a symbol');
-        newFieldErrors.password = 'Use 10+ chars with upper/lower, number, symbol';
+      if (!checks.length || !checks.number || !checks.symbol) {
+        errors.push('Password must be 8+ characters and include a number and a symbol');
+        newFieldErrors.password = 'Use 8+ chars with number and symbol';
       }
     }
 
@@ -547,7 +545,7 @@ const Signup = () => {
                   value={formData.password}
                   onChange={handleInputChange}
                   required
-                  minLength="10"
+                  minLength="8"
                   placeholder="Create a strong password"
                   autoComplete="new-password"
                   className={fieldErrors.password ? 'error-input' : ''}
@@ -565,12 +563,26 @@ const Signup = () => {
                 <div className="field-error">{fieldErrors.password}</div>
               )}
               {formData.password && (
+                <div className="password-checklist">
+                  <div className={`check-item ${passwordChecks.length ? 'met' : ''}`}>
+                    <span className="check-box">{passwordChecks.length ? '✓' : '○'}</span>
+                    8+ characters
+                  </div>
+                  <div className={`check-item ${passwordChecks.number ? 'met' : ''}`}>
+                    <span className="check-box">{passwordChecks.number ? '✓' : '○'}</span>
+                    Includes a number
+                  </div>
+                  <div className={`check-item ${passwordChecks.symbol ? 'met' : ''}`}>
+                    <span className="check-box">{passwordChecks.symbol ? '✓' : '○'}</span>
+                    Includes a symbol
+                  </div>
+                </div>
                 <div className="password-strength">
                   <div className="strength-bar">
                     <div 
                       className="strength-fill" 
                       style={{ 
-                        width: `${(passwordStrength.score / 6) * 100}%`,
+                        width: `${(passwordStrength.score / 4) * 100}%`,
                         backgroundColor: passwordStrength.color
                       }}
                     />
@@ -581,7 +593,7 @@ const Signup = () => {
                 </div>
               )}
               <small className="form-hint">
-                Use 10+ characters with uppercase, lowercase, a number, and a symbol
+                Use at least 8 characters with a number and a symbol
               </small>
             </div>
             
@@ -594,7 +606,7 @@ const Signup = () => {
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
                 required
-                minLength="10"
+                minLength="8"
                 placeholder="Re-enter your password"
                 autoComplete="new-password"
                 className={fieldErrors.confirmPassword ? 'error-input' : ''}

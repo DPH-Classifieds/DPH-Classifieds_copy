@@ -20,14 +20,8 @@ const ResetPassword = () => {
       errors.push('Password is required');
       return errors;
     }
-    if (value.length < 10) {
-      errors.push('Password must be at least 10 characters long');
-    }
-    if (!/[a-z]/.test(value)) {
-      errors.push('Password must include a lowercase letter');
-    }
-    if (!/[A-Z]/.test(value)) {
-      errors.push('Password must include an uppercase letter');
+    if (value.length < 8) {
+      errors.push('Password must be at least 8 characters long');
     }
     if (!/[0-9]/.test(value)) {
       errors.push('Password must include a number');
@@ -136,11 +130,11 @@ const ResetPassword = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter new password"
-              minLength="10"
+              minLength="8"
               disabled={loading || success || !accessToken}
             />
             <small className="form-hint">
-              Use 10+ characters with uppercase, lowercase, a number, and a symbol
+              Use at least 8 characters with a number and a symbol
             </small>
           </div>
           
@@ -152,7 +146,7 @@ const ResetPassword = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
-              minLength="10"
+              minLength="8"
               disabled={loading || success || !accessToken}
             />
           </div>

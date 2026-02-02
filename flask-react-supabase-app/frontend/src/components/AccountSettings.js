@@ -323,14 +323,8 @@ const AccountSettings = () => {
         errors.push('Password is required');
         return errors;
       }
-      if (value.length < 10) {
-        errors.push('Password must be at least 10 characters long');
-      }
-      if (!/[a-z]/.test(value)) {
-        errors.push('Password must include a lowercase letter');
-      }
-      if (!/[A-Z]/.test(value)) {
-        errors.push('Password must include an uppercase letter');
+      if (value.length < 8) {
+        errors.push('Password must be at least 8 characters long');
       }
       if (!/[0-9]/.test(value)) {
         errors.push('Password must include a number');
@@ -960,7 +954,7 @@ const AccountSettings = () => {
                     value={passwordData.currentPassword}
                     onChange={handlePasswordInputChange}
                     required
-                    minLength="10"
+                    minLength="8"
                   />
                 </div>
 
@@ -973,7 +967,7 @@ const AccountSettings = () => {
                     value={passwordData.newPassword}
                     onChange={handlePasswordInputChange}
                     required
-                    minLength="10"
+                    minLength="8"
                   />
                   <small className="form-text">Minimum 8 characters</small>
                 </div>
@@ -987,7 +981,7 @@ const AccountSettings = () => {
                     value={passwordData.confirmPassword}
                     onChange={handlePasswordInputChange}
                     required
-                    minLength="10"
+                    minLength="8"
                   />
                 </div>
               </div>
