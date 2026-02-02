@@ -563,34 +563,36 @@ const Signup = () => {
                 <div className="field-error">{fieldErrors.password}</div>
               )}
               {formData.password && (
-                <div className="password-checklist">
-                  <div className={`check-item ${passwordChecks.length ? 'met' : ''}`}>
-                    <span className="check-box">{passwordChecks.length ? '✓' : '○'}</span>
-                    8+ characters
+                <>
+                  <div className="password-checklist">
+                    <div className={`check-item ${passwordChecks.length ? 'met' : ''}`}>
+                      <span className="check-box">{passwordChecks.length ? '✓' : '○'}</span>
+                      8+ characters
+                    </div>
+                    <div className={`check-item ${passwordChecks.number ? 'met' : ''}`}>
+                      <span className="check-box">{passwordChecks.number ? '✓' : '○'}</span>
+                      Includes a number
+                    </div>
+                    <div className={`check-item ${passwordChecks.symbol ? 'met' : ''}`}>
+                      <span className="check-box">{passwordChecks.symbol ? '✓' : '○'}</span>
+                      Includes a symbol
+                    </div>
                   </div>
-                  <div className={`check-item ${passwordChecks.number ? 'met' : ''}`}>
-                    <span className="check-box">{passwordChecks.number ? '✓' : '○'}</span>
-                    Includes a number
+                  <div className="password-strength">
+                    <div className="strength-bar">
+                      <div
+                        className="strength-fill"
+                        style={{
+                          width: `${(passwordStrength.score / 4) * 100}%`,
+                          backgroundColor: passwordStrength.color
+                        }}
+                      />
+                    </div>
+                    <span className="strength-text" style={{ color: passwordStrength.color }}>
+                      {passwordStrength.text}
+                    </span>
                   </div>
-                  <div className={`check-item ${passwordChecks.symbol ? 'met' : ''}`}>
-                    <span className="check-box">{passwordChecks.symbol ? '✓' : '○'}</span>
-                    Includes a symbol
-                  </div>
-                </div>
-                <div className="password-strength">
-                  <div className="strength-bar">
-                    <div 
-                      className="strength-fill" 
-                      style={{ 
-                        width: `${(passwordStrength.score / 4) * 100}%`,
-                        backgroundColor: passwordStrength.color
-                      }}
-                    />
-                  </div>
-                  <span className="strength-text" style={{ color: passwordStrength.color }}>
-                    {passwordStrength.text}
-                  </span>
-                </div>
+                </>
               )}
               <small className="form-hint">
                 Use at least 8 characters with a number and a symbol
