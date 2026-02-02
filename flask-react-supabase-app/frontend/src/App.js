@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AuthProvider } from './context/AuthContext';
@@ -56,6 +56,39 @@ const getBetaGateState = () => {
   }
 };
 
+const AuthHashHandler = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || hash.length < 2) {
+      return;
+    }
+
+    const params = new URLSearchParams(hash.substring(1));
+    const type = params.get('type');
+    const hasToken = Boolean(params.get('access_token') || params.get('refresh_token'));
+
+    if (!type && !hasToken) {
+      return;
+    }
+
+    if (type === 'recovery') {
+      if (location.pathname !== '/reset-password') {
+        navigate(`/reset-password${hash}`, { replace: true });
+      }
+      return;
+    }
+
+    if (location.pathname !== '/auth/callback') {
+      navigate(`/auth/callback${hash}`, { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  return null;
+};
+
 function App() {
   const [isBetaUnlocked, setIsBetaUnlocked] = useState(getBetaGateState);
 
@@ -75,6 +108,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <AuthHashHandler />
         <div className="app">
           <Header />
           <main className="app-content">
