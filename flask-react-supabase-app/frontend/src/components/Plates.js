@@ -258,16 +258,17 @@ const Plates = () => {
 
   // Filter plates based on current filters
   const filteredPlates = plates.filter(plate => {
+    const plateNumber = String(plate.number || '');
     if (filters.city !== 'All cities' && plate.city !== filters.city) return false;
     if (filters.code !== 'All codes' && plate.code !== filters.code) return false;
     if (filters.priceMin && plate.price < parseFloat(filters.priceMin)) return false;
     if (filters.priceMax && plate.price > parseFloat(filters.priceMax)) return false;
     
     // New filters
-    if (filters.digits && plate.number && plate.number.length !== parseInt(filters.digits)) return false;
-    if (filters.contains && !plate.number.includes(filters.contains)) return false;
-    if (filters.startsWith && !plate.number.startsWith(filters.startsWith)) return false;
-    if (filters.endsWith && !plate.number.endsWith(filters.endsWith)) return false;
+    if (filters.digits && plateNumber.length !== parseInt(filters.digits, 10)) return false;
+    if (filters.contains && !plateNumber.includes(filters.contains)) return false;
+    if (filters.startsWith && !plateNumber.startsWith(filters.startsWith)) return false;
+    if (filters.endsWith && !plateNumber.endsWith(filters.endsWith)) return false;
     if (filters.format !== 'Any format' && plate.plate_format !== filters.format) return false;
     
     return true;
@@ -414,25 +415,29 @@ const Plates = () => {
                 type="text" 
                 placeholder="Contains: ex:900" 
                 value={filters.contains}
-                onChange={(e) => setFilters(prev => ({ ...prev, contains: e.target.value }))}
+                onChange={(e) => setFilters(prev => ({ ...prev, contains: e.target.value.replace(/\D/g, '') }))}
                 className="filter-input"
+                inputMode="numeric"
+                pattern="[0-9]*"
               />
             </div>
             
             <div className="search-row">
               <input 
-                type="text" 
+                type="number"
+                min="0"
                 placeholder="Maximum price" 
                 value={filters.priceMax}
-                onChange={(e) => setFilters(prev => ({ ...prev, priceMax: e.target.value }))}
+                onChange={(e) => setFilters(prev => ({ ...prev, priceMax: e.target.value === '' ? '' : Math.max(0, Number(e.target.value)) }))}
                 className="filter-input"
               />
               
               <input 
-                type="text" 
+                type="number"
+                min="0"
                 placeholder="Minimum price" 
                 value={filters.priceMin}
-                onChange={(e) => setFilters(prev => ({ ...prev, priceMin: e.target.value }))}
+                onChange={(e) => setFilters(prev => ({ ...prev, priceMin: e.target.value === '' ? '' : Math.max(0, Number(e.target.value)) }))}
                 className="filter-input"
               />
               
@@ -440,16 +445,20 @@ const Plates = () => {
                 type="text" 
                 placeholder="Starts with: ex:123" 
                 value={filters.startsWith}
-                onChange={(e) => setFilters(prev => ({ ...prev, startsWith: e.target.value }))}
+                onChange={(e) => setFilters(prev => ({ ...prev, startsWith: e.target.value.replace(/\D/g, '') }))}
                 className="filter-input"
+                inputMode="numeric"
+                pattern="[0-9]*"
               />
               
               <input 
                 type="text" 
                 placeholder="Ends with: ex:000" 
                 value={filters.endsWith}
-                onChange={(e) => setFilters(prev => ({ ...prev, endsWith: e.target.value }))}
+                onChange={(e) => setFilters(prev => ({ ...prev, endsWith: e.target.value.replace(/\D/g, '') }))}
                 className="filter-input"
+                inputMode="numeric"
+                pattern="[0-9]*"
               />
             </div>
             
@@ -507,6 +516,7 @@ const Plates = () => {
       
       <div className="plate-sell-cta">
         <div className="cta-content">
+          <img src="/images/plates/dubai.png" alt="UAE plate" className="plate-cta-image" />
           <div className="cta-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect>

@@ -80,7 +80,7 @@ const ForgotPassword = () => {
           
           <button 
             type="submit" 
-            className="auth-button"
+            className="auth-button primary-button"
             disabled={loading || success}
           >
             {loading ? 'Sending...' : 'Send Reset Link'}

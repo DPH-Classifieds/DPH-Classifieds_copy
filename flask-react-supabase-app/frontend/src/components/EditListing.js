@@ -298,7 +298,7 @@ const EditListing = () => {
                 value={formData.make_year}
                 onChange={handleChange}
                 placeholder="e.g. 2019"
-                min="1900"
+                min="1886"
                 max={new Date().getFullYear() + 1}
                 required
               />
@@ -445,30 +445,26 @@ const EditListing = () => {
                 <option value="">Select Transmission</option>
                 <option value="Automatic">Automatic</option>
                 <option value="Manual">Manual</option>
-                <option value="CVT">CVT</option>
-                <option value="Electric">Electric</option>
-                <option value="Semi-Automatic">Semi-Automatic</option>
-                <option value="Other">Other</option>
               </select>
             </div>
           </div>
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="regional_spec">Regional Specs</label>
+              <label htmlFor="regional_spec">Regional Spec</label>
               <select
                 id="regional_spec"
                 name="regional_spec"
                 value={formData.regional_spec}
                 onChange={handleChange}
               >
-                <option value="">Select Regional Specs</option>
-                <option value="GCC Specs">GCC Specs</option>
-                <option value="American Specs">American Specs</option>
-                <option value="European Specs">European Specs</option>
-                <option value="Japanese Specs">Japanese Specs</option>
-                <option value="Korean Specs">Korean Specs</option>
-                <option value="Chinese Specs">Chinese Specs</option>
+                <option value="">Select Regional Spec</option>
+                <option value="GCC">GCC</option>
+                <option value="North American">North American</option>
+                <option value="European">European</option>
+                <option value="Japanese">Japanese</option>
+                <option value="Korean">Korean</option>
+                <option value="Chinese">Chinese</option>
                 <option value="Other">Other</option>
               </select>
             </div>

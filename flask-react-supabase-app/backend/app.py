@@ -40,6 +40,59 @@ CONTACT_RATE_LIMIT_WINDOW_SEC = int(os.getenv('CONTACT_RATE_LIMIT_WINDOW_SEC', '
 CONTACT_RATE_LIMIT_MAX = int(os.getenv('CONTACT_RATE_LIMIT_MAX', '5'))
 CONTACT_RATE_LIMIT = defaultdict(deque)
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+MIN_ALLOWED_YEAR = 1886
+MAX_DESCRIPTION_WORDS = 300
+
+CAR_TRANSMISSION_OPTIONS = {'Automatic', 'Manual'}
+REGIONAL_SPEC_NORMALIZATION = {
+    'GCC Specs': 'GCC',
+    'American Specs': 'North American',
+    'European Specs': 'European',
+    'Japanese Specs': 'Japanese',
+    'Korean Specs': 'Korean',
+    'Chinese Specs': 'Chinese'
+}
+
+
+def _to_int(value, field_name, *, minimum=None, maximum=None, allow_empty=True):
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        value = value.strip()
+        if value == '':
+            if allow_empty:
+                return None
+            raise ValueError(f"{field_name} is required")
+
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} must be a valid number")
+
+    if minimum is not None and parsed < minimum:
+        raise ValueError(f"{field_name} must be at least {minimum}")
+    if maximum is not None and parsed > maximum:
+        raise ValueError(f"{field_name} must be at most {maximum}")
+
+    return parsed
+
+
+def _normalize_regional_spec(value):
+    if not value:
+        return value
+    normalized = REGIONAL_SPEC_NORMALIZATION.get(value, value)
+    if isinstance(normalized, str) and normalized.endswith(' Specs'):
+        return normalized.replace(' Specs', '').strip()
+    return normalized
+
+
+def _validate_description_word_count(description, *, field_name='description'):
+    if not isinstance(description, str) or not description.strip():
+        return
+    words = re.findall(r'\S+', description)
+    if len(words) > MAX_DESCRIPTION_WORDS:
+        raise ValueError(f"{field_name} must be {MAX_DESCRIPTION_WORDS} words or fewer")
 
 def _get_cors_origins():
     origins_env = os.getenv("CORS_ORIGINS", "")
@@ -449,6 +502,29 @@ def get_cars():
         for key, value in request.args.items():
             if not key.startswith('_') and key not in ['limit', 'offset', 'order', 'extras'] and value:
                 if key in allowed_filters:
+                    # Validate and normalize numeric filters before sending to Supabase
+                    if key in ['price_from', 'price_to']:
+                        try:
+                            value = str(_to_int(value, key, minimum=0, allow_empty=False))
+                        except ValueError as validation_error:
+                            return jsonify({'error': str(validation_error), 'data': []}), 400
+                    if key in ['kilometer_from', 'kilometer_to']:
+                        try:
+                            value = str(_to_int(value, key, minimum=0, allow_empty=False))
+                        except ValueError as validation_error:
+                            return jsonify({'error': str(validation_error), 'data': []}), 400
+                    if key in ['make_year_from', 'make_year_to']:
+                        try:
+                            value = str(_to_int(
+                                value,
+                                key,
+                                minimum=MIN_ALLOWED_YEAR,
+                                maximum=datetime.datetime.now().year + 1,
+                                allow_empty=False
+                            ))
+                        except ValueError as validation_error:
+                            return jsonify({'error': str(validation_error), 'data': []}), 400
+
                     # Handle range filters
                     if key.endswith('_from'):
                         base_field = key.replace('_from', '')
@@ -618,6 +694,56 @@ def get_car_by_id(car_id):
         logger.error(f"Error fetching car details: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+
+def _increment_listing_view_count(table_name, listing_id):
+    try:
+        headers = {
+            'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
+            'Content-Type': 'application/json'
+        }
+
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{listing_id}&select=view_count",
+            headers=headers,
+            timeout=5
+        )
+        if response.status_code != 200 or not response.json():
+            return False
+
+        current_view_count = response.json()[0].get('view_count', 0) or 0
+        update_response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{listing_id}",
+            headers=headers,
+            json={'view_count': current_view_count + 1},
+            timeout=5
+        )
+        return update_response.status_code in [200, 204]
+    except Exception as view_error:
+        logger.warning(f"Failed to increment view count for {table_name}/{listing_id}: {view_error}")
+        return False
+
+
+@app.route('/api/cars/<string:car_id>/view', methods=['POST'])
+def track_car_view(car_id):
+    if _increment_listing_view_count('cars', car_id):
+        return jsonify({'message': 'View count updated'}), 200
+    return jsonify({'message': 'Unable to update view count'}), 400
+
+
+@app.route('/api/bikes/<string:bike_id>/view', methods=['POST'])
+def track_bike_view(bike_id):
+    if _increment_listing_view_count('bikes', bike_id):
+        return jsonify({'message': 'View count updated'}), 200
+    return jsonify({'message': 'Unable to update view count'}), 400
+
+
+@app.route('/api/plates/<string:plate_id>/view', methods=['POST'])
+def track_plate_view(plate_id):
+    if _increment_listing_view_count('license_plates', plate_id):
+        return jsonify({'message': 'View count updated'}), 200
+    return jsonify({'message': 'Unable to update view count'}), 400
+
 # Get user's own cars (authenticated)
 @app.route('/api/user/cars', methods=['GET'])
 @token_required
@@ -668,6 +794,41 @@ def create_car(current_user):
         
         car_data = request.json
         car_data['user_id'] = current_user
+
+        try:
+            if 'make_year' in car_data:
+                car_data['make_year'] = _to_int(
+                    car_data.get('make_year'),
+                    'make_year',
+                    minimum=MIN_ALLOWED_YEAR,
+                    maximum=datetime.datetime.now().year + 1,
+                    allow_empty=False
+                )
+            if 'kilometer_driven' in car_data:
+                car_data['kilometer_driven'] = _to_int(
+                    car_data.get('kilometer_driven'),
+                    'kilometer_driven',
+                    minimum=0
+                )
+            if 'expected_selling_price' in car_data:
+                car_data['expected_selling_price'] = _to_int(
+                    car_data.get('expected_selling_price'),
+                    'expected_selling_price',
+                    minimum=0,
+                    allow_empty=False
+                )
+            if 'regional_spec' in car_data:
+                car_data['regional_spec'] = _normalize_regional_spec(car_data.get('regional_spec'))
+            if 'transmission_type' in car_data and car_data.get('transmission_type'):
+                if car_data['transmission_type'] not in CAR_TRANSMISSION_OPTIONS:
+                    return jsonify({'error': 'Transmission must be Automatic or Manual'}), 400
+
+            _validate_description_word_count(
+                car_data.get('car_description'),
+                field_name='car_description'
+            )
+        except ValueError as validation_error:
+            return jsonify({'error': str(validation_error)}), 400
         
         # Extract and transform extras array to individual boolean fields
         extras = car_data.pop('extras', [])
@@ -706,7 +867,7 @@ def create_car(current_user):
             'car_owner_phone_number', 'car_city', 'listing_title', 'tour_url',
             'car_description', 'fuel_type', 'transmission_type', 'seating_capacity',
             'horsepower', 'engine_capacity', 'steering_side', 'car_location',
-            'vehicle_type', 'is_approved', 'user_id', 'country_code',
+            'vehicle_type', 'is_approved', 'user_id', 'country_code', 'vin_number',
             'latitude', 'longitude',
             'keyless_entry', 'dvd_player', 'climate_control', 'navigation_system',
             'premium_sound_system', 'cooled_seats', 'front_wheel_drive', 'leather_seats',
@@ -856,6 +1017,46 @@ def update_car(current_user, car_id):
             new_images = []
             keep_image_ids = []
 
+        try:
+            if 'make_year' in update_data:
+                update_data['make_year'] = _to_int(
+                    update_data.get('make_year'),
+                    'make_year',
+                    minimum=MIN_ALLOWED_YEAR,
+                    maximum=datetime.datetime.now().year + 1,
+                    allow_empty=False
+                )
+            if 'mileage' in update_data and 'kilometer_driven' not in update_data:
+                update_data['kilometer_driven'] = _to_int(
+                    update_data.get('mileage'),
+                    'kilometer_driven',
+                    minimum=0
+                )
+            if 'kilometer_driven' in update_data:
+                update_data['kilometer_driven'] = _to_int(
+                    update_data.get('kilometer_driven'),
+                    'kilometer_driven',
+                    minimum=0
+                )
+            if 'expected_selling_price' in update_data:
+                update_data['expected_selling_price'] = _to_int(
+                    update_data.get('expected_selling_price'),
+                    'expected_selling_price',
+                    minimum=0
+                )
+            if 'regional_spec' in update_data:
+                update_data['regional_spec'] = _normalize_regional_spec(update_data.get('regional_spec'))
+            if 'transmission_type' in update_data and update_data.get('transmission_type'):
+                if update_data['transmission_type'] not in CAR_TRANSMISSION_OPTIONS:
+                    return jsonify({'error': 'Transmission must be Automatic or Manual'}), 400
+            if 'car_description' in update_data:
+                _validate_description_word_count(update_data.get('car_description'), field_name='car_description')
+            if 'description' in update_data and 'car_description' not in update_data:
+                _validate_description_word_count(update_data.get('description'), field_name='car_description')
+                update_data['car_description'] = update_data.pop('description')
+        except ValueError as validation_error:
+            return jsonify({'error': str(validation_error)}), 400
+
         # Drop fields that don't exist in the cars table schema
         update_data.pop('is_dealer', None)
         
@@ -893,7 +1094,7 @@ def update_car(current_user, car_id):
             'car_owner_phone_number', 'car_city', 'listing_title', 'tour_url',
             'car_description', 'fuel_type', 'transmission_type', 'seating_capacity',
             'horsepower', 'engine_capacity', 'steering_side', 'car_location',
-            'vehicle_type', 'is_approved', 'country_code',
+            'vehicle_type', 'is_approved', 'country_code', 'vin_number',
             'latitude', 'longitude',
             'keyless_entry', 'dvd_player', 'climate_control', 'navigation_system',
             'premium_sound_system', 'cooled_seats', 'front_wheel_drive', 'leather_seats',
@@ -1867,6 +2068,30 @@ def find_user_email_by_username(username):
         logger.error(f"Error finding user by username: {str(e)}")
         return None
 
+
+def user_exists_by_email(email):
+    """Check whether a user exists for the provided email."""
+    try:
+        service_role_key = app.config['SUPABASE_SERVICE_ROLE_KEY']
+        headers = {
+            'apikey': service_role_key,
+            'Authorization': f'Bearer {service_role_key}',
+            'Content-Type': 'application/json'
+        }
+
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?email=eq.{email}&select=id&limit=1"
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            logger.warning(f"Unable to verify email existence for login: {response.status_code}")
+            return False
+
+        users = response.json()
+        return bool(users)
+    except Exception as e:
+        logger.error(f"Error finding user by email: {str(e)}")
+        return False
+
 # User authentication routes
 @app.route('/api/auth/login', methods=['POST'])
 def login():
@@ -1882,16 +2107,22 @@ def login():
     
     # Determine if the identifier is an email or username
     email = identifier
+    is_username_login = '@' not in identifier
+    email_exists = False
     if '@' not in identifier:
         # It's a username, find the corresponding email
         logger.info(f"[Login] Identifier appears to be username: {identifier}")
         email = find_user_email_by_username(identifier)
         if not email:
             logger.warning(f"[Login] No user found with username: {identifier}")
-            return jsonify({'message': 'Invalid username or password'}), 401
+            return jsonify({'message': 'Username not found. Please check your username or use Forgot Password.'}), 401
         logger.info(f"[Login] Found email for username {identifier}: {email}")
+        email_exists = True
     else:
         logger.info(f"[Login] Identifier appears to be email: {identifier}")
+        email_exists = user_exists_by_email(email)
+        if not email_exists:
+            return jsonify({'message': 'Email not found. Please check your email address or create an account.'}), 401
     
     url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
     headers = { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' }
@@ -1940,7 +2171,16 @@ def login():
             error_data = response.json()
             error_msg = error_data.get('error_description', 'Login failed')
             logger.error(f"[Login] Supabase auth failed: {error_msg}. Response: {error_data}")
-            return jsonify({'message': error_msg}), response.status_code
+            lowered = str(error_msg).lower()
+            if 'invalid login credentials' in lowered or 'invalid credentials' in lowered:
+                if is_username_login:
+                    message = 'Incorrect password for this username. Please try again or use Forgot Password.'
+                elif email_exists:
+                    message = 'Incorrect password for this email. Please try again or use Forgot Password.'
+                else:
+                    message = 'Invalid login details. Please try again or use Forgot Password.'
+                return jsonify({'message': message}), 401
+            return jsonify({'message': f"{error_msg}. If needed, use Forgot Password."}), response.status_code
     
     except Exception as e:
         logger.error(f"[Login] Exception during login: {str(e)}", exc_info=True)
@@ -2172,11 +2412,34 @@ def _get_user_details_with_admin_status(user_id_from_token):
     elif auth_user_data and auth_user_data.get('created_at'):
         final_created_at = auth_user_data.get('created_at')
 
+    email_verified = False
+    phone_verified = False
+    if db_user_data:
+        email_verified = bool(db_user_data.get('email_verified', False))
+        phone_verified = bool(db_user_data.get('phone_verified', False))
+
+    auth_email_confirmed = None
+    auth_phone_confirmed = None
+    if auth_user_data:
+        if isinstance(auth_user_data.get('user'), dict):
+            auth_email_confirmed = auth_user_data['user'].get('email_confirmed_at')
+            auth_phone_confirmed = auth_user_data['user'].get('phone_confirmed_at')
+        else:
+            auth_email_confirmed = auth_user_data.get('email_confirmed_at')
+            auth_phone_confirmed = auth_user_data.get('phone_confirmed_at')
+
+    email_verified = email_verified or bool(auth_email_confirmed)
+    phone_verified = phone_verified or bool(auth_phone_confirmed)
+
     final_user_details = {
         'id': user_id_from_token,
         'email': final_email_to_use,
         'is_admin': final_is_admin, # Use the derived is_admin_in_db from potentially populated db_user_data
-        'created_at': final_created_at
+        'created_at': final_created_at,
+        'is_dealer': bool(db_user_data.get('is_dealer', False)) if db_user_data else False,
+        'dealer_verified': bool(db_user_data.get('dealer_verified', False)) if db_user_data else False,
+        'email_verified': email_verified,
+        'phone_verified': phone_verified
     }
     logger.info(f"[_get_user_details_with_admin_status] Returning final details: {final_user_details}")
     return final_user_details
@@ -2347,6 +2610,21 @@ def update_password():
         return jsonify({'message': 'An error occurred during password update'}), 500
 
 # Bike Endpoints (Similar to Car Endpoints)
+def _normalize_bike_record(bike):
+    """Normalize bike payload keys for frontend compatibility."""
+    if not isinstance(bike, dict):
+        return bike
+
+    bike['make'] = bike.get('make') or bike.get('bike_brand')
+    bike['model'] = bike.get('model') or bike.get('bike_model')
+    bike['year'] = bike.get('year') or bike.get('make_year')
+    bike['bike_type'] = bike.get('bike_type') or bike.get('bike_category')
+    bike['engine_size'] = bike.get('engine_size') or bike.get('engine_capacity')
+    bike['price'] = bike.get('price') if bike.get('price') is not None else bike.get('expected_selling_price')
+    bike['mileage'] = bike.get('mileage') if bike.get('mileage') is not None else bike.get('kilometer_driven')
+    return bike
+
+
 @app.route('/api/bikes', methods=['GET'])
 def get_bikes():
     try:
@@ -2397,13 +2675,23 @@ def get_bikes():
                 
                 # Fetch images for each bike
                 for bike in bikes:
+                    _normalize_bike_record(bike)
                     bike_id = bike['id']
                     image_url = f"{app.config['SUPABASE_URL']}/rest/v1/bike_images?bike_id=eq.{bike_id}"
                     image_response = requests.get(image_url, headers=headers)
                     
                     if image_response.status_code == 200:
                         images = image_response.json()
-                        bike['images'] = [img['image_url'] for img in images]
+                        normalized_images = []
+                        for img in images:
+                            image_url = img.get('image_url') or img.get('url')
+                            if image_url:
+                                normalized_images.append({
+                                    'id': img.get('id'),
+                                    'image_url': image_url,
+                                    'url': image_url
+                                })
+                        bike['images'] = normalized_images
                     else:
                         bike['images'] = []
                 
@@ -2420,6 +2708,7 @@ def get_bikes():
             if status_code < 400 and response:
                 # Fetch images for each bike in fallback
                 for bike in response:
+                    _normalize_bike_record(bike)
                     bike_id = bike['id']
                     images_response, images_status = supabase_request(
                         'get',
@@ -2427,6 +2716,11 @@ def get_bikes():
                         params={'select': '*', 'bike_id': f'eq.{bike_id}'}
                     )
                     if images_status < 400 and images_response:
+                        for image in images_response:
+                            if 'url' in image and not image.get('image_url'):
+                                image['image_url'] = image['url']
+                            if 'image_url' in image and not image.get('url'):
+                                image['url'] = image['image_url']
                         bike['images'] = images_response
                     else:
                         bike['images'] = []
@@ -2452,7 +2746,8 @@ def get_bike_by_id(bike_id):
             return jsonify({"error": "Bike not found"}), 404
             
         bike = bike_response[0]
-        logger.info(f"Found bike: {bike['make']} {bike['model']} (ID: {bike['id']})")
+        _normalize_bike_record(bike)
+        logger.info(f"Found bike: {bike.get('make')} {bike.get('model')} (ID: {bike['id']})")
         
         # Get bike images
         images_query = f"/rest/v1/bike_images?bike_id=eq.{bike_id}&select=*"
@@ -2532,9 +2827,44 @@ def create_bike(current_user):
         bike_data = request.json
         bike_data['user_id'] = current_user
         bike_data['status'] = 'pending'  # Set status as pending for admin approval
+
+        try:
+            if 'year' in bike_data:
+                bike_data['year'] = _to_int(
+                    bike_data.get('year'),
+                    'year',
+                    minimum=MIN_ALLOWED_YEAR,
+                    maximum=datetime.datetime.now().year + 1,
+                    allow_empty=False
+                )
+            if 'price' in bike_data:
+                bike_data['price'] = _to_int(
+                    bike_data.get('price'),
+                    'price',
+                    minimum=0,
+                    allow_empty=False
+                )
+            if 'mileage' in bike_data:
+                bike_data['mileage'] = _to_int(
+                    bike_data.get('mileage'),
+                    'mileage',
+                    minimum=0
+                )
+            if 'engine_capacity' in bike_data and str(bike_data.get('engine_capacity', '')).strip():
+                raw_engine = str(bike_data.get('engine_capacity'))
+                engine_numeric_match = re.search(r'\d+', raw_engine)
+                if engine_numeric_match:
+                    engine_capacity = int(engine_numeric_match.group())
+                    if engine_capacity < 0:
+                        raise ValueError('engine_capacity must be non-negative')
+            _validate_description_word_count(bike_data.get('description'), field_name='description')
+        except ValueError as validation_error:
+            return jsonify({'error': str(validation_error)}), 400
         
         # Extract images from the request
         images = bike_data.pop('images', [])
+        if not images:
+            return jsonify({'error': 'At least one image is required for a bike listing.'}), 400
         
         # Create the bike
         data, status_code = supabase_request(
@@ -2603,6 +2933,24 @@ def update_bike(current_user, bike_id):
         
         update_data = request.json
         images = update_data.pop('images', None)
+
+        try:
+            if 'year' in update_data:
+                update_data['year'] = _to_int(
+                    update_data.get('year'),
+                    'year',
+                    minimum=MIN_ALLOWED_YEAR,
+                    maximum=datetime.datetime.now().year + 1,
+                    allow_empty=False
+                )
+            if 'price' in update_data:
+                update_data['price'] = _to_int(update_data.get('price'), 'price', minimum=0)
+            if 'mileage' in update_data:
+                update_data['mileage'] = _to_int(update_data.get('mileage'), 'mileage', minimum=0)
+            if 'description' in update_data:
+                _validate_description_word_count(update_data.get('description'), field_name='description')
+        except ValueError as validation_error:
+            return jsonify({'error': str(validation_error)}), 400
         
         # Update the bike
         data, status_code = supabase_request(
@@ -2757,7 +3105,15 @@ def get_plates():
                         
                         if image_response.status_code == 200:
                             images = image_response.json()
-                            plate['images'] = [img.get('image_url') for img in images if img.get('image_url')]
+                            plate['images'] = [
+                                {
+                                    'id': img.get('id'),
+                                    'url': img.get('url') or img.get('image_url'),
+                                    'image_url': img.get('image_url') or img.get('url')
+                                }
+                                for img in images
+                                if img.get('url') or img.get('image_url')
+                            ]
                         else:
                             plate['images'] = []
                     except Exception as img_error:
@@ -3308,26 +3664,36 @@ def get_users(current_user):
         logger.error(f"Error getting users: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/plates/with-image', methods=['POST'])
-@token_required
-def create_plate_with_image(current_user):
+def _create_plate_with_image_impl(current_user):
     try:
         logger.info("Creating plate listing with image upload")
-        
-        # Get form data
-        city = request.form.get('city')
-        code = request.form.get('code')
-        digits = request.form.get('digits')
-        price = request.form.get('price')
-        number = request.form.get('number')
-        plate_format = request.form.get('plate_format')
-        contact_name = request.form.get('contact_name')
-        contact_phone = request.form.get('contact_phone')
-        description = request.form.get('description')
-        
+
+        payload = request.form if request.form else (request.get_json(silent=True) or {})
+
+        # Get form/json data
+        city = payload.get('city')
+        code = payload.get('code')
+        digits = payload.get('digits')
+        price = payload.get('price')
+        number = payload.get('number')
+        plate_format = payload.get('plate_format')
+        contact_name = payload.get('contact_name')
+        contact_phone = payload.get('contact_phone')
+        description = payload.get('description')
+
         # Validate required fields
-        if not city or not code or not digits or not price:
+        if not city or not code or not digits or price in [None, '']:
             return jsonify({'error': 'Missing required fields'}), 400
+
+        try:
+            digits = _to_int(digits, 'digits', minimum=1, maximum=5, allow_empty=False)
+            price = _to_int(price, 'price', minimum=0, allow_empty=False)
+            if number is not None and str(number).strip() != '':
+                if not str(number).isdigit():
+                    return jsonify({'error': 'Plate number must contain digits only'}), 400
+            _validate_description_word_count(description, field_name='description')
+        except ValueError as validation_error:
+            return jsonify({'error': str(validation_error)}), 400
 
         limit_response = _enforce_listing_limit(current_user)
         if limit_response:
@@ -3339,7 +3705,7 @@ def create_plate_with_image(current_user):
             'code': code,
             'digits': digits,
             'price': price,
-            'number': number,
+            'number': str(number).strip() if number is not None else '',
             'plate_format': plate_format,
             'contact_name': contact_name,
             'contact_phone': contact_phone,
@@ -3418,6 +3784,7 @@ def create_plate_with_image(current_user):
             image_data = {
                 'plate_id': plate_id,
                 'url': image_url,
+                'image_url': image_url,
                 'is_primary': True
             }
             
@@ -3440,6 +3807,18 @@ def create_plate_with_image(current_user):
     except Exception as e:
         logger.error(f"Error creating plate with image: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/plates', methods=['POST'])
+@token_required
+def create_plate(current_user):
+    return _create_plate_with_image_impl(current_user)
+
+
+@app.route('/api/plates/with-image', methods=['POST'])
+@token_required
+def create_plate_with_image(current_user):
+    return _create_plate_with_image_impl(current_user)
 
 def get_user_email(user_id):
     try:

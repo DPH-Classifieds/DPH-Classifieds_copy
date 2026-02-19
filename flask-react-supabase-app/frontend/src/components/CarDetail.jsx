@@ -23,6 +23,7 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const MAX_DESCRIPTION_WORDS = 300;
 
 const CarDetail = () => {
   const { id } = useParams();
@@ -32,6 +33,9 @@ const CarDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const canViewVin = Boolean(
+    user && (user.is_admin || user.email_verified || user.phone_verified || user.dealer_verified)
+  );
 
   // Function to track view count
   const trackView = async (carId) => {
@@ -111,6 +115,31 @@ const CarDetail = () => {
   const goBack = () => {
     navigate(-1);
   };
+
+  const truncateWords = (text, maxWords) => {
+    if (!text) return '';
+    const words = text.trim().split(/\s+/);
+    if (words.length <= maxWords) {
+      return text;
+    }
+    return `${words.slice(0, maxWords).join(' ')}...`;
+  };
+
+  const formatWhatsappNumber = () => {
+    const countryCode = (car?.country_code || '+971').replace('+', '');
+    const phone = (car?.car_owner_phone_number || car?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
+    return `${countryCode}${phone}`;
+  };
+
+  const getVinDisplay = () => {
+    if (!car?.vin_number) {
+      return 'N/A';
+    }
+    if (canViewVin) {
+      return car.vin_number;
+    }
+    return car.vin_number.replace(/.(?=.{4})/g, '•');
+  };
   
   // Change active image
   const changeImage = (index) => {
@@ -133,7 +162,7 @@ const CarDetail = () => {
     
     // Check if the URL is a relative URL that needs the API base URL
     if (imageUrl && imageUrl.startsWith('/')) {
-      const baseUrl = 'http://localhost:8000'; // This should match your API base URL
+      const baseUrl = API_URL;
       const fullUrl = `${baseUrl}${imageUrl}`;
       console.log("Converted relative URL to absolute:", fullUrl);
       return fullUrl;
@@ -201,7 +230,7 @@ const CarDetail = () => {
                 // Process image URL the same way as main image
                 let imgUrl = image.image_url || image.url;
                 if (imgUrl && imgUrl.startsWith('/')) {
-                  imgUrl = `http://localhost:8000${imgUrl}`;
+                  imgUrl = `${API_URL}${imgUrl}`;
                 }
                 
                 return (
@@ -226,15 +255,6 @@ const CarDetail = () => {
             </div>
           )}
           
-          <div className="car-description">
-            <h3>Description</h3>
-            <p>{car.car_description || 'No description provided'}</p>
-          </div>
-          
-          <div className="loan-calculator">
-            <h3>Loan Calculator</h3>
-            <LoanCalculator carPrice={car.expected_selling_price} />
-          </div>
         </div>
         
         <div className="car-info">
@@ -260,7 +280,7 @@ const CarDetail = () => {
                 {formatPhoneNumber(car.country_code, car.car_owner_phone_number || car.contact_phone)}
               </a>
               <a 
-                href={`https://wa.me/${(car.country_code || '').replace('+', '')}${(car.car_owner_phone_number || car.contact_phone || '').replace(/^0+/, '')}`} 
+                href={`https://wa.me/${formatWhatsappNumber()}`} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="contact-button whatsapp-button"
@@ -268,6 +288,11 @@ const CarDetail = () => {
                 WhatsApp
               </a>
             </div>
+          </div>
+
+          <div className="car-description">
+            <h3>Description</h3>
+            <p>{truncateWords(car.car_description || '', MAX_DESCRIPTION_WORDS) || 'No description provided'}</p>
           </div>
           
           <div className="car-specs-section">
@@ -346,10 +371,13 @@ const CarDetail = () => {
                       VIN
                     </span>
                   </span>
-                  <span className="spec-value">{car.vin_number}</span>
+                  <span className={`spec-value ${canViewVin ? '' : 'masked-vin'}`}>{getVinDisplay()}</span>
                 </div>
               )}
             </div>
+            {car.vin_number && !canViewVin && (
+              <small className="vin-visibility-note">VIN is masked. Log in with a verified account to view full VIN.</small>
+            )}
           </div>
           
           {car.extras && car.extras.length > 0 && (
@@ -365,30 +393,33 @@ const CarDetail = () => {
             </div>
           )}
           
-          {car.car_location && (
-            <div className="car-location">
-              <h3>Location</h3>
-              <p>{car.car_location}</p>
-              <div className="map-container">
-                {car.latitude && car.longitude ? (
-                  <MapContainer
-                    center={[car.latitude, car.longitude]}
-                    zoom={13}
-                    scrollWheelZoom={false}
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution="&copy; OpenStreetMap contributors"
-                    />
-                    <Marker position={[car.latitude, car.longitude]} />
-                  </MapContainer>
-                ) : (
-                  <div className="map-placeholder">Map location unavailable</div>
-                )}
-              </div>
+          <div className="car-location">
+            <h3>Location</h3>
+            <p>{car.car_location || car.car_city || 'Location not specified'}</p>
+            <div className="map-container">
+              {car.latitude && car.longitude ? (
+                <MapContainer
+                  center={[car.latitude, car.longitude]}
+                  zoom={13}
+                  scrollWheelZoom={false}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution="&copy; OpenStreetMap contributors"
+                  />
+                  <Marker position={[car.latitude, car.longitude]} />
+                </MapContainer>
+              ) : (
+                <div className="map-placeholder">Map location unavailable</div>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="loan-calculator">
+            <h3>Loan Calculator</h3>
+            <LoanCalculator carPrice={car.expected_selling_price} />
+          </div>
         </div>
       </div>
     </div>

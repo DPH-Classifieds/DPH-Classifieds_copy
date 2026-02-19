@@ -1,7 +1,7 @@
 // Generated car makes, models, and sample trims data
 // Added major Chinese brands (BYD, Geely, Changan, Chery, MG, GAC, Haval, NIO, XPeng, Hongqi, Lynk & Co, Zeekr).
 const carMakes = [
-  'Acura', 'Alfa Romeo', 'Audi', 'Avatr', 'BAIC', 'BMW', 'BYD', 'Buick', 'Cadillac', 'Changan', 'Chery', 'Chevrolet', 'Chrysler', 'Denza', 'Dodge', 'Exeed', 'Fangchengbao', 'Ford', 'GAC', 'GMC', 'GWM', 'Geely', 'Genesis', 'Haval', 'Honda', 'Hongqi', 'Hyundai', 'INFINITI', 'Ineos', 'JAC', 'Jaecoo', 'Jaguar', 'Jeep', 'Jetour', 'Kia', 'Land Rover', 'Leapmotor', 'Lexus', 'Lincoln', 'Lynk & Co', 'MAZDA', 'MG', 'MINI', 'Maserati', 'Mercedes-Benz', 'Mitsubishi', 'NIO', 'Nissan', 'Omoda', 'Other', 'Polestar', 'Porsche', 'Ram', 'Roewe', 'Subaru', 'Tesla', 'Toyota', 'VinFast', 'Volkswagen', 'Volvo', 'Voyah', 'XPeng', 'Zeekr', 'iCar'
+  'Acura', 'Alfa Romeo', 'Audi', 'Avatr', 'BAIC', 'BMW', 'BYD', 'Buick', 'Cadillac', 'Changan', 'Chery', 'Chevrolet', 'Chrysler', 'Deepal', 'Denza', 'Dodge', 'Exeed', 'Fangchengbao', 'Ford', 'GAC', 'GMC', 'GWM', 'GWM/Haval', 'Geely', 'Genesis', 'Haval', 'Honda', 'Hongqi', 'Hyundai', 'INFINITI', 'Ineos', 'JAC', 'Jaecoo', 'Jaguar', 'Jeep', 'Jetour', 'Kia', 'Land Rover', 'Leapmotor', 'Lexus', 'Lincoln', 'Lynk & Co', 'MAZDA', 'MG', 'MINI', 'Maserati', 'Mercedes-Benz', 'Mitsubishi', 'NIO', 'Nissan', 'Omoda', 'Other', 'Polestar', 'Porsche', 'Ram', 'Roewe', 'Subaru', 'Tesla', 'Toyota', 'VinFast', 'Volkswagen', 'Volvo', 'Voyah', 'XPeng', 'Zeekr', 'iCar'
 ].sort();
 
 // Car models organized by manufacturer

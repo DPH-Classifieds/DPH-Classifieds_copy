@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
@@ -26,6 +26,10 @@ const Bikes = () => {
   // Helper function to get proper image URL
   const getImageUrl = (image) => {
     if (!image) return null;
+
+    if (typeof image === 'string') {
+      return image.startsWith('/') ? `${API_URL}${image}` : image;
+    }
     
     // Try all possible image URL fields
     const imageUrl = image.image_url || image.url;
@@ -64,9 +68,22 @@ const Bikes = () => {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
+    const numericMinZeroFields = ['priceMin', 'priceMax', 'engineMin', 'engineMax'];
+    const numericYearFields = ['yearMin', 'yearMax'];
+
+    let sanitizedValue = value;
+    if (numericMinZeroFields.includes(name) && value !== '') {
+      const parsedValue = Number(value);
+      sanitizedValue = Number.isNaN(parsedValue) ? '' : Math.max(0, parsedValue);
+    }
+    if (numericYearFields.includes(name) && value !== '') {
+      const parsedValue = Number(value);
+      sanitizedValue = Number.isNaN(parsedValue) ? '' : Math.max(1886, parsedValue);
+    }
+
     setFilters(prev => ({
       ...prev,
-      [name]: value
+      [name]: sanitizedValue
     }));
   };
 
@@ -161,6 +178,12 @@ const Bikes = () => {
   };
 
   const filteredBikes = applyFilters();
+  const availableBrands = useMemo(() => {
+    const brands = bikes
+      .map((bike) => bike.make || bike.manufacturer || bike.bike_brand || '')
+      .filter(Boolean);
+    return Array.from(new Set(brands)).sort((a, b) => a.localeCompare(b));
+  }, [bikes]);
 
   if (loading) {
     return <LoadingSpinner message="Loading bikes..." size="large" />;
@@ -217,18 +240,9 @@ const Bikes = () => {
               onChange={handleFilterChange}
             >
               <option value="all">All Brands</option>
-              <option value="Yamaha">Yamaha</option>
-              <option value="Honda">Honda</option>
-              <option value="Kawasaki">Kawasaki</option>
-              <option value="Suzuki">Suzuki</option>
-              <option value="Ducati">Ducati</option>
-              <option value="BMW">BMW</option>
-              <option value="Harley-Davidson">Harley-Davidson</option>
-              <option value="KTM">KTM</option>
-              <option value="Triumph">Triumph</option>
-              <option value="Aprilia">Aprilia</option>
-              <option value="MV Agusta">MV Agusta</option>
-              <option value="Indian">Indian</option>
+              {availableBrands.map((brand) => (
+                <option key={brand} value={brand}>{brand}</option>
+              ))}
             </select>
           </div>
           
@@ -285,7 +299,7 @@ const Bikes = () => {
               placeholder="Min Year" 
               value={filters.yearMin} 
               onChange={handleFilterChange}
-              min="1900"
+              min="1886"
             />
           </div>
           
@@ -431,7 +445,7 @@ const Bikes = () => {
         <div className="cta-content">
           <h2>Sell Your Motorcycle</h2>
           <p>List your motorcycle for free and reach thousands of interested buyers.</p>
-          <Link to="/create-listing" className="sell-bike-btn">Post Your Motorcycle</Link>
+          <Link to="/post-bike" className="sell-bike-btn">Post Your Motorcycle</Link>
         </div>
       </div>
     </div>

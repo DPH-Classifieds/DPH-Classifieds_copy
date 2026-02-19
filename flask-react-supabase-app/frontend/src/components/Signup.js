@@ -69,6 +69,7 @@ const Signup = () => {
   const [passwordChecks, setPasswordChecks] = useState({ length: false, number: false, symbol: false });
   const [fieldErrors, setFieldErrors] = useState({});
   const [allErrors, setAllErrors] = useState([]);
+  const [touchedFields, setTouchedFields] = useState({});
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -111,151 +112,163 @@ const Signup = () => {
     return { score, text, color };
   };
 
+  const validateSingleField = (name, value, data = formData) => {
+    if (name === 'firstName' && !value) return 'First name is required';
+    if (name === 'lastName' && !value) return 'Last name is required';
+    if (name === 'email') {
+      if (!value) return 'Email is required';
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) return 'Please enter a valid email address';
+    }
+    if (name === 'password') {
+      if (!value) return 'Password is required';
+      const checks = getPasswordChecks(value);
+      if (!checks.length || !checks.number || !checks.symbol) {
+        return 'Password must be 8+ characters and include a number and a symbol';
+      }
+    }
+    if (name === 'confirmPassword') {
+      if (!value) return 'Please confirm your password';
+      if (value !== data.password) return 'Passwords do not match';
+    }
+    if (name === 'username' && value && !/^[a-zA-Z0-9_]+$/.test(value)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+    if (name === 'phone' && value && !/^\d{7,15}$/.test(value.replace(/[\s-]/g, ''))) {
+      return 'Please enter a valid phone number';
+    }
+    if (name === 'companyName' && data.isDealer && !value) {
+      return 'Company name is required for dealer accounts';
+    }
+    if (name === 'acceptTerms' && !value) {
+      return 'You must accept the Terms of Service to continue';
+    }
+    if (name === 'acceptPrivacy' && !value) {
+      return 'You must accept the Privacy Policy to continue';
+    }
+    return null;
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     const newValue = type === 'checkbox' ? checked : value;
+    const nextData = { ...formData, [name]: newValue };
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: newValue
-    }));
-
-    // Clear field-specific error when user starts typing
-    if (fieldErrors[name]) {
-      setFieldErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
+    // Clear dealer fields if switching from dealer to individual
+    if (name === 'isDealer' && !checked) {
+      nextData.companyName = '';
+      nextData.companyRegistrationNumber = '';
     }
+
+    setFormData(nextData);
+    setTouchedFields(prev => ({ ...prev, [name]: true }));
 
     // Update password strength when password changes
     if (name === 'password') {
       setPasswordChecks(getPasswordChecks(value));
       setPasswordStrength(calculatePasswordStrength(value));
-      
-      // Check password match in real-time
-      if (formData.confirmPassword && value !== formData.confirmPassword) {
-        setFieldErrors(prev => ({
-          ...prev,
-          confirmPassword: 'Passwords do not match'
-        }));
-      } else if (formData.confirmPassword) {
-        setFieldErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors.confirmPassword;
-          return newErrors;
-        });
-      }
     }
 
-    // Check confirm password match in real-time
-    if (name === 'confirmPassword') {
-      if (value !== formData.password) {
-        setFieldErrors(prev => ({
-          ...prev,
-          confirmPassword: 'Passwords do not match'
-        }));
+    setFieldErrors(prev => {
+      const updatedErrors = { ...prev };
+
+      const currentError = validateSingleField(name, newValue, nextData);
+      if (currentError) {
+        updatedErrors[name] = currentError;
       } else {
-        setFieldErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors.confirmPassword;
-          return newErrors;
-        });
+        delete updatedErrors[name];
       }
-    }
 
-    // Clear dealer fields if switching from dealer to individual
-    if (name === 'isDealer' && !checked) {
-      setFormData(prev => ({
-        ...prev,
-        companyName: '',
-        companyRegistrationNumber: ''
-      }));
-    }
+      // Keep password/confirm-password mismatch in sync as either field changes
+      if (name === 'password' || name === 'confirmPassword') {
+        const confirmError = validateSingleField('confirmPassword', nextData.confirmPassword, nextData);
+        if (confirmError) {
+          updatedErrors.confirmPassword = confirmError;
+        } else {
+          delete updatedErrors.confirmPassword;
+        }
+      }
+
+      // Re-validate company field when dealer status changes
+      if (name === 'isDealer' || name === 'companyName') {
+        const companyError = validateSingleField('companyName', nextData.companyName, nextData);
+        if (companyError) {
+          updatedErrors.companyName = companyError;
+        } else {
+          delete updatedErrors.companyName;
+        }
+      }
+
+      const orderedErrors = [
+        updatedErrors.firstName,
+        updatedErrors.lastName,
+        updatedErrors.email,
+        updatedErrors.username,
+        updatedErrors.phone,
+        updatedErrors.password,
+        updatedErrors.confirmPassword,
+        updatedErrors.companyName,
+        updatedErrors.acceptTerms,
+        updatedErrors.acceptPrivacy
+      ].filter(Boolean);
+      setAllErrors(orderedErrors);
+
+      return updatedErrors;
+    });
   };
 
   const validateForm = () => {
-    const errors = [];
+    const requiredValidationFields = [
+      'firstName',
+      'lastName',
+      'email',
+      'password',
+      'confirmPassword',
+      'username',
+      'phone',
+      'companyName',
+      'acceptTerms',
+      'acceptPrivacy'
+    ];
+
     const newFieldErrors = {};
-
-    // Required fields
-    if (!formData.firstName) {
-      errors.push('First name is required');
-      newFieldErrors.firstName = 'Required';
-    }
-    
-    if (!formData.lastName) {
-      errors.push('Last name is required');
-      newFieldErrors.lastName = 'Required';
-    }
-
-    if (!formData.email) {
-      errors.push('Email is required');
-      newFieldErrors.email = 'Required';
-    } else {
-      // Email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        errors.push('Please enter a valid email address');
-        newFieldErrors.email = 'Invalid email format';
+    requiredValidationFields.forEach((fieldName) => {
+      const validationMessage = validateSingleField(fieldName, formData[fieldName], formData);
+      if (validationMessage) {
+        newFieldErrors[fieldName] = validationMessage;
       }
-    }
+    });
 
-    // Password validation
-    if (!formData.password) {
-      errors.push('Password is required');
-      newFieldErrors.password = 'Required';
-    } else {
-      const checks = getPasswordChecks(formData.password);
-      if (!checks.length || !checks.number || !checks.symbol) {
-        errors.push('Password must be 8+ characters and include a number and a symbol');
-        newFieldErrors.password = 'Use 8+ chars with number and symbol';
-      }
-    }
+    const errors = [
+      newFieldErrors.firstName,
+      newFieldErrors.lastName,
+      newFieldErrors.email,
+      newFieldErrors.username,
+      newFieldErrors.phone,
+      newFieldErrors.password,
+      newFieldErrors.confirmPassword,
+      newFieldErrors.companyName,
+      newFieldErrors.acceptTerms,
+      newFieldErrors.acceptPrivacy
+    ].filter(Boolean);
 
-    if (!formData.confirmPassword) {
-      errors.push('Please confirm your password');
-      newFieldErrors.confirmPassword = 'Required';
-    } else if (formData.password !== formData.confirmPassword) {
-      errors.push('Passwords do not match');
-      newFieldErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    // Username validation
-    if (formData.username && !/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      errors.push('Username can only contain letters, numbers, and underscores');
-      newFieldErrors.username = 'Invalid format';
-    }
-
-    // Phone validation
-    if (formData.phone && !/^\d{7,15}$/.test(formData.phone.replace(/[\s-]/g, ''))) {
-      errors.push('Please enter a valid phone number');
-      newFieldErrors.phone = 'Invalid phone number';
-    }
-
-    // Dealer validation
-    if (formData.isDealer && !formData.companyName) {
-      errors.push('Company name is required for dealer accounts');
-      newFieldErrors.companyName = 'Required for dealers';
-    }
-
-    // Terms acceptance
-    if (!formData.acceptTerms) {
-      errors.push('You must accept the Terms of Service to continue');
-      newFieldErrors.acceptTerms = 'Required';
-    }
-
-    if (!formData.acceptPrivacy) {
-      errors.push('You must accept the Privacy Policy to continue');
-      newFieldErrors.acceptPrivacy = 'Required';
-    }
-
+    setTouchedFields({
+      firstName: true,
+      lastName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+      username: true,
+      phone: true,
+      companyName: true,
+      acceptTerms: true,
+      acceptPrivacy: true
+    });
     setFieldErrors(newFieldErrors);
     setAllErrors(errors);
 
     if (errors.length > 0) {
-      setError(`Please fix the following errors: ${errors.join(', ')}`);
+      setError('Please fix the highlighted fields and try again.');
       return false;
     }
 
@@ -329,6 +342,13 @@ const Signup = () => {
     }
   };
 
+  const renderFieldError = (fieldName) => {
+    if (!touchedFields[fieldName] || !fieldErrors[fieldName]) {
+      return null;
+    }
+    return <div className="field-error">{fieldErrors[fieldName]}</div>;
+  };
+
   return (
     <div className="auth-container">
       <div className="auth-card signup-card">
@@ -391,7 +411,9 @@ const Signup = () => {
                   onChange={handleInputChange}
                   required
                   placeholder="Enter your first name"
+                  className={touchedFields.firstName && fieldErrors.firstName ? 'error-input' : ''}
                 />
+                {renderFieldError('firstName')}
               </div>
               <div className="form-group">
                 <label htmlFor="lastName">Last Name <span className="required">*</span></label>
@@ -403,7 +425,9 @@ const Signup = () => {
                   onChange={handleInputChange}
                   required
                   placeholder="Enter your last name"
+                  className={touchedFields.lastName && fieldErrors.lastName ? 'error-input' : ''}
                 />
+                {renderFieldError('lastName')}
               </div>
             </div>
 
@@ -418,7 +442,9 @@ const Signup = () => {
                 placeholder="Choose a unique username"
                 pattern="[a-zA-Z0-9_]+"
                 title="Username can only contain letters, numbers, and underscores"
+                className={touchedFields.username && fieldErrors.username ? 'error-input' : ''}
               />
+              {renderFieldError('username')}
               <small className="form-hint">Used for login and public profile</small>
             </div>
           </div>
@@ -437,7 +463,9 @@ const Signup = () => {
                   onChange={handleInputChange}
                   required={formData.isDealer}
                   placeholder="Your company or dealership name"
+                  className={touchedFields.companyName && fieldErrors.companyName ? 'error-input' : ''}
                 />
+                {renderFieldError('companyName')}
               </div>
               <div className="form-group">
                 <label htmlFor="companyRegistrationNumber">Trade License / Registration Number (Optional)</label>
@@ -468,7 +496,9 @@ const Signup = () => {
                 required
                 placeholder="your.email@example.com"
                 autoComplete="email"
+                className={touchedFields.email && fieldErrors.email ? 'error-input' : ''}
               />
+              {renderFieldError('email')}
             </div>
 
             <div className="form-group">
@@ -496,6 +526,7 @@ const Signup = () => {
                   className="phone-number-input"
                 />
               </div>
+              {renderFieldError('phone')}
               <small className="form-hint">Used for buyer inquiries (will be displayed on your listings)</small>
             </div>
           </div>
@@ -559,9 +590,7 @@ const Signup = () => {
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
-              {fieldErrors.password && (
-                <div className="field-error">{fieldErrors.password}</div>
-              )}
+              {renderFieldError('password')}
               {formData.password && (
                 <>
                   <div className="password-checklist">
@@ -613,9 +642,7 @@ const Signup = () => {
                 autoComplete="new-password"
                 className={fieldErrors.confirmPassword ? 'error-input' : ''}
               />
-              {fieldErrors.confirmPassword && (
-                <div className="field-error">{fieldErrors.confirmPassword}</div>
-              )}
+              {renderFieldError('confirmPassword')}
             </div>
           </div>
 
@@ -665,9 +692,10 @@ const Signup = () => {
                   required
                 />
                 <span>
-                  I agree to the <Link to="/terms" target="_blank">Terms of Service</Link> <span className="required">*</span>
+                  I agree to the <Link to="/terms-of-use" target="_blank">Terms of Service</Link> <span className="required">*</span>
                 </span>
               </label>
+              {renderFieldError('acceptTerms')}
               <label className="checkbox-label required-checkbox">
                 <input
                   type="checkbox"
@@ -677,13 +705,14 @@ const Signup = () => {
                   required
                 />
                 <span>
-                  I agree to the <Link to="/privacy" target="_blank">Privacy Policy</Link> <span className="required">*</span>
+                  I agree to the <Link to="/privacy-policy" target="_blank">Privacy Policy</Link> <span className="required">*</span>
                 </span>
               </label>
+              {renderFieldError('acceptPrivacy')}
             </div>
           </div>
           
-          {error && allErrors.length > 0 && (
+          {allErrors.length > 0 && (
             <div className="auth-error bottom-error">
               <strong>Please fix the following errors:</strong>
               <ul>
@@ -692,6 +721,9 @@ const Signup = () => {
                 ))}
               </ul>
             </div>
+          )}
+          {error && allErrors.length === 0 && (
+            <div className="auth-error bottom-error">{error}</div>
           )}
           
           <button 

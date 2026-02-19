@@ -4,7 +4,8 @@
 
 /* Hero Section */
 .hero {
-  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+  /* Recommended replacement asset size: 1920x1080 */
+  background: linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58)), url('../assets/images/traffic-bg.jpg') center/cover no-repeat;
   height: 500px;
   color: #fff;
   display: flex;
@@ -142,12 +143,13 @@
 
 /* CTA Section */
 .cta-section {
+  /* Recommended replacement asset size: 1920x1080 */
   padding: 6rem 1rem;
-  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+  background: linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58)), url('../assets/images/whoweare.jpg') center/cover no-repeat;
   color: #ffffff !important;
   text-align: center;
   position: relative;
-  background-attachment: fixed;
+  background-attachment: scroll;
   overflow: hidden;
 }
 
@@ -223,7 +225,7 @@
   left: 0;
   width: 50%;
   height: 100%;
-  background: url('/src/assets/images/porsche.png') left center no-repeat;
+  background: url('../assets/images/porsche.png') left center no-repeat;
   background-size: contain;
   opacity: 0.9;
   z-index: 1;

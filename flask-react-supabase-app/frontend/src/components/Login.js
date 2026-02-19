@@ -51,13 +51,14 @@ const Login = () => {
       navigate('/profile');
     } catch (err) {
       console.error('Login error:', err);
-      // More descriptive error message for the user
-      if (err.message && err.message.includes('Invalid login')) {
-        setError('Invalid email or password. Please try again.');
-      } else if (err.message && err.message.includes('network')) {
+      if (err.message && err.message.toLowerCase().includes('network')) {
         setError('Network error. Please check your connection and try again.');
       } else {
-        setError(err.message || 'Failed to sign in. Please check your credentials and try again.');
+        const authMessage = err.message || 'Failed to sign in. Please check your credentials and try again.';
+        const forgotMessage = authMessage.toLowerCase().includes('forgot password')
+          ? authMessage
+          : `${authMessage} If needed, use Forgot Password or resend the reset link below.`;
+        setError(forgotMessage);
       }
     } finally {
       setLoading(false);
@@ -151,7 +152,7 @@ const Login = () => {
         <div className="auth-links">
           <button
             type="button"
-            className="auth-button"
+            className="auth-button primary-button"
             onClick={handleResendReset}
             disabled={resetLoading}
           >

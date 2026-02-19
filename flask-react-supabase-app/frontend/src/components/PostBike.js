@@ -115,6 +115,20 @@ const PostBike = () => {
     }));
   };
 
+  const uploadImages = async () => {
+    if (!formData.images.length) {
+      return [];
+    }
+
+    const imageFormData = new FormData();
+    formData.images.forEach((imageFile) => {
+      imageFormData.append('images', imageFile);
+    });
+
+    const uploadResponse = await apiClient.post('/api/upload-images', imageFormData);
+    return Array.isArray(uploadResponse?.urls) ? uploadResponse.urls : [];
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -129,28 +143,46 @@ const PostBike = () => {
     setError(null);
     
     try {
-      // Create form data for API submission
-      const apiFormData = new FormData();
-      
-      // Add all form fields to the FormData
-      for (const key in formData) {
-        if (key === 'features') {
-          // Convert features array to JSON string
-          apiFormData.append(key, JSON.stringify(formData[key]));
-        } else if (key !== 'images') {
-          apiFormData.append(key, formData[key]);
-        }
+      if (!formData.images.length) {
+        setError('At least one motorcycle image is required.');
+        setIsSubmitting(false);
+        return;
       }
-      
-      // Add images
-      formData.images.forEach((image, index) => {
-        apiFormData.append(`image_${index}`, image);
-      });
+
+      const imageUrls = await uploadImages();
+      if (!imageUrls.length) {
+        setError('Failed to upload bike images. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const payload = {
+        bike_brand: formData.bike_brand,
+        bike_model: formData.bike_model,
+        make: formData.bike_brand,
+        model: formData.bike_model,
+        year: Number(formData.year),
+        bike_category: formData.bike_category,
+        bike_type: formData.bike_category,
+        engine_capacity: formData.engine_capacity,
+        mileage: Number(formData.mileage),
+        color: formData.color,
+        condition: formData.condition,
+        price: Number(formData.price),
+        location: formData.location,
+        description: formData.description,
+        vin_number: formData.vin_number,
+        is_dealer: formData.is_dealer,
+        cylinders: formData.cylinders ? Number(formData.cylinders) : null,
+        wheels: formData.wheels ? Number(formData.wheels) : null,
+        features: formData.features,
+        images: imageUrls
+      };
       
       console.log('Submitting to API using apiClient on port 8000...');
       
       // Use the apiClient which handles auth tokens automatically
-      const response = await apiClient.post('/api/bikes', apiFormData);
+      const response = await apiClient.post('/api/bikes', payload);
       
       console.log('Bike listing submitted successfully:', response);
       setSuccess(true);
@@ -251,12 +283,12 @@ const PostBike = () => {
                 onInput={(e) => {
                   // Prevent values outside valid range
                   const currentYear = new Date().getFullYear();
-                  if (e.target.value < 1900) e.target.value = 1900;
+                  if (e.target.value < 1886) e.target.value = 1886;
                   if (e.target.value > currentYear) e.target.value = currentYear;
                 }}
                 required
                 placeholder="e.g., 2022"
-                min="1900"
+                min="1886"
                 max={new Date().getFullYear()}
               />
             </div>
@@ -427,11 +459,11 @@ const PostBike = () => {
                 onChange={handleChange}
                 onInput={(e) => {
                   // Prevent negative values
-                  if (e.target.value < 1) e.target.value = '';
+                  if (e.target.value < 0) e.target.value = '';
                 }}
                 required
                 placeholder="e.g., 25000"
-                min="1"
+                min="0"
                 step="1"
               />
             </div>
@@ -459,7 +491,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_abs"
-                name="features_abs"
+                name="features"
+                value="ABS"
                 checked={formData.features.includes('ABS')}
                 onChange={handleChange}
               />
@@ -470,7 +503,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_traction_control"
-                name="features_traction_control"
+                name="features"
+                value="Traction Control"
                 checked={formData.features.includes('Traction Control')}
                 onChange={handleChange}
               />
@@ -481,7 +515,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_cruise_control"
-                name="features_cruise_control"
+                name="features"
+                value="Cruise Control"
                 checked={formData.features.includes('Cruise Control')}
                 onChange={handleChange}
               />
@@ -492,7 +527,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_heated_grips"
-                name="features_heated_grips"
+                name="features"
+                value="Heated Grips"
                 checked={formData.features.includes('Heated Grips')}
                 onChange={handleChange}
               />
@@ -503,7 +539,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_quick_shifter"
-                name="features_quick_shifter"
+                name="features"
+                value="Quick Shifter"
                 checked={formData.features.includes('Quick Shifter')}
                 onChange={handleChange}
               />
@@ -514,7 +551,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_rider_modes"
-                name="features_rider_modes"
+                name="features"
+                value="Rider Modes"
                 checked={formData.features.includes('Rider Modes')}
                 onChange={handleChange}
               />
@@ -525,7 +563,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_led_lights"
-                name="features_led_lights"
+                name="features"
+                value="LED Lights"
                 checked={formData.features.includes('LED Lights')}
                 onChange={handleChange}
               />
@@ -536,7 +575,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_bluetooth"
-                name="features_bluetooth"
+                name="features"
+                value="Bluetooth Connectivity"
                 checked={formData.features.includes('Bluetooth Connectivity')}
                 onChange={handleChange}
               />
@@ -547,7 +587,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_usb_charging"
-                name="features_usb_charging"
+                name="features"
+                value="USB Charging"
                 checked={formData.features.includes('USB Charging')}
                 onChange={handleChange}
               />
@@ -558,7 +599,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_touring_screen"
-                name="features_touring_screen"
+                name="features"
+                value="Touring Screen"
                 checked={formData.features.includes('Touring Screen')}
                 onChange={handleChange}
               />
@@ -569,7 +611,8 @@ const PostBike = () => {
               <input
                 type="checkbox"
                 id="features_saddlebags"
-                name="features_saddlebags"
+                name="features"
+                value="Saddlebags/Panniers"
                 checked={formData.features.includes('Saddlebags/Panniers')}
                 onChange={handleChange}
               />

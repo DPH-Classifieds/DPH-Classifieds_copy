@@ -183,9 +183,17 @@ const PostPlate = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let normalizedValue = value;
+    if (name === 'price') {
+      const parsed = Number(value);
+      normalizedValue = Number.isNaN(parsed) ? '' : Math.max(0, parsed);
+    }
+    if (name === 'number') {
+      normalizedValue = value.replace(/\D/g, '');
+    }
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : normalizedValue
     }));
   };
 
@@ -464,11 +472,11 @@ const PostPlate = () => {
                 onChange={handleChange}
                 onInput={(e) => {
                   // Prevent negative values
-                  if (e.target.value < 1) e.target.value = '';
+                  if (e.target.value < 0) e.target.value = '';
                 }}
                 required
                 placeholder="e.g., 15000"
-                min="1"
+                min="0"
                 step="1"
               />
             </div>

@@ -236,6 +236,18 @@
   color: #333;
 }
 
+.masked-vin {
+  letter-spacing: 1px;
+  filter: blur(1px);
+}
+
+.vin-visibility-note {
+  display: block;
+  margin-top: 8px;
+  color: #6c757d;
+  font-size: 12px;
+}
+
 .car-extras {
   margin-bottom: 25px;
 }

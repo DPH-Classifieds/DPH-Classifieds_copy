@@ -22,7 +22,7 @@ const About = () => {
             <img src={whoWeAreImg} alt="Car buying experience" />
           </div>
           <div className="info-content">
-            <h2>Who <span>Are We</span></h2>
+            <h2>Who <span>Are We?</span></h2>
             <p>DubaiPetrolHeads is the largest car community in the middle-east with over 60,000 active petrolheads. We have created a classifieds page by Petrol Heads for Petrol Heads in order to create and view hassle-free and transparent listings.</p>
           </div>
         </div>
@@ -60,7 +60,7 @@ const About = () => {
           <div className="stat-icon">
             <i className="fas fa-eye"></i>
           </div>
-          <div className="stat-number">25M</div>
+          <div className="stat-number">25,000,000</div>
           <div className="stat-label">Annual Viewers</div>
         </div>
         

@@ -44,8 +44,9 @@ const CarList = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [sortOption, setSortOption] = useState('created_at.desc');
 
-  // Get unique values for filter dropdowns
-  const [years, setYears] = useState([]);
+  // Keep a full year range so filtering is not limited by currently loaded listings
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1886 + 1 }, (_, index) => currentYear - index);
   const [availableModels, setAvailableModels] = useState([]);
   
   // Car specifications arrays
@@ -69,7 +70,6 @@ const CarList = () => {
       'Ambient Lighting (Multi-color)',
       'Soft-Close Doors',
       'Heads-Up Display (HUD)',
-      'Wireless Phone Charger',
       'Rear Window Sunshades (Manual)',
       'Rear Window Sunshades (Electric)',
       'Power Tailgate / Hands-Free Trunk',
@@ -187,11 +187,6 @@ const CarList = () => {
       console.log('Setting cars data, length:', carsData.length);
       setCars(carsData);
       
-      // Extract unique years from actual data
-      if (carsData && carsData.length > 0) {
-        const uniqueYears = [...new Set(carsData.map(car => car.make_year).filter(Boolean))];
-        setYears(uniqueYears.sort((a, b) => b - a)); // Sort years in descending order
-      }
     } catch (err) {
       console.error('Error fetching cars:', err);
       console.error('Error details:', err.response?.data || err.message);
@@ -207,14 +202,20 @@ const CarList = () => {
   
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
+    const nonNegativeFields = ['price_from', 'price_to', 'kilometer_from', 'kilometer_to'];
+    let sanitizedValue = value;
+    if (nonNegativeFields.includes(name) && value !== '') {
+      const numericValue = Number(value);
+      sanitizedValue = Number.isNaN(numericValue) ? '' : Math.max(0, numericValue);
+    }
     
     // If manufacturer changes, update available models and reset model selection
     if (name === 'car_manufacturer') {
-      const models = carModels[value] || [];
+      const models = carModels[sanitizedValue] || [];
       setAvailableModels(models);
-      setFilters(prev => ({ ...prev, car_manufacturer: value, car_model: '' }));
+      setFilters(prev => ({ ...prev, car_manufacturer: sanitizedValue, car_model: '' }));
     } else {
-      setFilters(prev => ({ ...prev, [name]: value }));
+      setFilters(prev => ({ ...prev, [name]: sanitizedValue }));
     }
   };
   
@@ -491,7 +492,7 @@ const CarList = () => {
                     onChange={handleFilterChange}
                     className="form-select"
                   >
-                    <option value="">All Specs</option>
+                    <option value="">All Regional</option>
                     {regionalSpecs.map(spec => (
                       <option key={spec} value={spec}>{spec}</option>
                     ))}

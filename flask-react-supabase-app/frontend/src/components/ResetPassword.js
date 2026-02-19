@@ -33,16 +33,12 @@ const ResetPassword = () => {
   };
 
   useEffect(() => {
-    const hashFragment = window.location.hash;
-    if (!hashFragment) {
-      setError('Invalid or expired password reset link');
-      return;
-    }
-
-    const params = new URLSearchParams(hashFragment.substring(1));
-    const token = params.get('access_token');
-    const type = params.get('type');
-    const errorDescription = params.get('error_description');
+    const hashFragment = window.location.hash ? window.location.hash.substring(1) : '';
+    const queryParams = new URLSearchParams(window.location.search || '');
+    const hashParams = new URLSearchParams(hashFragment);
+    const token = hashParams.get('access_token') || queryParams.get('access_token');
+    const type = hashParams.get('type') || queryParams.get('type');
+    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
 
     if (errorDescription) {
       setError(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
@@ -90,7 +86,8 @@ const ResetPassword = () => {
       // Note: We need to implement this endpoint in the backend
       const response = await axios.post(`${API_URL}/api/auth/update-password`, {
         password,
-        access_token: accessToken
+        access_token: accessToken,
+        hash: window.location.hash ? window.location.hash.substring(1) : ''
       });
       
       if (response.status === 200) {
@@ -153,7 +150,7 @@ const ResetPassword = () => {
           
           <button 
             type="submit" 
-            className="auth-button"
+            className="auth-button primary-button"
             disabled={loading || success || !accessToken}
           >
             {loading ? 'Resetting...' : 'Reset Password'}

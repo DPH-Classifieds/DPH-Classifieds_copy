@@ -60,8 +60,7 @@ const CreateListing = () => {
   
   // Transmission types for dropdown
   const transmissionTypes = [
-    'Automatic', 'Manual', 'CVT', 'Dual-Clutch', 'Semi-Automatic',
-    'Other'
+    'Automatic', 'Manual'
   ];
   
   const handleChange = (e) => {
@@ -176,7 +175,7 @@ const CreateListing = () => {
                 value={formData.make_year} 
                 onChange={handleChange} 
                 placeholder="Year of manufacture"
-                min="1900"
+                min="1886"
                 max="2099"
                 required
               />

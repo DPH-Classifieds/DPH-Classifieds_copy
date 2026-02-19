@@ -8,6 +8,7 @@ const LoanCalculator = ({ carPrice }) => {
   const [interestRate, setInterestRate] = useState(4.5); // Default 4.5% APR
   const [monthlyPayment, setMonthlyPayment] = useState(0);
   const [totalInterest, setTotalInterest] = useState(0);
+  const downPaymentPercent = carPrice > 0 ? Math.round((downPayment / carPrice) * 100) : 0;
 
   // Update loan amount when down payment changes
   useEffect(() => {
@@ -63,7 +64,7 @@ const LoanCalculator = ({ carPrice }) => {
             />
           </div>
           <div className="input-group">
-            <label htmlFor="downPayment">Down Payment</label>
+            <label htmlFor="downPayment">Down Payment (AED) ({downPaymentPercent}%)</label>
             <input
               type="number"
               id="downPayment"
@@ -78,7 +79,7 @@ const LoanCalculator = ({ carPrice }) => {
 
         <div className="input-row">
           <div className="input-group">
-            <label htmlFor="loanTerm">Loan Term (months)</label>
+            <label htmlFor="loanTerm">Loan Term</label>
             <select
               id="loanTerm"
               value={loanTerm}
@@ -127,7 +128,7 @@ const LoanCalculator = ({ carPrice }) => {
         <p className="summary-text">
           With a <strong>{formatCurrency(downPayment)}</strong> down payment, 
           your monthly payment would be <strong>{formatCurrency(monthlyPayment)}</strong> 
-          for {loanTerm} months at {interestRate}% APR.
+          for {Math.round(loanTerm / 12)} year(s) at {interestRate}% APR.
         </p>
       </div>
     </div>

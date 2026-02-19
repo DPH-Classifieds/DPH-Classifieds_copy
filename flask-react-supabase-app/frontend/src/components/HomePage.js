@@ -1,26 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import CarList from './CarList';
 import '../styles/HomePage.css';
 
 const HomePage = () => {
-  useEffect(() => {
-    const ctaHeading = document.querySelector('.cta-content h2');
-    const ctaParagraph = document.querySelector('.cta-content p');
-    
-    if (ctaHeading) {
-      ctaHeading.style.color = '#ffffff';
-      ctaHeading.style.fontWeight = '600';
-      ctaHeading.style.textShadow = '1px 1px 3px rgba(0,0,0,0.5)';
-    }
-    
-    if (ctaParagraph) {
-      ctaParagraph.style.color = '#ffffff';
-      ctaParagraph.style.fontWeight = '500';
-      ctaParagraph.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)';
-    }
-  }, []);
-
   return (
     <div className="home-page">
       <section className="hero">
@@ -44,9 +27,9 @@ const HomePage = () => {
       <section className="why-choose-us-section">
         <div className="why-choose-us-content">
           <div className="why-choose-us-text">
-            <h2>Why choose DPH-Classifieds?</h2>
-            <p className="why-choose-subtitle">A car community in the middle-east with over 60,000 members.</p>
-            <p className="why-choose-subtitle">For petrolheads by petrolheads.</p>
+          <h2>Why choose DPH-Classifieds?</h2>
+          <p className="why-choose-subtitle">A car community in the middle-east with over 60,000 members.</p>
+          <p className="why-choose-subtitle">For petrolheads by petrolheads.</p>
             
             <h3>Why Choose Us:</h3>
             
@@ -79,9 +62,9 @@ const HomePage = () => {
       <section className="cta-section">
         <div className="container">
           <div className="cta-content">
-            <h2 className="white-text" style={{ color: '#ffffff', fontWeight: 600, textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>Ready to sell your car?</h2>
-            <p className="white-text" style={{ color: '#ffffff', fontWeight: 500, textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>List your car with us and reach thousands of potential buyers.</p>
-            <Link to="/post-car" className="btn btn-cta" style={{ boxShadow: '0 4px 8px rgba(0,0,0,0.2)' }}>Sell Your Car</Link>
+            <h2 className="white-text">Ready to sell your car?</h2>
+            <p className="white-text">List your car with us and reach thousands of potential buyers.</p>
+            <Link to="/post-car" className="btn btn-cta">Sell Your Car</Link>
           </div>
         </div>
       </section>

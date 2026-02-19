@@ -122,7 +122,7 @@ const BikeDetail = () => {
       <div className="detail-header">
         <div className="detail-header-left">
           <Link to="/bikes" className="btn-back">← Back to Bikes</Link>
-          <h1>{bike.make} {bike.model} {bike.year}</h1>
+          <h1>{bike.make || bike.bike_brand} {bike.model || bike.bike_model} {bike.year || bike.make_year}</h1>
         </div>
         <ReportButton listingId={id} listingType="bike" />
       </div>
@@ -134,7 +134,7 @@ const BikeDetail = () => {
             {bike.images && bike.images.length > 0 ? (
               <img 
                 src={getImageUrl(bike.images[0])} 
-                alt={`${bike.make} ${bike.model}`}
+                alt={`${bike.make || bike.bike_brand || ''} ${bike.model || bike.bike_model || ''}`.trim()}
                 onError={(e) => {
                   console.error("Image failed to load:", e.target.src);
                   e.target.onerror = null;
@@ -155,7 +155,7 @@ const BikeDetail = () => {
                   <div key={index} className="gallery-image">
                     <img 
                       src={getImageUrl(image)} 
-                      alt={`${bike.make} ${bike.model} - view ${index + 1}`}
+                      alt={`${bike.make || bike.bike_brand || ''} ${bike.model || bike.bike_model || ''} - view ${index + 1}`.trim()}
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = "https://via.placeholder.com/400x300?text=Image+Not+Available";
@@ -175,32 +175,32 @@ const BikeDetail = () => {
             <div className="info-group">
               <div className="info-item">
                 <span className="info-label">Make:</span>
-                <span className="info-value">{bike.make}</span>
+                <span className="info-value">{bike.make || bike.bike_brand || 'N/A'}</span>
               </div>
               
               <div className="info-item">
                 <span className="info-label">Model:</span>
-                <span className="info-value">{bike.model}</span>
+                <span className="info-value">{bike.model || bike.bike_model || 'N/A'}</span>
               </div>
               
               <div className="info-item">
                 <span className="info-label">Year:</span>
-                <span className="info-value">{bike.year}</span>
+                <span className="info-value">{bike.year || bike.make_year || 'N/A'}</span>
               </div>
               
               <div className="info-item">
                 <span className="info-label">Type:</span>
-                <span className="info-value">{bike.bike_type}</span>
+                <span className="info-value">{bike.bike_type || bike.bike_category || 'N/A'}</span>
               </div>
               
               <div className="info-item">
                 <span className="info-label">Engine Size:</span>
-                <span className="info-value">{bike.engine_size}cc</span>
+                <span className="info-value">{bike.engine_size || bike.engine_capacity || 'N/A'}</span>
               </div>
               
               <div className="info-item">
                 <span className="info-label">Mileage:</span>
-                <span className="info-value">{bike.mileage?.toLocaleString()} km</span>
+                <span className="info-value">{Number(bike.mileage || 0).toLocaleString()} km</span>
               </div>
               
               <div className="info-item">
@@ -215,7 +215,8 @@ const BikeDetail = () => {
                       title="VIN (Vehicle Identification Number) is a unique 17-character code that identifies this bike. You can find it on the vehicle registration document, insurance papers, on the frame neck (under handlebars), on the frame near the engine, or on the engine casing."
                       style={{ 
                         cursor: 'help',
-                        borderBottom: '1px dotted #007bff'
+                        borderBottom: '1px dotted #333',
+                        color: '#000'
                       }}
                     >
                       VIN:
@@ -226,12 +227,12 @@ const BikeDetail = () => {
               
               <div className="info-item">
                 <span className="info-label">Location:</span>
-                <span className="info-value">{bike.location}</span>
+                <span className="info-value">{bike.location || 'N/A'}</span>
               </div>
               
               <div className="info-item full-width">
                 <span className="info-label">Price:</span>
-                <span className="info-value price">AED {bike.price?.toLocaleString()}</span>
+                <span className="info-value price">AED {Number(bike.price || 0).toLocaleString()}</span>
               </div>
               
               {bike.is_dealer && (

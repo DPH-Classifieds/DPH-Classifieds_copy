@@ -16,6 +16,12 @@ const PlateDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const resolveImageUrl = (image) => {
+    const imageUrl = image?.image_url || image?.url || '';
+    if (!imageUrl) return '';
+    return imageUrl.startsWith('/') ? `${API_URL}${imageUrl}` : imageUrl;
+  };
+
   // Function to track view count
   const trackView = async (plateId) => {
     try {
@@ -163,7 +169,7 @@ const PlateDetail = () => {
                 {plate.images.map((image, index) => (
                   <div key={index} className="gallery-image">
                     <img 
-                      src={`${API_URL}${image.url}`} 
+                      src={resolveImageUrl(image)} 
                       alt={`Plate ${index + 1}`} 
                     />
                   </div>
