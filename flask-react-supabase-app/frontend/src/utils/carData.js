@@ -1096,7 +1096,6 @@ const carTrims = {
     'Ateca': ['Reference', 'Style', 'FR', 'Xcellence', 'Cupra', '4Drive'],
     'Tarraco': ['Reference', 'Style', 'FR', 'Xcellence', '4Drive', '7-seater'],
     'Ibiza': ['Reference', 'Style', 'FR', 'Xcellence'],
-    'Arona': ['Reference', 'Style', 'FR', 'Xcellence'],
   },
   'Seres': {
     'SF5': ['Comfort', 'Luxury', 'Premium', 'EV', 'PHEV', '4WD'],
