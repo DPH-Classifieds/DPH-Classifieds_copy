@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
-import { carMakes, carModels } from '../utils/carData';
+import { carMakes, carModels, carTrims } from '../utils/carData';
 import './CarList.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -24,6 +24,7 @@ const CarList = () => {
   const [filters, setFilters] = useState({
     car_manufacturer: '',
     car_model: '',
+    car_trim: '',
     car_city: '',
     make_year_from: '',
     make_year_to: '',
@@ -48,6 +49,7 @@ const CarList = () => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1886 + 1 }, (_, index) => currentYear - index);
   const [availableModels, setAvailableModels] = useState([]);
+  const [availableTrims, setAvailableTrims] = useState([]);
   
   // Car specifications arrays
   const bodyTypes = ['Sedan', 'SUV', 'Hatchback', 'Coupe', 'Convertible', 'Wagon', 'Van', 'Truck', 'Other'];
@@ -209,11 +211,18 @@ const CarList = () => {
       sanitizedValue = Number.isNaN(numericValue) ? '' : Math.max(0, numericValue);
     }
     
-    // If manufacturer changes, update available models and reset model selection
+    // If manufacturer changes, update available models and reset model/trim selection
     if (name === 'car_manufacturer') {
       const models = carModels[sanitizedValue] || [];
       setAvailableModels(models);
-      setFilters(prev => ({ ...prev, car_manufacturer: sanitizedValue, car_model: '' }));
+      setAvailableTrims([]);
+      setFilters(prev => ({ ...prev, car_manufacturer: sanitizedValue, car_model: '', car_trim: '' }));
+    } else if (name === 'car_model') {
+      // If model changes, update available trims and reset trim selection
+      const make = filters.car_manufacturer;
+      const trims = carTrims[make]?.[sanitizedValue] || [];
+      setAvailableTrims(trims);
+      setFilters(prev => ({ ...prev, car_model: sanitizedValue, car_trim: '' }));
     } else {
       setFilters(prev => ({ ...prev, [name]: sanitizedValue }));
     }
@@ -232,6 +241,7 @@ const CarList = () => {
     setFilters({
       car_manufacturer: '',
       car_model: '',
+      car_trim: '',
       car_city: '',
       make_year_from: '',
       make_year_to: '',
@@ -249,9 +259,12 @@ const CarList = () => {
       engine_capacity: '',
       extras: []
     });
+    setAvailableModels([]);
+    setAvailableTrims([]);
     fetchCars({
       car_manufacturer: '',
       car_model: '',
+      car_trim: '',
       car_city: '',
       make_year_from: '',
       make_year_to: '',
@@ -340,6 +353,23 @@ const CarList = () => {
                 <option value="">All Models</option>
                 {availableModels.map(model => (
                   <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label htmlFor="car_trim">Trim</label>
+              <select 
+                id="car_trim" 
+                name="car_trim" 
+                value={filters.car_trim} 
+                onChange={handleFilterChange}
+                className="form-select"
+                disabled={!filters.car_model}
+              >
+                <option value="">All Trims</option>
+                {availableTrims.map(trim => (
+                  <option key={trim} value={trim}>{trim}</option>
                 ))}
               </select>
             </div>
