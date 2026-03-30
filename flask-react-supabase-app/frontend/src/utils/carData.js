@@ -1423,5 +1423,3 @@ const carTrims = {
 };
 
 export { carMakes, carModels, carTrims };
-
-export { carMakes, carModels, carTrims };

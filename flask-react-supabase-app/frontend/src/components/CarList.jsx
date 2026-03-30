@@ -50,6 +50,7 @@ const CarList = () => {
   const years = Array.from({ length: currentYear - 1886 + 1 }, (_, index) => currentYear - index);
   const [availableModels, setAvailableModels] = useState([]);
   const [availableTrims, setAvailableTrims] = useState([]);
+  const [customTrim, setCustomTrim] = useState(false);
   
   // Car specifications arrays
   const bodyTypes = ['Sedan', 'SUV', 'Hatchback', 'Coupe', 'Convertible', 'Wagon', 'Van', 'Truck', 'Other'];
@@ -216,12 +217,14 @@ const CarList = () => {
       const models = carModels[sanitizedValue] || [];
       setAvailableModels(models);
       setAvailableTrims([]);
+      setCustomTrim(false);
       setFilters(prev => ({ ...prev, car_manufacturer: sanitizedValue, car_model: '', car_trim: '' }));
     } else if (name === 'car_model') {
       // If model changes, update available trims and reset trim selection
       const make = filters.car_manufacturer;
       const trims = carTrims[make]?.[sanitizedValue] || [];
       setAvailableTrims(trims);
+      setCustomTrim(false);
       setFilters(prev => ({ ...prev, car_model: sanitizedValue, car_trim: '' }));
     } else {
       setFilters(prev => ({ ...prev, [name]: sanitizedValue }));
@@ -261,6 +264,7 @@ const CarList = () => {
     });
     setAvailableModels([]);
     setAvailableTrims([]);
+    setCustomTrim(false);
     fetchCars({
       car_manufacturer: '',
       car_model: '',
@@ -362,8 +366,16 @@ const CarList = () => {
               <select 
                 id="car_trim" 
                 name="car_trim" 
-                value={filters.car_trim} 
-                onChange={handleFilterChange}
+                value={filters.car_trim === 'custom' && customTrim ? '' : filters.car_trim} 
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    setCustomTrim(true);
+                    setFilters(prev => ({ ...prev, car_trim: '' }));
+                  } else {
+                    setCustomTrim(false);
+                    handleFilterChange(e);
+                  }
+                }}
                 className="form-select"
                 disabled={!filters.car_model}
               >
@@ -371,7 +383,19 @@ const CarList = () => {
                 {availableTrims.map(trim => (
                   <option key={trim} value={trim}>{trim}</option>
                 ))}
+                <option value="custom">Enter your trim</option>
               </select>
+              {customTrim && (
+                <input
+                  type="text"
+                  id="car_trim_custom"
+                  placeholder="Enter custom trim"
+                  value={filters.car_trim}
+                  onChange={handleFilterChange}
+                  className="form-input"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
             
             <div className="filter-group">
