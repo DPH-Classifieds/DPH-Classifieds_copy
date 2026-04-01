@@ -363,18 +363,101 @@ select#plate_format option {
   font-size: 16px;
 }
 
+/* Responsive adjustments */
 @media (max-width: 768px) {
-  .filters {
-    flex-direction: column;
+  .plates-container {
+    padding: 20px 15px;
   }
   
-  .filters select,
-  .filters input {
+  .plates-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .search-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .filter-input {
     width: 100%;
+    min-width: 100%;
+    min-height: 48px;
+  }
+  
+  .search-button {
+    width: 100%;
+    min-height: 48px;
   }
   
   .plates-grid {
     grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .plate-card {
+    min-height: 180px;
+  }
+  
+  .plate-image .uae-license-plate {
+    transform: scale(0.65);
+  }
+  
+  .plate-details h3 {
+    font-size: 16px;
+  }
+  
+  .plate-price {
+    font-size: 18px;
+  }
+  
+  .plate-date {
+    font-size: 13px;
+  }
+  
+  .plate-actions {
+    flex-direction: column;
+  }
+  
+  .view-details-btn,
+  .save-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+  
+  .plate-sell-cta {
+    padding: 24px;
+  }
+  
+  .cta-content h2 {
+    font-size: 1.5rem;
+  }
+  
+  .sell-plate-btn {
+    width: 100%;
+    min-height: 48px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .plates-container {
+    padding: 15px 10px;
+  }
+  
+  .plates-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .plate-image .uae-license-plate {
+    transform: scale(0.55);
+  }
+  
+  .plate-details h3 {
+    font-size: 15px;
+  }
+  
+  .plate-price {
+    font-size: 16px;
   }
 }
 

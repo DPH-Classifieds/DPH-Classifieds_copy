@@ -404,6 +404,25 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .car-list-container {
+    padding: 15px;
+  }
+  
+  .car-list-container h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .car-filters {
+    padding: 16px;
+  }
+  
+  .filter-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
   .filter-row {
     flex-direction: column;
     gap: 10px;
@@ -413,22 +432,78 @@
     min-width: 100%;
   }
   
-  .car-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .filter-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  
   .sort-by {
     width: 100%;
   }
   
   .sort-select {
     flex-grow: 1;
+    min-height: 48px;
+  }
+  
+  .car-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .car-card {
+    min-height: 200px;
+  }
+  
+  .car-image {
+    height: 150px;
+  }
+  
+  .car-title {
+    font-size: 1rem;
+  }
+  
+  .car-specs {
+    font-size: 0.85rem;
+  }
+  
+  .car-location {
+    font-size: 0.85rem;
+  }
+  
+  .view-details-btn {
+    padding: 10px 0;
+    font-size: 14px;
+  }
+  
+  .apply-filters,
+  .reset-filters {
+    width: 100%;
+    min-height: 48px;
+  }
+  
+  .filter-group select,
+  .filter-group input {
+    min-height: 48px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .car-list-container {
+    padding: 10px;
+  }
+  
+  .car-filters {
+    padding: 12px;
+  }
+  
+  .car-image {
+    height: 130px;
+  }
+  
+  .car-title {
+    font-size: 0.95rem;
+  }
+  
+  .car-price {
+    font-size: 1rem;
+    padding: 6px 10px;
   }
 } 
 

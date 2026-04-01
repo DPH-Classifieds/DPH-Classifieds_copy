@@ -218,38 +218,45 @@
 
 /* Mobile menu button - only shown on small screens */
 .mobile-menu-button {
-  display: none;
+  display: block;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.75rem;
+  min-height: 48px;
+  min-width: 48px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  margin-left: auto;
+  z-index: 1001;
 }
 
 .hamburger {
   display: block;
   position: relative;
-  width: 24px;
-  height: 2px;
+  width: 28px;
+  height: 3px;
   background-color: #4a5568;
   transition: all 0.3s;
+  min-height: 3px;
 }
 
 .hamburger::before,
 .hamburger::after {
   content: '';
   position: absolute;
-  width: 24px;
-  height: 2px;
+  width: 28px;
+  height: 3px;
   background-color: #4a5568;
   transition: all 0.3s;
 }
 
 .hamburger::before {
-  transform: translateY(-8px);
+  transform: translateY(-10px);
 }
 
 .hamburger::after {
-  transform: translateY(8px);
+  transform: translateY(10px);
 }
 
 .hamburger.active {
@@ -340,12 +347,6 @@
     padding: 0 1rem;
   }
   
-  .mobile-menu-button {
-    display: block;
-    margin-left: auto;
-    z-index: 1001;
-  }
-  
   .nav-menu {
     position: fixed;
     top: 0;
@@ -380,6 +381,7 @@
     padding: 1rem;
     border-bottom: 1px solid #f0f0f0;
     justify-content: flex-start;
+    min-height: 48px;
   }
   
   .nav-link.active {
@@ -398,6 +400,7 @@
   
   .btn {
     width: 100%;
+    min-height: 48px;
   }
   
   .user-section {
@@ -432,6 +435,7 @@
   .post-item {
     padding: 0.75rem 1rem 0.75rem 2rem;
     border-bottom: 1px solid #eee;
+    min-height: 48px;
   }
   
   /* Prevent body scrolling when mobile menu is open */
@@ -630,5 +634,11 @@
   .nav-link-highlighted {
     padding: 0.75rem;
     font-size: 1rem;
+    min-height: 48px;
+  }
+  
+  .btn {
+    padding: 0.75rem 1rem;
+    min-height: 48px;
   }
 } 

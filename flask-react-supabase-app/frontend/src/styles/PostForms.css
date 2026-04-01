@@ -380,11 +380,11 @@
   color: #6c757d;
 }
 
-/* Features Checkboxes */
+/* Features Checkboxes - Optimized for Mobile */
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
   margin-top: 6px;
 }
 
@@ -392,6 +392,7 @@
   padding: 8px 12px;
   border-radius: 4px;
   transition: background-color 0.2s;
+  min-height: 36px;
 }
 
 .feature-item:hover {
@@ -405,6 +406,39 @@
   font-weight: normal;
   margin: 0;
   width: 100%;
+  padding: 4px 0;
+}
+
+/* Mobile-optimized features grid */
+@media (max-width: 768px) {
+  .features-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  
+  .feature-item {
+    min-height: 40px;
+  }
+  
+  .feature-item label {
+    font-size: 13px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .features-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .feature-item {
+    min-height: 44px;
+  }
+  
+  .feature-item label {
+    font-size: 12px;
+  }
 }
 
 /* Form Actions */
@@ -860,9 +894,13 @@
     gap: 16px;
   }
   
-  .compatibility-grid,
+  .compatibility-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+  
   .features-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
   }
   
   .license-plate-preview {
@@ -880,9 +918,13 @@
     padding: 16px;
   }
   
-  .compatibility-grid,
+  .compatibility-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
   .features-grid {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
   
   .submit-button {
@@ -957,20 +999,20 @@
   background-color: #d5d5d5;
 } 
 
-/* Organized Extras Categories Styles */
+/* Organized Extras Categories Styles - Optimized for Mobile */
 .extras-category {
-  margin-bottom: 25px;
-  padding: 15px;
+  margin-bottom: 20px;
+  padding: 16px;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   background-color: #fafafa;
 }
 
 .extras-category-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 2px solid #007bff;
   display: flex;
@@ -979,7 +1021,8 @@
 }
 
 .extras-category .form-check {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  min-height: 36px;
 }
 
 .extras-category .form-check-label {
@@ -989,10 +1032,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 4px 0;
 }
 
 .extras-category .form-check-input {
   margin-right: 8px;
+  min-height: 24px;
+  min-width: 24px;
 }
 
 .extras-toggle {
@@ -1003,10 +1049,56 @@
   cursor: pointer;
   text-decoration: underline;
   margin-left: 10px;
+  padding: 4px 0;
+  min-height: 24px;
+  min-width: 24px;
 }
 
 .extras-toggle:hover {
   color: #0056b3;
+}
+
+/* Mobile-optimized extras grid */
+@media (max-width: 768px) {
+  .extras-category {
+    padding: 12px;
+  }
+  
+  .extras-category-title {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  
+  .extras-category .form-check-label {
+    font-size: 13px;
+    padding: 3px 0;
+  }
+  
+  .extras-category .form-check-input {
+    min-height: 28px;
+    min-width: 28px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .extras-category {
+    padding: 10px;
+  }
+  
+  .extras-category-title {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  
+  .extras-category .form-check-label {
+    font-size: 12px;
+  }
+  
+  .extras-category .form-check-input {
+    min-height: 32px;
+    min-width: 32px;
+  }
 }
 
 /* Enhanced Map Features Styles */

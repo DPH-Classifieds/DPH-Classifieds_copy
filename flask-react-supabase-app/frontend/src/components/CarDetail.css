@@ -383,28 +383,160 @@
 
 /* Responsive Styles */
 @media (max-width: 768px) {
+  .car-detail-container {
+    padding: 0 15px;
+    margin: 20px auto;
+  }
+  
+  .car-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .back-button {
+    padding: 10px 16px;
+    min-height: 44px;
+  }
+  
+  .car-detail-title {
+    font-size: 22px;
+    margin-bottom: 18px;
+  }
+  
   .car-detail-content {
     flex-direction: column;
   }
   
   .main-image {
-    height: 300px;
+    height: 280px;
   }
   
-  .car-detail-title {
-    font-size: 24px;
+  .thumbnail-row {
+    gap: 8px;
+  }
+  
+  .thumbnail {
+    width: 70px;
+    height: 50px;
+  }
+  
+  .car-price-location {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
   
   .car-detail-price {
-    font-size: 26px;
+    font-size: 24px;
+  }
+  
+  .car-detail-location {
+    font-size: 14px;
+  }
+  
+  .car-contact h3 {
+    font-size: 18px;
+  }
+  
+  .contact-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .contact-button {
+    width: 100%;
+    min-height: 48px;
+  }
+  
+  .car-specs-section h3 {
+    font-size: 18px;
   }
   
   .car-specs-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    padding: 15px;
+  }
+  
+  .spec-label {
+    font-size: 13px;
+  }
+  
+  .spec-value {
+    font-size: 15px;
+  }
+  
+  .car-extras h3 {
+    font-size: 18px;
   }
   
   .extras-list {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .extra-item {
+    padding: 10px;
+  }
+  
+  .car-description h3 {
+    font-size: 18px;
+  }
+  
+  .loan-calculator h3 {
+    font-size: 18px;
+  }
+  
+  .car-location h3 {
+    font-size: 18px;
+  }
+  
+  .map-container {
+    height: 250px;
+  }
+  
+  .dealer-badge .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+  
+  .view-counter .views {
+    font-size: 13px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .car-detail-container {
+    padding: 0 10px;
+    margin: 15px auto;
+  }
+  
+  .main-image {
+    height: 240px;
+  }
+  
+  .thumbnail {
+    width: 60px;
+    height: 45px;
+  }
+  
+  .car-detail-title {
+    font-size: 20px;
+  }
+  
+  .car-detail-price {
+    font-size: 22px;
+  }
+  
+  .car-specs-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .contact-button {
+    font-size: 15px;
+    padding: 14px 16px;
   }
 }
 
