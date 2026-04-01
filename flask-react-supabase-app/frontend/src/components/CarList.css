@@ -13,11 +13,11 @@
 
 /* Filters styling - Matching PostForms.css */
 .car-filters {
-  background: #fff;
-  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 12px;
   padding: 24px;
   margin-bottom: 25px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid #e5e7eb;
 }
 
@@ -26,14 +26,15 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 2px solid #01351c;
   padding-bottom: 15px;
 }
 
 .filter-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #333;
+  color: #01351c;
+  font-weight: 600;
 }
 
 .sort-by {
@@ -78,8 +79,8 @@
 .filter-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
-  color: #4b5563;
+  font-weight: 600;
+  color: #01351c;
   font-size: 14px;
 }
 
@@ -87,18 +88,25 @@
 .filter-group input {
   width: 100%;
   padding: 12px 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid #d1d5db;
   background-color: white;
   font-size: 14px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  min-height: 48px;
+}
+
+.filter-group select:hover,
+.filter-group input:hover {
+  border-color: #01351c;
 }
 
 .filter-group select:focus,
 .filter-group input:focus {
   outline: none;
   border-color: #01351c;
-  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.1);
+  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.15);
+  transform: translateY(-1px);
 }
 
 .form-select {
@@ -238,11 +246,12 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s, box-shadow 0.3s;
   cursor: pointer;
+  will-change: transform;
 }
 
 .car-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .car-image {
