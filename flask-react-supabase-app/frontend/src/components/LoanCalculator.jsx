@@ -51,76 +51,75 @@ const LoanCalculator = ({ carPrice }) => {
 
   return (
     <div className="loan-calculator-container">
-      <div className="calculator-inputs">
-        <div className="input-row">
-          <div className="input-group">
-            <label htmlFor="carPrice">Car Price</label>
-            <input
-              type="text"
-              id="carPrice"
-              value={formatCurrency(carPrice)}
-              disabled
-              className="readonly-input"
-            />
-          </div>
-          <div className="input-group">
-            <label htmlFor="downPayment">Down Payment (AED) ({downPaymentPercent}%)</label>
-            <input
-              type="number"
-              id="downPayment"
-              value={downPayment}
-              onChange={(e) => handleDownPaymentChange(parseFloat(e.target.value) || 0)}
-              min="0"
-              max={carPrice}
-              step="1000"
-            />
+      <div className="loan-calculator-grid">
+        <div className="calculator-inputs">
+          <div className="input-row">
+            <div className="input-group">
+              <label htmlFor="carPrice">Car Price</label>
+              <input
+                type="text"
+                id="carPrice"
+                value={formatCurrency(carPrice)}
+                disabled
+                className="readonly-input"
+              />
+            </div>
+            <div className="input-group">
+              <label htmlFor="downPayment">Down Payment (AED) ({downPaymentPercent}%)</label>
+              <input
+                type="number"
+                id="downPayment"
+                value={downPayment}
+                onChange={(e) => handleDownPaymentChange(parseFloat(e.target.value) || 0)}
+                min="0"
+                max={carPrice}
+                step="1000"
+              />
+            </div>
+            <div className="input-group">
+              <label htmlFor="loanTerm">Loan Term</label>
+              <select
+                id="loanTerm"
+                value={loanTerm}
+                onChange={(e) => setLoanTerm(parseInt(e.target.value))}
+              >
+                <option value={12}>1 year</option>
+                <option value={24}>2 years</option>
+                <option value={36}>3 years</option>
+                <option value={48}>4 years</option>
+                <option value={60}>5 years</option>
+                <option value={72}>6 years</option>
+                <option value={84}>7 years</option>
+              </select>
+            </div>
+            <div className="input-group">
+              <label htmlFor="interestRate">Interest Rate (%)</label>
+              <input
+                type="number"
+                id="interestRate"
+                value={interestRate}
+                onChange={(e) => setInterestRate(parseFloat(e.target.value) || 0)}
+                min="0"
+                max="20"
+                step="0.1"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="input-row">
-          <div className="input-group">
-            <label htmlFor="loanTerm">Loan Term</label>
-            <select
-              id="loanTerm"
-              value={loanTerm}
-              onChange={(e) => setLoanTerm(parseInt(e.target.value))}
-            >
-              <option value={12}>1 year</option>
-              <option value={24}>2 years</option>
-              <option value={36}>3 years</option>
-              <option value={48}>4 years</option>
-              <option value={60}>5 years</option>
-              <option value={72}>6 years</option>
-              <option value={84}>7 years</option>
-            </select>
+        <div className="calculator-results">
+          <div className="result-card">
+            <div className="result-label">Monthly Payment</div>
+            <div className="result-value primary">{formatCurrency(monthlyPayment)}</div>
           </div>
-          <div className="input-group">
-            <label htmlFor="interestRate">Interest Rate (%)</label>
-            <input
-              type="number"
-              id="interestRate"
-              value={interestRate}
-              onChange={(e) => setInterestRate(parseFloat(e.target.value) || 0)}
-              min="0"
-              max="20"
-              step="0.1"
-            />
+          <div className="result-card">
+            <div className="result-label">Loan Amount</div>
+            <div className="result-value">{formatCurrency(loanAmount)}</div>
           </div>
-        </div>
-      </div>
-
-      <div className="calculator-results">
-        <div className="result-card">
-          <div className="result-label">Monthly Payment</div>
-          <div className="result-value primary">{formatCurrency(monthlyPayment)}</div>
-        </div>
-        <div className="result-card">
-          <div className="result-label">Loan Amount</div>
-          <div className="result-value">{formatCurrency(loanAmount)}</div>
-        </div>
-        <div className="result-card">
-          <div className="result-label">Total Interest</div>
-          <div className="result-value">{formatCurrency(totalInterest)}</div>
+          <div className="result-card">
+            <div className="result-label">Total Interest</div>
+            <div className="result-value">{formatCurrency(totalInterest)}</div>
+          </div>
         </div>
       </div>
 

@@ -681,7 +681,7 @@ const PostBike = () => {
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,.webp,.gif"
                 onChange={handleImageChange}
                 className="image-upload-input"
               />

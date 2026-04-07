@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import ReportBugButton from './ReportBugButton';
 import '../styles/Footer.css';
 
@@ -8,21 +9,30 @@ const Footer = () => {
   return (
     <footer className="footer">
       <div className="footer-container">
+        <div className="footer-section footer-brand">
+          <span className="footer-kicker">DPH Classifieds</span>
+          <p>
+            A cleaner green-first marketplace for the UAE car community, built to make browsing and
+            listing feel more considered.
+          </p>
+        </div>
+
         <div className="footer-section">
-          <h3>About Us</h3>
+          <h3>About</h3>
           <ul>
-            <li><a href="/about">About</a></li>
-            <li><a href="/privacy-policy">Privacy Policy</a></li>
-            <li><a href="/terms-of-use">Terms of Use</a></li>
+            <li><Link to="/about">About</Link></li>
+            <li><Link to="/privacy-policy">Privacy Policy</Link></li>
+            <li><Link to="/terms-of-use">Terms of Use</Link></li>
           </ul>
         </div>
         
         <div className="footer-section">
           <h3>Quick Links</h3>
           <ul>
-            <li><a href="/">Home</a></li>
-            <li><a href="/cars">Browse Cars</a></li>
-            <li><a href="/create-listing">Sell Your Car</a></li>
+            <li><Link to="/">Home</Link></li>
+            <li><Link to="/explore">Explore</Link></li>
+            <li><Link to="/cars">Browse Cars</Link></li>
+            <li><Link to="/create-listing">Sell Your Car</Link></li>
             <li>
               <ReportBugButton className="footer-button" buttonText="Report a Bug" />
             </li>
@@ -48,7 +58,7 @@ const Footer = () => {
       </div>
       
       <div className="footer-bottom">
-        <p>&copy; {currentYear} Car Classifieds. All rights reserved.</p>
+        <p>&copy; {currentYear} DPH Classifieds. All rights reserved.</p>
       </div>
     </footer>
   );

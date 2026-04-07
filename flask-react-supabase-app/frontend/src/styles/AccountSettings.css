@@ -27,26 +27,26 @@
 }
 
 /* Alerts */
-.alert {
+.account-settings-container .alert {
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 20px;
   font-weight: 500;
 }
 
-.alert-success {
+.account-settings-container .alert-success {
   background-color: #d4edda;
   color: #155724;
   border: 1px solid #c3e6cb;
 }
 
-.alert-danger {
+.account-settings-container .alert-danger {
   background-color: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
 }
 
-.alert-warning {
+.account-settings-container .alert-warning {
   background-color: #fff3cd;
   color: #856404;
   border: 1px solid #ffeaa7;
@@ -62,7 +62,7 @@
   margin-bottom: 30px;
 }
 
-.tab-button {
+.account-settings-container .tab-button {
   flex: 1;
   padding: 15px 20px;
   background: white;
@@ -75,12 +75,12 @@
   border-bottom: 3px solid transparent;
 }
 
-.tab-button:hover {
+.account-settings-container .tab-button:hover {
   background-color: #f8f9fa;
   color: #01351c;
 }
 
-.tab-button.active {
+.account-settings-container .tab-button.active {
   color: #01351c;
   background-color: #f0fdf5;
   border-bottom-color: #01351c;
@@ -217,7 +217,7 @@
 }
 
 /* Buttons */
-.btn {
+.account-settings-container .btn {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
@@ -232,48 +232,48 @@
   min-width: 120px;
 }
 
-.btn:disabled {
+.account-settings-container .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.btn-primary {
+.account-settings-container .btn-primary {
   background-color: #01351c;
   color: white;
 }
 
-.btn-primary:hover:not(:disabled) {
+.account-settings-container .btn-primary:hover:not(:disabled) {
   background-color: #012513;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(1, 53, 28, 0.2);
 }
 
-.btn-secondary {
+.account-settings-container .btn-secondary {
   background-color: #6c757d;
   color: white;
 }
 
-.btn-secondary:hover:not(:disabled) {
+.account-settings-container .btn-secondary:hover:not(:disabled) {
   background-color: #5a6268;
 }
 
-.btn-outline {
+.account-settings-container .btn-outline {
   background-color: transparent;
   color: #01351c;
   border: 1px solid #01351c;
 }
 
-.btn-outline:hover:not(:disabled) {
+.account-settings-container .btn-outline:hover:not(:disabled) {
   background-color: #01351c;
   color: white;
 }
 
-.btn-danger {
+.account-settings-container .btn-danger {
   background-color: #dc3545;
   color: white;
 }
 
-.btn-danger:hover:not(:disabled) {
+.account-settings-container .btn-danger:hover:not(:disabled) {
   background-color: #c82333;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
@@ -416,5 +416,339 @@
     padding: 10px 20px;
     font-size: 14px;
     min-width: 100px;
+  }
+}
+
+/* 2026 settings refresh */
+.account-settings-container {
+  max-width: 1180px;
+  padding: 48px 24px 96px;
+  background:
+    radial-gradient(circle at top, rgba(112, 201, 119, 0.1), transparent 30%),
+    linear-gradient(180deg, #07110b 0%, #040806 100%);
+  color: #edf6ee;
+}
+
+.settings-header,
+.settings-tabs,
+.settings-content,
+.profile-photo-section,
+.account-details,
+.danger-zone,
+.verification-notice,
+.completion-indicator {
+  background: linear-gradient(180deg, rgba(12, 28, 19, 0.96) 0%, rgba(7, 15, 10, 0.98) 100%);
+  border: 1px solid rgba(148, 218, 153, 0.12);
+  box-shadow: inset 0 1px 0 rgba(245, 252, 246, 0.04);
+}
+
+.settings-header,
+.settings-content,
+.danger-zone {
+  border-radius: 28px;
+}
+
+.settings-header {
+  padding: 30px;
+}
+
+.settings-header h1,
+.tab-content h2,
+.form-section h3,
+.account-info-section h3,
+.danger-zone h3,
+.danger-content h4 {
+  color: #f5fbf6;
+}
+
+.settings-header p,
+.photo-help-text,
+.form-text,
+.danger-content p,
+.verification-notice small,
+.completion-indicator-note {
+  color: rgba(226, 238, 227, 0.7);
+}
+
+.completion-indicator {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+}
+
+.completion-indicator-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.completion-indicator-head span:first-child {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #f4fbf5;
+}
+
+.completion-indicator-value {
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.mini-progress-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(243, 250, 244, 0.09);
+}
+
+.mini-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+.settings-tabs {
+  padding: 8px;
+  gap: 8px;
+  border-radius: 24px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(226, 238, 227, 0.66);
+  border-bottom: none;
+}
+
+.tab-button:hover {
+  background: rgba(112, 201, 119, 0.1);
+  color: #f2fbf3;
+}
+
+.tab-button.active {
+  background: linear-gradient(135deg, #88d86f 0%, #5bac58 100%);
+  color: #0d170d;
+  border-bottom-color: transparent;
+}
+
+.settings-content {
+  padding: 30px;
+}
+
+.tab-content h2 {
+  border-bottom: 1px solid rgba(148, 218, 153, 0.1);
+}
+
+.account-settings-container .form-section {
+  background: rgba(244, 251, 245, 0.03);
+  border: 1px solid rgba(148, 218, 153, 0.1);
+  border-radius: 22px;
+  padding: 24px;
+}
+
+.profile-photo-section {
+  border-radius: 20px;
+  border-style: solid;
+}
+
+.current-photo {
+  border-color: rgba(148, 218, 153, 0.32);
+  background: rgba(244, 251, 245, 0.05);
+}
+
+.no-photo-placeholder {
+  background: rgba(244, 251, 245, 0.04);
+  color: rgba(226, 238, 227, 0.68);
+}
+
+.account-settings-container .form-group label,
+.checkbox-label strong,
+.info-label {
+  color: #f3faf3;
+}
+
+.account-settings-container .form-group input,
+.account-settings-container .form-group select,
+.account-settings-container .form-group textarea,
+.country-code-select,
+.phone-number-input {
+  color-scheme: dark;
+  background: rgba(244, 251, 245, 0.05);
+  color: #f6fbf6;
+  border: 1px solid rgba(148, 218, 153, 0.16);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.account-settings-container .form-group input::placeholder,
+.account-settings-container .form-group textarea::placeholder {
+  color: rgba(226, 238, 227, 0.4);
+}
+
+.account-settings-container .form-group input:focus,
+.account-settings-container .form-group select:focus,
+.account-settings-container .form-group textarea:focus,
+.country-code-select:focus,
+.phone-number-input:focus {
+  border-color: #79d07f;
+  box-shadow: 0 0 0 4px rgba(97, 191, 102, 0.16);
+}
+
+.account-settings-container .form-group select option {
+  background: #0f1611;
+  color: #eef7ef;
+}
+
+.checkbox-group {
+  display: grid;
+  gap: 14px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(244, 251, 245, 0.04);
+  border: 1px solid rgba(148, 218, 153, 0.1);
+  color: rgba(226, 238, 227, 0.76);
+}
+
+.checkbox-label input {
+  margin-top: 2px;
+  accent-color: #72ca77;
+}
+
+.verification-notice {
+  border-radius: 18px;
+  padding: 16px 18px;
+  color: #f3faf3;
+}
+
+.verification-notice.verified {
+  background: linear-gradient(180deg, rgba(15, 42, 25, 0.98) 0%, rgba(8, 18, 11, 0.98) 100%);
+}
+
+.account-details {
+  border-radius: 20px;
+}
+
+.info-row {
+  border-color: rgba(148, 218, 153, 0.08);
+}
+
+.info-value {
+  color: rgba(226, 238, 227, 0.82);
+}
+
+.badge-dealer,
+.badge-individual,
+.badge-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 218, 153, 0.18);
+  margin-right: 8px;
+}
+
+.badge-dealer,
+.badge-verified {
+  background: rgba(112, 201, 119, 0.14);
+  color: #c5f2c8;
+}
+
+.badge-individual {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ecf5ed;
+}
+
+.account-settings-container .btn {
+  min-height: 48px;
+  border-radius: 999px;
+}
+
+.account-settings-container .btn-primary {
+  background: linear-gradient(135deg, #88d86f 0%, #5bac58 100%);
+  color: #0e170e;
+}
+
+.account-settings-container .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9ce387 0%, #72c56d 100%);
+  color: #081108;
+}
+
+.account-settings-container .btn-secondary,
+.account-settings-container .btn-outline {
+  background: rgba(112, 201, 119, 0.12);
+  color: #edf6ee;
+  border: 1px solid rgba(148, 218, 153, 0.18);
+}
+
+.account-settings-container .btn-secondary:hover:not(:disabled),
+.account-settings-container .btn-outline:hover:not(:disabled) {
+  background: rgba(112, 201, 119, 0.18);
+}
+
+.account-settings-container .btn-danger {
+  background: rgba(167, 35, 35, 0.18);
+  border: 1px solid rgba(255, 132, 132, 0.2);
+  color: #ffd2d2;
+}
+
+.account-settings-container .btn-danger:hover:not(:disabled) {
+  background: rgba(167, 35, 35, 0.28);
+}
+
+.danger-zone {
+  border-color: rgba(255, 120, 120, 0.22);
+  background: linear-gradient(180deg, rgba(38, 10, 10, 0.94) 0%, rgba(21, 8, 8, 0.98) 100%);
+}
+
+.account-settings-container .alert-success,
+.account-settings-container .alert-danger,
+.account-settings-container .alert-warning {
+  border-radius: 18px;
+}
+
+.account-settings-container .alert-success {
+  background: rgba(41, 95, 54, 0.28);
+  border-color: rgba(112, 201, 119, 0.18);
+  color: #d8f4da;
+}
+
+.account-settings-container .alert-danger {
+  background: rgba(164, 31, 31, 0.18);
+  border-color: rgba(255, 120, 120, 0.18);
+  color: #ffd1d1;
+}
+
+.account-settings-container .alert-warning {
+  background: rgba(167, 121, 29, 0.18);
+  border-color: rgba(255, 204, 102, 0.18);
+  color: #ffe1a6;
+}
+
+@media (max-width: 768px) {
+  .account-settings-container {
+    padding: 36px 16px 72px;
+  }
+
+  .settings-header,
+  .settings-content {
+    padding: 22px;
+  }
+
+  .settings-tabs {
+    flex-direction: column;
+  }
+
+  .tab-button {
+    width: 100%;
   }
 }

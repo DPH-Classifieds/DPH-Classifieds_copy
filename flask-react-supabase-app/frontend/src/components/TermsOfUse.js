@@ -1,15 +1,19 @@
 import React from 'react';
-import '../styles/About.css'; // Reusing the About.css for consistency
+import '../styles/About.css';
 
 const TermsOfUse = () => {
   return (
-    <div className="about-container">
-      <div className="welcome-section">
-        <h1>DPH Classifieds — Platform Terms of Use</h1>
-        <p className="welcome-description">Effective date: 8 September 2025</p>
-      </div>
+    <div className="about-v2 legal-v2">
+      <section className="about-v2-hero">
+        <div className="about-v2-shell">
+          <span className="about-v2-kicker">Legal</span>
+          <h1>DPH Classifieds — Platform Terms of Use</h1>
+          <p>Effective date: 8 September 2025</p>
+        </div>
+      </section>
 
-      <div className="info-content">
+      <section className="legal-v2-section">
+        <div className="about-v2-shell legal-v2-body">
         <p>These Terms of Use ("Terms") set out the rules for using the DPH Classifieds website, mobile applications, and any services, features, or content made available through them (collectively, the "Platform" and "Content"). By accessing or using the Platform, you agree to these Terms.</p>
         
         <p>If you do not agree, do not use the Platform.</p>
@@ -180,7 +184,8 @@ const TermsOfUse = () => {
           <li><a href="/privacy-policy">Privacy Policy</a> – how we handle your data</li>
           <li><a href="/terms-of-use">Acceptable Use Policy</a> – content & conduct standards</li>
         </ul>
-      </div>
+        </div>
+      </section>
     </div>
   );
 };

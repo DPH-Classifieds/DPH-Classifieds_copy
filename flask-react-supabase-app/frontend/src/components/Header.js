@@ -56,6 +56,17 @@ const Header = () => {
       if (browseDropdownRef.current && !browseDropdownRef.current.contains(event.target)) {
         setBrowseDropdownOpen(false);
       }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close post dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
       if (postDropdownRef.current && !postDropdownRef.current.contains(event.target)) {
         setPostDropdownOpen(false);
       }
@@ -78,23 +89,20 @@ const Header = () => {
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
-    // Close dropdowns when toggling mobile menu
-    setBrowseDropdownOpen(false);
-    setPostDropdownOpen(false);
   };
 
   const toggleBrowseDropdown = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setBrowseDropdownOpen(!browseDropdownOpen);
-    if (postDropdownOpen) setPostDropdownOpen(false);
+    setPostDropdownOpen(false);
   };
 
   const togglePostDropdown = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setPostDropdownOpen(!postDropdownOpen);
-    if (browseDropdownOpen) setBrowseDropdownOpen(false);
+    setBrowseDropdownOpen(false);
   };
 
   // Check if the current path matches a nav link
@@ -104,13 +112,13 @@ const Header = () => {
 
   // Check if current path is any browse-related path
   const isBrowseActive = () => {
-    const browsePaths = ['/cars', '/car-parts', '/plates', '/bikes'];
+    const browsePaths = ['/explore', '/cars', '/car-parts', '/plates', '/bikes'];
     return browsePaths.some(path => location.pathname.startsWith(path));
   };
 
   // Check if current path is any post-related path
   const isPostActive = () => {
-    const postPaths = ['/create-listing', '/post-car', '/post-bike', '/post-plate', '/post-car-part'];
+    const postPaths = ['/post-car', '/post-car-parts', '/post-plates', '/post-bikes'];
     return postPaths.some(path => location.pathname.startsWith(path));
   };
 
@@ -157,6 +165,16 @@ const Header = () => {
               {browseDropdownOpen && (
                 <div className="browse-dropdown">
                   <Link 
+                    to="/explore" 
+                    className="browse-item"
+                    onClick={() => {
+                      setBrowseDropdownOpen(false);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Explore
+                  </Link>
+                  <Link 
                     to="/cars" 
                     className="browse-item"
                     onClick={() => {
@@ -164,7 +182,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    Browse Cars
+                    Cars
                   </Link>
                   <Link 
                     to="/car-parts" 
@@ -174,7 +192,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    Browse Car Parts
+                    Car Parts
                   </Link>
                   <Link 
                     to="/plates" 
@@ -184,7 +202,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    Browse Plates
+                    Plates
                   </Link>
                   <Link 
                     to="/bikes" 
@@ -194,14 +212,14 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    Browse Bikes
+                    Bikes
                   </Link>
                 </div>
               )}
             </li>
             <li className="post-dropdown-container" ref={postDropdownRef}>
               <button 
-                className={`nav-link nav-link-highlighted post-toggle btn-link ${isPostActive() ? 'active' : ''}`} 
+                className={`nav-link nav-link-highlighted post-toggle ${isPostActive() ? 'active' : ''}`} 
                 onClick={togglePostDropdown}
                 aria-expanded={postDropdownOpen}
               >
@@ -217,27 +235,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    Post a Car
-                  </Link>
-                  <Link 
-                    to={getPostUrl("/post-bike")} 
-                    className="post-item"
-                    onClick={() => {
-                      setPostDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Post a Bike
-                  </Link>
-                  <Link 
-                    to={getPostUrl("/post-plate")} 
-                    className="post-item"
-                    onClick={() => {
-                      setPostDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Post a Plate
+                    Cars
                   </Link>
                   <Link 
                     to={getPostUrl("/post-car-parts")} 
@@ -247,7 +245,27 @@ const Header = () => {
                       setMobileMenuOpen(false);
                     }}
                   >
-                    Post Car Parts
+                    Car Parts
+                  </Link>
+                  <Link 
+                    to={getPostUrl("/post-plate")} 
+                    className="post-item"
+                    onClick={() => {
+                      setPostDropdownOpen(false);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Plates
+                  </Link>
+                  <Link 
+                    to={getPostUrl("/post-bike")} 
+                    className="post-item"
+                    onClick={() => {
+                      setPostDropdownOpen(false);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Bikes
                   </Link>
                 </div>
               )}
@@ -261,7 +279,6 @@ const Header = () => {
                 About
               </Link>
             </li>
-            {/* Contact page link removed as requested */}
             {user && (
               <li className="desktop-hide">
                 <Link 
@@ -310,4 +327,4 @@ const Header = () => {
   );
 };
 
-export default Header; 
+export default Header;

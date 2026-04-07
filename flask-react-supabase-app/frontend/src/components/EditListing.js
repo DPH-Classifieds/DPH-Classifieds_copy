@@ -777,7 +777,7 @@ const EditListing = () => {
                 name="images"
                 onChange={handleImageChange}
                 multiple
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,.webp,.gif"
               />
               <small className="form-hint">You can select multiple images at once.</small>
             </div>

@@ -673,4 +673,237 @@
 
 .delete-btn:hover {
   background-color: #b91c1c !important;
-} 
+}
+
+/* Dark dashboard overrides */
+.admin-dashboard {
+  max-width: 1380px;
+  margin: 32px auto 72px;
+  padding: 0 24px;
+  color: #eef7ef;
+}
+
+.admin-dashboard h1 {
+  color: #f7fbf7;
+  border-bottom-color: rgba(171, 229, 176, 0.1);
+  letter-spacing: -0.04em;
+}
+
+.admin-dashboard .admin-tabs {
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom-color: rgba(171, 229, 176, 0.08);
+}
+
+.admin-dashboard .admin-tabs button {
+  padding: 12px 18px;
+  border-radius: 999px;
+  color: #aac5ad;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+}
+
+.admin-dashboard .admin-tabs button:hover {
+  color: #eef7ef;
+  border-color: rgba(171, 229, 176, 0.14);
+}
+
+.admin-dashboard .admin-tabs button.active {
+  color: #041008;
+  border-bottom-color: transparent;
+  border-color: rgba(171, 229, 176, 0.18);
+  background: linear-gradient(135deg, #8be091, #61be66);
+  box-shadow: 0 18px 36px rgba(97, 190, 102, 0.18);
+}
+
+.admin-dashboard .admin-content h2,
+.admin-dashboard .listings-filter h3,
+.admin-dashboard .modal-header h3,
+.admin-dashboard .listing-detail-content h4,
+.admin-dashboard .car-details h5,
+.admin-dashboard .bike-details h5,
+.admin-dashboard .parts-details h5,
+.admin-dashboard .plates-details h5,
+.admin-dashboard .contact-details h5,
+.admin-dashboard .status-info h5,
+.admin-dashboard .description-section h5,
+.admin-dashboard .listing-images h5,
+.admin-dashboard .report-section h4,
+.admin-dashboard .reported-listing-section h4 {
+  color: #f7fbf7;
+  border-bottom-color: rgba(171, 229, 176, 0.08);
+}
+
+.admin-dashboard .success-message,
+.admin-dashboard .error-message {
+  border-radius: 18px;
+}
+
+.admin-dashboard .success-message {
+  background-color: rgba(82, 177, 90, 0.16);
+  color: #dff6e1;
+  border-color: rgba(148, 224, 154, 0.16);
+}
+
+.admin-dashboard .error-message {
+  background-color: rgba(179, 46, 71, 0.18);
+  color: #ffd5d7;
+  border-color: rgba(255, 138, 163, 0.16);
+}
+
+.admin-dashboard .loading-message,
+.admin-dashboard .no-listings,
+.admin-dashboard .listing-summary,
+.admin-dashboard .listing-contact,
+.admin-dashboard .listing-email,
+.admin-dashboard .listing-status,
+.admin-dashboard .description-section p,
+.admin-dashboard .detail-row,
+.admin-dashboard .listing-not-found {
+  color: #aac5ad;
+}
+
+.admin-dashboard .listings-stats {
+  gap: 18px;
+}
+
+.admin-dashboard .stat-item,
+.admin-dashboard .listing-card,
+.admin-dashboard .modal-content,
+.admin-dashboard .report-section,
+.admin-dashboard .reported-listing-section,
+.admin-dashboard .no-listings {
+  background:
+    radial-gradient(circle at top left, rgba(107, 192, 114, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(14, 32, 18, 0.96), rgba(7, 18, 10, 0.98));
+  border-color: rgba(171, 229, 176, 0.12);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28);
+}
+
+.admin-dashboard .stat-item:hover,
+.admin-dashboard .listing-card:hover {
+  border-color: rgba(171, 229, 176, 0.2);
+}
+
+.admin-dashboard .stat-value,
+.admin-dashboard .listing-title,
+.admin-dashboard .modal-header h3,
+.admin-dashboard .detail-row strong {
+  color: #f7fbf7;
+}
+
+.admin-dashboard .stat-label,
+.admin-dashboard .listing-date {
+  color: #d1e6d3;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-dashboard .listing-header {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: rgba(171, 229, 176, 0.08);
+}
+
+.admin-dashboard .listing-thumbnail,
+.admin-dashboard .listing-image {
+  border-color: rgba(171, 229, 176, 0.14);
+}
+
+.admin-dashboard .listing-image:hover {
+  border-color: rgba(139, 224, 145, 0.36);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+}
+
+.admin-dashboard .listing-actions,
+.admin-dashboard .modal-header,
+.admin-dashboard .modal-actions {
+  border-color: rgba(171, 229, 176, 0.08);
+}
+
+.admin-dashboard .modal-actions {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-dashboard .close-btn {
+  color: #cfe3d1;
+}
+
+.admin-dashboard .close-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.admin-dashboard .approve-btn,
+.admin-dashboard .reject-btn,
+.admin-dashboard .view-btn,
+.admin-dashboard .confirm-reject-btn,
+.admin-dashboard .cancel-btn {
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.admin-dashboard .approve-btn {
+  background: linear-gradient(135deg, #8be091, #61be66);
+  color: #041008;
+}
+
+.admin-dashboard .reject-btn,
+.admin-dashboard .confirm-reject-btn {
+  background: rgba(164, 36, 67, 0.9);
+  color: #fff2f4;
+}
+
+.admin-dashboard .view-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef7ef;
+  border: 1px solid rgba(171, 229, 176, 0.12);
+}
+
+.admin-dashboard .cancel-btn {
+  background: rgba(255, 255, 255, 0.04);
+  color: #eef7ef;
+  border-color: rgba(171, 229, 176, 0.12);
+}
+
+.admin-dashboard .rejection-note-input {
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7fbf7;
+  border-color: rgba(171, 229, 176, 0.12);
+}
+
+.admin-dashboard .rejection-note-input:focus {
+  border-color: rgba(133, 224, 140, 0.5);
+  box-shadow: 0 0 0 4px rgba(116, 197, 122, 0.14);
+}
+
+.admin-dashboard .status-badge.pending {
+  background-color: rgba(244, 180, 49, 0.16);
+  color: #ffd68d;
+}
+
+.admin-dashboard .status-badge.resolved {
+  background-color: rgba(82, 177, 90, 0.16);
+  color: #dff6e1;
+}
+
+.admin-dashboard .status-badge.dismissed {
+  background-color: rgba(179, 46, 71, 0.18);
+  color: #ffd5d7;
+}
+
+@media (max-width: 768px) {
+  .admin-dashboard {
+    padding: 0 16px;
+  }
+
+  .admin-dashboard .admin-tabs {
+    gap: 8px;
+  }
+
+  .admin-dashboard .admin-tabs button {
+    padding: 10px 14px;
+  }
+
+  .admin-dashboard .listings-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -425,32 +425,26 @@ const AccountSettings = () => {
         
         {/* Profile Completion Indicator */}
         {profileCompletion.percentage < 100 && (
-          <div className="completion-indicator" style={{ marginTop: '15px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '14px', fontWeight: '500' }}>Profile Completion</span>
-              <span style={{ 
-                fontSize: '14px', 
-                fontWeight: 'bold',
-                color: getProfileCompletionColor(profileCompletion.percentage)
-              }}>
+          <div className="completion-indicator">
+            <div className="completion-indicator-head">
+              <span>Profile Completion</span>
+              <span
+                className="completion-indicator-value"
+                style={{ color: getProfileCompletionColor(profileCompletion.percentage) }}
+              >
                 {profileCompletion.percentage}%
               </span>
             </div>
-            <div style={{ 
-              width: '100%', 
-              height: '8px', 
-              backgroundColor: '#e0e0e0', 
-              borderRadius: '4px',
-              overflow: 'hidden'
-            }}>
-              <div style={{ 
-                width: `${profileCompletion.percentage}%`, 
-                height: '100%',
-                backgroundColor: getProfileCompletionColor(profileCompletion.percentage),
-                transition: 'width 0.3s ease'
-              }} />
+            <div className="mini-progress-bar">
+              <div
+                className="mini-progress-fill"
+                style={{
+                  width: `${profileCompletion.percentage}%`,
+                  backgroundColor: getProfileCompletionColor(profileCompletion.percentage)
+                }}
+              />
             </div>
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+            <p className="completion-indicator-note">
               {profileCompletion.completedCount} of {profileCompletion.totalFields} fields completed
             </p>
           </div>
@@ -520,7 +514,7 @@ const AccountSettings = () => {
                         type="file"
                         ref={fileInputRef}
                         onChange={handlePhotoSelect}
-                        accept="image/*"
+                        accept=".jpg,.jpeg,.png,.webp,.gif"
                         className="hidden-file-input"
                       />
                       <button

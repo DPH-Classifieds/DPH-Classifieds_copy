@@ -22,6 +22,9 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
 const PostCar = () => {
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
@@ -347,7 +350,20 @@ const PostCar = () => {
       setError("You can only upload up to 10 images.");
       return;
     }
+
+    const invalidTypeFile = files.find((file) => !SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase()));
+    if (invalidTypeFile) {
+      setError('Only JPG, PNG, WEBP, and GIF images are supported.');
+      return;
+    }
+
+    const oversizedFile = files.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversizedFile) {
+      setError('Each image must be 5MB or smaller.');
+      return;
+    }
     
+    setError(null);
     setSelectedFiles(files);
     
     // Create preview URLs
@@ -1082,7 +1098,7 @@ const PostCar = () => {
                   <p>or</p>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept=".jpg,.jpeg,.png,.webp,.gif"
                     multiple
                     onChange={handleFileChange}
                     className="file-input"
@@ -1091,7 +1107,7 @@ const PostCar = () => {
                   <button type="button" className="browse-btn">
                     Browse Files
                   </button>
-                  <p className="upload-hint">Maximum 10 images • JPG, PNG, GIF supported</p>
+                  <p className="upload-hint">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
                 </div>
                 
                 {previewImages.length > 0 && (

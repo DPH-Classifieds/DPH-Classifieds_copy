@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
+import '../styles/AdminTools.css';
 
 const AdminTools = () => {
   const { user, syncWithSupabase } = useAuth();
@@ -92,41 +93,33 @@ const AdminTools = () => {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
+    <div className="admin-tools">
+      <div className="admin-tools-shell">
       <h2>Admin Tools</h2>
       
-      <div style={{ marginBottom: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '4px' }}>
+      <div className="admin-tools-card">
         <h3>Your User Information</h3>
-        <p><strong>ID:</strong> {user?.id || 'Not available'}</p>
-        <p><strong>Email:</strong> {user?.email || 'Not available'}</p>
-        <p><strong>Admin Status:</strong> {user?.is_admin ? 'Yes' : 'No'}</p>
+        <p><strong>ID:</strong> <span>{user?.id || 'Not available'}</span></p>
+        <p><strong>Email:</strong> <span>{user?.email || 'Not available'}</span></p>
+        <p><strong>Admin Status:</strong> <span>{user?.is_admin ? 'Yes' : 'No'}</span></p>
         
         <button 
           onClick={refreshUserStatus} 
           disabled={refreshing}
-          style={{
-            padding: '8px 15px',
-            background: '#01351c',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: refreshing ? 'not-allowed' : 'pointer',
-            opacity: refreshing ? 0.7 : 1,
-            marginTop: '10px'
-          }}
+          className="admin-tools-button admin-tools-button-secondary"
         >
           {refreshing ? 'Refreshing...' : 'Refresh User Status'}
         </button>
         
         {message && (
-          <div style={{ marginTop: '10px', padding: '10px', background: '#DFF2BF', color: '#4F8A10', borderRadius: '4px' }}>
+          <div className="admin-tools-alert admin-tools-alert-success">
             {message}
           </div>
         )}
       </div>
       
       {!user?.is_admin && (
-        <div>
+        <div className="admin-tools-card">
           <h3>Make Yourself an Admin</h3>
           <p>
             If you're the developer or owner of this application, you can make yourself an admin
@@ -135,47 +128,26 @@ const AdminTools = () => {
           <button 
             onClick={makeAdmin} 
             disabled={loading}
-            style={{
-              padding: '10px 15px',
-              background: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1
-            }}
+            className="admin-tools-button admin-tools-button-primary"
           >
             {loading ? 'Processing...' : 'Make Me Admin'}
           </button>
           
           {error && (
-            <div style={{ marginTop: '10px', padding: '10px', background: '#FFBABA', color: '#D8000C', borderRadius: '4px' }}>
+            <div className="admin-tools-alert admin-tools-alert-error">
               <p>{error}</p>
               
               {errorDetails && (
-                <div>
+                <div className="admin-tools-details">
                   <button 
                     onClick={() => setShowDetails(!showDetails)} 
-                    style={{ 
-                      background: 'transparent', 
-                      border: 'none', 
-                      color: '#D8000C', 
-                      textDecoration: 'underline',
-                      cursor: 'pointer',
-                      padding: '5px 0'
-                    }}
+                    className="admin-tools-toggle"
                   >
                     {showDetails ? 'Hide Details' : 'Show Details'}
                   </button>
                   
                   {showDetails && (
-                    <pre style={{ 
-                      background: 'rgba(0,0,0,0.05)', 
-                      padding: '10px', 
-                      overflow: 'auto',
-                      fontSize: '12px',
-                      maxHeight: '200px'
-                    }}>
+                    <pre className="admin-tools-pre">
                       {errorDetails}
                     </pre>
                   )}
@@ -184,16 +156,7 @@ const AdminTools = () => {
               
               <button
                 onClick={makeAdmin}
-                style={{
-                  marginTop: '10px',
-                  padding: '5px 10px',
-                  background: '#D8000C',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.7 : 1
-                }}
+                className="admin-tools-button admin-tools-button-danger"
                 disabled={loading}
               >
                 {loading ? 'Processing...' : 'Try Again'}
@@ -204,25 +167,18 @@ const AdminTools = () => {
       )}
       
       {user?.is_admin && (
-        <div style={{ marginTop: '10px', padding: '10px', background: '#DFF2BF', color: '#4F8A10', borderRadius: '4px' }}>
+        <div className="admin-tools-card admin-tools-card-success">
           <p>You already have admin privileges.</p>
           <p>You can now access the Admin Dashboard and manage the application.</p>
           <a 
             href="/admin" 
-            style={{
-              display: 'inline-block',
-              marginTop: '10px',
-              padding: '8px 15px',
-              background: '#4F8A10',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '4px'
-            }}
+            className="admin-tools-link"
           >
             Go to Admin Dashboard
           </a>
         </div>
       )}
+      </div>
     </div>
   );
 };

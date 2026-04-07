@@ -39,6 +39,7 @@ import AdminTools from './components/AdminTools';
 import PrivacyPolicy from './components/PrivacyPolicy'; // Added Privacy Policy import
 import TermsOfUse from './components/TermsOfUse'; // Added Terms of Use import
 import BetaGate from './components/BetaGate';
+import ExplorePage from './components/ExplorePage';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -133,6 +134,7 @@ function App() {
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} /> {/* Added Privacy Policy route */}
               <Route path="/terms-of-use" element={<TermsOfUse />} /> {/* Added Terms of Use route */}
+              <Route path="/explore" element={<ExplorePage />} />
               
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>

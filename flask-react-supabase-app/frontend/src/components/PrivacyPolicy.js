@@ -1,15 +1,19 @@
 import React from 'react';
-import '../styles/About.css'; // Reusing the About.css for consistency
+import '../styles/About.css';
 
 const PrivacyPolicy = () => {
   return (
-    <div className="about-container">
-      <div className="welcome-section">
-        <h1>Privacy Policy – DPH Classifieds</h1>
-        <p className="welcome-description">Effective Date: 8 September 2025</p>
-      </div>
+    <div className="about-v2 legal-v2">
+      <section className="about-v2-hero">
+        <div className="about-v2-shell">
+          <span className="about-v2-kicker">Legal</span>
+          <h1>Privacy Policy – DPH Classifieds</h1>
+          <p>Effective Date: 8 September 2025</p>
+        </div>
+      </section>
 
-      <div className="info-content">
+      <section className="legal-v2-section">
+        <div className="about-v2-shell legal-v2-body">
         <p>At DPH Classifieds ("DPH," "we," "our," or "us"), your privacy is a top priority. This Privacy Policy explains how we collect, use, store, and share your personal information when you use our website, mobile app, and related services (collectively, the "Platform"). It also outlines your privacy rights and how the law protects you.</p>
         
         <p>By using DPH Classifieds, you agree to the terms described in this Privacy Policy. If you do not agree, please discontinue use of our services immediately.</p>
@@ -225,7 +229,8 @@ const PrivacyPolicy = () => {
         
         <h2>Summary</h2>
         <p>DPH Classifieds is committed to protecting your privacy and maintaining transparency about how we handle your data. Your trust is important to us, and we strive to provide a safe and secure environment for buying and selling cars online.</p>
-      </div>
+        </div>
+      </section>
     </div>
   );
 };

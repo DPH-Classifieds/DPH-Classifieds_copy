@@ -17,7 +17,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.section-title {
+.my-listings-container .section-title {
   font-size: 28px;
   font-weight: 700;
   color: #333;
@@ -37,37 +37,37 @@
   transition: all 0.2s ease;
 }
 
-.btn-primary {
+.my-listings-container .btn-primary {
   background-color: #01351c;
   color: white;
   border: none;
 }
 
-.btn-primary:hover {
+.my-listings-container .btn-primary:hover {
   background-color: #012513;
   transform: translateY(-1px);
 }
 
-.btn-secondary {
+.my-listings-container .btn-secondary {
   background-color: #01351c;
   color: white;
   border: 1px solid #01351c;
 }
 
-.btn-secondary:hover {
+.my-listings-container .btn-secondary:hover {
   background-color: #012513;
   color: white;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(1, 53, 28, 0.2);
 }
 
-.btn-danger {
+.my-listings-container .btn-danger {
   background-color: #dc3545;
   color: white;
   border: 1px solid #dc3545;
 }
 
-.btn-danger:hover {
+.my-listings-container .btn-danger:hover {
   background-color: #c82333;
   border-color: #bd2130;
   transform: translateY(-1px);
@@ -230,20 +230,20 @@
   text-decoration: none;
 }
 
-.alert {
+.my-listings-container .alert {
   padding: 16px 20px;
   border-radius: 8px;
   margin-bottom: 24px;
   font-weight: 500;
 }
 
-.alert-danger {
+.my-listings-container .alert-danger {
   background-color: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
 }
 
-.loading-container {
+.my-listings-container .loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -254,7 +254,7 @@
   margin-top: 20px;
 }
 
-.loading-spinner {
+.my-listings-container .loading-spinner {
   width: 40px;
   height: 40px;
   border: 4px solid #f3f3f3;
@@ -269,7 +269,7 @@
   100% { transform: rotate(360deg); }
 }
 
-.loading-container p {
+.my-listings-container .loading-container p {
   color: #6c757d;
   font-size: 16px;
 }
@@ -319,4 +319,152 @@
     width: 100%;
     max-width: 280px;
   }
-} 
+}
+
+/* 2026 listings refresh */
+.my-listings-container {
+  max-width: 1280px;
+  padding: 48px 24px 96px;
+  background:
+    radial-gradient(circle at top, rgba(112, 201, 119, 0.1), transparent 28%),
+    linear-gradient(180deg, #07110b 0%, #040806 100%);
+  color: #edf6ee;
+}
+
+.my-listings-header,
+.my-listing-card,
+.empty-state,
+.my-listings-container .loading-container {
+  background: linear-gradient(180deg, rgba(13, 26, 18, 0.96) 0%, rgba(8, 14, 10, 0.98) 100%);
+  border: 1px solid rgba(148, 218, 153, 0.12);
+  box-shadow: inset 0 1px 0 rgba(245, 252, 246, 0.03);
+}
+
+.my-listings-header {
+  border-radius: 28px;
+  padding: 28px;
+}
+
+.my-listings-container .section-title,
+.listing-section h2,
+.my-listing-details h3,
+.empty-state h3 {
+  color: #f5fbf6;
+}
+
+.listing-section h2 {
+  margin-bottom: 22px;
+}
+
+.action-buttons .btn,
+.empty-state-actions .btn,
+.my-listing-actions button {
+  min-height: 46px;
+  border-radius: 999px;
+}
+
+.my-listings-container .btn-primary {
+  background: linear-gradient(135deg, #88d86f 0%, #5bac58 100%);
+  color: #101910;
+}
+
+.my-listings-container .btn-primary:hover {
+  background: linear-gradient(135deg, #9ce387 0%, #72c66d 100%);
+  color: #091109;
+}
+
+.my-listings-container .btn-secondary {
+  background: rgba(112, 201, 119, 0.12);
+  border-color: rgba(148, 218, 153, 0.18);
+  color: #edf6ee;
+}
+
+.my-listings-container .btn-secondary:hover {
+  background: rgba(112, 201, 119, 0.18);
+  border-color: rgba(148, 218, 153, 0.3);
+}
+
+.my-listings-container .btn-danger {
+  background: rgba(167, 35, 35, 0.18);
+  border-color: rgba(255, 132, 132, 0.2);
+}
+
+.my-listings-container .btn-danger:hover {
+  background: rgba(167, 35, 35, 0.28);
+}
+
+.my-listing-card {
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.my-listing-card:hover {
+  border-color: rgba(148, 218, 153, 0.26);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.34);
+}
+
+.my-listing-image,
+.no-image {
+  background:
+    radial-gradient(circle at top, rgba(112, 201, 119, 0.14), transparent 40%),
+    #1a1d1b;
+}
+
+.no-image {
+  color: rgba(232, 242, 233, 0.46);
+}
+
+.my-listing-details {
+  padding: 22px;
+}
+
+.my-listing-price,
+.listing-code-number {
+  color: #9fe686;
+}
+
+.my-listing-date,
+.empty-state p,
+.my-listings-container .loading-container p {
+  color: rgba(226, 238, 227, 0.68);
+}
+
+.my-listing-actions {
+  border-top: 1px solid rgba(148, 218, 153, 0.08);
+  background: rgba(244, 251, 245, 0.03);
+}
+
+.empty-state {
+  border-radius: 28px;
+}
+
+.my-listings-container .alert-danger {
+  background: rgba(164, 31, 31, 0.18);
+  border-color: rgba(255, 120, 120, 0.2);
+  color: #ffd1d1;
+}
+
+@media (max-width: 768px) {
+  .my-listings-container {
+    padding: 36px 16px 72px;
+  }
+
+  .my-listings-header {
+    padding: 22px;
+  }
+
+  .my-listings-header,
+  .action-buttons,
+  .empty-state-actions,
+  .my-listing-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-buttons .btn,
+  .empty-state-actions .btn,
+  .my-listing-actions button {
+    width: 100%;
+    max-width: none;
+  }
+}

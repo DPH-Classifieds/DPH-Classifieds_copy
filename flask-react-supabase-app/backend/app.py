@@ -1299,8 +1299,9 @@ def upload_to_supabase_storage(file, bucket_name='listing-images', folder=''):
         if not file or not file.filename:
             return None, "No file provided"
 
-        allowed_types = {'image/jpeg', 'image/png', 'image/webp'}
-        if file.mimetype not in allowed_types:
+        allowed_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'}
+        normalized_mimetype = (file.mimetype or '').lower()
+        if normalized_mimetype not in allowed_types:
             return None, "Unsupported image type"
 
         file.seek(0, os.SEEK_END)
@@ -1320,11 +1321,13 @@ def upload_to_supabase_storage(file, bucket_name='listing-images', folder=''):
         file.seek(0)
         img = Image.open(file)
         
-        # Convert RGBA to RGB if needed
+        # Convert alpha-based images to RGB before saving as JPEG.
         if img.mode == 'RGBA':
             background = Image.new('RGB', img.size, (255, 255, 255))
             background.paste(img, mask=img.split()[3])
             img = background
+        elif img.mode not in ('RGB', 'L'):
+            img = img.convert('RGB')
         
         # Resize if too large (max 1920px width)
         max_width = 1920
@@ -1337,8 +1340,8 @@ def upload_to_supabase_storage(file, bucket_name='listing-images', folder=''):
         from io import BytesIO
         output = BytesIO()
         
-        # Use WebP for better compression, fallback to JPEG
-        if file_extension in ['.jpg', '.jpeg', '.png']:
+        # Store listing images as optimized JPEGs except when the source is already WebP.
+        if file_extension in ['.jpg', '.jpeg', '.png', '.gif']:
             img.save(output, format='JPEG', quality=85, optimize=True)
             unique_filename = unique_filename.rsplit('.', 1)[0] + '.jpg'
             content_type = 'image/jpeg'

@@ -1,113 +1,118 @@
 .loan-calculator-container {
-  background-color: #f8f9fa;
-  padding: 25px;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
+  display: grid;
+  gap: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(104, 191, 111, 0.14), transparent 52%),
+    rgba(6, 18, 10, 0.96);
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(162, 228, 166, 0.12);
   margin-top: 15px;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.32);
 }
 
-.calculator-inputs {
-  margin-bottom: 25px;
+.loan-calculator-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  gap: 18px;
+  align-items: stretch;
 }
 
 .input-row {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .input-group {
-  flex: 1;
-  min-width: 200px;
+  min-width: 0;
 }
 
 .input-group label {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #333;
-  font-size: 14px;
+  color: #d8ebda;
+  font-size: 0.83rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .input-group input,
 .input-group select {
   width: 100%;
-  padding: 12px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
-  font-size: 16px;
-  transition: border-color 0.3s ease;
-  background-color: white;
+  padding: 13px 14px;
+  border: 1px solid rgba(162, 228, 166, 0.14);
+  border-radius: 16px;
+  font-size: 0.96rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7fbf7;
+  appearance: none;
 }
 
 .input-group input:focus,
 .input-group select:focus {
   outline: none;
-  border-color: #01351c;
-  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.1);
+  border-color: rgba(133, 224, 140, 0.5);
+  box-shadow: 0 0 0 4px rgba(116, 197, 122, 0.14);
 }
 
 .readonly-input {
-  background-color: #f8f9fa !important;
-  color: #01351c !important;
+  background: rgba(111, 196, 118, 0.12) !important;
+  color: #c8f2cb !important;
   font-weight: 600 !important;
   cursor: not-allowed;
 }
 
 .calculator-results {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 15px;
-  margin-bottom: 25px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .result-card {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
-  border: 2px solid #e9ecef;
-  transition: all 0.3s ease;
-}
-
-.result-card:hover {
-  border-color: #01351c;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(1, 53, 28, 0.1);
+  background: linear-gradient(180deg, rgba(17, 44, 24, 0.94), rgba(8, 26, 13, 0.94));
+  padding: 18px;
+  border-radius: 18px;
+  text-align: left;
+  border: 1px solid rgba(162, 228, 166, 0.1);
 }
 
 .result-label {
-  font-size: 14px;
-  color: #666;
+  font-size: 0.78rem;
+  color: #a6c7a8;
   margin-bottom: 8px;
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .result-value {
-  font-size: 24px;
+  font-size: 1.55rem;
   font-weight: bold;
-  color: #01351c;
+  color: #f7fbf7;
 }
 
 .result-value.primary {
-  font-size: 28px;
-  color: #01351c;
-  text-shadow: 0 1px 2px rgba(1, 53, 28, 0.1);
+  font-size: 2rem;
+  color: #92e298;
+  text-shadow: none;
 }
 
 .loan-summary {
-  background: linear-gradient(135deg, #01351c, #0a5d32);
-  color: white;
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
+  background: linear-gradient(135deg, rgba(111, 196, 118, 0.16), rgba(18, 54, 25, 0.96));
+  color: #edf9ee;
+  padding: 18px 20px;
+  border-radius: 20px;
+  text-align: left;
+  border: 1px solid rgba(162, 228, 166, 0.12);
 }
 
 .summary-text {
   margin: 0;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 0.96rem;
+  line-height: 1.7;
 }
 
 .summary-text strong {
@@ -116,14 +121,20 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1100px) {
+  .loan-calculator-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calculator-results {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .input-row {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .input-group {
-    min-width: unset;
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
   
   .calculator-results {
@@ -132,11 +143,11 @@
   }
   
   .result-value {
-    font-size: 20px;
+    font-size: 1.35rem;
   }
   
   .result-value.primary {
-    font-size: 24px;
+    font-size: 1.7rem;
   }
   
   .loan-calculator-container {
