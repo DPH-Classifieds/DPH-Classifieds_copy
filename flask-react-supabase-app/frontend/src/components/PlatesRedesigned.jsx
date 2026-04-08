@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import UAELicensePlate from './UAELicensePlate';
@@ -227,7 +228,7 @@ const PlatesRedesigned = () => {
           <div className="platesd-filter-row">
             <div className="platesd-filter-group">
               <label htmlFor="city">City</label>
-              <select 
+              <SearchableSelect 
                 id="city" 
                 name="city" 
                 value={filters.city} 
@@ -236,12 +237,12 @@ const PlatesRedesigned = () => {
                 {cityOptions.map(city => (
                   <option key={city} value={city}>{city}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="platesd-filter-group">
               <label htmlFor="code">Code</label>
-              <select 
+              <SearchableSelect 
                 id="code" 
                 name="code" 
                 value={filters.code} 
@@ -274,12 +275,12 @@ const PlatesRedesigned = () => {
                 <option value="X">X</option>
                 <option value="Y">Y</option>
                 <option value="Z">Z</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="platesd-filter-group">
               <label htmlFor="digits">Digits</label>
-              <select 
+              <SearchableSelect 
                 id="digits" 
                 name="digits" 
                 value={filters.digits}
@@ -291,12 +292,12 @@ const PlatesRedesigned = () => {
                 <option value="3">3 Digits</option>
                 <option value="4">4 Digits</option>
                 <option value="5">5 Digits</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="platesd-filter-group">
               <label htmlFor="sortBy">Sort</label>
-              <select 
+              <SearchableSelect 
                 id="sortBy" 
                 name="sortBy" 
                 value={filters.sortBy} 
@@ -305,7 +306,7 @@ const PlatesRedesigned = () => {
                 <option value="newest">Newest</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
-              </select>
+              </SearchableSelect>
             </div>
           </div>
 
@@ -351,7 +352,7 @@ const PlatesRedesigned = () => {
 
             <div className="platesd-filter-group">
               <label htmlFor="format">Format</label>
-              <select 
+              <SearchableSelect 
                 id="format" 
                 name="format" 
                 value={filters.format} 
@@ -360,7 +361,7 @@ const PlatesRedesigned = () => {
                 {formatOptions.map(format => (
                   <option key={format} value={format}>{format}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
           </div>
 

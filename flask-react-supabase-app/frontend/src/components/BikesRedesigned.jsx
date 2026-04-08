@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import './BikesRedesigned.css';
@@ -213,7 +214,7 @@ const BikesRedesigned = () => {
           <div className="biked-filter-row">
             <div className="biked-filter-group">
               <label htmlFor="type">Type</label>
-              <select 
+              <SearchableSelect 
                 id="type" 
                 name="type" 
                 value={filters.type} 
@@ -230,12 +231,12 @@ const BikesRedesigned = () => {
                 <option value="Scooter">Scooter</option>
                 <option value="Commuter">Commuter</option>
                 <option value="Electric">Electric</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="biked-filter-group">
               <label htmlFor="brand">Brand</label>
-              <select 
+              <SearchableSelect 
                 id="brand" 
                 name="brand" 
                 value={filters.brand} 
@@ -245,12 +246,12 @@ const BikesRedesigned = () => {
                 {availableBrands.map((brand) => (
                   <option key={brand} value={brand}>{brand}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="biked-filter-group">
               <label htmlFor="sortBy">Sort</label>
-              <select 
+              <SearchableSelect 
                 id="sortBy" 
                 name="sortBy" 
                 value={filters.sortBy} 
@@ -261,7 +262,7 @@ const BikesRedesigned = () => {
                 <option value="price-high">Price: High to Low</option>
                 <option value="year-new">Year: Newest First</option>
                 <option value="year-old">Year: Oldest First</option>
-              </select>
+              </SearchableSelect>
             </div>
           </div>
 
@@ -348,7 +349,7 @@ const BikesRedesigned = () => {
 
             <div className="biked-filter-group">
               <label htmlFor="cylinders">Cylinders</label>
-              <select 
+              <SearchableSelect 
                 id="cylinders" 
                 name="cylinders" 
                 value={filters.cylinders} 
@@ -360,12 +361,12 @@ const BikesRedesigned = () => {
                 <option value="3">3 Cylinders</option>
                 <option value="4">4 Cylinders</option>
                 <option value="6">6 Cylinders</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="biked-filter-group">
               <label htmlFor="wheels">Wheels</label>
-              <select 
+              <SearchableSelect 
                 id="wheels" 
                 name="wheels" 
                 value={filters.wheels} 
@@ -374,7 +375,7 @@ const BikesRedesigned = () => {
                 <option value="all">All</option>
                 <option value="2">2 Wheels</option>
                 <option value="3">3 Wheels (Trike)</option>
-              </select>
+              </SearchableSelect>
             </div>
           </div>
         </div>

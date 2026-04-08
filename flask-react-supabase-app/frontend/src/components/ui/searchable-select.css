@@ -1,0 +1,15 @@
+.searchable-select-wrapper {
+  width: 100%;
+}
+
+.searchable-select-proxy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.searchable-select__menu-notice {
+  color: rgba(226, 239, 229, 0.62);
+}

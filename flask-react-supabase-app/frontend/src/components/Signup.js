@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Auth.css';
@@ -504,7 +505,7 @@ const Signup = () => {
             <div className="form-group">
               <label htmlFor="phone">Phone Number</label>
               <div className="phone-input-group">
-                <select
+                <SearchableSelect
                   name="countryCode"
                   value={formData.countryCode}
                   onChange={handleInputChange}
@@ -515,7 +516,7 @@ const Signup = () => {
                       {flag} {code} ({country})
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
                 <input
                   type="tel"
                   id="phone"
@@ -537,7 +538,7 @@ const Signup = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="emirate">Emirate</label>
-                <select
+                <SearchableSelect
                   id="emirate"
                   name="emirate"
                   value={formData.emirate}
@@ -547,7 +548,7 @@ const Signup = () => {
                   {UAE_EMIRATES.map(emirate => (
                     <option key={emirate} value={emirate}>{emirate}</option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
               <div className="form-group">
                 <label htmlFor="Area">Area</label>

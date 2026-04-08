@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -211,7 +212,7 @@ const PostPlate = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="city">City</label>
-                    <select id="city" name="city" value={formData.city} onChange={handleChange} required>
+                    <SearchableSelect id="city" name="city" value={formData.city} onChange={handleChange} required>
                       <option value="">Select city</option>
                       <option value="Dubai">Dubai</option>
                       <option value="Abu Dhabi">Abu Dhabi</option>
@@ -220,18 +221,18 @@ const PostPlate = () => {
                       <option value="Fujairah">Fujairah</option>
                       <option value="Ras Al Khaimah">Ras Al Khaimah</option>
                       <option value="Umm Al Quwain">Umm Al Quwain</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="code">Plate code</label>
-                    <select id="code" name="code" value={formData.code} onChange={handleChange} required disabled={!formData.city}>
+                    <SearchableSelect id="code" name="code" value={formData.code} onChange={handleChange} required disabled={!formData.city}>
                       <option value="">Select code</option>
                       {codeOptions.map((code) => (
                         <option key={code} value={code}>
                           {code}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
 
@@ -242,27 +243,27 @@ const PostPlate = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="digits">Digits</label>
-                    <select id="digits" name="digits" value={formData.digits} onChange={handleChange} required>
+                    <SearchableSelect id="digits" name="digits" value={formData.digits} onChange={handleChange} required>
                       <option value="">Select digits</option>
                       <option value="1">1 digit</option>
                       <option value="2">2 digits</option>
                       <option value="3">3 digits</option>
                       <option value="4">4 digits</option>
                       <option value="5">5 digits</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="plate_format">Plate format</label>
-                    <select id="plate_format" name="plate_format" value={formData.plate_format} onChange={handleChange} required>
+                    <SearchableSelect id="plate_format" name="plate_format" value={formData.plate_format} onChange={handleChange} required>
                       {PLATE_FORMAT_OPTIONS.map((format) => (
                         <option key={format} value={format}>
                           {format}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="price">Price (AED)</label>
@@ -319,7 +320,7 @@ const PostPlate = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="is_dealer">Dealer listing</label>
-                    <select
+                    <SearchableSelect
                       id="is_dealer"
                       name="is_dealer"
                       value={formData.is_dealer ? 'true' : 'false'}
@@ -332,7 +333,7 @@ const PostPlate = () => {
                     >
                       <option value="false">Private seller</option>
                       <option value="true">Dealer</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="description">Description</label>

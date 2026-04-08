@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/authService';
 import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/profileCompletion';
@@ -643,7 +644,7 @@ const AccountSettings = () => {
                 <div className="form-group">
                   <label htmlFor="phone">Phone Number</label>
                   <div className="phone-input-group">
-                    <select
+                    <SearchableSelect
                       name="countryCode"
                       value={profileData.countryCode}
                       onChange={handleProfileInputChange}
@@ -654,7 +655,7 @@ const AccountSettings = () => {
                           {flag} {code} ({country})
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                     <input
                       type="tel"
                       id="phone"
@@ -687,7 +688,7 @@ const AccountSettings = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="emirate">Emirate</label>
-                    <select
+                    <SearchableSelect
                       id="emirate"
                       name="emirate"
                       value={profileData.emirate}
@@ -697,7 +698,7 @@ const AccountSettings = () => {
                       {UAE_EMIRATES.map(emirate => (
                         <option key={emirate} value={emirate}>{emirate}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="city">Area</label>

@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/About.css';
-import whoWeAreImg from '../assets/images/porsche.png';
-import ourMissionImg from '../assets/images/traffic-bg.jpg';
+
+const whoWeAreImg = '/images/About-page-removebg-preview.png';
+const ourMissionImg = '/images/Our Mission.jpg';
 
 const stats = [
   { value: '60k+', label: 'Active petrolheads' },
@@ -13,21 +14,21 @@ const stats = [
 
 const communityLinks = [
   {
-    title: 'Reddit Community',
+    title: 'Reddit',
     copy: 'Long-form stories, ownership discussions, and transparent market conversations.',
-    image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80',
+    cta: 'Open Reddit',
     href: 'https://www.reddit.com/r/DubaiPetrolHeads/'
   },
   {
     title: 'Instagram',
     copy: 'Daily culture, featured cars, and the visual pulse of the community.',
-    image: 'https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?auto=format&fit=crop&w=1200&q=80',
+    cta: 'Open Instagram',
     href: 'https://www.instagram.com/dubaipetrolheads?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=='
   },
   {
     title: 'Main Website',
     copy: 'The wider DubaiPetrolHeads ecosystem beyond classifieds alone.',
-    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
+    cta: 'Open Website',
     href: 'https://www.dubaipetrolheads.ae/'
   }
 ];
@@ -118,13 +119,10 @@ const About = () => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <div className="about-v2-community-image">
-                  <img src={item.image} alt={item.title} />
-                </div>
                 <div className="about-v2-community-copy">
                   <h3>{item.title}</h3>
                   <p>{item.copy}</p>
-                  <span>Open channel</span>
+                  <span>{item.cta}</span>
                 </div>
               </a>
             ))}

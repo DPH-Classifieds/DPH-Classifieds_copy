@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
@@ -307,7 +308,7 @@ const CarList = () => {
           <h2>Filter Listings</h2>
           <div className="sort-by">
             <label htmlFor="sortOption">Sort by:</label>
-            <select 
+            <SearchableSelect 
               id="sortOption" 
               value={sortOption} 
               onChange={handleSortChange}
@@ -321,7 +322,7 @@ const CarList = () => {
               <option value="make_year.asc">Year: Oldest First</option>
               <option value="kilometer_driven.asc">Mileage: Low to High</option>
               <option value="kilometer_driven.desc">Mileage: High to Low</option>
-            </select>
+            </SearchableSelect>
           </div>
         </div>
         
@@ -330,7 +331,7 @@ const CarList = () => {
           <div className="filter-row">
             <div className="filter-group">
               <label htmlFor="car_manufacturer">Make</label>
-              <select 
+              <SearchableSelect 
                 id="car_manufacturer" 
                 name="car_manufacturer" 
                 value={filters.car_manufacturer} 
@@ -341,12 +342,12 @@ const CarList = () => {
                 {carMakes.map(make => (
                   <option key={make} value={make}>{make}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="filter-group">
               <label htmlFor="car_model">Model</label>
-              <select 
+              <SearchableSelect 
                 id="car_model" 
                 name="car_model" 
                 value={filters.car_model} 
@@ -358,12 +359,12 @@ const CarList = () => {
                 {availableModels.map(model => (
                   <option key={model} value={model}>{model}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="filter-group">
               <label htmlFor="car_trim">Trim</label>
-              <select 
+              <SearchableSelect 
                 id="car_trim" 
                 name="car_trim" 
                 value={filters.car_trim === 'custom' && customTrim ? '' : filters.car_trim} 
@@ -384,7 +385,7 @@ const CarList = () => {
                   <option key={trim} value={trim}>{trim}</option>
                 ))}
                 <option value="custom">Enter your trim</option>
-              </select>
+              </SearchableSelect>
               {customTrim && (
                 <input
                   type="text"
@@ -400,7 +401,7 @@ const CarList = () => {
             
             <div className="filter-group">
               <label htmlFor="car_city">Emirate</label>
-              <select 
+              <SearchableSelect 
                 id="car_city" 
                 name="car_city" 
                 value={filters.car_city} 
@@ -411,12 +412,12 @@ const CarList = () => {
                 {emirates.map(city => (
                   <option key={city} value={city}>{city}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="filter-group">
               <label htmlFor="body_type">Body Type</label>
-              <select 
+              <SearchableSelect 
                 id="body_type" 
                 name="body_type" 
                 value={filters.body_type} 
@@ -427,14 +428,14 @@ const CarList = () => {
                 {bodyTypes.map(type => (
                   <option key={type} value={type}>{type}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
           </div>
           
           <div className="filter-row">
             <div className="filter-group">
               <label htmlFor="make_year_from">Year From</label>
-              <select 
+              <SearchableSelect 
                 id="make_year_from" 
                 name="make_year_from" 
                 value={filters.make_year_from} 
@@ -445,12 +446,12 @@ const CarList = () => {
                 {years.map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="filter-group">
               <label htmlFor="make_year_to">Year To</label>
-              <select 
+              <SearchableSelect 
                 id="make_year_to" 
                 name="make_year_to" 
                 value={filters.make_year_to} 
@@ -461,7 +462,7 @@ const CarList = () => {
                 {years.map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="filter-group">
@@ -507,7 +508,7 @@ const CarList = () => {
               <div className="filter-row">
                 <div className="filter-group">
                   <label htmlFor="fuel_type">Fuel Type</label>
-                  <select 
+                  <SearchableSelect 
                     id="fuel_type" 
                     name="fuel_type" 
                     value={filters.fuel_type} 
@@ -518,12 +519,12 @@ const CarList = () => {
                     {fuelTypes.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 
                 <div className="filter-group">
                   <label htmlFor="transmission_type">Transmission</label>
-                  <select 
+                  <SearchableSelect 
                     id="transmission_type" 
                     name="transmission_type" 
                     value={filters.transmission_type} 
@@ -534,12 +535,12 @@ const CarList = () => {
                     {transmissionTypes.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 
                 <div className="filter-group">
                   <label htmlFor="regional_spec">Regional Spec</label>
-                  <select 
+                  <SearchableSelect 
                     id="regional_spec" 
                     name="regional_spec" 
                     value={filters.regional_spec} 
@@ -550,7 +551,7 @@ const CarList = () => {
                     {regionalSpecs.map(spec => (
                       <option key={spec} value={spec}>{spec}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
               
@@ -587,7 +588,7 @@ const CarList = () => {
               <div className="filter-row">
                 <div className="filter-group">
                   <label htmlFor="steering_side">Steering Side</label>
-                  <select 
+                  <SearchableSelect 
                     id="steering_side" 
                     name="steering_side" 
                     value={filters.steering_side} 
@@ -598,12 +599,12 @@ const CarList = () => {
                     {steeringSides.map(side => (
                       <option key={side} value={side}>{side}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 
                 <div className="filter-group">
                   <label htmlFor="seating_capacity">Seating Capacity</label>
-                  <select 
+                  <SearchableSelect 
                     id="seating_capacity" 
                     name="seating_capacity" 
                     value={filters.seating_capacity} 
@@ -614,12 +615,12 @@ const CarList = () => {
                     {seatingCapacities.map(capacity => (
                       <option key={capacity} value={capacity}>{capacity}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 
                 <div className="filter-group">
                   <label htmlFor="horsepower">Horsepower</label>
-                  <select 
+                  <SearchableSelect 
                     id="horsepower" 
                     name="horsepower" 
                     value={filters.horsepower} 
@@ -630,12 +631,12 @@ const CarList = () => {
                     {horsepowerRanges.map(range => (
                       <option key={range} value={range}>{range}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 
                 <div className="filter-group">
                   <label htmlFor="engine_capacity">Engine Capacity</label>
-                  <select 
+                  <SearchableSelect 
                     id="engine_capacity" 
                     name="engine_capacity" 
                     value={filters.engine_capacity} 
@@ -646,7 +647,7 @@ const CarList = () => {
                     {engineCapacities.map(capacity => (
                       <option key={capacity} value={capacity}>{capacity}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
               

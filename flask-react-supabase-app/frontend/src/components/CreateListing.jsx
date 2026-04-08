@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
@@ -137,7 +138,7 @@ const CreateListing = () => {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="car_manufacturer">Manufacturer *</label>
-              <select 
+              <SearchableSelect 
                 id="car_manufacturer" 
                 name="car_manufacturer" 
                 value={formData.car_manufacturer} 
@@ -148,7 +149,7 @@ const CreateListing = () => {
                 {manufacturers.map(m => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="form-group">
@@ -212,7 +213,7 @@ const CreateListing = () => {
             
             <div className="form-group">
               <label htmlFor="car_city">City</label>
-              <select 
+              <SearchableSelect 
                 id="car_city" 
                 name="car_city" 
                 value={formData.car_city} 
@@ -222,7 +223,7 @@ const CreateListing = () => {
                 {cities.map(city => (
                   <option key={city} value={city}>{city}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
           </div>
         </div>
@@ -246,7 +247,7 @@ const CreateListing = () => {
             
             <div className="form-group">
               <label htmlFor="fuel_type">Fuel Type</label>
-              <select 
+              <SearchableSelect 
                 id="fuel_type" 
                 name="fuel_type" 
                 value={formData.fuel_type} 
@@ -256,14 +257,14 @@ const CreateListing = () => {
                 {fuelTypes.map(type => (
                   <option key={type} value={type}>{type}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
           </div>
           
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="transmission">Transmission</label>
-              <select 
+              <SearchableSelect 
                 id="transmission" 
                 name="transmission" 
                 value={formData.transmission} 
@@ -273,7 +274,7 @@ const CreateListing = () => {
                 {transmissionTypes.map(type => (
                   <option key={type} value={type}>{type}</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="form-group">
@@ -380,7 +381,7 @@ const CreateListing = () => {
             <div className="form-group">
               <label htmlFor="contact_phone">Phone Number *</label>
               <div className="phone-input-group">
-                <select 
+                <SearchableSelect 
                   className="country-code-select"
                   name="country_code"
                   value={formData.country_code}
@@ -391,7 +392,7 @@ const CreateListing = () => {
                       {country.flag} {country.code}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
                 <input 
                   type="tel" 
                   id="contact_phone" 

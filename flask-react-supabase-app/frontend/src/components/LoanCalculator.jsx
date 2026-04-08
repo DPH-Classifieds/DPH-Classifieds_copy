@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import './LoanCalculator.css';
 
 const LoanCalculator = ({ carPrice }) => {
@@ -78,7 +79,7 @@ const LoanCalculator = ({ carPrice }) => {
             </div>
             <div className="input-group">
               <label htmlFor="loanTerm">Loan Term</label>
-              <select
+              <SearchableSelect
                 id="loanTerm"
                 value={loanTerm}
                 onChange={(e) => setLoanTerm(parseInt(e.target.value))}
@@ -90,7 +91,7 @@ const LoanCalculator = ({ carPrice }) => {
                 <option value={60}>5 years</option>
                 <option value={72}>6 years</option>
                 <option value={84}>7 years</option>
-              </select>
+              </SearchableSelect>
             </div>
             <div className="input-group">
               <label htmlFor="interestRate">Interest Rate (%)</label>

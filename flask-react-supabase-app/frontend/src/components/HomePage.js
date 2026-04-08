@@ -28,7 +28,7 @@ const marketplaceInsights = [
     id: 3,
     title: 'Built by PetrolHeads',
     subtitle: 'Created with a focus on the details that matter.',
-    stat: 'DPH',
+    stat: 'DPH-Classifieds',
   },
 ];
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
@@ -396,7 +397,7 @@ const EditListing = () => {
             
             <div className="form-group">
               <label htmlFor="body_type">Body Type</label>
-              <select
+              <SearchableSelect
                 id="body_type"
                 name="body_type"
                 value={formData.body_type}
@@ -412,14 +413,14 @@ const EditListing = () => {
                 <option value="Van">Van</option>
                 <option value="Truck">Truck</option>
                 <option value="Other">Other</option>
-              </select>
+              </SearchableSelect>
             </div>
           </div>
           
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="fuel_type">Fuel Type</label>
-              <select
+              <SearchableSelect
                 id="fuel_type"
                 name="fuel_type"
                 value={formData.fuel_type}
@@ -431,12 +432,12 @@ const EditListing = () => {
                 <option value="Electric">Electric</option>
                 <option value="Hybrid">Hybrid</option>
                 <option value="Other">Other</option>
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="form-group">
               <label htmlFor="transmission_type">Transmission</label>
-              <select
+              <SearchableSelect
                 id="transmission_type"
                 name="transmission_type"
                 value={formData.transmission_type}
@@ -445,14 +446,14 @@ const EditListing = () => {
                 <option value="">Select Transmission</option>
                 <option value="Automatic">Automatic</option>
                 <option value="Manual">Manual</option>
-              </select>
+              </SearchableSelect>
             </div>
           </div>
           
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="regional_spec">Regional Spec</label>
-              <select
+              <SearchableSelect
                 id="regional_spec"
                 name="regional_spec"
                 value={formData.regional_spec}
@@ -466,12 +467,12 @@ const EditListing = () => {
                 <option value="Korean">Korean</option>
                 <option value="Chinese">Chinese</option>
                 <option value="Other">Other</option>
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="form-group">
               <label htmlFor="steering_side">Steering Side</label>
-              <select
+              <SearchableSelect
                 id="steering_side"
                 name="steering_side"
                 value={formData.steering_side}
@@ -480,14 +481,14 @@ const EditListing = () => {
                 <option value="">Select Steering Side</option>
                 <option value="Left">Left</option>
                 <option value="Right">Right</option>
-              </select>
+              </SearchableSelect>
             </div>
           </div>
           
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="seating_capacity">Seating Capacity</label>
-              <select
+              <SearchableSelect
                 id="seating_capacity"
                 name="seating_capacity"
                 value={formData.seating_capacity}
@@ -501,7 +502,7 @@ const EditListing = () => {
                 <option value="7">7 Seats</option>
                 <option value="8">8 Seats</option>
                 <option value="9+">9+ Seats</option>
-              </select>
+              </SearchableSelect>
             </div>
             
             <div className="form-group">

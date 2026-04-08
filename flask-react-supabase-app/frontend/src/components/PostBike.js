@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -282,27 +283,27 @@ const PostBike = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="bike_category">Category</label>
-                    <select id="bike_category" name="bike_category" value={formData.bike_category} onChange={handleChange} required>
+                    <SearchableSelect id="bike_category" name="bike_category" value={formData.bike_category} onChange={handleChange} required>
                       <option value="">Select category</option>
                       {BIKE_CATEGORIES.map((category) => (
                         <option key={category} value={category}>
                           {category}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="condition">Condition</label>
-                    <select id="condition" name="condition" value={formData.condition} onChange={handleChange}>
+                    <SearchableSelect id="condition" name="condition" value={formData.condition} onChange={handleChange}>
                       <option value="Good">Good</option>
                       <option value="Used">Used</option>
                       <option value="New">New</option>
                       <option value="Like New">Like New</option>
                       <option value="Project/Needs Work">Project/Needs Work</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="color">Color</label>
@@ -334,7 +335,7 @@ const PostBike = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="cylinders">Cylinders</label>
-                    <select id="cylinders" name="cylinders" value={formData.cylinders} onChange={handleChange}>
+                    <SearchableSelect id="cylinders" name="cylinders" value={formData.cylinders} onChange={handleChange}>
                       <option value="">Select cylinders</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
@@ -342,14 +343,14 @@ const PostBike = () => {
                       <option value="4">4</option>
                       <option value="6">6</option>
                       <option value="8">8</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="wheels">Wheels</label>
-                    <select id="wheels" name="wheels" value={formData.wheels} onChange={handleChange}>
+                    <SearchableSelect id="wheels" name="wheels" value={formData.wheels} onChange={handleChange}>
                       <option value="2">2 wheels</option>
                       <option value="3">3 wheels</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
 
@@ -395,7 +396,7 @@ const PostBike = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="is_dealer">Dealer listing</label>
-                    <select
+                    <SearchableSelect
                       id="is_dealer"
                       name="is_dealer"
                       value={formData.is_dealer ? 'true' : 'false'}
@@ -408,7 +409,7 @@ const PostBike = () => {
                     >
                       <option value="false">Private seller</option>
                       <option value="true">Dealer</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
 

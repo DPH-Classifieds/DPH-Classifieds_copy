@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -247,26 +248,26 @@ const PostCarParts = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="part_type">Part type</label>
-                    <select id="part_type" name="part_type" value={formData.part_type} onChange={handleChange} required>
+                    <SearchableSelect id="part_type" name="part_type" value={formData.part_type} onChange={handleChange} required>
                       <option value="">Select part type</option>
                       {PART_TYPES.map((type) => (
                         <option key={type} value={type}>
                           {type}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="condition">Condition</label>
-                    <select id="condition" name="condition" value={formData.condition} onChange={handleChange}>
+                    <SearchableSelect id="condition" name="condition" value={formData.condition} onChange={handleChange}>
                       <option value="New">New</option>
                       <option value="Like New">Like New</option>
                       <option value="Used">Used</option>
                       <option value="Refurbished">Refurbished</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="price">Price (AED)</label>
@@ -310,17 +311,17 @@ const PostCarParts = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="compatible_years">Year range</label>
-                    <select id="compatible_years" name="compatible_years" value={formData.compatible_years} onChange={handleChange}>
+                    <SearchableSelect id="compatible_years" name="compatible_years" value={formData.compatible_years} onChange={handleChange}>
                       {COMPATIBLE_YEAR_OPTIONS.map((option) => (
                         <option key={option} value={option}>
                           {option}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="is_negotiable">Negotiable price</label>
-                    <select
+                    <SearchableSelect
                       id="is_negotiable"
                       name="is_negotiable"
                       value={formData.is_negotiable ? 'true' : 'false'}
@@ -333,7 +334,7 @@ const PostCarParts = () => {
                     >
                       <option value="false">Fixed price</option>
                       <option value="true">Negotiable</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
               </div>
@@ -350,7 +351,7 @@ const PostCarParts = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="emirate">Emirate</label>
-                    <select id="emirate" name="emirate" value={formData.emirate} onChange={handleChange}>
+                    <SearchableSelect id="emirate" name="emirate" value={formData.emirate} onChange={handleChange}>
                       <option value="Abu Dhabi">Abu Dhabi</option>
                       <option value="Dubai">Dubai</option>
                       <option value="Sharjah">Sharjah</option>
@@ -358,7 +359,7 @@ const PostCarParts = () => {
                       <option value="Umm Al Quwain">Umm Al Quwain</option>
                       <option value="Ras Al Khaimah">Ras Al Khaimah</option>
                       <option value="Fujairah">Fujairah</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="location">Area / location</label>
@@ -369,13 +370,13 @@ const PostCarParts = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="country_code">Country code</label>
-                    <select id="country_code" name="country_code" value={formData.country_code} onChange={handleChange}>
+                    <SearchableSelect id="country_code" name="country_code" value={formData.country_code} onChange={handleChange}>
                       {COUNTRY_CODES.map((code) => (
                         <option key={code} value={code}>
                           {code}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="contact_number">Phone number</label>
@@ -386,7 +387,7 @@ const PostCarParts = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="is_dealer">Dealer listing</label>
-                    <select
+                    <SearchableSelect
                       id="is_dealer"
                       name="is_dealer"
                       value={formData.is_dealer ? 'true' : 'false'}
@@ -399,7 +400,7 @@ const PostCarParts = () => {
                     >
                       <option value="false">Private seller</option>
                       <option value="true">Dealer</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="description">Description</label>

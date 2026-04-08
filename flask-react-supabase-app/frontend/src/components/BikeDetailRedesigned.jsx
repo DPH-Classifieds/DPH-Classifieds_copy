@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
@@ -484,7 +485,7 @@ const BikeDetailRedesigned = () => {
                 </div>
                 <div className="cd-loan-input">
                   <label className="cd-loan-label">Loan term</label>
-                  <select 
+                  <SearchableSelect 
                     className="cd-loan-select"
                     value={loanCalculator.loanTerm}
                     onChange={(e) => handleLoanChange('loanTerm', Number(e.target.value))}
@@ -494,7 +495,7 @@ const BikeDetailRedesigned = () => {
                     <option value={3}>3 years</option>
                     <option value={4}>4 years</option>
                     <option value={5}>5 years</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
                 <div className="cd-loan-input">
                   <label className="cd-loan-label">Interest rate (%)</label>

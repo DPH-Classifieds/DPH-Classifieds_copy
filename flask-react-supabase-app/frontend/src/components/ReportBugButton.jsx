@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
 import '../styles/ReportButton.css';
@@ -112,7 +113,7 @@ const ReportBugButton = ({ className = '', buttonText = 'Report a Bug' }) => {
               <form onSubmit={handleSubmitReport} className="report-form">
                 <div className="report-form-group">
                   <label htmlFor="issue-type">Issue Type</label>
-                  <select
+                  <SearchableSelect
                     id="issue-type"
                     value={issueType}
                     onChange={(e) => setIssueType(e.target.value)}
@@ -121,7 +122,7 @@ const ReportBugButton = ({ className = '', buttonText = 'Report a Bug' }) => {
                     {issueTypes.map((type) => (
                       <option key={type.value} value={type.value}>{type.label}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 <div className="report-form-group">

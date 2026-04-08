@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/CarParts.css';
@@ -131,7 +132,7 @@ const CarParts = () => {
           />
         </div>
         <div className="filter-options">
-          <select
+          <SearchableSelect
             name="category"
             value={filters.category}
             onChange={handleFilterChange}
@@ -142,8 +143,8 @@ const CarParts = () => {
                 {category}
               </option>
             ))}
-          </select>
-          <select
+          </SearchableSelect>
+          <SearchableSelect
             name="sortBy"
             value={filters.sortBy}
             onChange={handleFilterChange}
@@ -152,7 +153,7 @@ const CarParts = () => {
             <option value="oldest">Oldest First</option>
             <option value="price-low">Price: Low to High</option>
             <option value="price-high">Price: High to Low</option>
-          </select>
+          </SearchableSelect>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import { carMakes, carModels } from '../utils/carData';
@@ -719,7 +720,7 @@ const ExplorePage = () => {
             </label>
             <label className="explore-v2-field">
               <span>Make</span>
-              <select
+              <SearchableSelect
                 value={carFilters.manufacturer}
                 onChange={(event) =>
                   setCarFilters((current) => ({
@@ -735,11 +736,11 @@ const ExplorePage = () => {
                     {make}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Model</span>
-              <select
+              <SearchableSelect
                 value={carFilters.model}
                 disabled={!carFilters.manufacturer}
                 onChange={(event) => setCarFilters((current) => ({ ...current, model: event.target.value }))}
@@ -750,7 +751,7 @@ const ExplorePage = () => {
                     {model}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Emirate</span>
@@ -763,14 +764,14 @@ const ExplorePage = () => {
             </label>
             <label className="explore-v2-field">
               <span>Sort</span>
-              <select
+              <SearchableSelect
                 value={carFilters.sortBy}
                 onChange={(event) => setCarFilters((current) => ({ ...current, sortBy: event.target.value }))}
               >
                 <option value="newest">Newest First</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Price From</span>
@@ -817,7 +818,7 @@ const ExplorePage = () => {
             </label>
             <label className="explore-v2-field">
               <span>Category</span>
-              <select
+              <SearchableSelect
                 value={partsFilters.category}
                 onChange={(event) => setPartsFilters((current) => ({ ...current, category: event.target.value }))}
               >
@@ -827,18 +828,18 @@ const ExplorePage = () => {
                     {category}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Sort</span>
-              <select
+              <SearchableSelect
                 value={partsFilters.sortBy}
                 onChange={(event) => setPartsFilters((current) => ({ ...current, sortBy: event.target.value }))}
               >
                 <option value="newest">Newest First</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Price From</span>
@@ -885,7 +886,7 @@ const ExplorePage = () => {
             </label>
             <label className="explore-v2-field">
               <span>City</span>
-              <select
+              <SearchableSelect
                 value={plateFilters.city}
                 onChange={(event) => setPlateFilters((current) => ({ ...current, city: event.target.value }))}
               >
@@ -895,11 +896,11 @@ const ExplorePage = () => {
                     {city}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Code</span>
-              <select
+              <SearchableSelect
                 value={plateFilters.code}
                 onChange={(event) => setPlateFilters((current) => ({ ...current, code: event.target.value }))}
               >
@@ -909,7 +910,7 @@ const ExplorePage = () => {
                     {code}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Digits</span>
@@ -923,14 +924,14 @@ const ExplorePage = () => {
             </label>
             <label className="explore-v2-field">
               <span>Sort</span>
-              <select
+              <SearchableSelect
                 value={plateFilters.sortBy}
                 onChange={(event) => setPlateFilters((current) => ({ ...current, sortBy: event.target.value }))}
               >
                 <option value="newest">Newest First</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
-              </select>
+              </SearchableSelect>
             </label>
             <label className="explore-v2-field">
               <span>Price From</span>
@@ -976,7 +977,7 @@ const ExplorePage = () => {
           </label>
           <label className="explore-v2-field">
             <span>Type</span>
-            <select
+            <SearchableSelect
               value={bikeFilters.type}
               onChange={(event) => setBikeFilters((current) => ({ ...current, type: event.target.value }))}
             >
@@ -986,11 +987,11 @@ const ExplorePage = () => {
                   {type}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <label className="explore-v2-field">
             <span>Brand</span>
-            <select
+            <SearchableSelect
               value={bikeFilters.brand}
               onChange={(event) => setBikeFilters((current) => ({ ...current, brand: event.target.value }))}
             >
@@ -1000,7 +1001,7 @@ const ExplorePage = () => {
                   {brand}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </label>
           <label className="explore-v2-field">
             <span>Year From</span>
@@ -1024,14 +1025,14 @@ const ExplorePage = () => {
           </label>
           <label className="explore-v2-field">
             <span>Sort</span>
-            <select
+            <SearchableSelect
               value={bikeFilters.sortBy}
               onChange={(event) => setBikeFilters((current) => ({ ...current, sortBy: event.target.value }))}
             >
               <option value="newest">Newest First</option>
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
-            </select>
+            </SearchableSelect>
           </label>
           <label className="explore-v2-field">
             <span>Price From</span>
