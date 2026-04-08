@@ -2826,20 +2826,26 @@ def _get_user_details_with_admin_status(user_id_from_token):
     email_verified = email_verified or bool(auth_email_confirmed)
     phone_verified = phone_verified or bool(auth_phone_confirmed)
 
-    final_user_details = {
-        "id": user_id_from_token,
-        "email": final_email_to_use,
-        "is_admin": final_is_admin,  # Use the derived is_admin_in_db from potentially populated db_user_data
-        "created_at": final_created_at,
-        "is_dealer": bool(db_user_data.get("is_dealer", False))
-        if db_user_data
-        else False,
-        "dealer_verified": bool(db_user_data.get("dealer_verified", False))
-        if db_user_data
-        else False,
-        "email_verified": email_verified,
-        "phone_verified": phone_verified,
-    }
+    final_user_details = {}
+    if db_user_data:
+        final_user_details.update(db_user_data)
+
+    final_user_details.update(
+        {
+            "id": user_id_from_token,
+            "email": final_email_to_use,
+            "is_admin": final_is_admin,
+            "created_at": final_created_at,
+            "is_dealer": bool(db_user_data.get("is_dealer", False))
+            if db_user_data
+            else False,
+            "dealer_verified": bool(db_user_data.get("dealer_verified", False))
+            if db_user_data
+            else False,
+            "email_verified": email_verified,
+            "phone_verified": phone_verified,
+        }
+    )
     logger.info(
         f"[_get_user_details_with_admin_status] Returning final details: {final_user_details}"
     )

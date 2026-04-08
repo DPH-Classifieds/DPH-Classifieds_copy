@@ -221,7 +221,23 @@ export const AuthProvider = ({ children }) => {
       async (event, session) => {
         console.log('Supabase auth state changed:', event);
         if (session && session.user) {
-          setUser(session.user);
+          localStorage.setItem('supabase_access_token', session.access_token);
+          authService.setAuthHeader(session.access_token);
+
+          const { user: backendUser } = await authService.getCurrentUser();
+          if (backendUser) {
+            setUser({
+              ...backendUser,
+              access_token: session.access_token,
+              session
+            });
+          } else {
+            setUser({
+              ...session.user,
+              access_token: session.access_token,
+              session
+            });
+          }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
         }

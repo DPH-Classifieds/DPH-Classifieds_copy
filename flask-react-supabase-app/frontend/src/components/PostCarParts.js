@@ -1,425 +1,492 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import '../styles/PostForms.css';
 
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGES = 10;
+const COUNTRY_CODES = ['+971', '+973', '+965', '+968', '+974', '+966'];
+const PART_TYPES = [
+  'Engine',
+  'Transmission',
+  'Suspension',
+  'Brakes',
+  'Electrical',
+  'Body',
+  'Interior',
+  'Wheels & Tires',
+  'Exhaust',
+  'Cooling',
+  'Lighting',
+  'Other',
+];
+const COMPATIBLE_YEAR_OPTIONS = ['Any', '2000-2005', '2006-2010', '2011-2015', '2016-2020', '2021-2026'];
+const HERO_IMAGE =
+  'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1200&q=80';
+
 const PostCarParts = () => {
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
+  const fileInputRef = useRef(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [formData, setFormData] = useState({
-    part_name: '',
+    name: '',
     part_type: '',
     condition: 'New',
-    compatible_makes: [],
-    compatible_models: [],
+    compatible_makes: '',
+    compatible_models: '',
+    compatible_years: 'Any',
     price: '',
     location: '',
+    emirate: 'Dubai',
+    contact_number: '',
+    country_code: '+971',
     description: '',
-    is_dealer: false
+    is_negotiable: false,
+    is_dealer: false,
   });
 
-  // Check if user is logged in when component loads
   useEffect(() => {
-    const checkAuth = async () => {
-      await syncWithSupabase();
+    syncWithSupabase();
+  }, [syncWithSupabase]);
+
+  useEffect(() => {
+    return () => {
+      previewImages.forEach((preview) => URL.revokeObjectURL(preview));
     };
-    
-    checkAuth();
-    
-    if (!isLoading && !user) {
-      console.log('User not authenticated, showing auth modal');
-      setShowAuthModal(true);
-    } else if (user) {
-      console.log('User authenticated:', user.email);
-      setShowAuthModal(false);
-    }
-  }, [user, isLoading, syncWithSupabase]);
+  }, [previewImages]);
 
-  // Authentication modal component
-  const AuthModal = () => {
-    return (
-      <div className="auth-modal-overlay">
-        <div className="auth-modal">
-          <h2>Authentication Required</h2>
-          <p>Please log in or sign up to post a listing.</p>
-          <div className="auth-modal-buttons">
-            <button 
-              onClick={() => navigate('/login')}
-              className="btn btn-primary"
-            >
-              Log In
-            </button>
-            <button 
-              onClick={() => navigate('/signup')}
-              className="btn btn-secondary"
-            >
-              Sign Up
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const isUnauthed = !isLoading && !user;
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+  const parsedCompatibility = useMemo(
+    () => ({
+      makes: formData.compatible_makes
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+      models: formData.compatible_models
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    }),
+    [formData.compatible_makes, formData.compatible_models]
+  );
+
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
-  const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-  const MAX_IMAGES = 10;
-
   const processFiles = (files) => {
-    const validFiles = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (selectedFiles.length + validFiles.length >= MAX_IMAGES) {
+    if (!files.length) {
+      return;
+    }
+
+    const nextFiles = [...selectedFiles];
+    const nextPreviews = [...previewImages];
+
+    for (const file of files) {
+      if (nextFiles.length >= MAX_IMAGES) {
         setError(`Maximum ${MAX_IMAGES} images allowed`);
         break;
       }
-      if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
-        setError(`Invalid file type: ${file.name}. Supported: JPG, PNG, WEBP, GIF`);
+
+      if (!SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase())) {
+        setError(`Unsupported file type: ${file.name}`);
         continue;
       }
+
       if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        setError(`File too large: ${file.name}. Max size: 5MB`);
+        setError(`File too large: ${file.name}. Max size is 5MB.`);
         continue;
       }
-      validFiles.push(file);
+
+      nextFiles.push(file);
+      nextPreviews.push(URL.createObjectURL(file));
     }
-    return validFiles;
-  };
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    const validFiles = processFiles(files);
-    if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
-      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
-      setPreviewImages(prev => [...prev, ...newPreviews]);
-    }
-    e.target.value = '';
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    const validFiles = processFiles(files);
-    if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
-      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
-      setPreviewImages(prev => [...prev, ...newPreviews]);
-    }
+    setError(null);
+    setSelectedFiles(nextFiles);
+    setPreviewImages(nextPreviews);
   };
 
   const removeImage = (index) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    const previewToRevoke = previewImages[index];
+    if (previewToRevoke) {
+      URL.revokeObjectURL(previewToRevoke);
+    }
+
+    setSelectedFiles((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+    setPreviewImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   };
 
   const uploadImages = async () => {
     if (selectedFiles.length === 0) {
-      throw new Error('At least one image is required');
+      throw new Error('Please upload at least one part image.');
     }
+
     const uploadFormData = new FormData();
-    selectedFiles.forEach(file => {
-      uploadFormData.append('images', file);
-    });
+    selectedFiles.forEach((file) => uploadFormData.append('images', file));
+
     const response = await apiClient.post('/api/upload-images', uploadFormData);
     return response.urls || [];
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Check authentication first
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
     if (!user) {
-      console.log('User not authenticated, showing auth modal');
-      setShowAuthModal(true);
       return;
     }
 
-    if (selectedFiles.length === 0) {
-      setError('Please upload at least one image');
-      setIsSubmitting(false);
-      return;
-    }
-    
-    setIsSubmitting(true);
     setError(null);
-    
+    setIsSubmitting(true);
+
     try {
-      // First upload images
       const imageUrls = await uploadImages();
-      
-      // Prepare JSON payload
       const payload = {
-        name: formData.part_name,
+        name: formData.name.trim(),
         part_type: formData.part_type,
         condition: formData.condition,
-        price: parseFloat(formData.price),
-        location: formData.location,
-        description: formData.description,
+        compatible_makes: parsedCompatibility.makes,
+        compatible_models: parsedCompatibility.models,
+        compatible_years: formData.compatible_years === 'Any' ? [] : [formData.compatible_years],
+        price: Number(formData.price),
+        location: formData.location.trim(),
+        area: formData.location.trim(),
+        emirate: formData.emirate,
+        contact_number: `${formData.country_code}${formData.contact_number.trim()}`,
+        country_code: formData.country_code,
+        description: formData.description.trim(),
+        is_negotiable: formData.is_negotiable,
         is_dealer: formData.is_dealer,
-        images: imageUrls
+        images: imageUrls,
       };
-      
-      console.log('Submitting to API using apiClient on port 8000...');
-      
-      // Use the apiClient which handles auth tokens automatically
-      const response = await apiClient.post('/api/parts', payload);
-      
-      console.log('Car parts listing submitted successfully:', response);
+
+      await apiClient.post('/api/parts', payload);
       setSuccess(true);
-      
-      // Navigate after success message is shown
+
       setTimeout(() => {
         navigate('/my-listings');
-      }, 2000);
-    } catch (err) {
-      console.error('API submission error:', err);
-      
-      // More specific error handling
-      let errorMessage = err.response?.data?.error || 'Failed to submit car parts listing';
-      const status = err.response?.status || err.status;
-      if (status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (status === 403) {
-        errorMessage = 'You do not have permission to perform this action.';
-      } else if (status === 404) {
-        errorMessage = 'API endpoint not found. Please contact support.';
-      } else if (status === 500) {
-        errorMessage = 'Server error. Please try again later.';
-      } else if (err.message && !err.response?.data?.error) {
-        errorMessage = `${errorMessage}: ${err.message}`;
-      }
-      
-      setError(errorMessage);
+      }, 1800);
+    } catch (submissionError) {
+      setError(submissionError.response?.data?.error || submissionError.message || 'Failed to submit car part listing.');
+    } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isUnauthed) {
+    return (
+      <div className="auth-required">
+        <h2>Authentication Required</h2>
+        <p>You need to be logged in to post a car part listing.</p>
+        <div className="auth-buttons">
+          <button onClick={() => navigate('/login?redirect=/post-car-parts')}>Log In</button>
+          <button onClick={() => navigate('/signup')}>Sign Up</button>
+        </div>
+      </div>
+    );
+  }
 
   if (success) {
     return (
       <div className="post-form-container success-message">
         <h2>Success!</h2>
-        <p>Your car parts listing has been successfully submitted.</p>
-        <p>You will be redirected to your listings page shortly...</p>
+        <p>Your car part listing has been submitted and is pending approval.</p>
+        <p>You will be redirected to your listings shortly.</p>
       </div>
     );
   }
 
   return (
     <div className="post-form-container">
-      {showAuthModal && <AuthModal />}
-      
-      <div className="post-form-header">
-        <h1>Post Car Parts for Sale</h1>
-        <p>Fill in the details below to list your car parts on our marketplace</p>
-      </div>
-      
-      {error && (
-        <div className="form-error-message">
-          {error}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit} className="post-form">
-        <div className="form-section">
-          <h2>Car Part Information</h2>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="item">Item Description *</label>
-              <input
-                type="text"
-                id="item"
-                name="item"
-                value={formData.item}
-                onChange={handleChange}
-                required
-                placeholder="e.g., Headlight Assembly, Brake Pads, etc."
-              />
-            </div>
+      <section className="post-hero-section">
+        <div className="post-hero-content">
+          <div className="post-hero-text">
+            <span className="post-hero-kicker">Sell Car Parts</span>
+            <h1 className="post-hero-title">List Parts In The Same Premium System</h1>
+            <p className="post-hero-subtitle">
+              The parts flow now follows the same structure as the car form and uses the field names the backend `car_parts` endpoint actually stores.
+            </p>
           </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="make">Make *</label>
-              <input
-                type="text"
-                id="make"
-                name="make"
-                value={formData.make}
-                onChange={handleChange}
-                required
-                placeholder="e.g., BMW, Toyota, Honda"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="model">Model *</label>
-              <input
-                type="text"
-                id="model"
-                name="model"
-                value={formData.model}
-                onChange={handleChange}
-                required
-                placeholder="e.g., X5, Camry, Civic"
-              />
-            </div>
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="year">Year *</label>
-              <input
-                type="number"
-                id="year"
-                name="year"
-                value={formData.year}
-                onChange={handleChange}
-                required
-                placeholder="e.g., 2018"
-                min="1900"
-                max={new Date().getFullYear()}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="price">Price (AED) *</label>
-              <input
-                type="number"
-                id="price"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
-                required
-                placeholder="e.g., 500"
-                min="0"
-              />
-            </div>
+          <div className="post-hero-image">
+            <img src={HERO_IMAGE} alt="Automotive parts listing" />
           </div>
         </div>
-        
-        <div className="form-section">
-          <h2>Images</h2>
-          <p className="form-note">Upload clear images of the part from multiple angles.</p>
-          
-          <div 
-            className={`image-upload-container ${isDragOver ? 'drag-over' : ''}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="upload-area">
-              <div className="upload-icon" aria-hidden="true"></div>
-              <h4>Drag & Drop Images Here</h4>
-              <p>or</p>
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,.webp,.gif"
-                multiple
-                onChange={handleFileChange}
-                className="file-input"
-                required
-              />
-              <button type="button" className="browse-btn">
-                Browse Files
-              </button>
-              <p className="upload-hint">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
+      </section>
+
+      <section className="post-form-section">
+        <div className="form-container">
+          {error && <div className="form-error-message">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="post-form">
+            <div className="form-section-layout">
+              <div className="form-section-sidebar">
+                <h2 className="form-section-title">Part details</h2>
+                <p className="form-section-desc">
+                  Start with the exact fields the backend requires: `name`, `part_type`, `condition`, and price. This removes the old mismatch between the UI and payload.
+                </p>
+              </div>
+              <div className="form-section-content">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="name">Part name</label>
+                    <input id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="OEM LED headlight assembly" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="part_type">Part type</label>
+                    <select id="part_type" name="part_type" value={formData.part_type} onChange={handleChange} required>
+                      <option value="">Select part type</option>
+                      {PART_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="condition">Condition</label>
+                    <select id="condition" name="condition" value={formData.condition} onChange={handleChange}>
+                      <option value="New">New</option>
+                      <option value="Like New">Like New</option>
+                      <option value="Used">Used</option>
+                      <option value="Refurbished">Refurbished</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="price">Price (AED)</label>
+                    <input id="price" name="price" type="number" min="0" value={formData.price} onChange={handleChange} required placeholder="850" />
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            {previewImages.length > 0 && (
-              <div className="image-previews mt-3">
-                <div className="row">
-                  {previewImages.map((preview, index) => (
-                    <div className="col-md-3 mb-2" key={index}>
-                      <div className="preview-thumbnail">
-                        <img src={preview} alt={`Preview ${index + 1}`} className="img-thumbnail" />
-                        <button 
-                          type="button" 
-                          className="btn btn-sm btn-danger remove-image"
-                          onClick={() => removeImage(index)}
-                        >
+
+            <div className="form-section-layout">
+              <div className="form-section-sidebar">
+                <h2 className="form-section-title">Compatibility</h2>
+                <p className="form-section-desc">
+                  Compatibility is stored as arrays in Supabase. Enter comma-separated makes and models here and they will be normalized before submission.
+                </p>
+              </div>
+              <div className="form-section-content">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="compatible_makes">Compatible makes</label>
+                    <input
+                      id="compatible_makes"
+                      name="compatible_makes"
+                      value={formData.compatible_makes}
+                      onChange={handleChange}
+                      placeholder="BMW, Toyota, Porsche"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="compatible_models">Compatible models</label>
+                    <input
+                      id="compatible_models"
+                      name="compatible_models"
+                      value={formData.compatible_models}
+                      onChange={handleChange}
+                      placeholder="X5, Camry, Cayenne"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="compatible_years">Year range</label>
+                    <select id="compatible_years" name="compatible_years" value={formData.compatible_years} onChange={handleChange}>
+                      {COMPATIBLE_YEAR_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="is_negotiable">Negotiable price</label>
+                    <select
+                      id="is_negotiable"
+                      name="is_negotiable"
+                      value={formData.is_negotiable ? 'true' : 'false'}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          is_negotiable: event.target.value === 'true',
+                        }))
+                      }
+                    >
+                      <option value="false">Fixed price</option>
+                      <option value="true">Negotiable</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-section-layout">
+              <div className="form-section-sidebar">
+                <h2 className="form-section-title">Seller contact</h2>
+                <p className="form-section-desc">
+                  Contact fields and location now map directly to the backend part payload so the listing, profile, and moderation data all stay connected.
+                </p>
+              </div>
+              <div className="form-section-content">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="emirate">Emirate</label>
+                    <select id="emirate" name="emirate" value={formData.emirate} onChange={handleChange}>
+                      <option value="Abu Dhabi">Abu Dhabi</option>
+                      <option value="Dubai">Dubai</option>
+                      <option value="Sharjah">Sharjah</option>
+                      <option value="Ajman">Ajman</option>
+                      <option value="Umm Al Quwain">Umm Al Quwain</option>
+                      <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                      <option value="Fujairah">Fujairah</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="location">Area / location</label>
+                    <input id="location" name="location" value={formData.location} onChange={handleChange} required placeholder="Al Quoz, Dubai" />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="country_code">Country code</label>
+                    <select id="country_code" name="country_code" value={formData.country_code} onChange={handleChange}>
+                      {COUNTRY_CODES.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="contact_number">Phone number</label>
+                    <input id="contact_number" name="contact_number" value={formData.contact_number} onChange={handleChange} required placeholder="501234567" />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="is_dealer">Dealer listing</label>
+                    <select
+                      id="is_dealer"
+                      name="is_dealer"
+                      value={formData.is_dealer ? 'true' : 'false'}
+                      onChange={(event) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          is_dealer: event.target.value === 'true',
+                        }))
+                      }
+                    >
+                      <option value="false">Private seller</option>
+                      <option value="true">Dealer</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="description">Description</label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      rows="6"
+                      value={formData.description}
+                      onChange={handleChange}
+                      placeholder="State fitment notes, OEM or aftermarket status, warranty, condition details, and any included extras."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-section-layout">
+              <div className="form-section-sidebar">
+                <h2 className="form-section-title">Gallery</h2>
+                <p className="form-section-desc">
+                  Upload clear part photos from multiple angles. These are uploaded first, then the returned URLs are stored in `part_images`.
+                </p>
+              </div>
+              <div className="form-section-content">
+                <div
+                  className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(false);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(false);
+                    processFiles(Array.from(event.dataTransfer.files));
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="upload-icon-wrapper">
+                    <span className="material-symbols-outlined">upload</span>
+                  </div>
+                  <p className="upload-text-main">Drop part photos here or click to browse</p>
+                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 5MB each</p>
+                  <input
+                    ref={fileInputRef}
+                    className="file-input"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.gif"
+                    multiple
+                    onChange={(event) => {
+                      processFiles(Array.from(event.target.files || []));
+                      event.target.value = '';
+                    }}
+                  />
+                </div>
+
+                {previewImages.length > 0 && (
+                  <div className="image-previews-grid">
+                    {previewImages.map((preview, index) => (
+                      <div className="preview-item" key={preview}>
+                        <img src={preview} alt={`Part preview ${index + 1}`} />
+                        <button type="button" className="remove-btn" onClick={() => removeImage(index)}>
                           ×
                         </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Are you a dealer?</label>
-            <div className="toggle-container" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
-              <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="is_dealer"
-                  value="no"
-                  checked={formData.is_dealer === false}
-                  onChange={() => setFormData(prev => ({ ...prev, is_dealer: false }))}
-                  style={{ marginRight: '8px', cursor: 'pointer' }}
-                />
-                <span>No</span>
-              </label>
-              <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="is_dealer"
-                  value="yes"
-                  checked={formData.is_dealer === true}
-                  onChange={() => setFormData(prev => ({ ...prev, is_dealer: true }))}
-                  style={{ marginRight: '8px', cursor: 'pointer' }}
-                />
-                <span>Yes</span>
-              </label>
             </div>
-            <small className="form-text text-muted">Select "Yes" if you are posting this listing as a parts dealer</small>
-          </div>
+
+            <div className="form-actions-section">
+              <button type="submit" className="submit-btn" disabled={isSubmitting}>
+                {isSubmitting ? 'Submitting...' : 'Submit Part Listing'}
+              </button>
+              <p>The listing, images, and seller information now follow the backend car-parts schema instead of the older disconnected field set.</p>
+            </div>
+          </form>
         </div>
-        
-        <div className="form-actions">
-          <button 
-            type="submit" 
-            className="submit-button"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Listing'}
-          </button>
-        </div>
-      </form>
+      </section>
     </div>
   );
 };
 
-export default PostCarParts; 
+export default PostCarParts;

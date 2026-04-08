@@ -13,6 +13,8 @@
   justify-content: center;
   transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
   position: relative;
+  width: 48px;
+  height: 48px;
   min-height: 48px;
   min-width: 48px;
   touch-action: manipulation;
@@ -33,12 +35,12 @@
 .avatar {
   width: 38px;
   height: 38px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: linear-gradient(135deg, #8ce592 0%, #57bc60 100%);
   color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   font-weight: 600;
   font-size: 15px;
   transition: all 0.2s ease;
@@ -46,11 +48,13 @@
   border: 1px solid rgba(255, 255, 255, 0.4);
   overflow: hidden;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .avatar-image {
   width: 100%;
   height: 100%;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   object-position: center;
   border-radius: 50%;
@@ -91,6 +95,7 @@
 .profile-header-avatar {
   width: 50px;
   height: 50px;
+  aspect-ratio: 1 / 1;
   font-size: 18px;
 }
 

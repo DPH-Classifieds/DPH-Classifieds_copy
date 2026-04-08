@@ -58,10 +58,7 @@ const browseLinks = [
   },
 ];
 
-const resourceLinks = [
-  { title: 'About', href: '/about' },
-  { title: 'Contact', href: '/contact' },
-];
+const resourceLinks = [{ title: 'About', href: '/about' }];
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -196,15 +193,6 @@ const Header = () => {
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                asChild
-                className={`${location.pathname === '/contact' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
-              >
-                <Link to="/contact">Contact</Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
             {user && (
               <NavigationMenuItem>
                 <NavigationMenuLink
@@ -313,9 +301,6 @@ const Header = () => {
                 </Link>
                 <Link to="/about" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                   About
-                </Link>
-                <Link to="/contact" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
-                  Contact
                 </Link>
                 {user && (
                   <Link to="/my-listings" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
