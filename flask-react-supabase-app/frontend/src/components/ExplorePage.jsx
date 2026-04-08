@@ -1074,24 +1074,6 @@ const ExplorePage = () => {
         </div>
       </section>
 
-      <section className="explore-v2-shell explore-v2-mode-band">
-        <div className="explore-v2-mode-switch" role="tablist" aria-label="Explore inventory modes">
-          {exploreModes.map((mode) => (
-            <button
-              key={mode.key}
-              type="button"
-              role="tab"
-              aria-selected={activeMode === mode.key}
-              className={`explore-v2-mode-chip ${activeMode === mode.key ? 'is-active' : ''}`}
-              onClick={() => handleModeChange(mode.key)}
-            >
-              <span>{mode.label}</span>
-              <small>{mode.description}</small>
-            </button>
-          ))}
-        </div>
-      </section>
-
       <section className="explore-v2-shell explore-v2-filter-section">
         <div className="explore-v2-filter-header">
           <div>
