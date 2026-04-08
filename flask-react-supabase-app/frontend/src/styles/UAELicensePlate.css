@@ -1,6 +1,7 @@
 /* UAE License Plate Styles */
 .uae-license-plate {
-  width: 500px;
+  width: 100%;
+  max-width: 500px;
   height: 140px;
   background-color: #fff;
   border: 3px solid #000;
@@ -13,6 +14,7 @@
   padding: 0 15px;
   box-sizing: border-box;
   font-family: 'Arial', sans-serif;
+  overflow: hidden;
 }
 
 /* Common plate components */

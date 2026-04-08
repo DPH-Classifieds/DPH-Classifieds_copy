@@ -1,0 +1,63 @@
+[      41ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[      41ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[     195ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:89981
+[     215ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:141199
+[     215ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     215ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141190
+[     215ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:141190
+[     215ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:141190
+[     215ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     215ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     217ms] [LOG] CORS check response: 200 @ http://localhost:3000/static/js/bundle.js:138979
+[     235ms] [LOG] Fetching from: http://localhost:8000/api/cars?order=created_at.desc&extras=&_t=1775561554254 @ http://localhost:3000/static/js/bundle.js:111675
+[     235ms] [LOG] API_URL value: http://localhost:8000 @ http://localhost:3000/static/js/bundle.js:111676
+[     236ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:93483
+[     236ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:93483
+[     236ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:141199
+[     236ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] Fetching from: http://localhost:8000/api/cars?order=created_at.desc&extras=&_t=1775561554256 @ http://localhost:3000/static/js/bundle.js:111675
+[     236ms] [LOG] API_URL value: http://localhost:8000 @ http://localhost:3000/static/js/bundle.js:111676
+[     236ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:141199
+[     236ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141190
+[     236ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141190
+[     237ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?order=created_at.desc&extras=&_t=1775561554254, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141190
+[     237ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141190
+[     237ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?order=created_at.desc&extras=&_t=1775561554256, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141190
+[     237ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141190
+[     239ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     239ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/cars color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/cars, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.5.0, ts: 1775561554259} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     240ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[     266ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:135997
+[     731ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Array(1)} @ http://localhost:3000/static/js/bundle.js:141190
+[     731ms] [LOG] API Response status: 200 @ http://localhost:3000/static/js/bundle.js:111686
+[     731ms] [LOG] API Response data type: object @ http://localhost:3000/static/js/bundle.js:111687
+[     731ms] [LOG] API Response data: [Object] @ http://localhost:3000/static/js/bundle.js:111688
+[     732ms] [LOG] Setting cars data, length: 1 @ http://localhost:3000/static/js/bundle.js:111699
+[     795ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Array(1)} @ http://localhost:3000/static/js/bundle.js:141190
+[     795ms] [LOG] API Response status: 200 @ http://localhost:3000/static/js/bundle.js:111686
+[     795ms] [LOG] API Response data type: object @ http://localhost:3000/static/js/bundle.js:111687
+[     795ms] [LOG] API Response data: [Object] @ http://localhost:3000/static/js/bundle.js:111688
+[     795ms] [LOG] Setting cars data, length: 1 @ http://localhost:3000/static/js/bundle.js:111699
+[     920ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:141190
+[     921ms] [INFO] [INFO] User info retrieved successfully: {created_at: 2025-04-05T23:16:21.883674+00:00, dealer_verified: false, email: suhaylindubai@gmail.com, email_verified: true, id: 07e19ebc-cf63-4cd9-8a72-6eef81eb1201} @ http://localhost:3000/static/js/bundle.js:141199
+[     921ms] [LOG] Backend user found: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:135969
+[    1609ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:141190
+[    1610ms] [INFO] [INFO] User info retrieved successfully: {created_at: 2025-04-05T23:16:21.883674+00:00, dealer_verified: false, email: suhaylindubai@gmail.com, email_verified: true, id: 07e19ebc-cf63-4cd9-8a72-6eef81eb1201} @ http://localhost:3000/static/js/bundle.js:141199
+[    1610ms] [LOG] Backend user found: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:135969

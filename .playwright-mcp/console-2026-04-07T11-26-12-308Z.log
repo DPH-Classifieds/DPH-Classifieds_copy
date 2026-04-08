@@ -1,0 +1,48 @@
+[      37ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(3), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[      37ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[      44ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:89343
+[      56ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:140528
+[      56ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:140519
+[      56ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:140519
+[      56ms] [LOG] [DEBUG] No existing token found @ http://localhost:3000/static/js/bundle.js:140519
+[      58ms] [LOG] CORS check response: 200 @ http://localhost:3000/static/js/bundle.js:138308
+[      60ms] [LOG] Diagnostic info: {apiClientType: object, getMethodExists: true, apiClientKeys: request, get, post, put, delete, userLoggedIn: false, userEmail: Not logged in} @ http://localhost:3000/static/js/bundle.js:122452
+[      60ms] [LOG] Fetching plates from API... @ http://localhost:3000/static/js/bundle.js:122453
+[      61ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:92845
+[      61ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:92845
+[      61ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:140528
+[      61ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] No existing token found @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] Diagnostic info: {apiClientType: object, getMethodExists: true, apiClientKeys: request, get, post, put, delete, userLoggedIn: false, userEmail: Not logged in} @ http://localhost:3000/static/js/bundle.js:122452
+[      61ms] [LOG] Fetching plates from API... @ http://localhost:3000/static/js/bundle.js:122453
+[      61ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:140528
+[      61ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] No existing token found @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:140519
+[      61ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135122
+[      62ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135122
+[      62ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:140519
+[      62ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:140519
+[      65ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[      65ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/plates color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/plates, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.5.0, ts: 1775561172373} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[      65ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[      89ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:135326
+[      89ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:135152
+[      89ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:135240
+[      90ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:135152
+[      90ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:135240

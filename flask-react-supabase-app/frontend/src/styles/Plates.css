@@ -192,7 +192,7 @@ select.filter-input::-ms-expand {
 .plate-price {
   font-size: 20px;
   font-weight: 700;
-  color: #01351c;
+  color: #ffffff;
   margin-bottom: 8px;
 }
 
@@ -204,7 +204,7 @@ select.filter-input::-ms-expand {
 .plate-code-number {
   font-size: 24px;
   font-weight: 700;
-  color: #4a90e2;
+  color: #ffffff;
   margin-bottom: 8px;
 }
 
@@ -356,6 +356,185 @@ select#plate_format option {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
+}
+
+/* Scoped 2026 refresh */
+.plates-container {
+  max-width: 1480px;
+  padding: 56px 32px 96px;
+  color: #eef7ef;
+}
+
+.plates-header {
+  width: min(100%, 1420px);
+  margin: 0 auto 36px;
+}
+
+.plates-header h1 {
+  color: #f5fbf5;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  letter-spacing: -0.06em;
+}
+
+.plates-container .search-form,
+.plates-container .plates-results,
+.plates-container .plate-sell-cta {
+  width: min(100%, 1420px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.plates-container .search-filters {
+  background:
+    radial-gradient(circle at top right, rgba(97, 191, 102, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(25, 28, 26, 0.98) 0%, rgba(17, 18, 17, 0.98) 100%);
+  border: 1px solid rgba(148, 218, 153, 0.16);
+  border-radius: 28px;
+  box-shadow: inset 0 1px 0 rgba(240, 252, 241, 0.05);
+}
+
+.plates-container .search-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.plates-container .filter-input {
+  min-width: 0;
+  min-height: 52px;
+  color-scheme: dark;
+  background: rgba(244, 251, 245, 0.05);
+  color: #f7fcf7;
+  border: 1px solid rgba(148, 218, 153, 0.16);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.plates-container .filter-input::placeholder,
+.plates-container .results-count,
+.plates-container .plate-date,
+.plates-container .plate-location,
+.plates-container .plate-description,
+.plates-container .cta-content p,
+.plates-container .no-plates {
+  color: rgba(226, 238, 227, 0.72);
+}
+
+.plates-container select.filter-input {
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: auto;
+  background-image: none;
+  padding-right: 20px;
+}
+
+.plates-container .filter-input:focus {
+  border-color: #79d07f;
+  box-shadow: 0 0 0 4px rgba(97, 191, 102, 0.16);
+}
+
+.plates-container .search-button,
+.plates-container .view-details-btn,
+.plates-container .sell-plate-btn {
+  background: linear-gradient(135deg, #88d86f 0%, #5bac58 100%);
+  color: #0d160f;
+  border-radius: 999px;
+}
+
+.plates-container .search-button:hover,
+.plates-container .view-details-btn:hover,
+.plates-container .sell-plate-btn:hover {
+  background: linear-gradient(135deg, #9ae284 0%, #71c56d 100%);
+  color: #081008;
+}
+
+.plates-container .save-btn {
+  background: rgba(97, 191, 102, 0.12);
+  border: 1px solid rgba(123, 206, 128, 0.24);
+  color: #dff1e0;
+  border-radius: 999px;
+}
+
+.plates-container .save-btn:hover {
+  background: rgba(97, 191, 102, 0.18);
+}
+
+.plates-container .plate-card {
+  background: linear-gradient(180deg, rgba(18, 22, 19, 0.98) 0%, rgba(10, 14, 11, 1) 100%);
+  border: 1px solid rgba(148, 218, 153, 0.12);
+  border-radius: 24px;
+  box-shadow: none;
+}
+
+.plates-container .plate-card:hover {
+  border-color: rgba(148, 218, 153, 0.28);
+  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.42);
+}
+
+.plates-container .plate-image {
+  background:
+    radial-gradient(circle at top, rgba(97, 191, 102, 0.16), transparent 40%),
+    #151917;
+}
+
+.plates-container .plate-details {
+  border-top-color: rgba(148, 218, 153, 0.08);
+}
+
+.plates-container .plate-details h3,
+.plates-container .cta-content h2 {
+  color: #f5fbf5;
+}
+
+.plates-container .plate-price {
+  color: #a7eba9;
+}
+
+.plates-container .plate-format {
+  background: rgba(244, 251, 245, 0.06);
+  border: 1px solid rgba(148, 218, 153, 0.12);
+  color: #eef7ef;
+}
+
+.plates-container .no-plates,
+.plates-container .no-results,
+.plates-container .plate-sell-cta {
+  background:
+    radial-gradient(circle at top right, rgba(97, 191, 102, 0.14), transparent 36%),
+    linear-gradient(180deg, rgba(16, 20, 17, 0.98) 0%, rgba(11, 14, 12, 1) 100%);
+  border: 1px solid rgba(148, 218, 153, 0.12);
+  border-radius: 24px;
+}
+
+.plates-container .no-results {
+  grid-column: 1 / -1;
+  padding: 36px;
+  text-align: center;
+  color: rgba(226, 238, 227, 0.72);
+}
+
+.plates-container .reset-filters-btn {
+  margin-top: 16px;
+  min-height: 48px;
+  padding: 0 22px;
+  background: rgba(97, 191, 102, 0.12);
+  border: 1px solid rgba(123, 206, 128, 0.24);
+  border-radius: 999px;
+  color: #dff1e0;
+}
+
+.plates-container .reset-filters-btn:hover {
+  background: rgba(97, 191, 102, 0.18);
+}
+
+@media (max-width: 900px) {
+  .plates-container {
+    padding: 44px 20px 84px;
+  }
+
+  .plates-container .search-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @keyframes spin {

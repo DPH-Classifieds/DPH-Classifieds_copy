@@ -2,20 +2,28 @@
   display: grid;
   gap: 18px;
   background:
-    radial-gradient(circle at top left, rgba(104, 191, 111, 0.14), transparent 52%),
-    rgba(6, 18, 10, 0.96);
+    radial-gradient(circle at top left, rgba(212, 177, 107, 0.12), transparent 50%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%),
+    rgba(10, 15, 18, 0.7);
   padding: 22px;
   border-radius: 24px;
-  border: 1px solid rgba(162, 228, 166, 0.12);
-  margin-top: 15px;
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(212, 177, 107, 0.12);
+  margin-top: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 28px 70px rgba(0, 0, 0, 0.24);
 }
 
 .loan-calculator-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: stretch;
+}
+
+.calculator-inputs {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(177, 198, 186, 0.1);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .input-row {
@@ -31,22 +39,23 @@
 .input-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 600;
-  color: #d8ebda;
-  font-size: 0.83rem;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #dfe7e2;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .input-group input,
 .input-group select {
   width: 100%;
+  min-height: 52px;
   padding: 13px 14px;
-  border: 1px solid rgba(162, 228, 166, 0.14);
+  border: 1px solid rgba(177, 198, 186, 0.14);
   border-radius: 16px;
   font-size: 0.96rem;
   transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(4, 7, 9, 0.28);
   color: #f7fbf7;
   appearance: none;
 }
@@ -54,37 +63,45 @@
 .input-group input:focus,
 .input-group select:focus {
   outline: none;
-  border-color: rgba(133, 224, 140, 0.5);
-  box-shadow: 0 0 0 4px rgba(116, 197, 122, 0.14);
+  border-color: rgba(212, 177, 107, 0.5);
+  box-shadow: 0 0 0 4px rgba(212, 177, 107, 0.14);
 }
 
 .readonly-input {
-  background: rgba(111, 196, 118, 0.12) !important;
-  color: #c8f2cb !important;
+  background: rgba(144, 178, 203, 0.12) !important;
+  color: #d7ecff !important;
   font-weight: 600 !important;
   cursor: not-allowed;
 }
 
 .calculator-results {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .result-card {
-  background: linear-gradient(180deg, rgba(17, 44, 24, 0.94), rgba(8, 26, 13, 0.94));
+  background: linear-gradient(180deg, rgba(22, 27, 31, 0.94), rgba(10, 14, 18, 0.94));
   padding: 18px;
   border-radius: 18px;
   text-align: left;
-  border: 1px solid rgba(162, 228, 166, 0.1);
+  border: 1px solid rgba(177, 198, 186, 0.1);
+}
+
+.result-card-primary {
+  grid-column: 1 / -1;
+  background:
+    radial-gradient(circle at top right, rgba(212, 177, 107, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(30, 34, 25, 0.96), rgba(13, 17, 20, 0.96));
+  border-color: rgba(212, 177, 107, 0.16);
 }
 
 .result-label {
   font-size: 0.78rem;
-  color: #a6c7a8;
+  color: #b6c5bc;
   margin-bottom: 8px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -95,18 +112,18 @@
 }
 
 .result-value.primary {
-  font-size: 2rem;
-  color: #92e298;
+  font-size: 2.15rem;
+  color: #f2d292;
   text-shadow: none;
 }
 
 .loan-summary {
-  background: linear-gradient(135deg, rgba(111, 196, 118, 0.16), rgba(18, 54, 25, 0.96));
+  background: linear-gradient(135deg, rgba(144, 178, 203, 0.14), rgba(15, 26, 34, 0.96));
   color: #edf9ee;
   padding: 18px 20px;
   border-radius: 20px;
   text-align: left;
-  border: 1px solid rgba(162, 228, 166, 0.12);
+  border: 1px solid rgba(144, 178, 203, 0.14);
 }
 
 .summary-text {
@@ -122,12 +139,8 @@
 
 /* Responsive Design */
 @media (max-width: 1100px) {
-  .loan-calculator-grid {
-    grid-template-columns: 1fr;
-  }
-
   .calculator-results {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -140,6 +153,10 @@
   .calculator-results {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .result-card-primary {
+    grid-column: auto;
   }
   
   .result-value {

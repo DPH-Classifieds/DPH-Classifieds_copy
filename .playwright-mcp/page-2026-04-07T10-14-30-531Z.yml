@@ -1,0 +1,209 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "DPHClassifieds" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: DPHClassifieds
+      - navigation [ref=e8]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Home" [ref=e11] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e12]:
+            - button "Browse ▾" [ref=e13] [cursor=pointer]:
+              - text: Browse
+              - generic [ref=e14]: ▾
+          - listitem [ref=e15]:
+            - button "+ Post ▾" [ref=e16] [cursor=pointer]:
+              - text: + Post
+              - generic [ref=e17]: ▾
+          - listitem [ref=e18]:
+            - link "About" [ref=e19] [cursor=pointer]:
+              - /url: /about
+        - generic [ref=e20]:
+          - link "Log In" [ref=e21] [cursor=pointer]:
+            - /url: /login
+          - link "Sign Up" [ref=e22] [cursor=pointer]:
+            - /url: /signup
+  - main [ref=e23]:
+    - generic [ref=e25]:
+      - heading "Create Your Account" [level=1] [ref=e26]
+      - paragraph [ref=e27]: Join thousands of buyers and sellers
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - heading "Are you a dealer?" [level=3] [ref=e30]
+          - generic [ref=e31]:
+            - generic [ref=e32] [cursor=pointer]:
+              - radio "No - Individual Personal buyer or seller" [checked]
+              - generic [ref=e33]:
+                - generic [ref=e34]: No - Individual
+                - generic [ref=e35]: Personal buyer or seller
+            - generic [ref=e36] [cursor=pointer]:
+              - radio "Yes - Dealer/Business Professional seller"
+              - generic [ref=e37]:
+                - generic [ref=e38]: Yes - Dealer/Business
+                - generic [ref=e39]: Professional seller
+        - generic [ref=e40]:
+          - heading "Personal Information" [level=3] [ref=e41]
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]:
+                - text: First Name
+                - generic [ref=e45]: "*"
+              - textbox "First Name *" [ref=e46]:
+                - /placeholder: Enter your first name
+            - generic [ref=e47]:
+              - generic [ref=e48]:
+                - text: Last Name
+                - generic [ref=e49]: "*"
+              - textbox "Last Name *" [ref=e50]:
+                - /placeholder: Enter your last name
+          - generic [ref=e51]:
+            - generic [ref=e52]: Username (Optional)
+            - textbox "Username (Optional)" [ref=e53]:
+              - /placeholder: Choose a unique username
+            - generic [ref=e54]: Used for login and public profile
+        - generic [ref=e55]:
+          - heading "Contact Information" [level=3] [ref=e56]
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - text: Email Address
+              - generic [ref=e59]: "*"
+            - textbox "Email Address *" [ref=e60]:
+              - /placeholder: your.email@example.com
+          - generic [ref=e61]:
+            - generic [ref=e62]: Phone Number
+            - generic [ref=e63]:
+              - combobox [ref=e64] [cursor=pointer]:
+                - option "🇦🇪 +971 (UAE)" [selected]
+                - option "🇧🇭 +973 (Bahrain)"
+                - option "🇰🇼 +965 (Kuwait)"
+                - option "🇴🇲 +968 (Oman)"
+                - option "🇶🇦 +974 (Qatar)"
+                - option "🇸🇦 +966 (Saudi Arabia)"
+                - option "🇺🇸 +1 (USA/Canada)"
+                - option "🇬🇧 +44 (UK)"
+                - option "🇮🇳 +91 (India)"
+                - option "🇵🇰 +92 (Pakistan)"
+              - textbox "Phone Number" [ref=e65]:
+                - /placeholder: 50 123 4567
+            - generic [ref=e66]: Used for buyer inquiries (will be displayed on your listings)
+        - generic [ref=e67]:
+          - heading "Location" [level=3] [ref=e68]
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e71]: Emirate
+              - combobox "Emirate" [ref=e72] [cursor=pointer]:
+                - option "Select Emirate" [selected]
+                - option "Abu Dhabi"
+                - option "Dubai"
+                - option "Sharjah"
+                - option "Ajman"
+                - option "Umm Al Quwain"
+                - option "Ras Al Khaimah"
+                - option "Fujairah"
+            - generic [ref=e73]:
+              - generic [ref=e74]: Area
+              - textbox "Area" [ref=e75]:
+                - /placeholder: Your Area
+        - generic [ref=e76]:
+          - heading "Security" [level=3] [ref=e77]
+          - generic [ref=e78]:
+            - generic [ref=e79]:
+              - text: Password
+              - generic [ref=e80]: "*"
+            - generic [ref=e81]:
+              - textbox "Password *" [ref=e82]:
+                - /placeholder: Create a strong password
+              - button "Show password" [ref=e83] [cursor=pointer]: Show
+            - generic [ref=e84]: Use at least 8 characters with a number and a symbol
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - text: Confirm Password
+              - generic [ref=e87]: "*"
+            - textbox "Confirm Password *" [ref=e88]:
+              - /placeholder: Re-enter your password
+        - generic [ref=e89]:
+          - heading "Communication Preferences" [level=3] [ref=e90]
+          - generic [ref=e91]:
+            - generic [ref=e92] [cursor=pointer]:
+              - checkbox "Email notifications for messages and offers" [checked] [ref=e93]
+              - generic [ref=e94]: Email notifications for messages and offers
+            - generic [ref=e95] [cursor=pointer]:
+              - checkbox "SMS notifications (requires phone number)" [checked] [ref=e96]
+              - generic [ref=e97]: SMS notifications (requires phone number)
+            - generic [ref=e98] [cursor=pointer]:
+              - checkbox "Promotional emails and newsletter" [ref=e99]
+              - generic [ref=e100]: Promotional emails and newsletter
+        - generic [ref=e102]:
+          - generic [ref=e103] [cursor=pointer]:
+            - checkbox "I agree to the Terms of Service *" [ref=e104]
+            - generic [ref=e105]:
+              - text: I agree to the
+              - link "Terms of Service" [ref=e106]:
+                - /url: /terms-of-use
+              - text: "*"
+          - generic [ref=e107] [cursor=pointer]:
+            - checkbox "I agree to the Privacy Policy *" [ref=e108]
+            - generic [ref=e109]:
+              - text: I agree to the
+              - link "Privacy Policy" [ref=e110]:
+                - /url: /privacy-policy
+              - text: "*"
+        - button "Create Account" [ref=e111] [cursor=pointer]
+      - generic [ref=e112]:
+        - text: Already have an account?
+        - link "Sign In" [ref=e113] [cursor=pointer]:
+          - /url: /login
+  - contentinfo [ref=e114]:
+    - generic [ref=e115]:
+      - generic [ref=e116]:
+        - generic [ref=e117]: DPH Classifieds
+        - paragraph [ref=e118]: A cleaner green-first marketplace for the UAE car community, built to make browsing and listing feel more considered.
+      - generic [ref=e119]:
+        - heading "About" [level=3] [ref=e120]
+        - list [ref=e121]:
+          - listitem [ref=e122]:
+            - link "About" [ref=e123] [cursor=pointer]:
+              - /url: /about
+          - listitem [ref=e124]:
+            - link "Privacy Policy" [ref=e125] [cursor=pointer]:
+              - /url: /privacy-policy
+          - listitem [ref=e126]:
+            - link "Terms of Use" [ref=e127] [cursor=pointer]:
+              - /url: /terms-of-use
+      - generic [ref=e128]:
+        - heading "Quick Links" [level=3] [ref=e129]
+        - list [ref=e130]:
+          - listitem [ref=e131]:
+            - link "Home" [ref=e132] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e133]:
+            - link "Explore" [ref=e134] [cursor=pointer]:
+              - /url: /explore
+          - listitem [ref=e135]:
+            - link "Browse Cars" [ref=e136] [cursor=pointer]:
+              - /url: /cars
+          - listitem [ref=e137]:
+            - link "Sell Your Car" [ref=e138] [cursor=pointer]:
+              - /url: /create-listing
+          - listitem [ref=e139]:
+            - button "Report a Bug" [ref=e140] [cursor=pointer]
+      - generic [ref=e141]:
+        - heading "Contact Us" [level=3] [ref=e142]
+        - list [ref=e143]:
+          - listitem [ref=e144]: "Email: support@dphclassifieds.com"
+          - listitem [ref=e145]: "Address: Dubai,UAE"
+      - generic [ref=e146]:
+        - heading "Follow Us" [level=3] [ref=e147]
+        - generic [ref=e148]:
+          - link "Reddit" [ref=e149] [cursor=pointer]:
+            - /url: https://www.reddit.com/r/DubaiPetrolHeads/
+            - text: Reddit
+          - link "Website" [ref=e150] [cursor=pointer]:
+            - /url: https://www.dubaipetrolheads.ae/
+            - text: Website
+          - link "Instagram" [ref=e151] [cursor=pointer]:
+            - /url: https://www.instagram.com/dubaipetrolheads?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==
+            - text: Instagram
+    - paragraph [ref=e153]: © 2026 DPH Classifieds. All rights reserved.

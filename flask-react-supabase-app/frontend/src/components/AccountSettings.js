@@ -165,6 +165,7 @@ const AccountSettings = () => {
         return;
       }
 
+      setError(null);
       setProfilePhoto(file);
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -194,7 +195,12 @@ const AccountSettings = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          errorData = { message: 'Failed to upload photo' };
+        }
         throw new Error(errorData.message || 'Failed to upload photo');
       }
 

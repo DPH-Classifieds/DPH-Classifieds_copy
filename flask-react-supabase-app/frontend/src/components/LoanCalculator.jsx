@@ -108,7 +108,7 @@ const LoanCalculator = ({ carPrice }) => {
         </div>
 
         <div className="calculator-results">
-          <div className="result-card">
+          <div className="result-card result-card-primary">
             <div className="result-label">Monthly Payment</div>
             <div className="result-value primary">{formatCurrency(monthlyPayment)}</div>
           </div>

@@ -656,48 +656,17 @@ const CarList = () => {
                   <label>Special Features</label>
                 </div>
                 
-                <div className="extras-grid" style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                  gap: '8px',
-                  marginTop: '10px'
-                }}>
+                <div className="extras-grid">
                   {Object.entries(carExtrasCategories).map(([category, extras]) => (
-                    <div key={category} style={{ marginBottom: '15px' }}>
-                      <div style={{ 
-                        fontSize: '13px', 
-                        fontWeight: '600', 
-                        marginBottom: '8px',
-                        color: '#555',
-                        borderBottom: '1px solid #e0e0e0',
-                        paddingBottom: '4px'
-                      }}>
+                    <div key={category} className="extras-category">
+                      <div className="extras-category-title">
                         {category}
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div className="extras-option-list">
                         {extras.map(extra => (
                           <label 
                             key={extra}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              transition: 'background-color 0.2s',
-                              backgroundColor: filters.extras.includes(extra) ? '#e3f2fd' : 'transparent'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!filters.extras.includes(extra)) {
-                                e.currentTarget.style.backgroundColor = '#f5f5f5';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!filters.extras.includes(extra)) {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                              }
-                            }}
+                            className={`extras-option ${filters.extras.includes(extra) ? 'is-selected' : ''}`}
                           >
                             <input 
                               type="checkbox"
@@ -713,12 +682,9 @@ const CarList = () => {
                                     : prev.extras.filter(item => item !== value)
                                 }));
                               }}
-                              style={{ marginRight: '8px', cursor: 'pointer' }}
+                              className="extras-option-checkbox"
                             />
-                            <span style={{ 
-                              color: filters.extras.includes(extra) ? '#1976d2' : '#333',
-                              fontWeight: filters.extras.includes(extra) ? '500' : '400'
-                            }}>
+                            <span className="extras-option-label">
                               {extra}
                             </span>
                           </label>
@@ -730,31 +696,13 @@ const CarList = () => {
                 
                 {/* Selected Extras Summary */}
                 {filters.extras.length > 0 && (
-                  <div style={{
-                    marginTop: '15px',
-                    padding: '10px',
-                    backgroundColor: '#f0f7ff',
-                    borderRadius: '6px',
-                    border: '1px solid #b3d9ff'
-                  }}>
-                    <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#1976d2' }}>
+                  <div className="selected-extras-summary">
+                    <div className="selected-extras-title">
                       Selected Features ({filters.extras.length}):
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    <div className="selected-extras-list">
                       {filters.extras.map(extra => (
-                        <span 
-                          key={extra}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '4px 10px',
-                            backgroundColor: '#fff',
-                            border: '1px solid #1976d2',
-                            borderRadius: '16px',
-                            fontSize: '12px',
-                            color: '#1976d2'
-                          }}
-                        >
+                        <span key={extra} className="selected-extra-pill">
                           {extra}
                           <button
                             type="button"
@@ -764,16 +712,7 @@ const CarList = () => {
                                 extras: prev.extras.filter(item => item !== extra)
                               }));
                             }}
-                            style={{
-                              marginLeft: '6px',
-                              background: 'none',
-                              border: 'none',
-                              color: '#1976d2',
-                              cursor: 'pointer',
-                              fontSize: '14px',
-                              padding: '0',
-                              lineHeight: '1'
-                            }}
+                            className="selected-extra-remove"
                           >
                             ×
                           </button>
@@ -801,7 +740,7 @@ const CarList = () => {
       {error && (
         <div className="error-message">
           <p>{error}</p>
-          <button onClick={() => fetchCars()}>Retry</button>
+          <button type="button" onClick={() => fetchCars()}>Retry</button>
         </div>
       )}
       
@@ -843,6 +782,12 @@ const CarList = () => {
                           <span>•</span>
                           <span>{car.fuel_type || 'N/A'}</span>
                         </div>
+                        {car.vin_number && (
+                          <div className="car-vin">
+                            <span className="vin-label">VIN:</span>
+                            <span className="vin-value">{car.vin_number.replace(/.(?=.{4})/g, '•')}</span>
+                          </div>
+                        )}
                         <p className="car-location">{car.car_city || 'Location not specified'}</p>
                       </div>
                       <div className="view-details-btn">
@@ -855,7 +800,7 @@ const CarList = () => {
             ) : (
               <div className="no-cars-message">
                 <p>No cars found matching your criteria.</p>
-                <button onClick={resetFilters}>Reset Filters</button>
+                <button type="button" onClick={resetFilters}>Reset Filters</button>
               </div>
             )}
           </div>

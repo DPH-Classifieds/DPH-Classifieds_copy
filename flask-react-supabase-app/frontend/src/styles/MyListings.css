@@ -168,6 +168,12 @@
   color: #6c757d;
 }
 
+.my-listing-views {
+  font-size: 13px;
+  color: #888;
+  margin-top: 4px;
+}
+
 .my-listing-actions {
   display: flex;
   padding: 15px 20px;

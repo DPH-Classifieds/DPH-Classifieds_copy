@@ -1,14 +1,16 @@
 .car-detail-container {
-  --cd-bg: #041008;
-  --cd-surface: rgba(9, 23, 15, 0.9);
-  --cd-surface-strong: rgba(13, 31, 21, 0.96);
-  --cd-surface-soft: rgba(18, 42, 29, 0.88);
-  --cd-line: rgba(177, 228, 182, 0.12);
-  --cd-line-strong: rgba(177, 228, 182, 0.24);
-  --cd-text: #eef7ef;
-  --cd-text-muted: rgba(226, 239, 229, 0.72);
-  --cd-accent: #8fe694;
-  --cd-accent-strong: #57bc60;
+  --cd-bg: #050b0d;
+  --cd-surface: rgba(13, 19, 24, 0.9);
+  --cd-surface-strong: rgba(17, 24, 30, 0.96);
+  --cd-surface-soft: rgba(22, 33, 27, 0.9);
+  --cd-line: rgba(177, 198, 186, 0.12);
+  --cd-line-strong: rgba(177, 198, 186, 0.24);
+  --cd-text: #eff4f1;
+  --cd-text-muted: rgba(220, 228, 223, 0.74);
+  --cd-accent: #95d2a2;
+  --cd-accent-strong: #67b985;
+  --cd-accent-warm: #d4b16b;
+  --cd-accent-cool: #90b2cb;
   --cd-shadow: 0 34px 70px rgba(0, 0, 0, 0.34);
   max-width: 1520px;
   margin: 28px auto 88px;
@@ -31,7 +33,9 @@
 .not-found-container {
   border: 1px solid var(--cd-line);
   border-radius: 28px;
-  background: linear-gradient(180deg, var(--cd-surface-strong) 0%, var(--cd-surface) 100%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(180deg, var(--cd-surface-strong) 0%, var(--cd-surface) 100%);
   box-shadow: inset 0 1px 0 rgba(236, 249, 237, 0.04), var(--cd-shadow);
 }
 
@@ -86,7 +90,8 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at top right, rgba(87, 188, 96, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(103, 185, 133, 0.18), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(212, 177, 107, 0.08), transparent 28%),
     linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.03) 100%);
   pointer-events: none;
 }
@@ -110,7 +115,7 @@
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(177, 228, 182, 0.14);
+  border: 1px solid rgba(177, 198, 186, 0.14);
   background: rgba(255, 255, 255, 0.03);
   color: var(--cd-text-muted);
   font-size: 0.75rem;
@@ -120,9 +125,9 @@
 }
 
 .detail-pill-accent {
-  background: rgba(143, 230, 148, 0.12);
+  background: rgba(149, 210, 162, 0.12);
   color: var(--cd-accent);
-  border-color: rgba(143, 230, 148, 0.18);
+  border-color: rgba(149, 210, 162, 0.18);
 }
 
 .car-detail-title {
@@ -153,8 +158,23 @@
   min-height: 108px;
   padding: 18px;
   border-radius: 22px;
-  border: 1px solid rgba(177, 228, 182, 0.1);
+  border: 1px solid rgba(177, 198, 186, 0.1);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.car-highlight-card:nth-child(2) {
+  background: linear-gradient(135deg, rgba(144, 178, 203, 0.14), rgba(255, 255, 255, 0.03));
+  border-color: rgba(144, 178, 203, 0.16);
+}
+
+.car-highlight-card:nth-child(3) {
+  background: linear-gradient(135deg, rgba(212, 177, 107, 0.12), rgba(255, 255, 255, 0.03));
+  border-color: rgba(212, 177, 107, 0.16);
+}
+
+.car-highlight-card:nth-child(4) {
+  background: linear-gradient(135deg, rgba(103, 185, 133, 0.12), rgba(255, 255, 255, 0.03));
+  border-color: rgba(103, 185, 133, 0.16);
 }
 
 .car-highlight-label,
@@ -184,15 +204,17 @@
   justify-content: space-between;
   padding: 22px;
   border-radius: 24px;
-  border: 1px solid rgba(143, 230, 148, 0.16);
-  background: linear-gradient(180deg, rgba(20, 47, 31, 0.94) 0%, rgba(10, 24, 16, 0.96) 100%);
+  border: 1px solid rgba(212, 177, 107, 0.16);
+  background:
+    radial-gradient(circle at top right, rgba(212, 177, 107, 0.18), transparent 36%),
+    linear-gradient(180deg, rgba(28, 32, 24, 0.96) 0%, rgba(14, 18, 21, 0.98) 100%);
 }
 
 .car-hero-price-card strong {
   font-size: clamp(2.1rem, 4vw, 3.4rem);
   line-height: 0.95;
   letter-spacing: -0.05em;
-  color: var(--cd-accent);
+  color: #ffffff;
 }
 
 .car-hero-price-card span:last-child {
@@ -226,8 +248,8 @@
   min-height: 560px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top right, rgba(87, 188, 96, 0.18), transparent 28%),
-    linear-gradient(180deg, rgba(17, 40, 27, 0.94) 0%, rgba(7, 16, 11, 0.96) 100%);
+    radial-gradient(circle at top right, rgba(144, 178, 203, 0.2), transparent 30%),
+    linear-gradient(180deg, rgba(18, 30, 35, 0.96) 0%, rgba(9, 14, 17, 0.98) 100%);
   border-bottom: 1px solid var(--cd-line);
 }
 
@@ -250,7 +272,7 @@
 }
 
 .image-placeholder-kicker {
-  color: var(--cd-accent);
+  color: var(--cd-accent-warm);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -339,8 +361,8 @@
 
 .tour-button {
   padding: 0 20px;
-  background: linear-gradient(135deg, #8ce592 0%, #57bc60 100%);
-  color: #041008;
+  background: linear-gradient(135deg, #d7bb79 0%, #95d2a2 100%);
+  color: #091011;
 }
 
 .tour-button:hover,
@@ -361,6 +383,9 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background:
+    radial-gradient(circle at top right, rgba(212, 177, 107, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(28, 31, 24, 0.96) 0%, rgba(14, 18, 20, 0.98) 100%);
 }
 
 .car-detail-price {
@@ -368,7 +393,7 @@
   font-weight: 800;
   line-height: 0.98;
   letter-spacing: -0.05em;
-  color: var(--cd-accent);
+  color: #ffffff;
 }
 
 .dealer-badge .badge {
@@ -396,14 +421,14 @@
 }
 
 .phone-button {
-  background: linear-gradient(135deg, #8ce592 0%, #57bc60 100%);
-  color: #041008;
-  box-shadow: 0 18px 36px rgba(87, 188, 96, 0.18);
+  background: linear-gradient(135deg, #95d2a2 0%, #67b985 100%);
+  color: #091011;
+  box-shadow: 0 18px 36px rgba(103, 185, 133, 0.18);
 }
 
 .whatsapp-button {
-  background: rgba(37, 211, 102, 0.12);
-  color: #8fe694;
+  background: rgba(37, 211, 102, 0.1);
+  color: #ffffff;
   border: 1px solid rgba(37, 211, 102, 0.22);
 }
 
@@ -414,8 +439,8 @@
 
 .car-detail-lower-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: 30px;
+  grid-template-columns: minmax(0, 1.32fr) minmax(320px, 0.92fr);
+  gap: 24px;
   margin-top: 30px;
   align-items: start;
 }
@@ -427,7 +452,37 @@
 
 .car-detail-side-grid {
   display: grid;
-  gap: 22px;
+  gap: 24px;
+  align-content: start;
+}
+
+.car-location,
+.loan-calculator {
+  margin-bottom: 0;
+}
+
+.car-specs-section {
+  background:
+    radial-gradient(circle at top left, rgba(103, 185, 133, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(16, 24, 29, 0.96) 0%, rgba(11, 16, 20, 0.98) 100%);
+}
+
+.car-location {
+  background:
+    radial-gradient(circle at top right, rgba(144, 178, 203, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(16, 26, 32, 0.96) 0%, rgba(10, 16, 21, 0.98) 100%);
+}
+
+.loan-calculator {
+  background:
+    radial-gradient(circle at top left, rgba(212, 177, 107, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(30, 27, 21, 0.96) 0%, rgba(15, 17, 20, 0.98) 100%);
+}
+
+.car-extras {
+  background:
+    radial-gradient(circle at top right, rgba(103, 185, 133, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(15, 23, 21, 0.96) 0%, rgba(10, 15, 17, 0.98) 100%);
 }
 
 .car-specs-grid {
@@ -438,7 +493,7 @@
 
 .spec-item,
 .extra-item {
-  border: 1px solid rgba(177, 228, 182, 0.08);
+  border: 1px solid rgba(177, 198, 186, 0.08);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.03);
 }
@@ -448,6 +503,16 @@
   flex-direction: column;
   gap: 6px;
   padding: 16px;
+}
+
+.spec-item:nth-child(3n + 2) {
+  background: linear-gradient(135deg, rgba(144, 178, 203, 0.1), rgba(255, 255, 255, 0.03));
+  border-color: rgba(144, 178, 203, 0.14);
+}
+
+.spec-item:nth-child(3n) {
+  background: linear-gradient(135deg, rgba(212, 177, 107, 0.08), rgba(255, 255, 255, 0.03));
+  border-color: rgba(212, 177, 107, 0.12);
 }
 
 .spec-value,
@@ -473,12 +538,33 @@
   font-size: 0.84rem;
 }
 
+.car-location-copy {
+  margin-bottom: 16px;
+}
+
+.car-location-city {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
 .location-note {
   display: block;
-  margin-top: -2px;
+  margin-top: 8px;
   color: var(--cd-text-muted);
   font-size: 0.82rem;
   line-height: 1.6;
+}
+
+.loan-calculator-header {
+  margin-bottom: 16px;
+}
+
+.loan-calculator-header p {
+  margin: 0;
+  color: var(--cd-text-muted);
+  line-height: 1.65;
 }
 
 .extras-list {
@@ -497,7 +583,7 @@
 
 .check-icon {
   margin-right: 10px;
-  color: #93df98;
+  color: var(--cd-accent-warm);
   font-weight: 800;
 }
 
@@ -516,13 +602,37 @@
   overflow: hidden;
   margin-top: 14px;
   border-radius: 22px;
-  border: 1px solid rgba(177, 228, 182, 0.08);
+  border: 1px solid rgba(144, 178, 203, 0.14);
   background: rgba(255, 255, 255, 0.03);
 }
 
 .map-container .leaflet-container {
   height: 100%;
   width: 100%;
+}
+
+/* Dark mode map tiles */
+.map-container .leaflet-tile-pane {
+  filter: brightness(0.72) invert(1) hue-rotate(176deg) saturate(0.36) contrast(1.04);
+}
+
+.map-container .leaflet-control-zoom a {
+  background: #1a1a1a;
+  color: #ffffff;
+  border-color: #333333;
+}
+
+.map-container .leaflet-control-zoom a:hover {
+  background: #2a2a2a;
+}
+
+.map-container .leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.7);
+  color: #999999;
+}
+
+.map-container .leaflet-control-attribution a {
+  color: #cccccc;
 }
 
 .map-placeholder {
@@ -553,9 +663,16 @@
 
 @media (max-width: 1100px) {
   .car-detail-hero,
-  .car-detail-content,
+  .car-detail-content {
+    grid-template-columns: 1fr;
+  }
+
   .car-detail-lower-grid {
     grid-template-columns: 1fr;
+  }
+
+  .car-detail-side-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .car-info {
@@ -572,6 +689,14 @@
   .car-detail-container {
     padding: 0 16px;
     margin: 24px auto 64px;
+  }
+
+  .car-detail-lower-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .car-detail-side-grid {
+    grid-template-columns: 1fr;
   }
 
   .car-detail-header,

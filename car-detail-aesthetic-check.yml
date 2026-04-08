@@ -1,0 +1,20 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "DPHClassifieds" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e8]
+  - main [ref=e23]:
+    - generic [ref=e72]:
+      - generic [ref=e73]
+      - generic [ref=e77]
+      - generic [ref=e101]
+      - generic [ref=e132]
+  - contentinfo [ref=e32]:
+    - generic [ref=e33]:
+      - generic [ref=e34]
+      - generic [ref=e37]
+      - generic [ref=e46]
+      - generic [ref=e59]
+      - generic [ref=e64]
+    - paragraph [ref=e71]: © 2026 DPH Classifieds. All rights reserved.

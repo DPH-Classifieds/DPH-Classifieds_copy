@@ -213,6 +213,11 @@ const MyListings = () => {
                       <p className="my-listing-date">
                         Posted on {new Date(listing.created_at).toLocaleDateString()}
                       </p>
+                      {listing.view_count !== undefined && listing.view_count !== null && (
+                        <p className="my-listing-views">
+                          {listing.view_count} view{listing.view_count !== 1 ? 's' : ''}
+                        </p>
+                      )}
                     </div>
                     
                     <div className="my-listing-actions">
@@ -273,6 +278,11 @@ const MyListings = () => {
                       <p className="my-listing-date">
                         Posted on {new Date(plate.created_at).toLocaleDateString()}
                       </p>
+                      {plate.view_count !== undefined && plate.view_count !== null && (
+                        <p className="my-listing-views">
+                          {plate.view_count} view{plate.view_count !== 1 ? 's' : ''}
+                        </p>
+                      )}
                     </div>
                     
                     <div className="my-listing-actions">

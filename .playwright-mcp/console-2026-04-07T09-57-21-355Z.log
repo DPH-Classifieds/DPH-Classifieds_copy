@@ -1,0 +1,64 @@
+[      72ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(5), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[      73ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[     178ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:87073
+[     193ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:138342
+[     193ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:138333
+[     193ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:138333
+[     193ms] [LOG] [DEBUG] No existing token found @ http://localhost:3000/static/js/bundle.js:138333
+[     205ms] [LOG] CORS check response: 200 @ http://localhost:3000/static/js/bundle.js:136122
+[     210ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:90575
+[     210ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:90575
+[     210ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:138342
+[     210ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] No existing token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:138342
+[     210ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] No existing token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:133043
+[     210ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:133043
+[     210ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Retrieved auth data from localStorage null @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] Access token retrieved: No token found @ http://localhost:3000/static/js/bundle.js:138333
+[     210ms] [LOG] [DEBUG] No access token available, user not logged in @ http://localhost:3000/static/js/bundle.js:138333
+[     221ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     221ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41 color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.5.0, ts: 1775555841576} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     222ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[     242ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:133247
+[     242ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:133073
+[     242ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:133161
+[     242ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:133073
+[     242ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:133161
+[    1277ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333
+[    1277ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41/view, method: post, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[    1782ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333
+[    1784ms] [LOG] No images available for car 36b92588-5dcf-4c75-9c4f-20cb6f980e41 @ http://localhost:3000/static/js/bundle.js:107760
+[    1785ms] [LOG] No images available for car 36b92588-5dcf-4c75-9c4f-20cb6f980e41 @ http://localhost:3000/static/js/bundle.js:107760
+[    2275ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333
+[    2276ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41/view, method: post, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[    2824ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333
+[    2825ms] [LOG] No images available for car 36b92588-5dcf-4c75-9c4f-20cb6f980e41 @ http://localhost:3000/static/js/bundle.js:107760
+[    2825ms] [LOG] No images available for car 36b92588-5dcf-4c75-9c4f-20cb6f980e41 @ http://localhost:3000/static/js/bundle.js:107760
+[  246818ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[  246818ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[  247932ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333
+[  247932ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41/view, method: post, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[  248347ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333
+[  249213ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333
+[  249214ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars/36b92588-5dcf-4c75-9c4f-20cb6f980e41/view, method: post, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:138333
+[  249742ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:138333

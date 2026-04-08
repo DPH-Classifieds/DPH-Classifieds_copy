@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/About.css';
-import whoWeAreImg from '../assets/images/whoweare.jpg';
-import ourMissionImg from '../assets/images/ourmission.jpg';
+import whoWeAreImg from '../assets/images/porsche.png';
+import ourMissionImg from '../assets/images/traffic-bg.jpg';
 import redditImg from '../assets/images/Reddit.jpg';
 import instagramImg from '../assets/images/Instagram.jpg';
 import websiteImg from '../assets/images/Website.jpg';
@@ -110,10 +110,6 @@ const About = () => {
               <span className="about-v2-kicker">Community</span>
               <h2>The wider DPH footprint.</h2>
             </div>
-            <p>
-              The classifieds product sits inside a broader car culture network. These channels keep the
-              conversation moving outside individual listings.
-            </p>
           </div>
 
           <div className="about-v2-community-grid">

@@ -4,16 +4,16 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
-import Footer from './components/Footer';
+import Footer from './components/ui/hover-footer';
 import HomePage from './components/HomePage';
 import CarList from './components/CarList';
 import CarDetail from './components/CarDetail';
 import CarParts from './components/CarParts';
-import Plates from './components/Plates';
-import Bikes from './components/Bikes';
-import PlateDetail from './components/PlateDetail';
-import BikeDetail from './components/BikeDetail';
-import PartDetail from './components/PartDetail';
+import Plates from './components/PlatesRedesigned';
+import Bikes from './components/BikesRedesigned';
+import PlateDetail from './components/PlateDetailRedesigned';
+import BikeDetail from './components/BikeDetailRedesigned';
+import PartDetail from './components/PartDetailRedesigned';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import CheckEmail from './components/CheckEmail';
@@ -140,6 +140,7 @@ function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<AccountSettings />} />
+                <Route path="/account-settings" element={<AccountSettings />} />
                 <Route path="/my-listings" element={<MyListings />} />
                 <Route path="/create-listing" element={<CreateListing />} />
                 <Route path="/edit-listing/:id" element={<EditListing />} />

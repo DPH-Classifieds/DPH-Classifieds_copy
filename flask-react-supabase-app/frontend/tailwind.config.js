@@ -2,9 +2,44 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        // shadcn/ui design tokens
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
         apple: {
           black: '#000000',
           'gray-light': '#f5f5f7',
@@ -29,7 +64,15 @@ module.exports = {
           'primary-dark': '#012513',
           secondary: '#4CAF50',
           accent: '#00c853',
-        }
+        },
+      },
+      container: {
+        center: true,
+        padding: '2rem',
+      },
+      background: {
+        DEFAULT: '#000000',
+        foreground: '#ffffff',
       },
       fontFamily: {
         'sf-display': ['SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
@@ -81,6 +124,20 @@ module.exports = {
         'caption-bold': ['0.88rem', { lineHeight: '1.29', letterSpacing: '-0.224px', fontWeight: '600' }],
         'micro': ['0.75rem', { lineHeight: '1.33', letterSpacing: '-0.12px', fontWeight: '400' }],
         'micro-bold': ['0.75rem', { lineHeight: '1.33', letterSpacing: '-0.12px', fontWeight: '600' }],
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+      },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
       },
     },
   },

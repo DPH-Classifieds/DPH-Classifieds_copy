@@ -1,22 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/CarParts.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const CarParts = () => {
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    query: '',
+    category: 'all',
+    sortBy: 'newest'
+  });
+
   useEffect(() => {
     const fetchCarParts = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get('/api/parts');
-        if (!Array.isArray(response)) {
+        const timestamp = Date.now();
+        const response = await fetch(`${API_URL}/api/parts?_t=${timestamp}`, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch car parts: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
           throw new Error('Unexpected response for parts list.');
         }
-        setParts(response);
+        setParts(data);
       } catch (err) {
         setError('Failed to load car parts. Please try again later.');
         console.error('Error fetching car parts:', err);
@@ -27,6 +45,56 @@ const CarParts = () => {
 
     fetchCarParts();
   }, []);
+
+  const handleFilterChange = (event) => {
+    const { name, value } = event.target;
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const getPartCategory = (part) => (part.category || part.part_type || '').trim();
+
+  const availableCategories = Array.from(
+    new Set(parts.map((part) => getPartCategory(part)).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filteredParts = [...parts]
+    .filter((part) => {
+      const query = filters.query.trim().toLowerCase();
+      const category = getPartCategory(part);
+      const name = (part.name || part.part_name || '').toLowerCase();
+      const description = (part.description || '').toLowerCase();
+
+      if (filters.category !== 'all' && category.toLowerCase() !== filters.category.toLowerCase()) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return name.includes(query) || description.includes(query) || category.toLowerCase().includes(query);
+    })
+    .sort((left, right) => {
+      const leftPrice = Number(left.price ?? 0);
+      const rightPrice = Number(right.price ?? 0);
+      const leftDate = new Date(left.created_at || 0);
+      const rightDate = new Date(right.created_at || 0);
+
+      switch (filters.sortBy) {
+        case 'price-low':
+          return leftPrice - rightPrice;
+        case 'price-high':
+          return rightPrice - leftPrice;
+        case 'oldest':
+          return leftDate - rightDate;
+        case 'newest':
+        default:
+          return rightDate - leftDate;
+      }
+    });
 
   if (loading) {
     return (
@@ -54,38 +122,53 @@ const CarParts = () => {
       
       <div className="car-parts-filters">
         <div className="search-bar">
-          <input type="text" placeholder="Search parts..." />
-          <button>Search</button>
+          <input
+            type="text"
+            name="query"
+            placeholder="Search parts, brands, or categories..."
+            value={filters.query}
+            onChange={handleFilterChange}
+          />
         </div>
         <div className="filter-options">
-          <select defaultValue="">
-            <option value="" disabled>Select Category</option>
+          <select
+            name="category"
+            value={filters.category}
+            onChange={handleFilterChange}
+          >
             <option value="all">All Categories</option>
-            <option value="engine">Engine Parts</option>
-            <option value="brakes">Brake System</option>
-            <option value="electrical">Electrical System</option>
-            <option value="lighting">Lighting</option>
-            <option value="exterior">Exterior Accessories</option>
-            <option value="interior">Interior Accessories</option>
+            {availableCategories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
           </select>
-          <select defaultValue="newest">
+          <select
+            name="sortBy"
+            value={filters.sortBy}
+            onChange={handleFilterChange}
+          >
             <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
             <option value="price-low">Price: Low to High</option>
             <option value="price-high">Price: High to Low</option>
-            <option value="popular">Most Popular</option>
           </select>
         </div>
       </div>
+
+      <p className="car-parts-results-count">
+        {filteredParts.length} part{filteredParts.length === 1 ? '' : 's'} found
+      </p>
       
       <div className="car-parts-grid">
-        {parts.map(part => (
+        {filteredParts.map(part => (
           <div key={part.id} className="part-card">
             <div className="part-image">
               <img src={part.image || part.image_url || part.images?.[0]?.image_url || part.images?.[0]?.url} alt={part.name || part.part_name} />
             </div>
             <div className="part-details">
               <h3>{part.name || part.part_name}</h3>
-              {part.category && <p className="part-category">{part.category}</p>}
+              {getPartCategory(part) && <p className="part-category">{getPartCategory(part)}</p>}
               {part.description && <p className="part-description">{part.description}</p>}
               <div className="part-price-actions">
                 {part.price !== undefined && (
@@ -102,7 +185,7 @@ const CarParts = () => {
         ))}
       </div>
       
-      {parts.length === 0 && (
+      {filteredParts.length === 0 && (
         <div className="no-parts">
           <p>No car parts found. Please try a different search or check back later.</p>
         </div>

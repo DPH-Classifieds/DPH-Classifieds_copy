@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import { carMakes } from '../utils/carData';
+import { Button } from './ui/button';
+import { ArrowRight } from 'lucide-react';
 import '../styles/HomePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -167,12 +169,18 @@ const HomePage = () => {
             For PetrolHeads. By PetrolHeads.
           </h1>
           <div className="cn-hero-actions">
-            <Link to="/explore" className="cn-button cn-button-primary">
-              Explore Inventory
-            </Link>
-            <Link to="/create-listing" className="cn-button cn-button-secondary">
-              List Your Vehicle
-            </Link>
+            <Button asChild className="group">
+              <Link to="/explore">
+                Explore Inventory
+                <ArrowRight className="-me-1 ms-2 opacity-60 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" className="group">
+              <Link to="/create-listing">
+                List Your Vehicle
+                <ArrowRight className="-me-1 ms-2 opacity-60 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>

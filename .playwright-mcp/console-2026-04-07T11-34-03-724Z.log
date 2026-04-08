@@ -1,0 +1,100 @@
+[      60ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(3), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[      61ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[      98ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:90005
+[     111ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:141223
+[     111ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     111ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[     111ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:141214
+[     111ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:141214
+[     111ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     111ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     113ms] [LOG] CORS check response: 200 @ http://localhost:3000/static/js/bundle.js:139003
+[     116ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:93507
+[     116ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:93507
+[     116ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:141223
+[     116ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:141223
+[     116ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[     116ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[     118ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     118ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/post-car color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/post-car, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.5.0, ts: 1775561643842} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     118ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[     144ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:136021
+[     808ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:141214
+[     808ms] [INFO] [INFO] User info retrieved successfully: {created_at: 2025-04-05T23:16:21.883674+00:00, dealer_verified: false, email: suhaylindubai@gmail.com, email_verified: true, id: 07e19ebc-cf63-4cd9-8a72-6eef81eb1201} @ http://localhost:3000/static/js/bundle.js:141223
+[     808ms] [LOG] Backend user found: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:135993
+[     838ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135817
+[     839ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] User authenticated: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:125660
+[     839ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135817
+[     839ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[     839ms] [LOG] User authenticated: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:125660
+[     842ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[     842ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[    1457ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:141214
+[    1457ms] [INFO] [INFO] User info retrieved successfully: {created_at: 2025-04-05T23:16:21.883674+00:00, dealer_verified: false, email: suhaylindubai@gmail.com, email_verified: true, id: 07e19ebc-cf63-4cd9-8a72-6eef81eb1201} @ http://localhost:3000/static/js/bundle.js:141223
+[    1457ms] [LOG] Backend user found: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:135993
+[    1466ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135817
+[    1466ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[    1466ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[    1466ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[    1466ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[    1466ms] [LOG] User authenticated: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:125660
+[    1468ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[    2173ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:141214
+[    2173ms] [INFO] [INFO] User info retrieved successfully: {created_at: 2025-04-05T23:16:21.883674+00:00, dealer_verified: false, email: suhaylindubai@gmail.com, email_verified: true, id: 07e19ebc-cf63-4cd9-8a72-6eef81eb1201} @ http://localhost:3000/static/js/bundle.js:141223
+[    2173ms] [LOG] Backend user found: suhaylindubai@gmail.com Admin: true @ http://localhost:3000/static/js/bundle.js:135826
+[    2181ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135817
+[    2182ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[    2182ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[    2182ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[    2182ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[    2182ms] [LOG] User authenticated: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:125660
+[    2184ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[    2916ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:141214
+[    2916ms] [INFO] [INFO] User info retrieved successfully: {created_at: 2025-04-05T23:16:21.883674+00:00, dealer_verified: false, email: suhaylindubai@gmail.com, email_verified: true, id: 07e19ebc-cf63-4cd9-8a72-6eef81eb1201} @ http://localhost:3000/static/js/bundle.js:141223
+[    2916ms] [LOG] Backend user found: suhaylindubai@gmail.com Admin: true @ http://localhost:3000/static/js/bundle.js:135826
+[    2919ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135817
+[    2919ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[    2919ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[    2919ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[    2919ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[    2919ms] [LOG] User authenticated: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:125660
+[    2920ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[    3560ms] [LOG] [DEBUG] Response: {status: 200, headers: AxiosHeaders, data: Object} @ http://localhost:3000/static/js/bundle.js:141214
+[    3560ms] [INFO] [INFO] User info retrieved successfully: {created_at: 2025-04-05T23:16:21.883674+00:00, dealer_verified: false, email: suhaylindubai@gmail.com, email_verified: true, id: 07e19ebc-cf63-4cd9-8a72-6eef81eb1201} @ http://localhost:3000/static/js/bundle.js:141223
+[    3560ms] [LOG] Backend user found: suhaylindubai@gmail.com Admin: true @ http://localhost:3000/static/js/bundle.js:135826
+[    3565ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:135817
+[    3565ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:141214
+[    3565ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775564785, expires_in: 3600, refresh_token: xeevk3f65hzm, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:141214
+[    3565ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:141214
+[    3565ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:141214
+[    3565ms] [LOG] User authenticated: suhaylindubai@gmail.com @ http://localhost:3000/static/js/bundle.js:125660
+[    3566ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:141214
+[    4085ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(3), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[    4086ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.2.0} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
