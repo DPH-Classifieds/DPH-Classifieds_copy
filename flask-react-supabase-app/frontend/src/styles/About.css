@@ -90,9 +90,9 @@
 }
 
 .about-v2-button-primary {
-  background: linear-gradient(135deg, #6fd173 0%, #2f7d34 100%);
-  color: #041008;
-  box-shadow: 0 16px 28px rgba(47, 125, 52, 0.22);
+  background: linear-gradient(135deg, #0b6b4c 0%, #004e37 100%);
+  color: #ffffff;
+  box-shadow: 0 16px 28px rgba(0, 78, 55, 0.22);
 }
 
 .about-v2-button-secondary {
@@ -243,7 +243,7 @@
 .about-v2-community-copy span {
   display: inline-block;
   margin-top: 14px;
-  color: #a2e4a6;
+  color: #8bd6b4;
   font-weight: 700;
 }
 

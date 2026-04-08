@@ -4365,6 +4365,144 @@ def get_users(current_user):
         return jsonify({"error": str(e)}), 500
 
 
+def _get_service_role_headers():
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+    return {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+        "X-Client-Info": "backend-api",
+        "X-Postgres-Role": "service_role",
+    }
+
+
+def _require_admin_api_user(current_user):
+    user_details = _get_user_details_with_admin_status(current_user)
+    return user_details if user_details and user_details.get("is_admin") else None
+
+
+@app.route("/api/admin/users", methods=["GET"])
+@token_required
+def get_admin_users(current_user):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        query = (
+            "/rest/v1/users"
+            "?select=id,email,first_name,last_name,display_name,username,phone,city,emirate,"
+            "profile_photo_url,profile_completion_percentage,email_verified,phone_verified,"
+            "is_dealer,dealer_verified,is_admin,account_status,created_at"
+            "&order=created_at.desc"
+        )
+        response, status_code = supabase_request("get", query, use_service_role=True)
+
+        if status_code >= 400:
+            logger.error(f"Failed to fetch admin users: {response}")
+            return jsonify({"error": "Failed to fetch users"}), status_code
+
+        return jsonify(response if isinstance(response, list) else []), 200
+    except Exception as e:
+        logger.error(f"Error in get_admin_users: {str(e)}")
+        return jsonify({"error": "An error occurred while fetching users"}), 500
+
+
+@app.route("/api/admin/users/<user_id>/status", methods=["PATCH"])
+@token_required
+def update_admin_user_status(current_user, user_id):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        if user_id == current_user:
+            return jsonify({"error": "You cannot change your own account status"}), 400
+
+        data = request.get_json(silent=True) or {}
+        next_status = (data.get("status") or "").strip().lower()
+        if next_status not in {"active", "suspended"}:
+            return jsonify({"error": "Status must be either active or suspended"}), 400
+
+        response, status_code = supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{user_id}",
+            data={"account_status": next_status},
+            use_service_role=True,
+        )
+
+        if status_code not in [200, 204]:
+            logger.error(f"Failed updating user status for {user_id}: {response}")
+            return jsonify({"error": "Failed to update user status"}), status_code
+
+        return jsonify({"message": f"User marked as {next_status}", "status": next_status}), 200
+    except Exception as e:
+        logger.error(f"Error updating admin user status: {str(e)}")
+        return jsonify({"error": "An error occurred while updating user status"}), 500
+
+
+@app.route("/api/admin/users/<user_id>/make-admin", methods=["POST"])
+@token_required
+def make_admin_user(current_user, user_id):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        response, status_code = supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{user_id}",
+            data={"is_admin": True, "account_status": "active"},
+            use_service_role=True,
+        )
+
+        if status_code not in [200, 204]:
+            logger.error(f"Failed promoting user {user_id}: {response}")
+            return jsonify({"error": "Failed to promote user"}), status_code
+
+        return jsonify({"message": "User promoted to admin"}), 200
+    except Exception as e:
+        logger.error(f"Error promoting user to admin: {str(e)}")
+        return jsonify({"error": "An error occurred while promoting the user"}), 500
+
+
+@app.route("/api/admin/users/<user_id>", methods=["DELETE"])
+@token_required
+def delete_admin_user(current_user, user_id):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        if user_id == current_user:
+            return jsonify({"error": "You cannot delete your own account"}), 400
+
+        headers = _get_service_role_headers()
+
+        auth_response = requests.delete(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers=headers,
+            timeout=15,
+        )
+        if auth_response.status_code not in [200, 204, 404]:
+            logger.error(
+                f"Failed deleting auth user {user_id}: {auth_response.status_code} - {auth_response.text}"
+            )
+            return jsonify({"error": "Failed to delete auth user"}), auth_response.status_code
+
+        db_response = requests.delete(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=headers,
+            timeout=15,
+        )
+        if db_response.status_code not in [200, 204]:
+            logger.error(
+                f"Failed deleting user row {user_id}: {db_response.status_code} - {db_response.text}"
+            )
+            return jsonify({"error": "Failed to delete user record"}), db_response.status_code
+
+        return jsonify({"message": "User deleted successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error deleting admin user: {str(e)}")
+        return jsonify({"error": "An error occurred while deleting the user"}), 500
+
+
 def _create_plate_with_image_impl(current_user):
     try:
         logger.info("Creating plate listing with image upload")

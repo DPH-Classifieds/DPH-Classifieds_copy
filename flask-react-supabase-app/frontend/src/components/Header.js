@@ -219,7 +219,7 @@ const Header = () => {
               </Button>
               <Button
                 asChild
-                className="bg-gradient-to-r from-emerald-300 to-emerald-500 text-black hover:from-emerald-200 hover:to-emerald-400"
+                className="bg-gradient-to-r from-[#0b6b4c] to-[#004e37] text-white hover:from-[#0d7d58] hover:to-[#0a5f47]"
               >
                 <Link to="/signup">Sign Up</Link>
               </Button>
@@ -339,7 +339,7 @@ const Header = () => {
                     </Button>
                     <Button
                       asChild
-                      className="bg-gradient-to-r from-emerald-300 to-emerald-500 text-black hover:from-emerald-200 hover:to-emerald-400"
+                      className="bg-gradient-to-r from-[#0b6b4c] to-[#004e37] text-white hover:from-[#0d7d58] hover:to-[#0a5f47]"
                     >
                       <Link to="/signup">
                         <Plus className="mr-2 h-4 w-4" />

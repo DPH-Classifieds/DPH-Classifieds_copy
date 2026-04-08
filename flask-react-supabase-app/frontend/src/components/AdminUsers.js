@@ -15,7 +15,7 @@ const AdminUsers = () => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get('/api/users');
+        const response = await apiClient.get('/api/admin/users');
         setUsers(response);
         setError(null);
       } catch (err) {
@@ -31,15 +31,27 @@ const AdminUsers = () => {
 
   const handleMakeAdmin = async (userId) => {
     try {
-      await apiClient.post(`/api/admin/make-admin/${userId}`);
+      await apiClient.post(`/api/admin/users/${userId}/make-admin`);
       setSuccess('User has been made an admin successfully');
-      // Refresh users list
-      const response = await apiClient.get('/api/users');
+      const response = await apiClient.get('/api/admin/users');
       setUsers(response);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError('Failed to make user admin');
       console.error('Error making user admin:', err);
+    }
+  };
+
+  const handleStatusChange = async (userId, nextStatus) => {
+    try {
+      await apiClient.patch(`/api/admin/users/${userId}/status`, { status: nextStatus });
+      const response = await apiClient.get('/api/admin/users');
+      setUsers(response);
+      setSuccess(`User ${nextStatus === 'suspended' ? 'suspended' : 'reactivated'} successfully`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to update user status');
+      console.error('Error updating user status:', err);
     }
   };
 
@@ -55,6 +67,7 @@ const AdminUsers = () => {
   return (
     <div className="admin-users">
       <h1>Admin Users Management</h1>
+      <p>Promote trusted members and control account access without leaving the admin workflow.</p>
       
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
@@ -71,6 +84,7 @@ const AdminUsers = () => {
                 <tr>
                   <th>ID</th>
                   <th>Email</th>
+                  <th>Status</th>
                   <th>Admin Status</th>
                   <th>Actions</th>
                 </tr>
@@ -80,15 +94,24 @@ const AdminUsers = () => {
                   <tr key={user.id}>
                     <td>{user.id}</td>
                     <td>{user.email}</td>
+                    <td>{user.account_status || 'active'}</td>
                     <td>{user.is_admin ? 'Yes' : 'No'}</td>
                     <td>
                       {!user.is_admin && (
-                        <button 
-                          className="make-admin-btn"
-                          onClick={() => handleMakeAdmin(user.id)}
-                        >
-                          Make Admin
-                        </button>
+                        <div className="admin-users-actions">
+                          <button 
+                            className="status-btn"
+                            onClick={() => handleStatusChange(user.id, (user.account_status || 'active') === 'suspended' ? 'active' : 'suspended')}
+                          >
+                            {(user.account_status || 'active') === 'suspended' ? 'Reactivate' : 'Suspend'}
+                          </button>
+                          <button 
+                            className="make-admin-btn"
+                            onClick={() => handleMakeAdmin(user.id)}
+                          >
+                            Make Admin
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

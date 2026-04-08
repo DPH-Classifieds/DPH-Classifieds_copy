@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import { carMakes } from '../utils/carData';
-import { Button } from './ui/button.tsx';
+import { resolveMediaUrl } from '../utils/media';
+import { Button } from './ui/button';
 import { ArrowRight } from 'lucide-react';
 import '../styles/HomePage.css';
 
@@ -14,142 +15,186 @@ const marketplaceInsights = [
   {
     id: 1,
     title: 'Verified marketplace flow',
-    subtitle: 'Live listings, direct seller contact, and cleaner browsing across the UAE.',
-    stat: '60k+'
+    subtitle: 'Cars, bikes, parts, and plates live in one consistent browse experience.',
+    stat: '60k+',
   },
   {
     id: 2,
     title: 'Search with intent',
-    subtitle: 'Move from hero search to the full explore experience when you want deeper filtering.',
-    stat: '24/7'
+    subtitle: 'Move from the landing page straight into Explore when you want category-specific filters.',
+    stat: '24/7',
   },
   {
     id: 3,
     title: 'Built for serious buyers',
-    subtitle: 'Latest arrivals surface fast and route straight into the real car detail pages.',
-    stat: 'Live'
-  }
+    subtitle: 'Cleaner listings, stronger seller context, and a more premium browse rhythm throughout.',
+    stat: 'Live',
+  },
 ];
 
 const heroImage = '/images/toplanding.jpg';
-
-const exploreCards = [
-  {
-    id: 1,
-    title: 'Explore Inventory',
-    subtitle: 'Jump into the full explore page to filter by make, model, city, and price.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuDDLMfP5X_RpsA704FNI8cZ_r2KWBqLFDUzCu025KGFM2nsqZNmRz0mvfQauB-sgvcz28H_QwC-s1lEJUmfbYwDBnjAhNvOF7LNiy8wAAMnlw1peiem4p5EoK_-ruDbTyBMC3wJqgkW4NKO6ZjtE8NrJgBEJ2YZcUZp1Qna5JnBQWvAE4bvAW1xDQzX8KW03OQPc7KEkpI21wEWz_GrbVVKGGObtpmwQ0hDqwBncTAN5vvzElLKvRSiY55Sn_utGNWAfrTYbQnqVUU'
-  },
-  {
-    id: 2,
-    title: 'Trusted Seller Signals',
-    subtitle: 'Use the explore flow to review seller context, verification, and listing quality faster.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAeyXZozZXKzn4NaT7q6-x5OSe-p992f_I7jbIlhhnItf_5enq-KmPiTZOBaT1TIhGYQxHKsjf2_CspmREkqBsKh660gaX6d60Y1RpsVVLdHGMx6nY55koYnEVoC4-h6T47RNJuzrkVd_sTA2mnueThG-EhJnGfqc8wqmDh9yC1WWRfdaIJMkaG-KB69rBFdQJYGXQJLxESIS6nBK_DHNwp7-AuhGklz8ErT3fiweWgSzymEvTiK6vR9eqv5ZCII4OZvYyXRrF6uYI'
-  },
-  {
-    id: 3,
-    title: 'Broader Automotive Ecosystem',
-    subtitle: 'Cars, parts, bikes, and plates stay connected inside the same browsing surface.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuA-8kUYFG7DoCoob11gxpkHleSv769FjAd2AYfFaNJaU8PgfVbZ1z5YD9L-PxzXVIZGtteNNaHlORwMlCZQ9PvgDmX0VhT4h1cSD2EUB7t438pIHfKErzELkYw4T0CPTWWEE4ErH4uJFW0sF5qBggRaytSHpba4KCWDPiUxYp1cGIqV2UMg3uXjWCqgiXsKxvoNQnvd7OYXx8OzIheXsSwB-9iLRKh3YU01JMkqmBTp9KrTacQI49KqOvKWzelDUQ5m1UOpqpLx2Jk'
-  }
-];
-
-const listingShowcaseImages = [
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuBoO8_PxzINvGKiSUa16wI9xy2HATXPR6JR98k8CIG8A4emnTCtp9NAxHapXFs-ZGsMn1w8BENk0HNyzd7T7V7bjiQPlj2LPMw4D2uDKwThkOu9Cs9dQXNKPJjdQFgkTdYtgDTCXF-SDBofKjLgVn8oTJ7B_qRTwz0h2VPXskXbocu70viqiaQwEee5wnTPNEuPX6fDU_VTNpEi2jc2MEhfA0M4GnubanUVKb81CyWLvLSZmvRALhYCwfWEhnuLPDZXoN4OdYCUmTo',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuAS3n7h7CtWHxMABFewSRzZCa_xuq8ZxS9S7yOGJD2iat4bgMKi3bdvAcyJSQM5iuw4RMRR-90cNjTZA4uhsr-oqj_bo0j9T5Ua_lYK-lut1XXBgH-T9OcAzoZAIFGw9Rdln-1-1vLKoq9CKPeNMCZxTJ2AA9d2TFvOZp_0Q1fpMTCwkn7Q_Ui9M2KLhI1ZvCT-qbxJkArsGHtzkHeP3b96iYT-9A3P3nMxXa-W38dk_p0MdXvprm7XUAYFgBKs29zW3ZLcaIv3bog',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDBQiSI7wmR5I14PnqYPyfc6ceaxddNMInsnoUP2x9MZqA8lzz5QukCIE8HtYXvjKw3cH3IfEbUAFcEfq3aN3DgJLfO394FRgf0ElyQ1VPwox69yD2AMtyljASs8Ed3gH8bL5TQxZ69-Rf8tFsyW-KwI9JOD8tL9HD5XIm1wJbYNrMuGJMYE5MmRpdFrfHMQKkEj5G2BxYYM_iEOp-MYSTCPqYB6E0-Qmsz9yyX5TSZq9A58FKpn1O7Rg7MSruZQ-ysGj7lbz2Yop4'
-];
-
 const ctaImage = '/images/bottom-landing.jpg';
+const fallbackImages = [
+  'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1200&q=80',
+];
+
+const primaryHeroButtonClass =
+  'group border-0 bg-gradient-to-r from-[#0b6b4c] via-[#0a5f47] to-[#004e37] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[#0b6b4c] hover:to-[#0a5f47]';
+const secondaryHeroButtonClass =
+  'group border border-white/15 bg-[rgba(255,255,255,0.06)] text-white hover:bg-[rgba(255,255,255,0.12)] hover:text-white';
+
+const normalizeMarketplaceItem = (categoryKey, item, index) => {
+  const image =
+    resolveMediaUrl(
+      item?.images?.[0]?.image_url ||
+        item?.images?.[0]?.url ||
+        item?.image_url ||
+        item?.image ||
+        item?.main_image_url ||
+        null
+    ) || fallbackImages[index % fallbackImages.length];
+
+  if (categoryKey === 'cars') {
+    const year = item.car_year || item.make_year || '';
+    const make = item.car_manufacturer || item.make || '';
+    const model = item.car_model || item.model || '';
+    const trim = item.car_trim || item.trim || '';
+    const title =
+      `${year} ${make} ${model} ${trim}`.replace(/\s+/g, ' ').trim() ||
+      item.listing_title ||
+      item.title ||
+      'Untitled car';
+
+    return {
+      id: item.id,
+      category: 'Car',
+      route: `/cars/${item.id}`,
+      title,
+      price: item.expected_selling_price || item.price,
+      meta: [item.car_city || item.city || 'UAE', item.fuel_type || item.fuel || 'Specs pending']
+        .filter(Boolean)
+        .join(' • '),
+      image,
+      createdAt: item.created_at,
+    };
+  }
+
+  if (categoryKey === 'bikes') {
+    const title =
+      `${item.year || item.make_year || ''} ${item.make || item.manufacturer || item.bike_brand || ''} ${item.model || item.bike_model || ''}`
+        .replace(/\s+/g, ' ')
+        .trim() || 'Untitled bike';
+
+    return {
+      id: item.id,
+      category: 'Bike',
+      route: `/bikes/${item.id}`,
+      title,
+      price: item.price || item.expected_selling_price,
+      meta: [item.location || 'UAE', item.bike_type || item.type || item.bike_category || 'Bike']
+        .filter(Boolean)
+        .join(' • '),
+      image,
+      createdAt: item.created_at,
+    };
+  }
+
+  if (categoryKey === 'parts') {
+    return {
+      id: item.id,
+      category: 'Car Part',
+      route: `/car-parts/${item.id}`,
+      title: item.name || item.part_name || 'Untitled part',
+      price: item.price,
+      meta: [item.category || item.part_type || 'Parts', item.location || item.emirate || 'UAE']
+        .filter(Boolean)
+        .join(' • '),
+      image,
+      createdAt: item.created_at,
+    };
+  }
+
+  return {
+    id: item.id,
+    category: 'Plate',
+    route: `/plates/${item.id}`,
+    title: `${item.city || 'UAE'} ${item.code || ''} ${item.number || ''}`.replace(/\s+/g, ' ').trim(),
+    price: item.price,
+    meta: [`${item.digits || String(item.number || '').length || 'N/A'} digits`, item.city || 'UAE']
+      .filter(Boolean)
+      .join(' • '),
+    image,
+    createdAt: item.created_at,
+  };
+};
+
+const formatPrice = (price) => {
+  const numericPrice = Number.parseInt(price, 10);
+  if (!numericPrice) {
+    return 'Price on request';
+  }
+  return `AED ${numericPrice.toLocaleString()}`;
+};
 
 const HomePage = () => {
-  const [cars, setCars] = useState([]);
+  const [marketplaceItems, setMarketplaceItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchRecentCars();
-  }, []);
+    const fetchMarketplacePreview = async () => {
+      setLoading(true);
+      setError(null);
 
-  const fetchRecentCars = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axios.get(`${API_URL}/api/cars?limit=6&order=created_at.desc`);
-      let carsData = [];
+      try {
+        const results = await Promise.allSettled([
+          axios.get(`${API_URL}/api/cars?limit=4&order=created_at.desc`),
+          axios.get(`${API_URL}/api/bikes?limit=3&order=created_at.desc`),
+          axios.get(`${API_URL}/api/parts?limit=3&order=created_at.desc`),
+          axios.get(`${API_URL}/api/plates?limit=3&order=created_at.desc`),
+        ]);
 
-      if (response.data && response.data.cars) {
-        carsData = response.data.cars;
-      } else if (Array.isArray(response.data)) {
-        carsData = response.data;
+        const nextItems = [];
+        const categoryMap = [
+          { key: 'cars', result: results[0] },
+          { key: 'bikes', result: results[1] },
+          { key: 'parts', result: results[2] },
+          { key: 'plates', result: results[3] },
+        ];
+
+        categoryMap.forEach(({ key, result }) => {
+          if (result.status !== 'fulfilled') {
+            return;
+          }
+
+          const payload = result.value.data;
+          const items = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.cars)
+              ? payload.cars
+              : [];
+
+          items.forEach((item, index) => {
+            nextItems.push(normalizeMarketplaceItem(key, item, nextItems.length + index));
+          });
+        });
+
+        nextItems.sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
+        setMarketplaceItems(nextItems.slice(0, 8));
+      } catch (requestError) {
+        console.error('Error fetching marketplace preview:', requestError);
+        setError('Failed to load marketplace preview');
+        setMarketplaceItems([]);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setCars(carsData.slice(0, 6));
-    } catch (err) {
-      console.error('Error fetching cars:', err);
-      setError('Failed to load listings');
-      setCars([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatPrice = (price) => {
-    const numericPrice = Number.parseInt(price, 10);
-    if (!numericPrice) {
-      return 'Price on request';
-    }
-    return `AED ${numericPrice.toLocaleString()}`;
-  };
-
-  const formatKilometers = (car) => {
-    const rawKilometers = car.kilometer_driven || car.kilometer || car.mileage;
-    const kilometers = Number.parseInt(rawKilometers, 10);
-
-    if (!kilometers) {
-      return 'Mileage on request';
-    }
-
-    if (kilometers >= 1000) {
-      return `${(kilometers / 1000).toFixed(1)}k km`;
-    }
-
-    return `${kilometers} km`;
-  };
-
-  const getCarTitle = (car) => {
-    const year = car.car_year || car.make_year || '';
-    const make = car.car_manufacturer || car.make || '';
-    const model = car.car_model || car.model || '';
-    const trim = car.car_trim || car.trim || '';
-    const fallbackTitle = car.listing_title || car.title || '';
-
-    const composedTitle = `${year} ${make} ${model} ${trim}`.replace(/\s+/g, ' ').trim();
-    return composedTitle || fallbackTitle || 'Untitled listing';
-  };
-
-  const getFuelType = (car) => car.fuel_type || car.fuel || 'Specs pending';
-
-  const getLocation = (car) => car.car_city || car.city || 'UAE';
-
-  const getListingImageUrl = (car, index) => {
-    const firstImage = car.images?.[0];
-    const imageUrl =
-      firstImage?.image_url ||
-      firstImage?.url ||
-      car.image_url ||
-      car.main_image_url ||
-      listingShowcaseImages[index % listingShowcaseImages.length];
-
-    if (imageUrl && imageUrl.startsWith('/')) {
-      return `${API_URL}${imageUrl}`;
-    }
-
-    return imageUrl;
-  };
+    fetchMarketplacePreview();
+  }, []);
 
   return (
     <div className="cn-home">
@@ -165,20 +210,18 @@ const HomePage = () => {
 
         <div className="cn-shell cn-hero-content">
           <span className="cn-kicker">DPH Classifieds</span>
-          <h1 className="cn-display-title">
-            For PetrolHeads. By PetrolHeads.
-          </h1>
+          <h1 className="cn-display-title">For PetrolHeads. By PetrolHeads.</h1>
           <div className="cn-hero-actions">
-            <Button asChild className="group">
+            <Button asChild className={primaryHeroButtonClass}>
               <Link to="/explore">
                 Explore Inventory
-                <ArrowRight className="-me-1 ms-2 opacity-60 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+                <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
               </Link>
             </Button>
-            <Button asChild variant="secondary" className="group">
+            <Button asChild variant="outline" className={secondaryHeroButtonClass}>
               <Link to="/create-listing">
                 List Your Vehicle
-                <ArrowRight className="-me-1 ms-2 opacity-60 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+                <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
               </Link>
             </Button>
           </div>
@@ -201,87 +244,34 @@ const HomePage = () => {
         <div className="cn-shell">
           <div className="cn-section-heading cn-section-heading-dark">
             <div>
-              <span className="cn-kicker">Explore Page</span>
-              <h2>Browse the full marketplace from one surface.</h2>
+              <span className="cn-kicker">Explore Marketplace</span>
+              <h2>Live inventory across cars, bikes, parts, and plates.</h2>
             </div>
-            <Link to="/explore" className="cn-button cn-button-dark">
-              Go to Explore
-            </Link>
-          </div>
-
-          <div className="cn-collection-grid">
-            {exploreCards.map((card) => (
-              <article key={card.id} className="cn-collection-card">
-                <div className="cn-collection-image-wrap">
-                  <img src={card.image} alt={card.title} className="cn-collection-image" />
-                </div>
-                <div className="cn-collection-copy">
-                  <h3>{card.title}</h3>
-                  <p>{card.subtitle}</p>
-                  <Link to="/explore" className="cn-text-link">
-                    Open Explore
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="cn-listings-section">
-        <div className="cn-shell">
-          <div className="cn-section-heading cn-section-heading-light">
-            <div>
-              <span className="cn-kicker">Latest Listings</span>
-              <h2>Fresh arrivals that route into the real car pages.</h2>
-            </div>
-            <Link to="/cars" className="cn-text-link cn-text-link-green">
-              View all inventory
+            <Link to="/explore" className="cn-button cn-button-primary-dark">
+              View all
             </Link>
           </div>
 
           {loading ? (
-            <div className="cn-state-card">
-              <LoadingSpinner message="Loading latest listings..." compact />
+            <div className="cn-state-card cn-state-card-light">
+              <LoadingSpinner message="Loading marketplace preview..." compact />
             </div>
           ) : error ? (
-            <div className="cn-state-card cn-state-card-error">
+            <div className="cn-state-card cn-state-card-light cn-state-card-error-light">
               <p>{error}</p>
-              <button type="button" className="cn-button cn-button-primary" onClick={fetchRecentCars}>
-                Retry
-              </button>
-            </div>
-          ) : cars.length === 0 ? (
-            <div className="cn-state-card">
-              <p>No listings available yet.</p>
-              <Link to="/create-listing" className="cn-button cn-button-primary">
-                Be the first to list
-              </Link>
             </div>
           ) : (
-            <div className="cn-listings-grid">
-              {cars.map((car, index) => (
-                <Link to={`/cars/${car.id}`} key={car.id || index} className="cn-listing-card">
-                  <div className="cn-listing-image-wrap">
-                    <img
-                      src={getListingImageUrl(car, index)}
-                      alt={getCarTitle(car)}
-                      className="cn-listing-image"
-                    />
-                    {car.featured ? <span className="cn-badge">Featured</span> : null}
+            <div className="cn-market-grid">
+              {marketplaceItems.map((item) => (
+                <Link key={`${item.category}-${item.id}`} to={item.route} className="cn-market-card">
+                  <div className="cn-market-media">
+                    <img src={item.image} alt={item.title} className="cn-market-image" />
+                    <span className="cn-market-badge">{item.category}</span>
                   </div>
-                  <div className="cn-listing-copy">
-                    <div className="cn-listing-head">
-                      <h3>{getCarTitle(car)}</h3>
-                      <strong>{formatPrice(car.expected_selling_price || car.price)}</strong>
-                    </div>
-                    <p className="cn-listing-meta">
-                      <span>{formatKilometers(car)}</span>
-                      <span>•</span>
-                      <span>{getFuelType(car)}</span>
-                      <span>•</span>
-                      <span>{getLocation(car)}</span>
-                    </p>
+                  <div className="cn-market-copy">
+                    <strong className="cn-market-price">{formatPrice(item.price)}</strong>
+                    <h3>{item.title}</h3>
+                    <p>{item.meta}</p>
                   </div>
                 </Link>
               ))}
@@ -309,18 +299,24 @@ const HomePage = () => {
         </div>
         <div className="cn-shell cn-cta-content">
           <span className="cn-kicker">Automotive Ecosystem</span>
-          <h2>Every next click already exists in your app.</h2>
+          <h2>Browse the full market or launch your next listing.</h2>
           <p>
-            Explore inventory, open real listing pages, or create a fresh post without losing the current
-            marketplace structure you already have in place.
+            The landing page now routes directly into the same marketplace logic as Explore, so every
+            next click stays inside one coherent DPH flow.
           </p>
           <div className="cn-hero-actions">
-            <Link to="/explore" className="cn-button cn-button-primary">
-              Launch Explore
-            </Link>
-            <Link to="/cars" className="cn-button cn-button-secondary">
-              Browse Cars
-            </Link>
+            <Button asChild className={primaryHeroButtonClass}>
+              <Link to="/explore">
+                Launch Explore
+                <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className={secondaryHeroButtonClass}>
+              <Link to="/create-listing">
+                Start Selling
+                <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>

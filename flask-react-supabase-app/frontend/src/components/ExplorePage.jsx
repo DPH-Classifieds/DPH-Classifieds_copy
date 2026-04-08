@@ -1176,7 +1176,7 @@ const ExplorePage = () => {
                               ? '/plates'
                               : '/bikes'
                       }
-                      className="explore-v2-button explore-v2-button-secondary"
+                      className="explore-v2-card-link"
                     >
                       More {item.categoryLabel}s
                     </Link>

@@ -1,49 +1,79 @@
 .admin-dashboard {
-  max-width: 1200px;
-  margin: 30px auto;
-  padding: 20px;
+  max-width: 1280px;
+  margin: 24px auto 72px;
+  padding: 0 24px;
+  color: #eef7ef;
 }
 
 .admin-dashboard h1 {
-  margin-bottom: 25px;
-  color: #333;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 15px;
+  margin-bottom: 12px;
+  color: #f7fbf7;
+  border-bottom: none;
+  padding-bottom: 0;
+  letter-spacing: -0.04em;
+}
+
+.admin-dashboard-hero {
+  margin-bottom: 22px;
+  padding: 28px;
+  border-radius: 28px;
+  border: 1px solid rgba(171, 229, 176, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(139, 214, 180, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(14, 32, 18, 0.96), rgba(7, 18, 10, 0.98));
+}
+
+.admin-dashboard-kicker {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #8bd6b4;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.admin-dashboard-hero p {
+  max-width: 760px;
+  color: rgba(220, 228, 223, 0.72);
+  line-height: 1.7;
 }
 
 .admin-tabs {
   display: flex;
   overflow-x: auto;
   margin-bottom: 25px;
-  border-bottom: 1px solid #ddd;
+  gap: 10px;
+  border-bottom: none;
 }
 
 .admin-tabs button {
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(171, 229, 176, 0.08);
+  border-radius: 999px;
   padding: 12px 20px;
-  font-size: 16px;
-  color: #666;
+  font-size: 15px;
+  color: rgba(220, 228, 223, 0.7);
   cursor: pointer;
   white-space: nowrap;
-  border-bottom: 3px solid transparent;
   transition: all 0.3s ease;
 }
 
 .admin-tabs button:hover {
-  color: #333;
+  color: #f7fbf7;
 }
 
 .admin-tabs button.active {
-  color: #dc3545;
-  border-bottom-color: #dc3545;
+  color: #ffffff;
+  border-color: rgba(139, 214, 180, 0.2);
+  background: linear-gradient(135deg, #0b6b4c, #004e37);
   font-weight: 600;
 }
 
 .admin-content h2 {
   margin-bottom: 20px;
   font-size: 24px;
-  color: #333;
+  color: #f7fbf7;
 }
 
 .success-message,
@@ -55,15 +85,15 @@
 }
 
 .success-message {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background-color: rgba(82, 177, 90, 0.16);
+  color: #dff6e1;
+  border: 1px solid rgba(148, 224, 154, 0.16);
 }
 
 .error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background-color: rgba(179, 46, 71, 0.18);
+  color: #ffd5d7;
+  border: 1px solid rgba(255, 138, 163, 0.16);
 }
 
 .loading-message {
@@ -83,24 +113,24 @@
 .stat-item {
   flex: 1;
   min-width: 150px;
-  background: #ffffff;
-  border-radius: 12px;
+  background: rgba(14, 32, 18, 0.9);
+  border-radius: 18px;
   padding: 16px 14px;
   text-align: center;
-  border: 1px solid #e2e6e3;
+  border: 1px solid rgba(171, 229, 176, 0.1);
   transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
 .stat-item:hover {
   transform: translateY(-1px);
-  border-color: #c7d1cc;
+  border-color: rgba(171, 229, 176, 0.18);
 }
 
 .stat-value {
   display: block;
   font-size: 28px;
   font-weight: 700;
-  color: #0f3d26;
+  color: #f7fbf7;
   margin-bottom: 4px;
   line-height: 1;
   text-shadow: none;
@@ -108,7 +138,7 @@
 
 .stat-label {
   font-size: 12px;
-  color: #01692c;
+  color: #8bd6b4;
   text-transform: uppercase;
   letter-spacing: 0.4px;
   font-weight: 600;
@@ -123,17 +153,17 @@
 .listings-filter h3 {
   font-size: 20px;
   margin-bottom: 15px;
-  color: #333;
+  color: #f7fbf7;
   padding-bottom: 8px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(171, 229, 176, 0.08);
 }
 
 .no-listings {
   padding: 20px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
   text-align: center;
-  color: #666;
+  color: rgba(220, 228, 223, 0.72);
   font-style: italic;
 }
 
@@ -144,11 +174,12 @@
 }
 
 .listing-card {
-  background-color: #fff;
-  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(12, 28, 19, 0.96) 0%, rgba(7, 15, 10, 0.98) 100%);
+  border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(171, 229, 176, 0.08);
   transition: all 0.3s ease;
 }
 
@@ -170,15 +201,15 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+  border-bottom: 1px solid rgba(171, 229, 176, 0.08);
 }
 
 .listing-title {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #111827;
+  color: #f7fbf7;
   line-height: 1.4;
   flex: 1;
   padding-right: 12px;
@@ -186,11 +217,11 @@
 
 .listing-date {
   font-size: 13px;
-  color: #6b7280;
+  color: rgba(220, 228, 223, 0.72);
   white-space: nowrap;
-  background-color: #f3f4f6;
+  background-color: rgba(255, 255, 255, 0.05);
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: 999px;
   font-weight: 500;
 }
 
@@ -709,11 +740,11 @@
 }
 
 .admin-dashboard .admin-tabs button.active {
-  color: #041008;
+  color: #ffffff;
   border-bottom-color: transparent;
   border-color: rgba(171, 229, 176, 0.18);
-  background: linear-gradient(135deg, #8be091, #61be66);
-  box-shadow: 0 18px 36px rgba(97, 190, 102, 0.18);
+  background: linear-gradient(135deg, #0b6b4c, #004e37);
+  box-shadow: 0 18px 36px rgba(0, 78, 55, 0.18);
 }
 
 .admin-dashboard .admin-content h2,
@@ -842,8 +873,8 @@
 }
 
 .admin-dashboard .approve-btn {
-  background: linear-gradient(135deg, #8be091, #61be66);
-  color: #041008;
+  background: linear-gradient(135deg, #0b6b4c, #004e37);
+  color: #ffffff;
 }
 
 .admin-dashboard .reject-btn,
@@ -1065,19 +1096,44 @@
 .admin-dashboard .user-card-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-dashboard .user-status-btn,
+.admin-dashboard .user-promote-btn,
+.admin-dashboard .user-delete-btn {
+  flex: 1;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-dashboard .user-status-btn {
+  background: rgba(255, 255, 255, 0.04);
+  color: #eef7ef;
+  border: 1px solid rgba(171, 229, 176, 0.14);
+}
+
+.admin-dashboard .user-status-btn.suspend {
+  color: #ffdfd2;
+  border-color: rgba(255, 180, 171, 0.24);
+}
+
+.admin-dashboard .user-status-btn.reactivate,
+.admin-dashboard .user-promote-btn {
+  background: linear-gradient(135deg, #0b6b4c, #004e37);
+  color: #ffffff;
+  border: 1px solid rgba(139, 214, 180, 0.18);
 }
 
 .admin-dashboard .user-delete-btn {
-  flex: 1;
-  padding: 8px 12px;
   background-color: rgba(244, 63, 94, 0.15);
   color: #fda4af;
   border: 1px solid rgba(244, 63, 94, 0.3);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .admin-dashboard .user-delete-btn:hover:not(:disabled) {

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Settings, SquareUserRound, UserRound } from 'lucide-react';
+import { LogOut, Settings, SquareUserRound } from 'lucide-react';
 import { resolveMediaUrl } from '../utils/media';
 import '../styles/ProfileMenu.css';
 
@@ -116,15 +116,6 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
             >
               <SquareUserRound className="profile-icon" aria-hidden="true" />
               Profile
-            </Link>
-            
-            <Link 
-              to="/my-listings" 
-              className="profile-menu-item"
-              onClick={handleLinkClick}
-            >
-              <UserRound className="profile-icon" aria-hidden="true" />
-              My Listings
             </Link>
             
             <Link 

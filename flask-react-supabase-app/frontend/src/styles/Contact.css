@@ -158,9 +158,9 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6fd173 0%, #2f7d34 100%);
-  color: #041008;
-  box-shadow: 0 14px 28px rgba(47, 125, 52, 0.22);
+  background: linear-gradient(135deg, #0b6b4c 0%, #004e37 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(0, 78, 55, 0.22);
 }
 
 .btn-primary:hover {
@@ -179,6 +179,34 @@
 
 .submit-status.error {
   color: #ffd9d9;
+}
+
+.contact-link-section {
+  align-items: stretch;
+}
+
+.contact-link-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.contact-link-list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  background: rgba(139, 214, 180, 0.1);
+  border: 1px solid rgba(139, 214, 180, 0.14);
+  color: #dff7e6;
+  font-weight: 700;
+}
+
+.contact-link-list a:hover {
+  background: rgba(139, 214, 180, 0.16);
 }
 
 @media (max-width: 860px) {

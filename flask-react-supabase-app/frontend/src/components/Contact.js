@@ -2,6 +2,28 @@ import React, { useState } from 'react';
 import '../styles/Contact.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const contactChannels = [
+  {
+    title: 'Support',
+    lines: ['support@dphclassifieds.com', 'Fastest route for account and listing help.'],
+    iconClass: 'email-icon',
+  },
+  {
+    title: 'Based In',
+    lines: ['Dubai, UAE', 'Serving the wider UAE petrolhead marketplace.'],
+    iconClass: 'location-icon',
+  },
+  {
+    title: 'Community',
+    lines: ['Reddit, Instagram, and DubaiPetrolHeads.ae', 'Use the channels below for broader community touchpoints.'],
+    iconClass: 'hours-icon',
+  },
+  {
+    title: 'Company',
+    lines: ['DPH Classifieds FZ-LLC', 'Marketplace operator and support team.'],
+    iconClass: 'phone-icon',
+  },
+];
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -66,46 +88,32 @@ const Contact = () => {
       <div className="contact-header">
         <h1 className="contact-title">Contact Us</h1>
         <p className="contact-subtitle">
-          Have questions or feedback? We'd love to hear from you!
+          Reach the DPH Classifieds team for support, marketplace issues, partnerships, or general feedback.
         </p>
       </div>
 
       <div className="contact-content">
         <div className="contact-info">
-          <div className="contact-info-section">
-            <div className="contact-icon location-icon"></div>
-            <div className="contact-info-details">
-              <h3>Our Office</h3>
-              <p>123 Car Street</p>
-              <p>Automobile City, AC 12345</p>
+          {contactChannels.map((channel) => (
+            <div className="contact-info-section" key={channel.title}>
+              <div className={`contact-icon ${channel.iconClass}`}></div>
+              <div className="contact-info-details">
+                <h3>{channel.title}</h3>
+                {channel.lines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
             </div>
-          </div>
-          
-          <div className="contact-info-section">
-            <div className="contact-icon email-icon"></div>
+          ))}
+
+          <div className="contact-info-section contact-link-section">
             <div className="contact-info-details">
-              <h3>Email Us</h3>
-              <p>info@carclassifieds.com</p>
-              <p>support@carclassifieds.com</p>
-            </div>
-          </div>
-          
-          <div className="contact-info-section">
-            <div className="contact-icon phone-icon"></div>
-            <div className="contact-info-details">
-              <h3>Call Us</h3>
-              <p>General: (555) 123-4567</p>
-              <p>Support: (555) 987-6543</p>
-            </div>
-          </div>
-          
-          <div className="contact-info-section">
-            <div className="contact-icon hours-icon"></div>
-            <div className="contact-info-details">
-              <h3>Business Hours</h3>
-              <p>Monday - Friday: 9:00 AM - 5:00 PM</p>
-              <p>Saturday: 10:00 AM - 2:00 PM</p>
-              <p>Sunday: Closed</p>
+              <h3>Community Links</h3>
+              <div className="contact-link-list">
+                <a href="https://www.reddit.com/r/DubaiPetrolHeads/" target="_blank" rel="noopener noreferrer">Reddit</a>
+                <a href="https://www.instagram.com/dubaipetrolheads?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a href="https://www.dubaipetrolheads.ae/" target="_blank" rel="noopener noreferrer">DubaiPetrolHeads.ae</a>
+              </div>
             </div>
           </div>
         </div>

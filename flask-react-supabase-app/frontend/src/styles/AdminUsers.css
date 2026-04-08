@@ -16,6 +16,10 @@
   color: #aac5ad;
 }
 
+.admin-users > p {
+  margin-bottom: 22px;
+}
+
 .users-container {
   background:
     radial-gradient(circle at top left, rgba(107, 192, 114, 0.14), transparent 42%),
@@ -62,8 +66,8 @@
   padding: 11px 16px;
   border: 1px solid rgba(171, 229, 176, 0.2);
   border-radius: 999px;
-  background: linear-gradient(135deg, #8be091, #61be66);
-  color: #041008;
+  background: linear-gradient(135deg, #0b6b4c, #004e37);
+  color: #ffffff;
   font-weight: 800;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -71,7 +75,23 @@
 
 .make-admin-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgba(97, 190, 102, 0.2);
+  box-shadow: 0 18px 36px rgba(0, 78, 55, 0.2);
+}
+
+.admin-users-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status-btn {
+  padding: 11px 16px;
+  border: 1px solid rgba(171, 229, 176, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #eef7ef;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .error-message {

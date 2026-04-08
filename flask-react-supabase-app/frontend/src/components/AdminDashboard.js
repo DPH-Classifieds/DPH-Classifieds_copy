@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
+import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminDashboard.css';
 
@@ -285,6 +286,55 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUserStatusChange = async (userId, email, nextStatus) => {
+    try {
+      const actionLabel = nextStatus === 'suspended' ? 'suspend' : 'reactivate';
+      if (!window.confirm(`Are you sure you want to ${actionLabel} "${email}"?`)) {
+        return;
+      }
+
+      setIsLoading(true);
+      await apiClient.patch(`/api/admin/users/${userId}/status`, { status: nextStatus });
+      setUsers((prevUsers) =>
+        prevUsers.map((listedUser) =>
+          listedUser.id === userId ? { ...listedUser, account_status: nextStatus } : listedUser
+        )
+      );
+      setSuccessMessage(`User ${nextStatus === 'suspended' ? 'suspended' : 'reactivated'} successfully`);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      setError(`Failed to update user status: ${error.message || 'Unknown error'}`);
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMakeAdmin = async (userId, email) => {
+    try {
+      if (!window.confirm(`Promote "${email}" to admin?`)) {
+        return;
+      }
+
+      setIsLoading(true);
+      await apiClient.post(`/api/admin/users/${userId}/make-admin`);
+      setUsers((prevUsers) =>
+        prevUsers.map((listedUser) =>
+          listedUser.id === userId ? { ...listedUser, is_admin: true, account_status: 'active' } : listedUser
+        )
+      );
+      setSuccessMessage('User promoted to admin successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error promoting user:', error);
+      setError(`Failed to promote user: ${error.message || 'Unknown error'}`);
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const openRejectModal = (listing) => {
     setListingToReject(listing);
     setRejectionNote('');
@@ -502,7 +552,11 @@ const AdminDashboard = () => {
 
   return (
     <div className="admin-dashboard">
-      <h1>Admin Dashboard</h1>
+      <div className="admin-dashboard-hero">
+        <span className="admin-dashboard-kicker">DPH Control Room</span>
+        <h1>Admin Dashboard</h1>
+        <p>Review listings, handle reports, verify dealers, and manage member access from one marketplace operations surface.</p>
+      </div>
       
       <div className="admin-tabs">
         <button 
@@ -891,68 +945,90 @@ const AdminDashboard = () => {
                     <p className="no-listings">No users found.</p>
                   )}
                   <div className="users-grid">
-                    {users.map(user => (
-                      <div key={user.id} className="user-card">
+                    {users.map(listedUser => (
+                      <div key={listedUser.id} className="user-card">
                         <div className="user-card-header">
                           <div className="user-avatar">
-                            {user.profile_photo_url ? (
-                              <img src={user.profile_photo_url} alt="User" />
+                            {resolveMediaUrl(listedUser.profile_photo_url) ? (
+                              <img src={resolveMediaUrl(listedUser.profile_photo_url)} alt="User" />
                             ) : (
-                              <span>{(user.first_name || user.email || 'U').charAt(0).toUpperCase()}</span>
+                              <span>{(listedUser.first_name || listedUser.email || 'U').charAt(0).toUpperCase()}</span>
                             )}
                           </div>
                           <div className="user-card-header-info">
                             <h4>
-                              {user.first_name && user.last_name 
-                                ? `${user.first_name} ${user.last_name}`
-                                : user.email.split('@')[0]
+                              {listedUser.first_name && listedUser.last_name 
+                                ? `${listedUser.first_name} ${listedUser.last_name}`
+                                : listedUser.display_name || listedUser.username || listedUser.email.split('@')[0]
                               }
                             </h4>
-                            <span className="user-email">{user.email}</span>
+                            <span className="user-email">{listedUser.email}</span>
                           </div>
                         </div>
                         
                         <div className="user-card-body">
                           <div className="user-info-row">
                             <span className="user-info-label">Phone:</span>
-                            <span className="user-info-value">{user.phone || 'Not provided'}</span>
+                            <span className="user-info-value">{listedUser.phone || 'Not provided'}</span>
                           </div>
                           <div className="user-info-row">
                             <span className="user-info-label">Joined:</span>
-                            <span className="user-info-value">{new Date(user.created_at).toLocaleDateString()}</span>
+                            <span className="user-info-value">{new Date(listedUser.created_at).toLocaleDateString()}</span>
                           </div>
                           <div className="user-info-row">
                             <span className="user-info-label">Status:</span>
-                            <span className={`user-status-badge ${user.account_status || 'active'}`}>
-                              {user.account_status || 'active'}
+                            <span className={`user-status-badge ${listedUser.account_status || 'active'}`}>
+                              {listedUser.account_status || 'active'}
                             </span>
                           </div>
                           
                           <div className="user-badges">
-                            {user.email_verified && (
+                            {listedUser.email_verified && (
                               <span className="user-badge verified">✓ Email</span>
                             )}
-                            {user.phone_verified && (
+                            {listedUser.phone_verified && (
                               <span className="user-badge verified">✓ Phone</span>
                             )}
-                            {user.is_dealer && (
+                            {listedUser.is_dealer && (
                               <span className="user-badge dealer">🏪 Dealer</span>
                             )}
-                            {user.is_admin && (
+                            {listedUser.is_admin && (
                               <span className="user-badge admin">⚡ Admin</span>
                             )}
                           </div>
                         </div>
                         
                         <div className="user-card-actions">
-                          {!user.is_admin && (
-                            <button 
-                              className="user-delete-btn"
-                              onClick={() => handleDeleteUser(user.id, user.email)}
-                              disabled={isLoading}
-                            >
-                              🗑️ Delete User
-                            </button>
+                          {!listedUser.is_admin && (
+                            <>
+                              <button
+                                className={`user-status-btn ${(listedUser.account_status || 'active') === 'suspended' ? 'reactivate' : 'suspend'}`}
+                                onClick={() =>
+                                  handleUserStatusChange(
+                                    listedUser.id,
+                                    listedUser.email,
+                                    (listedUser.account_status || 'active') === 'suspended' ? 'active' : 'suspended'
+                                  )
+                                }
+                                disabled={isLoading}
+                              >
+                                {(listedUser.account_status || 'active') === 'suspended' ? 'Reactivate' : 'Suspend'}
+                              </button>
+                              <button
+                                className="user-promote-btn"
+                                onClick={() => handleMakeAdmin(listedUser.id, listedUser.email)}
+                                disabled={isLoading}
+                              >
+                                Make Admin
+                              </button>
+                              <button 
+                                className="user-delete-btn"
+                                onClick={() => handleDeleteUser(listedUser.id, listedUser.email)}
+                                disabled={isLoading}
+                              >
+                                Delete
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
