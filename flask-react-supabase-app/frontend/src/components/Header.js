@@ -4,7 +4,6 @@ import {
   Bike,
   CarFront,
   ChevronRight,
-  LayoutGrid,
   MenuIcon,
   Package,
   Plus,
@@ -26,12 +25,6 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 
 const browseLinks = [
-  {
-    title: 'Explore',
-    description: 'Scan all active listings across every category.',
-    href: '/explore',
-    icon: LayoutGrid,
-  },
   {
     title: 'Cars',
     description: 'Browse used, luxury, and performance cars.',
@@ -99,6 +92,7 @@ const Header = () => {
   const isBrowseActive = browseLinks.some((item) => location.pathname.startsWith(item.href));
   const isResourcesActive = resourceLinks.some((item) => location.pathname.startsWith(item.href));
   const isPostActive = postLinks.some((item) => location.pathname.startsWith(item.href.replace('/login?redirect=', '')));
+  const isExploreActive = location.pathname.startsWith('/explore');
 
   const handleLogout = async () => {
     try {
@@ -126,6 +120,15 @@ const Header = () => {
 
         <NavigationMenu className="hidden lg:flex">
           <NavigationMenuList className="gap-1">
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                asChild
+                className={`${isExploreActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+              >
+                <Link to="/explore">Explore</Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
             <NavigationMenuItem>
               <NavigationMenuTrigger
                 className={`${isBrowseActive ? 'bg-white/10 text-white' : ''} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
@@ -298,6 +301,9 @@ const Header = () => {
               <div className="flex flex-col gap-2">
                 <Link to="/" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                   Home
+                </Link>
+                <Link to="/explore" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                  Explore
                 </Link>
                 <Link to="/about" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                   About

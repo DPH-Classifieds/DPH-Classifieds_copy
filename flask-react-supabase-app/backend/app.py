@@ -3061,6 +3061,50 @@ def _normalize_bike_record(bike):
     return bike
 
 
+def _enrich_listing_seller(item, headers=None):
+    """Attach consistent seller metadata to listing payloads."""
+    if not isinstance(item, dict):
+        return item
+
+    user_id = item.get("user_id")
+    if not user_id:
+        return item
+
+    try:
+        user = None
+        user_fields = "id,first_name,last_name,email,profile_photo_url,is_dealer"
+
+        if headers:
+            user_url = (
+                f"{app.config['SUPABASE_URL']}/rest/v1/users"
+                f"?id=eq.{user_id}&select={user_fields}"
+            )
+            user_response = requests.get(user_url, headers=headers, timeout=5)
+            if user_response.status_code == 200 and user_response.json():
+                user = user_response.json()[0]
+        else:
+            user_response, user_status = supabase_request(
+                "get",
+                f"/rest/v1/users?id=eq.{user_id}&select={user_fields}",
+                use_service_role=True,
+            )
+            if user_status < 400 and user_response:
+                user = user_response[0]
+
+        if user:
+            full_name = (
+                f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+            )
+            item["seller_name"] = full_name or user.get("email", "Marketplace Seller")
+            item["seller_id"] = user.get("id")
+            item["seller_profile_photo"] = user.get("profile_photo_url")
+            item["seller_verified"] = bool(user.get("is_dealer", False))
+    except Exception as seller_err:
+        logger.warning(f"Failed to enrich seller for listing {item.get('id')}: {seller_err}")
+
+    return item
+
+
 @app.route("/api/bikes", methods=["GET"])
 def get_bikes():
     try:
@@ -3133,6 +3177,8 @@ def get_bikes():
                     else:
                         bike["images"] = []
 
+                    _enrich_listing_seller(bike, headers=headers)
+
                 return jsonify(bikes)
             else:
                 logger.error(
@@ -3166,6 +3212,8 @@ def get_bikes():
                         bike["images"] = images_response
                     else:
                         bike["images"] = []
+
+                    _enrich_listing_seller(bike)
                 return jsonify(response)
             else:
                 return jsonify([])
@@ -3658,6 +3706,8 @@ def get_plates():
                 else:
                     plate["images"] = []
 
+                _enrich_listing_seller(plate, headers=headers)
+
             return jsonify(plates), 200
         else:
             logger.error(
@@ -3829,9 +3879,19 @@ def get_parts():
 
                     if image_response.status_code == 200:
                         images = image_response.json()
-                        part["images"] = [img["image_url"] for img in images]
+                        part["images"] = [
+                            {
+                                "id": img.get("id"),
+                                "url": img.get("url") or img.get("image_url"),
+                                "image_url": img.get("image_url") or img.get("url"),
+                            }
+                            for img in images
+                            if img.get("url") or img.get("image_url")
+                        ]
                     else:
                         part["images"] = []
+
+                    _enrich_listing_seller(part, headers=headers)
 
                 return jsonify(parts)
             else:
@@ -3860,6 +3920,8 @@ def get_parts():
                         part["images"] = images_response
                     else:
                         part["images"] = []
+
+                    _enrich_listing_seller(part)
                 return jsonify(response)
             else:
                 return jsonify([])
