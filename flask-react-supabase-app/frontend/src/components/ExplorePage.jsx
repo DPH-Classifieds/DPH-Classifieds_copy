@@ -112,6 +112,25 @@ const toNumeric = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const extractInventoryCollection = (payload, fallbackKeys = []) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+
+  for (const key of fallbackKeys) {
+    if (Array.isArray(payload[key])) {
+      return payload[key];
+    }
+  }
+
+  const firstArray = Object.values(payload).find((value) => Array.isArray(value));
+  return Array.isArray(firstArray) ? firstArray : [];
+};
+
 const compareBySort = (left, right, sortBy) => {
   if (sortBy === 'price-low') {
     return (left.numericPrice || Number.MAX_SAFE_INTEGER) - (right.numericPrice || Number.MAX_SAFE_INTEGER);
@@ -350,10 +369,10 @@ const ExplorePage = () => {
 
       const [carsResult, bikesResult, partsResult, platesResult] = requests;
       const nextInventory = {
-        cars: carsResult.status === 'fulfilled' && Array.isArray(carsResult.value) ? carsResult.value : [],
-        bikes: bikesResult.status === 'fulfilled' && Array.isArray(bikesResult.value) ? bikesResult.value : [],
-        parts: partsResult.status === 'fulfilled' && Array.isArray(partsResult.value) ? partsResult.value : [],
-        plates: platesResult.status === 'fulfilled' && Array.isArray(platesResult.value) ? platesResult.value : [],
+        cars: carsResult.status === 'fulfilled' ? extractInventoryCollection(carsResult.value, ['cars', 'data']) : [],
+        bikes: bikesResult.status === 'fulfilled' ? extractInventoryCollection(bikesResult.value, ['bikes', 'data']) : [],
+        parts: partsResult.status === 'fulfilled' ? extractInventoryCollection(partsResult.value, ['parts', 'car_parts', 'data']) : [],
+        plates: platesResult.status === 'fulfilled' ? extractInventoryCollection(platesResult.value, ['plates', 'license_plates', 'data']) : [],
       };
 
       const failedCategories = [];
