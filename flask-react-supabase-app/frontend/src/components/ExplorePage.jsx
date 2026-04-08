@@ -420,6 +420,7 @@ const ExplorePage = () => {
               const sellerInitial = (car.seller_name || car.user_name || 'U').charAt(0).toUpperCase();
               const isSaved = savedListings.includes(car.id);
               const isFollowing = sellerId ? followingSellers.includes(sellerId) : false;
+              const isDealer = car.seller_verified === true || car.seller_verified === 'true';
 
               return (
                 <article key={car.id} className="explore-v2-card">
@@ -472,10 +473,18 @@ const ExplorePage = () => {
 
                     <div className="explore-v2-seller-row">
                       <div className="explore-v2-seller">
-                        <span className="explore-v2-seller-avatar">{sellerInitial}</span>
+                        {car.seller_profile_photo ? (
+                          <img 
+                            src={car.seller_profile_photo} 
+                            alt="Seller" 
+                            className="explore-v2-seller-avatar-image"
+                          />
+                        ) : (
+                          <span className="explore-v2-seller-avatar">{sellerInitial}</span>
+                        )}
                         <div>
                           <strong>{car.seller_name || 'Anonymous seller'}</strong>
-                          <span>{car.seller_verified ? 'Seller verified' : 'Marketplace seller'}</span>
+                          <span className={isDealer ? 'seller-type-dealer' : ''}>{isDealer ? 'Dealer' : 'Marketplace seller'}</span>
                         </div>
                       </div>
 

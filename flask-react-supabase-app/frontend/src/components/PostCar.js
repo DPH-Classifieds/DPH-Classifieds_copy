@@ -506,11 +506,23 @@ const PostCar = () => {
 
   return (
     <div className="post-form-container">
-      <h1>Post Your Car</h1>
-      
-      {error && <div className="error-message">{error}</div>}
-      
-      <form onSubmit={handleSubmit} id="carDetailsForm">
+      <section className="post-hero-section">
+        <div className="post-hero-content">
+          <div className="post-hero-text">
+            <span className="post-hero-kicker">Submit Your Listing</span>
+            <h1 className="post-hero-title">List Your Vehicle</h1>
+            <p className="post-hero-subtitle">Curate your automotive legacy. Our listing process is designed for precision.</p>
+          </div>
+          <div className="post-hero-image">
+            <img src="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=800&q=80" alt="Luxury Car" />
+          </div>
+        </div>
+      </section>
+
+      <section className="post-form-section">
+        <div className="form-container">
+          {error && <div className="form-error-message">{error}</div>}
+          <form onSubmit={handleSubmit} id="carDetailsForm">
         <div className="form-section">
           <h2>Car Details</h2>
           
@@ -762,31 +774,23 @@ const PostCar = () => {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Are you a dealer?</label>
-              <div className="radio-group" style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
-                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <div className="dealer-toggle" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                <label className="toggle-switch" style={{ position: 'relative', display: 'inline-block', width: '52px', height: '28px' }}>
                   <input
-                    type="radio"
-                    name="is_dealer"
-                    value="yes"
+                    type="checkbox"
                     checked={formData.is_dealer === true}
-                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: true }))}
-                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
+                    style={{ opacity: 0, width: 0, height: 0 }}
                   />
-                  <span>Yes</span>
+                  <span className="toggle-slider" style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: formData.is_dealer ? '#4CAF50' : '#ccc', transition: '0.3s', borderRadius: '28px' }}>
+                    <span style={{ position: 'absolute', content: '', height: '22px', width: '22px', left: formData.is_dealer ? '27px' : '3px', bottom: '3px', backgroundColor: 'white', transition: '0.3s', borderRadius: '50%' }}></span>
+                  </span>
                 </label>
-                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="is_dealer"
-                    value="no"
-                    checked={formData.is_dealer === false}
-                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: false }))}
-                    style={{ marginRight: '8px', cursor: 'pointer' }}
-                  />
-                  <span>No</span>
-                </label>
+                <span style={{ fontSize: '14px', color: formData.is_dealer ? '#4CAF50' : '#666', fontWeight: formData.is_dealer ? '600' : '400' }}>
+                  {formData.is_dealer ? 'Yes, I am a dealer' : 'No, I am a private seller'}
+                </span>
               </div>
-              <small className="form-text text-muted">Select "Yes" if you are posting this listing as a car dealer</small>
+              <small className="form-text text-muted">Toggle to indicate if you are posting this listing as a car dealer</small>
             </div>
           </div>
         </div>
@@ -1152,7 +1156,9 @@ const PostCar = () => {
             {isSubmitting ? 'Submitting...' : 'Submit Listing'}
           </button>
         </div>
-      </form>
+        </form>
+        </div>
+      </section>
     </div>
   );
 };

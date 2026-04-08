@@ -11,6 +11,9 @@ const PostCarParts = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previewImages, setPreviewImages] = useState([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [formData, setFormData] = useState({
     part_name: '',
     part_type: '',
@@ -20,7 +23,7 @@ const PostCarParts = () => {
     price: '',
     location: '',
     description: '',
-    images: []
+    is_dealer: false
   });
 
   // Check if user is logged in when component loads
@@ -74,19 +77,79 @@ const PostCarParts = () => {
     }));
   };
 
-  const handleImageChange = (e) => {
+  const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+  const MAX_IMAGES = 10;
+
+  const processFiles = (files) => {
+    const validFiles = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (selectedFiles.length + validFiles.length >= MAX_IMAGES) {
+        setError(`Maximum ${MAX_IMAGES} images allowed`);
+        break;
+      }
+      if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+        setError(`Invalid file type: ${file.name}. Supported: JPG, PNG, WEBP, GIF`);
+        continue;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setError(`File too large: ${file.name}. Max size: 5MB`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+    return validFiles;
+  };
+
+  const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...files]
-    }));
+    const validFiles = processFiles(files);
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+      setPreviewImages(prev => [...prev, ...newPreviews]);
+    }
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    const validFiles = processFiles(files);
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+      setPreviewImages(prev => [...prev, ...newPreviews]);
+    }
   };
 
   const removeImage = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadImages = async () => {
+    if (selectedFiles.length === 0) {
+      throw new Error('At least one image is required');
+    }
+    const uploadFormData = new FormData();
+    selectedFiles.forEach(file => {
+      uploadFormData.append('images', file);
+    });
+    const response = await apiClient.post('/api/upload-images', uploadFormData);
+    return response.urls || [];
   };
 
   const handleSubmit = async (e) => {
@@ -98,39 +161,36 @@ const PostCarParts = () => {
       setShowAuthModal(true);
       return;
     }
+
+    if (selectedFiles.length === 0) {
+      setError('Please upload at least one image');
+      setIsSubmitting(false);
+      return;
+    }
     
     setIsSubmitting(true);
     setError(null);
     
     try {
-      // Prepare form data
-      const apiFormData = new FormData(e.target);
+      // First upload images
+      const imageUrls = await uploadImages();
       
-      // Get compatible makes and models as arrays
-      const compatibleMakes = Array.from(
-        document.querySelectorAll('input[name="compatible_makes"]:checked')
-      ).map(input => input.value);
-      
-      const compatibleModels = Array.from(
-        document.querySelectorAll('input[name="compatible_models"]:checked')
-      ).map(input => input.value);
-      
-      // Add arrays as JSON strings
-      apiFormData.delete('compatible_makes');
-      apiFormData.delete('compatible_models');
-      apiFormData.append('compatible_makes', JSON.stringify(compatibleMakes));
-      apiFormData.append('compatible_models', JSON.stringify(compatibleModels));
-      
-      // Add images from file inputs
-      const images = document.getElementById('part_images').files;
-      for (let i = 0; i < images.length; i++) {
-        apiFormData.append(`image_${i}`, images[i]);
-      }
+      // Prepare JSON payload
+      const payload = {
+        name: formData.part_name,
+        part_type: formData.part_type,
+        condition: formData.condition,
+        price: parseFloat(formData.price),
+        location: formData.location,
+        description: formData.description,
+        is_dealer: formData.is_dealer,
+        images: imageUrls
+      };
       
       console.log('Submitting to API using apiClient on port 8000...');
       
       // Use the apiClient which handles auth tokens automatically
-      const response = await apiClient.post('/api/parts', apiFormData);
+      const response = await apiClient.post('/api/parts', payload);
       
       console.log('Car parts listing submitted successfully:', response);
       setSuccess(true);
@@ -270,42 +330,81 @@ const PostCarParts = () => {
           <h2>Images</h2>
           <p className="form-note">Upload clear images of the part from multiple angles.</p>
           
-          <div className="image-upload-container">
-            <label className="image-upload-label">
-              <span>Select Images</span>
+          <div 
+            className={`image-upload-container ${isDragOver ? 'drag-over' : ''}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <div className="upload-area">
+              <div className="upload-icon" aria-hidden="true"></div>
+              <h4>Drag & Drop Images Here</h4>
+              <p>or</p>
               <input
                 type="file"
-                multiple
                 accept=".jpg,.jpeg,.png,.webp,.gif"
-                onChange={handleImageChange}
-                className="image-upload-input"
+                multiple
+                onChange={handleFileChange}
+                className="file-input"
+                required
               />
-            </label>
-            
-            <div className="image-preview-container">
-              {formData.images.length > 0 ? (
-                formData.images.map((image, index) => (
-                  <div key={index} className="image-preview-item">
-                    <img 
-                      src={URL.createObjectURL(image)} 
-                      alt={`Preview ${index}`} 
-                      className="image-preview"
-                    />
-                    <button 
-                      type="button" 
-                      className="remove-image-btn"
-                      onClick={() => removeImage(index)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="no-images-message">
-                  No images selected
-                </div>
-              )}
+              <button type="button" className="browse-btn">
+                Browse Files
+              </button>
+              <p className="upload-hint">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
             </div>
+            
+            {previewImages.length > 0 && (
+              <div className="image-previews mt-3">
+                <div className="row">
+                  {previewImages.map((preview, index) => (
+                    <div className="col-md-3 mb-2" key={index}>
+                      <div className="preview-thumbnail">
+                        <img src={preview} alt={`Preview ${index + 1}`} className="img-thumbnail" />
+                        <button 
+                          type="button" 
+                          className="btn btn-sm btn-danger remove-image"
+                          onClick={() => removeImage(index)}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Are you a dealer?</label>
+            <div className="toggle-container" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+              <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="is_dealer"
+                  value="no"
+                  checked={formData.is_dealer === false}
+                  onChange={() => setFormData(prev => ({ ...prev, is_dealer: false }))}
+                  style={{ marginRight: '8px', cursor: 'pointer' }}
+                />
+                <span>No</span>
+              </label>
+              <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="is_dealer"
+                  value="yes"
+                  checked={formData.is_dealer === true}
+                  onChange={() => setFormData(prev => ({ ...prev, is_dealer: true }))}
+                  style={{ marginRight: '8px', cursor: 'pointer' }}
+                />
+                <span>Yes</span>
+              </label>
+            </div>
+            <small className="form-text text-muted">Select "Yes" if you are posting this listing as a parts dealer</small>
           </div>
         </div>
         

@@ -1,6 +1,7 @@
 """
 Admin routes for managing listings, users, reports, and dealers
 """
+
 from flask import Blueprint, jsonify, request
 from functools import wraps
 import logging
@@ -9,598 +10,679 @@ import os
 
 logger = logging.getLogger(__name__)
 
-admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
+admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 # Get config from environment
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
+
 def admin_required(f):
     """Decorator to check if user is admin"""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # Get user from request context (set by token_required)
-        auth_header = request.headers.get('Authorization')
-        
+        auth_header = request.headers.get("Authorization")
+
         if not auth_header:
-            return jsonify({'error': 'Authentication required'}), 401
-        
+            return jsonify({"error": "Authentication required"}), 401
+
         # Extract token
         parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != 'bearer':
-            return jsonify({'error': 'Invalid Authorization format'}), 401
-        
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return jsonify({"error": "Invalid Authorization format"}), 401
+
         token = parts[1]
-        
+
         # Validate token and check admin status
         try:
             # First validate the token with Supabase Auth
             auth_headers = {
-                'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': f'Bearer {token}'
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {token}",
             }
-            
+
             auth_response = requests.get(
-                f"{SUPABASE_URL}/auth/v1/user",
-                headers=auth_headers,
-                timeout=5
+                f"{SUPABASE_URL}/auth/v1/user", headers=auth_headers, timeout=5
             )
-            
+
             if auth_response.status_code != 200:
-                return jsonify({'error': 'Invalid or expired token'}), 401
-            
+                return jsonify({"error": "Invalid or expired token"}), 401
+
             user_data = auth_response.json()
-            user_id = user_data.get('id')
-            
+            user_id = user_data.get("id")
+
             if not user_id:
-                return jsonify({'error': 'Invalid user data'}), 401
-            
+                return jsonify({"error": "Invalid user data"}), 401
+
             # Check if user is admin
             headers = {
-                'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-                'Content-Type': 'application/json'
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
             }
-            
+
             response = requests.get(
                 f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=is_admin",
                 headers=headers,
-                timeout=5
+                timeout=5,
             )
-            
+
             if response.status_code == 200:
                 users = response.json()
-                if users and len(users) > 0 and users[0].get('is_admin'):
+                if users and len(users) > 0 and users[0].get("is_admin"):
                     # Store user_id in request for use in route
                     request.user_id = user_id
                     return f(*args, **kwargs)
-            
-            return jsonify({'error': 'Admin access required'}), 403
-            
+
+            return jsonify({"error": "Admin access required"}), 403
+
         except Exception as e:
             logger.error(f"Error checking admin status: {e}")
-            return jsonify({'error': 'Authorization check failed'}), 500
-    
+            return jsonify({"error": "Authorization check failed"}), 500
+
     return decorated_function
 
+
 # Listings Management
-@admin_bp.route('/listings', methods=['GET'])
+@admin_bp.route("/listings", methods=["GET"])
 @admin_required
 def get_all_listings():
     """Get all listings with user details for admin review"""
     try:
-        listing_type = request.args.get('type', 'cars')  # cars, bikes, plates, parts
-        status = request.args.get('status')  # pending, approved, rejected
-        
+        listing_type = request.args.get("type", "cars")  # cars, bikes, plates, parts
+        status = request.args.get("status")  # pending, approved, rejected
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         # Build query
         table_map = {
-            'cars': 'cars',
-            'bikes': 'bikes',
-            'plates': 'license_plates',
-            'parts': 'car_parts'
+            "cars": "cars",
+            "bikes": "bikes",
+            "plates": "license_plates",
+            "parts": "car_parts",
         }
-        
-        table = table_map.get(listing_type, 'cars')
+
+        table = table_map.get(listing_type, "cars")
         query = f"{SUPABASE_URL}/rest/v1/{table}?select=*,users(email,first_name,last_name,username)&order=created_at.desc"
-        
+
         if status:
             query += f"&status=eq.{status}"
-        
+
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             listings = response.json()
-            
+
             # Enhance with user info for display
             for listing in listings:
-                user_info = listing.pop('users', {})
+                user_info = listing.pop("users", {})
                 if user_info:
-                    listing['user_email'] = user_info.get('email')
-                    listing['user_name'] = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get('username', 'Unknown')
+                    listing["user_email"] = user_info.get("email")
+                    listing["user_name"] = (
+                        f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                        or user_info.get("username", "Unknown")
+                    )
                 else:
-                    listing['user_email'] = 'Unknown'
-                    listing['user_name'] = 'Unknown'
-                
+                    listing["user_email"] = "Unknown"
+                    listing["user_name"] = "Unknown"
+
                 # Create display title
-                if listing_type == 'cars':
-                    listing['display_title'] = f"{listing.get('make_year', '')} {listing.get('car_manufacturer', '')} {listing.get('car_model', '')} — posted by {listing['user_name']}"
-                elif listing_type == 'bikes':
-                    listing['display_title'] = f"{listing.get('make_year', '')} {listing.get('make', '')} {listing.get('model', '')} — posted by {listing['user_name']}"
-                elif listing_type == 'plates':
-                    listing['display_title'] = f"{listing.get('city', '')} {listing.get('code', '')} {listing.get('number', '')} — posted by {listing['user_name']}"
+                if listing_type == "cars":
+                    listing["display_title"] = (
+                        f"{listing.get('make_year', '')} {listing.get('car_manufacturer', '')} {listing.get('car_model', '')} — posted by {listing['user_name']}"
+                    )
+                elif listing_type == "bikes":
+                    listing["display_title"] = (
+                        f"{listing.get('make_year', '')} {listing.get('make', '')} {listing.get('model', '')} — posted by {listing['user_name']}"
+                    )
+                elif listing_type == "plates":
+                    listing["display_title"] = (
+                        f"{listing.get('city', '')} {listing.get('code', '')} {listing.get('number', '')} — posted by {listing['user_name']}"
+                    )
                 else:
-                    listing['display_title'] = f"{listing.get('title', 'Unknown listing')} — posted by {listing['user_name']}"
-            
+                    listing["display_title"] = (
+                        f"{listing.get('title', 'Unknown listing')} — posted by {listing['user_name']}"
+                    )
+
             return jsonify(listings), 200
         else:
-            return jsonify({'error': 'Failed to fetch listings'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch listings"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching admin listings: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/listings/<listing_id>/approve', methods=['POST'])
+
+@admin_bp.route("/listings/<listing_id>/approve", methods=["POST"])
 @admin_required
 def approve_listing(listing_id):
     """Approve a listing"""
     try:
-        listing_type = request.json.get('type', 'cars')
-        
+        listing_type = request.json.get("type", "cars")
+
         table_map = {
-            'cars': 'cars',
-            'bikes': 'bikes',
-            'plates': 'license_plates',
-            'parts': 'car_parts'
+            "cars": "cars",
+            "bikes": "bikes",
+            "plates": "license_plates",
+            "parts": "car_parts",
         }
-        
-        table = table_map.get(listing_type, 'cars')
-        
+
+        table = table_map.get(listing_type, "cars")
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
         }
-        
+
         update_data = {
-            'status': 'approved',
-            'is_approved': True,
-            'approved_at': 'now()',
-            'approved_by': request.user_id
+            "status": "approved",
+            "is_approved": True,
+            "approved_at": "now()",
+            "approved_by": request.user_id,
         }
-        
+
         response = requests.patch(
             f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{listing_id}",
             headers=headers,
             json=update_data,
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code in [200, 204]:
-            return jsonify({'message': 'Listing approved successfully'}), 200
+            return jsonify({"message": "Listing approved successfully"}), 200
         else:
-            return jsonify({'error': 'Failed to approve listing'}), response.status_code
-            
+            return jsonify({"error": "Failed to approve listing"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error approving listing: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/listings/<listing_id>/reject', methods=['POST'])
+
+@admin_bp.route("/listings/<listing_id>/reject", methods=["POST"])
 @admin_required
 def reject_listing(listing_id):
     """Reject a listing"""
     try:
-        listing_type = request.json.get('type', 'cars')
-        reason = request.json.get('reason', '')
-        
+        listing_type = request.json.get("type", "cars")
+        reason = request.json.get("reason", "")
+
         table_map = {
-            'cars': 'cars',
-            'bikes': 'bikes',
-            'plates': 'license_plates',
-            'parts': 'car_parts'
+            "cars": "cars",
+            "bikes": "bikes",
+            "plates": "license_plates",
+            "parts": "car_parts",
         }
-        
-        table = table_map.get(listing_type, 'cars')
-        
+
+        table = table_map.get(listing_type, "cars")
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
         }
-        
+
         update_data = {
-            'status': 'rejected',
-            'is_approved': False,
-            'rejected_at': 'now()',
-            'rejected_by': request.user_id,
-            'rejection_reason': reason
+            "status": "rejected",
+            "is_approved": False,
+            "rejected_at": "now()",
+            "rejected_by": request.user_id,
+            "rejection_reason": reason,
         }
-        
+
         response = requests.patch(
             f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{listing_id}",
             headers=headers,
             json=update_data,
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code in [200, 204]:
-            return jsonify({'message': 'Listing rejected successfully'}), 200
+            return jsonify({"message": "Listing rejected successfully"}), 200
         else:
-            return jsonify({'error': 'Failed to reject listing'}), response.status_code
-            
+            return jsonify({"error": "Failed to reject listing"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error rejecting listing: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/listings/<listing_id>/delete', methods=['DELETE'])
+
+@admin_bp.route("/listings/<listing_id>/delete", methods=["DELETE"])
 @admin_required
 def delete_listing(listing_id):
     """Delete a listing (admin only)"""
     try:
-        listing_type = request.args.get('type', 'cars')
-        
+        listing_type = request.args.get("type", "cars")
+
         table_map = {
-            'cars': 'cars',
-            'bikes': 'bikes',
-            'plates': 'license_plates',
-            'parts': 'car_parts'
+            "cars": "cars",
+            "bikes": "bikes",
+            "plates": "license_plates",
+            "parts": "car_parts",
         }
-        
-        table = table_map.get(listing_type, 'cars')
-        
+
+        table = table_map.get(listing_type, "cars")
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         # Delete associated images first
         image_table_map = {
-            'cars': 'car_images',
-            'bikes': 'bike_images',
-            'plates': 'plate_images',
-            'parts': 'part_images'
+            "cars": "car_images",
+            "bikes": "bike_images",
+            "plates": "plate_images",
+            "parts": "part_images",
         }
-        
+
         image_table = image_table_map.get(listing_type)
         if image_table:
             id_field = f"{listing_type[:-1] if listing_type.endswith('s') else listing_type}_id"
-            if listing_type == 'plates':
-                id_field = 'plate_id'
-            
+            if listing_type == "plates":
+                id_field = "plate_id"
+
             requests.delete(
                 f"{SUPABASE_URL}/rest/v1/{image_table}?{id_field}=eq.{listing_id}",
                 headers=headers,
-                timeout=5
+                timeout=5,
             )
-        
+
         # Delete the listing
         response = requests.delete(
             f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{listing_id}",
             headers=headers,
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code in [200, 204]:
-            return jsonify({'message': 'Listing deleted successfully'}), 200
+            return jsonify({"message": "Listing deleted successfully"}), 200
         else:
-            return jsonify({'error': 'Failed to delete listing'}), response.status_code
-            
+            return jsonify({"error": "Failed to delete listing"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error deleting listing: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
 
 # Reports Management
-@admin_bp.route('/reports', methods=['GET'])
+@admin_bp.route("/reports", methods=["GET"])
 @admin_required
 def get_reports():
     """Get all reports"""
     try:
-        status = request.args.get('status')  # pending, resolved, dismissed
-        
+        status = request.args.get("status")  # pending, resolved, dismissed
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         # Fetch reports
         query = f"{SUPABASE_URL}/rest/v1/reports?select=*&order=created_at.desc"
-        
+
         if status:
             query += f"&status=eq.{status}"
-        
+
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             reports = response.json()
-            
+
             # Enhance with reporter info
             for report in reports:
-                reporter_id = report.get('reporter_id')
+                reporter_id = report.get("reporter_id")
                 if reporter_id:
                     user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{reporter_id}&select=email,username"
                     user_response = requests.get(user_query, headers=headers, timeout=5)
                     if user_response.status_code == 200 and user_response.json():
                         reporter = user_response.json()[0]
-                        report['reporter_email'] = reporter.get('email')
-                        report['reporter_username'] = reporter.get('username')
-                
+                        report["reporter_email"] = reporter.get("email")
+                        report["reporter_username"] = reporter.get("username")
+
             return jsonify(reports), 200
         else:
-            return jsonify({'error': 'Failed to fetch reports'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch reports"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching reports: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/reports/<report_id>/resolve', methods=['POST'])
+
+@admin_bp.route("/reports/<report_id>/resolve", methods=["POST"])
 @admin_required
 def resolve_report(report_id):
     """Resolve a report"""
     try:
-        action = request.json.get('action')  # 'dismiss' or 'action_taken'
-        notes = request.json.get('notes', '')
-        
+        action = request.json.get("action")  # 'dismiss' or 'action_taken'
+        notes = request.json.get("notes", "")
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
         }
-        
+
         update_data = {
-            'status': 'resolved' if action == 'action_taken' else 'dismissed',
-            'resolved_at': 'now()',
-            'resolved_by': request.user_id,
-            'admin_notes': notes
+            "status": "resolved" if action == "action_taken" else "dismissed",
+            "resolved_at": "now()",
+            "resolved_by": request.user_id,
+            "admin_notes": notes,
         }
-        
+
         response = requests.patch(
             f"{SUPABASE_URL}/rest/v1/reports?id=eq.{report_id}",
             headers=headers,
             json=update_data,
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code in [200, 204]:
-            return jsonify({'message': 'Report resolved successfully'}), 200
+            return jsonify({"message": "Report resolved successfully"}), 200
         else:
-            return jsonify({'error': 'Failed to resolve report'}), response.status_code
-            
+            return jsonify({"error": "Failed to resolve report"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error resolving report: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
 
 # Dealer Management
-@admin_bp.route('/dealers', methods=['GET'])
+@admin_bp.route("/dealers", methods=["GET"])
 @admin_required
 def get_dealers():
     """Get all dealers and pending dealer verification requests"""
     try:
-        status = request.args.get('status')  # verified, pending, all
-        
+        status = request.args.get("status")  # verified, pending, all
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         query = f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=*&order=created_at.desc"
-        
-        if status == 'verified':
+
+        if status == "verified":
             query += "&dealer_verified=eq.true"
-        elif status == 'pending':
-            query += "&dealer_verified=eq.false&dealer_verification_requested_at=not.is.null"
-        
+        elif status == "pending":
+            query += (
+                "&dealer_verified=eq.false&dealer_verification_requested_at=not.is.null"
+            )
+
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             return jsonify(response.json()), 200
         else:
-            return jsonify({'error': 'Failed to fetch dealers'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch dealers"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching dealers: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/dealers/<user_id>/verify', methods=['POST'])
+
+@admin_bp.route("/dealers/<user_id>/verify", methods=["POST"])
 @admin_required
 def verify_dealer(user_id):
     """Verify a dealer"""
     try:
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
         }
-        
+
         update_data = {
-            'dealer_verified': True,
-            'dealer_verified_at': 'now()',
-            'dealer_verified_by': request.user_id
+            "dealer_verified": True,
+            "dealer_verified_at": "now()",
+            "dealer_verified_by": request.user_id,
         }
-        
+
         response = requests.patch(
             f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
             headers=headers,
             json=update_data,
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code in [200, 204]:
-            return jsonify({'message': 'Dealer verified successfully'}), 200
+            return jsonify({"message": "Dealer verified successfully"}), 200
         else:
-            return jsonify({'error': 'Failed to verify dealer'}), response.status_code
-            
+            return jsonify({"error": "Failed to verify dealer"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error verifying dealer: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/dealers/<user_id>/reject', methods=['POST'])
+
+@admin_bp.route("/dealers/<user_id>/reject", methods=["POST"])
 @admin_required
 def reject_dealer(user_id):
     """Reject dealer verification"""
     try:
-        reason = request.json.get('reason', '')
-        
+        reason = request.json.get("reason", "")
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
         }
-        
+
         update_data = {
-            'dealer_verified': False,
-            'dealer_verification_rejected_at': 'now()',
-            'dealer_verification_rejected_by': request.user_id,
-            'dealer_rejection_reason': reason
+            "dealer_verified": False,
+            "dealer_verification_rejected_at": "now()",
+            "dealer_verification_rejected_by": request.user_id,
+            "dealer_rejection_reason": reason,
         }
-        
+
         response = requests.patch(
             f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
             headers=headers,
             json=update_data,
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code in [200, 204]:
-            return jsonify({'message': 'Dealer verification rejected'}), 200
+            return jsonify({"message": "Dealer verification rejected"}), 200
         else:
-            return jsonify({'error': 'Failed to reject dealer'}), response.status_code
-            
+            return jsonify({"error": "Failed to reject dealer"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error rejecting dealer: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
 
 # User Management
-@admin_bp.route('/users', methods=['GET'])
+@admin_bp.route("/users", methods=["GET"])
 @admin_required
 def get_users():
     """Get all users"""
     try:
-        search = request.args.get('search', '')
-        
+        search = request.args.get("search", "")
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         query = f"{SUPABASE_URL}/rest/v1/users?select=*&order=created_at.desc"
-        
+
         if search:
             query += f"&or=(email.ilike.%{search}%,username.ilike.%{search}%,first_name.ilike.%{search}%,last_name.ilike.%{search}%)"
-        
+
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             return jsonify(response.json()), 200
         else:
-            return jsonify({'error': 'Failed to fetch users'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch users"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/users/<user_id>", methods=["DELETE"])
+@admin_required
+def delete_user(user_id):
+    """Delete a user (admin only)"""
+    try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        # First check if user exists
+        check_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=id,email",
+            headers=headers,
+            timeout=5,
+        )
+
+        if check_response.status_code != 200 or not check_response.json():
+            return jsonify({"error": "User not found"}), 404
+
+        user_data = check_response.json()[0]
+
+        # Delete from users table
+        delete_response = requests.delete(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}", headers=headers, timeout=5
+        )
+
+        if delete_response.status_code in [200, 204]:
+            logger.info(f"User {user_id} ({user_data.get('email')}) deleted by admin")
+            return jsonify({"message": "User deleted successfully"}), 200
+        else:
+            logger.error(
+                f"Failed to delete user {user_id}: {delete_response.status_code} - {delete_response.text}"
+            )
+            return jsonify(
+                {"error": "Failed to delete user"}
+            ), delete_response.status_code
+
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 # Specific listing type endpoints
-@admin_bp.route('/plates', methods=['GET'])
+@admin_bp.route("/plates", methods=["GET"])
 @admin_required
 def get_plates():
     """Get all license plate listings with user details"""
     try:
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         # Fetch plates
         query = f"{SUPABASE_URL}/rest/v1/license_plates?select=*&order=created_at.desc"
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             listings = response.json()
-            
+
             # Enhance with user info and images
             for listing in listings:
-                user_id = listing.get('user_id')
-                
+                user_id = listing.get("user_id")
+
                 # Fetch user details
                 if user_id:
                     user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
                     user_response = requests.get(user_query, headers=headers, timeout=5)
                     if user_response.status_code == 200 and user_response.json():
                         user_info = user_response.json()[0]
-                        listing['user_email'] = user_info.get('email', 'N/A')
-                        listing['user_name'] = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or 'Unknown'
-                        listing['contact_phone'] = user_info.get('phone') or listing.get('contact_phone', 'N/A')
+                        listing["user_email"] = user_info.get("email", "N/A")
+                        listing["user_name"] = (
+                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                            or "Unknown"
+                        )
+                        listing["contact_phone"] = user_info.get(
+                            "phone"
+                        ) or listing.get("contact_phone", "N/A")
                     else:
-                        listing['user_email'] = 'N/A'
-                        listing['user_name'] = 'Unknown'
-                        listing['contact_phone'] = listing.get('contact_phone', 'N/A')
-                
+                        listing["user_email"] = "N/A"
+                        listing["user_name"] = "Unknown"
+                        listing["contact_phone"] = listing.get("contact_phone", "N/A")
+
                 # Fetch images
                 img_query = f"{SUPABASE_URL}/rest/v1/plate_images?select=*&plate_id=eq.{listing['id']}"
                 img_response = requests.get(img_query, headers=headers, timeout=5)
                 if img_response.status_code == 200:
-                    listing['images'] = img_response.json()
+                    listing["images"] = img_response.json()
                 else:
-                    listing['images'] = []
-            
+                    listing["images"] = []
+
             return jsonify(listings), 200
         else:
-            return jsonify({'error': 'Failed to fetch plates'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch plates"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching plates: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/cars', methods=['GET'])
+
+@admin_bp.route("/cars", methods=["GET"])
 @admin_required
 def get_cars():
     """Get all car listings with user details"""
     try:
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         # Fetch cars
         query = f"{SUPABASE_URL}/rest/v1/cars?select=*&order=created_at.desc"
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             listings = response.json()
-            
+
             # Enhance with user info and images
             for listing in listings:
-                user_id = listing.get('user_id')
-                
+                user_id = listing.get("user_id")
+
                 # Fetch user details
                 if user_id:
                     user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
                     user_response = requests.get(user_query, headers=headers, timeout=5)
                     if user_response.status_code == 200 and user_response.json():
                         user_info = user_response.json()[0]
-                        listing['user_email'] = user_info.get('email', 'N/A')
-                        listing['user_name'] = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or 'Unknown'
-                        listing['car_owner_phone_number'] = user_info.get('phone') or listing.get('car_owner_phone_number', 'N/A')
+                        listing["user_email"] = user_info.get("email", "N/A")
+                        listing["user_name"] = (
+                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                            or "Unknown"
+                        )
+                        listing["car_owner_phone_number"] = user_info.get(
+                            "phone"
+                        ) or listing.get("car_owner_phone_number", "N/A")
                     else:
-                        listing['user_email'] = 'N/A'
-                        listing['user_name'] = 'Unknown'
-                        listing['car_owner_phone_number'] = listing.get('car_owner_phone_number', 'N/A')
-                
+                        listing["user_email"] = "N/A"
+                        listing["user_name"] = "Unknown"
+                        listing["car_owner_phone_number"] = listing.get(
+                            "car_owner_phone_number", "N/A"
+                        )
+
                 # Fetch images
                 img_query = f"{SUPABASE_URL}/rest/v1/car_images?select=*&car_id=eq.{listing['id']}"
                 img_response = requests.get(img_query, headers=headers, timeout=5)
@@ -608,205 +690,231 @@ def get_cars():
                     images = img_response.json()
                     # Ensure both url and image_url fields
                     for img in images:
-                        if 'url' in img and 'image_url' not in img:
-                            img['image_url'] = img['url']
-                    listing['images'] = images
+                        if "url" in img and "image_url" not in img:
+                            img["image_url"] = img["url"]
+                    listing["images"] = images
                 else:
-                    listing['images'] = []
-            
+                    listing["images"] = []
+
             return jsonify(listings), 200
         else:
-            return jsonify({'error': 'Failed to fetch cars'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch cars"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching cars: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/bikes', methods=['GET'])
+
+@admin_bp.route("/bikes", methods=["GET"])
 @admin_required
 def get_bikes():
     """Get all bike listings with user details"""
     try:
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         # Fetch bikes
         query = f"{SUPABASE_URL}/rest/v1/bikes?select=*&order=created_at.desc"
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             listings = response.json()
-            
+
             # Enhance with user info and images
             for listing in listings:
-                user_id = listing.get('user_id')
-                
+                user_id = listing.get("user_id")
+
                 # Fetch user details
                 if user_id:
                     user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
                     user_response = requests.get(user_query, headers=headers, timeout=5)
                     if user_response.status_code == 200 and user_response.json():
                         user_info = user_response.json()[0]
-                        listing['user_email'] = user_info.get('email', 'N/A')
-                        listing['user_name'] = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or 'Unknown'
-                        listing['contact_phone'] = user_info.get('phone') or listing.get('contact_phone', 'N/A')
+                        listing["user_email"] = user_info.get("email", "N/A")
+                        listing["user_name"] = (
+                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                            or "Unknown"
+                        )
+                        listing["contact_phone"] = user_info.get(
+                            "phone"
+                        ) or listing.get("contact_phone", "N/A")
                     else:
-                        listing['user_email'] = 'N/A'
-                        listing['user_name'] = 'Unknown'
-                        listing['contact_phone'] = listing.get('contact_phone', 'N/A')
-                
+                        listing["user_email"] = "N/A"
+                        listing["user_name"] = "Unknown"
+                        listing["contact_phone"] = listing.get("contact_phone", "N/A")
+
                 # Fetch images
                 img_query = f"{SUPABASE_URL}/rest/v1/bike_images?select=*&bike_id=eq.{listing['id']}"
                 img_response = requests.get(img_query, headers=headers, timeout=5)
                 if img_response.status_code == 200:
-                    listing['images'] = img_response.json()
+                    listing["images"] = img_response.json()
                 else:
-                    listing['images'] = []
-            
+                    listing["images"] = []
+
             return jsonify(listings), 200
         else:
-            return jsonify({'error': 'Failed to fetch bikes'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch bikes"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching bikes: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@admin_bp.route('/parts', methods=['GET'])
+
+@admin_bp.route("/parts", methods=["GET"])
 @admin_required
 def get_parts():
     """Get all car parts listings with user details"""
     try:
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         # Fetch parts
         query = f"{SUPABASE_URL}/rest/v1/car_parts?select=*&order=created_at.desc"
         response = requests.get(query, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             listings = response.json()
-            
+
             # Enhance with user info and images
             for listing in listings:
-                user_id = listing.get('user_id')
-                
+                user_id = listing.get("user_id")
+
                 # Fetch user details
                 if user_id:
                     user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
                     user_response = requests.get(user_query, headers=headers, timeout=5)
                     if user_response.status_code == 200 and user_response.json():
                         user_info = user_response.json()[0]
-                        listing['user_email'] = user_info.get('email', 'N/A')
-                        listing['user_name'] = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or 'Unknown'
-                        listing['contact_phone'] = user_info.get('phone') or listing.get('contact_phone', 'N/A')
+                        listing["user_email"] = user_info.get("email", "N/A")
+                        listing["user_name"] = (
+                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                            or "Unknown"
+                        )
+                        listing["contact_phone"] = user_info.get(
+                            "phone"
+                        ) or listing.get("contact_phone", "N/A")
                     else:
-                        listing['user_email'] = 'N/A'
-                        listing['user_name'] = 'Unknown'
-                        listing['contact_phone'] = listing.get('contact_phone', 'N/A')
-                
+                        listing["user_email"] = "N/A"
+                        listing["user_name"] = "Unknown"
+                        listing["contact_phone"] = listing.get("contact_phone", "N/A")
+
                 # Fetch images
                 img_query = f"{SUPABASE_URL}/rest/v1/part_images?select=*&part_id=eq.{listing['id']}"
                 img_response = requests.get(img_query, headers=headers, timeout=5)
                 if img_response.status_code == 200:
-                    listing['images'] = img_response.json()
+                    listing["images"] = img_response.json()
                 else:
-                    listing['images'] = []
-            
+                    listing["images"] = []
+
             return jsonify(listings), 200
         else:
-            return jsonify({'error': 'Failed to fetch parts'}), response.status_code
-            
+            return jsonify({"error": "Failed to fetch parts"}), response.status_code
+
     except Exception as e:
         logger.error(f"Error fetching parts: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # Analytics and Stats
-@admin_bp.route('/stats', methods=['GET'])
+@admin_bp.route("/stats", methods=["GET"])
 @admin_required
 def get_stats():
     """Get overall statistics for admin dashboard"""
     try:
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         stats = {}
-        
+
         # Get total views across all listing types
-        for table, label in [('cars', 'cars'), ('bikes', 'bikes'), ('license_plates', 'plates'), ('car_parts', 'parts')]:
+        for table, label in [
+            ("cars", "cars"),
+            ("bikes", "bikes"),
+            ("license_plates", "plates"),
+            ("car_parts", "parts"),
+        ]:
             query = f"{SUPABASE_URL}/rest/v1/{table}?select=view_count"
             response = requests.get(query, headers=headers, timeout=5)
-            
+
             if response.status_code == 200:
                 listings = response.json()
-                total_views = sum(listing.get('view_count', 0) or 0 for listing in listings)
-                stats[f'{label}_total_views'] = total_views
-                stats[f'{label}_count'] = len(listings)
-        
+                total_views = sum(
+                    listing.get("view_count", 0) or 0 for listing in listings
+                )
+                stats[f"{label}_total_views"] = total_views
+                stats[f"{label}_count"] = len(listings)
+
         # Get dealer stats
-        dealer_query = f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=dealer_verified"
+        dealer_query = (
+            f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=dealer_verified"
+        )
         dealer_response = requests.get(dealer_query, headers=headers, timeout=5)
-        
+
         if dealer_response.status_code == 200:
             dealers = dealer_response.json()
-            stats['total_dealers'] = len(dealers)
-            stats['verified_dealers'] = sum(1 for d in dealers if d.get('dealer_verified'))
-        
+            stats["total_dealers"] = len(dealers)
+            stats["verified_dealers"] = sum(
+                1 for d in dealers if d.get("dealer_verified")
+            )
+
         # Get report stats
         report_query = f"{SUPABASE_URL}/rest/v1/reports?select=status"
         report_response = requests.get(report_query, headers=headers, timeout=5)
-        
+
         if report_response.status_code == 200:
             reports = report_response.json()
-            stats['total_reports'] = len(reports)
-            stats['pending_reports'] = sum(1 for r in reports if r.get('status') == 'pending')
-        
+            stats["total_reports"] = len(reports)
+            stats["pending_reports"] = sum(
+                1 for r in reports if r.get("status") == "pending"
+            )
+
         return jsonify(stats), 200
-        
+
     except Exception as e:
         logger.error(f"Error fetching stats: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
 
 # View tracking endpoint
-@admin_bp.route('/views/<listing_type>/<listing_id>', methods=['GET'])
+@admin_bp.route("/views/<listing_type>/<listing_id>", methods=["GET"])
 @admin_required
 def get_listing_views(listing_type, listing_id):
     """Get view count for a specific listing"""
     try:
         table_map = {
-            'cars': 'cars',
-            'bikes': 'bikes',
-            'plates': 'license_plates',
-            'parts': 'car_parts'
+            "cars": "cars",
+            "bikes": "bikes",
+            "plates": "license_plates",
+            "parts": "car_parts",
         }
-        
+
         table = table_map.get(listing_type)
         if not table:
-            return jsonify({'error': 'Invalid listing type'}), 400
-        
+            return jsonify({"error": "Invalid listing type"}), 400
+
         headers = {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
-            'Content-Type': 'application/json'
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         query = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{listing_id}&select=view_count,last_viewed_at"
         response = requests.get(query, headers=headers, timeout=5)
-        
+
         if response.status_code == 200 and response.json():
             return jsonify(response.json()[0]), 200
         else:
-            return jsonify({'error': 'Listing not found'}), 404
-            
+            return jsonify({"error": "Listing not found"}), 404
+
     except Exception as e:
         logger.error(f"Error fetching view count: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500

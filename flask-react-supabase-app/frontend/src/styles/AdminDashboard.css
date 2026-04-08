@@ -890,6 +890,206 @@
   color: #ffd5d7;
 }
 
+.admin-dashboard .user-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.admin-dashboard .user-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.admin-dashboard .user-badge.verified {
+  background-color: rgba(116, 197, 122, 0.15);
+  color: #a7f3b1;
+}
+
+.admin-dashboard .user-badge.dealer {
+  background-color: rgba(244, 180, 49, 0.15);
+  color: #ffd68d;
+}
+
+.admin-dashboard .user-badge.admin {
+  background-color: rgba(167, 35, 35, 0.15);
+  color: #ffaaaa;
+}
+
+.admin-dashboard .listing-dealer-badge {
+  margin-top: 8px;
+}
+
+.admin-dashboard .dealer-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background-color: rgba(244, 180, 49, 0.2);
+  color: #ffd68d;
+  border: 1px solid rgba(244, 180, 49, 0.4);
+}
+
+/* User Card Styles */
+.admin-dashboard .users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.admin-dashboard .user-card {
+  background: rgba(22, 33, 27, 0.9);
+  border: 1px solid rgba(177, 198, 186, 0.12);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.admin-dashboard .user-card:hover {
+  border-color: rgba(177, 198, 186, 0.24);
+  transform: translateY(-2px);
+}
+
+.admin-dashboard .user-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-dashboard .user-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e4e25 0%, #2d6a3f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.admin-dashboard .user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-dashboard .user-avatar span {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.admin-dashboard .user-card-header-info {
+  min-width: 0;
+}
+
+.admin-dashboard .user-card-header-info h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #eff4f1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-dashboard .user-email {
+  font-size: 13px;
+  color: rgba(220, 228, 223, 0.74);
+}
+
+.admin-dashboard .user-card-body {
+  margin-bottom: 16px;
+}
+
+.admin-dashboard .user-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(177, 198, 186, 0.08);
+}
+
+.admin-dashboard .user-info-label {
+  font-size: 13px;
+  color: rgba(220, 228, 223, 0.74);
+}
+
+.admin-dashboard .user-info-value {
+  font-size: 13px;
+  color: #eff4f1;
+  font-weight: 500;
+}
+
+.admin-dashboard .user-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.admin-dashboard .user-status-badge.active {
+  background-color: rgba(116, 197, 122, 0.15);
+  color: #a7f3b1;
+}
+
+.admin-dashboard .user-status-badge.suspended {
+  background-color: rgba(244, 63, 94, 0.15);
+  color: #fda4af;
+}
+
+.admin-dashboard .user-card-body .user-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-dashboard .user-card-body .user-badge {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.admin-dashboard .user-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-dashboard .user-delete-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: rgba(244, 63, 94, 0.15);
+  color: #fda4af;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-dashboard .user-delete-btn:hover:not(:disabled) {
+  background-color: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.5);
+}
+
+.admin-dashboard .user-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .admin-dashboard {
     padding: 0 16px;
@@ -905,5 +1105,11 @@
 
   .admin-dashboard .listings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard .users-grid {
+    grid-template-columns: 1fr;
+  }
+}
   }
 }

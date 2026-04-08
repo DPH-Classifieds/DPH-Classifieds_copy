@@ -100,33 +100,82 @@ const PostBike = () => {
     }
   };
 
-  const handleImageChange = (e) => {
+  const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+  const MAX_IMAGES = 10;
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previewImages, setPreviewImages] = useState([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const processFiles = (files) => {
+    const validFiles = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (selectedFiles.length + validFiles.length >= MAX_IMAGES) {
+        setError(`Maximum ${MAX_IMAGES} images allowed`);
+        break;
+      }
+      if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+        setError(`Invalid file type: ${file.name}. Supported: JPG, PNG, WEBP, GIF`);
+        continue;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setError(`File too large: ${file.name}. Max size: 5MB`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+    return validFiles;
+  };
+
+  const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...files]
-    }));
+    const validFiles = processFiles(files);
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+      setPreviewImages(prev => [...prev, ...newPreviews]);
+    }
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    const validFiles = processFiles(files);
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+      setPreviewImages(prev => [...prev, ...newPreviews]);
+    }
   };
 
   const removeImage = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const uploadImages = async () => {
-    if (!formData.images.length) {
-      return [];
+    if (selectedFiles.length === 0) {
+      throw new Error('At least one image is required');
     }
-
-    const imageFormData = new FormData();
-    formData.images.forEach((imageFile) => {
-      imageFormData.append('images', imageFile);
+    const uploadFormData = new FormData();
+    selectedFiles.forEach(file => {
+      uploadFormData.append('images', file);
     });
-
-    const uploadResponse = await apiClient.post('/api/upload-images', imageFormData);
-    return Array.isArray(uploadResponse?.urls) ? uploadResponse.urls : [];
+    const response = await apiClient.post('/api/upload-images', uploadFormData);
+    return response.urls || [];
   };
 
   const handleSubmit = async (e) => {
@@ -138,18 +187,20 @@ const PostBike = () => {
       setShowAuthModal(true);
       return;
     }
+
+    if (selectedFiles.length === 0) {
+      setError('Please upload at least one image');
+      setIsSubmitting(false);
+      return;
+    }
     
     setIsSubmitting(true);
     setError(null);
     
     try {
-      if (!formData.images.length) {
-        setError('At least one motorcycle image is required.');
-        setIsSubmitting(false);
-        return;
-      }
-
+      // First upload images
       const imageUrls = await uploadImages();
+      
       if (!imageUrls.length) {
         setError('Failed to upload bike images. Please try again.');
         setIsSubmitting(false);
@@ -190,6 +241,7 @@ const PostBike = () => {
       // Navigate after success message is shown
       setTimeout(() => {
         navigate('/my-listings');
+      }, 2000);
       }, 2000);
     } catch (err) {
       console.error('API submission error:', err);
@@ -642,31 +694,23 @@ const PostBike = () => {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Are you a dealer?</label>
-              <div className="radio-group" style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
-                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <div className="dealer-toggle" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                <label className="toggle-switch" style={{ position: 'relative', display: 'inline-block', width: '52px', height: '28px' }}>
                   <input
-                    type="radio"
-                    name="is_dealer"
-                    value="yes"
+                    type="checkbox"
                     checked={formData.is_dealer === true}
-                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: true }))}
-                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_dealer: e.target.checked }))}
+                    style={{ opacity: 0, width: 0, height: 0 }}
                   />
-                  <span>Yes</span>
+                  <span className="toggle-slider" style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: formData.is_dealer ? '#4CAF50' : '#ccc', transition: '0.3s', borderRadius: '28px' }}>
+                    <span style={{ position: 'absolute', content: '', height: '22px', width: '22px', left: formData.is_dealer ? '27px' : '3px', bottom: '3px', backgroundColor: 'white', transition: '0.3s', borderRadius: '50%' }}></span>
+                  </span>
                 </label>
-                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="is_dealer"
-                    value="no"
-                    checked={formData.is_dealer === false}
-                    onChange={() => setFormData(prev => ({ ...prev, is_dealer: false }))}
-                    style={{ marginRight: '8px', cursor: 'pointer' }}
-                  />
-                  <span>No</span>
-                </label>
+                <span style={{ fontSize: '14px', color: formData.is_dealer ? '#4CAF50' : '#666', fontWeight: formData.is_dealer ? '600' : '400' }}>
+                  {formData.is_dealer ? 'Yes, I am a dealer' : 'No, I am a private seller'}
+                </span>
               </div>
-              <small className="form-text text-muted">Select "Yes" if you are posting this listing as a bike dealer</small>
+              <small className="form-text text-muted">Toggle to indicate if you are posting this listing as a bike dealer</small>
             </div>
           </div>
         </div>
@@ -676,38 +720,48 @@ const PostBike = () => {
           <p className="form-note">Upload clear images of your bike. Include different angles, close-ups of any modifications, and any damage or wear.</p>
           
           <div className="image-upload-container">
-            <label className="image-upload-label">
-              <span>Select Images</span>
-              <input
-                type="file"
-                multiple
-                accept=".jpg,.jpeg,.png,.webp,.gif"
-                onChange={handleImageChange}
-                className="image-upload-input"
-              />
-            </label>
-            
-            <div className="image-preview-container">
-              {formData.images.length > 0 ? (
-                formData.images.map((image, index) => (
-                  <div key={index} className="image-preview-item">
-                    <img 
-                      src={URL.createObjectURL(image)} 
-                      alt={`Preview ${index}`} 
-                      className="image-preview"
-                    />
-                    <button 
-                      type="button" 
-                      className="remove-image-btn"
-                      onClick={() => removeImage(index)}
-                    >
-                      ✕
-                    </button>
+            <div 
+              className={`image-upload-container ${isDragOver ? 'drag-over' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="upload-area">
+                <div className="upload-icon" aria-hidden="true"></div>
+                <h4>Drag & Drop Images Here</h4>
+                <p>or</p>
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.gif"
+                  multiple
+                  onChange={handleFileChange}
+                  className="file-input"
+                  required
+                />
+                <button type="button" className="browse-btn">
+                  Browse Files
+                </button>
+                <p className="upload-hint">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
+              </div>
+              
+              {previewImages.length > 0 && (
+                <div className="image-previews mt-3">
+                  <div className="row">
+                    {previewImages.map((preview, index) => (
+                      <div className="col-md-3 mb-2" key={index}>
+                        <div className="preview-thumbnail">
+                          <img src={preview} alt={`Preview ${index + 1}`} className="img-thumbnail" />
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-danger remove-image"
+                            onClick={() => removeImage(index)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))
-              ) : (
-                <div className="no-images-message">
-                  No images selected
                 </div>
               )}
             </div>

@@ -10,6 +10,7 @@ const AdminDashboard = () => {
   const [listings, setListings] = useState([]);
   const [reports, setReports] = useState([]);
   const [dealers, setDealers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +60,19 @@ const AdminDashboard = () => {
             console.error('Unexpected response format:', response);
             setDealers([]);
           }
+        } else if (activeTab === 'users') {
+          // Fetch users
+          console.log('Fetching users...');
+          const response = await apiClient.get('/api/admin/users');
+          console.log('Users received:', response);
+          
+          if (Array.isArray(response)) {
+            console.log(`Received ${response.length} users`);
+            setUsers(response);
+          } else {
+            console.error('Unexpected response format:', response);
+            setUsers([]);
+          }
         } else {
           // Fetch listings
           let endpoint = '';
@@ -101,6 +115,8 @@ const AdminDashboard = () => {
           setReports([]);
         } else if (activeTab === 'dealers') {
           setDealers([]);
+        } else if (activeTab === 'users') {
+          setUsers([]);
         } else {
           setListings([]);
         }
@@ -221,6 +237,44 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error(`Error rejecting ${type}:`, error);
       setError(`Failed to reject ${type}: ${error.message || 'Unknown error'}`);
+      
+      // Clear error message after 3 seconds
+      setTimeout(() => {
+        setError('');
+      }, 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId, userEmail) => {
+    try {
+      if (!window.confirm(`Are you sure you want to permanently delete user "${userEmail}"? This action cannot be undone.`)) {
+        return;
+      }
+      
+      console.log(`Deleting user with ID: ${userId}`);
+      setIsLoading(true);
+      
+      // Make the delete request
+      const response = await apiClient.delete(`/api/admin/users/${userId}`);
+      console.log('Delete user response:', response);
+      
+      // Show success message
+      setSuccessMessage('User deleted successfully');
+      
+      // Real-time update: Remove user from list immediately
+      setUsers(prevUsers => 
+        prevUsers.filter(user => user.id !== userId)
+      );
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setError(`Failed to delete user: ${error.message || 'Unknown error'}`);
       
       // Clear error message after 3 seconds
       setTimeout(() => {
@@ -486,6 +540,12 @@ const AdminDashboard = () => {
           onClick={() => setActiveTab('dealers')}
         >
           Dealers
+        </button>
+        <button 
+          className={activeTab === 'users' ? 'active' : ''} 
+          onClick={() => setActiveTab('users')}
+        >
+          Users
         </button>
       </div>
       
@@ -793,6 +853,115 @@ const AdminDashboard = () => {
               </>
             )}
           </>
+        ) : activeTab === 'users' ? (
+          <div className="admin-users">
+            <h2>User Management</h2>
+            {loading ? (
+              <LoadingSpinner message="Loading users..." size="large" />
+            ) : (
+              <div>
+                <div className="listings-stats">
+                  <div className="stat-item">
+                    <span className="stat-value">{users.length}</span>
+                    <span className="stat-label">Total Users</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {users.filter(u => u.email_verified).length}
+                    </span>
+                    <span className="stat-label">Verified Emails</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {users.filter(u => u.phone_verified).length}
+                    </span>
+                    <span className="stat-label">Verified Phones</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {users.filter(u => u.is_dealer).length}
+                    </span>
+                    <span className="stat-label">Dealers</span>
+                  </div>
+                </div>
+
+                <div className="listings-filter">
+                  <h3>All Users ({users.length})</h3>
+                  {users.length === 0 && (
+                    <p className="no-listings">No users found.</p>
+                  )}
+                  <div className="users-grid">
+                    {users.map(user => (
+                      <div key={user.id} className="user-card">
+                        <div className="user-card-header">
+                          <div className="user-avatar">
+                            {user.profile_photo_url ? (
+                              <img src={user.profile_photo_url} alt="User" />
+                            ) : (
+                              <span>{(user.first_name || user.email || 'U').charAt(0).toUpperCase()}</span>
+                            )}
+                          </div>
+                          <div className="user-card-header-info">
+                            <h4>
+                              {user.first_name && user.last_name 
+                                ? `${user.first_name} ${user.last_name}`
+                                : user.email.split('@')[0]
+                              }
+                            </h4>
+                            <span className="user-email">{user.email}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="user-card-body">
+                          <div className="user-info-row">
+                            <span className="user-info-label">Phone:</span>
+                            <span className="user-info-value">{user.phone || 'Not provided'}</span>
+                          </div>
+                          <div className="user-info-row">
+                            <span className="user-info-label">Joined:</span>
+                            <span className="user-info-value">{new Date(user.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <div className="user-info-row">
+                            <span className="user-info-label">Status:</span>
+                            <span className={`user-status-badge ${user.account_status || 'active'}`}>
+                              {user.account_status || 'active'}
+                            </span>
+                          </div>
+                          
+                          <div className="user-badges">
+                            {user.email_verified && (
+                              <span className="user-badge verified">✓ Email</span>
+                            )}
+                            {user.phone_verified && (
+                              <span className="user-badge verified">✓ Phone</span>
+                            )}
+                            {user.is_dealer && (
+                              <span className="user-badge dealer">🏪 Dealer</span>
+                            )}
+                            {user.is_admin && (
+                              <span className="user-badge admin">⚡ Admin</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="user-card-actions">
+                          {!user.is_admin && (
+                            <button 
+                              className="user-delete-btn"
+                              onClick={() => handleDeleteUser(user.id, user.email)}
+                              disabled={isLoading}
+                            >
+                              🗑️ Delete User
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <>
             <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Listings</h2>
@@ -871,6 +1040,11 @@ const AdminDashboard = () => {
                           <p className="listing-email">
                             <strong>Email:</strong> {listing.user_email || 'N/A'}
                           </p>
+                          {listing.is_dealer === true && (
+                            <p className="listing-dealer-badge">
+                              <span className="dealer-badge">Dealer Listing</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="listing-actions">

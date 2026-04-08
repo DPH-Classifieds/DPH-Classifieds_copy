@@ -3,43 +3,21 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import './CarDetailRedesigned.css';
-
-const DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/1200x800/0b1c12/a2e4a6?text=Image+Not+Available';
-const UAE_CITY_COORDINATES = {
-  'abu dhabi': [24.4539, 54.3773],
-  dubai: [25.2048, 55.2708],
-  sharjah: [25.3463, 55.4209],
-  ajman: [25.4052, 55.5136],
-  'umm al quwain': [25.5647, 55.5552],
-  'ras al khaimah': [25.7895, 55.9432],
-  fujairah: [25.1288, 56.3265]
-};
 
-const CarDetail = () => {
+const BikeDetailRedesigned = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [car, setCar] = useState(null);
+  const [bike, setBike] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [loanCalculator, setLoanCalculator] = useState({
-    carPrice: 0,
+    bikePrice: 0,
     downPayment: 0,
     loanTerm: 5,
     interestRate: 3.5
@@ -53,61 +31,71 @@ const CarDetail = () => {
   });
 
   useEffect(() => {
-    const fetchCarDetails = async () => {
+    const fetchBikeDetails = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         let response;
         try {
-          response = await axios.get(`${API_URL}/api/cars/${id}`);
+          response = await axios.get(`${API_URL}/api/bikes/${id}`);
         } catch (e) {
           response = {
             data: {
               id: id,
-              listing_title: "2020 Toyota Camry LE",
-              car_manufacturer: "Toyota",
-              car_model: "Camry",
+              listing_title: "2020 Kawasaki Ninja 400",
+              make: "Kawasaki",
+              bike_brand: "Kawasaki",
+              model: "Ninja 400",
+              year: 2020,
               make_year: 2020,
-              expected_selling_price: 25000,
-              car_city: "Dubai",
-              trim: "LE",
-              mileage: 35000,
-              fuel_type: "Gasoline",
-              transmission: "Automatic",
-              color: "Silver",
-              interior_color: "Black",
-              engine: "2.5L 4-Cylinder",
-              car_description: "Well-maintained Toyota Camry LE with low mileage. Features include backup camera, Bluetooth connectivity, keyless entry, and power windows/locks. One owner, no accidents.",
+              price: 25000,
+              bike_type: "Sport",
+              engine_size: "400cc",
+              engine_capacity: "400cc",
+              cylinders: 4,
+              wheels: 2,
+              kilometer_driven: 35000,
+              color: "Green",
+              location: "Dubai",
               contact_phone: "555-123-4567",
+              contact_name: "John Doe",
+              user_email: "john@example.com",
+              description: "Well-maintained sports bike with low mileage. Perfect for both city riding and weekend trips. Recently serviced with new tires and brakes.",
+              features: [
+                "Anti-lock braking system",
+                "Digital dashboard",
+                "LED headlights",
+                "USB charging port"
+              ],
               country_code: "+971",
               images: []
             }
           };
         }
-        
-        setCar(response.data);
-        
-        const price = response.data.expected_selling_price || 0;
+
+        setBike(response.data);
+
+        const price = response.data.price || response.data.expected_selling_price || 0;
         setLoanCalculator(prev => ({
           ...prev,
-          carPrice: price,
+          bikePrice: price,
           downPayment: Math.round(price * 0.2)
         }));
       } catch (err) {
-        console.error('Error fetching car details:', err);
-        setError('Failed to load car details. Please try again later.');
+        console.error('Error fetching bike details:', err);
+        setError('Failed to load bike details. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
-    
-    fetchCarDetails();
+
+    fetchBikeDetails();
   }, [id]);
 
   useEffect(() => {
-    const { carPrice, downPayment, loanTerm, interestRate } = loanCalculator;
-    const principal = carPrice - downPayment;
+    const { bikePrice, downPayment, loanTerm, interestRate } = loanCalculator;
+    const principal = bikePrice - downPayment;
     const monthlyRate = interestRate / 100 / 12;
     const numberOfPayments = loanTerm * 12;
 
@@ -162,16 +150,16 @@ const CarDetail = () => {
   };
 
   const formatWhatsappNumber = () => {
-    const countryCode = (car?.country_code || '+971').replace('+', '');
-    const phone = (car?.car_owner_phone_number || car?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
+    const countryCode = (bike?.country_code || '+971').replace('+', '');
+    const phone = (bike?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
     return `${countryCode}${phone}`;
   };
 
   const getGalleryImages = () => {
-    if (!car?.images?.length) {
+    if (!bike?.images?.length) {
       return [];
     }
-    return car.images
+    return bike.images
       .map((image) => image?.image_url || image?.url || null)
       .filter(Boolean)
       .map((imageUrl) => (imageUrl.startsWith('/') ? `${API_URL}${imageUrl}` : imageUrl));
@@ -184,37 +172,31 @@ const CarDetail = () => {
   };
 
   const getDisplayTitle = () => {
-    const composed = [car?.make_year, car?.car_manufacturer, car?.car_model, car?.trim]
+    const composed = [bike?.make_year, bike?.make || bike?.bike_brand, bike?.model || bike?.bike_model]
       .filter(Boolean)
       .join(' ')
       .trim();
-    return composed || car?.listing_title || 'Untitled listing';
+    return composed || bike?.listing_title || 'Untitled listing';
   };
 
   const getLocationMapConfig = () => {
-    const lat = Number.parseFloat(car?.latitude);
-    const lng = Number.parseFloat(car?.longitude);
-
-    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-      return {
-        center: [lat, lng],
-        zoom: 13,
-        approximate: false
-      };
-    }
-
-    const normalizedCity = (car?.car_city || '').trim().toLowerCase();
-    const fallbackCenter = UAE_CITY_COORDINATES[normalizedCity];
-
-    if (fallbackCenter) {
-      return {
-        center: fallbackCenter,
-        zoom: 10,
-        approximate: true
-      };
-    }
-
-    return null;
+    const normalizedLocation = (bike?.location || '').trim().toLowerCase();
+    const cityCoordinates = {
+      'abu dhabi': [24.4539, 54.3773],
+      dubai: [25.2048, 55.2708],
+      sharjah: [25.3463, 55.4209],
+      ajman: [25.4052, 55.5136],
+      'umm al quwain': [25.5647, 55.5552],
+      'ras al khaimah': [25.7095, 55.9748],
+      fujairah: [25.1288, 56.3265]
+    };
+    
+    const coords = cityCoordinates[normalizedLocation] || [25.2048, 55.2708];
+    return {
+      center: coords,
+      zoom: 10,
+      approximate: !cityCoordinates[normalizedLocation]
+    };
   };
 
   const goBack = () => {
@@ -222,7 +204,7 @@ const CarDetail = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Loading car details..." size="large" />;
+    return <LoadingSpinner message="Loading bike details..." size="large" />;
   }
 
   if (error) {
@@ -235,12 +217,12 @@ const CarDetail = () => {
     );
   }
 
-  if (!car) {
+  if (!bike) {
     return (
       <div className="cd-error-container">
-        <h2>Car Not Found</h2>
-        <p>The car listing you're looking for doesn't exist or has been removed.</p>
-        <Link to="/cars" className="cd-back-button">Back to Listings</Link>
+        <h2>Bike Not Found</h2>
+        <p>The bike listing you're looking for doesn't exist or has been removed.</p>
+        <Link to="/bikes" className="cd-back-button">Back to Listings</Link>
       </div>
     );
   }
@@ -254,11 +236,11 @@ const CarDetail = () => {
         <nav className="cd-breadcrumb">
           <Link to="/">Home</Link>
           <span>/</span>
-          <Link to="/cars">Cars</Link>
+          <Link to="/bikes">Motorcycles</Link>
           <span>/</span>
-          <span>{car?.car_manufacturer || 'Make'}</span>
+          <span>{bike?.make || 'Make'}</span>
           <span>/</span>
-          <span className="cd-breadcrumb-current">{car?.car_model || 'Model'}</span>
+          <span className="cd-breadcrumb-current">{bike?.model || 'Model'}</span>
         </nav>
 
         <div className="cd-title-block">
@@ -269,21 +251,21 @@ const CarDetail = () => {
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                 <circle cx="12" cy="10" r="3"/>
               </svg>
-              {car?.car_city || 'UAE'}
+              {bike?.location || 'UAE'}
             </span>
             <span className="cd-meta-item">
               <svg className="cd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
               </svg>
-              Posted {car?.created_at ? new Date(car.created_at).toLocaleDateString() : 'Recently'}
+              Posted {bike?.created_at ? new Date(bike.created_at).toLocaleDateString() : 'Recently'}
             </span>
             <span className="cd-meta-item">
               <svg className="cd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
                 <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
               </svg>
-              Ref: {car?.id?.slice(0, 8) || 'N/A'}
+              Ref: {bike?.id?.slice(0, 8) || 'N/A'}
             </span>
           </div>
         </div>
@@ -333,7 +315,7 @@ const CarDetail = () => {
                 <h3 className="cd-section-title">Description</h3>
               </div>
               <div className="cd-description">
-                {car?.car_description || 'No description provided.'}
+                {bike?.description || 'No description provided.'}
               </div>
             </div>
           </div>
@@ -341,20 +323,17 @@ const CarDetail = () => {
           <aside className="cd-hero-right">
             <div className="cd-price-card">
               <span className="cd-price-label">Listed Price</span>
-              <div className="cd-price-value">{formatPrice(car?.expected_selling_price)}</div>
+              <div className="cd-price-value">{formatPrice(bike?.price || bike?.expected_selling_price)}</div>
               <div className="cd-price-usd">
-                ≈ USD {(car?.expected_selling_price / 3.67).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                ≈ USD {(bike?.price || bike?.expected_selling_price || 0 / 3.67).toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </div>
-              
+
               <div className="cd-badges">
-                {car?.regional_spec && (
-                  <span className="cd-badge cd-badge-success">GCC Specs</span>
+                {bike?.wheels && (
+                  <span className="cd-badge cd-badge-success">{bike.wheels} Wheels</span>
                 )}
-                {car?.is_insured && (
-                  <span className="cd-badge cd-badge-info">Insured</span>
-                )}
-                {car?.imported && (
-                  <span className="cd-badge cd-badge-warning">Imported</span>
+                {bike?.cylinders && (
+                  <span className="cd-badge cd-badge-info">{bike.cylinders} Cylinders</span>
                 )}
               </div>
 
@@ -362,7 +341,7 @@ const CarDetail = () => {
 
               <div className="cd-cta-buttons">
                 <a 
-                  href={`tel:${car?.country_code || ''}${car?.car_owner_phone_number || car?.contact_phone}`} 
+                  href={`tel:${bike?.country_code || ''}${bike?.contact_phone}`} 
                   className="cd-button cd-button-primary"
                 >
                   Call Seller
@@ -380,22 +359,19 @@ const CarDetail = () => {
 
             <div className="cd-seller-card">
               <div className="cd-seller-avatar">
-                {car?.seller_profile_photo ? (
+                {bike?.seller_profile_photo ? (
                   <img 
-                    src={car.seller_profile_photo} 
+                    src={bike.seller_profile_photo} 
                     alt="Seller" 
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (car?.dealer_name || car?.contact_name || '').charAt(0).toUpperCase()
+                  (bike?.contact_name || bike?.user_email || '').charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {car?.dealer_name || car?.contact_name || 'Private Seller'}
-                  {car?.dealer_verified && (
-                    <span className="cd-verified-badge">✓</span>
-                  )}
+                  {bike?.contact_name || 'Private Seller'}
                 </div>
               </div>
               <div className="cd-divider"></div>
@@ -404,7 +380,7 @@ const CarDetail = () => {
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                   <circle cx="12" cy="10" r="3"/>
                 </svg>
-                {car?.car_city || 'UAE'}
+                {bike?.location || 'UAE'}
               </div>
             </div>
           </aside>
@@ -414,35 +390,20 @@ const CarDetail = () => {
           <div className="cd-content-left">
             <div className="cd-card">
               <div className="cd-section-header">
-                <h3 className="cd-section-title">VIN / Chassis Number</h3>
-              </div>
-              <div className="cd-vin-block">
-                <span className="cd-vin-label">Vehicle Identification Number</span>
-                <div className="cd-vin-value">{car?.vin_number || 'Not provided'}</div>
-              </div>
-            </div>
-
-            <div className="cd-card">
-              <div className="cd-section-header">
-                <h3 className="cd-section-title">Car Specifications</h3>
+                <h3 className="cd-section-title">Bike Specifications</h3>
               </div>
               <div className="cd-specs-list">
                 {[
-                  ['Make', car?.car_manufacturer],
-                  ['Model', car?.car_model],
-                  ['Year', car?.make_year],
-                  ['Trim', car?.trim || 'N/A'],
-                  ['Body Type', car?.body_type || 'N/A'],
-                  ['Color', car?.color || 'N/A'],
-                  ['Mileage', formatKilometers(car?.kilometer_driven)],
-                  ['Fuel Type', car?.fuel_type || 'N/A'],
-                  ['Transmission', car?.transmission_type || 'N/A'],
-                  ['Cylinders', car?.cylinders || 'N/A'],
-                  ['Horsepower', car?.horsepower || 'N/A'],
-                  ['Doors', car?.doors || 'N/A'],
-                  ['Regional Specs', car?.regional_spec || 'N/A'],
-                  ['Warranty', car?.warranty || 'N/A'],
-                  ['Service History', car?.service_history || 'N/A']
+                  ['Make', bike?.make || bike?.bike_brand],
+                  ['Model', bike?.model || bike?.bike_model],
+                  ['Year', bike?.make_year],
+                  ['Type', bike?.bike_type || bike?.bike_category],
+                  ['Engine Size', bike?.engine_size || bike?.engine_capacity],
+                  ['Cylinders', bike?.cylinders || 'N/A'],
+                  ['Wheels', bike?.wheels || 'N/A'],
+                  ['Mileage', formatKilometers(bike?.kilometer_driven)],
+                  ['Color', bike?.color || 'N/A'],
+                  ['Regional Specs', 'GCC Spec']
                 ].map(([label, value]) => (
                   <div key={label} className="cd-spec-row">
                     <span className="cd-spec-label">{label}</span>
@@ -456,18 +417,18 @@ const CarDetail = () => {
               <div className="cd-section-header">
                 <h3 className="cd-section-title">Extras & Features</h3>
               </div>
-              {car?.extras && car.extras.length > 0 ? (
+              {bike?.features && bike.features.length > 0 ? (
                 <div className="cd-extras-grid">
-                  {car.extras.map((extra, index) => (
+                  {bike.features.map((feature, index) => (
                     <div key={index} className="cd-extra-item">
                       <span className="cd-extra-dot"></span>
-                      {extra}
+                      {feature}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="cd-empty-state">
-                  No extras were listed for this vehicle.
+                  No features were listed for this motorcycle.
                 </div>
               )}
             </div>
@@ -483,7 +444,7 @@ const CarDetail = () => {
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                   <circle cx="12" cy="10" r="3"/>
                 </svg>
-                <span>{car?.car_city || 'UAE'}</span>
+                <span>{bike?.location || 'UAE'}</span>
               </div>
               <div className="cd-location-subtitle">
                 {locationMapConfig?.approximate 
@@ -493,7 +454,7 @@ const CarDetail = () => {
               </div>
               <div className="cd-map-placeholder">
                 <svg className="cd-icon cd-icon-map-pin" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  <path d="M12 2C8.13 2 5 4.93 5 8c0 1.55.46 2.9 1.25 3.9.34 5.22 2.28 1.17 2.59.67.91.95.67 3.66.96 5.46.96 7.92.05 1.72-.59 2.57-.59 4.66.98 9.27.98 13.16.42 1.77-1.11 3.33.03 4.14-.03 3.54-.59 5.23-2.08 6.61-6.61-6.61-6.61.13 1.72.04 3.63-.08 4.51-.25 4.94-.69 5.65-.69 6.76.16 7.77.08 8.68.1 9.6.26 10.25.49 10.64.89 10.85 1.31.02 1.49-.28 1.59-.73 1.76-.73 2.21-.4 2.67-.4 3.04.09 3.23-.16 3.34-.5 3.4-.99 3.47-1.57 3.47-1.57H12z"/>
                 </svg>
               </div>
             </div>
@@ -504,12 +465,12 @@ const CarDetail = () => {
               </div>
               <div className="cd-loan-inputs">
                 <div className="cd-loan-input">
-                  <label className="cd-loan-label">Car price (AED)</label>
+                  <label className="cd-loan-label">Bike price (AED)</label>
                   <input 
                     type="number"
                     className="cd-loan-input-field"
-                    value={loanCalculator.carPrice}
-                    onChange={(e) => handleLoanChange('carPrice', Number(e.target.value))}
+                    value={loanCalculator.bikePrice}
+                    onChange={(e) => handleLoanChange('bikePrice', Number(e.target.value))}
                   />
                 </div>
                 <div className="cd-loan-input">
@@ -577,10 +538,10 @@ const CarDetail = () => {
           </aside>
         </div>
 
-        <ReportButton listingId={id} listingType="car" />
+        <ReportButton listingId={id} listingType="bike" />
       </div>
     </div>
   );
 };
 
-export default CarDetail;
+export default BikeDetailRedesigned;
