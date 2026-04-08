@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import { carMakes } from '../utils/carData';
-import { Button } from './ui/button';
+import { Button } from './ui/button.tsx';
 import { ArrowRight } from 'lucide-react';
 import '../styles/HomePage.css';
 
