@@ -118,7 +118,7 @@ const Header = () => {
 
   // Check if current path is any post-related path
   const isPostActive = () => {
-    const postPaths = ['/post-car', '/post-car-parts', '/post-plates', '/post-bikes'];
+    const postPaths = ['/post-car', '/post-car-parts', '/post-plate', '/post-bike'];
     return postPaths.some(path => location.pathname.startsWith(path));
   };
 

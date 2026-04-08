@@ -536,7 +536,7 @@
   align-items: center;
   gap: 42px;
   width: max-content;
-  animation: cn-marquee 150s linear infinite;
+  animation: cn-marquee 120s linear infinite;
   opacity: 0.56;
 }
 

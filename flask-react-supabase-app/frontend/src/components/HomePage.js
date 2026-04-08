@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import { carMakes } from '../utils/carData';
@@ -64,8 +64,6 @@ const listingShowcaseImages = [
 const ctaImage = '/images/bottom-landing.jpg';
 
 const HomePage = () => {
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -95,15 +93,6 @@ const HomePage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearch = (event) => {
-    event.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/cars?search=${encodeURIComponent(searchQuery.trim())}`);
-      return;
-    }
-    navigate('/cars');
   };
 
   const formatPrice = (price) => {
@@ -175,14 +164,8 @@ const HomePage = () => {
         <div className="cn-shell cn-hero-content">
           <span className="cn-kicker">DPH Classifieds</span>
           <h1 className="cn-display-title">
-            The Modern Market.
-            <br />
-            Reframed in Green.
+            For PetrolHeads. By PetrolHeads.
           </h1>
-          <p className="cn-hero-copy">
-            A sharper homepage for your existing marketplace: cinematic front door, live listings underneath,
-            and direct paths into explore and the real vehicle pages.
-          </p>
           <div className="cn-hero-actions">
             <Link to="/explore" className="cn-button cn-button-primary">
               Explore Inventory
@@ -191,45 +174,6 @@ const HomePage = () => {
               List Your Vehicle
             </Link>
           </div>
-        </div>
-
-        <div className="cn-shell cn-search-wrap">
-          <form onSubmit={handleSearch} className="cn-search-panel">
-            <div className="cn-search-main-row">
-              <label className="cn-search-input" htmlFor="homepage-search">
-                <span className="cn-search-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M20 20l-3.5-3.5" />
-                  </svg>
-                </span>
-                <input
-                  id="homepage-search"
-                  type="text"
-                  placeholder="Search by model..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                />
-              </label>
-              <button type="submit" className="cn-search-submit">
-                Search
-              </button>
-            </div>
-            <div className="cn-search-filters">
-              <button type="button" className="cn-filter-chip" onClick={() => navigate('/cars')}>
-                Make
-              </button>
-              <button type="button" className="cn-filter-chip" onClick={() => navigate('/cars')}>
-                Model
-              </button>
-              <button type="button" className="cn-filter-chip" onClick={() => navigate('/cars')}>
-                Year
-              </button>
-              <button type="button" className="cn-filter-chip" onClick={() => navigate('/cars')}>
-                Price
-              </button>
-            </div>
-          </form>
         </div>
       </section>
 
