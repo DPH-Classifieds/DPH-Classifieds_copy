@@ -14,21 +14,21 @@ const HeroBackground = lazy(() => import('./HeroBackground'));
 const marketplaceInsights = [
   {
     id: 1,
-    title: 'Verified marketplace flow',
-    subtitle: 'Cars, bikes, parts, and plates live in one consistent browse experience.',
-    stat: '60k+',
+    title: 'Community members',
+    subtitle: '70k+ petrolheads connected through the broader DPH ecosystem.',
+    stat: '70k+',
   },
   {
     id: 2,
-    title: 'Search with intent',
-    subtitle: 'Move from the landing page straight into Explore when you want category-specific filters.',
-    stat: '24/7',
+    title: 'Viewers',
+    subtitle: '25+ million viewers engaging with the platform and community reach.',
+    stat: '25M+',
   },
   {
     id: 3,
-    title: 'Built for serious buyers',
-    subtitle: 'Cleaner listings, stronger seller context, and a more premium browse rhythm throughout.',
-    stat: 'Live',
+    title: 'Built by PetrolHeads',
+    subtitle: 'Created with a focus on the details that matter.',
+    stat: 'DPH',
   },
 ];
 
