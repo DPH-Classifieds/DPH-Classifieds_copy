@@ -1,82 +1,108 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Bike,
+  CarFront,
+  ChevronRight,
+  LayoutGrid,
+  MenuIcon,
+  Package,
+  Plus,
+  ShieldCheck,
+  Tag,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ProfileMenu from './ProfileMenu';
-import '../styles/Header.css';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { Button } from './ui/button';
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from './ui/navigation-menu';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
+
+const browseLinks = [
+  {
+    title: 'Explore',
+    description: 'Scan all active listings across every category.',
+    href: '/explore',
+    icon: LayoutGrid,
+  },
+  {
+    title: 'Cars',
+    description: 'Browse used, luxury, and performance cars.',
+    href: '/cars',
+    icon: CarFront,
+  },
+  {
+    title: 'Car Parts',
+    description: 'Find replacement parts and upgrades fast.',
+    href: '/car-parts',
+    icon: Package,
+  },
+  {
+    title: 'Plates',
+    description: 'Shop collectible and premium UAE plates.',
+    href: '/plates',
+    icon: Tag,
+  },
+  {
+    title: 'Bikes',
+    description: 'Discover motorcycles and specialty bikes.',
+    href: '/bikes',
+    icon: Bike,
+  },
+];
+
+const resourceLinks = [
+  { title: 'About', href: '/about' },
+  { title: 'Contact', href: '/contact' },
+];
 
 const Header = () => {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [browseDropdownOpen, setBrowseDropdownOpen] = useState(false);
-  const [postDropdownOpen, setPostDropdownOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const browseDropdownRef = useRef(null);
-  const postDropdownRef = useRef(null);
-  const headerRef = useRef(null);
 
-  // Handle scroll effect for the header
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 50) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
+      setScrolled(window.scrollY > 24);
     };
 
+    handleScroll();
     window.addEventListener('scroll', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Toggle body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.classList.add('menu-open');
-    } else {
-      document.body.classList.remove('menu-open');
-    }
-
-    return () => {
-      document.body.classList.remove('menu-open');
-    };
-  }, [mobileMenuOpen]);
-
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Close browse dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (browseDropdownRef.current && !browseDropdownRef.current.contains(event.target)) {
-        setBrowseDropdownOpen(false);
-      }
-    };
+    document.body.classList.toggle('menu-open', mobileMenuOpen);
+    return () => document.body.classList.remove('menu-open');
+  }, [mobileMenuOpen]);
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  const postLinks = useMemo(
+    () => [
+      { title: 'Post Car', href: user ? '/post-car' : '/login?redirect=/post-car' },
+      { title: 'Post Car Part', href: user ? '/post-car-parts' : '/login?redirect=/post-car-parts' },
+      { title: 'Post Plate', href: user ? '/post-plate' : '/login?redirect=/post-plate' },
+      { title: 'Post Bike', href: user ? '/post-bike' : '/login?redirect=/post-bike' },
+    ],
+    [user]
+  );
 
-  // Close post dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (postDropdownRef.current && !postDropdownRef.current.contains(event.target)) {
-        setPostDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  const isBrowseActive = browseLinks.some((item) => location.pathname.startsWith(item.href));
+  const isResourcesActive = resourceLinks.some((item) => location.pathname.startsWith(item.href));
+  const isPostActive = postLinks.some((item) => location.pathname.startsWith(item.href.replace('/login?redirect=', '')));
 
   const handleLogout = async () => {
     try {
@@ -87,241 +113,275 @@ const Header = () => {
     }
   };
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-  };
-
-  const toggleBrowseDropdown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setBrowseDropdownOpen(!browseDropdownOpen);
-    setPostDropdownOpen(false);
-  };
-
-  const togglePostDropdown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setPostDropdownOpen(!postDropdownOpen);
-    setBrowseDropdownOpen(false);
-  };
-
-  // Check if the current path matches a nav link
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
-
-  // Check if current path is any browse-related path
-  const isBrowseActive = () => {
-    const browsePaths = ['/explore', '/cars', '/car-parts', '/plates', '/bikes'];
-    return browsePaths.some(path => location.pathname.startsWith(path));
-  };
-
-  // Check if current path is any post-related path
-  const isPostActive = () => {
-    const postPaths = ['/post-car', '/post-car-parts', '/post-plate', '/post-bike'];
-    return postPaths.some(path => location.pathname.startsWith(path));
-  };
-
-  // Create post URL with redirection if not logged in
-  const getPostUrl = (path) => {
-    return user ? path : `/login?redirect=${path}`;
-  };
+  const headerTone = scrolled
+    ? 'border-b border-white/10 bg-[rgba(4,16,8,0.92)] shadow-[0_18px_48px_rgba(0,0,0,0.28)]'
+    : 'border-b border-white/5 bg-[rgba(4,16,8,0.78)]';
 
   return (
-    <header className={`header ${scrolled ? 'scrolled' : ''}`} ref={headerRef}>
-      <div className="header-container">
-        <Link to="/" className="logo">
-          <span className="logo-icon"></span>
-          <span className="logo-text">DPHClassifieds</span>
+    <header
+      className={`fixed inset-x-0 top-0 z-50 backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
+    >
+      <div className="mx-auto flex max-w-[1480px] items-center justify-between gap-4 px-4 py-4 sm:px-7">
+        <Link to="/" className="flex items-center gap-3 text-white">
+          <div className="flex size-10 items-center justify-center rounded-xl border border-emerald-200/20 bg-gradient-to-br from-emerald-300 to-emerald-600 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(34,197,94,0.25)]">
+            DPH
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[0.72rem] uppercase tracking-[0.26em] text-emerald-200/70">
+              Dubai Marketplace
+            </span>
+            <span className="text-lg font-semibold tracking-tight text-white">DPH Classifieds</span>
+          </div>
         </Link>
 
-        <button 
-          className="mobile-menu-button" 
-          onClick={toggleMobileMenu}
-          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-        >
-          <span className={`hamburger ${mobileMenuOpen ? 'active' : ''}`}></span>
-        </button>
+        <NavigationMenu className="hidden lg:flex">
+          <NavigationMenuList className="gap-1">
+            <NavigationMenuItem>
+              <NavigationMenuTrigger
+                className={`${isBrowseActive ? 'bg-white/10 text-white' : ''} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+              >
+                Browse
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[640px] grid-cols-2 gap-2 p-3">
+                  {browseLinks.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavigationMenuLink
+                        key={item.href}
+                        asChild
+                        className="rounded-xl border border-transparent p-0"
+                      >
+                        <Link
+                          to={item.href}
+                          className="flex rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] p-4 transition-colors hover:border-emerald-300/25 hover:bg-[rgba(11,35,18,0.96)]"
+                        >
+                          <div className="mr-3 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="mb-1 font-semibold text-white">{item.title}</p>
+                            <p className="text-sm leading-6 text-white/60">{item.description}</p>
+                          </div>
+                        </Link>
+                      </NavigationMenuLink>
+                    );
+                  })}
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
 
-        <nav className={`nav-menu ${mobileMenuOpen ? 'open' : ''}`}>
-          <ul className="nav-links">
-            <li>
-              <Link 
-                to="/" 
-                className={`nav-link ${isActive('/') ? 'active' : ''}`} 
-                onClick={() => setMobileMenuOpen(false)}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger
+                className={`${isPostActive ? 'bg-white/10 text-white' : ''} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
               >
-                Home
-              </Link>
-            </li>
-            <li className="browse-dropdown-container" ref={browseDropdownRef}>
-              <button 
-                className={`nav-link browse-toggle btn-link ${isBrowseActive() ? 'active' : ''}`} 
-                onClick={toggleBrowseDropdown}
-                aria-expanded={browseDropdownOpen}
-              >
-                Browse <span className="dropdown-arrow">▾</span>
-              </button>
-              {browseDropdownOpen && (
-                <div className="browse-dropdown">
-                  <Link 
-                    to="/explore" 
-                    className="browse-item"
-                    onClick={() => {
-                      setBrowseDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Explore
-                  </Link>
-                  <Link 
-                    to="/cars" 
-                    className="browse-item"
-                    onClick={() => {
-                      setBrowseDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Cars
-                  </Link>
-                  <Link 
-                    to="/car-parts" 
-                    className="browse-item"
-                    onClick={() => {
-                      setBrowseDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Car Parts
-                  </Link>
-                  <Link 
-                    to="/plates" 
-                    className="browse-item"
-                    onClick={() => {
-                      setBrowseDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Plates
-                  </Link>
-                  <Link 
-                    to="/bikes" 
-                    className="browse-item"
-                    onClick={() => {
-                      setBrowseDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Bikes
-                  </Link>
+                Sell
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[420px] gap-2 p-3">
+                  {postLinks.map((item) => (
+                    <NavigationMenuLink key={item.href} asChild className="rounded-xl p-0">
+                      <Link
+                        to={item.href}
+                        className="flex items-center justify-between rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] px-4 py-3 text-white/80 transition-colors hover:border-emerald-300/25 hover:bg-[rgba(11,35,18,0.96)] hover:text-white"
+                      >
+                        <span className="font-medium">{item.title}</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
+                    </NavigationMenuLink>
+                  ))}
                 </div>
-              )}
-            </li>
-            <li className="post-dropdown-container" ref={postDropdownRef}>
-              <button 
-                className={`nav-link nav-link-highlighted post-toggle ${isPostActive() ? 'active' : ''}`} 
-                onClick={togglePostDropdown}
-                aria-expanded={postDropdownOpen}
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                asChild
+                className={`${isResourcesActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
               >
-                + Post <span className="dropdown-arrow">▾</span>
-              </button>
-              {postDropdownOpen && (
-                <div className="post-dropdown">
-                  <Link 
-                    to={getPostUrl("/post-car")} 
-                    className="post-item"
-                    onClick={() => {
-                      setPostDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Cars
-                  </Link>
-                  <Link 
-                    to={getPostUrl("/post-car-parts")} 
-                    className="post-item"
-                    onClick={() => {
-                      setPostDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Car Parts
-                  </Link>
-                  <Link 
-                    to={getPostUrl("/post-plate")} 
-                    className="post-item"
-                    onClick={() => {
-                      setPostDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Plates
-                  </Link>
-                  <Link 
-                    to={getPostUrl("/post-bike")} 
-                    className="post-item"
-                    onClick={() => {
-                      setPostDropdownOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Bikes
-                  </Link>
-                </div>
-              )}
-            </li>
-            <li>
-              <Link 
-                to="/about" 
-                className={`nav-link ${isActive('/about') ? 'active' : ''}`} 
-                onClick={() => setMobileMenuOpen(false)}
+                <Link to="/about">About</Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                asChild
+                className={`${location.pathname === '/contact' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
               >
-                About
-              </Link>
-            </li>
+                <Link to="/contact">Contact</Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
             {user && (
-              <li className="desktop-hide">
-                <Link 
-                  to="/my-listings" 
-                  className={`nav-link ${isActive('/my-listings') ? 'active' : ''}`} 
-                  onClick={() => setMobileMenuOpen(false)}
+              <NavigationMenuItem>
+                <NavigationMenuLink
+                  asChild
+                  className={`${location.pathname === '/my-listings' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
                 >
-                  My Listings
-                </Link>
-              </li>
+                  <Link to="/my-listings">My Listings</Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
             )}
-          </ul>
+          </NavigationMenuList>
+        </NavigationMenu>
 
-          <div className="auth-buttons">
-            {user ? (
-              <div className="user-section">
-                {user.email && (
-                  <span className="user-email-display">
-                    {user.email.split('@')[0]}
-                  </span>
-                )}
-                <ProfileMenu user={user} onLogout={handleLogout} closeMenu={() => setMobileMenuOpen(false)} />
+        <div className="hidden items-center gap-3 lg:flex">
+          {user ? (
+            <>
+              <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 xl:flex">
+                <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                <span className="max-w-[160px] truncate">
+                  {user.email?.split('@')[0] || 'Account'}
+                </span>
               </div>
-            ) : (
-              <>
-                <Link 
-                  to="/login" 
-                  className="btn btn-outline"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Log In
+              <ProfileMenu user={user} onLogout={handleLogout} />
+            </>
+          ) : (
+            <>
+              <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+                <Link to="/login">Log In</Link>
+              </Button>
+              <Button
+                asChild
+                className="bg-gradient-to-r from-emerald-300 to-emerald-500 text-black hover:from-emerald-200 hover:to-emerald-400"
+              >
+                <Link to="/signup">Sign Up</Link>
+              </Button>
+            </>
+          )}
+        </div>
+
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild className="lg:hidden">
+            <Button variant="outline" size="icon" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+              <MenuIcon className="h-4 w-4" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="top"
+            className="max-h-screen overflow-auto border-b border-white/10 bg-[rgba(4,16,8,0.98)] text-white"
+          >
+            <SheetHeader>
+              <SheetTitle>
+                <Link to="/" className="flex items-center gap-3 text-left text-white">
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-emerald-200/20 bg-gradient-to-br from-emerald-300 to-emerald-600 text-sm font-semibold text-black">
+                    DPH
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[0.72rem] uppercase tracking-[0.26em] text-emerald-200/70">
+                      Dubai Marketplace
+                    </span>
+                    <span className="text-lg font-semibold tracking-tight text-white">DPH Classifieds</span>
+                  </div>
                 </Link>
-                <Link 
-                  to="/signup" 
-                  className="btn btn-primary"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Sign Up
+              </SheetTitle>
+            </SheetHeader>
+
+            <div className="flex flex-col gap-6 px-1 py-4">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="browse" className="border-white/10">
+                  <AccordionTrigger className="text-base font-medium text-white hover:no-underline">
+                    Browse listings
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-2 pt-2">
+                      {browseLinks.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.href}
+                            to={item.href}
+                            className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3 transition-colors hover:bg-white/8"
+                          >
+                            <div className="mt-0.5 rounded-lg bg-emerald-400/15 p-2 text-emerald-300">
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-white">{item.title}</p>
+                              <p className="text-sm text-white/60">{item.description}</p>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="sell" className="border-white/10">
+                  <AccordionTrigger className="text-base font-medium text-white hover:no-underline">
+                    Post a listing
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-2 pt-2">
+                      {postLinks.map((item) => (
+                        <Link
+                          key={item.href}
+                          to={item.href}
+                          className="flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-4 py-3 text-white/80 transition-colors hover:bg-white/8 hover:text-white"
+                        >
+                          <span>{item.title}</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              <div className="flex flex-col gap-2">
+                <Link to="/" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                  Home
                 </Link>
-              </>
-            )}
-          </div>
-        </nav>
+                <Link to="/about" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                  About
+                </Link>
+                <Link to="/contact" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                  Contact
+                </Link>
+                {user && (
+                  <Link to="/my-listings" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                    My Listings
+                  </Link>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
+                {user ? (
+                  <>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-sm uppercase tracking-[0.2em] text-white/40">Signed in</p>
+                      <p className="mt-2 truncate text-base font-medium text-white">{user.email}</p>
+                    </div>
+                    <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+                      <Link to="/profile">Profile</Link>
+                    </Button>
+                    <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+                      <Link to="/settings">Settings</Link>
+                    </Button>
+                    <Button variant="outline" className="border-red-400/25 bg-transparent text-red-200 hover:bg-red-500/10 hover:text-red-100" onClick={handleLogout}>
+                      Log Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+                      <Link to="/login">Log In</Link>
+                    </Button>
+                    <Button
+                      asChild
+                      className="bg-gradient-to-r from-emerald-300 to-emerald-500 text-black hover:from-emerald-200 hover:to-emerald-400"
+                    >
+                      <Link to="/signup">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create account
+                      </Link>
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </header>
   );

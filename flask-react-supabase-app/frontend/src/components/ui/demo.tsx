@@ -1,9 +1,9 @@
-import { Navbar5 } from "@/components/ui/navbar-5";
+import { Navbar5 } from "./navbar-5";
 
 const DemoOne = () => {
   return (
     <div className="scale-70">
-    <Navbar5 />
+      <Navbar5 />
     </div>
   );
 };

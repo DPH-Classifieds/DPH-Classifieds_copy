@@ -7,8 +7,8 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
+} from "./accordion";
+import { Button } from "./button";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -17,14 +17,14 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
+} from "./navigation-menu";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from "./sheet";
 
 export const Navbar5 = () => {
   const features = [
@@ -68,9 +68,11 @@ export const Navbar5 = () => {
             href="https://www.shadcnblocks.com"
             className="flex items-center gap-2"
           >
-            <div className="w-8 h-8 bg-brand-primary rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CB</span>
-            </div>
+            <img
+              src="https://shadcnblocks.com/images/block/logos/shadcnblockscom-icon.svg"
+              className="max-h-8"
+              alt="Shadcn UI Navbar"
+            />
             <span className="text-lg font-semibold tracking-tighter">
               Shadcnblocks.com
             </span>
@@ -143,9 +145,11 @@ export const Navbar5 = () => {
                     href="https://www.shadcnblocks.com"
                     className="flex items-center gap-2"
                   >
-                    <div className="w-8 h-8 bg-brand-primary rounded-md flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">CB</span>
-                    </div>
+                    <img
+                      src="https://shadcnblocks.com/images/block/logos/shadcnblockscom-icon.svg"
+                      className="max-h-8"
+                      alt="Shadcnblocks"
+                    />
                     <span className="text-lg font-semibold tracking-tighter">
                       Shadcnblocks.com
                     </span>
