@@ -6,7 +6,7 @@ const whoWeAreImg = '/images/About-page-removebg-preview.png';
 const ourMissionImg = '/images/Our Mission.jpg';
 
 const stats = [
-  { value: '60k+', label: 'Active petrolheads' },
+  { value: '70k+', label: 'Active petrolheads' },
   { value: '25M', label: 'Annual views' },
   { value: '1000+', label: 'Listings posted' },
   { value: '5+', label: 'Years of momentum' }
