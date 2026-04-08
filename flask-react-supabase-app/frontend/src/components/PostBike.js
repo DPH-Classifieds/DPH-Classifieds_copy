@@ -242,7 +242,6 @@ const PostBike = () => {
       setTimeout(() => {
         navigate('/my-listings');
       }, 2000);
-      }, 2000);
     } catch (err) {
       console.error('API submission error:', err);
       
