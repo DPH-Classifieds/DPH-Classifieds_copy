@@ -8,6 +8,7 @@ import {
   getProfileCompletionMessage,
   getNextSuggestedField 
 } from '../utils/profileCompletion';
+import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/Profile.css';
 
@@ -112,6 +113,7 @@ const Profile = () => {
 
   // Determine which data source to use (profileData from API or user from context)
   const userData = profileData || user || {};
+  const profilePhotoUrl = resolveMediaUrl(userData?.profile_photo_url || userData?.profilePhotoUrl);
   
   if (loading) {
     return (
@@ -182,9 +184,9 @@ const Profile = () => {
           <div className="profile-card modern-card">
             <div className="profile-header-section">
               <div className="profile-avatar-section">
-                {userData?.profile_photo_url ? (
+                {profilePhotoUrl ? (
                   <img 
-                    src={userData.profile_photo_url} 
+                    src={profilePhotoUrl} 
                     alt="Profile" 
                     className="profile-avatar-large"
                   />

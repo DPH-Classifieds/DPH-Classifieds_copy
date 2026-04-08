@@ -8,7 +8,6 @@ import {
   MenuIcon,
   Package,
   Plus,
-  ShieldCheck,
   Tag,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -123,15 +122,9 @@ const Header = () => {
     >
       <div className="mx-auto flex max-w-[1480px] items-center justify-between gap-4 px-4 py-4 sm:px-7">
         <Link to="/" className="flex items-center gap-3 text-white">
-          <div className="flex size-10 items-center justify-center rounded-xl border border-emerald-200/20 bg-gradient-to-br from-emerald-300 to-emerald-600 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(34,197,94,0.25)]">
-            DPH
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[0.72rem] uppercase tracking-[0.26em] text-emerald-200/70">
-              Dubai Marketplace
-            </span>
-            <span className="text-lg font-semibold tracking-tight text-white">DPH Classifieds</span>
-          </div>
+          <span className="text-[1.35rem] font-semibold tracking-[-0.04em] text-white">
+            DPHClassifieds
+          </span>
         </Link>
 
         <NavigationMenu className="hidden lg:flex">
@@ -227,15 +220,7 @@ const Header = () => {
 
         <div className="hidden items-center gap-3 lg:flex">
           {user ? (
-            <>
-              <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 xl:flex">
-                <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                <span className="max-w-[160px] truncate">
-                  {user.email?.split('@')[0] || 'Account'}
-                </span>
-              </div>
-              <ProfileMenu user={user} onLogout={handleLogout} />
-            </>
+            <ProfileMenu user={user} onLogout={handleLogout} />
           ) : (
             <>
               <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
@@ -264,15 +249,9 @@ const Header = () => {
             <SheetHeader>
               <SheetTitle>
                 <Link to="/" className="flex items-center gap-3 text-left text-white">
-                  <div className="flex size-10 items-center justify-center rounded-xl border border-emerald-200/20 bg-gradient-to-br from-emerald-300 to-emerald-600 text-sm font-semibold text-black">
-                    DPH
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[0.72rem] uppercase tracking-[0.26em] text-emerald-200/70">
-                      Dubai Marketplace
-                    </span>
-                    <span className="text-lg font-semibold tracking-tight text-white">DPH Classifieds</span>
-                  </div>
+                  <span className="text-[1.2rem] font-semibold tracking-[-0.04em] text-white">
+                    DPHClassifieds
+                  </span>
                 </Link>
               </SheetTitle>
             </SheetHeader>

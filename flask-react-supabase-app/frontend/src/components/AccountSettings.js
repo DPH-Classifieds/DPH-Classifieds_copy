@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/authService';
 import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/profileCompletion';
+import { resolveMediaUrl } from '../utils/media';
 import '../styles/AccountSettings.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -132,7 +133,7 @@ const AccountSettings = () => {
         
         profilePhotoUrl: user.profile_photo_url || user.profilePhotoUrl || ''
       });
-      setPhotoPreview(user.profile_photo_url || user.profilePhotoUrl || null);
+      setPhotoPreview(resolveMediaUrl(user.profile_photo_url || user.profilePhotoUrl || null));
     }
   }, [user]);
 
@@ -205,7 +206,7 @@ const AccountSettings = () => {
       }
 
       const data = await response.json();
-      return data.profile_photo_url;
+      return resolveMediaUrl(data.profile_photo_url);
     } finally {
       setUploadingPhoto(false);
     }
@@ -289,6 +290,7 @@ const AccountSettings = () => {
           marketingEmails: updatedUser.marketing_emails ?? false,
           profilePhotoUrl: updatedUser.profile_photo_url || ''
         });
+        setPhotoPreview(resolveMediaUrl(updatedUser.profile_photo_url || updatedUser.profilePhotoUrl || null));
         
         // Recalculate profile completion
         const newCompletion = calculateProfileCompletion(updatedUser);

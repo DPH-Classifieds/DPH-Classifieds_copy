@@ -1,10 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { LogOut, Settings, SquareUserRound, UserRound } from 'lucide-react';
+import { resolveMediaUrl } from '../utils/media';
 import '../styles/ProfileMenu.css';
 
 const ProfileMenu = ({ user, onLogout, closeMenu }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const menuRef = useRef(null);
+
+  const avatarSrc = resolveMediaUrl(user?.profile_photo_url || user?.profilePhotoUrl);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarSrc]);
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -61,6 +70,23 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
     return user?.email || 'User';
   };
 
+  const renderAvatar = (className = 'avatar') => {
+    if (avatarSrc && !avatarFailed) {
+      return (
+        <div className={className}>
+          <img
+            src={avatarSrc}
+            alt={`${getDisplayName()} profile`}
+            className="avatar-image"
+            onError={() => setAvatarFailed(true)}
+          />
+        </div>
+      );
+    }
+
+    return <div className={className}>{getUserInitials()}</div>;
+  };
+
   return (
     <div className="profile-menu-wrapper" ref={menuRef}>
       <button 
@@ -69,33 +95,13 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
         aria-expanded={isOpen}
         aria-label="User profile menu"
       >
-        <div className="avatar">
-          {(user?.profile_photo_url || user?.profilePhotoUrl) ? (
-            <img 
-              src={user.profile_photo_url || user.profilePhotoUrl} 
-              alt="Profile" 
-              className="avatar-image"
-            />
-          ) : (
-            getUserInitials()
-          )}
-        </div>
+        {renderAvatar()}
       </button>
       
       {isOpen && (
         <div className="profile-dropdown">
           <div className="profile-header">
-            <div className="avatar">
-              {(user?.profile_photo_url || user?.profilePhotoUrl) ? (
-                <img 
-                  src={user.profile_photo_url || user.profilePhotoUrl} 
-                  alt="Profile" 
-                  className="avatar-image"
-                />
-              ) : (
-                getUserInitials()
-              )}
-            </div>
+            {renderAvatar('avatar profile-header-avatar')}
             <div className="user-info">
               <span className="user-name">{getDisplayName()}</span>
               <span className="user-email">{user.email}</span>
@@ -108,7 +114,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item"
               onClick={handleLinkClick}
             >
-              <span className="profile-icon user-icon" aria-hidden="true"></span>
+              <SquareUserRound className="profile-icon" aria-hidden="true" />
               Profile
             </Link>
             
@@ -117,7 +123,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item"
               onClick={handleLinkClick}
             >
-              <span className="profile-icon listings-icon" aria-hidden="true"></span>
+              <UserRound className="profile-icon" aria-hidden="true" />
               My Listings
             </Link>
             
@@ -126,7 +132,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item"
               onClick={handleLinkClick}
             >
-              <span className="profile-icon settings-icon" aria-hidden="true"></span>
+              <Settings className="profile-icon" aria-hidden="true" />
               Settings
             </Link>
             
@@ -136,7 +142,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               className="profile-menu-item logout-button"
               onClick={handleLogout}
             >
-              <span className="profile-icon logout-icon" aria-hidden="true"></span>
+              <LogOut className="profile-icon" aria-hidden="true" />
               Log Out
             </button>
           </div>
