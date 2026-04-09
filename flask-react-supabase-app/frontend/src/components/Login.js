@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '';
 
 const Login = () => {
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -12,8 +13,54 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [resetStatus, setResetStatus] = useState(null);
   const [resetLoading, setResetLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const turnstileRef = useRef(null);
+  const widgetIdRef = useRef(null);
   const { syncWithSupabase } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
+
+    const renderWidget = () => {
+      if (turnstileRef.current && window.turnstile && !widgetIdRef.current) {
+        widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(null),
+          'error-callback': () => setCaptchaToken(null),
+          theme: 'dark',
+        });
+      }
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      // Wait for the script to load
+      const interval = setInterval(() => {
+        if (window.turnstile) {
+          clearInterval(interval);
+          renderWidget();
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+
+    return () => {
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const resetCaptcha = () => {
+    if (widgetIdRef.current && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current);
+      setCaptchaToken(null);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,20 +79,27 @@ const Login = () => {
       return;
     }
 
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError('Please complete the CAPTCHA verification.');
+      setLoading(false);
+      return;
+    }
+
     try {
+      const body = { email: emailOrUsername, password };
+      if (captchaToken) body.captcha_token = captchaToken;
+
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailOrUsername,
-          password: password
-        }),
+        body: JSON.stringify(body),
         credentials: 'include'
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        resetCaptcha();
         throw new Error(data.message || 'Login failed');
       }
 
@@ -135,6 +189,10 @@ const Login = () => {
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
+
+          {TURNSTILE_SITE_KEY && (
+            <div ref={turnstileRef} style={{ margin: '12px 0' }} />
+          )}
         </form>
         
         <div className="auth-links auth-links-inline">
