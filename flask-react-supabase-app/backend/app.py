@@ -2953,12 +2953,6 @@ def login():
     headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json"}
     payload = {"email": email, "password": password}
 
-    # Forward Turnstile captcha token to Supabase if provided
-    captcha_token = data.get("captcha_token")
-    if captcha_token:
-        payload["gotrue_meta_security"] = {"captcha_token": captcha_token}
-        logger.info("[Login] Captcha token included in Supabase auth request")
-
     try:
         logger.info(f"[Login] Sending login request to Supabase auth: {url}")
         response = requests.post(url, headers=headers, json=payload)
