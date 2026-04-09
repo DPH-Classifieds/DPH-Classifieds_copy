@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -30,16 +30,17 @@ import PostBike from './components/PostBike';
 import PostPlate from './components/PostPlate';
 import PostCarParts from './components/PostCarParts';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import NotFound from './components/NotFound';
 import About from './components/About';
 import Contact from './components/Contact';
 import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
-import AdminTools from './components/AdminTools';
-import PrivacyPolicy from './components/PrivacyPolicy'; // Added Privacy Policy import
-import TermsOfUse from './components/TermsOfUse'; // Added Terms of Use import
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfUse from './components/TermsOfUse';
 import BetaGate from './components/BetaGate';
 import ExplorePage from './components/ExplorePage';
+import LoadingSpinner from './components/LoadingSpinner';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -151,9 +152,10 @@ function App() {
               </Route>
               
               {/* Admin routes */}
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/tools" element={<AdminTools />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+              </Route>
               
               {/* 404 route */}
               <Route path="*" element={<NotFound />} />

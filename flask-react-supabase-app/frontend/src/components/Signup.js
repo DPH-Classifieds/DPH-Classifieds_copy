@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import TurnstileCaptcha from './TurnstileCaptcha';
 import '../styles/Auth.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // UAE Emirates list
 const UAE_EMIRATES = [
@@ -71,7 +73,6 @@ const Signup = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [allErrors, setAllErrors] = useState([]);
   const [touchedFields, setTouchedFields] = useState({});
-  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const getPasswordChecks = (password) => ({
@@ -297,7 +298,7 @@ const Signup = () => {
         username: formData.username,
         phone: formData.phone,
         countryCode: formData.countryCode,
-        Area: formData.Area,
+        area: formData.area,
         emirate: formData.emirate,
         isDealer: formData.isDealer,
         companyName: formData.companyName,
@@ -307,36 +308,25 @@ const Signup = () => {
           : formData.username,
         emailNotifications: formData.emailNotifications,
         smsNotifications: formData.smsNotifications,
-        marketingEmails: formData.marketingEmails
+        marketingEmails: formData.marketingEmails,
+        turnstileToken: window.turnstileToken
       };
 
-      const { data, error } = await signUp(
-        signupData.email,
-        signupData.password,
-        signupData
-      );
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signupData),
+        credentials: 'include'
+      });
 
-      if (error) {
-        throw new Error(error);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
       }
 
-      // Supabase email-confirm flow typically returns user with null session
-      if (data?.user && !data?.session) {
-        navigate('/check-email', { state: { email: signupData.email } });
-        return;
-      }
-
-      // If we ever get a session immediately, treat it as full success
-      if (data?.user && data?.session) {
-        setSuccessMessage('Account created successfully! Redirecting...');
-        setTimeout(() => navigate('/profile'), 2000);
-        return;
-      }
-
-      // Fallback: successful HTTP but unexpected shape — still send to check-email
       navigate('/check-email', { state: { email: signupData.email } });
     } catch (err) {
-      console.error('Sign up error:', err);
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
       setLoading(false);
@@ -726,6 +716,8 @@ const Signup = () => {
           {error && allErrors.length === 0 && (
             <div className="auth-error bottom-error">{error}</div>
           )}
+          
+          <TurnstileCaptcha />
           
           <button 
             type="submit" 

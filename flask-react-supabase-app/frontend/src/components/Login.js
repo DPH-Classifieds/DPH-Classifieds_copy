@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import TurnstileCaptcha from './TurnstileCaptcha';
 import '../styles/Auth.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const Login = () => {
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -10,16 +13,14 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [resetStatus, setResetStatus] = useState(null);
   const [resetLoading, setResetLoading] = useState(false);
-  const { signIn, syncWithSupabase } = useAuth();
+  const { syncWithSupabase } = useAuth();
   const navigate = useNavigate();
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     
-    // Basic validation
     if (!emailOrUsername.trim()) {
       setError('Email or username is required');
       setLoading(false);
@@ -33,32 +34,30 @@ const Login = () => {
     }
 
     try {
-      console.log('Attempting to sign in with:', emailOrUsername);
-      const result = await signIn(emailOrUsername, password);
-      console.log('Login successful, syncing with Supabase');
-      
-      // Force sync to ensure we have the token
-      await syncWithSupabase();
-      
-      // Store the user info and token in localStorage as an additional backup
-      if (result && result.data && result.data.session) {
-        console.log('Storing session and token in localStorage');
-        localStorage.setItem('supabase_access_token', result.data.session.access_token);
-        localStorage.setItem('user_identifier', emailOrUsername);
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailOrUsername,
+          password: password,
+          turnstileToken: window.turnstileToken
+        }),
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
       }
-      
-      console.log('Login and sync successful, navigating to profile');
+
+      await syncWithSupabase();
       navigate('/profile');
     } catch (err) {
-      console.error('Login error:', err);
       if (err.message && err.message.toLowerCase().includes('network')) {
         setError('Network error. Please check your connection and try again.');
       } else {
-        const authMessage = err.message || 'Failed to sign in. Please check your credentials and try again.';
-        const forgotMessage = authMessage.toLowerCase().includes('forgot password')
-          ? authMessage
-          : `${authMessage} If needed, use Forgot Password or resend the reset link below.`;
-        setError(forgotMessage);
+        setError(err.message || 'Failed to sign in. Please check your credentials and try again.');
       }
     } finally {
       setLoading(false);
@@ -130,6 +129,8 @@ const Login = () => {
               autoComplete="current-password"
             />
           </div>
+          
+          <TurnstileCaptcha />
           
           <button 
             type="submit" 

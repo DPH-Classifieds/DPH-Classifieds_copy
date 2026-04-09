@@ -523,7 +523,10 @@ def get_users():
         query = f"{SUPABASE_URL}/rest/v1/users?select=*&order=created_at.desc"
 
         if search:
-            query += f"&or=(email.ilike.%{search}%,username.ilike.%{search}%,first_name.ilike.%{search}%,last_name.ilike.%{search}%)"
+            from urllib.parse import quote
+
+            search_escaped = quote(search, safe="")
+            query += f"&or=(email.ilike.*{search_escaped}*,username.ilike.*{search_escaped}*,first_name.ilike.*{search_escaped}*,last_name.ilike.*{search_escaped}*)"
 
         response = requests.get(query, headers=headers, timeout=10)
 

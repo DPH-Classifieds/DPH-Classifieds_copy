@@ -45,12 +45,16 @@ app = Flask(__name__, static_folder="static")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max request size
 MAX_LISTINGS_PER_USER = int(os.getenv("MAX_LISTINGS_PER_USER", "4"))
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))
 Image.MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "25000000"))
 CONTACT_RATE_LIMIT_WINDOW_SEC = int(os.getenv("CONTACT_RATE_LIMIT_WINDOW_SEC", "3600"))
 CONTACT_RATE_LIMIT_MAX = int(os.getenv("CONTACT_RATE_LIMIT_MAX", "5"))
 CONTACT_RATE_LIMIT = defaultdict(deque)
+AUTH_RATE_LIMIT_WINDOW_SEC = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SEC", "300"))
+AUTH_RATE_LIMIT_MAX = int(os.getenv("AUTH_RATE_LIMIT_MAX", "5"))
+AUTH_RATE_LIMIT = defaultdict(deque)
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
@@ -127,7 +131,9 @@ def _default_expiry_from_created_at(record):
 
 def _compute_listing_lifecycle(record):
     now = _utc_now()
-    expires_at = _parse_datetime(record.get("expires_at")) or _default_expiry_from_created_at(record)
+    expires_at = _parse_datetime(
+        record.get("expires_at")
+    ) or _default_expiry_from_created_at(record)
     expired_at = _parse_datetime(record.get("expired_at"))
 
     if not expired_at and now >= expires_at:
@@ -177,7 +183,9 @@ def _apply_listing_lifecycle_metadata(record):
     record["retention_expires_at"] = _isoformat_utc(lifecycle["retention_expires_at"])
     record["days_until_expiry"] = lifecycle["days_until_expiry"]
     record["days_until_deletion"] = lifecycle["days_until_deletion"]
-    record["can_extend"] = not lifecycle["is_archived"] and record.get("status") not in {
+    record["can_extend"] = not lifecycle["is_archived"] and record.get(
+        "status"
+    ) not in {
         "deleted",
         "rejected",
     }
@@ -224,7 +232,9 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     if lifecycle["is_expired"] and record.get("expired_at") is None:
         updates["expired_at"] = _isoformat_utc(lifecycle["expired_at"])
     if record.get("retention_expires_at") is None:
-        updates["retention_expires_at"] = _isoformat_utc(lifecycle["retention_expires_at"])
+        updates["retention_expires_at"] = _isoformat_utc(
+            lifecycle["retention_expires_at"]
+        )
     if lifecycle["is_archived"] and not record.get("is_archived"):
         updates["is_archived"] = True
 
@@ -300,9 +310,7 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
 def _filter_public_listing_records(table_name, records):
     filtered = []
     for record in records or []:
-        synced = _sync_listing_lifecycle(
-            table_name, record, hard_delete_archived=True
-        )
+        synced = _sync_listing_lifecycle(table_name, record, hard_delete_archived=True)
         if not synced:
             continue
         if synced.get("listing_state") != "active":
@@ -430,15 +438,18 @@ def _get_cors_origins():
         ]
         if origins:
             return origins
+
+    if os.getenv("FLASK_ENV") == "production":
+        return [
+            "https://dphclassifieds.com",
+            "https://www.dphclassifieds.com",
+            "https://dphclassifieds.ae",
+            "https://www.dphclassifieds.ae",
+        ]
+
     return [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://dph-classifieds.vercel.app",
-        "https://dph-classifieds-three.vercel.app",
-        "https://dphclassifieds.com",
-        "https://www.dphclassifieds.com",
-        "https://dphclassifieds.ae",
-        "https://www.dphclassifieds.ae",
     ]
 
 
@@ -448,13 +459,11 @@ CORS(
 )
 
 # Configure a secret key for session management
-# IMPORTANT: In a production environment, use a strong, randomly generated key set via environment variable.
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-please-change")
-if (
-    os.getenv("FLASK_ENV") == "production"
-    and app.secret_key == "dev-secret-key-please-change"
-):
-    raise RuntimeError("FLASK_SECRET_KEY must be set in production.")
+# IMPORTANT: FLASK_SECRET_KEY must always be set via environment variable
+flask_secret_key = os.getenv("FLASK_SECRET_KEY")
+if not flask_secret_key:
+    raise RuntimeError("FLASK_SECRET_KEY must be set in environment variables.")
+app.secret_key = flask_secret_key
 
 
 def _get_safe_frontend_origin(request_origin):
@@ -508,6 +517,21 @@ def _contact_rate_limited(client_ip):
     return False
 
 
+def _auth_rate_limited(client_ip):
+    """Rate limiter for authentication endpoints (login, signup, reset, etc.)"""
+    if not client_ip:
+        return False
+    now = time.time()
+    window_start = now - AUTH_RATE_LIMIT_WINDOW_SEC
+    entries = AUTH_RATE_LIMIT[client_ip]
+    while entries and entries[0] < window_start:
+        entries.popleft()
+    if len(entries) >= AUTH_RATE_LIMIT_MAX:
+        return True
+    entries.append(now)
+    return False
+
+
 # Create static directory for file uploads if it doesn't exist
 os.makedirs(os.path.join("static", "uploads", "plates"), exist_ok=True)
 
@@ -517,10 +541,13 @@ def add_security_headers(response):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    if os.getenv("FLASK_ENV") == "production":
-        response.headers.setdefault(
-            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
-        )
+    response.headers.setdefault(
+        "Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload"
+    )
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.railway.app; connect-src 'self' https://*.supabase.co https://dph-classifieds-production.up.railway.app https://dphclassifieds.com https://www.dphclassifieds.com https://challenges.cloudflare.com; frame-src 'none';",
+    )
     return response
 
 
@@ -580,8 +607,49 @@ logger.info(f"SUPABASE_KEY exists: {bool(SUPABASE_KEY)}")
 logger.info(f"SUPABASE_JWT_SECRET exists: {bool(SUPABASE_JWT_SECRET)}")
 logger.info(f"SUPABASE_SERVICE_ROLE_KEY exists: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
 
+BETA_PASSWORD = os.getenv("BETA_PASSWORD")
+if BETA_PASSWORD:
+    logger.info("✓ BETA_PASSWORD is configured")
+else:
+    logger.info("ℹ BETA_PASSWORD not configured - beta gate disabled")
+
 # Check Turnstile configuration
 TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY")
+
+
+def _verify_turnstile_token(token):
+    """Verify Cloudflare Turnstile CAPTCHA token"""
+    if not TURNSTILE_SECRET_KEY:
+        logger.warning("Turnstile secret key not configured, skipping verification")
+        return True  # Allow if not configured (fail open for development)
+
+    if not token:
+        logger.warning("Turnstile token missing from request")
+        return False
+
+    try:
+        response = requests.post(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data={
+                "secret": TURNSTILE_SECRET_KEY,
+                "response": token,
+            },
+            timeout=5,
+        )
+        result = response.json()
+        if result.get("success"):
+            logger.info("Turnstile verification successful")
+            return True
+        else:
+            logger.warning(
+                f"Turnstile verification failed: {result.get('error-codes', [])}"
+            )
+            return False
+    except Exception as e:
+        logger.error(f"Turnstile verification error: {str(e)}")
+        return False
+
+
 if TURNSTILE_SECRET_KEY:
     logger.info(
         f"✓ TURNSTILE_SECRET_KEY is configured (length: {len(TURNSTILE_SECRET_KEY)})"
@@ -706,7 +774,15 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
+
+        # First try Authorization header
         auth_header = request.headers.get("Authorization")
+
+        # Fallback to cookie
+        if not auth_header:
+            token = request.cookies.get("access_token")
+            if token:
+                auth_header = f"Bearer {token}"
 
         logger.info("Checking authorization header")
 
@@ -753,6 +829,7 @@ def token_required(f):
             # Add user data to request context
             request.user_id = current_user
             request.user_data = user_data
+            request.supabase_token = token
 
             return f(current_user, *args, **kwargs)
 
@@ -766,32 +843,81 @@ def token_required(f):
     return decorated
 
 
+@app.route("/api/auth/admin-check", methods=["GET"])
+@token_required
+def admin_check(current_user):
+    """Check if current user is an admin - used by frontend AdminRoute component"""
+    try:
+        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+        headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Content-Type": "application/json",
+        }
+
+        response = requests.get(
+            f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=is_admin",
+            headers=headers,
+            timeout=10,
+        )
+
+        if response.status_code == 200:
+            users = response.json()
+            if users and len(users) > 0:
+                is_admin = users[0].get("is_admin", False)
+                return jsonify({"is_admin": is_admin}), 200
+
+        return jsonify({"is_admin": False}), 200
+    except Exception as e:
+        logger.error(f"Error checking admin status: {str(e)}")
+        return jsonify({"is_admin": False}), 200
+
+
 # Supabase REST API Helper
 def supabase_request(
     method, path, data=None, params=None, user_id=None, use_service_role=False
 ):
     url = f"{SUPABASE_URL}{path}"
 
-    # Determine which key to use - for admin operations or data-modifying operations, always use service role key
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+    user_token = getattr(request, "supabase_token", None)
 
-    if (
-        use_service_role
-        or method.lower() in ["post", "put", "patch", "delete"]
-        or "users" in path
-        or "admin" in path
-    ):
-        # For admin operations, always use service role
+    if use_service_role or "admin" in path:
         headers = {
             "apikey": service_key,
             "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
             "Prefer": "return=representation",
             "X-Client-Info": "backend-api",
-            "X-Postgres-Role": "service_role",  # This bypasses RLS
+            "X-Postgres-Role": "service_role",
         }
+    elif user_id and user_token:
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {user_token}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+            "X-Client-Info": "backend-api",
+        }
+    elif method.lower() in ["post", "put", "patch", "delete"]:
+        if user_id:
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+                "X-Client-Info": "backend-api",
+            }
+        else:
+            headers = {
+                "apikey": service_key,
+                "Authorization": f"Bearer {service_key}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+                "X-Client-Info": "backend-api",
+                "X-Postgres-Role": "service_role",
+            }
     else:
-        # For read operations, use regular anon key
         headers = {
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -1096,7 +1222,9 @@ def get_car_by_id(car_id):
             logger.warning(f"Car not found with ID: {car_id}")
             return jsonify({"error": "Car not found"}), 404
 
-        car = _sync_listing_lifecycle("cars", car_response[0], hard_delete_archived=True)
+        car = _sync_listing_lifecycle(
+            "cars", car_response[0], hard_delete_archived=True
+        )
         if not car or car.get("listing_state") != "active":
             return jsonify({"error": "Car not found"}), 404
 
@@ -1434,8 +1562,13 @@ def update_car_options(car_id):
     origin = request.headers.get("Origin")
     if origin in _get_cors_origins():
         response.headers.add("Access-Control-Allow-Origin", origin)
-    response.headers.add("Access-Control-Allow-Headers", "*")
-    response.headers.add("Access-Control-Allow-Methods", "*")
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+    response.headers.add(
+        "Access-Control-Allow-Headers", "Content-Type, Authorization, Origin"
+    )
+    response.headers.add(
+        "Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    )
     return response
 
 
@@ -2048,7 +2181,9 @@ def _format_auth_email_error(error_data, fallback_message):
     message = description or fallback_message
 
     if "email address not authorized" in lower_description:
-        message = "Authentication email delivery is not enabled for public recipients yet."
+        message = (
+            "Authentication email delivery is not enabled for public recipients yet."
+        )
         guidance = (
             "Configure custom SMTP or a Supabase Send Email Hook for Auth. "
             "The default Supabase sender only delivers to authorized project-team addresses."
@@ -2743,6 +2878,13 @@ def user_exists_by_email(email):
 # User authentication routes
 @app.route("/api/auth/login", methods=["POST"])
 def login():
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if _auth_rate_limited(client_ip):
+        logger.warning(f"[Login] Rate limit exceeded for IP: {client_ip}")
+        return jsonify(
+            {"message": "Too many login attempts. Please try again later."}
+        ), 429
+
     data = request.json
     identifier = data.get("email", "")  # This can now be either email or username
     logger.info(f"[Login] Attempt for identifier: {identifier}")
@@ -2750,6 +2892,13 @@ def login():
     if not data or not identifier or not data.get("password"):
         logger.warning("[Login] Missing email/username or password in request.")
         return jsonify({"message": "Missing email/username or password"}), 400
+
+    # Verify Turnstile CAPTCHA token
+    turnstile_token = data.get("turnstileToken")
+    if not _verify_turnstile_token(turnstile_token):
+        return jsonify(
+            {"message": "CAPTCHA verification failed. Please try again."}
+        ), 400
 
     password = data.get("password")
 
@@ -2764,9 +2913,7 @@ def login():
         if not email:
             logger.warning(f"[Login] No user found with username: {identifier}")
             return jsonify(
-                {
-                    "message": "Username not found. Please check your username or use Forgot Password."
-                }
+                {"message": "Invalid email or password. Please try again."}
             ), 401
         logger.info(f"[Login] Found email for username {identifier}: {email}")
         email_exists = True
@@ -2775,9 +2922,7 @@ def login():
         email_exists = user_exists_by_email(email)
         if not email_exists:
             return jsonify(
-                {
-                    "message": "Email not found. Please check your email address or create an account."
-                }
+                {"message": "Invalid email or password. Please try again."}
             ), 401
 
     url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
@@ -2831,12 +2976,29 @@ def login():
                         f"[Login] Could not fetch full user details for user ID {user_id} from _get_user_details_with_admin_status. Session not fully set."
                     )
                     resp_data["user"] = supabase_user_info
-            else:
-                logger.warning(
-                    "[Login] Supabase user info or token missing in successful auth response."
-                )
 
-            return jsonify(resp_data), 200
+            # Set HttpOnly cookies for token storage
+            response = make_response(jsonify(resp_data), 200)
+            secure = os.getenv("FLASK_ENV") == "production"
+            response.set_cookie(
+                "access_token",
+                token,
+                httponly=True,
+                secure=secure,
+                samesite="Lax",
+                max_age=3600 * 24 * 7,  # 7 days
+            )
+            refresh_token = resp_data.get("refresh_token")
+            if refresh_token:
+                response.set_cookie(
+                    "refresh_token",
+                    refresh_token,
+                    httponly=True,
+                    secure=secure,
+                    samesite="Lax",
+                    max_age=3600 * 24 * 30,  # 30 days
+                )
+            return response
         else:
             error_data = response.json()
             error_msg = error_data.get("error_description", "Login failed")
@@ -2848,13 +3010,9 @@ def login():
                 "invalid login credentials" in lowered
                 or "invalid credentials" in lowered
             ):
-                if is_username_login:
-                    message = "Incorrect password for this username. Please try again or use Forgot Password."
-                elif email_exists:
-                    message = "Incorrect password for this email. Please try again or use Forgot Password."
-                else:
-                    message = "Invalid login details. Please try again or use Forgot Password."
-                return jsonify({"message": message}), 401
+                return jsonify(
+                    {"message": "Invalid email or password. Please try again."}
+                ), 401
             return jsonify(
                 {"message": f"{error_msg}. If needed, use Forgot Password."}
             ), response.status_code
@@ -2881,9 +3039,23 @@ def _get_password_policy_errors(password):
 
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if _auth_rate_limited(client_ip):
+        logger.warning(f"[Signup] Rate limit exceeded for IP: {client_ip}")
+        return jsonify(
+            {"message": "Too many signup attempts. Please try again later."}
+        ), 429
+
     data = request.json
     if not data or not data.get("email") or not data.get("password"):
         return jsonify({"message": "Missing email or password"}), 400
+
+    # Verify Turnstile CAPTCHA token
+    turnstile_token = data.get("turnstileToken")
+    if not _verify_turnstile_token(turnstile_token):
+        return jsonify(
+            {"message": "CAPTCHA verification failed. Please try again."}
+        ), 400
 
     email = data.get("email")
     password = data.get("password")
@@ -2963,8 +3135,10 @@ def signup():
 @app.route("/api/auth/logout", methods=["POST"])
 @token_required
 def logout(current_user):
-    # The actual logout happens on the client, but this endpoint can be used to track logouts or invalidate sessions
-    return jsonify({"message": "Successfully logged out"}), 200
+    response = make_response(jsonify({"message": "Successfully logged out"}), 200)
+    response.set_cookie("access_token", "", expires=0)
+    response.set_cookie("refresh_token", "", expires=0)
+    return response
 
 
 def get_user_admin_status(user_id):
@@ -3210,6 +3384,13 @@ def get_user_info(current_user):  # current_user is user_id from @token_required
 
 @app.route("/api/auth/refresh", methods=["POST"])
 def refresh_token():
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if _auth_rate_limited(client_ip):
+        logger.warning(f"[Refresh Token] Rate limit exceeded for IP: {client_ip}")
+        return jsonify(
+            {"message": "Too many refresh attempts. Please try again later."}
+        ), 429
+
     # Extract refresh token from request
     data = request.json
     if not data or not data.get("refresh_token"):
@@ -3240,6 +3421,13 @@ def refresh_token():
 
 @app.route("/api/auth/reset-password", methods=["POST"])
 def reset_password():
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if _auth_rate_limited(client_ip):
+        logger.warning(f"[Reset Password] Rate limit exceeded for IP: {client_ip}")
+        return jsonify(
+            {"message": "Too many password reset attempts. Please try again later."}
+        ), 429
+
     data = request.json
     if not data or not data.get("email"):
         return jsonify({"message": "Missing email"}), 400
@@ -3275,6 +3463,13 @@ def reset_password():
 
 @app.route("/api/auth/resend-confirmation", methods=["POST"])
 def resend_confirmation():
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if _auth_rate_limited(client_ip):
+        logger.warning(f"[Resend Confirmation] Rate limit exceeded for IP: {client_ip}")
+        return jsonify(
+            {"message": "Too many confirmation email attempts. Please try again later."}
+        ), 429
+
     data = request.json
     if not data or not data.get("email"):
         return jsonify({"message": "Missing email"}), 400
@@ -3437,7 +3632,9 @@ def _enrich_listing_seller(item, headers=None):
             item["seller_profile_photo"] = user.get("profile_photo_url")
             item["seller_verified"] = bool(user.get("is_dealer", False))
     except Exception as seller_err:
-        logger.warning(f"Failed to enrich seller for listing {item.get('id')}: {seller_err}")
+        logger.warning(
+            f"Failed to enrich seller for listing {item.get('id')}: {seller_err}"
+        )
 
     return item
 
@@ -3576,7 +3773,9 @@ def get_bike_by_id(bike_id):
             logger.warning(f"Bike not found with ID: {bike_id}")
             return jsonify({"error": "Bike not found"}), 404
 
-        bike = _sync_listing_lifecycle("bikes", bike_response[0], hard_delete_archived=True)
+        bike = _sync_listing_lifecycle(
+            "bikes", bike_response[0], hard_delete_archived=True
+        )
         if not bike or bike.get("listing_state") != "active":
             return jsonify({"error": "Bike not found"}), 404
         _normalize_bike_record(bike)
@@ -3676,7 +3875,9 @@ def get_all_user_listings(current_user):
     flattened = []
 
     for item_type in ["car", "bike", "part", "plate"]:
-        category_items, status_code = _collect_user_listing_records(current_user, item_type)
+        category_items, status_code = _collect_user_listing_records(
+            current_user, item_type
+        )
         if status_code >= 400:
             return jsonify(category_items), status_code
 
@@ -3715,15 +3916,21 @@ def extend_user_listing(current_user, item_type, item_id):
 
     listing = listing_data[0]
     if listing.get("user_id") != current_user:
-        return jsonify({"error": "You do not have permission to extend this listing"}), 403
+        return jsonify(
+            {"error": "You do not have permission to extend this listing"}
+        ), 403
 
-    listing = _sync_listing_lifecycle(config["table"], listing, hard_delete_archived=False)
+    listing = _sync_listing_lifecycle(
+        config["table"], listing, hard_delete_archived=False
+    )
     if not listing:
         return jsonify({"error": "Listing is no longer available"}), 410
 
     if listing.get("is_archived"):
         _delete_listing_with_assets(config["table"], item_id)
-        return jsonify({"error": "Listing has already passed its retention period"}), 410
+        return jsonify(
+            {"error": "Listing has already passed its retention period"}
+        ), 410
 
     if listing.get("status") in {"deleted", "rejected"}:
         return jsonify({"error": "This listing cannot be extended"}), 400
@@ -3734,7 +3941,9 @@ def extend_user_listing(current_user, item_type, item_id):
         expiry_anchor = now
 
     new_expires_at = expiry_anchor + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
-    new_retention_expires_at = new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+    new_retention_expires_at = new_expires_at + datetime.timedelta(
+        days=LISTING_RETENTION_DAYS
+    )
     updates = {
         "expires_at": _isoformat_utc(new_expires_at),
         "expired_at": None,
@@ -3754,11 +3963,15 @@ def extend_user_listing(current_user, item_type, item_id):
     if update_status >= 400:
         return jsonify(update_response), update_status
 
-    refreshed_items, refreshed_status = _collect_user_listing_records(current_user, item_type)
+    refreshed_items, refreshed_status = _collect_user_listing_records(
+        current_user, item_type
+    )
     if refreshed_status >= 400:
         return jsonify({"message": "Listing extended successfully"}), 200
 
-    refreshed_listing = next((item for item in refreshed_items if str(item.get("id")) == str(item_id)), None)
+    refreshed_listing = next(
+        (item for item in refreshed_items if str(item.get("id")) == str(item_id)), None
+    )
     return jsonify(
         {
             "message": "Listing extended successfully",
@@ -4708,15 +4921,6 @@ def check_config(current_user):
         logger.error(f"Error in diagnostics endpoint: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-
-# Endpoint to make yourself an admin (for development)
-@app.route("/api/auth/make-admin", methods=["POST"])
-@token_required
-def make_self_admin(current_user):
-    try:
-        if os.getenv("ENABLE_ADMIN_BOOTSTRAP", "false").lower() != "true":
-            return jsonify({"error": "Admin bootstrap is disabled"}), 403
-
         bootstrap_token = os.getenv("ADMIN_BOOTSTRAP_TOKEN")
         request_token = request.headers.get("X-Admin-Bootstrap-Token")
         if not bootstrap_token or request_token != bootstrap_token:
@@ -4932,7 +5136,9 @@ def update_admin_user_status(current_user, user_id):
             logger.error(f"Failed updating user status for {user_id}: {response}")
             return jsonify({"error": "Failed to update user status"}), status_code
 
-        return jsonify({"message": f"User marked as {next_status}", "status": next_status}), 200
+        return jsonify(
+            {"message": f"User marked as {next_status}", "status": next_status}
+        ), 200
     except Exception as e:
         logger.error(f"Error updating admin user status: {str(e)}")
         return jsonify({"error": "An error occurred while updating user status"}), 500
@@ -4983,7 +5189,9 @@ def delete_admin_user(current_user, user_id):
             logger.error(
                 f"Failed deleting auth user {user_id}: {auth_response.status_code} - {auth_response.text}"
             )
-            return jsonify({"error": "Failed to delete auth user"}), auth_response.status_code
+            return jsonify(
+                {"error": "Failed to delete auth user"}
+            ), auth_response.status_code
 
         db_response = requests.delete(
             f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
@@ -4994,7 +5202,9 @@ def delete_admin_user(current_user, user_id):
             logger.error(
                 f"Failed deleting user row {user_id}: {db_response.status_code} - {db_response.text}"
             )
-            return jsonify({"error": "Failed to delete user record"}), db_response.status_code
+            return jsonify(
+                {"error": "Failed to delete user record"}
+            ), db_response.status_code
 
         return jsonify({"message": "User deleted successfully"}), 200
     except Exception as e:
@@ -5599,28 +5809,78 @@ def api_reject_item(current_user, item_type, item_id):
 
 
 def admin_required(f):
+    """Token-based admin authorization - validates JWT and checks is_admin in database"""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get("is_admin") or not session.get("admin_user_id"):
+        auth_header = request.headers.get("Authorization")
+
+        if not auth_header:
             flash("You must be logged in as an admin to access this page.", "danger")
-            # In a real app, you might redirect to a specific admin login page
-            # or the main app's login page if it handles role redirection.
-            # For now, redirecting to a conceptual main page or a placeholder.
-            # If your React app handles routing, direct redirect might not work as expected without frontend handling.
-            # However, for server-rendered pages, direct redirect is standard.
-            # Let's assume a main page or login for now.
-            # If frontend login is at '/', this might be fine.
-            return redirect(
-                url_for("admin.admin_login")
-            )  # UPDATED: Redirect to admin login page
-        return f(*args, **kwargs)
+            return redirect(url_for("admin.admin_login"))
+
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            flash("Invalid authorization format.", "danger")
+            return redirect(url_for("admin.admin_login"))
+
+        token = parts[1]
+
+        try:
+            auth_headers = {
+                "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+                "Authorization": f"Bearer {token}",
+            }
+
+            auth_response = requests.get(
+                f"{SUPABASE_URL}/auth/v1/user", headers=auth_headers, timeout=5
+            )
+
+            if auth_response.status_code != 200:
+                flash("Session expired. Please log in again.", "danger")
+                return redirect(url_for("admin.admin_login"))
+
+            user_data = auth_response.json()
+            user_id = user_data.get("id")
+
+            if not user_id:
+                flash("Invalid user data.", "danger")
+                return redirect(url_for("admin.admin_login"))
+
+            service_headers = {
+                "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+                "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_ROLE_KEY', SUPABASE_KEY)}",
+                "Content-Type": "application/json",
+            }
+
+            response = requests.get(
+                f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=is_admin",
+                headers=service_headers,
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                users = response.json()
+                if users and len(users) > 0 and users[0].get("is_admin"):
+                    request.user_id = user_id
+                    session["is_admin"] = True
+                    session["admin_user_id"] = user_id
+                    return f(*args, **kwargs)
+
+            flash("Admin access required.", "danger")
+            return redirect(url_for("admin.admin_login"))
+
+        except Exception as e:
+            logger.error(f"Error checking admin status: {e}")
+            flash("Authorization check failed.", "danger")
+            return redirect(url_for("admin.admin_login"))
 
     return decorated_function
 
 
 # Admin Blueprint Setup
 admin_bp = Blueprint(
-    "admin",
+    "admin_web",
     __name__,
     template_folder="templates/admin",  # Specifies that templates are in backend/templates/admin
     url_prefix="/admin",  # All routes in this blueprint will be prefixed with /admin
@@ -6661,8 +6921,23 @@ def check_session_route(current_user):
 
 if __name__ == "__main__":
     logger.info("Starting Flask application on port 8000")
-    debug_mode = (
-        os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
-        or os.getenv("FLASK_ENV") != "production"
-    )
-    app.run(debug=debug_mode, host="0.0.0.0", port=8000)
+    debug_mode = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    if debug_mode:
+        logger.warning("!!! FLASK DEBUG MODE IS ENABLED - NOT FOR PRODUCTION !!!")
+    app.run(debug=debug_mode, host="127.0.0.1", port=8000)
+
+
+# Beta gate endpoint - verify password server-side
+@app.route("/api/auth/beta-verify", methods=["POST"])
+def beta_verify():
+    if not BETA_PASSWORD:
+        return jsonify({"success": True}), 200
+
+    data = request.json
+    if not data or not data.get("password"):
+        return jsonify({"success": False}), 401
+
+    if data.get("password") == BETA_PASSWORD:
+        return jsonify({"success": True}), 200
+
+    return jsonify({"success": False}), 401

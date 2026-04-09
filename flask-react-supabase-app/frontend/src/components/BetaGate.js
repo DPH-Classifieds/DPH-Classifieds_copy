@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
+import apiClient from '../utils/apiClient';
 import '../styles/BetaGate.css';
-
-const BETA_PASSWORD = 'admin';
 
 const BetaGate = ({ onUnlock }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setLoading(true);
+    setError('');
 
-    if (password.trim() === BETA_PASSWORD) {
-      setError('');
-      onUnlock();
-      return;
+    try {
+      const response = await apiClient.post('/api/auth/beta-verify', {
+        password: password.trim()
+      });
+
+      if (response && response.success) {
+        onUnlock();
+      } else {
+        setError('Incorrect password. Please try again.');
+      }
+    } catch (err) {
+      setError('Incorrect password. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setError('Incorrect password. Please try again.');
   };
 
   return (
@@ -39,10 +49,11 @@ const BetaGate = ({ onUnlock }) => {
             placeholder="Enter password"
             autoComplete="current-password"
             autoFocus
+            disabled={loading}
           />
           {error ? <p className="beta-gate__error">{error}</p> : null}
-          <button className="beta-gate__button" type="submit">
-            Enter site
+          <button className="beta-gate__button" type="submit" disabled={loading}>
+            {loading ? 'Verifying...' : 'Enter site'}
           </button>
         </form>
         <p className="beta-gate__footnote">

@@ -78,49 +78,33 @@ export const apiClient = {
       
       // Add authorization if token is available
       if (token) {
-        // Make sure we use the correct Bearer format
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
-      // Get user info from localStorage as fallback
-      const userEmail = localStorage.getItem('user_email');
-      const userId = localStorage.getItem('user_id');
-      
+
       // Create the full request options
       const requestOptions = {
         ...options,
         headers,
-        // Don't use 'include' mode as it might cause issues with CORS
         credentials: 'same-origin',
-        // Add mode for CORS
         mode: 'cors'
       };
       
-      // For form data payloads, add user info to the form data
+      // Note: user_id and user_email are now extracted from JWT on the backend
+      // Remove client-side user info injection for security
       if (requestOptions.body instanceof FormData) {
-        if (userEmail) requestOptions.body.append('user_email', userEmail);
-        if (userId) requestOptions.body.append('user_id', userId);
+        // FormData - don't add user info, backend gets it from JWT
       } 
-      // For JSON payloads, add user info to the payload
       else if (requestOptions.headers && requestOptions.headers['Content-Type'] === 'application/json') {
         let payload = {};
         
-        // Try to parse existing body if it's a string
         if (typeof requestOptions.body === 'string') {
           try {
             payload = JSON.parse(requestOptions.body);
-          } catch (e) {
-            console.error('Error parsing JSON body:', e);
-          }
+          } catch (e) {}
         } else if (requestOptions.body) {
           payload = requestOptions.body;
         }
         
-        // Add user info to payload
-        if (userEmail) payload.user_email = userEmail;
-        if (userId) payload.user_id = userId;
-        
-        // Stringify and update the request body
         requestOptions.body = JSON.stringify(payload);
       }
       
