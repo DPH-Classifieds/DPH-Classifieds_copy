@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '';
+const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '0x4AAAAAACMM2UCqH4AFrRmB';
 
 const Login = () => {
   const [emailOrUsername, setEmailOrUsername] = useState('');
