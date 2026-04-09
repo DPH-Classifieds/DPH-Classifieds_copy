@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import apiClient from '../utils/apiClient';
 import '../styles/BetaGate.css';
+
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 const BetaGate = ({ onUnlock }) => {
   const [password, setPassword] = useState('');
@@ -13,11 +14,19 @@ const BetaGate = ({ onUnlock }) => {
     setError('');
 
     try {
-      const response = await apiClient.post('/api/auth/beta-verify', {
-        password: password.trim()
+      const response = await fetch(`${API_BASE_URL}/api/auth/beta-verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          password: password.trim()
+        })
       });
 
-      if (response && response.success) {
+      const data = await response.json();
+
+      if (response.ok && data && data.success) {
         onUnlock();
       } else {
         setError('Incorrect password. Please try again.');
