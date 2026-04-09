@@ -458,11 +458,15 @@ CORS(
     app, resources={r"/*": {"origins": _get_cors_origins()}}, supports_credentials=True
 )
 
-# Configure a secret key for session management
-# IMPORTANT: FLASK_SECRET_KEY must always be set via environment variable
+# Configure a secret key for session management.
+# In production this should be set explicitly so sessions remain stable across restarts.
 flask_secret_key = os.getenv("FLASK_SECRET_KEY")
 if not flask_secret_key:
-    raise RuntimeError("FLASK_SECRET_KEY must be set in environment variables.")
+    flask_secret_key = secrets.token_hex(32)
+    logger.warning(
+        "FLASK_SECRET_KEY is not set; using an ephemeral in-memory secret. "
+        "Set FLASK_SECRET_KEY in the deployment environment to avoid session invalidation on restart."
+    )
 app.secret_key = flask_secret_key
 
 

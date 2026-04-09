@@ -1,13 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
 const Turnstile = ({ onVerify }) => {
-  const [loading, setLoading] = useState(true);
   const siteKey = process.env.REACT_APP_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
     if (!siteKey) {
       console.warn('Turnstile site key not configured');
-      setLoading(false);
       return;
     }
 

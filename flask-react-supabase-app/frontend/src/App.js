@@ -1,4 +1,4 @@
-import React, { useEffect, useState, lazy, Suspense } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -40,7 +40,6 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
 import BetaGate from './components/BetaGate';
 import ExplorePage from './components/ExplorePage';
-import LoadingSpinner from './components/LoadingSpinner';
 import './App.css';
 import './styles/UAELicensePlate.css';
 

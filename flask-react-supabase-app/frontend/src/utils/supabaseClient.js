@@ -30,7 +30,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
 
 export const getBestAccessToken = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     
     if (session?.access_token) {
       return session.access_token;
