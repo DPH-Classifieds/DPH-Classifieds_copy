@@ -788,9 +788,6 @@ def token_required(f):
             if token:
                 auth_header = f"Bearer {token}"
 
-        logger.info("Checking authorization header")
-
-        # Check if Authorization header exists and has correct format
         if not auth_header:
             logger.error("No Authorization header present")
             return jsonify({"message": "Authorization header is required"}), 401
@@ -798,49 +795,54 @@ def token_required(f):
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
             logger.error("Invalid Authorization header format")
-            return jsonify(
-                {"message": "Invalid Authorization format. Use: Bearer <token>"}
-            ), 401
+            return jsonify({"message": "Invalid Authorization format. Use: Bearer <token>"}), 401
 
         token = parts[1]
 
         try:
-            # Validate token with Supabase - use service role key for proper validation
-            url = f"{SUPABASE_URL}/auth/v1/user"
-            service_role_key = app.config.get("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
-            headers = {"apikey": service_role_key, "Authorization": f"Bearer {token}"}
+            import base64
+            import jwt as pyjwt
 
-            logger.info("Validating token with Supabase using service role key")
-            response = requests.get(url, headers=headers, timeout=10)
+            # Supabase JWT secret is base64-encoded — decode it first
+            secret = SUPABASE_JWT_SECRET
+            try:
+                secret = base64.b64decode(secret + "==")
+            except Exception:
+                pass  # use as-is if not base64
 
-            if response.status_code in (401, 403):
-                logger.error(f"Token expired or invalid (Supabase returned {response.status_code})")
-                return jsonify({"message": "Token has expired or is invalid"}), 401
-            elif response.status_code != 200:
-                logger.error(f"Supabase validation failed: {response.status_code}")
-                return jsonify(
-                    {"message": "Token validation failed"}
-                ), response.status_code
+            payload = pyjwt.decode(
+                token,
+                secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False}
+            )
 
-            # Get user data from response
-            user_data = response.json()
-            if not user_data or "id" not in user_data:
-                logger.error("Invalid user data in token")
-                return jsonify({"message": "Invalid user data"}), 401
+            current_user = payload.get("sub")
+            if not current_user:
+                logger.error("No sub claim in token")
+                return jsonify({"message": "Invalid token: missing user ID"}), 401
 
-            current_user = user_data["id"]
-            logger.info(f"Token validated for user: {current_user}")
+            logger.info(f"Token validated locally for user: {current_user}")
 
-            # Add user data to request context
+            # Build minimal user_data from token claims
+            user_data = {
+                "id": current_user,
+                "email": payload.get("email", ""),
+                "role": payload.get("role", "authenticated"),
+            }
+
             request.user_id = current_user
             request.user_data = user_data
             request.supabase_token = token
 
             return f(current_user, *args, **kwargs)
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error during token validation: {str(e)}")
-            return jsonify({"message": "Error validating token"}), 503
+        except pyjwt.ExpiredSignatureError:
+            logger.error("Token has expired")
+            return jsonify({"message": "Token has expired or is invalid"}), 401
+        except pyjwt.InvalidTokenError as e:
+            logger.error(f"Invalid token: {str(e)}")
+            return jsonify({"message": "Token has expired or is invalid"}), 401
         except Exception as e:
             logger.error(f"Unexpected error during token validation: {str(e)}")
             return jsonify({"message": "Internal server error"}), 500
