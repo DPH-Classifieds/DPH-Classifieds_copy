@@ -228,18 +228,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      <section className="cn-insight-band">
-        <div className="cn-shell cn-insight-grid">
-          {marketplaceInsights.map((insight) => (
-            <article key={insight.id} className="cn-insight-card">
-              <span className="cn-insight-stat">{insight.stat}</span>
-              <h2>{insight.title}</h2>
-              <p>{insight.subtitle}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="cn-explore-section">
         <div className="cn-shell">
           <div className="cn-section-heading cn-section-heading-dark">
@@ -317,6 +305,15 @@ const HomePage = () => {
                 <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
               </Link>
             </Button>
+          </div>
+          <div className="cn-cta-stats">
+            {marketplaceInsights.map((insight) => (
+              <article key={insight.id} className="cn-cta-stat-card">
+                <span className="cn-cta-stat-number">{insight.stat}</span>
+                <span className="cn-cta-stat-title">{insight.title}</span>
+                <span className="cn-cta-stat-desc">{insight.subtitle}</span>
+              </article>
+            ))}
           </div>
         </div>
       </section>

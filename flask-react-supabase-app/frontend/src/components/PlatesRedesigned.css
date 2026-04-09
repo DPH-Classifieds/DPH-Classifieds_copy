@@ -257,7 +257,6 @@
   background-color: var(--platesd-text);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
-
 .platesd-no-results {
   text-align: center;
   padding: 80px 40px;
