@@ -813,8 +813,8 @@ def token_required(f):
             logger.info("Validating token with Supabase using service role key")
             response = requests.get(url, headers=headers, timeout=10)
 
-            if response.status_code == 401:
-                logger.error("Token expired or invalid")
+            if response.status_code in (401, 403):
+                logger.error(f"Token expired or invalid (Supabase returned {response.status_code})")
                 return jsonify({"message": "Token has expired or is invalid"}), 401
             elif response.status_code != 200:
                 logger.error(f"Supabase validation failed: {response.status_code}")
@@ -2878,6 +2878,29 @@ def user_exists_by_email(email):
     except Exception as e:
         logger.error(f"Error finding user by email: {str(e)}")
         return False
+
+
+def find_user_email_by_username(username):
+    """Look up a user's email address by their username."""
+    try:
+        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+        headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Content-Type": "application/json",
+        }
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=eq.{username}&select=email&limit=1"
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            logger.warning(f"Unable to look up username {username}: {response.status_code}")
+            return None
+        users = response.json()
+        if users:
+            return users[0].get("email")
+        return None
+    except Exception as e:
+        logger.error(f"Error finding user by username: {str(e)}")
+        return None
 
 
 # User authentication routes
