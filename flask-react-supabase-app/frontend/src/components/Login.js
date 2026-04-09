@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { setAuthHeader } from '../utils/authService';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -44,6 +45,13 @@ const Login = () => {
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
+      }
+
+      // Save token so syncWithSupabase can find the authenticated user
+      if (data.access_token) {
+        localStorage.setItem('supabase_access_token', data.access_token);
+        localStorage.setItem('authData', JSON.stringify(data));
+        setAuthHeader(data.access_token);
       }
 
       await syncWithSupabase();
