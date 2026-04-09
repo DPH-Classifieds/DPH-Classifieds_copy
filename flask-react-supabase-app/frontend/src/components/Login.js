@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import TurnstileCaptcha from './TurnstileCaptcha';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -39,8 +38,7 @@ const Login = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: emailOrUsername,
-          password: password,
-          turnstileToken: window.turnstileToken
+          password: password
         }),
         credentials: 'include'
       });
@@ -129,8 +127,6 @@ const Login = () => {
               autoComplete="current-password"
             />
           </div>
-          
-          <TurnstileCaptcha />
           
           <button 
             type="submit" 

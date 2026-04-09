@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useNavigate } from 'react-router-dom';
-import TurnstileCaptcha from './TurnstileCaptcha';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -308,8 +307,7 @@ const Signup = () => {
           : formData.username,
         emailNotifications: formData.emailNotifications,
         smsNotifications: formData.smsNotifications,
-        marketingEmails: formData.marketingEmails,
-        turnstileToken: window.turnstileToken
+        marketingEmails: formData.marketingEmails
       };
 
       const response = await fetch(`${API_URL}/api/auth/signup`, {
@@ -716,8 +714,6 @@ const Signup = () => {
           {error && allErrors.length === 0 && (
             <div className="auth-error bottom-error">{error}</div>
           )}
-          
-          <TurnstileCaptcha />
           
           <button 
             type="submit" 

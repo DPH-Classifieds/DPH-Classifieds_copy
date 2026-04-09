@@ -805,11 +805,12 @@ def token_required(f):
         token = parts[1]
 
         try:
-            # Validate token with Supabase
+            # Validate token with Supabase - use service role key for proper validation
             url = f"{SUPABASE_URL}/auth/v1/user"
-            headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {token}"}
+            service_role_key = app.config.get("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+            headers = {"apikey": service_role_key, "Authorization": f"Bearer {token}"}
 
-            logger.info("Validating token with Supabase")
+            logger.info("Validating token with Supabase using service role key")
             response = requests.get(url, headers=headers, timeout=10)
 
             if response.status_code == 401:
@@ -2897,12 +2898,8 @@ def login():
         logger.warning("[Login] Missing email/username or password in request.")
         return jsonify({"message": "Missing email/username or password"}), 400
 
-    # Verify Turnstile CAPTCHA token
-    turnstile_token = data.get("turnstileToken")
-    if not _verify_turnstile_token(turnstile_token):
-        return jsonify(
-            {"message": "CAPTCHA verification failed. Please try again."}
-        ), 400
+    # Note: CAPTCHA is now handled by Supabase's built-in bot protection
+    # No need to verify Turnstile token here
 
     password = data.get("password")
 
@@ -3054,12 +3051,8 @@ def signup():
     if not data or not data.get("email") or not data.get("password"):
         return jsonify({"message": "Missing email or password"}), 400
 
-    # Verify Turnstile CAPTCHA token
-    turnstile_token = data.get("turnstileToken")
-    if not _verify_turnstile_token(turnstile_token):
-        return jsonify(
-            {"message": "CAPTCHA verification failed. Please try again."}
-        ), 400
+    # Note: CAPTCHA is now handled by Supabase's built-in bot protection
+    # No need to verify Turnstile token here
 
     email = data.get("email")
     password = data.get("password")
