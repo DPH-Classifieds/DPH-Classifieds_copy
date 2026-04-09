@@ -261,6 +261,23 @@
   background: rgba(143, 230, 148, 0.08);
 }
 
+.auth-inline-button {
+  width: auto;
+  min-width: 0;
+  margin-top: 0;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text);
+  border: 1px solid rgba(177, 228, 182, 0.16);
+  box-shadow: none;
+}
+
+.auth-inline-button:hover {
+  background: rgba(143, 230, 148, 0.08);
+}
+
 .auth-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -311,13 +328,29 @@
   margin-top: 18px;
 }
 
+.auth-inline-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 6px;
+  color: var(--auth-accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-inline-action:hover {
+  text-decoration: underline;
+}
+
 .auth-support-panel {
   margin-top: 18px;
   padding: 18px;
   background: linear-gradient(180deg, rgba(17, 39, 27, 0.92) 0%, rgba(11, 24, 17, 0.94) 100%);
   border: 1px solid rgba(177, 228, 182, 0.08);
   border-radius: 20px;
-  text-align: left;
+  text-align: center;
 }
 
 .auth-support-title {
@@ -464,6 +497,10 @@
 
 .check-email-note {
   margin-bottom: 18px;
+}
+
+.check-email-actions {
+  margin-top: 18px;
 }
 
 .loading-container {
@@ -782,5 +819,29 @@
 
   .auth-divider {
     display: none;
+  }
+
+  .check-email-card {
+    padding: 20px;
+  }
+
+  .check-email-status {
+    margin-bottom: 18px;
+  }
+
+  .check-email-highlight,
+  .check-email-step,
+  .auth-status-panel,
+  .auth-support-panel {
+    border-radius: 18px;
+  }
+
+  .check-email-note {
+    font-size: 0.86rem;
+    line-height: 1.6;
+  }
+
+  .auth-inline-button {
+    width: 100%;
   }
 }

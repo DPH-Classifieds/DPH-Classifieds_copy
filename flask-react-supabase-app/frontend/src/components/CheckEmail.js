@@ -97,7 +97,7 @@ const CheckEmail = () => {
             {resendStatus.guidance && <p>{resendStatus.guidance}</p>}
           </div>
         )}
-        <div className="auth-action-row">
+        <div className="check-email-actions">
           <button
             type="button"
             className="auth-button"
@@ -106,7 +106,7 @@ const CheckEmail = () => {
           >
             {resending ? 'Resending...' : 'Resend confirmation email'}
           </button>
-          <Link to="/login" className="auth-button auth-button-secondary">
+          <Link to="/login" className="auth-inline-action">
             Back to login
           </Link>
         </div>

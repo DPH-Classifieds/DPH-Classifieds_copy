@@ -156,7 +156,7 @@ const Login = () => {
           </p>
           <button
             type="button"
-            className="auth-button auth-button-secondary"
+            className="auth-inline-button"
             onClick={handleResendReset}
             disabled={resetLoading}
           >

@@ -66,11 +66,11 @@ const AuthCallback = () => {
               : 'You can continue to your profile or return to login if you prefer to sign in again.'}
           </p>
         </div>
-        <div className="auth-action-row">
+        <div className="check-email-actions">
           <Link to={hasError ? '/login' : '/profile'} className="auth-button">
             {hasError ? 'Go to login' : 'Continue'}
           </Link>
-          <Link to="/login" className="auth-button auth-button-secondary">
+          <Link to="/login" className="auth-inline-action">
             Back to login
           </Link>
         </div>
