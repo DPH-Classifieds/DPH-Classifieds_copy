@@ -54,6 +54,19 @@ CONTACT_RATE_LIMIT = defaultdict(deque)
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
+LISTING_EXPIRY_DAYS = 30
+LISTING_RETENTION_DAYS = 30
+
+LISTING_TABLE_CONFIG = {
+    "car": {"table": "cars", "images_table": "car_images", "fk": "car_id"},
+    "bike": {"table": "bikes", "images_table": "bike_images", "fk": "bike_id"},
+    "part": {"table": "car_parts", "images_table": "part_images", "fk": "part_id"},
+    "plate": {
+        "table": "license_plates",
+        "images_table": "plate_images",
+        "fk": "plate_id",
+    },
+}
 
 CAR_TRANSMISSION_OPTIONS = {"Automatic", "Manual"}
 REGIONAL_SPEC_NORMALIZATION = {
@@ -64,6 +77,308 @@ REGIONAL_SPEC_NORMALIZATION = {
     "Korean Specs": "Korean",
     "Chinese Specs": "Chinese",
 }
+
+
+def _utc_now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _parse_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime.datetime):
+        return (
+            value
+            if value.tzinfo is not None
+            else value.replace(tzinfo=datetime.timezone.utc)
+        )
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+
+    try:
+        parsed = datetime.datetime.fromisoformat(normalized)
+        return (
+            parsed
+            if parsed.tzinfo is not None
+            else parsed.replace(tzinfo=datetime.timezone.utc)
+        )
+    except ValueError:
+        return None
+
+
+def _isoformat_utc(value):
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.timezone.utc)
+    return value.astimezone(datetime.timezone.utc).isoformat()
+
+
+def _default_expiry_from_created_at(record):
+    created_at = _parse_datetime(record.get("created_at")) or _utc_now()
+    return created_at + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
+
+
+def _compute_listing_lifecycle(record):
+    now = _utc_now()
+    expires_at = _parse_datetime(record.get("expires_at")) or _default_expiry_from_created_at(record)
+    expired_at = _parse_datetime(record.get("expired_at"))
+
+    if not expired_at and now >= expires_at:
+        expired_at = expires_at
+
+    retention_expires_at = _parse_datetime(record.get("retention_expires_at"))
+    if not retention_expires_at:
+        retention_anchor = expired_at or expires_at
+        retention_expires_at = retention_anchor + datetime.timedelta(
+            days=LISTING_RETENTION_DAYS
+        )
+
+    is_archived = bool(record.get("is_archived")) or now >= retention_expires_at
+    is_expired = now >= expires_at
+
+    if is_archived:
+        state = "archived"
+    elif is_expired:
+        state = "expired"
+    else:
+        state = "active"
+
+    return {
+        "expires_at": expires_at,
+        "expired_at": expired_at,
+        "retention_expires_at": retention_expires_at,
+        "is_expired": is_expired,
+        "is_archived": is_archived,
+        "state": state,
+        "days_until_expiry": max((expires_at - now).days, 0) if not is_expired else 0,
+        "days_until_deletion": max((retention_expires_at - now).days, 0)
+        if not is_archived
+        else 0,
+    }
+
+
+def _apply_listing_lifecycle_metadata(record):
+    if not isinstance(record, dict):
+        return record
+
+    lifecycle = _compute_listing_lifecycle(record)
+    record["listing_state"] = lifecycle["state"]
+    record["is_expired"] = lifecycle["is_expired"]
+    record["is_archived"] = lifecycle["is_archived"]
+    record["expires_at"] = _isoformat_utc(lifecycle["expires_at"])
+    record["expired_at"] = _isoformat_utc(lifecycle["expired_at"])
+    record["retention_expires_at"] = _isoformat_utc(lifecycle["retention_expires_at"])
+    record["days_until_expiry"] = lifecycle["days_until_expiry"]
+    record["days_until_deletion"] = lifecycle["days_until_deletion"]
+    record["can_extend"] = not lifecycle["is_archived"] and record.get("status") not in {
+        "deleted",
+        "rejected",
+    }
+    return record
+
+
+def _delete_listing_with_assets(table_name, listing_id):
+    config = next(
+        (cfg for cfg in LISTING_TABLE_CONFIG.values() if cfg["table"] == table_name),
+        None,
+    )
+    if not config:
+        return
+
+    try:
+        supabase_request(
+            "delete",
+            f"/rest/v1/{config['images_table']}",
+            params={config["fk"]: f"eq.{listing_id}"},
+            use_service_role=True,
+        )
+    except Exception as image_err:
+        logger.warning(
+            f"Failed deleting related images for {table_name}/{listing_id}: {image_err}"
+        )
+
+    supabase_request(
+        "delete",
+        f"/rest/v1/{table_name}",
+        params={"id": f"eq.{listing_id}"},
+        use_service_role=True,
+    )
+
+
+def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
+    if not isinstance(record, dict):
+        return record
+
+    lifecycle = _compute_listing_lifecycle(record)
+    updates = {}
+
+    if record.get("expires_at") is None:
+        updates["expires_at"] = _isoformat_utc(lifecycle["expires_at"])
+    if lifecycle["is_expired"] and record.get("expired_at") is None:
+        updates["expired_at"] = _isoformat_utc(lifecycle["expired_at"])
+    if record.get("retention_expires_at") is None:
+        updates["retention_expires_at"] = _isoformat_utc(lifecycle["retention_expires_at"])
+    if lifecycle["is_archived"] and not record.get("is_archived"):
+        updates["is_archived"] = True
+
+    if updates:
+        patch_response, patch_status = supabase_request(
+            "patch",
+            f"/rest/v1/{table_name}?id=eq.{record.get('id')}",
+            data=updates,
+            use_service_role=True,
+        )
+        if patch_status >= 400:
+            logger.warning(
+                f"Failed syncing lifecycle for {table_name}/{record.get('id')}: {patch_response}"
+            )
+        else:
+            record.update(updates)
+
+    _apply_listing_lifecycle_metadata(record)
+
+    if hard_delete_archived and record.get("is_archived"):
+        _delete_listing_with_assets(table_name, record.get("id"))
+        return None
+
+    return record
+
+
+def _new_listing_lifecycle_fields():
+    expires_at = _utc_now() + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
+    return {
+        "expires_at": _isoformat_utc(expires_at),
+        "expired_at": None,
+        "retention_expires_at": _isoformat_utc(
+            expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+        ),
+        "last_extended_at": None,
+        "extension_count": 0,
+        "is_archived": False,
+    }
+
+
+def _strip_lifecycle_fields(payload):
+    if not isinstance(payload, dict):
+        return payload
+    lifecycle_keys = {
+        "expires_at",
+        "expired_at",
+        "retention_expires_at",
+        "last_extended_at",
+        "extension_count",
+        "is_archived",
+    }
+    return {key: value for key, value in payload.items() if key not in lifecycle_keys}
+
+
+def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
+    response, status_code = supabase_request(
+        "post", path, data=payload, user_id=user_id
+    )
+    if status_code < 400:
+        return response, status_code
+
+    error_text = json.dumps(response).lower()
+    if "expires_at" not in error_text and "retention_expires_at" not in error_text:
+        return response, status_code
+
+    logger.warning(
+        f"Lifecycle columns missing for {path}. Retrying insert without lifecycle fields."
+    )
+    fallback_payload = _strip_lifecycle_fields(payload)
+    return supabase_request("post", path, data=fallback_payload, user_id=user_id)
+
+
+def _filter_public_listing_records(table_name, records):
+    filtered = []
+    for record in records or []:
+        synced = _sync_listing_lifecycle(
+            table_name, record, hard_delete_archived=True
+        )
+        if not synced:
+            continue
+        if synced.get("listing_state") != "active":
+            continue
+        filtered.append(synced)
+    return filtered
+
+
+def _collect_user_listing_records(current_user, item_type):
+    config = LISTING_TABLE_CONFIG[item_type]
+    records, status_code = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={
+            "select": "*",
+            "user_id": f"eq.{current_user}",
+            "order": "created_at.desc",
+        },
+        user_id=current_user,
+    )
+
+    if status_code >= 400:
+        return records, status_code
+
+    hydrated_records = []
+    for record in records or []:
+        listing_id = record.get("id")
+        images_data, images_status = supabase_request(
+            "get",
+            f"/rest/v1/{config['images_table']}",
+            params={"select": "*", config["fk"]: f"eq.{listing_id}"},
+            user_id=current_user,
+        )
+        record["images"] = images_data if images_status < 400 else []
+        record["listing_type"] = item_type
+        synced = _sync_listing_lifecycle(
+            config["table"], record, hard_delete_archived=True
+        )
+        if synced:
+            hydrated_records.append(synced)
+
+    return hydrated_records, 200
+
+
+def _delete_user_owned_listing(current_user, item_type, item_id):
+    config = LISTING_TABLE_CONFIG[item_type]
+    listing_data, listing_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={"select": "user_id", "id": f"eq.{item_id}", "limit": 1},
+        user_id=current_user,
+    )
+
+    if listing_status >= 400:
+        return listing_data, listing_status
+
+    if not listing_data:
+        return {"error": "Listing not found"}, 404
+
+    if listing_data[0].get("user_id") != current_user:
+        return {"error": "You do not have permission to delete this listing"}, 403
+
+    supabase_request(
+        "delete",
+        f"/rest/v1/{config['images_table']}",
+        params={config["fk"]: f"eq.{item_id}"},
+        user_id=current_user,
+    )
+    delete_response, delete_status = supabase_request(
+        "delete",
+        f"/rest/v1/{config['table']}",
+        params={"id": f"eq.{item_id}"},
+        user_id=current_user,
+    )
+
+    return delete_response, delete_status
 
 
 def _to_int(value, field_name, *, minimum=None, maximum=None, allow_empty=True):
@@ -680,6 +995,8 @@ def get_cars():
             logger.warning(f"Unexpected response format: {type(response)}")
             response = []
 
+        response = _filter_public_listing_records("cars", response)
+
         # Fetch images for each car
         try:
             for car in response:
@@ -779,7 +1096,10 @@ def get_car_by_id(car_id):
             logger.warning(f"Car not found with ID: {car_id}")
             return jsonify({"error": "Car not found"}), 404
 
-        car = car_response[0]
+        car = _sync_listing_lifecycle("cars", car_response[0], hard_delete_archived=True)
+        if not car or car.get("listing_state") != "active":
+            return jsonify({"error": "Car not found"}), 404
+
         logger.info(
             f"Found car: {car.get('listing_title', 'Untitled')} (ID: {car['id']})"
         )
@@ -889,38 +1209,14 @@ def track_plate_view(plate_id):
 @app.route("/api/user/cars", methods=["GET"])
 @token_required
 def get_user_cars(current_user):
-    data, status_code = supabase_request(
-        "get",
-        "/rest/v1/cars",
-        params={
-            "select": "*",
-            "user_id": f"eq.{current_user}",
-            "order": "created_at.desc",
-        },
-        user_id=current_user,
-    )
-
+    data, status_code = _collect_user_listing_records(current_user, "car")
     if status_code >= 400:
         return jsonify(data), status_code
 
-    # Get the car images for each car
     for car in data:
-        car_id = car.get("id")
-        images_data, images_status = supabase_request(
-            "get",
-            "/rest/v1/car_images",
-            params={"select": "*", "car_id": f"eq.{car_id}"},
-            user_id=current_user,
-        )
-
-        if images_status < 400:
-            # Transform url to image_url for frontend compatibility
-            for image in images_data:
-                if "url" in image and "image_url" not in image:
-                    image["image_url"] = image["url"]
-            car["images"] = images_data
-        else:
-            car["images"] = []
+        for image in car.get("images", []):
+            if "url" in image and "image_url" not in image:
+                image["image_url"] = image["url"]
 
     return jsonify(data), 200
 
@@ -940,6 +1236,7 @@ def create_car(current_user):
 
         car_data = request.json
         car_data["user_id"] = current_user
+        car_data.update(_new_listing_lifecycle_fields())
 
         try:
             if "make_year" in car_data:
@@ -1048,6 +1345,12 @@ def create_car(current_user):
             "leather_seats",
             "parking_sensors",
             "rear_view_camera",
+            "expires_at",
+            "expired_at",
+            "retention_expires_at",
+            "last_extended_at",
+            "extension_count",
+            "is_archived",
         }
         car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
 
@@ -1058,8 +1361,8 @@ def create_car(current_user):
             ), 400
 
         # Create the car
-        data, status_code = supabase_request(
-            "post", "/rest/v1/cars", data=car_data, user_id=current_user
+        data, status_code = _create_listing_with_lifecycle_fallback(
+            "/rest/v1/cars", car_data, user_id=current_user
         )
 
         if status_code >= 400:
@@ -1723,6 +2026,51 @@ def _send_resend_email(payload):
     if response.status_code >= 400:
         return None, response.text
     return response.json(), None
+
+
+def _format_auth_email_error(error_data, fallback_message):
+    description = ""
+    details = error_data
+
+    if isinstance(error_data, dict):
+        description = (
+            error_data.get("error_description")
+            or error_data.get("msg")
+            or error_data.get("message")
+            or ""
+        )
+    elif isinstance(error_data, str):
+        description = error_data
+        details = {"raw": error_data}
+
+    lower_description = description.lower()
+    guidance = None
+    message = description or fallback_message
+
+    if "email address not authorized" in lower_description:
+        message = "Authentication email delivery is not enabled for public recipients yet."
+        guidance = (
+            "Configure custom SMTP or a Supabase Send Email Hook for Auth. "
+            "The default Supabase sender only delivers to authorized project-team addresses."
+        )
+    elif "rate limit" in lower_description or "too many requests" in lower_description:
+        message = "Too many authentication emails have been requested right now."
+        guidance = (
+            "Wait a few minutes before retrying, or increase the Supabase Auth email "
+            "rate limit after you configure production email delivery."
+        )
+    elif "smtp" in lower_description or "mailer" in lower_description:
+        message = "Authentication email delivery is not configured correctly."
+        guidance = (
+            "Check Supabase Auth SMTP settings or replace the built-in sender with "
+            "a Send Email Hook for production delivery."
+        )
+
+    return {
+        "message": message,
+        "guidance": guidance,
+        "details": details,
+    }
 
 
 def _build_listing_title(item_type, listing):
@@ -2604,12 +2952,8 @@ def signup():
             ), response.status_code
 
         logger.error(f"Signup failed: {error_data}")
-        return jsonify(
-            {
-                "message": error_data.get("error_description", "Signup failed"),
-                "details": error_data,
-            }
-        ), response.status_code
+        normalized_error = _format_auth_email_error(error_data, "Signup failed")
+        return jsonify(normalized_error), response.status_code
 
     except Exception as e:
         logger.error(f"Signup error: {str(e)}")
@@ -2919,13 +3263,10 @@ def reset_password():
             return jsonify({"message": "Password reset email sent successfully"}), 200
         else:
             error_data = response.json()
-            return jsonify(
-                {
-                    "message": error_data.get(
-                        "error_description", "Failed to send password reset email"
-                    )
-                }
-            ), response.status_code
+            normalized_error = _format_auth_email_error(
+                error_data, "Failed to send password reset email"
+            )
+            return jsonify(normalized_error), response.status_code
 
     except Exception as e:
         logger.error(f"Password reset error: {str(e)}")
@@ -2965,14 +3306,10 @@ def resend_confirmation():
                 }
             ), response.status_code
 
-        return jsonify(
-            {
-                "message": error_data.get(
-                    "error_description", "Failed to resend confirmation email"
-                ),
-                "details": error_data,
-            }
-        ), response.status_code
+        normalized_error = _format_auth_email_error(
+            error_data, "Failed to resend confirmation email"
+        )
+        return jsonify(normalized_error), response.status_code
     except Exception as e:
         logger.error(f"Resend confirmation error: {str(e)}")
         return jsonify(
@@ -3153,6 +3490,8 @@ def get_bikes():
             if response.status_code == 200:
                 bikes = response.json()
 
+                bikes = _filter_public_listing_records("bikes", bikes)
+
                 # Fetch images for each bike
                 for bike in bikes:
                     _normalize_bike_record(bike)
@@ -3194,6 +3533,7 @@ def get_bikes():
                 "get", "/rest/v1/bikes", params=params
             )
             if status_code < 400 and response:
+                response = _filter_public_listing_records("bikes", response)
                 # Fetch images for each bike in fallback
                 for bike in response:
                     _normalize_bike_record(bike)
@@ -3236,7 +3576,9 @@ def get_bike_by_id(bike_id):
             logger.warning(f"Bike not found with ID: {bike_id}")
             return jsonify({"error": "Bike not found"}), 404
 
-        bike = bike_response[0]
+        bike = _sync_listing_lifecycle("bikes", bike_response[0], hard_delete_archived=True)
+        if not bike or bike.get("listing_state") != "active":
+            return jsonify({"error": "Bike not found"}), 404
         _normalize_bike_record(bike)
         logger.info(
             f"Found bike: {bike.get('make')} {bike.get('model')} (ID: {bike['id']})"
@@ -3299,36 +3641,130 @@ def get_bike_by_id(bike_id):
 @app.route("/api/user/bikes", methods=["GET"])
 @token_required
 def get_user_bikes(current_user):
-    data, status_code = supabase_request(
-        "get",
-        "/rest/v1/bikes",
-        params={
-            "select": "*",
-            "user_id": f"eq.{current_user}",
-            "order": "created_at.desc",
-        },
-        user_id=current_user,
-    )
-
+    data, status_code = _collect_user_listing_records(current_user, "bike")
     if status_code >= 400:
         return jsonify(data), status_code
 
-    # Get the bike images for each bike
     for bike in data:
-        bike_id = bike.get("id")
-        images_data, images_status = supabase_request(
-            "get",
-            "/rest/v1/bike_images",
-            params={"select": "*", "bike_id": f"eq.{bike_id}"},
-            user_id=current_user,
-        )
-
-        if images_status < 400:
-            bike["images"] = images_data
-        else:
-            bike["images"] = []
+        _normalize_bike_record(bike)
 
     return jsonify(data), 200
+
+
+@app.route("/api/user/plates", methods=["GET"])
+@token_required
+def get_user_plates(current_user):
+    data, status_code = _collect_user_listing_records(current_user, "plate")
+    if status_code >= 400:
+        return jsonify(data), status_code
+    return jsonify(data), 200
+
+
+@app.route("/api/user/parts", methods=["GET"])
+@token_required
+def get_user_parts(current_user):
+    data, status_code = _collect_user_listing_records(current_user, "part")
+    if status_code >= 400:
+        return jsonify(data), status_code
+    return jsonify(data), 200
+
+
+@app.route("/api/user/listings", methods=["GET"])
+@token_required
+def get_all_user_listings(current_user):
+    categories = {}
+    flattened = []
+
+    for item_type in ["car", "bike", "part", "plate"]:
+        category_items, status_code = _collect_user_listing_records(current_user, item_type)
+        if status_code >= 400:
+            return jsonify(category_items), status_code
+
+        for item in category_items:
+            item["listing_type"] = item_type
+        categories[f"{item_type}s" if item_type != "part" else "parts"] = category_items
+        flattened.extend(category_items)
+
+    flattened.sort(
+        key=lambda item: _parse_datetime(item.get("created_at")) or _utc_now(),
+        reverse=True,
+    )
+
+    return jsonify({"listings": flattened, **categories}), 200
+
+
+@app.route("/api/user/listings/<item_type>/<item_id>/extend", methods=["POST"])
+@token_required
+def extend_user_listing(current_user, item_type, item_id):
+    config = LISTING_TABLE_CONFIG.get(item_type)
+    if not config:
+        return jsonify({"error": "Invalid listing type"}), 400
+
+    listing_data, listing_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={"select": "*", "id": f"eq.{item_id}", "limit": 1},
+        user_id=current_user,
+    )
+
+    if listing_status >= 400:
+        return jsonify(listing_data), listing_status
+
+    if not listing_data:
+        return jsonify({"error": "Listing not found"}), 404
+
+    listing = listing_data[0]
+    if listing.get("user_id") != current_user:
+        return jsonify({"error": "You do not have permission to extend this listing"}), 403
+
+    listing = _sync_listing_lifecycle(config["table"], listing, hard_delete_archived=False)
+    if not listing:
+        return jsonify({"error": "Listing is no longer available"}), 410
+
+    if listing.get("is_archived"):
+        _delete_listing_with_assets(config["table"], item_id)
+        return jsonify({"error": "Listing has already passed its retention period"}), 410
+
+    if listing.get("status") in {"deleted", "rejected"}:
+        return jsonify({"error": "This listing cannot be extended"}), 400
+
+    now = _utc_now()
+    expiry_anchor = _parse_datetime(listing.get("expires_at")) or now
+    if expiry_anchor < now:
+        expiry_anchor = now
+
+    new_expires_at = expiry_anchor + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
+    new_retention_expires_at = new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+    updates = {
+        "expires_at": _isoformat_utc(new_expires_at),
+        "expired_at": None,
+        "retention_expires_at": _isoformat_utc(new_retention_expires_at),
+        "last_extended_at": _isoformat_utc(now),
+        "extension_count": int(listing.get("extension_count") or 0) + 1,
+        "is_archived": False,
+    }
+
+    update_response, update_status = supabase_request(
+        "patch",
+        f"/rest/v1/{config['table']}?id=eq.{item_id}",
+        data=updates,
+        user_id=current_user,
+    )
+
+    if update_status >= 400:
+        return jsonify(update_response), update_status
+
+    refreshed_items, refreshed_status = _collect_user_listing_records(current_user, item_type)
+    if refreshed_status >= 400:
+        return jsonify({"message": "Listing extended successfully"}), 200
+
+    refreshed_listing = next((item for item in refreshed_items if str(item.get("id")) == str(item_id)), None)
+    return jsonify(
+        {
+            "message": "Listing extended successfully",
+            "listing": refreshed_listing,
+        }
+    ), 200
 
 
 @app.route("/api/bikes", methods=["POST"])
@@ -3346,6 +3782,7 @@ def create_bike(current_user):
         bike_data = request.json
         bike_data["user_id"] = current_user
         bike_data["status"] = "pending"  # Set status as pending for admin approval
+        bike_data.update(_new_listing_lifecycle_fields())
 
         try:
             if "year" in bike_data:
@@ -3408,12 +3845,18 @@ def create_bike(current_user):
             "status",
             "user_id",
             "is_dealer",
+            "expires_at",
+            "expired_at",
+            "retention_expires_at",
+            "last_extended_at",
+            "extension_count",
+            "is_archived",
         }
         bike_data = {k: v for k, v in bike_data.items() if k in bike_allowed_fields}
 
         # Create the bike
-        data, status_code = supabase_request(
-            "post", "/rest/v1/bikes", data=bike_data, user_id=current_user
+        data, status_code = _create_listing_with_lifecycle_fallback(
+            "/rest/v1/bikes", bike_data, user_id=current_user
         )
 
         if status_code >= 400:
@@ -3673,6 +4116,7 @@ def get_plates():
 
         if response.status_code == 200:
             plates = response.json()
+            plates = _filter_public_listing_records("license_plates", plates)
             logger.info(f"Found {len(plates)} plates")
 
             # Fetch images for each plate
@@ -3748,7 +4192,11 @@ def get_plate_details(plate_id):
                     logger.warning(f"No plate found with ID: {plate_id}")
                     return jsonify({"error": "Plate not found"}), 404
 
-                plate = plates[0]
+                plate = _sync_listing_lifecycle(
+                    "license_plates", plates[0], hard_delete_archived=True
+                )
+                if not plate or plate.get("listing_state") != "active":
+                    return jsonify({"error": "Plate not found"}), 404
                 logger.info(
                     f"Found plate: {plate.get('city')} {plate.get('code')} {plate.get('number')}"
                 )
@@ -3800,7 +4248,11 @@ def get_plate_details(plate_id):
                 params={"id": f"eq.{plate_id}", "select": "*"},
             )
             if status_code < 400 and response and len(response) > 0:
-                plate = response[0]
+                plate = _sync_listing_lifecycle(
+                    "license_plates", response[0], hard_delete_archived=True
+                )
+                if not plate or plate.get("listing_state") != "active":
+                    return jsonify({"error": "Plate not found"}), 404
 
                 # Fetch images for this plate in fallback
                 images_response, images_status = supabase_request(
@@ -3819,6 +4271,21 @@ def get_plate_details(plate_id):
 
     except Exception as e:
         logger.error(f"Error in get_plate_details: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/plates/<plate_id>", methods=["DELETE"])
+@token_required
+def delete_plate(current_user, plate_id):
+    try:
+        delete_response, delete_status = _delete_user_owned_listing(
+            current_user, "plate", plate_id
+        )
+        if delete_status >= 400:
+            return jsonify(delete_response), delete_status
+        return jsonify({"message": "Plate listing deleted successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error deleting plate {plate_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -3870,6 +4337,7 @@ def get_parts():
 
             if response.status_code == 200:
                 parts = response.json()
+                parts = _filter_public_listing_records("car_parts", parts)
 
                 # Fetch images for each part
                 for part in parts:
@@ -3908,6 +4376,7 @@ def get_parts():
                 "get", "/rest/v1/car_parts", params=params
             )
             if status_code < 400 and response:
+                response = _filter_public_listing_records("car_parts", response)
                 # Fetch images for each part in fallback
                 for part in response:
                     part_id = part["id"]
@@ -3997,6 +4466,7 @@ def create_part(current_user):
         # Set required fields
         part_data["user_id"] = current_user
         part_data["status"] = "pending"  # Set status as pending for admin approval
+        part_data.update(_new_listing_lifecycle_fields())
 
         # Whitelist allowed fields for car parts
         part_allowed_fields = {
@@ -4017,6 +4487,12 @@ def create_part(current_user):
             "user_id",
             "country_code",
             "is_dealer",
+            "expires_at",
+            "expired_at",
+            "retention_expires_at",
+            "last_extended_at",
+            "extension_count",
+            "is_archived",
         }
         part_data = {k: v for k, v in part_data.items() if k in part_allowed_fields}
 
@@ -4028,8 +4504,8 @@ def create_part(current_user):
 
         # Create the part entry
         logger.info(f"Creating part with data: {part_data}")
-        data, status_code = supabase_request(
-            "post", "/rest/v1/car_parts", data=part_data, user_id=current_user
+        data, status_code = _create_listing_with_lifecycle_fallback(
+            "/rest/v1/car_parts", part_data, user_id=current_user
         )
 
         if status_code >= 400:
@@ -4097,7 +4573,11 @@ def get_part_details(part_id):
                     logger.warning(f"No part found with ID: {part_id}")
                     return jsonify({"error": "Part not found"}), 404
 
-                part = parts[0]
+                part = _sync_listing_lifecycle(
+                    "car_parts", parts[0], hard_delete_archived=True
+                )
+                if not part or part.get("listing_state") != "active":
+                    return jsonify({"error": "Part not found"}), 404
                 logger.info(f"Found part: {part.get('name', 'Unknown part')}")
 
                 # Fetch images for this part
@@ -4147,7 +4627,11 @@ def get_part_details(part_id):
                 params={"id": f"eq.{part_id}", "select": "*"},
             )
             if status_code < 400 and response and len(response) > 0:
-                part = response[0]
+                part = _sync_listing_lifecycle(
+                    "car_parts", response[0], hard_delete_archived=True
+                )
+                if not part or part.get("listing_state") != "active":
+                    return jsonify({"error": "Part not found"}), 404
 
                 # Fetch images for this part in fallback
                 images_response, images_status = supabase_request(
@@ -4166,6 +4650,21 @@ def get_part_details(part_id):
 
     except Exception as e:
         logger.error(f"Error in get_part_details: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/parts/<part_id>", methods=["DELETE"])
+@token_required
+def delete_part(current_user, part_id):
+    try:
+        delete_response, delete_status = _delete_user_owned_listing(
+            current_user, "part", part_id
+        )
+        if delete_status >= 400:
+            return jsonify(delete_response), delete_status
+        return jsonify({"message": "Part listing deleted successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error deleting part {part_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -4557,12 +5056,13 @@ def _create_plate_with_image_impl(current_user):
             "user_email": get_user_email(current_user),
             "status": "pending",  # Set status as pending for admin approval
         }
+        plate_data.update(_new_listing_lifecycle_fields())
 
         logger.info(f"Creating plate entry with data: {plate_data}")
 
         # Create plate in database
-        response, status_code = supabase_request(
-            "post", "/rest/v1/license_plates", data=plate_data, user_id=current_user
+        response, status_code = _create_listing_with_lifecycle_fallback(
+            "/rest/v1/license_plates", plate_data, user_id=current_user
         )
 
         if status_code >= 400:

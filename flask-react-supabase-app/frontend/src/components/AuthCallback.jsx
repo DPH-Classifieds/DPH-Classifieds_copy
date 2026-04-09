@@ -46,12 +46,32 @@ const AuthCallback = () => {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h2>{hasError ? 'Authentication Error' : 'Email Confirmed'}</h2>
-        <p className="auth-subtitle">{message}</p>
-        <div className="auth-links">
-          <Link to="/login" className="auth-button primary-button">
-            Go to Login
+      <div className="auth-card check-email-card">
+        <div className="check-email-status">
+          <span className="check-email-status-label">
+            {hasError ? 'Authentication issue' : 'Email confirmed'}
+          </span>
+          <h2 className="auth-title">{hasError ? 'We hit a verification issue' : 'You are confirmed'}</h2>
+          <p className="auth-subtitle">{message}</p>
+        </div>
+        <div className={`auth-status-panel ${hasError ? 'error' : 'success'}`}>
+          <strong>
+            {hasError
+              ? 'The confirmation link did not complete cleanly.'
+              : 'Your email verification completed successfully.'}
+          </strong>
+          <p>
+            {hasError
+              ? 'Use the button below to return to login. If the issue persists, request a fresh confirmation email.'
+              : 'You can continue to your profile or return to login if you prefer to sign in again.'}
+          </p>
+        </div>
+        <div className="auth-action-row">
+          <Link to={hasError ? '/login' : '/profile'} className="auth-button">
+            {hasError ? 'Go to login' : 'Continue'}
+          </Link>
+          <Link to="/login" className="auth-button auth-button-secondary">
+            Back to login
           </Link>
         </div>
       </div>

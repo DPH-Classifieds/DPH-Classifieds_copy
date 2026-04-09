@@ -14,7 +14,7 @@ const PrivacyPolicy = () => {
 
       <section className="legal-v2-section">
         <div className="about-v2-shell legal-v2-body">
-        <p>At DPH Classifieds ("DPH," "we," "our," or "us"), your privacy is a top priority. This Privacy Policy explains how we collect, use, store, and share your personal information when you use our website, mobile app, and related services (collectively, the "Platform"). It also outlines your privacy rights and how the law protects you.</p>
+        <p>At DPH Classifieds, operated by DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES ("DPH," "we," "our," or "us"), your privacy is a top priority. This Privacy Policy explains how we collect, use, store, and share your personal information when you use our website, mobile app, and related services (collectively, the "Platform"). It also outlines your privacy rights and how the law protects you.</p>
         
         <p>By using DPH Classifieds, you agree to the terms described in this Privacy Policy. If you do not agree, please discontinue use of our services immediately.</p>
         
@@ -29,7 +29,7 @@ const PrivacyPolicy = () => {
         
         <h2>2. Who We Are & How to Contact Us</h2>
         <ul>
-          <li>Company Name: DPH Classifieds FZ-LLC</li>
+          <li>Company Name: DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES</li>
           <li>Registered Address: Dubai, United Arab Emirates</li>
           <li>Email: privacy@dphclassifieds.com</li>
         </ul>
@@ -190,6 +190,7 @@ const PrivacyPolicy = () => {
           <li>Comply with legal obligations</li>
           <li>Resolve disputes and enforce agreements</li>
         </ul>
+        <p>Marketplace listings are normally displayed for 30 days from publication. If a seller extends a listing, the live period is refreshed. Once a listing expires, we may retain it in the seller dashboard for up to 30 additional days so the seller can review, extend, or delete it before permanent removal.</p>
         <p>If data is anonymized, we may retain it indefinitely for analytical purposes.</p>
         
         <h2>10. Your Privacy Rights</h2>
@@ -228,7 +229,7 @@ const PrivacyPolicy = () => {
         </ul>
         
         <h2>Summary</h2>
-        <p>DPH Classifieds is committed to protecting your privacy and maintaining transparency about how we handle your data. Your trust is important to us, and we strive to provide a safe and secure environment for buying and selling cars online.</p>
+        <p>DPH Classifieds, operated by DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES, is committed to protecting your privacy and maintaining transparency about how we handle your data. Your trust is important to us, and we strive to provide a safe and secure environment for buying and selling cars online.</p>
         </div>
       </section>
     </div>

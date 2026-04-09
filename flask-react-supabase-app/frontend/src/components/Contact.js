@@ -20,7 +20,7 @@ const contactChannels = [
   },
   {
     title: 'Company',
-    lines: ['DPH Classifieds FZ-LLC', 'Marketplace operator and support team.'],
+    lines: ['DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES', 'Marketplace operator and support team.'],
     iconClass: 'phone-icon',
   },
 ];

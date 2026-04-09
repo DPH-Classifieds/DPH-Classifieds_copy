@@ -14,13 +14,13 @@ const TermsOfUse = () => {
 
       <section className="legal-v2-section">
         <div className="about-v2-shell legal-v2-body">
-        <p>These Terms of Use ("Terms") set out the rules for using the DPH Classifieds website, mobile applications, and any services, features, or content made available through them (collectively, the "Platform" and "Content"). By accessing or using the Platform, you agree to these Terms.</p>
+        <p>These Terms of Use ("Terms") set out the rules for using the DPH Classifieds website, mobile applications, and any services, features, or content made available through them (collectively, the "Platform" and "Content"). DPH Classifieds is operated by DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES. By accessing or using the Platform, you agree to these Terms.</p>
         
         <p>If you do not agree, do not use the Platform.</p>
         
         <h2>1) Who we are & how to reach us</h2>
         <ul>
-          <li>Operator / Controller: DPH Classifieds FZ-LLC ("DPH," "we," "us," or "our")</li>
+          <li>Operator / Controller: DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES ("DPH," "we," "us," or "our")</li>
           <li>Registered address: Dubai, United Arab Emirates</li>
           <li>Support: support@dphclassifieds.com</li>
         </ul>
@@ -96,6 +96,8 @@ const TermsOfUse = () => {
         
         <p><strong>AI helpers.</strong> If we offer AI tools to help create Listings, they're for convenience only. You are solely responsible for verifying and correcting any AI-generated text or data. We disclaim liability for inaccuracies in AI outputs.</p>
         
+        <p>Listings are normally displayed for 30 days from publication. Sellers may extend the live period from their dashboard before or after expiry during any grace period we make available. After a Listing expires, we may keep it visible only to the seller in their dashboard for up to 30 additional days before permanent deletion, unless it is removed earlier by the seller or by us under these Terms.</p>
+
         <p>We may (but have no obligation to) monitor Listings and may remove any Listing that, in our view, breaches these Terms or our policies.</p>
         
         <h2>10) Reviews & ratings</h2>

@@ -140,7 +140,7 @@ const Login = () => {
           </button>
         </form>
         
-        <div className="auth-links">
+        <div className="auth-links auth-links-inline">
           <Link to="/forgot-password" className="auth-link">
             Forgot Password?
           </Link>
@@ -149,10 +149,14 @@ const Login = () => {
             Create Account
           </Link>
         </div>
-        <div className="auth-links">
+        <div className="auth-support-panel">
+          <p className="auth-support-title">Still missing the reset email?</p>
+          <p className="auth-support-copy">
+            Enter your email above, then request a fresh reset link.
+          </p>
           <button
             type="button"
-            className="auth-button primary-button"
+            className="auth-button auth-button-secondary"
             onClick={handleResendReset}
             disabled={resetLoading}
           >

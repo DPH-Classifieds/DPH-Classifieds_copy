@@ -12,7 +12,10 @@ const CheckEmail = () => {
 
   const handleResend = async () => {
     if (!email) {
-      setResendStatus('Missing email address. Please go back to signup.');
+      setResendStatus({
+        type: 'error',
+        message: 'Missing email address. Please go back to signup and try again.',
+      });
       return;
     }
 
@@ -31,12 +34,23 @@ const CheckEmail = () => {
 
       const data = await response.json();
       if (response.ok) {
-        setResendStatus('Confirmation email resent. Please check your inbox.');
+        setResendStatus({
+          type: 'success',
+          message: 'Confirmation email resent. Check your inbox and spam folder.',
+          guidance: 'If nothing arrives, the project auth email sender may still need production SMTP setup in Supabase.',
+        });
       } else {
-        setResendStatus(data?.message || 'Failed to resend confirmation email.');
+        setResendStatus({
+          type: 'error',
+          message: data?.message || 'Failed to resend confirmation email.',
+          guidance: data?.guidance || null,
+        });
       }
     } catch (error) {
-      setResendStatus('Failed to resend confirmation email. Please try again.');
+      setResendStatus({
+        type: 'error',
+        message: 'Failed to resend confirmation email. Please try again.',
+      });
     } finally {
       setResending(false);
     }
@@ -44,27 +58,58 @@ const CheckEmail = () => {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="auth-title">Almost ready!</h1>
-        <p className="auth-subtitle">Please check your inbox to confirm your email.</p>
+      <div className="auth-card check-email-card">
+        <div className="check-email-status">
+          <span className="check-email-status-label">Email confirmation</span>
+          <h1 className="auth-title">Check your inbox</h1>
+          <p className="auth-subtitle">
+            Your account is almost ready. Confirm your email to activate DPH Classifieds access.
+          </p>
+        </div>
         {email && (
-          <p className="auth-note">We sent the confirmation link to <strong>{email}</strong>.</p>
+          <div className="check-email-highlight">
+            <span className="check-email-highlight-label">Sent to</span>
+            <strong>{email}</strong>
+          </div>
         )}
-        <p className="auth-note">
-          If you do not see the message, check your spam folder or try resending the confirmation from the login page.
+        <div className="check-email-steps">
+          <div className="check-email-step">
+            <span className="check-email-step-number">01</span>
+            <div>
+              <strong>Open the confirmation email</strong>
+              <p>Use the verify link in the message to finish your signup.</p>
+            </div>
+          </div>
+          <div className="check-email-step">
+            <span className="check-email-step-number">02</span>
+            <div>
+              <strong>Check spam or promotions</strong>
+              <p>Some providers filter new transactional emails the first time they arrive.</p>
+            </div>
+          </div>
+        </div>
+        <p className="auth-note check-email-note">
+          If the email does not arrive, resend it below. Public auth email delivery depends on Supabase email configuration in production.
         </p>
-        {resendStatus && <div className="auth-note">{resendStatus}</div>}
-        <button
-          type="button"
-          className="auth-button"
-          onClick={handleResend}
-          disabled={resending || !email}
-        >
-          {resending ? 'Resending...' : 'Resend confirmation email'}
-        </button>
-        <Link to="/login" className="auth-button primary-button">
-          Go back to login
-        </Link>
+        {resendStatus && (
+          <div className={`auth-status-panel ${resendStatus.type || 'note'}`}>
+            <strong>{resendStatus.message}</strong>
+            {resendStatus.guidance && <p>{resendStatus.guidance}</p>}
+          </div>
+        )}
+        <div className="auth-action-row">
+          <button
+            type="button"
+            className="auth-button"
+            onClick={handleResend}
+            disabled={resending || !email}
+          >
+            {resending ? 'Resending...' : 'Resend confirmation email'}
+          </button>
+          <Link to="/login" className="auth-button auth-button-secondary">
+            Back to login
+          </Link>
+        </div>
       </div>
     </div>
   );
