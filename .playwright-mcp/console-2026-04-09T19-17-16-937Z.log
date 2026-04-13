@@ -1,0 +1,864 @@
+[     268ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:111100
+[     310ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40555
+[     311ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     311ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[     311ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40546
+[     311ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40546
+[     311ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     311ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     314ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[     314ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38352:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38377:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178900:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178267:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178515:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178883:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:26009:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178900:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178267:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178515:21) @ http://localhost:3000/static/js/bundle.js:38358
+[     353ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115644
+[     353ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115644
+[     353ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40555
+[     353ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[     353ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40546
+[     355ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[     355ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[     355ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[     355ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[     355ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[     357ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[     357ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38362:7 @ http://localhost:3000/static/js/bundle.js:38369
+[     364ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[     364ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[     364ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[     364ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[     364ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[     364ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[     364ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[     365ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[     365ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[     365ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:168001:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168450:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38901:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37845:13) @ http://localhost:3000/static/js/bundle.js:40570
+[     365ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37849
+[     365ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37670
+[     365ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40546
+[     365ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[     365ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[     365ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40546
+[     365ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[     365ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[     378ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[     378ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:168001:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168450:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38901:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37678:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37852:11) @ http://localhost:3000/static/js/bundle.js:40570
+[     378ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37689
+[     378ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[     378ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     378ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762237314} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[     378ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[     497ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37874
+[     501ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37700
+[     501ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37788
+[     501ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37793
+[    1235ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[    1235ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37818
+[   14908ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(5), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[   14908ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[   15006ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:111100
+[   15022ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40555
+[   15023ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15023ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[   15023ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40546
+[   15023ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40546
+[   15023ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15023ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15024ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[   15024ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38352:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38377:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178900:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178267:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178515:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178883:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:26009:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178900:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178267:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178515:21) @ http://localhost:3000/static/js/bundle.js:38358
+[   15039ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115644
+[   15039ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115644
+[   15039ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40555
+[   15039ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15039ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[   15039ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40546
+[   15039ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40546
+[   15040ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15040ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15040ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40546
+[   15040ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15040ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[   15040ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40546
+[   15041ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[   15041ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[   15041ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[   15041ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[   15041ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[   15042ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[   15042ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38362:7 @ http://localhost:3000/static/js/bundle.js:38369
+[   15083ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[   15083ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[   15084ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[   15084ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[   15084ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[   15084ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[   15084ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[   15084ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[   15084ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[   15084ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:168001:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168450:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38901:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37845:13) @ http://localhost:3000/static/js/bundle.js:40570
+[   15084ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37849
+[   15084ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37670
+[   15084ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40546
+[   15084ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40546
+[   15084ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40546
+[   15084ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40546
+[   15084ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[   15084ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[   15087ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40570
+[   15087ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:168001:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168450:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38901:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37678:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37852:11) @ http://localhost:3000/static/js/bundle.js:40570
+[   15087ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37689
+[   15087ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[   15090ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37874
+[   15091ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37700
+[   15091ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37788
+[   15091ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37793
+[   15307ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[   15307ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37818
+[   15335ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[   15335ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[   15335ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762252272} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  268960ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[  268960ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[  268960ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[  268960ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40546
+[  268975ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  268975ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  268975ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  268975ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  268975ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  268975ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  268975ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  268975ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  334998ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(3), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  334999ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  335213ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:110955
+[  335253ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40535
+[  335253ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335253ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  335253ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40526
+[  335253ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40526
+[  335253ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335253ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335256ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[  335256ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38332:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38357:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178803:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178170:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178418:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178786:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:26004:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178803:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178170:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178418:21) @ http://localhost:3000/static/js/bundle.js:38338
+[  335277ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115499
+[  335278ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115499
+[  335278ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40535
+[  335278ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  335278ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40526
+[  335280ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  335280ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  335280ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  335280ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  335280ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  335281ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[  335281ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38342:7 @ http://localhost:3000/static/js/bundle.js:38349
+[  335284ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  335284ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762572220} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  335285ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  335288ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  335288ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  335288ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  335288ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  335288ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  335288ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  335288ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  335288ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  335288ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  335288ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167904:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168353:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38881:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37825:13) @ http://localhost:3000/static/js/bundle.js:40550
+[  335288ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37829
+[  335288ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37650
+[  335288ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40526
+[  335288ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  335288ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  335288ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40526
+[  335288ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  335289ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  335313ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  335313ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167904:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168353:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38881:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37658:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37832:11) @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  335313ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  335313ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  335325ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37854
+[  335325ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37680
+[  335325ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37768
+[  335325ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37773
+[  335763ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[  335764ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37798
+[  336772ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(5), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  336772ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  336856ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:110955
+[  336871ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40535
+[  336871ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336871ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  336871ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40526
+[  336871ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40526
+[  336871ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336871ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336873ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[  336873ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38332:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38357:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178803:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178170:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178418:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178786:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:26004:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178803:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178170:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178418:21) @ http://localhost:3000/static/js/bundle.js:38338
+[  336887ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115499
+[  336887ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115499
+[  336887ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40535
+[  336888ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  336888ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40526
+[  336889ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  336889ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  336889ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  336889ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  336890ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  336892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[  336892ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38342:7 @ http://localhost:3000/static/js/bundle.js:38349
+[  336915ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  336915ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  336915ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  336915ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  336915ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  336915ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  336915ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  336915ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  336915ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  336915ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167904:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168353:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38881:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37825:13) @ http://localhost:3000/static/js/bundle.js:40550
+[  336916ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37829
+[  336916ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37650
+[  336916ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40526
+[  336916ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40526
+[  336916ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40526
+[  336916ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40526
+[  336916ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  336916ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  336919ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40550
+[  336919ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167904:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168353:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38881:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37658:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37832:11) @ http://localhost:3000/static/js/bundle.js:40550
+[  336920ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37669
+[  336920ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  336921ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37854
+[  336921ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37680
+[  336921ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37768
+[  336921ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37773
+[  336954ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  336954ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762573891} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  337041ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  337193ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[  337193ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37798
+[  372543ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  372543ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  372543ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  372543ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40526
+[  372549ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  372550ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  372550ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  372550ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  372550ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  372550ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  372550ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  372550ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  441718ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(5), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  441718ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  441912ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:111108
+[  441956ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40494
+[  441956ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441956ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40485
+[  441956ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40485
+[  441956ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40485
+[  441956ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441956ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441959ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[  441959ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38291:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38316:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178868:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178235:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178483:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178851:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:25918:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178868:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178235:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178483:21) @ http://localhost:3000/static/js/bundle.js:38297
+[  441982ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115652
+[  441982ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115652
+[  441982ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40494
+[  441982ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40485
+[  441982ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40485
+[  441984ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  441984ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  441984ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  441984ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  441985ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  441989ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[  441989ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38301:7 @ http://localhost:3000/static/js/bundle.js:38308
+[  441991ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40509
+[  441991ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  441991ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40509
+[  441991ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  441991ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40509
+[  441991ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  441991ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40509
+[  441992ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  441992ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40509
+[  441992ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167969:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168418:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38840:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37784:13) @ http://localhost:3000/static/js/bundle.js:40509
+[  441992ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37788
+[  441992ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37609
+[  441992ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40485
+[  441992ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40485
+[  441992ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40485
+[  441992ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40485
+[  441992ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  441992ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  441997ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40509
+[  441997ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167969:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168418:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38840:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37617:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37791:11) @ http://localhost:3000/static/js/bundle.js:40509
+[  441997ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37628
+[  441997ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  441997ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37813
+[  442000ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37639
+[  442000ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37727
+[  442000ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37732
+[  442042ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  442042ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762678978} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  442045ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  442243ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[  442243ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37757
+[  515273ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  515273ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  515273ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  515273ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40485
+[  515279ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  515279ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  515279ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  515279ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  515279ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  515279ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  515279ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  515279ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  581891ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(5), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  581891ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  582063ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:110904
+[  582104ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40484
+[  582104ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582104ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40475
+[  582104ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40475
+[  582104ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40475
+[  582104ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582104ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582107ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[  582107ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38281:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38306:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178712:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178079:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178327:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178695:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:25953:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178712:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178079:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178327:21) @ http://localhost:3000/static/js/bundle.js:38287
+[  582133ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115448
+[  582133ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115448
+[  582133ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40484
+[  582133ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40475
+[  582133ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40475
+[  582136ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  582136ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  582136ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  582136ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  582136ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  582138ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[  582138ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38291:7 @ http://localhost:3000/static/js/bundle.js:38298
+[  582145ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40499
+[  582145ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  582145ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40499
+[  582145ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  582145ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40499
+[  582145ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  582145ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40499
+[  582145ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  582146ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40499
+[  582146ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167813:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168262:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38830:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37774:13) @ http://localhost:3000/static/js/bundle.js:40499
+[  582146ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37778
+[  582146ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37599
+[  582146ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40475
+[  582146ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40475
+[  582146ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40475
+[  582146ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40475
+[  582151ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  582152ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  582187ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40499
+[  582187ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167813:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168262:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38830:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37607:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37781:11) @ http://localhost:3000/static/js/bundle.js:40499
+[  582187ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37618
+[  582187ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  582205ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  582206ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  582206ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762819142} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  582210ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37803
+[  582212ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37629
+[  582212ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37717
+[  582212ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37722
+[  582795ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[  582796ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37747
+[  629842ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  629842ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  629842ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  629842ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40475
+[  629845ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  629845ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[  629845ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  629845ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[  629845ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  629845ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[  629845ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:21893
+[  629845ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[  660386ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(4), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  660397ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/explore color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/explore, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762897323} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  660410ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars:0
+[  660410ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes:0
+[  660410ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts:0
+[  660410ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates:0
+[  660913ms] [LOG] THREE.WebGLRenderer: Context Lost. @ http://localhost:3000/static/js/vendors-node_modules_react-three_drei_core_Float_js-node_modules_react-three_drei_core_MeshDi-3f0b0a.chunk.js:41087
+[  663065ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/create-listing color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/create-listing, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762899996} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  663072ms] [WARNING] Turnstile site key not configured @ http://localhost:3000/static/js/bundle.js:35843
+[  664423ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/explore color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/explore, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775762901359} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  664427ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars:0
+[  664427ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes:0
+[  664427ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts:0
+[  664427ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates:0
+[  923270ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  923271ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  923447ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:110838
+[  923486ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40448
+[  923486ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923486ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40439
+[  923486ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40439
+[  923486ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40439
+[  923487ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923487ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923489ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[  923489ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38245:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38270:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178654:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178021:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178269:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178637:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:25913:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178654:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178021:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178269:21) @ http://localhost:3000/static/js/bundle.js:38251
+[  923507ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115382
+[  923507ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115382
+[  923507ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40448
+[  923507ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40439
+[  923507ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40439
+[  923509ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40439
+[  923512ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[  923512ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38255:7 @ http://localhost:3000/static/js/bundle.js:38262
+[  923514ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  923514ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/explore color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/explore, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775763160450} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[  923515ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  923515ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars:0
+[  923515ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes:0
+[  923515ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts:0
+[  923515ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates:0
+[  923518ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40463
+[  923518ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167755:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168204:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38794:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37738:13) @ http://localhost:3000/static/js/bundle.js:40463
+[  923518ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37742
+[  923518ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37563
+[  923518ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40439
+[  923518ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40439
+[  923518ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40439
+[  923518ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40439
+[  923518ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40439
+[  923519ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  923521ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40463
+[  923521ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167755:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168204:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38794:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37571:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37745:11) @ http://localhost:3000/static/js/bundle.js:40463
+[  923521ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37582
+[  923521ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[  923521ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37767
+[  923521ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37593
+[  923521ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37681
+[  923521ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37686
+[  923890ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[  923890ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37711
+[  997606ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(3), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[  997611ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/about color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/about, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775763234542} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1273124ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(2), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1273124ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1273352ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:110836
+[ 1273395ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40446
+[ 1273396ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273396ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273396ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273396ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273396ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273396ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273401ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[ 1273401ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38243:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38268:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178655:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178022:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178270:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178638:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:25913:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178655:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178022:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178270:21) @ http://localhost:3000/static/js/bundle.js:38249
+[ 1273423ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115380
+[ 1273423ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115380
+[ 1273423ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40446
+[ 1273424ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273424ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273428ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273430ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[ 1273430ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38253:7 @ http://localhost:3000/static/js/bundle.js:38260
+[ 1273433ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1273433ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/about color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/about, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775763510370} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1273433ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1273438ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1273438ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167756:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168205:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38792:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37736:13) @ http://localhost:3000/static/js/bundle.js:40461
+[ 1273439ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37740
+[ 1273439ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37561
+[ 1273439ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273439ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273439ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273439ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273439ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1273439ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[ 1273441ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1273441ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167756:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168205:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38792:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37569:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37743:11) @ http://localhost:3000/static/js/bundle.js:40461
+[ 1273441ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37580
+[ 1273441ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[ 1273441ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37765
+[ 1273443ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37591
+[ 1273443ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37679
+[ 1273443ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37684
+[ 1274065ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[ 1274066ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37709
+[ 1319235ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(3), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1319236ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1319292ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:110836
+[ 1319320ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40446
+[ 1319321ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319321ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319321ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319321ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319321ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319321ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319333ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[ 1319340ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38243:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38268:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178655:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178022:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178270:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178638:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:25913:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178655:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178022:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178270:21) @ http://localhost:3000/static/js/bundle.js:38249
+[ 1319351ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115380
+[ 1319351ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115380
+[ 1319351ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40446
+[ 1319351ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319351ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319352ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319354ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[ 1319354ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38253:7 @ http://localhost:3000/static/js/bundle.js:38260
+[ 1319355ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1319355ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/about color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/about, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775763556291} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1319355ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1319357ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1319357ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167756:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168205:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38792:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37736:13) @ http://localhost:3000/static/js/bundle.js:40461
+[ 1319357ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37740
+[ 1319357ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37561
+[ 1319357ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319357ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319357ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319357ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319357ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1319358ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[ 1319359ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1319359ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167756:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168205:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38792:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37569:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37743:11) @ http://localhost:3000/static/js/bundle.js:40461
+[ 1319359ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37580
+[ 1319359ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[ 1319359ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37765
+[ 1319359ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37591
+[ 1319359ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37679
+[ 1319359ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37684
+[ 1319556ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[ 1319556ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37709
+[ 1364646ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(3), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1364646ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1364668ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:110836
+[ 1364683ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40446
+[ 1364683ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364683ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364683ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364683ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364683ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364683ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364685ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/:0
+[ 1364685ms] [WARNING] CORS check failed with localhost, trying 127.0.0.1 instead: TypeError: Failed to fetch
+    at checkAndUpdateBaseUrl (http://localhost:3000/static/js/bundle.js:38243:5)
+    at ./src/utils/apiClient.js (http://localhost:3000/static/js/bundle.js:38268:1)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178655:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178022:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178270:21)
+    at hotRequire (http://localhost:3000/static/js/bundle.js:178638:47)
+    at ./src/components/PostCar.js (http://localhost:3000/static/js/bundle.js:25913:74)
+    at options.factory (http://localhost:3000/static/js/bundle.js:178655:30)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:178022:32)
+    at fn (http://localhost:3000/static/js/bundle.js:178270:21) @ http://localhost:3000/static/js/bundle.js:38249
+[ 1364695ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/static/js/bundle.js:115380
+[ 1364695ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://localhost:3000/static/js/bundle.js:115380
+[ 1364695ms] [INFO] [INFO] Initializing authentication @ http://localhost:3000/static/js/bundle.js:40446
+[ 1364695ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Found existing token, setting auth header @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Setting Authorization header with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Saving auth data to localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364695ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364696ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364697ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8000/:0
+[ 1364697ms] [ERROR] Both localhost and 127.0.0.1 failed CORS check: TypeError: Failed to fetch
+    at http://localhost:3000/static/js/bundle.js:38253:7 @ http://localhost:3000/static/js/bundle.js:38260
+[ 1364699ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1364699ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/about color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/about, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775763601636} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1364699ms] [LOG] %c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1364701ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1364701ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167756:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168205:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38792:22)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37736:13) @ http://localhost:3000/static/js/bundle.js:40461
+[ 1364701ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37740
+[ 1364701ms] [LOG] Syncing auth state with Supabase @ http://localhost:3000/static/js/bundle.js:37561
+[ 1364701ms] [LOG] [DEBUG] Getting current user information @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364701ms] [LOG] [DEBUG] Retrieved auth data from localStorage {access_token: [REDACTED], expires_at: 1775595559, expires_in: 3600, refresh_token: 2aqjtp7dzbkd, token_type: bearer} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364701ms] [LOG] [DEBUG] Access token retrieved: [REDACTED TOKEN PRESENT] @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364702ms] [LOG] [DEBUG] Sending request to http://localhost:8000/api/auth/me with token @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364702ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/auth/me, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1364702ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[ 1364703ms] [LOG] Supabase auth state changed: INITIAL_SESSION @ http://localhost:3000/static/js/bundle.js:37765
+[ 1364703ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1364703ms] [ERROR] [ERROR] Get user error: AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://localhost:3000/static/js/bundle.js:167756:19)
+    at Axios.request (http://localhost:3000/static/js/bundle.js:168205:41)
+    at async Module.getCurrentUser (http://localhost:3000/static/js/bundle.js:38792:22)
+    at async syncWithSupabase (http://localhost:3000/static/js/bundle.js:37569:13)
+    at async checkSession (http://localhost:3000/static/js/bundle.js:37743:11) @ http://localhost:3000/static/js/bundle.js:40461
+[ 1364703ms] [ERROR] Error checking backend user: Network Error @ http://localhost:3000/static/js/bundle.js:37580
+[ 1364703ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/auth/me:0
+[ 1364703ms] [LOG] Supabase session check result: {hasSession: false, hasUser: false, error: none, accessToken: missing} @ http://localhost:3000/static/js/bundle.js:37591
+[ 1364703ms] [LOG] No session or user found in context @ http://localhost:3000/static/js/bundle.js:37679
+[ 1364703ms] [LOG] Found token in localStorage, but no user - attempting to validate token @ http://localhost:3000/static/js/bundle.js:37684
+[ 1364906ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://ltjatsyhpmvewancqdjw.supabase.co/auth/v1/user:0
+[ 1364906ms] [WARNING] Token in localStorage is invalid, removing @ http://localhost:3000/static/js/bundle.js:37709
+[ 1377485ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(4), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1377505ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/react, sdkv: 1.6.1, ts: 1775763614421} /_vercel/insights/view @ https://va.vercel-scripts.com/v1/script.debug.js:0
+[ 1377506ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/cars?limit=4&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1377506ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/bikes?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1377506ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/parts?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1377506ms] [LOG] [DEBUG] Starting Request {url: http://localhost:8000/api/plates?limit=3&order=created_at.desc, method: get, headers: AxiosHeaders, data: undefined} @ http://localhost:3000/static/js/bundle.js:40437
+[ 1377520ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1377520ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/cars?limit=4&order=created_at.desc:0
+[ 1377520ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1377520ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/bikes?limit=3&order=created_at.desc:0
+[ 1377521ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1377521ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/parts?limit=3&order=created_at.desc:0
+[ 1377521ms] [ERROR] [ERROR] Response Error: {message: Network Error, status: undefined, data: undefined} @ http://localhost:3000/static/js/bundle.js:40461
+[ 1377521ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8000/api/plates?limit=3&order=created_at.desc:0
+[ 1382459ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0
+[ 1382459ms] [LOG] %c[Vercel Speed Insights]%c [vitals] color: rgb(120, 120, 120) color: inherit {speed: 4g, metrics: Array(1), scriptVersion: 0.1.3, sdkName: @vercel/speed-insights/react, sdkVersion: 1.3.1} /_vercel/speed-insights/vitals @ https://va.vercel-scripts.com/v1/speed-insights/script.debug.js:0

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -38,24 +38,9 @@ import AdminDashboard from './components/AdminDashboard';
 import AdminUsers from './components/AdminUsers';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
-import BetaGate from './components/BetaGate';
 import ExplorePage from './components/ExplorePage';
 import './App.css';
 import './styles/UAELicensePlate.css';
-
-const BETA_GATE_KEY = 'dph_beta_gate_unlocked';
-
-const getBetaGateState = () => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  try {
-    return window.localStorage.getItem(BETA_GATE_KEY) === 'true';
-  } catch (error) {
-    return false;
-  }
-};
 
 const AuthHashHandler = () => {
   const navigate = useNavigate();
@@ -91,21 +76,6 @@ const AuthHashHandler = () => {
 };
 
 function App() {
-  const [isBetaUnlocked, setIsBetaUnlocked] = useState(getBetaGateState);
-
-  const handleBetaUnlock = () => {
-    try {
-      window.localStorage.setItem(BETA_GATE_KEY, 'true');
-    } catch (error) {
-      // Ignore storage failures (private mode, blocked storage, etc).
-    }
-    setIsBetaUnlocked(true);
-  };
-
-  if (!isBetaUnlocked) {
-    return <BetaGate onUnlock={handleBetaUnlock} />;
-  }
-
   return (
     <AuthProvider>
       <Router>
