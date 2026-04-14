@@ -119,6 +119,7 @@ const MyListings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actioningId, setActioningId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { listing }
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -168,9 +169,17 @@ const MyListings = () => {
     const typeConfig = TYPE_CONFIG[listing.listing_type];
     if (!typeConfig) return;
 
-    if (!window.confirm('Are you sure you want to permanently delete this listing? This action cannot be undone.')) {
-      return;
-    }
+    // Show inline confirmation instead of window.confirm
+    setDeleteConfirm(listing);
+  };
+
+  const confirmDelete = async () => {
+    const listing = deleteConfirm;
+    setDeleteConfirm(null);
+    if (!listing) return;
+
+    const typeConfig = TYPE_CONFIG[listing.listing_type];
+    if (!typeConfig) return;
 
     setActioningId(listing.id);
     setError(null);
@@ -241,11 +250,26 @@ const MyListings = () => {
 
   return (
     <div className="my-listings-container">
+      {deleteConfirm && (
+        <div className="delete-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+          <div className="delete-confirm-modal">
+            <h3 id="delete-confirm-title">Delete listing?</h3>
+            <p>
+              <strong>{buildListingTitle(deleteConfirm)}</strong> will be permanently removed. This cannot be undone.
+            </p>
+            <div className="delete-confirm-actions">
+              <button className="btn btn-danger" onClick={confirmDelete}>Yes, delete it</button>
+              <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="my-listings-header">
         <div>
           <h1 className="section-title">My Listings</h1>
           <p className="my-listings-subtitle">
-            Listings stay live for 30 days. After expiry, they remain here for another 30 days so you can extend or delete them.
+            Listings stay live for 15 days. After expiry, they remain here for another 30 days so you can extend or delete them.
           </p>
         </div>
         <div className="action-buttons">
@@ -351,7 +375,7 @@ const MyListings = () => {
                             className="btn btn-primary"
                             disabled={isBusy}
                           >
-                            {isBusy ? 'Updating...' : 'Extend 30 Days'}
+                            {isBusy ? 'Updating...' : 'Extend 15 Days'}
                           </button>
                         )}
 

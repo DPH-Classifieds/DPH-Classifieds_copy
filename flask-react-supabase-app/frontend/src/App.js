@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import Footer from './components/ui/hover-footer';
+import CookieBanner from './components/CookieBanner';
 import HomePage from './components/HomePage';
 import CarList from './components/CarList';
 import CarDetail from './components/CarDetail';
@@ -132,6 +133,7 @@ function App() {
           </main>
           <Footer />
         </div>
+        <CookieBanner />
         <Analytics />
         <SpeedInsights />
       </Router>

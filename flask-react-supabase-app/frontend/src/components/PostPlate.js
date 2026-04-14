@@ -141,6 +141,7 @@ const PostPlate = () => {
         contact_name: formData.contact_name.trim(),
         contact_phone: formData.contact_phone.trim(),
         description: formData.description.trim(),
+        is_dealer: formData.is_dealer,
       };
 
       await apiClient.post('/api/plates', payload);

@@ -46,6 +46,22 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max request size
+
+# Flask-Mail configuration
+try:
+    from flask_mail import Mail, Message as MailMessage
+    app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT", "587"))
+    app.config["MAIL_USE_TLS"] = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
+    app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+    app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+    app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or os.getenv("MAIL_USERNAME")
+    mail = Mail(app)
+    MAIL_ENABLED = bool(os.getenv("MAIL_USERNAME") and os.getenv("MAIL_PASSWORD"))
+except ImportError:
+    mail = None
+    MAIL_ENABLED = False
+    logger.warning("Flask-Mail not installed; email notifications disabled")
 MAX_LISTINGS_PER_USER = int(os.getenv("MAX_LISTINGS_PER_USER", "4"))
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))
 Image.MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "25000000"))
@@ -58,7 +74,7 @@ AUTH_RATE_LIMIT = defaultdict(deque)
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
-LISTING_EXPIRY_DAYS = 30
+LISTING_EXPIRY_DAYS = 15
 LISTING_RETENTION_DAYS = 30
 
 LISTING_TABLE_CONFIG = {
@@ -226,11 +242,13 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
 
     lifecycle = _compute_listing_lifecycle(record)
     updates = {}
+    just_expired = False
 
     if record.get("expires_at") is None:
         updates["expires_at"] = _isoformat_utc(lifecycle["expires_at"])
     if lifecycle["is_expired"] and record.get("expired_at") is None:
         updates["expired_at"] = _isoformat_utc(lifecycle["expired_at"])
+        just_expired = True  # First time we're marking this as expired
     if record.get("retention_expires_at") is None:
         updates["retention_expires_at"] = _isoformat_utc(
             lifecycle["retention_expires_at"]
@@ -253,6 +271,25 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
             record.update(updates)
 
     _apply_listing_lifecycle_metadata(record)
+
+    # Send expiry email on first detection of expiry
+    if just_expired and record.get("user_email") and record.get("status") not in {"deleted", "rejected"}:
+        try:
+            listing_title = (
+                record.get("listing_title")
+                or f"{record.get('city', '')} {record.get('code', '')} {record.get('number', '')}".strip()
+                or record.get("name")
+                or "Your listing"
+            )
+            _send_listing_expired_email(
+                record["user_email"],
+                listing_title,
+                table_name,
+                record.get("id"),
+                record.get("days_until_deletion", 30),
+            )
+        except Exception as email_err:
+            logger.warning(f"Failed sending expiry email: {email_err}")
 
     if hard_delete_archived and record.get("is_archived"):
         _delete_listing_with_assets(table_name, record.get("id"))
@@ -305,6 +342,78 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
     )
     fallback_payload = _strip_lifecycle_fields(payload)
     return supabase_request("post", path, data=fallback_payload, user_id=user_id)
+
+
+SITE_NAME = os.getenv("SITE_NAME", "UAE Classifieds")
+SITE_URL = os.getenv("SITE_URL", "https://your-domain.com")
+
+
+def _send_email(to_address, subject, html_body):
+    """Send an email if Flask-Mail is configured."""
+    if not MAIL_ENABLED or not mail:
+        logger.info(f"Email skipped (not configured): {subject} -> {to_address}")
+        return False
+    try:
+        with app.app_context():
+            msg = MailMessage(subject=subject, recipients=[to_address], html=html_body)
+            mail.send(msg)
+        logger.info(f"Email sent: {subject} -> {to_address}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email to {to_address}: {e}")
+        return False
+
+
+def _send_listing_expiry_reminder(user_email, listing_title, listing_type, listing_id, days_left):
+    """Send a renewal reminder email when a listing is about to expire."""
+    detail_paths = {
+        "cars": "cars", "bikes": "bikes", "car_parts": "car-parts", "license_plates": "plates"
+    }
+    path = detail_paths.get(listing_type, listing_type)
+    listing_url = f"{SITE_URL}/{path}/{listing_id}"
+    my_listings_url = f"{SITE_URL}/my-listings"
+
+    subject = f"Your listing '{listing_title}' expires in {days_left} day{'s' if days_left != 1 else ''}"
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;">
+      <div style="background:#0b1c12;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
+        <h1 style="color:#a2e4a6;margin:0;font-size:24px;">{SITE_NAME}</h1>
+      </div>
+      <div style="background:#fff;padding:30px;border-radius:0 0 8px 8px;">
+        <h2 style="color:#333;">Your listing is expiring soon</h2>
+        <p style="color:#555;">Your listing <strong>{listing_title}</strong> will expire in <strong>{days_left} day{'s' if days_left != 1 else ''}</strong>.</p>
+        <p style="color:#555;">After expiry, your listing will no longer be visible to buyers. You can renew it from your listings page.</p>
+        <div style="text-align:center;margin:30px 0;">
+          <a href="{my_listings_url}" style="background:#a2e4a6;color:#0b1c12;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Renew Listing</a>
+        </div>
+        <p style="color:#888;font-size:12px;text-align:center;">You're receiving this because you have an active listing on {SITE_NAME}.</p>
+      </div>
+    </div>
+    """
+    return _send_email(user_email, subject, html_body)
+
+
+def _send_listing_expired_email(user_email, listing_title, listing_type, listing_id, days_until_deletion):
+    """Send an email when a listing has expired."""
+    my_listings_url = f"{SITE_URL}/my-listings"
+    subject = f"Your listing '{listing_title}' has expired"
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;">
+      <div style="background:#0b1c12;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
+        <h1 style="color:#a2e4a6;margin:0;font-size:24px;">{SITE_NAME}</h1>
+      </div>
+      <div style="background:#fff;padding:30px;border-radius:0 0 8px 8px;">
+        <h2 style="color:#c0392b;">Your listing has expired</h2>
+        <p style="color:#555;">Your listing <strong>{listing_title}</strong> has expired and is no longer visible to buyers.</p>
+        <p style="color:#555;">You have <strong>{days_until_deletion} day{'s' if days_until_deletion != 1 else ''}</strong> to renew it before it's permanently deleted.</p>
+        <div style="text-align:center;margin:30px 0;">
+          <a href="{my_listings_url}" style="background:#a2e4a6;color:#0b1c12;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Renew Now</a>
+        </div>
+        <p style="color:#888;font-size:12px;text-align:center;">You're receiving this because you have a listing on {SITE_NAME}.</p>
+      </div>
+    </div>
+    """
+    return _send_email(user_email, subject, html_body)
 
 
 def _filter_public_listing_records(table_name, records):
@@ -5252,6 +5361,9 @@ def _create_plate_with_image_impl(current_user):
         contact_name = payload.get("contact_name")
         contact_phone = payload.get("contact_phone")
         description = payload.get("description")
+        is_dealer = payload.get("is_dealer", False)
+        if isinstance(is_dealer, str):
+            is_dealer = is_dealer.lower() == "true"
 
         # Validate required fields
         if not city or not code or not digits or price in [None, ""]:
@@ -5274,16 +5386,19 @@ def _create_plate_with_image_impl(current_user):
             return limit_response
 
         # Create plate entry
+        plate_number_str = str(number).strip() if number is not None else ""
         plate_data = {
             "city": city,
             "code": code,
             "digits": digits,
             "price": price,
-            "number": str(number).strip() if number is not None else "",
+            "number": plate_number_str,
             "plate_format": plate_format,
             "contact_name": contact_name,
             "contact_phone": contact_phone,
             "description": description,
+            "is_dealer": is_dealer,
+            "listing_title": f"{city} {code} {plate_number_str}".strip(),
             "user_id": current_user,
             "user_email": get_user_email(current_user),
             "status": "pending",  # Set status as pending for admin approval
@@ -5336,7 +5451,7 @@ def _create_plate_with_image_impl(current_user):
             font = ImageFont.load_default()
 
         # Add text
-        text = f"{city} {code} {number}"
+        text = f"{city} {code} {plate_number_str}"
         text_width = draw.textlength(text, font=font)
         draw.text(
             ((plate_width - text_width) / 2, plate_height / 3),
@@ -5346,7 +5461,7 @@ def _create_plate_with_image_impl(current_user):
         )
 
         # Save the image
-        image_filename = f"plate_{city}_{code}_{number}.png"
+        image_filename = f"plate_{city}_{code}_{plate_number_str}.png"
         image_path = os.path.join(plate_dir, image_filename)
         plate_img.save(image_path)
         logger.info(f"Saved plate preview image to: {image_path}")
@@ -6946,6 +7061,61 @@ if __name__ == "__main__":
     debug_mode = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
     if debug_mode:
         logger.warning("!!! FLASK DEBUG MODE IS ENABLED - NOT FOR PRODUCTION !!!")
+
+    # Start background expiry reminder thread
+    def _run_expiry_reminders():
+        """Check listings daily and send renewal reminders 3 days before expiry."""
+        REMINDER_DAYS_BEFORE = 3
+        CHECK_INTERVAL_SECONDS = 86400  # 24 hours
+        while True:
+            try:
+                with app.app_context():
+                    for item_type, config in LISTING_TABLE_CONFIG.items():
+                        table = config["table"]
+                        now = _utc_now()
+                        reminder_threshold = now + datetime.timedelta(days=REMINDER_DAYS_BEFORE)
+                        # Fetch listings expiring within the reminder window that haven't expired yet
+                        records, status = supabase_request(
+                            "get",
+                            f"/rest/v1/{table}",
+                            params={
+                                "select": "id,user_email,expires_at,city,code,number,listing_title,name,status",
+                                "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
+                                "expired_at": "is.null",
+                                "status": "eq.approved",
+                                "is_archived": "eq.false",
+                            },
+                            use_service_role=True,
+                        )
+                        if status >= 400 or not records:
+                            continue
+                        for record in records:
+                            if not record.get("user_email"):
+                                continue
+                            expires_at = _parse_datetime(record.get("expires_at"))
+                            if not expires_at or expires_at <= now:
+                                continue
+                            days_left = max((expires_at - now).days, 1)
+                            listing_title = (
+                                record.get("listing_title")
+                                or f"{record.get('city', '')} {record.get('code', '')} {record.get('number', '')}".strip()
+                                or record.get("name")
+                                or "Your listing"
+                            )
+                            _send_listing_expiry_reminder(
+                                record["user_email"],
+                                listing_title,
+                                table,
+                                record["id"],
+                                days_left,
+                            )
+            except Exception as reminder_err:
+                logger.error(f"Expiry reminder job error: {reminder_err}")
+            time.sleep(CHECK_INTERVAL_SECONDS)
+
+    reminder_thread = threading.Thread(target=_run_expiry_reminders, daemon=True)
+    reminder_thread.start()
+
     app.run(debug=debug_mode, host="127.0.0.1", port=8000)
 
 
