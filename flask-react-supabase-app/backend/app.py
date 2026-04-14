@@ -365,55 +365,88 @@ def _send_email(to_address, subject, html_body):
 
 
 def _send_listing_expiry_reminder(user_email, listing_title, listing_type, listing_id, days_left):
-    """Send a renewal reminder email when a listing is about to expire."""
+    if not user_email:
+        return None, f'{user_email}'
+    if not EMAIL_REGEX.match(user_email):
+        return None, 'Invalid recipient email'
+
+    from_email = os.getenv('RESEND_FROM_EMAIL')
+    if not from_email:
+        return None, 'Missing RESEND_FROM_EMAIL'
+
     detail_paths = {
-        "cars": "cars", "bikes": "bikes", "car_parts": "car-parts", "license_plates": "plates"
+        'cars': 'cars', 'bikes': 'bikes', 'car_parts': 'car-parts', 'license_plates': 'plates'
     }
     path = detail_paths.get(listing_type, listing_type)
-    listing_url = f"{SITE_URL}/{path}/{listing_id}"
-    my_listings_url = f"{SITE_URL}/my-listings"
+    listing_url = f'{SITE_URL}/{path}/{listing_id}'
+    my_listings_url = f'{SITE_URL}/my-listings'
 
-    subject = f"Your listing '{listing_title}' expires in {days_left} day{'s' if days_left != 1 else ''}"
-    html_body = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;">
-      <div style="background:#0b1c12;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
-        <h1 style="color:#a2e4a6;margin:0;font-size:24px;">{SITE_NAME}</h1>
-      </div>
-      <div style="background:#fff;padding:30px;border-radius:0 0 8px 8px;">
-        <h2 style="color:#333;">Your listing is expiring soon</h2>
-        <p style="color:#555;">Your listing <strong>{listing_title}</strong> will expire in <strong>{days_left} day{'s' if days_left != 1 else ''}</strong>.</p>
-        <p style="color:#555;">After expiry, your listing will no longer be visible to buyers. You can renew it from your listings page.</p>
-        <div style="text-align:center;margin:30px 0;">
-          <a href="{my_listings_url}" style="background:#a2e4a6;color:#0b1c12;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Renew Listing</a>
-        </div>
-        <p style="color:#888;font-size:12px;text-align:center;">You're receiving this because you have an active listing on {SITE_NAME}.</p>
-      </div>
-    </div>
-    """
-    return _send_email(user_email, subject, html_body)
+    subject = f'Your listing \u2018{listing_title}\u2019 expires in {days_left} day{\u2018s\u2019 if days_left != 1 else \u2018\u2019}'
+
+    lines = [
+        'Hi there,',
+        '',
+        f'Your listing \u2018{listing_title}\u2019 will expire in {days_left} day{\u2018s\u2019 if days_left != 1 else \u2018\u2019}.',
+        f'After expiry, your listing will no longer be visible to buyers. You can renew it from your listings page.',
+        '',
+        f'Renew your listing: {my_listings_url}',
+        f'View listing: {listing_url}',
+        '',
+        'Thanks,',
+        SITE_NAME,
+    ]
+
+    payload = {
+        'from': from_email,
+        'to': [user_email],
+        'subject': subject,
+        'text': '\n'.join(lines),
+    }
+
+    reply_to = os.getenv('RESEND_REPLY_TO_EMAIL') or os.getenv('RESEND_TO_EMAIL')
+    if reply_to:
+        payload['reply_to'] = reply_to
+
+    return _send_resend_email(payload)
 
 
 def _send_listing_expired_email(user_email, listing_title, listing_type, listing_id, days_until_deletion):
-    """Send an email when a listing has expired."""
-    my_listings_url = f"{SITE_URL}/my-listings"
-    subject = f"Your listing '{listing_title}' has expired"
-    html_body = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f9f9f9;">
-      <div style="background:#0b1c12;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
-        <h1 style="color:#a2e4a6;margin:0;font-size:24px;">{SITE_NAME}</h1>
-      </div>
-      <div style="background:#fff;padding:30px;border-radius:0 0 8px 8px;">
-        <h2 style="color:#c0392b;">Your listing has expired</h2>
-        <p style="color:#555;">Your listing <strong>{listing_title}</strong> has expired and is no longer visible to buyers.</p>
-        <p style="color:#555;">You have <strong>{days_until_deletion} day{'s' if days_until_deletion != 1 else ''}</strong> to renew it before it's permanently deleted.</p>
-        <div style="text-align:center;margin:30px 0;">
-          <a href="{my_listings_url}" style="background:#a2e4a6;color:#0b1c12;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Renew Now</a>
-        </div>
-        <p style="color:#888;font-size:12px;text-align:center;">You're receiving this because you have a listing on {SITE_NAME}.</p>
-      </div>
-    </div>
-    """
-    return _send_email(user_email, subject, html_body)
+    if not user_email:
+        return None, f'{user_email}'
+    if not EMAIL_REGEX.match(user_email):
+        return None, 'Invalid recipient email'
+
+    from_email = os.getenv('RESEND_FROM_EMAIL')
+    if not from_email:
+        return None, 'Missing RESEND_FROM_EMAIL'
+
+    my_listings_url = f'{SITE_URL}/my-listings'
+    subject = f'Your listing \u2018{listing_title}\u2019 has expired'
+
+    lines = [
+        'Hi there,',
+        '',
+        f'Your listing \u2018{listing_title}\u2019 has expired and is no longer visible to buyers.',
+        f'You have {days_until_deletion} day{\u2018s\u2019 if days_until_deletion != 1 else \u2018\u2019} to renew it before it\u2019s permanently deleted.',
+        '',
+        f'Renew now: {my_listings_url}',
+        '',
+        'Thanks,',
+        SITE_NAME,
+    ]
+
+    payload = {
+        'from': from_email,
+        'to': [user_email],
+        'subject': subject,
+        'text': '\n'.join(lines),
+    }
+
+    reply_to = os.getenv('RESEND_REPLY_TO_EMAIL') or os.getenv('RESEND_TO_EMAIL')
+    if reply_to:
+        payload['reply_to'] = reply_to
+
+    return _send_resend_email(payload)
 
 
 def _filter_public_listing_records(table_name, records):
