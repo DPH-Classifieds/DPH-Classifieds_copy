@@ -12,11 +12,11 @@ CREATE INDEX IF NOT EXISTS idx_cars_make_year ON cars(make_year DESC);
 CREATE INDEX IF NOT EXISTS idx_cars_expected_selling_price ON cars(expected_selling_price);
 CREATE INDEX IF NOT EXISTS idx_cars_car_city ON cars(car_city);
 
--- Bikes table indexes
+-- Bikes table indexes (uses 'make' not 'manufacturer')
 CREATE INDEX IF NOT EXISTS idx_bikes_status ON bikes(status) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_bikes_created_at ON bikes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_bikes_user_id ON bikes(user_id);
-CREATE INDEX IF NOT EXISTS idx_bikes_manufacturer ON bikes(manufacturer);
+CREATE INDEX IF NOT EXISTS idx_bikes_make ON bikes(make);
 CREATE INDEX IF NOT EXISTS idx_bikes_model ON bikes(model);
 CREATE INDEX IF NOT EXISTS idx_bikes_price ON bikes(price);
 CREATE INDEX IF NOT EXISTS idx_bikes_location ON bikes(location);
