@@ -17,9 +17,9 @@ CREATE INDEX IF NOT EXISTS idx_bikes_model ON bikes(model);
 CREATE INDEX IF NOT EXISTS idx_bikes_price ON bikes(price);
 CREATE INDEX IF NOT EXISTS idx_bikes_location ON bikes(location);
 
--- Car parts - ordering and filtering
+-- Car parts - ordering and filtering (uses part_type, not category)
 CREATE INDEX IF NOT EXISTS idx_car_parts_created_at ON car_parts(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_car_parts_category ON car_parts(category);
+CREATE INDEX IF NOT EXISTS idx_car_parts_part_type ON car_parts(part_type);
 CREATE INDEX IF NOT EXISTS idx_car_parts_price ON car_parts(price);
 CREATE INDEX IF NOT EXISTS idx_car_parts_emirate ON car_parts(emirate);
 
