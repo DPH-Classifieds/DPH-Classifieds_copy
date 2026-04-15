@@ -9,4 +9,6 @@ psycopg2-binary==2.9.10
 pillow==11.1.0
 matplotlib==3.10.0
 Flask-Mail==0.10.0
+flask-compress==1.15
+brotli==1.1.0
 

@@ -600,6 +600,16 @@ CORS(
     app, resources={r"/*": {"origins": _get_cors_origins()}}, supports_credentials=True
 )
 
+# Enable compression for better performance
+try:
+    from flask_compress import Compress
+    Compress(app, compress_level=6, gzip=True, brotli=True)
+    logger.info("Flask-Compress enabled with Gzip and Brotli")
+except ImportError:
+    logger.warning("flask-compress not installed, skipping compression")
+except Exception as e:
+    logger.warning(f"Failed to enable compression: {e}")
+
 # Configure a secret key for session management.
 # In production this should be set explicitly so sessions remain stable across restarts.
 flask_secret_key = os.getenv("FLASK_SECRET_KEY")
