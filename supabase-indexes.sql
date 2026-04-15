@@ -10,7 +10,7 @@ CREATE INDEX IF NOT EXISTS idx_cars_car_manufacturer ON cars(car_manufacturer);
 CREATE INDEX IF NOT EXISTS idx_cars_car_model ON cars(car_model);
 CREATE INDEX IF NOT EXISTS idx_cars_make_year ON cars(make_year DESC);
 CREATE INDEX IF NOT EXISTS idx_cars_expected_selling_price ON cars(expected_selling_price);
-CREATE INDEX IF NOT EXISTS idx_cars_city ON cars(city);
+CREATE INDEX IF NOT EXISTS idx_cars_car_city ON cars(car_city);
 
 -- Bikes table indexes
 CREATE INDEX IF NOT EXISTS idx_bikes_status ON bikes(status) WHERE status = 'active';
@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_license_plates_price ON license_plates(price);
 CREATE INDEX IF NOT EXISTS idx_license_plates_number ON license_plates(number);
 
 -- Composite indexes for common query patterns
-CREATE INDEX IF NOT EXISTS idx_cars_location_price ON cars(city, expected_selling_price);
+CREATE INDEX IF NOT EXISTS idx_cars_location_price ON cars(car_city, expected_selling_price);
 CREATE INDEX IF NOT EXISTS idx_cars_make_model ON cars(car_manufacturer, car_model);
 CREATE INDEX IF NOT EXISTS idx_bikes_location_price ON bikes(location, price);
 
@@ -47,9 +47,6 @@ CREATE INDEX IF NOT EXISTS idx_cars_expires_at ON cars(expires_at) WHERE status 
 CREATE INDEX IF NOT EXISTS idx_bikes_expires_at ON bikes(expires_at) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_car_parts_expires_at ON car_parts(expires_at) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_license_plates_expires_at ON license_plates(expires_at) WHERE status = 'active';
-
--- Enable parallel queries for better performance
-ALTER SYSTEM SET max_parallel_workers_per_gather = 4;
 
 -- Analyze tables to update statistics
 ANALYZE cars;
