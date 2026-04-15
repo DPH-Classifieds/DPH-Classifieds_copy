@@ -50,12 +50,15 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max request size
 # Flask-Mail configuration
 try:
     from flask_mail import Mail, Message as MailMessage
+
     app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT", "587"))
     app.config["MAIL_USE_TLS"] = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
     app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
     app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-    app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or os.getenv("MAIL_USERNAME")
+    app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or os.getenv(
+        "MAIL_USERNAME"
+    )
     mail = Mail(app)
     MAIL_ENABLED = bool(os.getenv("MAIL_USERNAME") and os.getenv("MAIL_PASSWORD"))
 except ImportError:
@@ -273,7 +276,11 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     _apply_listing_lifecycle_metadata(record)
 
     # Send expiry email on first detection of expiry
-    if just_expired and record.get("user_email") and record.get("status") not in {"deleted", "rejected"}:
+    if (
+        just_expired
+        and record.get("user_email")
+        and record.get("status") not in {"deleted", "rejected"}
+    ):
         try:
             listing_title = (
                 record.get("listing_title")
@@ -364,87 +371,94 @@ def _send_email(to_address, subject, html_body):
         return False
 
 
-def _send_listing_expiry_reminder(user_email, listing_title, listing_type, listing_id, days_left):
+def _send_listing_expiry_reminder(
+    user_email, listing_title, listing_type, listing_id, days_left
+):
     if not user_email:
-        return None, f'{user_email}'
+        return None, f"{user_email}"
     if not EMAIL_REGEX.match(user_email):
-        return None, 'Invalid recipient email'
+        return None, "Invalid recipient email"
 
-    from_email = os.getenv('RESEND_FROM_EMAIL')
+    from_email = os.getenv("RESEND_FROM_EMAIL")
     if not from_email:
-        return None, 'Missing RESEND_FROM_EMAIL'
+        return None, "Missing RESEND_FROM_EMAIL"
 
     detail_paths = {
-        'cars': 'cars', 'bikes': 'bikes', 'car_parts': 'car-parts', 'license_plates': 'plates'
+        "cars": "cars",
+        "bikes": "bikes",
+        "car_parts": "car-parts",
+        "license_plates": "plates",
     }
     path = detail_paths.get(listing_type, listing_type)
-    listing_url = f'{SITE_URL}/{path}/{listing_id}'
-    my_listings_url = f'{SITE_URL}/my-listings'
+    listing_url = f"{SITE_URL}/{path}/{listing_id}"
+    my_listings_url = f"{SITE_URL}/my-listings"
 
-    subject = f'Your listing \u2018{listing_title}\u2019 expires in {days_left} day{\u2018s\u2019 if days_left != 1 else \u2018\u2019}'
+    subject = f"Your listing '{listing_title}' expires in {days_left} day{'s' if days_left != 1 else ''}"
 
     lines = [
-        'Hi there,',
-        '',
-        f'Your listing \u2018{listing_title}\u2019 will expire in {days_left} day{\u2018s\u2019 if days_left != 1 else \u2018\u2019}.',
-        f'After expiry, your listing will no longer be visible to buyers. You can renew it from your listings page.',
-        '',
-        f'Renew your listing: {my_listings_url}',
-        f'View listing: {listing_url}',
-        '',
-        'Thanks,',
+        "Hi there",
+        "",
+        f"Your listing '{listing_title}' will expire in {days_left} day{'s' if days_left != 1 else ''}.",
+        f"After expiry, your listing will no longer be visible to buyers. You can renew it from your listings page.",
+        "",
+        f"Renew your listing: {my_listings_url}",
+        f"View listing: {listing_url}",
+        "",
+        "Thanks,",
         SITE_NAME,
     ]
 
     payload = {
-        'from': from_email,
-        'to': [user_email],
-        'subject': subject,
-        'text': '\n'.join(lines),
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "text": "\n".join(lines),
     }
 
-    reply_to = os.getenv('RESEND_REPLY_TO_EMAIL') or os.getenv('RESEND_TO_EMAIL')
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
     if reply_to:
-        payload['reply_to'] = reply_to
+        payload["reply_to"] = reply_to
 
     return _send_resend_email(payload)
 
 
-def _send_listing_expired_email(user_email, listing_title, listing_type, listing_id, days_until_deletion):
+def _send_listing_expired_email(
+    user_email, listing_title, listing_type, listing_id, days_until_deletion
+):
     if not user_email:
-        return None, f'{user_email}'
+        return None, f"{user_email}"
     if not EMAIL_REGEX.match(user_email):
-        return None, 'Invalid recipient email'
+        return None, "Invalid recipient email"
 
-    from_email = os.getenv('RESEND_FROM_EMAIL')
+    from_email = os.getenv("RESEND_FROM_EMAIL")
     if not from_email:
-        return None, 'Missing RESEND_FROM_EMAIL'
+        return None, "Missing RESEND_FROM_EMAIL"
 
-    my_listings_url = f'{SITE_URL}/my-listings'
-    subject = f'Your listing \u2018{listing_title}\u2019 has expired'
+    my_listings_url = f"{SITE_URL}/my-listings"
+    subject = f"Your listing '{listing_title}' has expired"
 
     lines = [
-        'Hi there,',
-        '',
-        f'Your listing \u2018{listing_title}\u2019 has expired and is no longer visible to buyers.',
-        f'You have {days_until_deletion} day{\u2018s\u2019 if days_until_deletion != 1 else \u2018\u2019} to renew it before it\u2019s permanently deleted.',
-        '',
-        f'Renew now: {my_listings_url}',
-        '',
-        'Thanks,',
+        "Hi there",
+        "",
+        f"Your listing '{listing_title}' has expired and is no longer visible to buyers.",
+        f"You have {days_until_deletion} day{'s' if days_until_deletion != 1 else ''} to renew it before it's permanently deleted.",
+        "",
+        f"Renew now: {my_listings_url}",
+        "",
+        "Thanks,",
         SITE_NAME,
     ]
 
     payload = {
-        'from': from_email,
-        'to': [user_email],
-        'subject': subject,
-        'text': '\n'.join(lines),
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "text": "\n".join(lines),
     }
 
-    reply_to = os.getenv('RESEND_REPLY_TO_EMAIL') or os.getenv('RESEND_TO_EMAIL')
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
     if reply_to:
-        payload['reply_to'] = reply_to
+        payload["reply_to"] = reply_to
 
     return _send_resend_email(payload)
 
@@ -603,6 +617,7 @@ CORS(
 # Enable compression for better performance
 try:
     from flask_compress import Compress
+
     Compress(app, compress_level=6, gzip=True, brotli=True)
     logger.info("Flask-Compress enabled with Gzip and Brotli")
 except ImportError:
@@ -947,7 +962,9 @@ def token_required(f):
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
             logger.error("Invalid Authorization header format")
-            return jsonify({"message": "Invalid Authorization format. Use: Bearer <token>"}), 401
+            return jsonify(
+                {"message": "Invalid Authorization format. Use: Bearer <token>"}
+            ), 401
 
         token = parts[1]
 
@@ -963,10 +980,7 @@ def token_required(f):
                 pass  # use as-is if not base64
 
             payload = pyjwt.decode(
-                token,
-                secret,
-                algorithms=["HS256"],
-                options={"verify_aud": False}
+                token, secret, algorithms=["HS256"], options={"verify_aud": False}
             )
 
             current_user = payload.get("sub")
@@ -3046,7 +3060,9 @@ def find_user_email_by_username(username):
         url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=eq.{username}&select=email&limit=1"
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code != 200:
-            logger.warning(f"Unable to look up username {username}: {response.status_code}")
+            logger.warning(
+                f"Unable to look up username {username}: {response.status_code}"
+            )
             return None
         users = response.json()
         if users:
@@ -7116,7 +7132,9 @@ if __name__ == "__main__":
                     for item_type, config in LISTING_TABLE_CONFIG.items():
                         table = config["table"]
                         now = _utc_now()
-                        reminder_threshold = now + datetime.timedelta(days=REMINDER_DAYS_BEFORE)
+                        reminder_threshold = now + datetime.timedelta(
+                            days=REMINDER_DAYS_BEFORE
+                        )
                         # Fetch listings expiring within the reminder window that haven't expired yet
                         records, status = supabase_request(
                             "get",
