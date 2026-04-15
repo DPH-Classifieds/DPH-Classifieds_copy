@@ -296,6 +296,10 @@ const CarDetail = () => {
                 <img 
                   src={getMainImageUrl()} 
                   alt={getDisplayTitle()}
+                  loading="lazy"
+                  decoding="async"
+                  width="800"
+                  height="500"
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = PLACEHOLDER_IMAGE;

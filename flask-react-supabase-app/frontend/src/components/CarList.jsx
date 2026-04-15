@@ -761,6 +761,10 @@ const CarList = () => {
                         <img 
                           src={getImageUrl(car.images[0])} 
                           alt={car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}
+                          loading="lazy"
+                          decoding="async"
+                          width="400"
+                          height="300"
                           onError={(e) => {
                             console.error("Image failed to load:", e.target.src);
                             e.target.onerror = null;

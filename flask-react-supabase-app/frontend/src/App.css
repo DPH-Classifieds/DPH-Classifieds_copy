@@ -1,6 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* App-wide styles - fonts loaded in index.html for performance */
 
-/* Global Styles */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -18,6 +17,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+:root {
 
 .app {
   display: flex;
@@ -327,4 +328,15 @@ input:focus-visible {
 ::selection {
   background: #01351c;
   color: #ffffff;
+}
+
+/* Deferred analytics - load after user interaction */
+.analytics-deferred {
+  display: contents;
+}
+
+@media (scripting: none) {
+  .analytics-deferred {
+    display: none;
+  }
 }

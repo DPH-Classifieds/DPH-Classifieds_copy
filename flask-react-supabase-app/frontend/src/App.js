@@ -1,47 +1,50 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import Footer from './components/ui/hover-footer';
 import CookieBanner from './components/CookieBanner';
-import HomePage from './components/HomePage';
-import CarList from './components/CarList';
-import CarDetail from './components/CarDetail';
-import CarParts from './components/CarParts';
-import Plates from './components/PlatesRedesigned';
-import Bikes from './components/BikesRedesigned';
-import PlateDetail from './components/PlateDetailRedesigned';
-import BikeDetail from './components/BikeDetailRedesigned';
-import PartDetail from './components/PartDetailRedesigned';
-import Login from './components/Login';
-import Signup from './components/Signup';
-import CheckEmail from './components/CheckEmail';
-import ForgotPassword from './components/ForgotPassword';
-import ResetPassword from './components/ResetPassword';
-import AuthCallback from './components/AuthCallback';
-import Profile from './components/Profile';
-import AccountSettings from './components/AccountSettings';
-import MyListings from './components/MyListings';
-import CreateListing from './components/CreateListing';
-import EditListing from './components/EditListing';
-import PostCar from './components/PostCar';
-import PostBike from './components/PostBike';
-import PostPlate from './components/PostPlate';
-import PostCarParts from './components/PostCarParts';
+import LoadingSpinner from './components/LoadingSpinner';
+import NotFound from './components/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
-import NotFound from './components/NotFound';
-import About from './components/About';
-import Contact from './components/Contact';
-import AdminDashboard from './components/AdminDashboard';
-import AdminUsers from './components/AdminUsers';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import TermsOfUse from './components/TermsOfUse';
-import ExplorePage from './components/ExplorePage';
 import './App.css';
 import './styles/UAELicensePlate.css';
+
+const Analytics = lazy(() => import('./components/Analytics'));
+const SpeedInsights = lazy(() => import('./components/SpeedInsights'));
+
+const HomePage = lazy(() => import('./components/HomePage'));
+const CarList = lazy(() => import('./components/CarList'));
+const CarDetail = lazy(() => import('./components/CarDetail'));
+const CarParts = lazy(() => import('./components/CarParts'));
+const Plates = lazy(() => import('./components/PlatesRedesigned'));
+const Bikes = lazy(() => import('./components/BikesRedesigned'));
+const PlateDetail = lazy(() => import('./components/PlateDetailRedesigned'));
+const BikeDetail = lazy(() => import('./components/BikeDetailRedesigned'));
+const PartDetail = lazy(() => import('./components/PartDetailRedesigned'));
+const Login = lazy(() => import('./components/Login'));
+const Signup = lazy(() => import('./components/Signup'));
+const CheckEmail = lazy(() => import('./components/CheckEmail'));
+const ForgotPassword = lazy(() => import('./components/ForgotPassword'));
+const ResetPassword = lazy(() => import('./components/ResetPassword'));
+const AuthCallback = lazy(() => import('./components/AuthCallback'));
+const Profile = lazy(() => import('./components/Profile'));
+const AccountSettings = lazy(() => import('./components/AccountSettings'));
+const MyListings = lazy(() => import('./components/MyListings'));
+const CreateListing = lazy(() => import('./components/CreateListing'));
+const EditListing = lazy(() => import('./components/EditListing'));
+const PostCar = lazy(() => import('./components/PostCar'));
+const PostBike = lazy(() => import('./components/PostBike'));
+const PostPlate = lazy(() => import('./components/PostPlate'));
+const PostCarParts = lazy(() => import('./components/PostCarParts'));
+const About = lazy(() => import('./components/About'));
+const Contact = lazy(() => import('./components/Contact'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const AdminUsers = lazy(() => import('./components/AdminUsers'));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
+const ExplorePage = lazy(() => import('./components/ExplorePage'));
 
 const AuthHashHandler = () => {
   const navigate = useNavigate();
@@ -77,6 +80,25 @@ const AuthHashHandler = () => {
 };
 
 function App() {
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
+  useEffect(() => {
+    const handleInteraction = () => {
+      if (!showAnalytics) {
+        setShowAnalytics(true);
+      }
+    };
+
+    const events = ['click', 'scroll', 'keydown', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, handleInteraction, { once: true, passive: true }));
+
+    const timeout = setTimeout(() => setShowAnalytics(true), 5000);
+    return () => {
+      clearTimeout(timeout);
+      events.forEach(event => window.removeEventListener(event, handleInteraction));
+    };
+  }, [showAnalytics]);
+
   return (
     <AuthProvider>
       <Router>
@@ -84,58 +106,64 @@ function App() {
         <div className="app">
           <Header />
           <main className="app-content">
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/cars" element={<CarList />} />
-              <Route path="/cars/:id" element={<CarDetail />} />
-              <Route path="/car-parts" element={<CarParts />} />
-              <Route path="/car-parts/:id" element={<PartDetail />} />
-              <Route path="/plates" element={<Plates />} />
-              <Route path="/plates/:id" element={<PlateDetail />} />
-              <Route path="/bikes" element={<Bikes />} />
-              <Route path="/bikes/:id" element={<BikeDetail />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/check-email" element={<CheckEmail />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} /> {/* Added Privacy Policy route */}
-              <Route path="/terms-of-use" element={<TermsOfUse />} /> {/* Added Terms of Use route */}
-              <Route path="/explore" element={<ExplorePage />} />
-              
-              {/* Protected routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/settings" element={<AccountSettings />} />
-                <Route path="/account-settings" element={<AccountSettings />} />
-                <Route path="/my-listings" element={<MyListings />} />
-                <Route path="/create-listing" element={<CreateListing />} />
-                <Route path="/edit-listing/:id" element={<EditListing />} />
-                <Route path="/post-car" element={<PostCar />} />
-                <Route path="/post-bike" element={<PostBike />} />
-                <Route path="/post-plate" element={<PostPlate />} />
-                <Route path="/post-car-parts" element={<PostCarParts />} />
-              </Route>
-              
-              {/* Admin routes */}
-              <Route element={<AdminRoute />}>
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/users" element={<AdminUsers />} />
-              </Route>
-              
-              {/* 404 route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/cars" element={<CarList />} />
+                <Route path="/cars/:id" element={<CarDetail />} />
+                <Route path="/car-parts" element={<CarParts />} />
+                <Route path="/car-parts/:id" element={<PartDetail />} />
+                <Route path="/plates" element={<Plates />} />
+                <Route path="/plates/:id" element={<PlateDetail />} />
+                <Route path="/bikes" element={<Bikes />} />
+                <Route path="/bikes/:id" element={<BikeDetail />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/check-email" element={<CheckEmail />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms-of-use" element={<TermsOfUse />} />
+                <Route path="/explore" element={<ExplorePage />} />
+                
+                {/* Protected routes */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/settings" element={<AccountSettings />} />
+                  <Route path="/account-settings" element={<AccountSettings />} />
+                  <Route path="/my-listings" element={<MyListings />} />
+                  <Route path="/create-listing" element={<CreateListing />} />
+                  <Route path="/edit-listing/:id" element={<EditListing />} />
+                  <Route path="/post-car" element={<PostCar />} />
+                  <Route path="/post-bike" element={<PostBike />} />
+                  <Route path="/post-plate" element={<PostPlate />} />
+                  <Route path="/post-car-parts" element={<PostCarParts />} />
+                </Route>
+                
+                {/* Admin routes */}
+                <Route element={<AdminRoute />}>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                </Route>
+                
+                {/* 404 route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </main>
           <Footer />
         </div>
         <CookieBanner />
-        <Analytics />
-        <SpeedInsights />
+        {showAnalytics && (
+          <Suspense fallback={null}>
+            <Analytics />
+            <SpeedInsights />
+          </Suspense>
+        )}
       </Router>
     </AuthProvider>
   );

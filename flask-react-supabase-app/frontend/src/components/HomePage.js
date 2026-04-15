@@ -200,7 +200,15 @@ const HomePage = () => {
     <div className="cn-home">
       <section className="cn-hero">
         <div className="cn-hero-media">
-          <img src={heroImage} alt="Luxury performance car in a dark studio" className="cn-hero-image" />
+          <img 
+            src={heroImage} 
+            alt="Luxury performance car in a dark studio" 
+            className="cn-hero-image"
+            width="1920"
+            height="1080"
+            fetchpriority="high"
+            decoding="async"
+          />
           <Suspense fallback={null}>
             <HeroBackground />
           </Suspense>
@@ -253,7 +261,7 @@ const HomePage = () => {
               {marketplaceItems.map((item) => (
                 <Link key={`${item.category}-${item.id}`} to={item.route} className="cn-market-card">
                   <div className="cn-market-media">
-                    <img src={item.image} alt={item.title} className="cn-market-image" />
+                    <img src={item.image} alt={item.title} className="cn-market-image" loading="lazy" decoding="async" width="400" height="300" />
                     <span className="cn-market-badge">{item.category}</span>
                   </div>
                   <div className="cn-market-copy">
@@ -282,7 +290,7 @@ const HomePage = () => {
 
       <section className="cn-cta-section">
         <div className="cn-cta-media">
-          <img src={ctaImage} alt="Abstract performance silhouette" className="cn-cta-image" />
+          <img src={ctaImage} alt="Abstract performance silhouette" className="cn-cta-image" loading="lazy" decoding="async" width="1920" height="600" />
           <div className="cn-cta-overlay" />
         </div>
         <div className="cn-shell cn-cta-content">
