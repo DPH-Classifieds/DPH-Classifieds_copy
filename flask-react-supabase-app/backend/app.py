@@ -1194,6 +1194,24 @@ def home():
     )
 
 
+# Debug endpoint to test JSON parsing
+@app.route("/api/debug/json", methods=["POST"])
+def debug_json():
+    logger.info(f"DEBUG: Content-Type: {request.content_type}")
+    logger.info(f"DEBUG: Content-Length: {request.content_length}")
+    logger.info(f"DEBUG: Raw data: {request.data[:500] if request.data else 'None'}")
+    logger.info(f"DEBUG: request.json: {request.json}")
+    return jsonify(
+        {
+            "content_type": request.content_type,
+            "content_length": request.content_length,
+            "raw_data_preview": str(request.data[:200]) if request.data else None,
+            "json_parsed": request.json is not None,
+            "json_keys": list(request.json.keys()) if request.json else None,
+        }
+    ), 200
+
+
 # Get all cars (public)
 @app.route("/api/cars", methods=["GET"])
 def get_cars():
@@ -1570,18 +1588,48 @@ def get_user_cars(current_user):
     return jsonify(data), 200
 
 
+# Handle OPTIONS preflight for /api/cars
+@app.route("/api/cars", methods=["OPTIONS"])
+def cars_options():
+    response = make_response()
+    origin = request.headers.get("Origin")
+    if origin in _get_cors_origins():
+        response.headers.add("Access-Control-Allow-Origin", origin)
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+    response.headers.add(
+        "Access-Control-Allow-Headers", "Content-Type, Authorization, Origin"
+    )
+    response.headers.add(
+        "Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    )
+    return response
+
+
 # Create a new car listing (authenticated)
 @app.route("/api/cars", methods=["POST"])
 @token_required
 def create_car(current_user):
     try:
+        # Log request details for debugging
+        logger.info(f"POST /api/cars - Content-Type: {request.content_type}")
+        logger.info(f"POST /api/cars - Content-Length: {request.content_length}")
+        logger.info(f"POST /api/cars - Headers: {dict(request.headers)}")
+
         # Validate input
         if not request.json:
-            logger.error("No JSON data in request")
-            return jsonify({"error": "Invalid request data"}), 400
+            logger.error(
+                f"No JSON data in request. Raw data: {request.data[:500] if request.data else 'None'}"
+            )
+            return jsonify(
+                {
+                    "error": "Invalid request data - no JSON received",
+                    "content_type": request.content_type,
+                    "raw_data": str(request.data[:200]),
+                }
+            ), 400
 
         logger.info(f"Creating car listing for user {current_user}")
-        logger.debug(f"Request data keys: {list(request.json.keys())}")
+        logger.info(f"Request data keys: {list(request.json.keys())}")
 
         limit_response = _enforce_listing_limit(current_user)
         if limit_response:
@@ -1592,6 +1640,10 @@ def create_car(current_user):
         car_data.update(_new_listing_lifecycle_fields())
 
         try:
+            logger.info(
+                f"Validating car data: make_year={car_data.get('make_year')}, kilometer_driven={car_data.get('kilometer_driven')}, expected_selling_price={car_data.get('expected_selling_price')}"
+            )
+
             if "make_year" in car_data:
                 car_data["make_year"] = _to_int(
                     car_data.get("make_year"),
@@ -1652,6 +1704,7 @@ def create_car(current_user):
             _validate_description_word_count(
                 car_data.get("car_description"), field_name="car_description"
             )
+            logger.info("All validations passed")
         except ValueError as validation_error:
             logger.error(f"Validation error: {validation_error}")
             return jsonify({"error": str(validation_error)}), 400
@@ -1742,12 +1795,17 @@ def create_car(current_user):
                 {"error": "At least one image is required for a car listing."}
             ), 400
 
+        logger.info(f"Creating car with data: {car_data}")
+
         # Create the car
         data, status_code = _create_listing_with_lifecycle_fallback(
             "/rest/v1/cars", car_data, user_id=current_user
         )
 
+        logger.info(f"Database insert result: status={status_code}, data={data}")
+
         if status_code >= 400:
+            logger.error(f"Database insert failed: {data}")
             return jsonify(data), status_code
 
         car_id = data[0]["id"]
