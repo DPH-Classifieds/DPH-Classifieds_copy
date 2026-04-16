@@ -271,6 +271,12 @@ def list_pending_items(item_type):
         "parts": "car_parts",
         "plates": "license_plates",
     }
+    image_tables = {
+        "cars": ("car_images", "car_id"),
+        "bikes": ("bike_images", "bike_id"),
+        "parts": ("part_images", "part_id"),
+        "plates": ("plate_images", "plate_id"),
+    }
     if item_type not in valid_item_types:
         return jsonify({"error": f"Invalid item type: {item_type}"}), 400
 
@@ -284,11 +290,75 @@ def list_pending_items(item_type):
         query = f"{SUPABASE_URL}/rest/v1/{table_name}?status=eq.pending&select=*&order=created_at.desc"
         response = requests.get(query, headers=headers, timeout=10)
 
-        if response.status_code == 200:
-            return jsonify(response.json()), 200
-        else:
+        if response.status_code != 200:
             logger.error(f"Error fetching pending {item_type}: {response.status_code}")
             return jsonify({"error": f"Error fetching pending {item_type}"}), 500
+
+        listings = response.json()
+
+        img_table, img_fk = image_tables.get(item_type, (None, None))
+
+        for listing in listings:
+            user_id = listing.get("user_id")
+            if user_id:
+                user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,username,phone"
+                user_resp = requests.get(user_query, headers=headers, timeout=5)
+                if user_resp.status_code == 200 and user_resp.json():
+                    user_info = user_resp.json()[0]
+                    listing["user_email"] = user_info.get("email", "N/A")
+                    listing["user_name"] = (
+                        f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+                        or user_info.get("username", "Unknown")
+                    )
+                else:
+                    listing["user_email"] = "N/A"
+                    listing["user_name"] = "Unknown"
+            else:
+                listing["user_email"] = "N/A"
+                listing["user_name"] = "Unknown"
+
+            if img_table:
+                img_query = f"{SUPABASE_URL}/rest/v1/{img_table}?{img_fk}=eq.{listing['id']}&select=*"
+                img_resp = requests.get(img_query, headers=headers, timeout=5)
+                if img_resp.status_code == 200:
+                    images = img_resp.json()
+                    for img in images:
+                        if "url" in img and not img.get("image_url"):
+                            img["image_url"] = img["url"]
+                        elif "image_url" in img and not img.get("url"):
+                            img["url"] = img["image_url"]
+                    listing["images"] = images
+                else:
+                    listing["images"] = []
+
+            if item_type == "cars":
+                listing["display_title"] = (
+                    f"{listing.get('make_year', '')} {listing.get('car_manufacturer', '')} {listing.get('car_model', '')}"
+                ).strip()
+                listing["display_price"] = listing.get("expected_selling_price")
+                listing["display_description"] = listing.get("car_description", "")
+                listing["display_make"] = listing.get("car_manufacturer", "")
+                listing["display_model"] = listing.get("car_model", "")
+                listing["display_year"] = listing.get("make_year", "")
+                listing["display_mileage"] = listing.get("kilometer_driven")
+            elif item_type == "bikes":
+                listing["display_title"] = (
+                    f"{listing.get('make_year', '')} {listing.get('make', '') or listing.get('bike_brand', '')} {listing.get('model', '') or listing.get('bike_model', '')}"
+                ).strip()
+                listing["display_price"] = listing.get("price")
+                listing["display_description"] = listing.get("description", "")
+            elif item_type == "plates":
+                listing["display_title"] = (
+                    f"{listing.get('city', '')} {listing.get('code', '')} {listing.get('number', '')}"
+                ).strip()
+                listing["display_price"] = listing.get("price")
+                listing["display_description"] = listing.get("description", "")
+            elif item_type == "parts":
+                listing["display_title"] = listing.get("name", "Car Part")
+                listing["display_price"] = listing.get("price")
+                listing["display_description"] = listing.get("description", "")
+
+        return jsonify(listings), 200
     except Exception as e:
         logger.error(f"Exception fetching pending {item_type}: {e}")
         return jsonify({"error": str(e)}), 500

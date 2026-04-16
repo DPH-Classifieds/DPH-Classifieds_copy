@@ -84,16 +84,16 @@ const EditListing = () => {
         listing_title: data.listing_title || '',
         car_manufacturer: data.car_manufacturer || '',
         car_model: data.car_model || '',
-        car_variant: data.car_variant || '',
+        car_variant: data.trim || data.car_variant || '',
         make_year: data.make_year || '',
-        mileage: data.mileage || data.kilometer_driven || '',
+        mileage: data.kilometer_driven || data.mileage || '',
         exterior_color: data.exterior_color || '',
         interior_color: data.interior_color || '',
         expected_selling_price: data.expected_selling_price || '',
-        description: data.description || data.car_description || '',
-        location: data.location || data.car_location || data.car_city || '',
-        contact_phone: data.contact_phone || data.car_owner_phone_number || '',
-        contact_email: data.contact_email || '',
+        description: data.car_description || data.description || '',
+        location: data.car_city || data.car_location || data.location || '',
+        contact_phone: data.car_owner_phone_number || data.contact_phone || '',
+        contact_email: data.contact_email || data.user_email || '',
         vin_number: data.vin_number || '',
         body_type: data.body_type || '',
         fuel_type: data.fuel_type || '',
@@ -104,7 +104,6 @@ const EditListing = () => {
         engine_capacity: data.engine_capacity || '',
         steering_side: data.steering_side || '',
         is_insured: data.is_insured || false,
-        // Features/Extras
         climate_control: data.climate_control || false,
         dvd_player: data.dvd_player || false,
         keyless_entry: data.keyless_entry || false,
@@ -754,7 +753,7 @@ const EditListing = () => {
               <div className="image-preview-container">
                 {images.map((image, index) => (
                   <div key={image.id} className="image-preview">
-                    <img src={image.url} alt={`Car ${index + 1}`} />
+                    <img src={image.image_url || image.url} alt={`Car ${index + 1}`} />
                     <button
                       type="button"
                       className="remove-image-btn"

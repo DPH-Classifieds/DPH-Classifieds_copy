@@ -1441,6 +1441,7 @@ def _optional_user_id():
     if len(parts) != 2 or parts[0].lower() != "bearer":
         return None
     token = parts[1]
+
     try:
         import base64
         import jwt as pyjwt
@@ -1459,6 +1460,26 @@ def _optional_user_id():
             return uid
     except Exception:
         pass
+
+    try:
+        auth_headers = {
+            "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        auth_response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers=auth_headers,
+            timeout=5,
+        )
+        if auth_response.status_code == 200:
+            uid = auth_response.json().get("id")
+            if uid:
+                request.supabase_token = token
+                return uid
+    except Exception:
+        pass
+
     return None
 
 
