@@ -301,7 +301,23 @@ const PostCar = () => {
       },
       (error) => {
         console.error('Geolocation error:', error);
-        setGeoError('Failed to get your location. Please enable location services.');
+        let errorMessage = 'Failed to get your location.';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location access was denied. Please enable location in your browser settings or enter your location manually.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information is unavailable. Please enter your location manually.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out. Please try again or enter your location manually.';
+            break;
+          default:
+            errorMessage = 'Failed to get your location. Please enter your location manually.';
+        }
+        
+        setGeoError(errorMessage);
         setIsGettingLocation(false);
       },
       {
