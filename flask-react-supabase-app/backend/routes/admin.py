@@ -260,6 +260,136 @@ def reject_listing(listing_id):
         return jsonify({"error": str(e)}), 500
 
 
+# Approve routes matching frontend expectations: /api/admin/approve/<item_type>
+@admin_bp.route("/approve/<item_type>")
+@admin_required
+def list_pending_items(item_type):
+    """Get pending listings by item type (cars, bikes, parts, plates)"""
+    valid_item_types = {
+        "cars": "cars",
+        "bikes": "bikes",
+        "parts": "car_parts",
+        "plates": "license_plates",
+    }
+    if item_type not in valid_item_types:
+        return jsonify({"error": f"Invalid item type: {item_type}"}), 400
+
+    table_name = valid_item_types[item_type]
+    try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+        query = f"{SUPABASE_URL}/rest/v1/{table_name}?status=eq.pending&select=*&order=created_at.desc"
+        response = requests.get(query, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            logger.error(f"Error fetching pending {item_type}: {response.status_code}")
+            return jsonify({"error": f"Error fetching pending {item_type}"}), 500
+    except Exception as e:
+        logger.error(f"Exception fetching pending {item_type}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/approve/<item_type>/<item_id>/approve", methods=["POST"])
+@admin_required
+def approve_item(item_type, item_id):
+    """Approve a pending listing"""
+    valid_item_types = {
+        "cars": "cars",
+        "bikes": "bikes",
+        "parts": "car_parts",
+        "plates": "license_plates",
+    }
+    if item_type not in valid_item_types:
+        return jsonify({"error": f"Invalid item type: {item_type}"}), 400
+
+    table_name = valid_item_types[item_type]
+    try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        }
+        update_data = {
+            "status": "approved",
+            "is_approved": True,
+        }
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{item_id}",
+            headers=headers,
+            json=update_data,
+            timeout=5,
+        )
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": f"{item_type} {item_id} approved"}
+            ), 200
+        else:
+            logger.error(
+                f"Error approving {item_type} {item_id}: {response.status_code}"
+            )
+            return jsonify({"error": f"Error approving item"}), 500
+    except Exception as e:
+        logger.error(f"Exception approving {item_type} {item_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/approve/<item_type>/<item_id>/reject", methods=["POST"])
+@admin_required
+def reject_item(item_type, item_id):
+    """Reject a pending listing"""
+    valid_item_types = {
+        "cars": "cars",
+        "bikes": "bikes",
+        "parts": "car_parts",
+        "plates": "license_plates",
+    }
+    if item_type not in valid_item_types:
+        return jsonify({"error": f"Invalid item type: {item_type}"}), 400
+
+    table_name = valid_item_types[item_type]
+    try:
+        data = request.get_json() or {}
+        rejection_note = data.get("rejection_note", "")
+
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        }
+        update_data = {
+            "status": "rejected",
+            "is_approved": False,
+        }
+        if rejection_note:
+            update_data["rejection_note"] = rejection_note
+
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{item_id}",
+            headers=headers,
+            json=update_data,
+            timeout=5,
+        )
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": f"{item_type} {item_id} rejected"}
+            ), 200
+        else:
+            logger.error(
+                f"Error rejecting {item_type} {item_id}: {response.status_code}"
+            )
+            return jsonify({"error": f"Error rejecting item"}), 500
+    except Exception as e:
+        logger.error(f"Exception rejecting {item_type} {item_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @admin_bp.route("/listings/<listing_id>/delete", methods=["DELETE"])
 @admin_required
 def delete_listing(listing_id):
@@ -403,6 +533,33 @@ def resolve_report(report_id):
         return jsonify({"error": str(e)}), 500
 
 
+@admin_bp.route("/dealers/pending", methods=["GET"])
+@admin_required
+def get_pending_dealers():
+    """Get dealers with pending verification requests"""
+    try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+        query = (
+            f"{SUPABASE_URL}/rest/v1/users?"
+            "is_dealer=eq.true&dealer_verified=eq.false&dealer_verification_requested_at=not.is.null"
+            "&select=*&order=created_at.desc"
+        )
+        response = requests.get(query, headers=headers, timeout=10)
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify(
+                {"error": "Failed to fetch pending dealers"}
+            ), response.status_code
+    except Exception as e:
+        logger.error(f"Error fetching pending dealers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # Dealer Management
 @admin_bp.route("/dealers", methods=["GET"])
 @admin_required
@@ -542,6 +699,95 @@ def get_users():
 
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/users/<user_id>/make-admin", methods=["POST"])
+@admin_required
+def make_admin(user_id):
+    """Make a user an admin"""
+    try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        }
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=headers,
+            json={"is_admin": True},
+            timeout=5,
+        )
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": "User made admin successfully"}
+            ), 200
+        else:
+            return jsonify({"error": "Failed to make user admin"}), 500
+    except Exception as e:
+        logger.error(f"Error making user admin: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/users/<user_id>/remove-admin", methods=["POST"])
+@admin_required
+def remove_admin(user_id):
+    """Remove admin privileges from a user"""
+    try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        }
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=headers,
+            json={"is_admin": False},
+            timeout=5,
+        )
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": "Admin privileges removed successfully"}
+            ), 200
+        else:
+            return jsonify({"error": "Failed to remove admin privileges"}), 500
+    except Exception as e:
+        logger.error(f"Error removing admin privileges: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/users/<user_id>/status", methods=["PATCH"])
+@admin_required
+def update_user_status(user_id):
+    """Update user account status (active/suspended)"""
+    try:
+        data = request.get_json() or {}
+        new_status = data.get("status", "").lower()
+        if new_status not in ("active", "suspended"):
+            return jsonify({"error": "Status must be 'active' or 'suspended'"}), 400
+
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        }
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=headers,
+            json={"account_status": new_status},
+            timeout=5,
+        )
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": f"User status changed to {new_status}"}
+            ), 200
+        else:
+            return jsonify({"error": "Failed to update user status"}), 500
+    except Exception as e:
+        logger.error(f"Error updating user status: {e}")
         return jsonify({"error": str(e)}), 500
 
 

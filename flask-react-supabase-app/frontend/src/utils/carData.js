@@ -152,7 +152,7 @@ const carTrims = {
     'Camry': ['LE', 'SE', 'XLE', 'XSE', 'TRD', 'Nightshade'],
     'Corolla': ['L', 'LE', 'SE', 'XLE', 'XSE', 'Hybrid'],
     'RAV4': ['LE', 'XLE', 'XLE Premium', 'Adventure', 'TRD Off-Road', 'Limited', 'Hybrid', 'Prime'],
-    'Land Cruiser': ['GX', 'VX', 'VXR', 'GR Sport'],
+    'Land Cruiser': ['EXR', 'GXR', 'VXR', 'GR Sport'],
     'Tacoma': ['SR', 'SR5', 'TRD Sport', 'TRD Off-Road', 'Limited', 'TRD Pro'],
     'Tundra': ['SR', 'SR5', 'Limited', 'Platinum', '1794 Edition', 'TRD Pro'],
   },
