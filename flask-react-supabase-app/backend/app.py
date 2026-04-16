@@ -343,7 +343,20 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
         return response, status_code
 
     error_text = json.dumps(response).lower()
-    if "expires_at" not in error_text and "retention_expires_at" not in error_text:
+    # Check for any lifecycle column errors
+    lifecycle_error_keywords = [
+        "expires_at",
+        "retention_expires_at",
+        "expired_at",
+        "last_extended_at",
+        "extension_count",
+        "is_archived",
+    ]
+    has_lifecycle_error = any(
+        keyword in error_text for keyword in lifecycle_error_keywords
+    )
+
+    if not has_lifecycle_error:
         return response, status_code
 
     logger.warning(
