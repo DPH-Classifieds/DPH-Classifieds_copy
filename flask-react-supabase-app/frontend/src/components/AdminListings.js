@@ -5,8 +5,9 @@ import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminDashboard.css';
 
 const AdminListings = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get('filter') || 'cars';
+  const statusFilter = searchParams.get('status') || 'pending';
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -20,7 +21,7 @@ const AdminListings = () => {
     const fetchListings = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get(`/api/admin/approve/${filter}`);
+        const response = await apiClient.get(`/api/admin/approve/${filter}?status=${statusFilter}`);
         setListings(Array.isArray(response) ? response : []);
       } catch (error) {
         console.error('Failed to fetch listings:', error);
@@ -31,7 +32,13 @@ const AdminListings = () => {
     };
 
     fetchListings();
-  }, [filter]);
+  }, [filter, statusFilter]);
+
+  const updateParams = (key, value) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    setSearchParams(params);
+  };
 
   const handleApprove = async (listingId) => {
     try {
@@ -88,6 +95,20 @@ const AdminListings = () => {
     return img.image_url || img.url || null;
   };
 
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: { background: 'rgba(255,193,7,0.15)', border: '1px solid rgba(255,193,7,0.3)', color: '#ffc107' },
+      approved: { background: 'rgba(76,175,80,0.15)', border: '1px solid rgba(76,175,80,0.3)', color: '#4caf50' },
+      rejected: { background: 'rgba(244,67,54,0.15)', border: '1px solid rgba(244,67,54,0.3)', color: '#f44336' },
+    };
+    const s = styles[status] || styles.pending;
+    return (
+      <span style={{ ...s, padding: '4px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
+        {status}
+      </span>
+    );
+  };
+
   const ListingCard = ({ listing }) => (
     <div className="listing-card">
       <div className="listing-info">
@@ -102,7 +123,7 @@ const AdminListings = () => {
         <h3>{getListingTitle(listing)}</h3>
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>
         <p><strong>Seller:</strong> {listing.user_email || listing.seller_email || 'N/A'}</p>
-        <p><strong>Status:</strong> <span className="status-pending">Pending Review</span></p>
+        <p><strong>Status:</strong> {getStatusBadge(listing.status || statusFilter)}</p>
         <p><strong>Created:</strong> {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : 'N/A'}</p>
       </div>
       <div className="listing-actions">
@@ -115,13 +136,15 @@ const AdminListings = () => {
         >
           View Details
         </button>
-        <button
-          onClick={() => handleApprove(listing.id)}
-          className="action-button approve-btn"
-          disabled={actionLoading}
-        >
-          Approve
-        </button>
+        {(statusFilter === 'pending') && (
+          <button
+            onClick={() => handleApprove(listing.id)}
+            className="action-button approve-btn"
+            disabled={actionLoading}
+          >
+            Approve
+          </button>
+        )}
       </div>
     </div>
   );
@@ -130,39 +153,56 @@ const AdminListings = () => {
     return (
       <div className="admin-loading">
         <LoadingSpinner />
-        <p>Loading {filter}...</p>
+        <p>Loading {statusFilter} {filter}...</p>
       </div>
     );
   }
 
   const filterOptions = ['cars', 'parts', 'plates', 'bikes'];
+  const statusOptions = [
+    { key: 'pending', label: 'Pending' },
+    { key: 'approved', label: 'Approved' },
+    { key: 'rejected', label: 'Rejected' },
+  ];
 
   return (
     <div className="admin-listings">
       <div className="page-header">
-        <h1>Pending {filter.charAt(0).toUpperCase() + filter.slice(1)}</h1>
-        <p>Review and approve pending {filter} listings</p>
+        <h1>{statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} {filter.charAt(0).toUpperCase() + filter.slice(1)}</h1>
+        <p>Review and manage {statusFilter} {filter} listings</p>
         {successMessage && (
           <div className="success-message">{successMessage}</div>
         )}
       </div>
 
+      <div className="filter-tabs" style={{ marginBottom: '12px' }}>
+        {statusOptions.map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => updateParams('status', opt.key)}
+            className={`filter-tab ${statusFilter === opt.key ? 'active' : ''}`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
       <div className="filter-tabs">
         {filterOptions.map(option => (
-          <a
+          <button
             key={option}
-            href={`/admin/listings?filter=${option}`}
+            onClick={() => updateParams('filter', option)}
             className={`filter-tab ${filter === option ? 'active' : ''}`}
           >
             {option.charAt(0).toUpperCase() + option.slice(1)}
-          </a>
+          </button>
         ))}
       </div>
 
       {listings.length === 0 ? (
         <div className="empty-state">
-          <h2>No pending {filter}</h2>
-          <p>All {filter} have been reviewed.</p>
+          <h2>No {statusFilter} {filter}</h2>
+          <p>There are no {statusFilter} {filter} listings at this time.</p>
         </div>
       ) : (
         <div className="listings-grid">
@@ -198,6 +238,7 @@ const AdminListings = () => {
               )}
               <p><strong>Title:</strong> {getListingTitle(selectedListing)}</p>
               <p><strong>Price:</strong> {getListingPrice(selectedListing)}</p>
+              <p><strong>Status:</strong> {getStatusBadge(selectedListing.status || statusFilter)}</p>
               <p><strong>Description:</strong> {selectedListing.display_description || selectedListing.description || selectedListing.car_description || 'No description provided'}</p>
               <p><strong>Seller:</strong> {selectedListing.user_email || selectedListing.seller_email || 'N/A'}</p>
               <p><strong>Created:</strong> {selectedListing.created_at ? new Date(selectedListing.created_at).toLocaleDateString() : 'N/A'}</p>
@@ -210,6 +251,7 @@ const AdminListings = () => {
               {selectedListing.body_type && <p><strong>Body:</strong> {selectedListing.body_type}</p>}
               {selectedListing.car_city && <p><strong>City:</strong> {selectedListing.car_city}</p>}
               {selectedListing.car_owner_phone_number && <p><strong>Phone:</strong> {selectedListing.country_code || '+971'}{selectedListing.car_owner_phone_number}</p>}
+              {selectedListing.rejection_note && <p><strong>Rejection Reason:</strong> {selectedListing.rejection_note}</p>}
               {selectedListing.images && selectedListing.images.length > 0 && (
                 <div>
                   <strong>All Images ({selectedListing.images.length}):</strong>
@@ -225,20 +267,32 @@ const AdminListings = () => {
               )}
             </div>
             <div className="modal-footer">
-              <button
-                onClick={() => setShowRejectModal(true)}
-                className="action-button reject-btn"
-                disabled={actionLoading}
-              >
-                Reject
-              </button>
-              <button
-                onClick={() => handleApprove(selectedListing.id)}
-                className="action-button approve-btn"
-                disabled={actionLoading}
-              >
-                Approve
-              </button>
+              {statusFilter === 'pending' && (
+                <>
+                  <button
+                    onClick={() => setShowRejectModal(true)}
+                    className="action-button reject-btn"
+                    disabled={actionLoading}
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleApprove(selectedListing.id)}
+                    className="action-button approve-btn"
+                    disabled={actionLoading}
+                  >
+                    Approve
+                  </button>
+                </>
+              )}
+              {statusFilter !== 'pending' && (
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="action-button secondary"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>

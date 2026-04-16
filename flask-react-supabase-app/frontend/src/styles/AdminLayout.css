@@ -207,6 +207,29 @@
   transform: translateY(-1px);
 }
 
+.back-to-site-btn {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(139, 214, 180, 0.15) 0%, rgba(0, 78, 55, 0.15) 100%);
+  color: #8bd6b4;
+  border: 1px solid rgba(139, 214, 180, 0.25);
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.back-to-site-btn:hover {
+  background: linear-gradient(135deg, rgba(139, 214, 180, 0.25) 0%, rgba(0, 78, 55, 0.25) 100%);
+  border-color: rgba(139, 214, 180, 0.4);
+  transform: translateY(-1px);
+  color: #b4e8d0;
+}
+
 /* Admin Loading States */
 .admin-loading {
   display: flex;

@@ -264,7 +264,7 @@ def reject_listing(listing_id):
 @admin_bp.route("/approve/<item_type>")
 @admin_required
 def list_pending_items(item_type):
-    """Get pending listings by item type (cars, bikes, parts, plates)"""
+    """Get listings by item type and status (cars, bikes, parts, plates)"""
     valid_item_types = {
         "cars": "cars",
         "bikes": "bikes",
@@ -280,6 +280,10 @@ def list_pending_items(item_type):
     if item_type not in valid_item_types:
         return jsonify({"error": f"Invalid item type: {item_type}"}), 400
 
+    status = request.args.get("status", "pending")
+    if status not in ("pending", "approved", "rejected"):
+        status = "pending"
+
     table_name = valid_item_types[item_type]
     try:
         headers = {
@@ -287,7 +291,7 @@ def list_pending_items(item_type):
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
             "Content-Type": "application/json",
         }
-        query = f"{SUPABASE_URL}/rest/v1/{table_name}?status=eq.pending&select=*&order=created_at.desc"
+        query = f"{SUPABASE_URL}/rest/v1/{table_name}?status=eq.{status}&select=*&order=created_at.desc"
         response = requests.get(query, headers=headers, timeout=10)
 
         if response.status_code != 200:
