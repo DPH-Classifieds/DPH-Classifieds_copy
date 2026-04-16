@@ -134,42 +134,38 @@ BEGIN
 END;
 $$;
 
--- Update sync_bike_image_urls function (no drop needed, just add search_path)
+-- Update sync_bike_image_urls function
+-- NOTE: bikes table does NOT have an image_url column. This function must only
+-- sync url ↔ image_url within bike_images, NOT update the bikes table.
+-- See fix_car_images_trigger.sql for the correct version.
 CREATE OR REPLACE FUNCTION public.sync_bike_image_urls()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
 AS $$
 BEGIN
-  UPDATE public.bikes
-  SET image_url = (
-    SELECT array_agg(image_url ORDER BY created_at)
-    FROM public.bike_images
-    WHERE bike_id = NEW.bike_id
-  )
-  WHERE id = NEW.bike_id;
-  
+  IF NEW.image_url IS NOT NULL AND NEW.url IS NULL THEN
+    NEW.url := NEW.image_url;
+  ELSIF NEW.url IS NOT NULL AND NEW.image_url IS NULL THEN
+    NEW.image_url := NEW.url;
+  END IF;
   RETURN NEW;
 END;
 $$;
 
--- Update sync_car_image_urls function (no drop needed, just add search_path)
+-- Update sync_car_image_urls function
+-- NOTE: cars table does NOT have an image_url column. This function must only
+-- sync url ↔ image_url within car_images, NOT update the cars table.
+-- See fix_car_images_trigger.sql for the correct version.
 CREATE OR REPLACE FUNCTION public.sync_car_image_urls()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
 AS $$
 BEGIN
-  UPDATE public.cars
-  SET image_url = (
-    SELECT array_agg(image_url ORDER BY created_at)
-    FROM public.car_images
-    WHERE car_id = NEW.car_id
-  )
-  WHERE id = NEW.car_id;
-  
+  IF NEW.image_url IS NOT NULL AND NEW.url IS NULL THEN
+    NEW.url := NEW.image_url;
+  ELSIF NEW.url IS NOT NULL AND NEW.image_url IS NULL THEN
+    NEW.image_url := NEW.url;
+  END IF;
   RETURN NEW;
 END;
 $$;
