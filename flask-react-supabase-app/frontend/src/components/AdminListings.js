@@ -38,7 +38,7 @@ const AdminListings = () => {
       setActionLoading(true);
       await apiClient.post(`/api/admin/approve/${filter}/${listingId}/approve`);
       setListings(listings.filter(l => l.id !== listingId));
-      setSuccessMessage('Listing approved successfully!');
+      setSuccessMessage('Listing approved successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
       setShowDetailModal(false);
     } catch (error) {
@@ -56,7 +56,7 @@ const AdminListings = () => {
         rejection_note: rejectionNote
       });
       setListings(listings.filter(l => l.id !== selectedListing.id));
-      setSuccessMessage('Listing rejected successfully!');
+      setSuccessMessage('Listing rejected successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
       setShowRejectModal(false);
       setShowDetailModal(false);
@@ -141,7 +141,7 @@ const AdminListings = () => {
       {listings.length === 0 ? (
         <div className="empty-state">
           <h2>No pending {filter}</h2>
-          <p>All {filter} have been reviewed. Great job!</p>
+          <p>All {filter} have been reviewed.</p>
         </div>
       ) : (
         <div className="listings-grid">
@@ -160,7 +160,10 @@ const AdminListings = () => {
                 onClick={() => setShowDetailModal(false)}
                 className="close-modal"
               >
-                ×
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
             <div className="modal-body">
@@ -203,11 +206,14 @@ const AdminListings = () => {
                 onClick={() => setShowRejectModal(false)}
                 className="close-modal"
               >
-                ×
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
             <div className="modal-body">
-              <label>Rejection Note (required):</label>
+              <label>Rejection Note (required)</label>
               <textarea
                 value={rejectionNote}
                 onChange={(e) => setRejectionNote(e.target.value)}
