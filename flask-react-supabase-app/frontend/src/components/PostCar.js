@@ -421,34 +421,50 @@ const PostCar = () => {
         throw new Error('User authentication required. Please log in again.');
       }
 
+      if (selectedFiles.length === 0) {
+        throw new Error('No images selected for upload.');
+      }
+
       const formData = new FormData();
       selectedFiles.forEach((file, index) => {
+        console.log(`Adding file ${index + 1}: ${file.name} (${file.type}, ${file.size} bytes)`);
         formData.append('images', file);
       });
       
-      console.log('Uploading images for authenticated user:', user.email);
+      console.log(`Uploading ${selectedFiles.length} images for user:`, user.email);
+      console.log('API URL:', process.env.REACT_APP_API_URL || 'http://localhost:8000');
       
-      const response = await apiClient.post('/api/upload-images', formData, {
-        headers: {
-          // Don't set Content-Type for FormData - let the browser set it with boundary
-        }
-      });
+      const response = await apiClient.post('/api/upload-images', formData);
       
-      console.log("Images uploaded successfully:", response);
+      console.log("Images upload response:", response);
       
-      if (!response || !response.urls || !Array.isArray(response.urls)) {
-        console.error("Invalid response format from image upload:", response);
-        throw new Error("Server returned an invalid response format for uploaded images");
+      if (!response) {
+        throw new Error("No response received from server");
       }
       
+      if (!response.urls || !Array.isArray(response.urls)) {
+        console.error("Invalid response format:", response);
+        throw new Error(response.error || response.message || "Invalid response from server");
+      }
+      
+      console.log(`Successfully uploaded ${response.urls.length} images`);
       return response.urls;
     } catch (error) {
-      console.error("Error uploading images:", error);
+      console.error("Image upload error:", error);
+      console.error("Error details:", {
+        status: error.status,
+        message: error.message,
+        details: error.details
+      });
       
-      // Handle specific authentication errors
+      // Handle specific errors
       if (error.status === 401) {
         setError("Your session has expired. Please log in again and try submitting your listing.");
         setShowAuthModal(true);
+      } else if (error.status === 413) {
+        setError("File too large. Please upload images smaller than 10MB.");
+      } else if (error.status === 400) {
+        setError(error.message || "Invalid file type. Please upload JPG, PNG, WEBP, or GIF images.");
       } else {
         setError(`Failed to upload images: ${error.message || 'Please try again.'}`);
       }

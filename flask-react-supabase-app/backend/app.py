@@ -2161,6 +2161,53 @@ def upload_car_images(current_user, car_id):
         return jsonify({"error": str(e)}), 500
 
 
+def ensure_storage_bucket(bucket_name="listing-images"):
+    """
+    Ensure the storage bucket exists and is public.
+    """
+    try:
+        # Check if bucket exists
+        check_url = f"{SUPABASE_URL}/storage/v1/bucket/{bucket_name}"
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        }
+
+        response = requests.get(check_url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            logger.info(f"Bucket '{bucket_name}' exists")
+            return True
+        elif response.status_code == 404:
+            # Create the bucket
+            logger.info(f"Bucket '{bucket_name}' not found, creating...")
+            create_url = f"{SUPABASE_URL}/storage/v1/bucket"
+            create_data = {"id": bucket_name, "name": bucket_name, "public": True}
+            create_response = requests.post(
+                create_url,
+                headers={**headers, "Content-Type": "application/json"},
+                json=create_data,
+                timeout=10,
+            )
+
+            if create_response.status_code in [200, 201]:
+                logger.info(f"Bucket '{bucket_name}' created successfully")
+                return True
+            else:
+                logger.error(
+                    f"Failed to create bucket: {create_response.status_code} - {create_response.text}"
+                )
+                return False
+        else:
+            logger.error(
+                f"Error checking bucket: {response.status_code} - {response.text}"
+            )
+            return False
+    except Exception as e:
+        logger.error(f"Error ensuring storage bucket: {str(e)}")
+        return False
+
+
 def upload_to_supabase_storage(file, bucket_name="listing-images", folder=""):
     """
     Upload a file to Supabase Storage and return the public URL.
@@ -2242,18 +2289,35 @@ def upload_to_supabase_storage(file, bucket_name="listing-images", folder=""):
             "Content-Type": content_type,
         }
 
+        logger.info(
+            f"Uploading to Supabase Storage: bucket={bucket_name}, filename={unique_filename}, size={len(file_data)} bytes"
+        )
+
         response = requests.post(
             upload_url, headers=headers, data=file_data, timeout=30
         )
 
+        logger.info(f"Supabase Storage response status: {response.status_code}")
+
         if response.status_code in [200, 201]:
             # Return public URL
             public_url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{unique_filename}"
-            logger.info(f"Image uploaded to Supabase Storage: {public_url}")
+            logger.info(f"Image uploaded successfully: {public_url}")
             return public_url, None
         else:
             error_msg = f"Supabase Storage upload failed: {response.status_code} - {response.text}"
             logger.error(error_msg)
+            # Check for common issues
+            if response.status_code == 404:
+                logger.error(
+                    f"Bucket '{bucket_name}' not found. Please create the bucket in Supabase Storage."
+                )
+            elif response.status_code == 403:
+                logger.error(
+                    f"Permission denied. Check SUPABASE_SERVICE_ROLE_KEY has access to bucket '{bucket_name}'."
+                )
+            elif response.status_code == 413:
+                logger.error(f"File too large for Supabase Storage.")
             return None, error_msg
 
     except Exception as e:
@@ -2267,6 +2331,13 @@ def upload_images(current_user):
     try:
         logger.info(f"Image upload request received from user: {current_user}")
 
+        # Ensure storage bucket exists
+        if not ensure_storage_bucket("listing-images"):
+            logger.error("Failed to ensure storage bucket exists")
+            return jsonify(
+                {"error": "Storage bucket not available. Please try again later."}
+            ), 500
+
         # Check if files were uploaded
         if "images" not in request.files:
             logger.error("No images field in request")
@@ -2277,7 +2348,7 @@ def upload_images(current_user):
             logger.error("No image files selected")
             return jsonify({"error": "No images selected"}), 400
 
-        logger.info(f"Processing {len(files)} images")
+        logger.info(f"Processing {len(files)} images for user {current_user}")
         image_urls = []
         errors = []
 
