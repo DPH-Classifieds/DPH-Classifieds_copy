@@ -257,7 +257,7 @@ const AdminListings = () => {
                   <strong>All Images ({selectedListing.images.length}):</strong>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {selectedListing.images.map((img, idx) => (
-                      <img key={idx} src={img.image_url || img.url} alt={`Image ${idx + 1}`}
+                      <img key={idx} src={img.image_url || img.url} alt={`Photo ${idx + 1}`}
                         style={{ width: '80px', height: '60px', objectFit: 'cover', borderRadius: '4px' }}
                         onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                       />
