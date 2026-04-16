@@ -131,6 +131,8 @@ export const signIn = async (email, password) => {
       logger.info('Login successful, received token');
       saveAuthData(response.data);
       setAuthHeader(response.data.access_token);
+      // Also store in supabase_access_token for apiClient
+      localStorage.setItem('supabase_access_token', response.data.access_token);
       return { data: response.data, error: null };
     } else {
       logger.error('Invalid response format from server:', response.data);

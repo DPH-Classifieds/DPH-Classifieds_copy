@@ -18,29 +18,35 @@ export const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
 
 export const getBestAccessToken = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('getSession error:', error);
+    // First, try to get token from localStorage (where authService stores it)
+    const authData = localStorage.getItem('authData');
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData);
+        if (parsed.access_token) {
+          console.log('Got token from authData localStorage');
+          return parsed.access_token;
+        }
+      } catch (e) {
+        console.error('Error parsing authData:', e);
+      }
     }
-    
+
+    // Fallback to supabase_access_token
+    const storedToken = localStorage.getItem('supabase_access_token');
+    if (storedToken) {
+      console.log('Got token from supabase_access_token');
+      return storedToken;
+    }
+
+    // Try Supabase session as last resort
+    const { data: { session }, error } = await supabase.auth.getSession();
     if (session?.access_token) {
-      console.log('Got valid session token');
+      console.log('Got token from Supabase session');
       return session.access_token;
     }
 
-    // Try to refresh the session
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshError) {
-      console.log('refreshSession error:', refreshError.message);
-    }
-    
-    if (refreshData?.session?.access_token) {
-      console.log('Got refreshed session token');
-      return refreshData.session.access_token;
-    }
-
-    console.log('No valid session found');
+    console.log('No valid token found');
     return null;
   } catch (error) {
     console.error('getBestAccessToken error:', error);
