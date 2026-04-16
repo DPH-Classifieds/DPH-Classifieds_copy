@@ -40,7 +40,7 @@ export const getBestAccessToken = async () => {
     }
 
     // Try Supabase session as last resort
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
       console.log('Got token from Supabase session');
       return session.access_token;
