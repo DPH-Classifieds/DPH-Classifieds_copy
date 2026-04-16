@@ -278,54 +278,101 @@ const PostCar = () => {
     }));
   };
 
+  // Fallback geolocation using IP-based service
+  const getIPLocation = async () => {
+    try {
+      console.log('Trying IP-based geolocation...');
+      const response = await fetch('https://ipapi.co/json/');
+      const data = await response.json();
+      
+      if (data.latitude && data.longitude) {
+        console.log('IP location found:', data.latitude, data.longitude);
+        const newPosition = [data.latitude, data.longitude];
+        setMapPosition(newPosition);
+        setMarker(newPosition);
+        reverseGeocode(data.latitude, data.longitude);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('IP geolocation failed:', error);
+      return false;
+    }
+  };
+
   // Get current location using browser geolocation
   const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setGeoError('Geolocation is not supported by your browser.');
-      return;
-    }
-
     setIsGettingLocation(true);
     setGeoError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        const newPosition = [lat, lng];
-        
-        setMapPosition(newPosition);
-        setMarker(newPosition);
-        reverseGeocode(lat, lng);
-        setIsGettingLocation(false);
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        let errorMessage = 'Failed to get your location.';
-        
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location access was denied. Please enable location in your browser settings or enter your location manually.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information is unavailable. Please enter your location manually.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timed out. Please try again or enter your location manually.';
-            break;
-          default:
-            errorMessage = 'Failed to get your location. Please enter your location manually.';
+    // First try browser geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const newPosition = [lat, lng];
+          
+          console.log('Browser geolocation success:', lat, lng);
+          setMapPosition(newPosition);
+          setMarker(newPosition);
+          reverseGeocode(lat, lng);
+          setIsGettingLocation(false);
+        },
+        async (error) => {
+          console.error('Browser geolocation error:', error);
+          
+          // Fallback to IP-based geolocation
+          console.log('Falling back to IP-based geolocation...');
+          const ipSuccess = await getIPLocation();
+          
+          if (!ipSuccess) {
+            let errorMessage = 'Could not determine your location.';
+            
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                errorMessage = 'Location access was denied. Please enable location in your browser settings or enter your location manually.';
+                break;
+              case error.POSITION_UNAVAILABLE:
+                errorMessage = 'Location unavailable. Using default location (Dubai). You can adjust the marker on the map.';
+                // Set default location to Dubai
+                const dubaiPosition = [25.2048, 55.2708];
+                setMapPosition(dubaiPosition);
+                setMarker(dubaiPosition);
+                break;
+              case error.TIMEOUT:
+                errorMessage = 'Location request timed out. Please try again or enter your location manually.';
+                break;
+              default:
+                errorMessage = 'Could not determine your location. Using default location (Dubai).';
+                const defaultPosition = [25.2048, 55.2708];
+                setMapPosition(defaultPosition);
+                setMarker(defaultPosition);
+            }
+            
+            setGeoError(errorMessage);
+          }
+          
+          setIsGettingLocation(false);
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 300000
         }
-        
-        setGeoError(errorMessage);
+      );
+    } else {
+      // No geolocation support, try IP-based
+      getIPLocation().then(success => {
+        if (!success) {
+          setGeoError('Geolocation is not supported. Using default location (Dubai).');
+          const dubaiPosition = [25.2048, 55.2708];
+          setMapPosition(dubaiPosition);
+          setMarker(dubaiPosition);
+        }
         setIsGettingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+      });
+    }
   };
 
   const handleChange = (e) => {
@@ -355,10 +402,23 @@ const PostCar = () => {
   };
 
   const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     processFiles(files);
+  };
+
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleContainerClick = (e) => {
+    // Only trigger file dialog if clicking on the upload area itself, not on buttons or images
+    if (e.target.closest('.browse-btn') || e.target.closest('.remove-image') || e.target.closest('.preview-thumbnail')) {
+      return;
+    }
+    fileInputRef.current?.click();
   };
 
   const processFiles = (files) => {
@@ -1146,20 +1206,28 @@ const PostCar = () => {
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                onClick={handleContainerClick}
               >
                 <div className="upload-area">
-                  <div className="upload-icon" aria-hidden="true"></div>
+                  <div className="upload-icon" aria-hidden="true">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  </div>
                   <h4>Drag & Drop Images Here</h4>
                   <p>or</p>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept=".jpg,.jpeg,.png,.webp,.gif"
                     multiple
                     onChange={handleFileChange}
                     className="file-input"
-                    required
+                    style={{ display: 'none' }}
                   />
-                  <button type="button" className="browse-btn">
+                  <button type="button" className="browse-btn" onClick={handleBrowseClick}>
                     Browse Files
                   </button>
                   <p className="upload-hint">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
