@@ -1004,14 +1004,49 @@ def token_required(f):
             return f(current_user, *args, **kwargs)
 
         except pyjwt.ExpiredSignatureError:
-            logger.error("Token has expired")
-            return jsonify({"message": "Token has expired or is invalid"}), 401
+            logger.warning("Token has expired locally, trying Supabase validation")
         except pyjwt.InvalidTokenError as e:
-            logger.error(f"Invalid token: {str(e)}")
+            logger.warning(
+                f"Token invalid locally, trying Supabase validation: {str(e)}"
+            )
+
+        try:
+            auth_headers = {
+                "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            auth_response = requests.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers=auth_headers,
+                timeout=10,
+            )
+            if auth_response.status_code == 200:
+                supabase_user = auth_response.json()
+                current_user = supabase_user.get("id")
+                if not current_user:
+                    logger.error("No user ID in Supabase response")
+                    return jsonify({"message": "Invalid token"}), 401
+                logger.info(
+                    f"Token validated via Supabase API for user: {current_user}"
+                )
+                user_data = {
+                    "id": current_user,
+                    "email": supabase_user.get("email", ""),
+                    "role": supabase_user.get("role", "authenticated"),
+                }
+                request.user_id = current_user
+                request.user_data = user_data
+                request.supabase_token = token
+                return f(current_user, *args, **kwargs)
+            else:
+                logger.error(
+                    f"Supabase token validation failed: {auth_response.status_code}"
+                )
+                return jsonify({"message": "Token has expired or is invalid"}), 401
+        except Exception as e_fallback:
+            logger.error(f"Fallback token validation error: {str(e_fallback)}")
             return jsonify({"message": "Token has expired or is invalid"}), 401
-        except Exception as e:
-            logger.error(f"Unexpected error during token validation: {str(e)}")
-            return jsonify({"message": "Internal server error"}), 500
 
     return decorated
 
@@ -3098,8 +3133,6 @@ def login():
 
     # Determine if the identifier is an email or username
     email = identifier
-    is_username_login = "@" not in identifier
-    email_exists = False
     if "@" not in identifier:
         # It's a username, find the corresponding email
         logger.info(f"[Login] Identifier appears to be username: {identifier}")
@@ -3113,11 +3146,6 @@ def login():
         email_exists = True
     else:
         logger.info(f"[Login] Identifier appears to be email: {identifier}")
-        email_exists = user_exists_by_email(email)
-        if not email_exists:
-            return jsonify(
-                {"message": "Invalid email or password. Please try again."}
-            ), 401
 
     url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
     headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json"}
@@ -3364,6 +3392,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
 
     auth_email = None
     auth_user_data = None
+    is_superadmin = False
     try:
         auth_response = requests.get(
             f"{SUPABASE_URL}/auth/v1/admin/users/{user_id_from_token}",
@@ -3376,8 +3405,10 @@ def _get_user_details_with_admin_status(user_id_from_token):
         if auth_response.status_code == 200:
             auth_user_data = auth_response.json()
             auth_email = auth_user_data.get("email")
+            user_role = auth_user_data.get("role", "")
+            is_superadmin = user_role == "superadmin"
             logger.info(
-                f"[_get_user_details_with_admin_status] Found user in auth system. Email: {auth_email}, Data: {auth_user_data}"
+                f"[_get_user_details_with_admin_status] Found user in auth system. Email: {auth_email}, Role: {user_role}, Superadmin: {is_superadmin}"
             )
         else:
             logger.warning(
@@ -3457,7 +3488,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
             create_payload = {
                 "id": user_id_from_token,
                 "email": auth_email,
-                "is_admin": False,
+                "is_admin": is_superadmin,
             }
             logger.info(
                 f"[_get_user_details_with_admin_status] Create payload for public.users: {create_payload}"
@@ -3503,11 +3534,11 @@ def _get_user_details_with_admin_status(user_id_from_token):
         )
         return None
 
-    # Determine final is_admin status primarily from db_user_data if it exists
+    # Determine final is_admin status - consider both db flag and superadmin role
     final_is_admin = False
     if db_user_data:
         final_is_admin = db_user_data.get("is_admin", False)
-    # No else needed, defaults to False if db_user_data is None
+    final_is_admin = final_is_admin or is_superadmin
 
     final_created_at = None
     if db_user_data and db_user_data.get("created_at"):
