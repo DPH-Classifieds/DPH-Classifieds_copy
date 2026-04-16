@@ -1829,6 +1829,7 @@ def create_car(current_user):
             image_inserts.append(
                 {
                     "car_id": car_id,
+                    "url": image_url,
                     "image_url": image_url,
                 }
             )
