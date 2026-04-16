@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Settings, SquareUserRound } from 'lucide-react';
+import { LogOut, Settings, SquareUserRound, Shield } from 'lucide-react';
 import { resolveMediaUrl } from '../utils/media';
+import apiClient from '../utils/apiClient';
 import '../styles/ProfileMenu.css';
 
 const ProfileMenu = ({ user, onLogout, closeMenu }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const menuRef = useRef(null);
 
   const avatarSrc = resolveMediaUrl(user?.profile_photo_url || user?.profilePhotoUrl);
@@ -43,6 +45,24 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Check admin status
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const response = await apiClient.get('/api/auth/admin-check');
+        setIsAdmin(response && response.is_admin === true);
+      } catch (error) {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdmin();
+  }, [user]);
 
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -126,6 +146,17 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               <Settings className="profile-icon" aria-hidden="true" />
               Settings
             </Link>
+            
+            {isAdmin && (
+              <Link 
+                to="/admin" 
+                className="profile-menu-item admin-link"
+                onClick={handleLinkClick}
+              >
+                <Shield className="profile-icon" aria-hidden="true" />
+                Admin Panel
+              </Link>
+            )}
             
             <div className="profile-menu-divider"></div>
             

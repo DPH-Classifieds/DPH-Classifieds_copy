@@ -8,6 +8,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import NotFound from './components/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import AdminLayout from './components/AdminLayout';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -42,6 +43,7 @@ const About = lazy(() => import('./components/About'));
 const Contact = lazy(() => import('./components/Contact'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const AdminUsers = lazy(() => import('./components/AdminUsers'));
+const AdminListings = lazy(() => import('./components/AdminListings'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
 const ExplorePage = lazy(() => import('./components/ExplorePage'));
@@ -145,9 +147,19 @@ function App() {
                 </Route>
                 
                 {/* Admin routes */}
-                <Route element={<AdminRoute />}>
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/admin/users" element={<AdminUsers />} />
+                <Route
+                  path="/admin/*"
+                  element={
+                    <AdminRoute>
+                      <AdminLayout />
+                    </AdminRoute>
+                  }
+                >
+                  <Route path="" element={<AdminDashboard />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="listings" element={<AdminListings />} />
+                  <Route path="dealers" element={<AdminDashboard />} />
+                  <Route path="reports" element={<AdminDashboard />} />
                 </Route>
                 
                 {/* 404 route */}

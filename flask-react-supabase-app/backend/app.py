@@ -6122,131 +6122,12 @@ def admin_required(f):
     return decorated_function
 
 
-# Admin Blueprint Setup
+# Admin Blueprint Setup - API routes only (React handles UI)
 admin_web_bp = Blueprint(
     "admin_web",
     __name__,
-    template_folder="templates/admin",
     url_prefix="/admin",
-    static_folder="static/admin",
 )
-
-
-# Define a simple admin route here for now, will be expanded
-@admin_web_bp.route("/")  # This is /admin/
-@admin_required
-def admin_dashboard():
-    pending_counts = get_pending_counts()
-
-    # Get dealer statistics
-    dealer_stats = get_dealer_statistics()
-
-    # Get user statistics
-    user_stats = get_user_statistics_admin()
-
-    # The template 'dashboard.html' is implicitly looked for in 'templates/admin/'
-    # because of the admin_bp.template_folder setting.
-    return render_template(
-        "dashboard.html",
-        pending_counts=pending_counts,
-        dealer_stats=dealer_stats,
-        user_stats=user_stats,
-    )
-
-
-@admin_web_bp.route("/login", methods=["GET", "POST"])
-def admin_login():
-    if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
-        logger.info(f"[Admin Login] Attempt for email: {email}")
-
-        if not email or not password:
-            flash("Email and password are required.", "warning")
-            return render_template("admin_login.html"), 400
-
-        # Authenticate with Supabase auth
-        url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
-        headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json"}
-        payload = {"email": email, "password": password}
-
-        try:
-            auth_response = requests.post(
-                url, headers=headers, json=payload, timeout=10
-            )
-            logger.info(
-                f"[Admin Login] Supabase auth response status: {auth_response.status_code}"
-            )
-
-            if auth_response.status_code == 200:
-                resp_data = auth_response.json()
-                supabase_user_info = resp_data.get("user")
-
-                if supabase_user_info:
-                    user_id = supabase_user_info.get("id")
-                    logger.info(f"[Admin Login] Extracted user_id: {user_id}")
-
-                    user_details = _get_user_details_with_admin_status(user_id)
-                    logger.info(
-                        f"[Admin Login] User details from _get_user_details_with_admin_status: {user_details}"
-                    )
-
-                    if user_details and user_details.get("is_admin"):
-                        session["is_admin"] = True
-                        session["admin_user_id"] = user_id
-                        session["admin_user_email"] = user_details.get(
-                            "email"
-                        )  # Optional: store email for display
-                        flash("Login successful!", "success")
-                        logger.info(
-                            f"[Admin Login] Admin session SET for user {user_id}. Session: {dict(session)}"
-                        )
-                        return redirect(url_for("admin_web.admin_dashboard"))
-                    else:
-                        logger.warning(
-                            f"[Admin Login] User {user_id} is not an admin or details fetch failed."
-                        )
-                        flash("Access denied. Not an authorized admin.", "danger")
-                else:
-                    logger.warning(
-                        "[Admin Login] Supabase user info missing in auth response."
-                    )
-                    flash("Authentication failed. Please try again.", "danger")
-            else:
-                error_data = auth_response.json()
-                error_msg = error_data.get(
-                    "error_description", "Invalid credentials or login failed"
-                )
-                logger.error(
-                    f"[Admin Login] Supabase auth failed: {error_msg}. Response: {error_data}"
-                )
-                flash(error_msg, "danger")
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"[Admin Login] Network error: {e}", exc_info=True)
-            flash("A network error occurred. Please try again.", "danger")
-        except Exception as e:
-            logger.error(f"[Admin Login] Unexpected error: {e}", exc_info=True)
-            flash("An unexpected error occurred. Please try again.", "danger")
-
-        return render_template("admin_login.html")  # Re-render login form with error
-
-    # For GET request
-    if session.get("is_admin") and session.get("admin_user_id"):
-        # If already logged in as admin, redirect to dashboard
-        return redirect(url_for("admin_web.admin_dashboard"))
-    return render_template("admin_login.html")
-
-
-@admin_web_bp.route("/logout")
-@admin_required  # Ensure only logged-in admins can access logout, though it might be open too
-def admin_logout():
-    session.pop("is_admin", None)
-    session.pop("admin_user_id", None)
-    session.pop("admin_user_email", None)  # Clear optional email too
-    flash("You have been successfully logged out.", "success")
-    logger.info(f"[Admin Logout] Admin session cleared. Session: {dict(session)}")
-    return redirect(url_for("admin_web.admin_login"))
 
 
 # Move blueprint registration to after all routes are defined
@@ -6368,10 +6249,11 @@ def get_pending_counts():
 # ... (inside admin_bp blueprint)
 
 
-# Generic route for listing pending items
+# API route for listing pending items (returns JSON for React)
 @admin_web_bp.route("/approve/<item_type>")
 @admin_required
-def list_pending_items(item_type):
+def list_pending_items_api(item_type):
+    """API endpoint to get pending items as JSON"""
     valid_item_types = {
         "cars": "cars",
         "bikes": "bikes",
@@ -6379,44 +6261,29 @@ def list_pending_items(item_type):
         "plates": "license_plates",
     }
     if item_type not in valid_item_types:
-        flash(f"Invalid item type: {item_type}", "danger")
-        return redirect(url_for("admin_web.admin_dashboard"))
+        return jsonify({"error": f"Invalid item type: {item_type}"}), 400
 
     table_name = valid_item_types[item_type]
-    items = []
-    error_message = None
     try:
-        # Fetch items with status 'pending' (or any non-'approved' status if that makes more sense)
-        # This assumes a 'status' column exists and non-approved items are 'pending'.
         response, status_code = supabase_request(
             "get",
             f"/rest/v1/{table_name}",
             params={
                 "status": "eq.pending",
                 "select": "*",
-            },  # Select all columns for display
+            },
             use_service_role=True,
         )
         if status_code == 200:
-            items = response
+            return jsonify(response), 200
         else:
-            error_message = (
+            logger.error(
                 f"Error fetching pending {item_type}: {status_code} - {response}"
             )
-            logger.error(error_message)
-            flash(error_message, "danger")
+            return jsonify({"error": f"Error fetching pending {item_type}"}), 500
     except Exception as e:
-        error_message = f"Exception fetching pending {item_type}: {e}"
-        logger.error(error_message)
-        flash(error_message, "danger")
-
-    return render_template(
-        "approve_list.html",
-        items=items,
-        item_type=item_type,
-        item_type_title=item_type.replace("_", " ").title(),
-        error_message=error_message,
-    )
+        logger.error(f"Exception fetching pending {item_type}: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ... (rest of admin_bp routes)
@@ -6424,7 +6291,8 @@ def list_pending_items(item_type):
 
 @admin_web_bp.route("/approve/<item_type>/<item_id>/approve", methods=["POST"])
 @admin_required
-def approve_item(item_type, item_id):
+def approve_item_api(item_type, item_id):
+    """API endpoint to approve an item"""
     valid_item_types = {
         "cars": "cars",
         "bikes": "bikes",
@@ -6432,19 +6300,11 @@ def approve_item(item_type, item_id):
         "plates": "license_plates",
     }
     if item_type not in valid_item_types:
-        flash(f"Invalid item type: {item_type}", "danger")
-        return redirect(url_for("admin_web.admin_dashboard"))
+        return jsonify({"error": f"Invalid item type: {item_type}"}), 400
 
     table_name = valid_item_types[item_type]
-    # Define item_type_title for flash messages
-    item_type_display_name = item_type.replace("_", " ").title()
-    if item_type_display_name.endswith("s"):
-        item_type_display_name = item_type_display_name[:-1]
 
     try:
-        # The existing API routes for approval already check admin status, but good to have @admin_required here too.
-        # Those API routes use current_user from token. Here, session['admin_user_id'] is the admin.
-        # We are calling supabase_request directly for simplicity now.
         patch_data = {"status": "approved"}
         if item_type == "cars":
             patch_data["is_approved"] = True
@@ -6452,31 +6312,29 @@ def approve_item(item_type, item_id):
             "patch",
             f"/rest/v1/{table_name}?id=eq.{item_id}",
             data=patch_data,
-            use_service_role=True,  # Admin actions should use service role to bypass RLS if needed
+            use_service_role=True,
         )
         if status_code >= 200 and status_code < 300:
-            flash(
-                f"{item_type_display_name} {item_id} approved successfully.", "success"
-            )
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"{item_type} {item_id} approved successfully",
+                }
+            ), 200
         else:
-            # Use item_type_display_name here as well
-            flash(
-                f"Error approving {item_type_display_name} {item_id}: {status_code} - {response}",
-                "danger",
-            )
             logger.error(
                 f"Error approving {item_type} {item_id}: {status_code} - {response}"
             )
+            return jsonify({"error": f"Error approving item: {status_code}"}), 500
     except Exception as e:
-        flash(f"Exception approving {item_type_display_name} {item_id}: {e}", "danger")
         logger.error(f"Exception approving {item_type} {item_id}: {e}")
-
-    return redirect(url_for("admin_web.list_pending_items", item_type=item_type))
+        return jsonify({"error": str(e)}), 500
 
 
 @admin_web_bp.route("/approve/<item_type>/<item_id>/reject", methods=["POST"])
 @admin_required
-def reject_item(item_type, item_id):
+def reject_item_api(item_type, item_id):
+    """API endpoint to reject an item"""
     valid_item_types = {
         "cars": "cars",
         "bikes": "bikes",
@@ -6484,40 +6342,48 @@ def reject_item(item_type, item_id):
         "plates": "license_plates",
     }
     if item_type not in valid_item_types:
-        flash(f"Invalid item type: {item_type}", "danger")
-        return redirect(url_for("admin_web.admin_dashboard"))
+        return jsonify({"error": f"Invalid item type: {item_type}"}), 400
 
     table_name = valid_item_types[item_type]
-    item_type_title = item_type.replace("_", " ").title()
+
     try:
+        data = request.get_json() or {}
+        rejection_note = data.get("rejection_note", "")
+
+        patch_data = {"status": "rejected"}
+        if rejection_note:
+            patch_data["rejection_note"] = rejection_note
+
         response, status_code = supabase_request(
             "patch",
             f"/rest/v1/{table_name}?id=eq.{item_id}",
-            data={"status": "rejected"},
+            data=patch_data,
             use_service_role=True,
         )
         if status_code >= 200 and status_code < 300:
-            flash(f"{item_type_title} {item_id} rejected successfully.", "success")
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"{item_type} {item_id} rejected successfully",
+                }
+            ), 200
         else:
-            flash(
-                f"Error rejecting {item_type_title} {item_id}: {status_code} - {response}",
-                "danger",
-            )
             logger.error(
                 f"Error rejecting {item_type} {item_id}: {status_code} - {response}"
             )
+            return jsonify({"error": f"Error rejecting item: {status_code}"}), 500
     except Exception as e:
-        flash(f"Exception rejecting {item_type} {item_id}: {e}", "danger")
         logger.error(f"Exception rejecting {item_type} {item_id}: {e}")
+        return jsonify({"error": str(e)}), 500
 
     return redirect(url_for("admin_web.list_pending_items", item_type=item_type))
 
 
-# Dealer Management Routes
+# Dealer Management API Routes (returns JSON for React)
 @admin_web_bp.route("/dealers")
 @admin_required
-def list_dealers():
-    """List all dealers with their status"""
+def list_dealers_api():
+    """API endpoint to get all dealers as JSON"""
     try:
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
@@ -6526,28 +6392,24 @@ def list_dealers():
             "Content-Type": "application/json",
         }
 
-        # Get all dealers
         dealers_response = requests.get(
             f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=*&order=created_at.desc",
             headers=headers,
         )
 
         if dealers_response.status_code == 200:
-            dealers = dealers_response.json()
-            return render_template("dealers.html", dealers=dealers)
+            return jsonify(dealers_response.json()), 200
         else:
-            flash("Error loading dealers", "danger")
-            return render_template("dealers.html", dealers=[])
+            return jsonify({"error": "Error loading dealers"}), 500
     except Exception as e:
         logger.error(f"Error listing dealers: {str(e)}")
-        flash(f"Error loading dealers: {str(e)}", "danger")
-        return render_template("dealers.html", dealers=[])
+        return jsonify({"error": str(e)}), 500
 
 
 @admin_web_bp.route("/dealers/pending")
 @admin_required
-def list_pending_dealers():
-    """List dealers awaiting verification"""
+def list_pending_dealers_api():
+    """API endpoint to get pending dealers as JSON"""
     try:
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
@@ -6556,28 +6418,24 @@ def list_pending_dealers():
             "Content-Type": "application/json",
         }
 
-        # Get pending dealers
         dealers_response = requests.get(
             f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&dealer_verified=eq.false&select=*&order=created_at.desc",
             headers=headers,
         )
 
         if dealers_response.status_code == 200:
-            dealers = dealers_response.json()
-            return render_template("pending_dealers.html", dealers=dealers)
+            return jsonify(dealers_response.json()), 200
         else:
-            flash("Error loading pending dealers", "danger")
-            return render_template("pending_dealers.html", dealers=[])
+            return jsonify({"error": "Error loading pending dealers"}), 500
     except Exception as e:
         logger.error(f"Error listing pending dealers: {str(e)}")
-        flash(f"Error loading pending dealers: {str(e)}", "danger")
-        return render_template("pending_dealers.html", dealers=[])
+        return jsonify({"error": str(e)}), 500
 
 
 @admin_web_bp.route("/dealers/<dealer_id>/verify", methods=["POST"])
 @admin_required
-def verify_dealer(dealer_id):
-    """Verify a dealer account"""
+def verify_dealer_api(dealer_id):
+    """API endpoint to verify a dealer account"""
     try:
         from datetime import datetime
 
@@ -6588,11 +6446,10 @@ def verify_dealer(dealer_id):
             "Content-Type": "application/json",
         }
 
-        # Update dealer verification
         update_data = {
             "dealer_verified": True,
             "dealer_verified_at": datetime.utcnow().isoformat(),
-            "dealer_verified_by": session.get("admin_user_id"),
+            "dealer_verified_by": request.user_id,
         }
 
         response = requests.patch(
@@ -6621,21 +6478,21 @@ def verify_dealer(dealer_id):
                     f"Dealer approval email exception for {dealer_id}: {email_err}"
                 )
 
-            flash("Dealer verified successfully!", "success")
+            return jsonify(
+                {"success": True, "message": "Dealer verified successfully"}
+            ), 200
         else:
-            flash(f"Error verifying dealer: {response.text}", "danger")
+            return jsonify({"error": f"Error verifying dealer: {response.text}"}), 500
 
     except Exception as e:
         logger.error(f"Error verifying dealer: {str(e)}")
-        flash(f"Error verifying dealer: {str(e)}", "danger")
-
-    return redirect(url_for("admin_web.list_pending_dealers"))
+        return jsonify({"error": str(e)}), 500
 
 
 @admin_web_bp.route("/dealers/<dealer_id>/reject", methods=["POST"])
 @admin_required
-def reject_dealer(dealer_id):
-    """Reject a dealer verification request"""
+def reject_dealer_api(dealer_id):
+    """API endpoint to reject a dealer verification request"""
     try:
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
@@ -6644,14 +6501,11 @@ def reject_dealer(dealer_id):
             "Content-Type": "application/json",
         }
 
-        # Get rejection note from form
-        rejection_note = request.form.get(
-            "rejection_note", "Verification rejected by admin"
-        )
+        data = request.get_json() or {}
+        rejection_note = data.get("rejection_note", "Verification rejected by admin")
 
-        # Update user - set is_dealer to false or keep it but mark as not verified
         update_data = {
-            "is_dealer": False,  # Remove dealer status
+            "is_dealer": False,
             "rejection_note": rejection_note,
         }
 
@@ -6684,21 +6538,21 @@ def reject_dealer(dealer_id):
                     f"Dealer rejection email exception for {dealer_id}: {email_err}"
                 )
 
-            flash("Dealer verification rejected", "warning")
+            return jsonify(
+                {"success": True, "message": "Dealer verification rejected"}
+            ), 200
         else:
-            flash(f"Error rejecting dealer: {response.text}", "danger")
+            return jsonify({"error": f"Error rejecting dealer: {response.text}"}), 500
 
     except Exception as e:
         logger.error(f"Error rejecting dealer: {str(e)}")
-        flash(f"Error rejecting dealer: {str(e)}", "danger")
-
-    return redirect(url_for("admin_web.list_pending_dealers"))
+        return jsonify({"error": str(e)}), 500
 
 
 @admin_web_bp.route("/users")
 @admin_required
-def list_users():
-    """List all users"""
+def list_users_api():
+    """API endpoint to get all users as JSON"""
     try:
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
@@ -6707,22 +6561,117 @@ def list_users():
             "Content-Type": "application/json",
         }
 
-        # Get all users
         users_response = requests.get(
             f"{SUPABASE_URL}/rest/v1/users?select=*&order=created_at.desc",
             headers=headers,
         )
 
         if users_response.status_code == 200:
-            users = users_response.json()
-            return render_template("users.html", users=users)
+            return jsonify(users_response.json()), 200
         else:
-            flash("Error loading users", "danger")
-            return render_template("users.html", users=[])
+            return jsonify({"error": "Error loading users"}), 500
     except Exception as e:
         logger.error(f"Error listing users: {str(e)}")
-        flash(f"Error loading users: {str(e)}", "danger")
-        return render_template("users.html", users=[])
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_web_bp.route("/users/<user_id>/make-admin", methods=["POST"])
+@admin_required
+def make_user_admin_api(user_id):
+    """API endpoint to make a user an admin"""
+    try:
+        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+        headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Content-Type": "application/json",
+        }
+
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=headers,
+            json={"is_admin": True},
+        )
+
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": "User made admin successfully"}
+            ), 200
+        else:
+            return jsonify({"error": f"Error making user admin: {response.text}"}), 500
+    except Exception as e:
+        logger.error(f"Error making user admin: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_web_bp.route("/users/<user_id>/remove-admin", methods=["POST"])
+@admin_required
+def remove_user_admin_api(user_id):
+    """API endpoint to remove admin privileges from a user"""
+    try:
+        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+        headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Content-Type": "application/json",
+        }
+
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=headers,
+            json={"is_admin": False},
+        )
+
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": "Admin privileges removed successfully"}
+            ), 200
+        else:
+            return jsonify(
+                {"error": f"Error removing admin privileges: {response.text}"}
+            ), 500
+    except Exception as e:
+        logger.error(f"Error removing admin privileges: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_web_bp.route("/users/<user_id>/status", methods=["PATCH"])
+@admin_required
+def update_user_status_api(user_id):
+    """API endpoint to update user account status"""
+    try:
+        data = request.get_json() or {}
+        new_status = data.get("status", "active")
+
+        if new_status not in ["active", "suspended"]:
+            return jsonify(
+                {"error": "Invalid status. Must be 'active' or 'suspended'"}
+            ), 400
+
+        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+        headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Content-Type": "application/json",
+        }
+
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=headers,
+            json={"account_status": new_status},
+        )
+
+        if response.status_code in [200, 204]:
+            return jsonify(
+                {"success": True, "message": f"User status updated to {new_status}"}
+            ), 200
+        else:
+            return jsonify(
+                {"error": f"Error updating user status: {response.text}"}
+            ), 500
+    except Exception as e:
+        logger.error(f"Error updating user status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # Register admin web blueprint
