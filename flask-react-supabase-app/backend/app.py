@@ -1829,8 +1829,7 @@ def create_car(current_user):
             image_inserts.append(
                 {
                     "car_id": car_id,
-                    "url": image_url,
-                    "image_url": image_url,  # Add image_url field for frontend compatibility
+                    "image_url": image_url,
                 }
             )
         images_data, images_status = supabase_request(
