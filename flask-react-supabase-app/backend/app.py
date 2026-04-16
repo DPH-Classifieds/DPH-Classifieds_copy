@@ -839,8 +839,6 @@ try:
 except Exception as e:
     logger.error(f"Failed to register admin API routes: {e}")
 
-# Register admin web (Jinja) blueprint
-app.register_blueprint(admin_web_bp)
 logger.info("Admin web routes registered successfully")
 
 
@@ -6725,6 +6723,11 @@ def list_users():
         logger.error(f"Error listing users: {str(e)}")
         flash(f"Error loading users: {str(e)}", "danger")
         return render_template("users.html", users=[])
+
+
+# Register admin web blueprint
+app.register_blueprint(admin_web_bp)
+logger.info("Admin web routes registered successfully")
 
 
 # ... (End of admin_bp blueprint, before app.register_blueprint(admin_bp) if it was moved, or before if __name__ ...)
