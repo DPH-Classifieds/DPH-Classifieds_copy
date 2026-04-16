@@ -104,26 +104,28 @@ const Header = () => {
   };
 
   const headerTone = scrolled
-    ? 'border-b border-white/10 bg-[rgba(4,16,8,0.92)] shadow-[0_18px_48px_rgba(0,0,0,0.28)]'
-    : 'border-b border-white/5 bg-[rgba(4,16,8,0.78)]';
+    ? 'border-b border-white/10 bg-[rgba(4,16,8,0.95)] shadow-[0_18px_48px_rgba(0,0,0,0.3)]'
+    : 'border-b border-white/5 bg-[rgba(4,16,8,0.85)]';
 
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
     >
-      <div className="mx-auto flex max-w-[1480px] items-center justify-between gap-4 px-4 py-4 sm:px-7">
-        <Link to="/" className="flex items-center gap-3 text-white">
-          <span className="text-[1.35rem] font-semibold tracking-[-0.04em] text-white">
-            DPHClassifieds
+      <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
+        {/* Logo */}
+        <Link to="/" className="flex items-center text-white transition-opacity hover:opacity-80">
+          <span className="text-[1.3rem] font-bold tracking-[-0.03em] text-white">
+            DPH<span className="text-[#8bd6b4]">Classifieds</span>
           </span>
         </Link>
 
-        <NavigationMenu className="hidden lg:flex">
-          <NavigationMenuList className="gap-1">
+        {/* Desktop Navigation - Centered */}
+        <NavigationMenu className="hidden lg:flex lg:absolute lg:left-1/2 lg:-translate-x-1/2">
+          <NavigationMenuList className="gap-0.5">
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isExploreActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isExploreActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
               >
                 <Link to="/explore">Explore</Link>
               </NavigationMenuLink>
@@ -131,7 +133,7 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isBrowseActive ? 'bg-white/10 text-white' : ''} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isBrowseActive ? 'bg-white/10 text-white' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
               >
                 Browse
               </NavigationMenuTrigger>
@@ -147,14 +149,14 @@ const Header = () => {
                       >
                         <Link
                           to={item.href}
-                          className="flex rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] p-4 transition-colors hover:border-emerald-300/25 hover:bg-[rgba(11,35,18,0.96)]"
+                          className="flex rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] p-4 transition-all duration-200 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)]"
                         >
-                          <div className="mr-3 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
+                          <div className="mr-3.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#8bd6b4]/15 text-[#8bd6b4]">
                             <Icon className="h-4 w-4" />
                           </div>
                           <div>
-                            <p className="mb-1 font-semibold text-white">{item.title}</p>
-                            <p className="text-sm leading-6 text-white/60">{item.description}</p>
+                            <p className="mb-0.5 text-[14px] font-semibold text-white">{item.title}</p>
+                            <p className="text-[13px] leading-5 text-white/55">{item.description}</p>
                           </div>
                         </Link>
                       </NavigationMenuLink>
@@ -166,20 +168,20 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isPostActive ? 'bg-white/10 text-white' : ''} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isPostActive ? 'bg-white/10 text-white' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
               >
                 Sell
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <div className="grid w-[420px] gap-2 p-3">
+                <div className="grid w-[420px] gap-1.5 p-3">
                   {postLinks.map((item) => (
                     <NavigationMenuLink key={item.href} asChild className="rounded-xl p-0">
                       <Link
                         to={item.href}
-                        className="flex items-center justify-between rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] px-4 py-3 text-white/80 transition-colors hover:border-emerald-300/25 hover:bg-[rgba(11,35,18,0.96)] hover:text-white"
+                        className="flex items-center justify-between rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] px-4 py-3 text-white/75 transition-all duration-200 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)] hover:text-white"
                       >
-                        <span className="font-medium">{item.title}</span>
-                        <ChevronRight className="h-4 w-4" />
+                        <span className="text-[14px] font-medium">{item.title}</span>
+                        <ChevronRight className="h-4 w-4 opacity-50" />
                       </Link>
                     </NavigationMenuLink>
                   ))}
@@ -190,7 +192,7 @@ const Header = () => {
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isResourcesActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isResourcesActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
               >
                 <Link to="/about">About</Link>
               </NavigationMenuLink>
@@ -200,7 +202,7 @@ const Header = () => {
               <NavigationMenuItem>
                 <NavigationMenuLink
                   asChild
-                  className={`${location.pathname === '/my-listings' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} bg-transparent text-white/80 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                  className={`${location.pathname === '/my-listings' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
                 >
                   <Link to="/my-listings">My Listings</Link>
                 </NavigationMenuLink>
@@ -209,17 +211,22 @@ const Header = () => {
           </NavigationMenuList>
         </NavigationMenu>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        {/* Auth Buttons / Profile Menu */}
+        <div className="hidden items-center gap-2.5 lg:flex">
           {user ? (
             <ProfileMenu user={user} onLogout={handleLogout} />
           ) : (
             <>
-              <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+              <Button
+                asChild
+                variant="ghost"
+                className="rounded-full border border-white/10 bg-transparent px-5 py-2 text-[14px] font-medium text-white/80 transition-all duration-200 hover:border-white/20 hover:bg-white/5 hover:text-white"
+              >
                 <Link to="/login">Log In</Link>
               </Button>
               <Button
                 asChild
-                className="bg-gradient-to-r from-[#0b6b4c] to-[#004e37] text-white hover:from-[#0d7d58] hover:to-[#0a5f47]"
+                className="rounded-full bg-gradient-to-r from-[#8bd6b4] to-[#004e37] px-5 py-2 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] transition-all duration-200 hover:from-[#9fe0c4] hover:to-[#005a41] hover:shadow-[0_6px_24px_rgba(139,214,180,0.3)]"
               >
                 <Link to="/signup">Sign Up</Link>
               </Button>
@@ -227,10 +234,15 @@ const Header = () => {
           )}
         </div>
 
+        {/* Mobile Menu Button */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild className="lg:hidden">
-            <Button variant="outline" size="icon" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
-              <MenuIcon className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full border border-white/10 bg-transparent text-white hover:bg-white/8 hover:text-white"
+            >
+              <MenuIcon className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent
@@ -240,8 +252,8 @@ const Header = () => {
             <SheetHeader>
               <SheetTitle>
                 <Link to="/" className="flex items-center gap-3 text-left text-white">
-                  <span className="text-[1.2rem] font-semibold tracking-[-0.04em] text-white">
-                    DPHClassifieds
+                  <span className="text-[1.2rem] font-bold tracking-[-0.03em] text-white">
+                    DPH<span className="text-[#8bd6b4]">Classifieds</span>
                   </span>
                 </Link>
               </SheetTitle>
@@ -263,7 +275,7 @@ const Header = () => {
                             to={item.href}
                             className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3 transition-colors hover:bg-white/8"
                           >
-                            <div className="mt-0.5 rounded-lg bg-emerald-400/15 p-2 text-emerald-300">
+                            <div className="mt-0.5 rounded-lg bg-[#8bd6b4]/15 p-2 text-[#8bd6b4]">
                               <Icon className="h-4 w-4" />
                             </div>
                             <div>
@@ -298,48 +310,52 @@ const Header = () => {
                 </AccordionItem>
               </Accordion>
 
-              <div className="flex flex-col gap-2">
-                <Link to="/" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+              <div className="flex flex-col gap-1">
+                <Link to="/" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                   Home
                 </Link>
-                <Link to="/explore" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                <Link to="/explore" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                   Explore
                 </Link>
-                <Link to="/about" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                <Link to="/about" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                   About
                 </Link>
                 {user && (
-                  <Link to="/my-listings" className="rounded-xl px-2 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                  <Link to="/my-listings" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                     My Listings
                   </Link>
                 )}
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
+              <div className="flex flex-col gap-2.5 border-t border-white/10 pt-4">
                 {user ? (
                   <>
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-sm uppercase tracking-[0.2em] text-white/40">Signed in</p>
-                      <p className="mt-2 truncate text-base font-medium text-white">{user.email}</p>
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-white/40">Signed in as</p>
+                      <p className="mt-1.5 truncate text-[14px] font-medium text-white">{user.email}</p>
                     </div>
-                    <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+                    <Button asChild variant="ghost" className="w-full justify-start rounded-xl border border-white/10 bg-transparent px-4 py-3 text-white/80 hover:bg-white/8 hover:text-white">
                       <Link to="/profile">Profile</Link>
                     </Button>
-                    <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+                    <Button asChild variant="ghost" className="w-full justify-start rounded-xl border border-white/10 bg-transparent px-4 py-3 text-white/80 hover:bg-white/8 hover:text-white">
                       <Link to="/settings">Settings</Link>
                     </Button>
-                    <Button variant="outline" className="border-red-400/25 bg-transparent text-red-200 hover:bg-red-500/10 hover:text-red-100" onClick={handleLogout}>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start rounded-xl border border-red-400/20 bg-transparent px-4 py-3 text-red-300/80 hover:bg-red-500/10 hover:text-red-200"
+                      onClick={handleLogout}
+                    >
                       Log Out
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button asChild variant="outline" className="border-white/15 bg-transparent text-white hover:bg-white/8 hover:text-white">
+                    <Button asChild variant="ghost" className="w-full justify-center rounded-full border border-white/10 bg-transparent py-3 text-white/80 hover:bg-white/8 hover:text-white">
                       <Link to="/login">Log In</Link>
                     </Button>
                     <Button
                       asChild
-                      className="bg-gradient-to-r from-[#0b6b4c] to-[#004e37] text-white hover:from-[#0d7d58] hover:to-[#0a5f47]"
+                      className="w-full justify-center rounded-full bg-gradient-to-r from-[#8bd6b4] to-[#004e37] py-3 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] hover:from-[#9fe0c4] hover:to-[#005a41]"
                     >
                       <Link to="/signup">
                         <Plus className="mr-2 h-4 w-4" />
