@@ -835,9 +835,13 @@ try:
     from routes.admin import admin_bp
 
     app.register_blueprint(admin_bp)
-    logger.info("Admin routes registered successfully")
+    logger.info("Admin API routes registered successfully")
 except Exception as e:
-    logger.error(f"Failed to register admin routes: {e}")
+    logger.error(f"Failed to register admin API routes: {e}")
+
+# Register admin web (Jinja) blueprint
+app.register_blueprint(admin_web_bp)
+logger.info("Admin web routes registered successfully")
 
 
 @app.context_processor
@@ -6044,12 +6048,12 @@ def admin_required(f):
 
         if not auth_header:
             flash("You must be logged in as an admin to access this page.", "danger")
-            return redirect(url_for("admin.admin_login"))
+            return redirect(url_for("admin_web.admin_login"))
 
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
             flash("Invalid authorization format.", "danger")
-            return redirect(url_for("admin.admin_login"))
+            return redirect(url_for("admin_web.admin_login"))
 
         token = parts[1]
 
@@ -6065,14 +6069,14 @@ def admin_required(f):
 
             if auth_response.status_code != 200:
                 flash("Session expired. Please log in again.", "danger")
-                return redirect(url_for("admin.admin_login"))
+                return redirect(url_for("admin_web.admin_login"))
 
             user_data = auth_response.json()
             user_id = user_data.get("id")
 
             if not user_id:
                 flash("Invalid user data.", "danger")
-                return redirect(url_for("admin.admin_login"))
+                return redirect(url_for("admin_web.admin_login"))
 
             user_role = user_data.get("role", "")
             is_supabase_superadmin = user_role == "superadmin"
@@ -6110,28 +6114,28 @@ def admin_required(f):
                 return f(*args, **kwargs)
 
             flash("Admin access required.", "danger")
-            return redirect(url_for("admin.admin_login"))
+            return redirect(url_for("admin_web.admin_login"))
 
         except Exception as e:
             logger.error(f"Error checking admin status: {e}")
             flash("Authorization check failed.", "danger")
-            return redirect(url_for("admin.admin_login"))
+            return redirect(url_for("admin_web.admin_login"))
 
     return decorated_function
 
 
 # Admin Blueprint Setup
-admin_bp = Blueprint(
+admin_web_bp = Blueprint(
     "admin_web",
     __name__,
-    template_folder="templates/admin",  # Specifies that templates are in backend/templates/admin
-    url_prefix="/admin",  # All routes in this blueprint will be prefixed with /admin
-    static_folder="static/admin",  # Optional: if you have admin-specific static files
+    template_folder="templates/admin",
+    url_prefix="/admin",
+    static_folder="static/admin",
 )
 
 
 # Define a simple admin route here for now, will be expanded
-@admin_bp.route("/")  # This is /admin/
+@admin_web_bp.route("/")  # This is /admin/
 @admin_required
 def admin_dashboard():
     pending_counts = get_pending_counts()
@@ -6152,7 +6156,7 @@ def admin_dashboard():
     )
 
 
-@admin_bp.route("/login", methods=["GET", "POST"])
+@admin_web_bp.route("/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
         email = request.form.get("email")
@@ -6199,7 +6203,7 @@ def admin_login():
                         logger.info(
                             f"[Admin Login] Admin session SET for user {user_id}. Session: {dict(session)}"
                         )
-                        return redirect(url_for("admin.admin_dashboard"))
+                        return redirect(url_for("admin_web.admin_dashboard"))
                     else:
                         logger.warning(
                             f"[Admin Login] User {user_id} is not an admin or details fetch failed."
@@ -6232,11 +6236,11 @@ def admin_login():
     # For GET request
     if session.get("is_admin") and session.get("admin_user_id"):
         # If already logged in as admin, redirect to dashboard
-        return redirect(url_for("admin.admin_dashboard"))
+        return redirect(url_for("admin_web.admin_dashboard"))
     return render_template("admin_login.html")
 
 
-@admin_bp.route("/logout")
+@admin_web_bp.route("/logout")
 @admin_required  # Ensure only logged-in admins can access logout, though it might be open too
 def admin_logout():
     session.pop("is_admin", None)
@@ -6244,7 +6248,7 @@ def admin_logout():
     session.pop("admin_user_email", None)  # Clear optional email too
     flash("You have been successfully logged out.", "success")
     logger.info(f"[Admin Logout] Admin session cleared. Session: {dict(session)}")
-    return redirect(url_for("admin.admin_login"))
+    return redirect(url_for("admin_web.admin_login"))
 
 
 # Move blueprint registration to after all routes are defined
@@ -6367,7 +6371,7 @@ def get_pending_counts():
 
 
 # Generic route for listing pending items
-@admin_bp.route("/approve/<item_type>")
+@admin_web_bp.route("/approve/<item_type>")
 @admin_required
 def list_pending_items(item_type):
     valid_item_types = {
@@ -6378,7 +6382,7 @@ def list_pending_items(item_type):
     }
     if item_type not in valid_item_types:
         flash(f"Invalid item type: {item_type}", "danger")
-        return redirect(url_for("admin.admin_dashboard"))
+        return redirect(url_for("admin_web.admin_dashboard"))
 
     table_name = valid_item_types[item_type]
     items = []
@@ -6420,7 +6424,7 @@ def list_pending_items(item_type):
 # ... (rest of admin_bp routes)
 
 
-@admin_bp.route("/approve/<item_type>/<item_id>/approve", methods=["POST"])
+@admin_web_bp.route("/approve/<item_type>/<item_id>/approve", methods=["POST"])
 @admin_required
 def approve_item(item_type, item_id):
     valid_item_types = {
@@ -6431,7 +6435,7 @@ def approve_item(item_type, item_id):
     }
     if item_type not in valid_item_types:
         flash(f"Invalid item type: {item_type}", "danger")
-        return redirect(url_for("admin.admin_dashboard"))
+        return redirect(url_for("admin_web.admin_dashboard"))
 
     table_name = valid_item_types[item_type]
     # Define item_type_title for flash messages
@@ -6469,10 +6473,10 @@ def approve_item(item_type, item_id):
         flash(f"Exception approving {item_type_display_name} {item_id}: {e}", "danger")
         logger.error(f"Exception approving {item_type} {item_id}: {e}")
 
-    return redirect(url_for("admin.list_pending_items", item_type=item_type))
+    return redirect(url_for("admin_web.list_pending_items", item_type=item_type))
 
 
-@admin_bp.route("/approve/<item_type>/<item_id>/reject", methods=["POST"])
+@admin_web_bp.route("/approve/<item_type>/<item_id>/reject", methods=["POST"])
 @admin_required
 def reject_item(item_type, item_id):
     valid_item_types = {
@@ -6483,7 +6487,7 @@ def reject_item(item_type, item_id):
     }
     if item_type not in valid_item_types:
         flash(f"Invalid item type: {item_type}", "danger")
-        return redirect(url_for("admin.admin_dashboard"))
+        return redirect(url_for("admin_web.admin_dashboard"))
 
     table_name = valid_item_types[item_type]
     item_type_title = item_type.replace("_", " ").title()
@@ -6508,11 +6512,11 @@ def reject_item(item_type, item_id):
         flash(f"Exception rejecting {item_type} {item_id}: {e}", "danger")
         logger.error(f"Exception rejecting {item_type} {item_id}: {e}")
 
-    return redirect(url_for("admin.list_pending_items", item_type=item_type))
+    return redirect(url_for("admin_web.list_pending_items", item_type=item_type))
 
 
 # Dealer Management Routes
-@admin_bp.route("/dealers")
+@admin_web_bp.route("/dealers")
 @admin_required
 def list_dealers():
     """List all dealers with their status"""
@@ -6542,7 +6546,7 @@ def list_dealers():
         return render_template("dealers.html", dealers=[])
 
 
-@admin_bp.route("/dealers/pending")
+@admin_web_bp.route("/dealers/pending")
 @admin_required
 def list_pending_dealers():
     """List dealers awaiting verification"""
@@ -6572,7 +6576,7 @@ def list_pending_dealers():
         return render_template("pending_dealers.html", dealers=[])
 
 
-@admin_bp.route("/dealers/<dealer_id>/verify", methods=["POST"])
+@admin_web_bp.route("/dealers/<dealer_id>/verify", methods=["POST"])
 @admin_required
 def verify_dealer(dealer_id):
     """Verify a dealer account"""
@@ -6627,10 +6631,10 @@ def verify_dealer(dealer_id):
         logger.error(f"Error verifying dealer: {str(e)}")
         flash(f"Error verifying dealer: {str(e)}", "danger")
 
-    return redirect(url_for("admin.list_pending_dealers"))
+    return redirect(url_for("admin_web.list_pending_dealers"))
 
 
-@admin_bp.route("/dealers/<dealer_id>/reject", methods=["POST"])
+@admin_web_bp.route("/dealers/<dealer_id>/reject", methods=["POST"])
 @admin_required
 def reject_dealer(dealer_id):
     """Reject a dealer verification request"""
@@ -6690,10 +6694,10 @@ def reject_dealer(dealer_id):
         logger.error(f"Error rejecting dealer: {str(e)}")
         flash(f"Error rejecting dealer: {str(e)}", "danger")
 
-    return redirect(url_for("admin.list_pending_dealers"))
+    return redirect(url_for("admin_web.list_pending_dealers"))
 
 
-@admin_bp.route("/users")
+@admin_web_bp.route("/users")
 @admin_required
 def list_users():
     """List all users"""
