@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
 import L from 'leaflet';
@@ -61,30 +62,13 @@ const CarDetail = () => {
       try {
         let response;
         try {
-          response = await axios.get(`${API_URL}/api/cars/${id}`);
+          const token = await getAccessToken();
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          response = await axios.get(`${API_URL}/api/cars/${id}`, { headers });
         } catch (e) {
-          response = {
-            data: {
-              id: id,
-              listing_title: "2020 Toyota Camry LE",
-              car_manufacturer: "Toyota",
-              car_model: "Camry",
-              make_year: 2020,
-              expected_selling_price: 25000,
-              car_city: "Dubai",
-              trim: "LE",
-              mileage: 35000,
-              fuel_type: "Gasoline",
-              transmission: "Automatic",
-              color: "Silver",
-              interior_color: "Black",
-              engine: "2.5L 4-Cylinder",
-              car_description: "Well-maintained Toyota Camry LE with low mileage. Features include backup camera, Bluetooth connectivity, keyless entry, and power windows/locks. One owner, no accidents.",
-              contact_phone: "555-123-4567",
-              country_code: "+971",
-              images: []
-            }
-          };
+          console.error('Error fetching car details:', e);
+          setError('Failed to load car details. Please try again later.');
+          return;
         }
         
         setCar(response.data);

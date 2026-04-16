@@ -1433,42 +1433,44 @@ def get_cars():
 
 
 # Get car details by ID (public)
+def _optional_user_id():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return None
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    token = parts[1]
+    try:
+        import base64
+        import jwt as pyjwt
+
+        secret = SUPABASE_JWT_SECRET
+        try:
+            secret = base64.b64decode(secret + "==")
+        except Exception:
+            pass
+        payload = pyjwt.decode(
+            token, secret, algorithms=["HS256"], options={"verify_aud": False}
+        )
+        uid = payload.get("sub")
+        if uid:
+            request.supabase_token = token
+            return uid
+    except Exception:
+        pass
+    return None
+
+
 @app.route("/api/cars/<string:car_id>", methods=["GET"])
 def get_car_by_id(car_id):
     try:
         logger.info(f"Fetching car details for ID: {car_id}")
 
-        # Increment view count (async, don't wait for response)
-        try:
-            headers = {
-                "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                "Content-Type": "application/json",
-            }
-            current_view_count = 0
+        requesting_user = _optional_user_id()
 
-            # Get current view count
-            view_response = requests.get(
-                f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}&select=view_count",
-                headers=headers,
-                timeout=2,
-            )
-            if view_response.status_code == 200 and view_response.json():
-                current_view_count = view_response.json()[0].get("view_count", 0) or 0
-
-            # Increment view count
-            requests.patch(
-                f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}",
-                headers=headers,
-                json={"view_count": current_view_count + 1, "last_viewed_at": "now()"},
-                timeout=2,
-            )
-        except Exception as view_error:
-            logger.warning(f"Failed to increment view count: {view_error}")
-
-        # Get car details
         query = f"/rest/v1/cars?id=eq.{car_id}&select=*"
-        car_response, car_status = supabase_request("get", query)
+        car_response, car_status = supabase_request("get", query, use_service_role=True)
 
         if not car_response or len(car_response) == 0:
             logger.warning(f"Car not found with ID: {car_id}")
@@ -1477,30 +1479,60 @@ def get_car_by_id(car_id):
         car = _sync_listing_lifecycle(
             "cars", car_response[0], hard_delete_archived=True
         )
-        if not car or car.get("listing_state") != "active":
+        if not car:
             return jsonify({"error": "Car not found"}), 404
+
+        is_owner = requesting_user and car.get("user_id") == requesting_user
+        is_public = car.get("is_approved") and car.get("listing_state") == "active"
+
+        if not is_owner and not is_public:
+            return jsonify({"error": "Car not found"}), 404
+
+        if is_public and not is_owner:
+            try:
+                headers = {
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                }
+                current_view_count = 0
+                view_response = requests.get(
+                    f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}&select=view_count",
+                    headers=headers,
+                    timeout=2,
+                )
+                if view_response.status_code == 200 and view_response.json():
+                    current_view_count = (
+                        view_response.json()[0].get("view_count", 0) or 0
+                    )
+                requests.patch(
+                    f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}",
+                    headers=headers,
+                    json={
+                        "view_count": current_view_count + 1,
+                        "last_viewed_at": "now()",
+                    },
+                    timeout=2,
+                )
+            except Exception as view_error:
+                logger.warning(f"Failed to increment view count: {view_error}")
 
         logger.info(
             f"Found car: {car.get('listing_title', 'Untitled')} (ID: {car['id']})"
         )
 
-        # Get car images
         images_query = f"/rest/v1/car_images?car_id=eq.{car_id}&select=*"
-        logger.info(f"Fetching images with query: {images_query}")
         images_response, images_status = supabase_request(
             "get", images_query, use_service_role=True
         )
 
         if images_status < 400:
             logger.info(f"Found {len(images_response)} images for car {car_id}")
-            # Transform images for frontend compatibility
             for image in images_response:
-                # Ensure both url and image_url fields are present
                 if "url" in image and not image.get("image_url"):
                     image["image_url"] = image["url"]
                 elif "image_url" in image and not image.get("url"):
                     image["url"] = image["image_url"]
-
             car["images"] = images_response
         else:
             logger.warning(
@@ -1508,7 +1540,6 @@ def get_car_by_id(car_id):
             )
             car["images"] = []
 
-        # Fetch seller profile photo
         user_id = car.get("user_id")
         if user_id:
             try:
