@@ -402,6 +402,8 @@ const PostCar = () => {
   };
 
   const [isDragOver, setIsDragOver] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
@@ -472,6 +474,54 @@ const PostCar = () => {
     }
     
     processFiles(files);
+  };
+
+  // Drag and drop handlers for reordering images
+  const handleImageDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index);
+  };
+
+  const handleImageDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleImageDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleImageDrop = (e, dropIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    // Reorder files
+    const newFiles = [...selectedFiles];
+    const [draggedFile] = newFiles.splice(draggedIndex, 1);
+    newFiles.splice(dropIndex, 0, draggedFile);
+    setSelectedFiles(newFiles);
+
+    // Reorder previews
+    const newPreviews = [...previewImages];
+    const [draggedPreview] = newPreviews.splice(draggedIndex, 1);
+    newPreviews.splice(dropIndex, 0, draggedPreview);
+    setPreviewImages(newPreviews);
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleImageDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   const uploadImages = async () => {
@@ -1249,12 +1299,23 @@ const PostCar = () => {
               {previewImages.length > 0 && (
                 <div className="image-previews-grid">
                   {previewImages.map((preview, index) => (
-                    <div className="preview-item" key={index}>
+                    <div 
+                      className={`preview-item ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                      key={index}
+                      draggable
+                      onDragStart={(e) => handleImageDragStart(e, index)}
+                      onDragOver={(e) => handleImageDragOver(e, index)}
+                      onDragLeave={handleImageDragLeave}
+                      onDrop={(e) => handleImageDrop(e, index)}
+                      onDragEnd={handleImageDragEnd}
+                    >
+                      <div className="preview-order">{index + 1}</div>
                       <img src={preview} alt={`Preview ${index + 1}`} />
                       <button 
                         type="button" 
                         className="remove-btn"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const newPreviews = [...previewImages];
                           const newSelectedFiles = [...selectedFiles];
                           newPreviews.splice(index, 1);
@@ -1265,9 +1326,22 @@ const PostCar = () => {
                       >
                         ×
                       </button>
+                      <div className="drag-handle">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.5"/>
+                          <circle cx="15" cy="6" r="1.5"/>
+                          <circle cx="9" cy="12" r="1.5"/>
+                          <circle cx="15" cy="12" r="1.5"/>
+                          <circle cx="9" cy="18" r="1.5"/>
+                          <circle cx="15" cy="18" r="1.5"/>
+                        </svg>
+                      </div>
                     </div>
                   ))}
                 </div>
+              )}
+              {previewImages.length > 1 && (
+                <p className="reorder-hint">Drag images to reorder. First image will be the main photo.</p>
               )}
             </div>
           </div>
