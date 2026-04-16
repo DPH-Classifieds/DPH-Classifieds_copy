@@ -10,7 +10,6 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
   const [stats, setStats] = useState({
     pendingCars: 0,
     pendingParts: 0,
@@ -113,11 +112,6 @@ const AdminDashboard = () => {
           <h1>Welcome back, {user?.display_name || user?.email || 'Admin'}!</h1>
           <p>Here's what's happening with your platform today.</p>
         </div>
-        {successMessage && (
-          <div className="success-message">
-            {successMessage}
-          </div>
-        )}
       </div>
 
       <div className="stats-grid">
