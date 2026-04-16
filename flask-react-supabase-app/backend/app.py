@@ -92,6 +92,8 @@ LISTING_TABLE_CONFIG = {
 }
 
 CAR_TRANSMISSION_OPTIONS = {"Automatic", "Manual"}
+CAR_FUEL_OPTIONS = {"Petrol", "Diesel", "Electric", "Hybrid", "Other"}
+STEERING_SIDE_OPTIONS = {"Left", "Right"}
 REGIONAL_SPEC_NORMALIZATION = {
     "GCC Specs": "GCC",
     "American Specs": "North American",
@@ -1622,6 +1624,31 @@ def create_car(current_user):
                         {"error": "Transmission must be Automatic or Manual"}
                     ), 400
 
+            # Validate fuel_type
+            if "fuel_type" in car_data and car_data.get("fuel_type"):
+                if car_data["fuel_type"] not in CAR_FUEL_OPTIONS:
+                    logger.error(f"Invalid fuel_type: {car_data.get('fuel_type')}")
+                    return jsonify(
+                        {
+                            "error": "Fuel type must be Petrol, Diesel, Electric, Hybrid, or Other"
+                        }
+                    ), 400
+
+            # Validate steering_side
+            if "steering_side" in car_data and car_data.get("steering_side"):
+                if car_data["steering_side"] not in STEERING_SIDE_OPTIONS:
+                    logger.error(
+                        f"Invalid steering_side: {car_data.get('steering_side')}"
+                    )
+                    return jsonify(
+                        {"error": "Steering side must be Left or Right"}
+                    ), 400
+
+            # Validate horsepower is not empty
+            if not car_data.get("horsepower"):
+                logger.error("horsepower is required")
+                return jsonify({"error": "Horsepower is required"}), 400
+
             _validate_description_word_count(
                 car_data.get("car_description"), field_name="car_description"
             )
@@ -1908,6 +1935,20 @@ def update_car(current_user, car_id):
                 if update_data["transmission_type"] not in CAR_TRANSMISSION_OPTIONS:
                     return jsonify(
                         {"error": "Transmission must be Automatic or Manual"}
+                    ), 400
+            # Validate fuel_type if provided
+            if "fuel_type" in update_data and update_data.get("fuel_type"):
+                if update_data["fuel_type"] not in CAR_FUEL_OPTIONS:
+                    return jsonify(
+                        {
+                            "error": "Fuel type must be Petrol, Diesel, Electric, Hybrid, or Other"
+                        }
+                    ), 400
+            # Validate steering_side if provided
+            if "steering_side" in update_data and update_data.get("steering_side"):
+                if update_data["steering_side"] not in STEERING_SIDE_OPTIONS:
+                    return jsonify(
+                        {"error": "Steering side must be Left or Right"}
                     ), 400
             if "car_description" in update_data:
                 _validate_description_word_count(

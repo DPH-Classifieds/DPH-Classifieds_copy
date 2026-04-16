@@ -159,7 +159,11 @@ const PostCar = () => {
     };
     
     checkAuth();
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Update auth modal visibility when user or isLoading changes
+  useEffect(() => {
     if (!isLoading && !user) {
       console.log('User not authenticated, showing auth modal');
       setShowAuthModal(true);
@@ -167,7 +171,7 @@ const PostCar = () => {
       console.log('User authenticated:', user.email);
       setShowAuthModal(false);
     }
-  }, [user, isLoading, syncWithSupabase]);
+  }, [user, isLoading]);
 
   // Update models when manufacturer changes
   useEffect(() => {

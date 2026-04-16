@@ -93,17 +93,10 @@ export const apiClient = {
         // FormData - don't add user info, backend gets it from JWT
       } 
       else if (requestOptions.headers && requestOptions.headers['Content-Type'] === 'application/json') {
-        let payload = {};
-        
-        if (typeof requestOptions.body === 'string') {
-          try {
-            payload = JSON.parse(requestOptions.body);
-          } catch (e) {}
-        } else if (requestOptions.body) {
-          payload = requestOptions.body;
+        // Only stringify if body is not already a string (avoid double stringify)
+        if (typeof requestOptions.body !== 'string' && requestOptions.body) {
+          requestOptions.body = JSON.stringify(requestOptions.body);
         }
-        
-        requestOptions.body = JSON.stringify(payload);
       }
       
       // Add tracking info to URL for debugging
