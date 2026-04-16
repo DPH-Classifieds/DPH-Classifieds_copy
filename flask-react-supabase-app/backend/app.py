@@ -6076,6 +6076,9 @@ def admin_required(f):
 
             user_role = user_data.get("role", "")
             is_supabase_superadmin = user_role == "superadmin"
+            logger.info(
+                f"[admin_required] User {user_id} - Supabase role: '{user_role}', is_superadmin: {is_supabase_superadmin}"
+            )
 
             service_headers = {
                 "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
@@ -6088,15 +6091,23 @@ def admin_required(f):
                 headers=service_headers,
                 timeout=5,
             )
+            logger.info(
+                f"[admin_required] public.users query status: {response.status_code}, response: {response.text}"
+            )
 
+            is_db_admin = False
             if response.status_code == 200:
                 users = response.json()
-                is_db_admin = users and len(users) > 0 and users[0].get("is_admin")
-                if is_supabase_superadmin or is_db_admin:
-                    request.user_id = user_id
-                    session["is_admin"] = True
-                    session["admin_user_id"] = user_id
-                    return f(*args, **kwargs)
+                is_db_admin = bool(
+                    users and len(users) > 0 and users[0].get("is_admin")
+                )
+
+            if is_supabase_superadmin or is_db_admin:
+                request.user_id = user_id
+                session["is_admin"] = True
+                session["admin_user_id"] = user_id
+                logger.info(f"[admin_required] Access granted for user {user_id}")
+                return f(*args, **kwargs)
 
             flash("Admin access required.", "danger")
             return redirect(url_for("admin.admin_login"))

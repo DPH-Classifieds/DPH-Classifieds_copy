@@ -56,7 +56,10 @@ def admin_required(f):
             if not user_id:
                 return jsonify({"error": "Invalid user data"}), 401
 
-            # Check if user is admin
+            user_role = user_data.get("role", "")
+            is_supabase_superadmin = user_role == "superadmin"
+
+            # Check if user is admin via database
             headers = {
                 "apikey": SUPABASE_SERVICE_ROLE_KEY,
                 "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -69,12 +72,14 @@ def admin_required(f):
                 timeout=5,
             )
 
+            is_db_admin = False
             if response.status_code == 200:
                 users = response.json()
-                if users and len(users) > 0 and users[0].get("is_admin"):
-                    # Store user_id in request for use in route
-                    request.user_id = user_id
-                    return f(*args, **kwargs)
+                is_db_admin = users and len(users) > 0 and users[0].get("is_admin")
+
+            if is_supabase_superadmin or is_db_admin:
+                request.user_id = user_id
+                return f(*args, **kwargs)
 
             return jsonify({"error": "Admin access required"}), 403
 
