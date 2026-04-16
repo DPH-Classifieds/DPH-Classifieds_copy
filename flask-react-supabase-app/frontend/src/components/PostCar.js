@@ -432,30 +432,44 @@ const PostCar = () => {
       });
       
       console.log(`Uploading ${selectedFiles.length} images for user:`, user.email);
-      console.log('API URL:', process.env.REACT_APP_API_URL || 'http://localhost:8000');
+      console.log('API URL:', process.env.REACT_APP_API_URL || 'https://api.dphclassifieds.com');
       
-      const response = await apiClient.post('/api/upload-images', formData);
+      // Use fetch directly for better error visibility
+      const token = localStorage.getItem('authData') ? JSON.parse(localStorage.getItem('authData')).access_token : null;
       
-      console.log("Images upload response:", response);
-      
-      if (!response) {
-        throw new Error("No response received from server");
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
       }
       
-      if (!response.urls || !Array.isArray(response.urls)) {
-        console.error("Invalid response format:", response);
-        throw new Error(response.error || response.message || "Invalid response from server");
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://api.dphclassifieds.com'}/api/upload-images`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include',
+        body: formData
+      });
+      
+      console.log('Upload response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Upload error response:', errorData);
+        throw { status: response.status, message: errorData.error || errorData.message || `Upload failed with status ${response.status}` };
       }
       
-      console.log(`Successfully uploaded ${response.urls.length} images`);
-      return response.urls;
+      const data = await response.json();
+      console.log("Images upload response:", data);
+      
+      if (!data.urls || !Array.isArray(data.urls)) {
+        console.error("Invalid response format:", data);
+        throw new Error(data.error || data.message || "Invalid response from server");
+      }
+      
+      console.log(`Successfully uploaded ${data.urls.length} images`);
+      return data.urls;
     } catch (error) {
       console.error("Image upload error:", error);
-      console.error("Error details:", {
-        status: error.status,
-        message: error.message,
-        details: error.details
-      });
       
       // Handle specific errors
       if (error.status === 401) {
@@ -465,6 +479,8 @@ const PostCar = () => {
         setError("File too large. Please upload images smaller than 10MB.");
       } else if (error.status === 400) {
         setError(error.message || "Invalid file type. Please upload JPG, PNG, WEBP, or GIF images.");
+      } else if (error.status === 500) {
+        setError(`Server error: ${error.message || 'Please try again later.'}`);
       } else {
         setError(`Failed to upload images: ${error.message || 'Please try again.'}`);
       }

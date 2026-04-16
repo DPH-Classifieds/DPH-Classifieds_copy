@@ -69,11 +69,9 @@ export const apiClient = {
         throw error;
       }
       
-      // Default headers
+      // Default headers - let browser set Origin automatically
       const headers = {
-        ...(options.headers || {}),
-        // Add Origin header to help with CORS
-        'Origin': window.location.origin
+        ...(options.headers || {})
       };
       
       // Add authorization if token is available
@@ -85,7 +83,7 @@ export const apiClient = {
       const requestOptions = {
         ...options,
         headers,
-        credentials: 'same-origin',
+        credentials: 'include',
         mode: 'cors'
       };
       
