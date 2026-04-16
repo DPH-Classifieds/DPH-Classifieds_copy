@@ -6074,6 +6074,9 @@ def admin_required(f):
                 flash("Invalid user data.", "danger")
                 return redirect(url_for("admin.admin_login"))
 
+            user_role = user_data.get("role", "")
+            is_supabase_superadmin = user_role == "superadmin"
+
             service_headers = {
                 "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
                 "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_ROLE_KEY', SUPABASE_KEY)}",
@@ -6088,7 +6091,8 @@ def admin_required(f):
 
             if response.status_code == 200:
                 users = response.json()
-                if users and len(users) > 0 and users[0].get("is_admin"):
+                is_db_admin = users and len(users) > 0 and users[0].get("is_admin")
+                if is_supabase_superadmin or is_db_admin:
                     request.user_id = user_id
                     session["is_admin"] = True
                     session["admin_user_id"] = user_id
