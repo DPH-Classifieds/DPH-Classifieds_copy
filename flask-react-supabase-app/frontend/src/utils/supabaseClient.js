@@ -41,12 +41,10 @@ export const getBestAccessToken = async () => {
       return refreshSession.access_token;
     }
 
-    if (window.location.pathname !== '/login' && !window.location.pathname.includes('/auth/callback')) {
-      window.location.href = '/login';
-    }
-
+    // Don't redirect here - let the calling component handle unauthenticated state
     return null;
   } catch (error) {
+    console.error('getBestAccessToken error:', error);
     return null;
   }
 };

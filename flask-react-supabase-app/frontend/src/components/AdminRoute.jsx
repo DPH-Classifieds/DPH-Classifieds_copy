@@ -6,7 +6,7 @@ import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminLayout.css';
 
 const AdminRoute = ({ children }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
