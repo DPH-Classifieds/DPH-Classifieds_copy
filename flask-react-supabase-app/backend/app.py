@@ -1071,16 +1071,25 @@ def admin_check(current_user):
             timeout=10,
         )
 
+        logger.info(
+            f"[admin-check] User {current_user} - Supabase response status: {response.status_code}"
+        )
+
         if response.status_code == 200:
             users = response.json()
+            logger.info(f"[admin-check] Users data: {users}")
             if users and len(users) > 0:
                 is_admin = users[0].get("is_admin", False)
+                # Ensure boolean type
+                is_admin = bool(is_admin)
+                logger.info(f"[admin-check] User {current_user} - is_admin: {is_admin}")
                 return jsonify({"is_admin": is_admin}), 200
 
+        logger.warning(f"[admin-check] User {current_user} not found in users table")
         return jsonify({"is_admin": False}), 200
     except Exception as e:
         logger.error(f"Error checking admin status: {str(e)}")
-        return jsonify({"is_admin": False}), 200
+        return jsonify({"is_admin": False, "error": str(e)}), 200
 
 
 # Supabase REST API Helper

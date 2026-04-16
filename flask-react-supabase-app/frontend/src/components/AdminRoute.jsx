@@ -6,7 +6,7 @@ import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminLayout.css';
 
 const AdminRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,30 +14,43 @@ const AdminRoute = ({ children }) => {
 
   useEffect(() => {
     const checkAdminStatus = async () => {
+      // Wait for auth to load
+      if (authLoading) {
+        return;
+      }
+
+      // If not logged in, redirect to login
       if (!user) {
-        setLoading(false);
+        console.log('AdminRoute: No user found, redirecting to login');
+        navigate('/login', { state: { from: '/admin' } });
         return;
       }
 
       try {
+        console.log('AdminRoute: Checking admin status for user:', user.id);
         const response = await apiClient.get('/api/auth/admin-check');
+        console.log('AdminRoute: Admin check response:', response);
+        
         if (response && response.is_admin === true) {
+          console.log('AdminRoute: User is admin, granting access');
           setIsAdmin(true);
         } else {
-          setError('Access denied');
+          console.log('AdminRoute: User is not admin');
+          setError('Access denied - Admin privileges required');
         }
       } catch (error) {
-        console.error('Admin check failed:', error);
-        setError('Failed to verify admin access');
+        console.error('AdminRoute: Admin check failed:', error);
+        setError('Failed to verify admin access: ' + (error.message || 'Unknown error'));
       } finally {
         setLoading(false);
       }
     };
 
     checkAdminStatus();
-  }, [user]);
+  }, [user, authLoading, navigate]);
 
-  if (loading) {
+  // Show loading while auth is loading or admin check is in progress
+  if (authLoading || loading) {
     return (
       <div className="admin-loading">
         <LoadingSpinner />
@@ -46,7 +59,13 @@ const AdminRoute = ({ children }) => {
     );
   }
 
-  if (!user || !isAdmin) {
+  // If no user, don't render anything (redirect is happening)
+  if (!user) {
+    return null;
+  }
+
+  // If not admin, show access denied
+  if (!isAdmin) {
     return (
       <div className="admin-access-denied">
         <div className="access-denied-content">
