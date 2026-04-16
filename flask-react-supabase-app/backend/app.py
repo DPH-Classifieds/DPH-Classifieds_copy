@@ -6191,7 +6191,7 @@ def admin_login():
                         f"[Admin Login] User details from _get_user_details_with_admin_status: {user_details}"
                     )
 
-                    if user_details and user_details.get("is_admin") is True:
+                    if user_details and user_details.get("is_admin"):
                         session["is_admin"] = True
                         session["admin_user_id"] = user_id
                         session["admin_user_email"] = user_details.get(
