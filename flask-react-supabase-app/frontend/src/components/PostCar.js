@@ -455,7 +455,9 @@ const PostCar = () => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         console.error('Upload error response:', errorData);
-        throw { status: response.status, message: errorData.error || errorData.message || `Upload failed with status ${response.status}` };
+        const uploadError = new Error(errorData.error || errorData.message || `Upload failed with status ${response.status}`);
+        uploadError.status = response.status;
+        throw uploadError;
       }
       
       const data = await response.json();
