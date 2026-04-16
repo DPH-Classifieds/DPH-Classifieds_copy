@@ -57,7 +57,7 @@ const PostCar = () => {
     kilometer_driven: 100,
     body_type: '',
     is_insured: false,
-    expected_selling_price: '',
+    expected_selling_price: 0,
     country_code: defaultCountryCode,
     car_owner_phone_number: '',
     car_city: 'Dubai',
@@ -571,11 +571,21 @@ const PostCar = () => {
     try {
       // Upload images first (if any)
       const imageUrls = await uploadImages();
+      
+      if (imageUrls.length === 0) {
+        setError('Please upload at least one image of your car.');
+        setIsSubmitting(false);
+        return;
+      }
+      
       // Prepare submission data with image URLs
       const submissionData = {
         ...formData,
         images: imageUrls
       };
+      
+      console.log('Submitting car listing:', JSON.stringify(submissionData, null, 2));
+      
       const response = await apiClient.post('/api/cars', submissionData);
       console.log('Car listing created:', response);
       setSuccess(true);
@@ -585,7 +595,12 @@ const PostCar = () => {
       }, 2000);
     } catch (err) {
       console.error('Error creating car listing:', err);
-      setError(err.response?.data?.error || 'Failed to create car listing. Please try again.');
+      console.error('Error details:', {
+        status: err.status,
+        message: err.message,
+        details: err.details
+      });
+      setError(err.message || err.details?.error || 'Failed to create car listing. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -1202,66 +1217,58 @@ const PostCar = () => {
             <div className="form-group full-width">
               <label>Upload Images *</label>
               <div 
-                className={`image-upload-container ${isDragOver ? 'drag-over' : ''}`}
+                className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={handleContainerClick}
               >
-                <div className="upload-area">
-                  <div className="upload-icon" aria-hidden="true">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                  </div>
-                  <h4>Drag & Drop Images Here</h4>
-                  <p>or</p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.gif"
-                    multiple
-                    onChange={handleFileChange}
-                    className="file-input"
-                    style={{ display: 'none' }}
-                  />
-                  <button type="button" className="browse-btn" onClick={handleBrowseClick}>
-                    Browse Files
-                  </button>
-                  <p className="upload-hint">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
+                <div className="upload-icon-wrapper">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
                 </div>
-                
-                {previewImages.length > 0 && (
-                  <div className="image-previews mt-3">
-                    <div className="row">
-                      {previewImages.map((preview, index) => (
-                        <div className="col-md-3 mb-2" key={index}>
-                          <div className="preview-thumbnail">
-                            <img src={preview} alt={`Preview ${index + 1}`} className="img-thumbnail" />
-                            <button 
-                              type="button" 
-                              className="btn btn-sm btn-danger remove-image"
-                              onClick={() => {
-                                // Remove image from preview and selected files
-                                const newPreviews = [...previewImages];
-                                const newSelectedFiles = [...selectedFiles];
-                                newPreviews.splice(index, 1);
-                                newSelectedFiles.splice(index, 1);
-                                setPreviewImages(newPreviews);
-                                setSelectedFiles(newSelectedFiles);
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <p className="upload-text-main">Drag & Drop Images Here</p>
+                <p className="upload-text-sub">or</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.gif"
+                  multiple
+                  onChange={handleFileChange}
+                  className="file-input"
+                />
+                <button type="button" className="browse-btn" onClick={handleBrowseClick}>
+                  Browse Files
+                </button>
+                <p className="upload-text-sub">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
               </div>
+              
+              {previewImages.length > 0 && (
+                <div className="image-previews-grid">
+                  {previewImages.map((preview, index) => (
+                    <div className="preview-item" key={index}>
+                      <img src={preview} alt={`Preview ${index + 1}`} />
+                      <button 
+                        type="button" 
+                        className="remove-btn"
+                        onClick={() => {
+                          const newPreviews = [...previewImages];
+                          const newSelectedFiles = [...selectedFiles];
+                          newPreviews.splice(index, 1);
+                          newSelectedFiles.splice(index, 1);
+                          setPreviewImages(newPreviews);
+                          setSelectedFiles(newSelectedFiles);
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

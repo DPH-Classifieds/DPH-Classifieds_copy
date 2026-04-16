@@ -1575,7 +1575,11 @@ def create_car(current_user):
     try:
         # Validate input
         if not request.json:
+            logger.error("No JSON data in request")
             return jsonify({"error": "Invalid request data"}), 400
+
+        logger.info(f"Creating car listing for user {current_user}")
+        logger.debug(f"Request data keys: {list(request.json.keys())}")
 
         limit_response = _enforce_listing_limit(current_user)
         if limit_response:
@@ -1611,6 +1615,9 @@ def create_car(current_user):
                 )
             if "transmission_type" in car_data and car_data.get("transmission_type"):
                 if car_data["transmission_type"] not in CAR_TRANSMISSION_OPTIONS:
+                    logger.error(
+                        f"Invalid transmission_type: {car_data.get('transmission_type')}"
+                    )
                     return jsonify(
                         {"error": "Transmission must be Automatic or Manual"}
                     ), 400
@@ -1619,6 +1626,7 @@ def create_car(current_user):
                 car_data.get("car_description"), field_name="car_description"
             )
         except ValueError as validation_error:
+            logger.error(f"Validation error: {validation_error}")
             return jsonify({"error": str(validation_error)}), 400
 
         # Extract and transform extras array to individual boolean fields
