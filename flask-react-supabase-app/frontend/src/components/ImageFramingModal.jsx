@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import '../styles/ImageFramingModal.css';
 
 const DEFAULT_CROP = { focalX: 50, focalY: 50, zoom: 1 };
@@ -17,16 +17,15 @@ const ImageFramingModal = ({
   title = 'Adjust Listing Frame'
 }) => {
   const stageRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  if (!isOpen || !Array.isArray(images) || images.length === 0) {
-    return null;
-  }
-
-  const safeIndex = clamp(activeIndex ?? 0, 0, images.length - 1);
-  const currentImage = images[safeIndex];
+  const hasUsableImages = isOpen && Array.isArray(images) && images.length > 0;
+  const imageCount = Array.isArray(images) ? images.length : 0;
+  const safeIndex = clamp(activeIndex ?? 0, 0, Math.max(imageCount - 1, 0));
+  const currentImage = hasUsableImages ? images[safeIndex] : null;
   const currentCrop = cropSettings?.[safeIndex] || DEFAULT_CROP;
 
-  const setFocalPoint = (event) => {
+  const setFocalPoint = useCallback((event) => {
     if (!stageRef.current || !currentImage) return;
     const bounds = stageRef.current.getBoundingClientRect();
     const relativeX = ((event.clientX - bounds.left) / bounds.width) * 100;
@@ -36,12 +35,43 @@ const ImageFramingModal = ({
       focalX: clamp(relativeX, 0, 100),
       focalY: clamp(relativeY, 0, 100)
     });
+  }, [currentImage, onUpdateCrop, safeIndex]);
+
+  const startDrag = (event) => {
+    event.preventDefault();
+    setIsDragging(true);
+    setFocalPoint(event);
+  };
+
+  const dragMove = (event) => {
+    if (!isDragging) return;
+    setFocalPoint(event);
+  };
+
+  const stopDrag = () => {
+    setIsDragging(false);
   };
 
   const handleZoomChange = (event) => {
     const zoom = Number.parseFloat(event.target.value);
     onUpdateCrop(safeIndex, { zoom: Number.isFinite(zoom) ? zoom : 1 });
   };
+
+  const handleFocalAxis = (axis, rawValue) => {
+    const value = Number.parseFloat(rawValue);
+    if (!Number.isFinite(value)) return;
+    if (axis === 'x') {
+      onUpdateCrop(safeIndex, { focalX: clamp(value, 0, 100) });
+      return;
+    }
+    onUpdateCrop(safeIndex, { focalY: clamp(value, 0, 100) });
+  };
+
+  const containerCursor = isDragging ? 'grabbing' : 'grab';
+
+  if (!hasUsableImages) {
+    return null;
+  }
 
   return (
     <div className="ifm-overlay" role="dialog" aria-modal="true" aria-label={title}>
@@ -60,7 +90,16 @@ const ImageFramingModal = ({
 
         <div className="ifm-body">
           <div className="ifm-stage-wrap">
-            <div className="ifm-stage" ref={stageRef} onClick={setFocalPoint}>
+            <div
+              className="ifm-stage"
+              ref={stageRef}
+              onMouseDown={startDrag}
+              onMouseMove={dragMove}
+              onMouseUp={stopDrag}
+              onMouseLeave={stopDrag}
+              onClick={setFocalPoint}
+              style={{ cursor: containerCursor }}
+            >
               {currentImage?.previewUrl ? (
                 <img
                   src={currentImage.previewUrl}
@@ -88,6 +127,28 @@ const ImageFramingModal = ({
               onChange={handleZoomChange}
             />
             <div className="ifm-zoom-value">{(currentCrop.zoom ?? 1).toFixed(2)}x</div>
+
+            <label htmlFor="ifm-focal-x">Horizontal Focus</label>
+            <input
+              id="ifm-focal-x"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={currentCrop.focalX ?? 50}
+              onChange={(event) => handleFocalAxis('x', event.target.value)}
+            />
+
+            <label htmlFor="ifm-focal-y">Vertical Focus</label>
+            <input
+              id="ifm-focal-y"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={currentCrop.focalY ?? 50}
+              onChange={(event) => handleFocalAxis('y', event.target.value)}
+            />
 
             <div className="ifm-mini-preview">
               <img

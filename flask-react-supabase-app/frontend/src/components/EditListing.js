@@ -281,10 +281,26 @@ const EditListing = () => {
         formDataToSend.append('crop_data', JSON.stringify(cropPayload));
       }
       
-      const response = await apiClient.request(`/api/cars/${id}`, {
-        method: 'PUT',
-        body: formDataToSend
-      });
+      let response;
+      try {
+        response = await apiClient.request(`/api/cars/${id}`, {
+          method: 'PUT',
+          body: formDataToSend
+        });
+      } catch (requestError) {
+        if (requestError?.status === 405) {
+          // Some edge proxies reject PUT; retry with POST on the same endpoint.
+          response = await apiClient.request(`/api/cars/${id}`, {
+            method: 'POST',
+            headers: {
+              'X-HTTP-Method-Override': 'PUT'
+            },
+            body: formDataToSend
+          });
+        } else {
+          throw requestError;
+        }
+      }
       
       if (!response) {
         throw new Error('Failed to update listing');

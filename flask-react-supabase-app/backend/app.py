@@ -1981,7 +1981,8 @@ def update_car_options(car_id):
 
 
 # Update a car listing (authenticated)
-@app.route("/api/cars/<string:car_id>", methods=["PUT"])
+# Accept PUT/PATCH/POST for compatibility with method-restrictive proxies.
+@app.route("/api/cars/<string:car_id>", methods=["PUT", "PATCH", "POST"])
 @token_required
 def update_car(current_user, car_id):
     try:
