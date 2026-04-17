@@ -7,6 +7,15 @@ import '../styles/PostForms.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import LoadingSpinner from './LoadingSpinner';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
+import {
+  CYLINDER_OPTIONS,
+  DOOR_OPTIONS,
+  DUBAI_AREAS,
+  SERVICE_HISTORY_OPTIONS,
+  UAE_EMIRATES,
+  WARRANTY_OPTIONS,
+  getYearOptions
+} from '../utils/listingConstants';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -66,6 +75,8 @@ const PostCar = () => {
     country_code: defaultCountryCode,
     car_owner_phone_number: '',
     car_city: 'Dubai',
+    emirate: 'Dubai',
+    area: '',
     listing_title: '',
     tour_url: '',
     car_description: '',
@@ -75,6 +86,11 @@ const PostCar = () => {
     horsepower: '',
     engine_capacity: '',
     steering_side: '',
+    color: '',
+    cylinders: '',
+    doors: '',
+    warranty: '',
+    service_history: '',
     car_location: '',
     latitude: null,
     longitude: null,
@@ -94,6 +110,7 @@ const PostCar = () => {
   const seatingCapacities = ['2', '4', '5', '6', '7', '8', '9+'];
   const horsepowerRanges = ['>100', '100-199', '200-299', '300-399', '400-499', '500-599', '600-699', '700-799', '800-899', '900-999', '1000+'];
   const engineCapacities = ['0-999cc', '1000cc-1499cc', '1500cc-1999cc', '2000cc-2999cc', '3000cc-3999cc', '4000cc-4999cc', '5000cc-5999cc', '6000cc-6999cc', '7000cc-7999cc', '8000cc+'];
+  const yearOptions = getYearOptions();
   // Organized car extras by category
   const carExtrasCategories = {
     'Comfort & Convenience': [
@@ -386,6 +403,16 @@ const PostCar = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    if (name === 'car_city') {
+      setFormData((prev) => ({
+        ...prev,
+        car_city: value,
+        emirate: value,
+        area: value === 'Dubai' ? prev.area : ''
+      }));
+      return;
+    }
     
     if (type === 'checkbox') {
       if (name === 'extras[]') {
@@ -764,14 +791,39 @@ const PostCar = () => {
                 required
                 className="form-control form-select"
               >
-                <option value="Abu Dhabi">Abu Dhabi</option>
-                <option value="Dubai">Dubai</option>
-                <option value="Sharjah">Sharjah</option>
-                <option value="Ajman">Ajman</option>
-                <option value="Umm Al Quwain">Umm Al Quwain</option>
-                <option value="Ras Al Khaimah">Ras Al Khaimah</option>
-                <option value="Fujairah">Fujairah</option>
+                {UAE_EMIRATES.map((emirate) => (
+                  <option key={emirate} value={emirate}>{emirate}</option>
+                ))}
               </SearchableSelect>
+            </div>
+            <div className="form-group">
+              <label htmlFor="area">Area *</label>
+              {formData.car_city === 'Dubai' ? (
+                <SearchableSelect
+                  id="area"
+                  name="area"
+                  value={formData.area}
+                  onChange={handleChange}
+                  required
+                  className="form-control form-select"
+                >
+                  <option value="">Select Dubai Area</option>
+                  {DUBAI_AREAS.map((area) => (
+                    <option key={area} value={area}>{area}</option>
+                  ))}
+                </SearchableSelect>
+              ) : (
+                <input
+                  type="text"
+                  id="area"
+                  name="area"
+                  value={formData.area}
+                  onChange={handleChange}
+                  required
+                  placeholder="Area"
+                  className="form-control"
+                />
+              )}
             </div>
           </div>
           
@@ -861,17 +913,19 @@ const PostCar = () => {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="make_year">Year *</label>
-              <input
-                type="number"
+              <SearchableSelect
                 id="make_year"
                 name="make_year"
                 value={formData.make_year}
                 onChange={handleChange}
-                min="1886"
-                max={new Date().getFullYear() + 1}
                 required
-                className="form-control"
-              />
+                className="form-control form-select"
+              >
+                <option value="">Select Year</option>
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </SearchableSelect>
             </div>
             
             <div className="form-group">
@@ -1134,6 +1188,92 @@ const PostCar = () => {
             </div>
           </div>
           
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="color">Color *</label>
+              <input
+                type="text"
+                id="color"
+                name="color"
+                value={formData.color}
+                onChange={handleChange}
+                required
+                placeholder="e.g. Black"
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="cylinders">Cylinders *</label>
+              <SearchableSelect
+                id="cylinders"
+                name="cylinders"
+                value={formData.cylinders}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Cylinders</option>
+                {CYLINDER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="doors">Doors *</label>
+              <SearchableSelect
+                id="doors"
+                name="doors"
+                value={formData.doors}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Doors</option>
+                {DOOR_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+            <div className="form-group">
+              <label htmlFor="warranty">Warranty *</label>
+              <SearchableSelect
+                id="warranty"
+                name="warranty"
+                value={formData.warranty}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Warranty</option>
+                {WARRANTY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="service_history">Service History *</label>
+              <SearchableSelect
+                id="service_history"
+                name="service_history"
+                value={formData.service_history}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="">Select Service History</option>
+                {SERVICE_HISTORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="vin_number">

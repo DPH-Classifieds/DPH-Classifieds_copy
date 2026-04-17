@@ -230,6 +230,7 @@ const BikeDetailRedesigned = () => {
 
   const galleryImages = getGalleryImages();
   const locationMapConfig = getLocationMapConfig();
+  const listingArea = bike?.area || bike?.location || null;
 
   return (
     <div className="cd-container">
@@ -457,6 +458,9 @@ const BikeDetailRedesigned = () => {
                 <svg className="cd-icon cd-icon-map-pin" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
                   <path d="M12 2C8.13 2 5 4.93 5 8c0 1.55.46 2.9 1.25 3.9.34 5.22 2.28 1.17 2.59.67.91.95.67 3.66.96 5.46.96 7.92.05 1.72-.59 2.57-.59 4.66.98 9.27.98 13.16.42 1.77-1.11 3.33.03 4.14-.03 3.54-.59 5.23-2.08 6.61-6.61-6.61-6.61.13 1.72.04 3.63-.08 4.51-.25 4.94-.69 5.65-.69 6.76.16 7.77.08 8.68.1 9.6.26 10.25.49 10.64.89 10.85 1.31.02 1.49-.28 1.59-.73 1.76-.73 2.21-.4 2.67-.4 3.04.09 3.23-.16 3.34-.5 3.4-.99 3.47-1.57 3.47-1.57H12z"/>
                 </svg>
+              </div>
+              <div className="cd-location-subtitle" style={{ marginTop: '0.75rem' }}>
+                Area: {listingArea || 'Not specified'}
               </div>
             </div>
 

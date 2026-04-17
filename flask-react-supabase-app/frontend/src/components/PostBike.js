@@ -3,6 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
+import { DUBAI_AREAS, UAE_EMIRATES, getYearOptions } from '../utils/listingConstants';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -61,6 +62,8 @@ const PostBike = () => {
     condition: 'Good',
     price: '',
     location: '',
+    area: '',
+    emirate: 'Dubai',
     description: '',
     vin_number: '',
     is_dealer: false,
@@ -92,9 +95,19 @@ const PostBike = () => {
 
     return `${formData.features.slice(0, 3).join(', ')} +${formData.features.length - 3} more`;
   }, [formData.features]);
+  const yearOptions = getYearOptions();
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
+
+    if (name === 'emirate') {
+      setFormData((prev) => ({
+        ...prev,
+        emirate: value,
+        area: value === 'Dubai' ? prev.area : '',
+      }));
+      return;
+    }
 
     if (name === 'features') {
       setFormData((prev) => ({
@@ -188,7 +201,9 @@ const PostBike = () => {
         mileage: Number(formData.mileage),
         color: formData.color.trim(),
         price: Number(formData.price),
-        location: formData.location.trim(),
+        location: (formData.area || formData.location).trim(),
+        area: formData.area.trim(),
+        emirate: formData.emirate,
         description: formData.description.trim(),
         features: formData.features,
         condition: formData.condition,
@@ -279,7 +294,12 @@ const PostBike = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="year">Year</label>
-                    <input id="year" name="year" type="number" min="1886" max={new Date().getFullYear() + 1} value={formData.year} onChange={handleChange} required placeholder="2022" />
+                    <SearchableSelect id="year" name="year" value={formData.year} onChange={handleChange} required>
+                      <option value="">Select Year</option>
+                      {yearOptions.map((year) => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </SearchableSelect>
                   </div>
                   <div className="form-group">
                     <label htmlFor="bike_category">Category</label>
@@ -391,8 +411,32 @@ const PostBike = () => {
               <div className="form-section-content">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="location">Location</label>
-                    <input id="location" name="location" value={formData.location} onChange={handleChange} required placeholder="Dubai Marina" />
+                    <label htmlFor="emirate">Emirate</label>
+                    <SearchableSelect id="emirate" name="emirate" value={formData.emirate} onChange={handleChange} required>
+                      {UAE_EMIRATES.map((emirate) => (
+                        <option key={emirate} value={emirate}>{emirate}</option>
+                      ))}
+                    </SearchableSelect>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="area">Area</label>
+                    {formData.emirate === 'Dubai' ? (
+                      <SearchableSelect id="area" name="area" value={formData.area} onChange={handleChange} required>
+                        <option value="">Select Dubai Area</option>
+                        {DUBAI_AREAS.map((area) => (
+                          <option key={area} value={area}>{area}</option>
+                        ))}
+                      </SearchableSelect>
+                    ) : (
+                      <input id="area" name="area" value={formData.area} onChange={handleChange} required placeholder="Area" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="location">Location Details</label>
+                    <input id="location" name="location" value={formData.location} onChange={handleChange} placeholder="Building / Landmark (optional)" />
                   </div>
                   <div className="form-group">
                     <label htmlFor="is_dealer">Dealer listing</label>

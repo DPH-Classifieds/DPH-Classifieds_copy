@@ -1707,6 +1707,22 @@ def create_car(current_user):
         car_data["user_id"] = current_user
         car_data.update(_new_listing_lifecycle_fields())
 
+        # Normalize legacy/alternate frontend keys.
+        if "description" in car_data and "car_description" not in car_data:
+            car_data["car_description"] = car_data.pop("description")
+        if "location" in car_data and "car_location" not in car_data:
+            car_data["car_location"] = car_data.get("location")
+        if "location" in car_data and "car_city" not in car_data:
+            car_data["car_city"] = car_data.get("location")
+        if "location" in car_data and "area" not in car_data:
+            car_data["area"] = car_data.get("location")
+        if "contact_phone" in car_data and "car_owner_phone_number" not in car_data:
+            car_data["car_owner_phone_number"] = car_data.get("contact_phone")
+        if "car_variant" in car_data and "trim" not in car_data:
+            car_data["trim"] = car_data.get("car_variant")
+        if "exterior_color" in car_data and "color" not in car_data:
+            car_data["color"] = car_data.get("exterior_color")
+
         try:
             logger.info(
                 f"Validating car data: make_year={car_data.get('make_year')}, kilometer_driven={car_data.get('kilometer_driven')}, expected_selling_price={car_data.get('expected_selling_price')}"
@@ -1829,7 +1845,14 @@ def create_car(current_user):
             "horsepower",
             "engine_capacity",
             "steering_side",
+            "color",
+            "cylinders",
+            "doors",
+            "warranty",
+            "service_history",
             "car_location",
+            "area",
+            "emirate",
             "vehicle_type",
             "is_approved",
             "user_id",
@@ -2061,6 +2084,22 @@ def update_car(current_user, car_id):
             keep_image_ids = []
             crop_data = []
 
+        # Normalize legacy/alternate frontend keys.
+        if "description" in update_data and "car_description" not in update_data:
+            update_data["car_description"] = update_data.pop("description")
+        if "location" in update_data and "car_location" not in update_data:
+            update_data["car_location"] = update_data.get("location")
+        if "location" in update_data and "car_city" not in update_data:
+            update_data["car_city"] = update_data.get("location")
+        if "location" in update_data and "area" not in update_data:
+            update_data["area"] = update_data.get("location")
+        if "contact_phone" in update_data and "car_owner_phone_number" not in update_data:
+            update_data["car_owner_phone_number"] = update_data.get("contact_phone")
+        if "car_variant" in update_data and "trim" not in update_data:
+            update_data["trim"] = update_data.get("car_variant")
+        if "exterior_color" in update_data and "color" not in update_data:
+            update_data["color"] = update_data.get("exterior_color")
+
         try:
             if "make_year" in update_data:
                 update_data["make_year"] = _to_int(
@@ -2143,7 +2182,14 @@ def update_car(current_user, car_id):
             "horsepower",
             "engine_capacity",
             "steering_side",
+            "color",
+            "cylinders",
+            "doors",
+            "warranty",
+            "service_history",
             "car_location",
+            "area",
+            "emirate",
             "vehicle_type",
             "is_approved",
             "country_code",
@@ -3710,6 +3756,14 @@ def signup():
 
     email = data.get("email")
     password = data.get("password")
+    phone_raw = str(data.get("phone", "")).strip()
+    phone_digits = re.sub(r"[^\d]", "", phone_raw)
+
+    if not phone_digits:
+        return jsonify({"message": "Phone number is required"}), 400
+    if len(phone_digits) < 7 or len(phone_digits) > 15:
+        return jsonify({"message": "Phone number must be between 7 and 15 digits"}), 400
+
     password_errors = _get_password_policy_errors(password)
     if password_errors:
         return jsonify(
@@ -3724,9 +3778,10 @@ def signup():
         "first_name": data.get("firstName", ""),
         "last_name": data.get("lastName", ""),
         "username": data.get("username", ""),
-        "phone": data.get("phone", ""),
+        "phone": phone_digits,
         "country_code": data.get("countryCode", "+971"),
         "city": data.get("city", ""),
+        "area": data.get("area", ""),
         "emirate": data.get("emirate", ""),
         "is_dealer": data.get("isDealer", False),
         "company_name": data.get("companyName", ""),
@@ -4651,6 +4706,18 @@ def create_bike(current_user):
         bike_data["status"] = "pending"  # Set status as pending for admin approval
         bike_data.update(_new_listing_lifecycle_fields())
 
+        # Normalize legacy/alternate frontend keys.
+        if "make" in bike_data and "bike_brand" not in bike_data:
+            bike_data["bike_brand"] = bike_data.get("make")
+        if "model" in bike_data and "bike_model" not in bike_data:
+            bike_data["bike_model"] = bike_data.get("model")
+        if "contact_phone" in bike_data and "contact_number" not in bike_data:
+            bike_data["contact_number"] = bike_data.get("contact_phone")
+        if "engine_capacity" in bike_data and "engine_size" not in bike_data:
+            bike_data["engine_size"] = bike_data.get("engine_capacity")
+        if "area" not in bike_data and bike_data.get("location"):
+            bike_data["area"] = bike_data.get("location")
+
         try:
             if "year" in bike_data:
                 bike_data["year"] = _to_int(
@@ -4696,13 +4763,18 @@ def create_bike(current_user):
             "bike_brand",
             "bike_model",
             "bike_type",
+            "make",
+            "model",
             "year",
             "mileage",
             "engine_size",
             "color",
             "price",
             "location",
+            "area",
+            "emirate",
             "contact_number",
+            "contact_phone",
             "description",
             "transmission",
             "fuel_type",
@@ -4758,7 +4830,7 @@ def create_bike(current_user):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/bikes/<string:bike_id>", methods=["PUT"])
+@app.route("/api/bikes/<string:bike_id>", methods=["PUT", "PATCH", "POST"])
 @token_required
 def update_bike(current_user, bike_id):
     try:
@@ -4787,6 +4859,18 @@ def update_bike(current_user, bike_id):
 
         update_data = request.json
         images = update_data.pop("images", None)
+
+        # Normalize legacy/alternate frontend keys.
+        if "make" in update_data and "bike_brand" not in update_data:
+            update_data["bike_brand"] = update_data.get("make")
+        if "model" in update_data and "bike_model" not in update_data:
+            update_data["bike_model"] = update_data.get("model")
+        if "contact_phone" in update_data and "contact_number" not in update_data:
+            update_data["contact_number"] = update_data.get("contact_phone")
+        if "engine_capacity" in update_data and "engine_size" not in update_data:
+            update_data["engine_size"] = update_data.get("engine_capacity")
+        if "area" not in update_data and update_data.get("location"):
+            update_data["area"] = update_data.get("location")
 
         try:
             if "year" in update_data:
@@ -4817,13 +4901,18 @@ def update_bike(current_user, bike_id):
             "bike_brand",
             "bike_model",
             "bike_type",
+            "make",
+            "model",
             "year",
             "mileage",
             "engine_size",
             "color",
             "price",
             "location",
+            "area",
+            "emirate",
             "contact_number",
+            "contact_phone",
             "description",
             "transmission",
             "fuel_type",
@@ -5884,6 +5973,8 @@ def _create_plate_with_image_impl(current_user):
         contact_name = payload.get("contact_name")
         contact_phone = payload.get("contact_phone")
         description = payload.get("description")
+        area = payload.get("area")
+        emirate = payload.get("emirate")
         is_dealer = payload.get("is_dealer", False)
         if isinstance(is_dealer, str):
             is_dealer = is_dealer.lower() == "true"
@@ -5920,6 +6011,8 @@ def _create_plate_with_image_impl(current_user):
             "contact_name": contact_name,
             "contact_phone": contact_phone,
             "description": description,
+            "area": area,
+            "emirate": emirate,
             "is_dealer": is_dealer,
             "listing_title": f"{city} {code} {plate_number_str}".strip(),
             "user_id": current_user,

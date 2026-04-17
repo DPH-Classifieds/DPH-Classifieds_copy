@@ -180,6 +180,7 @@ const PlateDetailRedesigned = () => {
   }
 
   const galleryImages = getGalleryImages();
+  const listingArea = plate?.area || null;
 
   return (
     <div className="cd-container">
@@ -369,6 +370,9 @@ const PlateDetailRedesigned = () => {
                 <svg className="cd-icon cd-icon-map-pin" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 3.87 3.13 7 7 7s7-3.13 7-7c0-3.87-3.13-7-7-7zm0 9c-1.38 0-2.5 1.12-2.5-2.5s1.12 2.5 2.5 5.5c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-5.5zm0 7.92c1.54 0 2.5-1.12 2.5-2.5s-1.12 2.5-2.5-5.5c0-1.54-1.12-2.5-2.5-2.5zm-1.18 6L5.64 13.36c-.78.78-.78-2.05 0-2.83.83-.83 1.18-.83 2.05.83 2.83-.78.78 2.05-2.83-.83z"/>
                 </svg>
+              </div>
+              <div className="cd-location-subtitle" style={{ marginTop: '0.75rem' }}>
+                Area: {listingArea || 'Not specified'}
               </div>
             </div>
 

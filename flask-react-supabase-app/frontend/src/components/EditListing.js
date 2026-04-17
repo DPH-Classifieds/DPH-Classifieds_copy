@@ -5,6 +5,15 @@ import { getAccessToken } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import ImageFramingModal from './ImageFramingModal';
+import {
+  CYLINDER_OPTIONS,
+  DOOR_OPTIONS,
+  DUBAI_AREAS,
+  SERVICE_HISTORY_OPTIONS,
+  UAE_EMIRATES,
+  WARRANTY_OPTIONS,
+  getYearOptions
+} from '../utils/listingConstants';
 import '../styles/CreateListing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -23,11 +32,16 @@ const EditListing = () => {
     car_variant: '',
     make_year: '',
     mileage: '',
-    exterior_color: '',
-    interior_color: '',
+    color: '',
+    cylinders: '',
+    doors: '',
+    warranty: '',
+    service_history: '',
     expected_selling_price: '',
     description: '',
     location: '',
+    area: '',
+    emirate: 'Dubai',
     contact_phone: '',
     contact_email: '',
     vin_number: '',
@@ -62,6 +76,7 @@ const EditListing = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const yearOptions = getYearOptions();
   
   // Fetch the listing data when component mounts
   useEffect(() => {
@@ -96,11 +111,16 @@ const EditListing = () => {
         car_variant: data.trim || data.car_variant || '',
         make_year: data.make_year || '',
         mileage: data.kilometer_driven || data.mileage || '',
-        exterior_color: data.exterior_color || '',
-        interior_color: data.interior_color || '',
+        color: data.color || data.exterior_color || '',
+        cylinders: data.cylinders || '',
+        doors: data.doors || '',
+        warranty: data.warranty || '',
+        service_history: data.service_history || '',
         expected_selling_price: data.expected_selling_price || '',
         description: data.car_description || data.description || '',
         location: data.car_city || data.car_location || data.location || '',
+        area: data.area || '',
+        emirate: data.emirate || data.car_city || 'Dubai',
         contact_phone: data.car_owner_phone_number || data.contact_phone || '',
         contact_email: data.contact_email || data.user_email || '',
         vin_number: data.vin_number || '',
@@ -140,6 +160,15 @@ const EditListing = () => {
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    if (name === 'emirate') {
+      setFormData((prev) => ({
+        ...prev,
+        emirate: value,
+        area: value === 'Dubai' ? prev.area : ''
+      }));
+      return;
+    }
     
     if (type === 'checkbox') {
       setFormData({
@@ -288,7 +317,10 @@ const EditListing = () => {
           body: formDataToSend
         });
       } catch (requestError) {
-        if (requestError?.status === 405) {
+        const isMethodBlocked =
+          Number(requestError?.status) === 405 ||
+          String(requestError?.message || '').includes('status 405');
+        if (isMethodBlocked) {
           // Some edge proxies reject PUT; retry with POST on the same endpoint.
           response = await apiClient.request(`/api/cars/${id}`, {
             method: 'POST',
@@ -389,17 +421,18 @@ const EditListing = () => {
             
             <div className="form-group">
               <label htmlFor="make_year">Year</label>
-              <input
-                type="number"
+              <SearchableSelect
                 id="make_year"
                 name="make_year"
                 value={formData.make_year}
                 onChange={handleChange}
-                placeholder="e.g. 2019"
-                min="1886"
-                max={new Date().getFullYear() + 1}
                 required
-              />
+              >
+                <option value="">Select Year</option>
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </SearchableSelect>
             </div>
           </div>
         </div>
@@ -439,27 +472,84 @@ const EditListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="exterior_color">Exterior Color</label>
+              <label htmlFor="color">Color</label>
               <input
                 type="text"
-                id="exterior_color"
-                name="exterior_color"
-                value={formData.exterior_color}
+                id="color"
+                name="color"
+                value={formData.color}
                 onChange={handleChange}
                 placeholder="e.g. Midnight Black"
+                required
               />
             </div>
             
             <div className="form-group">
-              <label htmlFor="interior_color">Interior Color</label>
-              <input
-                type="text"
-                id="interior_color"
-                name="interior_color"
-                value={formData.interior_color}
+              <label htmlFor="cylinders">Cylinders</label>
+              <SearchableSelect
+                id="cylinders"
+                name="cylinders"
+                value={formData.cylinders}
                 onChange={handleChange}
-                placeholder="e.g. Black Leather"
-              />
+                required
+              >
+                <option value="">Select Cylinders</option>
+                {CYLINDER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="doors">Doors</label>
+              <SearchableSelect
+                id="doors"
+                name="doors"
+                value={formData.doors}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Doors</option>
+                {DOOR_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="warranty">Warranty</label>
+              <SearchableSelect
+                id="warranty"
+                name="warranty"
+                value={formData.warranty}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Warranty</option>
+                {WARRANTY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="service_history">Service History</label>
+              <SearchableSelect
+                id="service_history"
+                name="service_history"
+                value={formData.service_history}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Service History</option>
+                {SERVICE_HISTORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </SearchableSelect>
             </div>
           </div>
           
@@ -799,18 +889,63 @@ const EditListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="location">Location</label>
+              <label htmlFor="emirate">Emirate</label>
+              <SearchableSelect
+                id="emirate"
+                name="emirate"
+                value={formData.emirate}
+                onChange={handleChange}
+                required
+              >
+                {UAE_EMIRATES.map((emirate) => (
+                  <option key={emirate} value={emirate}>{emirate}</option>
+                ))}
+              </SearchableSelect>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="area">Area</label>
+              {formData.emirate === 'Dubai' ? (
+                <SearchableSelect
+                  id="area"
+                  name="area"
+                  value={formData.area}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select Dubai Area</option>
+                  {DUBAI_AREAS.map((area) => (
+                    <option key={area} value={area}>{area}</option>
+                  ))}
+                </SearchableSelect>
+              ) : (
+                <input
+                  type="text"
+                  id="area"
+                  name="area"
+                  value={formData.area}
+                  onChange={handleChange}
+                  placeholder="Area"
+                  required
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="location">Location Details</label>
               <input
                 type="text"
                 id="location"
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                placeholder="e.g. Los Angeles, CA"
+                placeholder="e.g. Building / Street / Landmark"
                 required
               />
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="contact_phone">Phone</label>
               <input

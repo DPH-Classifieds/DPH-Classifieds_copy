@@ -1,20 +1,10 @@
 import React, { useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useNavigate } from 'react-router-dom';
+import { DUBAI_AREAS, UAE_EMIRATES } from '../utils/listingConstants';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-// UAE Emirates list
-const UAE_EMIRATES = [
-  'Abu Dhabi',
-  'Dubai',
-  'Sharjah',
-  'Ajman',
-  'Umm Al Quwain',
-  'Ras Al Khaimah',
-  'Fujairah'
-];
 
 // Country codes for phone numbers
 const COUNTRY_CODES = [
@@ -45,7 +35,7 @@ const Signup = () => {
     countryCode: '+971',
     
     // Location
-    Area: '',
+    area: '',
     emirate: '',
     
     // Account type
@@ -134,6 +124,9 @@ const Signup = () => {
     }
     if (name === 'username' && value && !/^[a-zA-Z0-9_]+$/.test(value)) {
       return 'Username can only contain letters, numbers, and underscores';
+    }
+    if (name === 'phone' && !value) {
+      return 'Phone number is required';
     }
     if (name === 'phone' && value && !/^\d{7,15}$/.test(value.replace(/[\s-]/g, ''))) {
       return 'Please enter a valid phone number';
@@ -491,7 +484,7 @@ const Signup = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="phone">Phone Number</label>
+              <label htmlFor="phone">Phone Number <span className="required">*</span></label>
               <div className="phone-input-group">
                 <SearchableSelect
                   name="countryCode"
@@ -511,6 +504,7 @@ const Signup = () => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
+                  required
                   placeholder="50 123 4567"
                   className="phone-number-input"
                 />
@@ -539,15 +533,29 @@ const Signup = () => {
                 </SearchableSelect>
               </div>
               <div className="form-group">
-                <label htmlFor="Area">Area</label>
-                <input
-                  type="text"
-                  id="Area"
-                  name="Area"
-                  value={formData.Area}
-                  onChange={handleInputChange}
-                  placeholder="Your Area"
-                />
+                <label htmlFor="area">Area</label>
+                {formData.emirate === 'Dubai' ? (
+                  <SearchableSelect
+                    id="area"
+                    name="area"
+                    value={formData.area}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Select Dubai Area</option>
+                    {DUBAI_AREAS.map((area) => (
+                      <option key={area} value={area}>{area}</option>
+                    ))}
+                  </SearchableSelect>
+                ) : (
+                  <input
+                    type="text"
+                    id="area"
+                    name="area"
+                    value={formData.area}
+                    onChange={handleInputChange}
+                    placeholder="Your Area"
+                  />
+                )}
               </div>
             </div>
           </div>

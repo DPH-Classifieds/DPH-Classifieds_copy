@@ -270,6 +270,7 @@ const CarDetail = () => {
 
   const galleryImages = getGalleryImages();
   const locationMapConfig = getLocationMapConfig();
+  const listingArea = car?.area || car?.car_location || null;
 
   return (
     <div className="cd-container">
@@ -523,6 +524,9 @@ const CarDetail = () => {
                 <svg className="cd-icon cd-icon-map-pin" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                 </svg>
+              </div>
+              <div className="cd-location-subtitle" style={{ marginTop: '0.75rem' }}>
+                Area: {listingArea || 'Not specified'}
               </div>
             </div>
 

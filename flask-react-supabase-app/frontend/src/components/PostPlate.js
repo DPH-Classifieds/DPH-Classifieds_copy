@@ -3,6 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
+import { DUBAI_AREAS } from '../utils/listingConstants';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -72,6 +73,8 @@ const PostPlate = () => {
     plate_format: 'Any format',
     contact_name: '',
     contact_phone: '',
+    area: '',
+    emirate: '',
     description: '',
     is_dealer: false,
   });
@@ -112,6 +115,13 @@ const PostPlate = () => {
         [name]: nextValue,
       };
 
+      if (name === 'city') {
+        updated.emirate = nextValue;
+        if (nextValue !== 'Dubai') {
+          updated.area = '';
+        }
+      }
+
       if (name === 'number' && nextValue) {
         updated.digits = `${nextValue.length}`;
       }
@@ -140,6 +150,8 @@ const PostPlate = () => {
         plate_format: formData.plate_format,
         contact_name: formData.contact_name.trim(),
         contact_phone: formData.contact_phone.trim(),
+        area: formData.area.trim(),
+        emirate: formData.emirate || formData.city,
         description: formData.description.trim(),
         is_dealer: formData.is_dealer,
       };
@@ -315,6 +327,26 @@ const PostPlate = () => {
                   <div className="form-group">
                     <label htmlFor="contact_phone">Contact phone</label>
                     <input id="contact_phone" name="contact_phone" value={formData.contact_phone} onChange={handleChange} required placeholder="+971501234567" />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="area">Area</label>
+                    {formData.city === 'Dubai' ? (
+                      <SearchableSelect id="area" name="area" value={formData.area} onChange={handleChange} required>
+                        <option value="">Select Dubai Area</option>
+                        {DUBAI_AREAS.map((area) => (
+                          <option key={area} value={area}>{area}</option>
+                        ))}
+                      </SearchableSelect>
+                    ) : (
+                      <input id="area" name="area" value={formData.area} onChange={handleChange} required placeholder="Area" />
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="emirate">Emirate</label>
+                    <input id="emirate" name="emirate" value={formData.emirate || formData.city} readOnly />
                   </div>
                 </div>
 

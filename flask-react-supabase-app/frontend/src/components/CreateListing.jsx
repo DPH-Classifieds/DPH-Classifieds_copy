@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
+import { getYearOptions } from '../utils/listingConstants';
 import '../styles/CreateListing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -63,6 +64,7 @@ const CreateListing = () => {
   const transmissionTypes = [
     'Automatic', 'Manual'
   ];
+  const yearOptions = getYearOptions();
   
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -169,17 +171,18 @@ const CreateListing = () => {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="make_year">Year *</label>
-              <input 
-                type="number" 
+              <SearchableSelect
                 id="make_year" 
                 name="make_year" 
                 value={formData.make_year} 
                 onChange={handleChange} 
-                placeholder="Year of manufacture"
-                min="1886"
-                max="2099"
                 required
-              />
+              >
+                <option value="">Select Year</option>
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </SearchableSelect>
             </div>
             
             <div className="form-group">
