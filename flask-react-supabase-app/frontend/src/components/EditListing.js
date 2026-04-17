@@ -724,7 +724,7 @@ const EditListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="contact_email">Email</label>
+              <label htmlFor="contact_email">Email (optional)</label>
               <input
                 type="email"
                 id="contact_email"
@@ -732,7 +732,6 @@ const EditListing = () => {
                 value={formData.contact_email}
                 onChange={handleChange}
                 placeholder="e.g. your@email.com"
-                required
               />
             </div>
           </div>

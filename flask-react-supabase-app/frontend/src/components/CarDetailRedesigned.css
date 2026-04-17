@@ -126,16 +126,23 @@
 .cd-main-image {
   position: relative;
   width: 100%;
-  height: 320px;
-  background-color: var(--cd-color-background-secondary);
+  aspect-ratio: 16 / 10;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.1) 0%, transparent 45%),
+    var(--cd-color-background-secondary);
   border-radius: var(--cd-border-radius-lg);
   overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 0.5px solid var(--cd-color-border-tertiary);
 }
 
 .cd-main-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background-color: rgba(0, 0, 0, 0.2);
 }
 
 .cd-image-placeholder {
@@ -182,14 +189,26 @@
 }
 
 .cd-gallery-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
   gap: 0.5rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+}
+
+.cd-gallery-strip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.cd-gallery-strip::-webkit-scrollbar-thumb {
+  background-color: var(--cd-color-border-secondary);
+  border-radius: 999px;
 }
 
 .cd-thumbnail {
-  width: 100%;
-  height: 64px;
+  flex: 0 0 112px;
+  height: 70px;
   border-radius: var(--cd-border-radius-md);
   overflow: hidden;
   cursor: pointer;
@@ -722,8 +741,9 @@
     grid-template-columns: 1fr;
   }
 
-  .cd-gallery-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .cd-thumbnail {
+    flex-basis: 96px;
+    height: 60px;
   }
 
   .cd-meta-strip {
