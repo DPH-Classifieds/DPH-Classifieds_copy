@@ -152,20 +152,58 @@ const CarDetail = () => {
     return `${countryCode}${phone}`;
   };
 
+  const normalizeImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    return imageUrl.startsWith('/') ? `${API_URL}${imageUrl}` : imageUrl;
+  };
+
   const getGalleryImages = () => {
     if (!car?.images?.length) {
       return [];
     }
     return car.images
-      .map((image) => image?.image_url || image?.url || null)
-      .filter(Boolean)
-      .map((imageUrl) => (imageUrl.startsWith('/') ? `${API_URL}${imageUrl}` : imageUrl));
+      .map((image) => {
+        if (!image) return null;
+        const displayUrl = normalizeImageUrl(image.display_url || image.image_url || image.url);
+        const originalUrl = normalizeImageUrl(image.image_url || image.url || image.display_url);
+        if (!displayUrl && !originalUrl) return null;
+
+        const focalX = Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50;
+        const focalY = Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50;
+
+        return {
+          id: image.id || `${displayUrl || originalUrl}`,
+          displayUrl: displayUrl || originalUrl,
+          originalUrl: originalUrl || displayUrl,
+          hasDisplayVariant: Boolean(image.display_url),
+          focalX,
+          focalY
+        };
+      })
+      .filter(Boolean);
   };
 
-  const getMainImageUrl = () => {
+  const getMainImage = () => {
     const images = getGalleryImages();
     if (!images.length) return null;
     return images[activeImageIndex] || images[0];
+  };
+
+  const getMainImageUrl = () => {
+    const mainImage = getMainImage();
+    if (!mainImage) return null;
+    return mainImage.displayUrl || mainImage.originalUrl;
+  };
+
+  const getMainImageObjectPosition = () => {
+    const mainImage = getMainImage();
+    if (!mainImage || mainImage.hasDisplayVariant) return undefined;
+    return `${mainImage.focalX}% ${mainImage.focalY}%`;
+  };
+
+  const getThumbnailUrl = (image) => {
+    if (!image) return null;
+    return image.originalUrl || image.displayUrl;
   };
 
   const getDisplayTitle = () => {
@@ -277,13 +315,14 @@ const CarDetail = () => {
           <div className="cd-hero-left">
             <div className="cd-main-image">
               {getMainImageUrl() ? (
-                <img 
-                  src={getMainImageUrl()} 
+                <img
+                  src={getMainImageUrl()}
                   alt={getDisplayTitle()}
                   loading="lazy"
                   decoding="async"
                   width="800"
                   height="500"
+                  style={{ objectPosition: getMainImageObjectPosition() }}
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = PLACEHOLDER_IMAGE;
@@ -305,13 +344,13 @@ const CarDetail = () => {
 
             {galleryImages.length > 1 && (
               <div className="cd-gallery-strip">
-                {galleryImages.map((imgUrl, index) => (
+                {galleryImages.map((image, index) => (
                   <div 
-                    key={`${imgUrl}-${index}`}
+                    key={`${image.id}-${index}`}
                     className={`cd-thumbnail ${index === activeImageIndex ? 'cd-thumbnail-active' : ''}`}
                     onClick={() => setActiveImageIndex(index)}
                   >
-                    <img src={imgUrl} alt={`Thumbnail ${index + 1}`} />
+                    <img src={getThumbnailUrl(image)} alt={`Thumbnail ${index + 1}`} />
                   </div>
                 ))}
               </div>

@@ -10,6 +10,7 @@ import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import ImageFramingModal from './ImageFramingModal';
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -25,6 +26,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
 
 const PostCar = () => {
   const navigate = useNavigate();
@@ -38,6 +40,9 @@ const PostCar = () => {
   const [showExtras, setShowExtras] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
+  const [imageCropSettings, setImageCropSettings] = useState([]);
+  const [showFramingModal, setShowFramingModal] = useState(false);
+  const [activeFramingIndex, setActiveFramingIndex] = useState(0);
   const [mapPosition, setMapPosition] = useState([25.276987, 55.296249]); // Default to Dubai coordinates
   const [marker, setMarker] = useState([25.276987, 55.296249]);
   
@@ -405,6 +410,27 @@ const PostCar = () => {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      previewImages.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [previewImages]);
+
+  const updateImageCropSetting = (index, partialUpdate) => {
+    setImageCropSettings((prev) =>
+      prev.map((setting, currentIndex) =>
+        currentIndex === index ? { ...setting, ...partialUpdate } : setting
+      )
+    );
+  };
+
+  const applyCurrentCropToAll = (sourceIndex) => {
+    setImageCropSettings((prev) => {
+      const sourceSetting = prev[sourceIndex] || DEFAULT_IMAGE_CROP;
+      return prev.map(() => ({ ...sourceSetting }));
+    });
+  };
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -452,6 +478,9 @@ const PostCar = () => {
     // Create preview URLs
     const previews = files.map(file => URL.createObjectURL(file));
     setPreviewImages(previews);
+    setImageCropSettings(files.map(() => ({ ...DEFAULT_IMAGE_CROP })));
+    setActiveFramingIndex(0);
+    setShowFramingModal(true);
   };
 
   const handleDragOver = (e) => {
@@ -519,6 +548,11 @@ const PostCar = () => {
     newPreviews.splice(dropIndex, 0, draggedPreview);
     setPreviewImages(newPreviews);
 
+    const newCropSettings = [...imageCropSettings];
+    const [draggedCrop] = newCropSettings.splice(draggedIndex, 1);
+    newCropSettings.splice(dropIndex, 0, draggedCrop);
+    setImageCropSettings(newCropSettings);
+
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
@@ -544,6 +578,15 @@ const PostCar = () => {
         console.log(`Adding file ${index + 1}: ${file.name} (${file.type}, ${file.size} bytes)`);
         formData.append('images', file);
       });
+      const cropPayload = selectedFiles.map((_, index) => {
+        const crop = imageCropSettings[index] || DEFAULT_IMAGE_CROP;
+        return {
+          focalX: crop.focalX ?? 50,
+          focalY: crop.focalY ?? 50,
+          zoom: crop.zoom ?? 1
+        };
+      });
+      formData.append('crop_data', JSON.stringify(cropPayload));
       
       console.log(`Uploading ${selectedFiles.length} images for user:`, user.email);
       console.log('API URL:', process.env.REACT_APP_API_URL || 'https://api.dphclassifieds.com');
@@ -577,13 +620,17 @@ const PostCar = () => {
       const data = await response.json();
       console.log("Images upload response:", data);
       
-      if (!data.urls || !Array.isArray(data.urls)) {
+      if (!Array.isArray(data.urls)) {
         console.error("Invalid response format:", data);
         throw new Error(data.error || data.message || "Invalid response from server");
       }
       
-      console.log(`Successfully uploaded ${data.urls.length} images`);
-      return data.urls;
+      const uploadedImages = Array.isArray(data.images) && data.images.length
+        ? data.images
+        : data.urls.map((url) => ({ url, image_url: url, display_url: url, focal_x: 50, focal_y: 50, crop_meta: null }));
+
+      console.log(`Successfully uploaded ${uploadedImages.length} images`);
+      return uploadedImages;
     } catch (error) {
       console.error("Image upload error:", error);
       
@@ -624,9 +671,9 @@ const PostCar = () => {
     setError(null);
     try {
       // Upload images first (if any)
-      const imageUrls = await uploadImages();
+      const uploadedImages = await uploadImages();
       
-      if (imageUrls.length === 0) {
+      if (uploadedImages.length === 0) {
         setError('Please upload at least one image of your car.');
         setIsSubmitting(false);
         return;
@@ -635,7 +682,7 @@ const PostCar = () => {
       // Prepare submission data with image URLs
       const submissionData = {
         ...formData,
-        images: imageUrls
+        images: uploadedImages
       };
       
       console.log('Submitting car listing:', JSON.stringify(submissionData, null, 2));
@@ -1322,13 +1369,31 @@ const PostCar = () => {
                           e.stopPropagation();
                           const newPreviews = [...previewImages];
                           const newSelectedFiles = [...selectedFiles];
+                          const newCropSettings = [...imageCropSettings];
                           newPreviews.splice(index, 1);
                           newSelectedFiles.splice(index, 1);
+                          newCropSettings.splice(index, 1);
                           setPreviewImages(newPreviews);
                           setSelectedFiles(newSelectedFiles);
+                          setImageCropSettings(newCropSettings);
+                          if (!newPreviews.length) {
+                            setShowFramingModal(false);
+                            setActiveFramingIndex(0);
+                          }
                         }}
                       >
                         ×
+                      </button>
+                      <button
+                        type="button"
+                        className="frame-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setActiveFramingIndex(index);
+                          setShowFramingModal(true);
+                        }}
+                      >
+                        Frame
                       </button>
                       <div className="drag-handle">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1347,6 +1412,18 @@ const PostCar = () => {
               {previewImages.length > 1 && (
                 <p className="reorder-hint">Drag images to reorder. First image will be the main photo.</p>
               )}
+              {previewImages.length > 0 && (
+                <button
+                  type="button"
+                  className="frame-all-btn"
+                  onClick={() => {
+                    setActiveFramingIndex(0);
+                    setShowFramingModal(true);
+                  }}
+                >
+                  Adjust Photo Framing
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1363,6 +1440,20 @@ const PostCar = () => {
         </form>
         </div>
       </section>
+
+      <ImageFramingModal
+        isOpen={showFramingModal}
+        images={previewImages.map((previewUrl, index) => ({
+          previewUrl,
+          name: selectedFiles[index]?.name || `Photo ${index + 1}`
+        }))}
+        cropSettings={imageCropSettings}
+        activeIndex={activeFramingIndex}
+        onActiveIndexChange={setActiveFramingIndex}
+        onUpdateCrop={updateImageCropSetting}
+        onApplyCurrentToAll={applyCurrentCropToAll}
+        onClose={() => setShowFramingModal(false)}
+      />
     </div>
   );
 };

@@ -79,6 +79,9 @@ MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
 LISTING_EXPIRY_DAYS = 15
 LISTING_RETENTION_DAYS = 30
+LISTING_DISPLAY_WIDTH = int(os.getenv("LISTING_DISPLAY_WIDTH", "1600"))
+LISTING_DISPLAY_HEIGHT = int(os.getenv("LISTING_DISPLAY_HEIGHT", "1000"))
+LISTING_DISPLAY_RATIO = LISTING_DISPLAY_WIDTH / LISTING_DISPLAY_HEIGHT
 
 LISTING_TABLE_CONFIG = {
     "car": {"table": "cars", "images_table": "car_images", "fk": "car_id"},
@@ -1877,14 +1880,42 @@ def create_car(current_user):
 
         # Add images if any
         image_inserts = []
-        for image_url in images:
-            image_inserts.append(
-                {
-                    "car_id": car_id,
-                    "url": image_url,
-                    "image_url": image_url,
-                }
+        for image_entry in images:
+            if isinstance(image_entry, str):
+                image_url = image_entry
+                display_url = image_url
+                normalized_crop = _normalize_crop_settings({})
+                crop_meta = None
+            elif isinstance(image_entry, dict):
+                image_url = image_entry.get("image_url") or image_entry.get("url")
+                if not image_url:
+                    continue
+                display_url = image_entry.get("display_url") or image_url
+                normalized_crop = _normalize_crop_settings(image_entry)
+                crop_meta = image_entry.get("crop_meta")
+            else:
+                continue
+
+            image_insert = {
+                "car_id": car_id,
+                "url": image_url,
+                "image_url": image_url,
+                "display_url": display_url,
+                "focal_x": normalized_crop["focal_x"],
+                "focal_y": normalized_crop["focal_y"],
+                "crop_meta": crop_meta,
+            }
+            image_inserts.append(image_insert)
+
+        if not image_inserts:
+            supabase_request(
+                "delete",
+                "/rest/v1/cars",
+                params={"id": f"eq.{car_id}"},
+                user_id=current_user,
             )
+            return jsonify({"error": "At least one valid image is required."}), 400
+
         images_data, images_status = supabase_request(
             "post", "/rest/v1/car_images", data=image_inserts, user_id=current_user
         )
@@ -1991,7 +2022,7 @@ def update_car(current_user, car_id):
             # Extract form fields
             for key in request.form.keys():
                 value = request.form.get(key)
-                if key not in ["keep_image_ids"] and value not in [
+                if key not in ["keep_image_ids", "crop_data"] and value not in [
                     "",
                     "false",
                     "undefined",
@@ -2018,12 +2049,16 @@ def update_car(current_user, car_id):
                 request.files.getlist("images") if "images" in request.files else []
             )
             keep_image_ids = request.form.getlist("keep_image_ids")
+            crop_data = _parse_crop_data_payload(
+                request.form.get("crop_data"), len(new_images)
+            )
 
         else:
             logger.info("Processing JSON request")
             update_data = request.json
             new_images = []
             keep_image_ids = []
+            crop_data = []
 
         try:
             if "make_year" in update_data:
@@ -2169,34 +2204,33 @@ def update_car(current_user, car_id):
 
             # Upload new images
             if new_images:
-                upload_dir = os.path.join(
-                    os.path.dirname(__file__), "static", "uploads"
-                )
-                os.makedirs(upload_dir, exist_ok=True)
+                if not ensure_storage_bucket("listing-images"):
+                    return jsonify({"error": "Storage bucket not available."}), 500
 
-                for file in new_images:
+                for index, file in enumerate(new_images):
                     if file and file.filename:
-                        # Generate unique filename
-                        filename = secure_filename(file.filename)
-                        timestamp = int(time.time())
-                        file_extension = os.path.splitext(filename)[1]
-                        unique_filename = (
-                            f"{timestamp}_{uuid.uuid4().hex[:8]}{file_extension}"
+                        upload_metadata, upload_error = upload_to_supabase_storage(
+                            file,
+                            bucket_name="listing-images",
+                            folder=str(current_user),
+                            return_metadata=True,
+                            crop_settings=crop_data[index]
                         )
 
-                        # Save file
-                        file_path = os.path.join(upload_dir, unique_filename)
-                        file.save(file_path)
-                        logger.info(f"Saved new image to {file_path}")
+                        if upload_error:
+                            logger.error(
+                                f"Failed to upload new image {file.filename}: {upload_error}"
+                            )
+                            continue
 
-                        # Generate URL
-                        image_url = f"/static/uploads/{unique_filename}"
-
-                        # Save to database
                         image_data = {
                             "car_id": car_id,
-                            "url": image_url,
-                            "image_url": image_url,
+                            "url": upload_metadata["url"],
+                            "image_url": upload_metadata["image_url"],
+                            "display_url": upload_metadata.get("display_url"),
+                            "focal_x": upload_metadata.get("focal_x", 50),
+                            "focal_y": upload_metadata.get("focal_y", 50),
+                            "crop_meta": upload_metadata.get("crop_meta"),
                         }
 
                         supabase_request(
@@ -2380,7 +2414,128 @@ def ensure_storage_bucket(bucket_name="listing-images"):
         return False
 
 
-def upload_to_supabase_storage(file, bucket_name="listing-images", folder=""):
+def _clamp(value, minimum, maximum):
+    return max(minimum, min(maximum, value))
+
+
+def _normalize_crop_settings(crop_settings):
+    if not isinstance(crop_settings, dict):
+        crop_settings = {}
+
+    focal_x_raw = crop_settings.get("focal_x", crop_settings.get("focalX", 50))
+    focal_y_raw = crop_settings.get("focal_y", crop_settings.get("focalY", 50))
+    zoom_raw = crop_settings.get("zoom", 1)
+
+    try:
+        focal_x = float(focal_x_raw)
+    except (TypeError, ValueError):
+        focal_x = 50.0
+    try:
+        focal_y = float(focal_y_raw)
+    except (TypeError, ValueError):
+        focal_y = 50.0
+    try:
+        zoom = float(zoom_raw)
+    except (TypeError, ValueError):
+        zoom = 1.0
+
+    return {
+        "focal_x": _clamp(focal_x, 0.0, 100.0),
+        "focal_y": _clamp(focal_y, 0.0, 100.0),
+        "zoom": _clamp(zoom, 1.0, 3.0),
+    }
+
+
+def _parse_crop_data_payload(raw_crop_data, expected_count):
+    if not raw_crop_data:
+        return [{} for _ in range(expected_count)]
+
+    try:
+        parsed = json.loads(raw_crop_data)
+    except (TypeError, ValueError):
+        logger.warning("Invalid crop_data payload; using defaults")
+        return [{} for _ in range(expected_count)]
+
+    if not isinstance(parsed, list):
+        logger.warning("crop_data payload must be an array; using defaults")
+        return [{} for _ in range(expected_count)]
+
+    crop_data = []
+    for idx in range(expected_count):
+        item = parsed[idx] if idx < len(parsed) else {}
+        crop_data.append(item if isinstance(item, dict) else {})
+    return crop_data
+
+
+def _build_display_variant(base_image, crop_settings):
+    if base_image.width <= 0 or base_image.height <= 0:
+        return None, None
+
+    focal_x = (crop_settings["focal_x"] / 100.0) * base_image.width
+    focal_y = (crop_settings["focal_y"] / 100.0) * base_image.height
+    zoom = crop_settings["zoom"]
+
+    if (base_image.width / base_image.height) >= LISTING_DISPLAY_RATIO:
+        base_crop_height = base_image.height
+        base_crop_width = int(round(base_crop_height * LISTING_DISPLAY_RATIO))
+    else:
+        base_crop_width = base_image.width
+        base_crop_height = int(round(base_crop_width / LISTING_DISPLAY_RATIO))
+
+    crop_width = max(1, int(round(base_crop_width / zoom)))
+    crop_height = max(1, int(round(base_crop_height / zoom)))
+
+    left = int(round(_clamp(focal_x - (crop_width / 2), 0, base_image.width - crop_width)))
+    top = int(
+        round(_clamp(focal_y - (crop_height / 2), 0, base_image.height - crop_height))
+    )
+    right = left + crop_width
+    bottom = top + crop_height
+
+    display_image = base_image.crop((left, top, right, bottom)).resize(
+        (LISTING_DISPLAY_WIDTH, LISTING_DISPLAY_HEIGHT), Image.Resampling.LANCZOS
+    )
+    if display_image.mode not in ("RGB", "L"):
+        display_image = display_image.convert("RGB")
+
+    crop_meta = {
+        "source_width": base_image.width,
+        "source_height": base_image.height,
+        "crop_box": {"left": left, "top": top, "right": right, "bottom": bottom},
+        "zoom": zoom,
+        "display_width": LISTING_DISPLAY_WIDTH,
+        "display_height": LISTING_DISPLAY_HEIGHT,
+    }
+    return display_image, crop_meta
+
+
+def _upload_bytes_to_supabase_storage(file_data, bucket_name, object_path, content_type):
+    upload_url = f"{SUPABASE_URL}/storage/v1/object/{bucket_name}/{object_path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": content_type,
+    }
+    response = requests.post(upload_url, headers=headers, data=file_data, timeout=30)
+    if response.status_code in [200, 201]:
+        public_url = (
+            f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{object_path}"
+        )
+        return public_url, None
+
+    error_msg = (
+        f"Supabase Storage upload failed: {response.status_code} - {response.text}"
+    )
+    return None, error_msg
+
+
+def upload_to_supabase_storage(
+    file,
+    bucket_name="listing-images",
+    folder="",
+    return_metadata=False,
+    crop_settings=None,
+):
     """
     Upload a file to Supabase Storage and return the public URL.
     Uses image compression for faster loading.
@@ -2438,7 +2593,6 @@ def upload_to_supabase_storage(file, bucket_name="listing-images", folder=""):
 
         # Save to bytes with compression
         from io import BytesIO
-
         output = BytesIO()
 
         # Store listing images as optimized JPEGs except when the source is already WebP.
@@ -2453,44 +2607,58 @@ def upload_to_supabase_storage(file, bucket_name="listing-images", folder=""):
         output.seek(0)
         file_data = output.read()
 
-        # Upload to Supabase Storage
-        upload_url = f"{SUPABASE_URL}/storage/v1/object/{bucket_name}/{unique_filename}"
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": content_type,
-        }
-
         logger.info(
             f"Uploading to Supabase Storage: bucket={bucket_name}, filename={unique_filename}, size={len(file_data)} bytes"
         )
-
-        response = requests.post(
-            upload_url, headers=headers, data=file_data, timeout=30
+        public_url, upload_error = _upload_bytes_to_supabase_storage(
+            file_data=file_data,
+            bucket_name=bucket_name,
+            object_path=unique_filename,
+            content_type=content_type,
         )
+        if upload_error:
+            logger.error(upload_error)
+            return None, upload_error
 
-        logger.info(f"Supabase Storage response status: {response.status_code}")
-
-        if response.status_code in [200, 201]:
-            # Return public URL
-            public_url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{unique_filename}"
+        if not return_metadata:
             logger.info(f"Image uploaded successfully: {public_url}")
             return public_url, None
-        else:
-            error_msg = f"Supabase Storage upload failed: {response.status_code} - {response.text}"
-            logger.error(error_msg)
-            # Check for common issues
-            if response.status_code == 404:
-                logger.error(
-                    f"Bucket '{bucket_name}' not found. Please create the bucket in Supabase Storage."
+
+        normalized_crop = _normalize_crop_settings(crop_settings)
+        display_url = public_url
+        crop_meta = None
+
+        if bucket_name == "listing-images":
+            display_image, crop_meta = _build_display_variant(img, normalized_crop)
+            if display_image is not None:
+                display_buffer = BytesIO()
+                display_image.save(display_buffer, format="JPEG", quality=88, optimize=True)
+                display_buffer.seek(0)
+                display_data = display_buffer.read()
+                display_filename = unique_filename.rsplit(".", 1)[0] + "_display.jpg"
+
+                uploaded_display_url, display_error = _upload_bytes_to_supabase_storage(
+                    file_data=display_data,
+                    bucket_name=bucket_name,
+                    object_path=display_filename,
+                    content_type="image/jpeg",
                 )
-            elif response.status_code == 403:
-                logger.error(
-                    f"Permission denied. Check SUPABASE_SERVICE_ROLE_KEY has access to bucket '{bucket_name}'."
-                )
-            elif response.status_code == 413:
-                logger.error(f"File too large for Supabase Storage.")
-            return None, error_msg
+                if display_error:
+                    logger.warning(
+                        f"Display variant upload failed for {unique_filename}: {display_error}"
+                    )
+                elif uploaded_display_url:
+                    display_url = uploaded_display_url
+
+        metadata = {
+            "url": public_url,
+            "image_url": public_url,
+            "display_url": display_url,
+            "focal_x": normalized_crop["focal_x"],
+            "focal_y": normalized_crop["focal_y"],
+            "crop_meta": crop_meta,
+        }
+        return metadata, None
 
     except Exception as e:
         logger.error(f"Error uploading to Supabase Storage: {str(e)}", exc_info=True)
@@ -2520,37 +2688,47 @@ def upload_images(current_user):
             logger.error("No image files selected")
             return jsonify({"error": "No images selected"}), 400
 
+        crop_data = _parse_crop_data_payload(
+            request.form.get("crop_data"), len(files)
+        )
+
         logger.info(f"Processing {len(files)} images for user {current_user}")
+        image_records = []
         image_urls = []
         errors = []
 
-        for file in files:
+        for index, file in enumerate(files):
             if file and file.filename:
-                # Upload to Supabase Storage
-                public_url, error = upload_to_supabase_storage(
-                    file, bucket_name="listing-images", folder=current_user
+                upload_metadata, error = upload_to_supabase_storage(
+                    file,
+                    bucket_name="listing-images",
+                    folder=str(current_user),
+                    return_metadata=True,
+                    crop_settings=crop_data[index],
                 )
 
-                if public_url:
-                    image_urls.append(public_url)
+                if upload_metadata:
+                    image_records.append(upload_metadata)
+                    image_urls.append(upload_metadata["url"])
                 else:
                     errors.append(f"Failed to upload {file.filename}: {error}")
                     logger.error(f"Failed to upload {file.filename}: {error}")
 
-        if not image_urls and errors:
+        if not image_records and errors:
             return jsonify(
                 {"error": "All image uploads failed", "details": errors}
             ), 500
 
         logger.info(
-            f"Successfully uploaded {len(image_urls)} images to Supabase Storage"
+            f"Successfully uploaded {len(image_records)} images to Supabase Storage"
         )
 
         return jsonify(
             {
+                "images": image_records,
                 "urls": image_urls,
                 "absolute_urls": image_urls,  # Already absolute URLs from Supabase
-                "count": len(image_urls),
+                "count": len(image_records),
                 "errors": errors if errors else None,
             }
         ), 200

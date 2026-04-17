@@ -4,9 +4,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
+import ImageFramingModal from './ImageFramingModal';
 import '../styles/CreateListing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
 
 const EditListing = () => {
   const { id } = useParams();
@@ -51,6 +55,10 @@ const EditListing = () => {
   
   const [images, setImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
+  const [newImagePreviews, setNewImagePreviews] = useState([]);
+  const [newImageCropSettings, setNewImageCropSettings] = useState([]);
+  const [showFramingModal, setShowFramingModal] = useState(false);
+  const [activeFramingIndex, setActiveFramingIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -150,17 +158,84 @@ const EditListing = () => {
       });
     }
   };
+
+  useEffect(() => {
+    return () => {
+      newImagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [newImagePreviews]);
   
   const handleImageChange = (e) => {
-    if (e.target.files) {
-      setNewImages(Array.from(e.target.files));
+    if (!e.target.files) return;
+
+    const files = Array.from(e.target.files);
+    if (!files.length) {
+      setNewImages([]);
+      setNewImagePreviews([]);
+      setNewImageCropSettings([]);
+      return;
     }
+
+    if (files.length > 10) {
+      setError('You can only upload up to 10 images at a time.');
+      return;
+    }
+
+    const invalidTypeFile = files.find((file) => !SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase()));
+    if (invalidTypeFile) {
+      setError('Only JPG, PNG, WEBP, and GIF images are supported.');
+      return;
+    }
+
+    const oversizedFile = files.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversizedFile) {
+      setError('Each image must be 5MB or smaller.');
+      return;
+    }
+
+    setError(null);
+    setNewImages(files);
+    setNewImagePreviews(files.map((file) => URL.createObjectURL(file)));
+    setNewImageCropSettings(files.map(() => ({ ...DEFAULT_IMAGE_CROP })));
+    setActiveFramingIndex(0);
+    setShowFramingModal(true);
   };
   
   const handleDeleteImage = (index) => {
     const updatedImages = [...images];
     updatedImages.splice(index, 1);
     setImages(updatedImages);
+  };
+
+  const handleDeleteNewImage = (index) => {
+    const updatedNewImages = [...newImages];
+    const updatedPreviews = [...newImagePreviews];
+    const updatedCropSettings = [...newImageCropSettings];
+    updatedNewImages.splice(index, 1);
+    updatedPreviews.splice(index, 1);
+    updatedCropSettings.splice(index, 1);
+    setNewImages(updatedNewImages);
+    setNewImagePreviews(updatedPreviews);
+    setNewImageCropSettings(updatedCropSettings);
+    if (!updatedNewImages.length) {
+      setShowFramingModal(false);
+      setActiveFramingIndex(0);
+    }
+  };
+
+  const updateNewImageCropSetting = (index, partialUpdate) => {
+    setNewImageCropSettings((prev) =>
+      prev.map((setting, currentIndex) =>
+        currentIndex === index ? { ...setting, ...partialUpdate } : setting
+      )
+    );
+  };
+
+  const applyCurrentCropToAllNewImages = (sourceIndex) => {
+    setNewImageCropSettings((prev) => {
+      const sourceSetting = prev[sourceIndex] || DEFAULT_IMAGE_CROP;
+      return prev.map(() => ({ ...sourceSetting }));
+    });
   };
   
   const handleSubmit = async (e) => {
@@ -194,6 +269,17 @@ const EditListing = () => {
       newImages.forEach(image => {
         formDataToSend.append('images', image);
       });
+      if (newImages.length > 0) {
+        const cropPayload = newImages.map((_, index) => {
+          const crop = newImageCropSettings[index] || DEFAULT_IMAGE_CROP;
+          return {
+            focalX: crop.focalX ?? 50,
+            focalY: crop.focalY ?? 50,
+            zoom: crop.zoom ?? 1
+          };
+        });
+        formDataToSend.append('crop_data', JSON.stringify(cropPayload));
+      }
       
       const response = await apiClient.request(`/api/cars/${id}`, {
         method: 'PUT',
@@ -781,10 +867,38 @@ const EditListing = () => {
           {newImages.length > 0 && (
             <div className="new-images-preview">
               <h3>New Images to Upload</h3>
+              <button
+                type="button"
+                className="frame-all-btn"
+                onClick={() => {
+                  setActiveFramingIndex(0);
+                  setShowFramingModal(true);
+                }}
+              >
+                Adjust Photo Framing
+              </button>
               <div className="image-preview-container">
                 {newImages.map((image, index) => (
                   <div key={index} className="image-preview">
-                    <img src={URL.createObjectURL(image)} alt={`New ${index + 1}`} />
+                    <img src={newImagePreviews[index]} alt={`New ${index + 1}`} />
+                    <button
+                      type="button"
+                      className="remove-image-btn"
+                      onClick={() => handleDeleteNewImage(index)}
+                      aria-label="Remove new image"
+                    >
+                      ×
+                    </button>
+                    <button
+                      type="button"
+                      className="frame-btn"
+                      onClick={() => {
+                        setActiveFramingIndex(index);
+                        setShowFramingModal(true);
+                      }}
+                    >
+                      Frame
+                    </button>
                   </div>
                 ))}
               </div>
@@ -810,6 +924,21 @@ const EditListing = () => {
           </button>
         </div>
       </form>
+
+      <ImageFramingModal
+        isOpen={showFramingModal}
+        images={newImagePreviews.map((previewUrl, index) => ({
+          previewUrl,
+          name: newImages[index]?.name || `Photo ${index + 1}`
+        }))}
+        cropSettings={newImageCropSettings}
+        activeIndex={activeFramingIndex}
+        onActiveIndexChange={setActiveFramingIndex}
+        onUpdateCrop={updateNewImageCropSetting}
+        onApplyCurrentToAll={applyCurrentCropToAllNewImages}
+        onClose={() => setShowFramingModal(false)}
+        title="Adjust New Image Frames"
+      />
     </div>
   );
 };

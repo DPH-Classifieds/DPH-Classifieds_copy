@@ -447,6 +447,30 @@
   opacity: 1;
 }
 
+.preview-item .frame-btn {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  min-height: 24px;
+  border: 1px solid rgba(148, 218, 153, 0.35);
+  border-radius: 999px;
+  background: rgba(8, 14, 10, 0.8);
+  color: #eaf6eb;
+  font-size: 11px;
+  padding: 0 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+  z-index: 2;
+}
+
+.preview-item .frame-btn:hover {
+  border-color: rgba(148, 218, 153, 0.6);
+}
+
+.preview-item:hover .frame-btn {
+  opacity: 1;
+}
+
 .drag-handle {
   position: absolute;
   bottom: 8px;
@@ -470,6 +494,21 @@
   font-size: 13px;
   color: rgba(226, 239, 229, 0.5);
   text-align: center;
+}
+
+.frame-all-btn {
+  margin-top: 10px;
+  min-height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 218, 153, 0.22);
+  background: rgba(243, 250, 244, 0.05);
+  color: #eef7ef;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.frame-all-btn:hover {
+  border-color: rgba(148, 218, 153, 0.4);
 }
 
 .add-more-item {
