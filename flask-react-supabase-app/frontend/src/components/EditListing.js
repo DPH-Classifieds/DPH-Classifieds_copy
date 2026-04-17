@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
+import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
-import '../styles/CreateListing.css'; // Reuse the same styles as CreateListing
+import '../styles/CreateListing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -194,18 +195,13 @@ const EditListing = () => {
         formDataToSend.append('images', image);
       });
       
-      // Send the PUT request
-      const response = await fetch(`${API_URL}/api/cars/${id}`, {
+      const response = await apiClient.request(`/api/cars/${id}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
         body: formDataToSend
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update listing');
+      if (!response) {
+        throw new Error('Failed to update listing');
       }
       
       // Redirect to the listing page on success
