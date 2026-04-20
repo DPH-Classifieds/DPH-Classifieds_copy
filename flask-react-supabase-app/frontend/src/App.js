@@ -124,8 +124,13 @@ const AuthHashHandler = () => {
 
 function App() {
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const telemetryEnabled = process.env.REACT_APP_ENABLE_VERCEL_TELEMETRY === 'true';
 
   useEffect(() => {
+    if (!telemetryEnabled) {
+      return undefined;
+    }
+
     const handleInteraction = () => {
       if (!showAnalytics) {
         setShowAnalytics(true);
@@ -140,7 +145,7 @@ function App() {
       clearTimeout(timeout);
       events.forEach(event => window.removeEventListener(event, handleInteraction));
     };
-  }, [showAnalytics]);
+  }, [showAnalytics, telemetryEnabled]);
 
   return (
     <AuthProvider>
@@ -212,7 +217,7 @@ function App() {
         </div>
         <CookieBanner />
         <BackToTop />
-        {showAnalytics && (
+        {telemetryEnabled && showAnalytics && (
           <Suspense fallback={null}>
             <Analytics />
             <SpeedInsights />
