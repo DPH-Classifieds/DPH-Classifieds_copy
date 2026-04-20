@@ -406,6 +406,12 @@
   object-fit: cover;
 }
 
+/* Car flow uses the same frame as ad detail hero images (16:10). */
+.car-framing-grid .preview-item,
+.preview-item.car-framing-preview {
+  aspect-ratio: 16 / 10;
+}
+
 .preview-order {
   position: absolute;
   top: 8px;

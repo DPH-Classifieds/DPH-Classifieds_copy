@@ -1004,9 +1004,9 @@ const EditListing = () => {
             {images.length === 0 ? (
               <p>No images currently uploaded.</p>
             ) : (
-              <div className="image-preview-container">
+              <div className="image-preview-container listing-framing-grid">
                 {images.map((image, index) => (
-                  <div key={image.id} className="image-preview">
+                  <div key={image.id} className="image-preview listing-framing-preview">
                     <img src={image.image_url || image.url} alt={`Car ${index + 1}`} />
                     <button
                       type="button"
@@ -1050,9 +1050,9 @@ const EditListing = () => {
               >
                 Adjust Photo Framing
               </button>
-              <div className="image-preview-container">
+              <div className="image-preview-container listing-framing-grid">
                 {newImages.map((image, index) => (
-                  <div key={index} className="image-preview">
+                  <div key={index} className="image-preview listing-framing-preview">
                     <img src={newImagePreviews[index]} alt={`New ${index + 1}`} />
                     <button
                       type="button"

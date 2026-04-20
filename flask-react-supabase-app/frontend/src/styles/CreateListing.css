@@ -277,6 +277,15 @@
   display: block;
 }
 
+/* Match Edit Listing image preview frame with ad display frame (16:10). */
+.listing-framing-preview {
+  aspect-ratio: 16 / 10;
+}
+
+.listing-framing-preview img {
+  height: 100%;
+}
+
 .remove-image-btn {
   position: absolute;
   top: 5px;

@@ -1488,10 +1488,10 @@ const PostCar = () => {
               </div>
               
               {previewImages.length > 0 && (
-                <div className="image-previews-grid">
+                <div className="image-previews-grid car-framing-grid">
                   {previewImages.map((preview, index) => (
                     <div 
-                      className={`preview-item ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                      className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
                       key={index}
                       draggable
                       onDragStart={(e) => handleImageDragStart(e, index)}
