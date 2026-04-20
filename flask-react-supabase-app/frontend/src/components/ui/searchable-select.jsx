@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import Select from 'react-select';
 import './searchable-select.css';
 
@@ -147,6 +147,7 @@ const SearchableSelect = ({
   id,
   ...props
 }) => {
+  const selectRef = useRef(null);
   const options = useMemo(() => parseOptions(children), [children]);
   const flatOptions = useMemo(() => flattenOptions(options), [options]);
   const selectedOption =
@@ -157,6 +158,12 @@ const SearchableSelect = ({
     flatOptions.find((option) => option.value === '')?.label ||
     'Select option';
 
+  const focusVisibleSelect = () => {
+    if (selectRef.current && typeof selectRef.current.focus === 'function') {
+      selectRef.current.focus();
+    }
+  };
+
   return (
     <div className={`searchable-select-wrapper ${className || ''}`}>
       <input
@@ -164,11 +171,19 @@ const SearchableSelect = ({
         autoComplete="off"
         value={value ?? ''}
         onChange={() => {}}
-        required={required}
+        required={Boolean(required && !selectedOption)}
         className="searchable-select-proxy"
-        aria-hidden="true"
+        onFocus={(event) => {
+          event.target.blur();
+          focusVisibleSelect();
+        }}
+        onInvalid={(event) => {
+          event.preventDefault();
+          focusVisibleSelect();
+        }}
       />
       <Select
+        ref={selectRef}
         inputId={id}
         name={name}
         classNamePrefix="searchable-select"
