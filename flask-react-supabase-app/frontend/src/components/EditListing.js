@@ -311,27 +311,30 @@ const EditListing = () => {
       }
       
       let response;
-      try {
-        response = await apiClient.request(`/api/cars/${id}`, {
-          method: 'PUT',
-          body: formDataToSend
-        });
-      } catch (requestError) {
-        const isMethodBlocked =
-          Number(requestError?.status) === 405 ||
-          String(requestError?.message || '').includes('status 405');
-        if (isMethodBlocked) {
-          // Some edge proxies reject PUT; retry with POST on the same endpoint.
+      const updateMethods = ['PUT', 'PATCH', 'POST'];
+      let lastError = null;
+
+      for (const method of updateMethods) {
+        try {
           response = await apiClient.request(`/api/cars/${id}`, {
-            method: 'POST',
-            headers: {
-              'X-HTTP-Method-Override': 'PUT'
-            },
+            method,
             body: formDataToSend
           });
-        } else {
-          throw requestError;
+          break;
+        } catch (requestError) {
+          lastError = requestError;
+          const isMethodBlocked =
+            Number(requestError?.status) === 405 ||
+            String(requestError?.message || '').includes('status 405');
+
+          if (!isMethodBlocked) {
+            throw requestError;
+          }
         }
+      }
+
+      if (!response && lastError) {
+        throw lastError;
       }
       
       if (!response) {
