@@ -345,7 +345,20 @@ const EditListing = () => {
       navigate(`/cars/${id}`);
     } catch (err) {
       console.error('Error updating listing:', err);
-      setError(err.message || 'Failed to update the listing. Please try again.');
+
+      const allowHeader = err?.allow || err?.responseHeaders?.allow;
+      const requestId = err?.responseHeaders?.xRailwayRequestId || err?.responseHeaders?.cfRay;
+
+      if (Number(err?.status) === 405) {
+        const methodMessage = allowHeader
+          ? `Update endpoint rejected this request. Allowed methods: ${allowHeader}.`
+          : 'Update endpoint rejected this request method (HTTP 405).';
+        const traceMessage = requestId ? ` Request ID: ${requestId}` : '';
+        setError(`${methodMessage}${traceMessage}`);
+      } else {
+        setError(err.message || 'Failed to update the listing. Please try again.');
+      }
+
       setSubmitting(false);
     }
   };

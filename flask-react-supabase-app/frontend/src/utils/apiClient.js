@@ -141,10 +141,22 @@ export const apiClient = {
       
       // Handle error responses
       if (!response.ok) {
+        const responseContentType = response.headers.get('content-type') || '';
+        const allowHeader = response.headers.get('allow');
+
         // Try to parse error details if available
         let errorData = {};
         try {
-          errorData = await response.json();
+          if (responseContentType.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            const rawText = await response.text();
+            errorData = {
+              status: response.status,
+              message: response.statusText || 'Unknown error',
+              raw: rawText || null
+            };
+          }
         } catch (e) {
           // If parsing fails, create a basic error object
           errorData = { 
@@ -168,12 +180,27 @@ export const apiClient = {
         const error = new Error(errorData.message || `API request failed with status ${response.status}`);
         error.status = response.status;
         error.details = errorData;
+        error.allow = allowHeader;
+        error.responseHeaders = {
+          allow: allowHeader,
+          contentType: responseContentType,
+          cfRay: response.headers.get('cf-ray'),
+          xRailwayRequestId: response.headers.get('x-railway-request-id')
+        };
         error.url = url;
         error.requestOptions = {
           method: options.method || 'GET',
           headers: headers,
           hasFormData: requestOptions.body instanceof FormData
         };
+
+        if (response.status === 405) {
+          console.error('405 Method Not Allowed details:', {
+            allow: allowHeader,
+            responseHeaders: error.responseHeaders,
+            url
+          });
+        }
         throw error;
       }
       
