@@ -311,13 +311,19 @@ const EditListing = () => {
       }
       
       let response;
-      const updateMethods = ['PUT', 'PATCH', 'POST'];
+      const updateAttempts = [
+        { endpoint: `/api/cars/${id}`, method: 'PUT' },
+        { endpoint: `/api/cars/${id}`, method: 'PATCH' },
+        { endpoint: `/api/cars/${id}`, method: 'POST' },
+        // Fallback alias for environments that block methods on /api/cars/:id.
+        { endpoint: `/api/cars/${id}/update`, method: 'POST' }
+      ];
       let lastError = null;
 
-      for (const method of updateMethods) {
+      for (const attempt of updateAttempts) {
         try {
-          response = await apiClient.request(`/api/cars/${id}`, {
-            method,
+          response = await apiClient.request(attempt.endpoint, {
+            method: attempt.method,
             body: formDataToSend
           });
           break;

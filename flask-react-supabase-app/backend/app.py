@@ -1987,6 +1987,7 @@ def create_car(current_user):
 
 
 # Handle OPTIONS preflight for car update
+@app.route("/api/cars/<string:car_id>/update", methods=["OPTIONS"])
 @app.route("/api/cars/<string:car_id>", methods=["OPTIONS"])
 def update_car_options(car_id):
     response = make_response()
@@ -2005,6 +2006,7 @@ def update_car_options(car_id):
 
 # Update a car listing (authenticated)
 # Accept PUT/PATCH/POST for compatibility with method-restrictive proxies.
+@app.route("/api/cars/<string:car_id>/update", methods=["POST"])
 @app.route("/api/cars/<string:car_id>", methods=["PUT", "PATCH", "POST"])
 @token_required
 def update_car(current_user, car_id):
