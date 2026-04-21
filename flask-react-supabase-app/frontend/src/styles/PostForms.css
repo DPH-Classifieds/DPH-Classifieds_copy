@@ -409,7 +409,7 @@
 /* Car flow uses the same frame as ad detail hero images (16:10). */
 .car-framing-grid .preview-item,
 .preview-item.car-framing-preview {
-  aspect-ratio: 16 / 10;
+  aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
 }
 
 .preview-order {
@@ -645,6 +645,13 @@
   gap: 8px;
 }
 
+.form-group.field-error-highlight {
+  border-radius: 16px;
+  outline: 2px solid rgba(255, 180, 171, 0.72);
+  outline-offset: 4px;
+  animation: fieldHighlightPulse 1.2s ease;
+}
+
 .form-group label {
   font-size: 0.75rem;
   font-weight: 600;
@@ -681,6 +688,14 @@
   min-height: 140px;
   padding: 16px;
   resize: vertical;
+}
+
+.description-word-counter {
+  margin-top: 4px;
+}
+
+.vin-help-text {
+  color: rgba(236, 245, 238, 0.82);
 }
 
 /* Checkboxes */
@@ -854,6 +869,11 @@
   color: rgba(237, 247, 238, 0.84);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.phone-number-input,
+.phone-number-input::placeholder {
+  color: rgba(226, 239, 229, 0.76);
 }
 
 .location-search-container {
@@ -1195,6 +1215,15 @@
   place-items: center;
   background: rgba(2, 7, 4, 0.72);
   backdrop-filter: blur(14px);
+}
+
+@keyframes fieldHighlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 180, 171, 0.28);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(255, 180, 171, 0);
+  }
 }
 
 /* Mobile Responsive */

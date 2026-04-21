@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
@@ -20,10 +20,12 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
+const MAX_DESCRIPTION_WORDS = 300;
 
 const EditListing = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const formRef = useRef(null);
   
   const [formData, setFormData] = useState({
     listing_title: '',
@@ -71,12 +73,71 @@ const EditListing = () => {
   const [newImages, setNewImages] = useState([]);
   const [newImagePreviews, setNewImagePreviews] = useState([]);
   const [newImageCropSettings, setNewImageCropSettings] = useState([]);
+  const [otherFuelType, setOtherFuelType] = useState('');
   const [showFramingModal, setShowFramingModal] = useState(false);
   const [activeFramingIndex, setActiveFramingIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const yearOptions = getYearOptions();
+
+  const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
+  const limitWords = (text, maxWords) => {
+    const words = text.trim().match(/\S+/g) || [];
+    if (words.length <= maxWords) return text;
+    return words.slice(0, maxWords).join(' ');
+  };
+  const descriptionWordCount = countWords(formData.description || '');
+
+  const clearFieldHighlights = () => {
+    if (!formRef.current) return;
+    formRef.current.querySelectorAll('.field-error-highlight').forEach((node) => {
+      node.classList.remove('field-error-highlight');
+    });
+    formRef.current.querySelectorAll('[aria-invalid="true"]').forEach((node) => {
+      node.removeAttribute('aria-invalid');
+    });
+  };
+
+  const focusAndHighlightField = (target) => {
+    const fieldElement =
+      typeof target === 'string'
+        ? formRef.current?.querySelector(`#${target}, [name="${target}"]`)
+        : target;
+    if (!fieldElement) return;
+
+    clearFieldHighlights();
+    fieldElement.setAttribute('aria-invalid', 'true');
+    fieldElement.closest('.form-group')?.classList.add('field-error-highlight');
+
+    const searchableSelectWrapper = fieldElement.closest('.searchable-select-wrapper');
+    if (searchableSelectWrapper) {
+      const control = searchableSelectWrapper.querySelector('.searchable-select__control');
+      if (control) {
+        control.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        control.focus?.();
+        control.click();
+        return;
+      }
+    }
+
+    fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    fieldElement.focus?.();
+  };
+
+  const getFirstInvalidRequiredField = () => {
+    if (!formRef.current) return null;
+    const requiredFields = Array.from(formRef.current.querySelectorAll('[required]'));
+    for (const field of requiredFields) {
+      if (field.disabled) continue;
+      if (field.type === 'checkbox' && !field.checked) return field;
+      if (field.type !== 'checkbox' && String(field.value || '').trim() === '') return field;
+    }
+    if (formData.fuel_type === 'Other' && !otherFuelType.trim()) {
+      return formRef.current.querySelector('#other_fuel_type');
+    }
+    return null;
+  };
   
   // Fetch the listing data when component mounts
   useEffect(() => {
@@ -102,6 +163,9 @@ const EditListing = () => {
       }
       
       const data = await response.json();
+      const fuelValue = data.fuel_type || '';
+      const hasCustomFuel = typeof fuelValue === 'string' && fuelValue.toLowerCase().startsWith('other - ');
+      const parsedOtherFuelType = hasCustomFuel ? fuelValue.slice(8).trim() : '';
       
       // Format the data for the form
       setFormData({
@@ -125,7 +189,7 @@ const EditListing = () => {
         contact_email: data.contact_email || data.user_email || '',
         vin_number: data.vin_number || '',
         body_type: data.body_type || '',
-        fuel_type: data.fuel_type || '',
+        fuel_type: hasCustomFuel ? 'Other' : fuelValue,
         transmission_type: data.transmission_type || '',
         regional_spec: data.regional_spec || '',
         seating_capacity: data.seating_capacity || '',
@@ -144,6 +208,7 @@ const EditListing = () => {
         parking_sensors: data.parking_sensors || false,
         rear_view_camera: data.rear_view_camera || false
       });
+      setOtherFuelType(parsedOtherFuelType);
       
       // Set the existing images
       if (data.images && data.images.length > 0) {
@@ -160,6 +225,7 @@ const EditListing = () => {
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    clearFieldHighlights();
 
     if (name === 'emirate') {
       setFormData((prev) => ({
@@ -181,6 +247,18 @@ const EditListing = () => {
         [name]: value === '' ? '' : Number(value)
       });
     } else {
+      if (name === 'description') {
+        setFormData({
+          ...formData,
+          [name]: limitWords(value, MAX_DESCRIPTION_WORDS)
+        });
+        return;
+      }
+
+      if (name === 'fuel_type' && value !== 'Other') {
+        setOtherFuelType('');
+      }
+
       setFormData({
         ...formData,
         [name]: value
@@ -269,6 +347,15 @@ const EditListing = () => {
   
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const invalidField = getFirstInvalidRequiredField();
+    if (invalidField) {
+      setError('Please complete the highlighted fields before updating your listing.');
+      focusAndHighlightField(invalidField);
+      return;
+    }
+
+    clearFieldHighlights();
     setSubmitting(true);
     setError(null);
     
@@ -288,6 +375,10 @@ const EditListing = () => {
           formDataToSend.append(key, value);
         }
       });
+
+      if (formData.fuel_type === 'Other') {
+        formDataToSend.set('fuel_type', `Other - ${otherFuelType.trim()}`);
+      }
       
       // Add image IDs to keep
       images.forEach(image => {
@@ -381,7 +472,7 @@ const EditListing = () => {
       
       {error && <div className="alert alert-danger">{error}</div>}
       
-      <form className="create-listing-form" onSubmit={handleSubmit}>
+      <form className="create-listing-form" onSubmit={handleSubmit} ref={formRef} noValidate>
         <div className="form-section">
           <h2>Basic Information</h2>
           
@@ -464,14 +555,14 @@ const EditListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="mileage">Mileage</label>
+              <label htmlFor="mileage">Mileage (km)</label>
               <input
                 type="number"
                 id="mileage"
                 name="mileage"
                 value={formData.mileage}
                 onChange={handleChange}
-                placeholder="e.g. 35000"
+                placeholder="e.g. 35000 km"
                 min="0"
                 required
               />
@@ -586,7 +677,7 @@ const EditListing = () => {
                     borderBottom: '1px dotted #666'
                   }}
                 >
-                  VIN
+                  VIN *
                 </span>
               </label>
               <input
@@ -598,9 +689,10 @@ const EditListing = () => {
                 placeholder="Vehicle Identification Number (17 characters)"
                 maxLength="17"
                 style={{ textTransform: 'uppercase' }}
+                required
               />
-              <small className="form-text text-muted">
-                <strong>Where to find:</strong> Registration, insurance docs, dashboard, door jamb, or under hood
+              <small className="form-text vin-help-text">
+                <strong>VIN helps your listing stand out:</strong> verified VIN details increase buyer trust and improve listing quality. <strong>Where to find it:</strong> registration, insurance docs, dashboard, door jamb, or under hood.
               </small>
             </div>
             
@@ -658,6 +750,26 @@ const EditListing = () => {
               </SearchableSelect>
             </div>
           </div>
+
+          {formData.fuel_type === 'Other' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="other_fuel_type">Specify Fuel Type *</label>
+                <input
+                  type="text"
+                  id="other_fuel_type"
+                  name="other_fuel_type"
+                  value={otherFuelType}
+                  onChange={(event) => {
+                    clearFieldHighlights();
+                    setOtherFuelType(event.target.value);
+                  }}
+                  placeholder="Enter specific fuel type"
+                  required
+                />
+              </div>
+            </div>
+          )}
           
           <div className="form-row">
             <div className="form-group">
@@ -766,6 +878,9 @@ const EditListing = () => {
                 rows="6"
                 required
               ></textarea>
+              <small className="form-text description-word-counter">
+                {descriptionWordCount}/{MAX_DESCRIPTION_WORDS} words
+              </small>
             </div>
           </div>
         </div>
@@ -977,6 +1092,7 @@ const EditListing = () => {
                 value={formData.contact_phone}
                 onChange={handleChange}
                 placeholder="e.g. 555-123-4567"
+                className="phone-number-input"
               />
             </div>
           </div>
@@ -1007,7 +1123,13 @@ const EditListing = () => {
               <div className="image-preview-container listing-framing-grid">
                 {images.map((image, index) => (
                   <div key={image.id} className="image-preview listing-framing-preview">
-                    <img src={image.image_url || image.url} alt={`Car ${index + 1}`} />
+                    <img
+                      src={image.display_url || image.image_url || image.url}
+                      alt={`Car ${index + 1}`}
+                      style={{
+                        objectPosition: `${Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50}% ${Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50}%`
+                      }}
+                    />
                     <button
                       type="button"
                       className="remove-image-btn"
@@ -1053,7 +1175,15 @@ const EditListing = () => {
               <div className="image-preview-container listing-framing-grid">
                 {newImages.map((image, index) => (
                   <div key={index} className="image-preview listing-framing-preview">
-                    <img src={newImagePreviews[index]} alt={`New ${index + 1}`} />
+                    <img
+                      src={newImagePreviews[index]}
+                      alt={`New ${index + 1}`}
+                      style={{
+                        objectPosition: `${newImageCropSettings[index]?.focalX ?? 50}% ${newImageCropSettings[index]?.focalY ?? 50}%`,
+                        transform: `scale(${newImageCropSettings[index]?.zoom ?? 1})`,
+                        transformOrigin: 'center'
+                      }}
+                    />
                     <button
                       type="button"
                       className="remove-image-btn"

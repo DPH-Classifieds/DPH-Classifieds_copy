@@ -36,6 +36,8 @@ L.Marker.prototype.options.icon = DefaultIcon;
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
+const MAX_DESCRIPTION_WORDS = 300;
+const DEFAULT_MAP_POSITION = [25.276987, 55.296249];
 
 const PostCar = () => {
   const navigate = useNavigate();
@@ -45,15 +47,17 @@ const PostCar = () => {
   const [success, setSuccess] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [availableModels, setAvailableModels] = useState([]);
+  const formRef = useRef(null);
   const locationInputRef = useRef(null);
-  const [showExtras, setShowExtras] = useState(false);
+  const [showExtras, setShowExtras] = useState(true);
+  const [otherFuelType, setOtherFuelType] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
   const [imageCropSettings, setImageCropSettings] = useState([]);
   const [showFramingModal, setShowFramingModal] = useState(false);
   const [activeFramingIndex, setActiveFramingIndex] = useState(0);
-  const [mapPosition, setMapPosition] = useState([25.276987, 55.296249]); // Default to Dubai coordinates
-  const [marker, setMarker] = useState([25.276987, 55.296249]);
+  const [mapPosition, setMapPosition] = useState(DEFAULT_MAP_POSITION); // Default to Dubai coordinates
+  const [marker, setMarker] = useState(DEFAULT_MAP_POSITION);
   
   // Enhanced map features state
   const [addressSuggestions, setAddressSuggestions] = useState([]);
@@ -92,8 +96,8 @@ const PostCar = () => {
     warranty: '',
     service_history: '',
     car_location: '',
-    latitude: null,
-    longitude: null,
+    latitude: DEFAULT_MAP_POSITION[0],
+    longitude: DEFAULT_MAP_POSITION[1],
     vehicle_type: 'Used',
     vin_number: '',
     is_dealer: false,
@@ -111,6 +115,77 @@ const PostCar = () => {
   const horsepowerRanges = ['>100', '100-199', '200-299', '300-399', '400-499', '500-599', '600-699', '700-799', '800-899', '900-999', '1000+'];
   const engineCapacities = ['0-999cc', '1000cc-1499cc', '1500cc-1999cc', '2000cc-2999cc', '3000cc-3999cc', '4000cc-4999cc', '5000cc-5999cc', '6000cc-6999cc', '7000cc-7999cc', '8000cc+'];
   const yearOptions = getYearOptions();
+
+  const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
+
+  const limitWords = (text, maxWords) => {
+    const words = text.trim().match(/\S+/g) || [];
+    if (words.length <= maxWords) {
+      return text;
+    }
+    return words.slice(0, maxWords).join(' ');
+  };
+
+  const clearFieldHighlights = () => {
+    if (!formRef.current) return;
+    formRef.current.querySelectorAll('.field-error-highlight').forEach((node) => {
+      node.classList.remove('field-error-highlight');
+    });
+    formRef.current.querySelectorAll('[aria-invalid="true"]').forEach((node) => {
+      node.removeAttribute('aria-invalid');
+    });
+  };
+
+  const focusAndHighlightField = (target) => {
+    const fieldElement =
+      typeof target === 'string'
+        ? formRef.current?.querySelector(`#${target}, [name="${target}"]`)
+        : target;
+
+    if (!fieldElement) return;
+
+    clearFieldHighlights();
+    fieldElement.setAttribute('aria-invalid', 'true');
+    fieldElement.closest('.form-group')?.classList.add('field-error-highlight');
+
+    const searchableSelectWrapper = fieldElement.closest('.searchable-select-wrapper');
+    if (searchableSelectWrapper) {
+      const control = searchableSelectWrapper.querySelector('.searchable-select__control');
+      if (control) {
+        control.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        control.focus?.();
+        control.click();
+        return;
+      }
+    }
+
+    fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    fieldElement.focus?.();
+  };
+
+  const getFirstInvalidRequiredField = () => {
+    if (!formRef.current) return null;
+
+    const requiredFields = Array.from(formRef.current.querySelectorAll('[required]'));
+    for (const field of requiredFields) {
+      if (field.disabled) continue;
+      if (field.type === 'checkbox' && !field.checked) return field;
+      if (field.type !== 'checkbox' && String(field.value || '').trim() === '') return field;
+    }
+
+    if (formData.fuel_type === 'Other' && !otherFuelType.trim()) {
+      return formRef.current.querySelector('#other_fuel_type');
+    }
+
+    if (!formData.car_location.trim() || !formData.latitude || !formData.longitude) {
+      return locationInputRef.current;
+    }
+
+    return null;
+  };
+
+  const descriptionWordCount = countWords(formData.car_description || '');
+
   // Organized car extras by category
   const carExtrasCategories = {
     'Comfort & Convenience': [
@@ -299,6 +374,7 @@ const PostCar = () => {
     setGeoError(null);
     setFormData(prev => ({
       ...prev,
+      car_location: prev.car_location || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
       latitude: lat,
       longitude: lng
     }));
@@ -403,6 +479,7 @@ const PostCar = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    clearFieldHighlights();
 
     if (name === 'car_city') {
       setFormData((prev) => ({
@@ -433,6 +510,15 @@ const PostCar = () => {
         setFormData(prev => ({ ...prev, [name]: checked }));
       }
     } else {
+      if (name === 'car_description') {
+        setFormData(prev => ({ ...prev, [name]: limitWords(value, MAX_DESCRIPTION_WORDS) }));
+        return;
+      }
+
+      if (name === 'fuel_type' && value !== 'Other') {
+        setOtherFuelType('');
+      }
+
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
@@ -690,10 +776,21 @@ const PostCar = () => {
       setShowAuthModal(true);
       return;
     }
-    if (selectedFiles.length === 0) {
-      setError('You must upload at least one image of your car.');
+
+    const invalidField = getFirstInvalidRequiredField();
+    if (invalidField) {
+      setError('Please complete the highlighted fields before submitting your listing.');
+      focusAndHighlightField(invalidField);
       return;
     }
+    clearFieldHighlights();
+
+    if (selectedFiles.length === 0) {
+      setError('You must upload at least one image of your car.');
+      focusAndHighlightField('images');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
@@ -709,6 +806,10 @@ const PostCar = () => {
       // Prepare submission data with image URLs
       const submissionData = {
         ...formData,
+        fuel_type:
+          formData.fuel_type === 'Other' ? `Other - ${otherFuelType.trim()}` : formData.fuel_type,
+        latitude: marker[0],
+        longitude: marker[1],
         images: uploadedImages
       };
       
@@ -776,7 +877,7 @@ const PostCar = () => {
       <section className="post-form-section">
         <div className="form-container">
           {error && <div className="form-error-message">{error}</div>}
-          <form onSubmit={handleSubmit} id="carDetailsForm">
+          <form onSubmit={handleSubmit} id="carDetailsForm" ref={formRef} noValidate>
         <div className="form-section">
           <h2>Car Details</h2>
           
@@ -929,7 +1030,7 @@ const PostCar = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="kilometer_driven">Kilometers *</label>
+              <label htmlFor="kilometer_driven">Mileage (km) *</label>
               <input
                 type="number"
                 id="kilometer_driven"
@@ -938,6 +1039,7 @@ const PostCar = () => {
                 onChange={handleChange}
                 min="0"
                 required
+                placeholder="Enter mileage in km"
                 className="form-control"
               />
             </div>
@@ -1014,7 +1116,7 @@ const PostCar = () => {
                   value={formData.car_owner_phone_number}
                   onChange={handleChange}
                   required
-                  placeholder="501234567"
+                  placeholder="Phone number"
                   className="form-control phone-number-input"
                 />
               </div>
@@ -1049,6 +1151,9 @@ const PostCar = () => {
                 placeholder="Describe your car"
                 className="form-control"
               ></textarea>
+              <div className="form-text description-word-counter">
+                {descriptionWordCount}/{MAX_DESCRIPTION_WORDS} words
+              </div>
             </div>
           </div>
 
@@ -1097,6 +1202,25 @@ const PostCar = () => {
               </SearchableSelect>
               <div className="form-text text-danger">This field is required.</div>
             </div>
+
+            {formData.fuel_type === 'Other' && (
+              <div className="form-group">
+                <label htmlFor="other_fuel_type">Specify Fuel Type *</label>
+                <input
+                  type="text"
+                  id="other_fuel_type"
+                  name="other_fuel_type"
+                  value={otherFuelType}
+                  onChange={(event) => {
+                    clearFieldHighlights();
+                    setOtherFuelType(event.target.value);
+                  }}
+                  placeholder="Enter specific fuel type"
+                  className="form-control"
+                  required
+                />
+              </div>
+            )}
             
             <div className="form-group">
               <label htmlFor="transmission_type">Transmission Type *</label>
@@ -1304,7 +1428,7 @@ const PostCar = () => {
                 required
               />
               <div className="form-text">
-                <strong>Where to find your VIN:</strong> Check your vehicle registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.
+                <strong>VIN helps your listing stand out:</strong> verified VIN details increase buyer trust and improve listing quality. <span className="vin-help-text"><strong>Where to find it:</strong> check your registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.</span>
               </div>
             </div>
           </div>
@@ -1315,6 +1439,7 @@ const PostCar = () => {
               <button type="button" className="text-danger extras-toggle" onClick={toggleExtras}>
                 {showExtras ? 'Show less ▲' : 'Show all ▼'}
               </button>
+              <div className="form-text">Choose all applicable add-ons so buyers can quickly see your car's key features.</div>
               
               <div id="extrasList" style={{ display: showExtras ? 'block' : 'none' }}>
                 {Object.entries(carExtrasCategories).map(([category, extras]) => (
@@ -1348,7 +1473,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group full-width">
-              <label htmlFor="car_location">Locate your car <span className="text-muted">(Optional)</span></label>
+              <label htmlFor="car_location">Locate your car *</label>
               
               <div className="location-search-container">
                 <div className="search-input-wrapper">
@@ -1366,6 +1491,7 @@ const PostCar = () => {
                     placeholder="Search for an address in UAE..."
                     className="form-control location-search-input"
                     ref={locationInputRef}
+                    required
                     autoComplete="off"
                   />
                 {isGeocoding && (
@@ -1437,7 +1563,6 @@ const PostCar = () => {
                   zoom={13} 
                   scrollWheelZoom={false}
                   style={{ height: '100%', width: '100%' }}
-                  key={`${mapPosition[0]}-${mapPosition[1]}`}
                 >
                   <TileLayer
                     attribution='&copy; OpenStreetMap contributors &copy; CARTO'
@@ -1480,6 +1605,7 @@ const PostCar = () => {
                   multiple
                   onChange={handleFileChange}
                   className="file-input"
+                  id="images"
                 />
                 <button type="button" className="browse-btn" onClick={handleBrowseClick}>
                   Browse Files
@@ -1501,7 +1627,15 @@ const PostCar = () => {
                       onDragEnd={handleImageDragEnd}
                     >
                       <div className="preview-order">{index + 1}</div>
-                      <img src={preview} alt={`Preview ${index + 1}`} />
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        style={{
+                          objectPosition: `${imageCropSettings[index]?.focalX ?? 50}% ${imageCropSettings[index]?.focalY ?? 50}%`,
+                          transform: `scale(${imageCropSettings[index]?.zoom ?? 1})`,
+                          transformOrigin: 'center'
+                        }}
+                      />
                       <button 
                         type="button" 
                         className="remove-btn"

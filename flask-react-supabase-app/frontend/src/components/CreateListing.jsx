@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -8,12 +8,15 @@ import { getYearOptions } from '../utils/listingConstants';
 import '../styles/CreateListing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const MAX_DESCRIPTION_WORDS = 300;
 
 const CreateListing = () => {
   const navigate = useNavigate();
+  const formRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [otherFuelType, setOtherFuelType] = useState('');
   const [formData, setFormData] = useState({
     car_manufacturer: '',
     car_model: '',
@@ -56,8 +59,7 @@ const CreateListing = () => {
   
   // Fuel types for dropdown
   const fuelTypes = [
-    'Gasoline', 'Diesel', 'Hybrid', 'Electric', 'Plug-in Hybrid',
-    'Natural Gas', 'Flex Fuel', 'Other'
+    'Petrol', 'Diesel', 'Electric', 'Hybrid', 'Other'
   ];
   
   // Transmission types for dropdown
@@ -65,14 +67,92 @@ const CreateListing = () => {
     'Automatic', 'Manual'
   ];
   const yearOptions = getYearOptions();
+
+  const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
+  const limitWords = (text, maxWords) => {
+    const words = text.trim().match(/\S+/g) || [];
+    if (words.length <= maxWords) return text;
+    return words.slice(0, maxWords).join(' ');
+  };
+  const descriptionWordCount = countWords(formData.car_description || '');
+
+  const clearFieldHighlights = () => {
+    if (!formRef.current) return;
+    formRef.current.querySelectorAll('.field-error-highlight').forEach((node) => {
+      node.classList.remove('field-error-highlight');
+    });
+    formRef.current.querySelectorAll('[aria-invalid="true"]').forEach((node) => {
+      node.removeAttribute('aria-invalid');
+    });
+  };
+
+  const focusAndHighlightField = (target) => {
+    const fieldElement =
+      typeof target === 'string'
+        ? formRef.current?.querySelector(`#${target}, [name="${target}"]`)
+        : target;
+    if (!fieldElement) return;
+
+    clearFieldHighlights();
+    fieldElement.setAttribute('aria-invalid', 'true');
+    fieldElement.closest('.form-group')?.classList.add('field-error-highlight');
+
+    const searchableSelectWrapper = fieldElement.closest('.searchable-select-wrapper');
+    if (searchableSelectWrapper) {
+      const control = searchableSelectWrapper.querySelector('.searchable-select__control');
+      if (control) {
+        control.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        control.focus?.();
+        control.click();
+        return;
+      }
+    }
+
+    fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    fieldElement.focus?.();
+  };
+
+  const getFirstInvalidRequiredField = () => {
+    if (!formRef.current) return null;
+    const requiredFields = Array.from(formRef.current.querySelectorAll('[required]'));
+    for (const field of requiredFields) {
+      if (field.disabled) continue;
+      if (field.type === 'checkbox' && !field.checked) return field;
+      if (field.type !== 'checkbox' && String(field.value || '').trim() === '') return field;
+    }
+    if (formData.fuel_type === 'Other' && !otherFuelType.trim()) {
+      return formRef.current.querySelector('#other_fuel_type');
+    }
+    return null;
+  };
   
   const handleChange = (e) => {
     const { name, value } = e.target;
+    clearFieldHighlights();
+
+    if (name === 'car_description') {
+      setFormData(prev => ({ ...prev, [name]: limitWords(value, MAX_DESCRIPTION_WORDS) }));
+      return;
+    }
+
+    if (name === 'fuel_type' && value !== 'Other') {
+      setOtherFuelType('');
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const invalidField = getFirstInvalidRequiredField();
+    if (invalidField) {
+      setError('Please complete the highlighted fields before submitting.');
+      focusAndHighlightField(invalidField);
+      return;
+    }
+
+    clearFieldHighlights();
     setLoading(true);
     setError(null);
     
@@ -87,6 +167,9 @@ const CreateListing = () => {
       
       // Format the data for submission
       const submitData = { ...formData };
+      if (submitData.fuel_type === 'Other') {
+        submitData.fuel_type = `Other - ${otherFuelType.trim()}`;
+      }
       
       // Convert numeric fields
       if (submitData.make_year) submitData.make_year = parseInt(submitData.make_year);
@@ -133,7 +216,7 @@ const CreateListing = () => {
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="create-listing-form">
+      <form onSubmit={handleSubmit} className="create-listing-form" ref={formRef} noValidate>
         <div className="form-section">
           <h2>Car Details</h2>
           
@@ -236,14 +319,14 @@ const CreateListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="mileage">Mileage</label>
+              <label htmlFor="mileage">Mileage (km)</label>
               <input 
                 type="number" 
                 id="mileage" 
                 name="mileage" 
                 value={formData.mileage} 
                 onChange={handleChange} 
-                placeholder="Current odometer reading"
+                placeholder="Current odometer reading in km"
                 min="0"
               />
             </div>
@@ -263,6 +346,26 @@ const CreateListing = () => {
               </SearchableSelect>
             </div>
           </div>
+
+          {formData.fuel_type === 'Other' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="other_fuel_type">Specify Fuel Type *</label>
+                <input
+                  type="text"
+                  id="other_fuel_type"
+                  name="other_fuel_type"
+                  value={otherFuelType}
+                  onChange={(event) => {
+                    clearFieldHighlights();
+                    setOtherFuelType(event.target.value);
+                  }}
+                  placeholder="Enter specific fuel type"
+                  required
+                />
+              </div>
+            </div>
+          )}
           
           <div className="form-row">
             <div className="form-group">
@@ -321,18 +424,6 @@ const CreateListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="engine">Engine</label>
-              <input 
-                type="text" 
-                id="engine" 
-                name="engine" 
-                value={formData.engine} 
-                onChange={handleChange} 
-                placeholder="e.g., 2.0L Turbo, V6 3.5L"
-              />
-            </div>
-            
-            <div className="form-group">
               <label htmlFor="vin_number">
                 <span 
                   className="vin-label-tooltip"
@@ -342,7 +433,7 @@ const CreateListing = () => {
                     borderBottom: '1px dotted #666'
                   }}
                 >
-                  VIN
+                  VIN *
                 </span> <span className="text-muted">(Vehicle Identification Number)</span>
               </label>
               <input 
@@ -357,9 +448,10 @@ const CreateListing = () => {
                 placeholder="e.g., 1HGCM82633A123456"
                 style={{ textTransform: 'uppercase' }}
                 maxLength="17"
+                required
               />
-              <small className="form-text text-muted">
-                <strong>Where to find your VIN:</strong> Check your vehicle registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.
+              <small className="form-text vin-help-text">
+                <strong>VIN helps your listing stand out:</strong> verified VIN details increase buyer trust and improve listing quality. <strong>Where to find it:</strong> check your registration, insurance documents, dashboard, door jamb, or under the hood.
               </small>
             </div>
           </div>
@@ -374,6 +466,9 @@ const CreateListing = () => {
               placeholder="Provide details about your car's condition, features, history, etc."
               rows="5"
             />
+            <small className="form-text description-word-counter">
+              {descriptionWordCount}/{MAX_DESCRIPTION_WORDS} words
+            </small>
           </div>
         </div>
         

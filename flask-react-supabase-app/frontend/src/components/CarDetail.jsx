@@ -5,6 +5,7 @@ import axios from 'axios';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
+import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -30,6 +31,19 @@ const UAE_CITY_COORDINATES = {
   'umm al quwain': [25.5647, 55.5552],
   'ras al khaimah': [25.7895, 55.9432],
   fujairah: [25.1288, 56.3265]
+};
+
+const EXTRA_BOOLEAN_LABELS = {
+  climate_control: 'Climate Control',
+  dvd_player: 'DVD Player',
+  keyless_entry: 'Keyless Entry',
+  navigation_system: 'Navigation System',
+  premium_sound_system: 'Premium Sound System',
+  cooled_seats: 'Cooled Seats',
+  front_wheel_drive: 'Front Wheel Drive',
+  leather_seats: 'Leather Seats',
+  parking_sensors: 'Parking Sensors',
+  rear_view_camera: 'Rear View Camera'
 };
 
 const CarDetail = () => {
@@ -240,6 +254,16 @@ const CarDetail = () => {
     return null;
   };
 
+  const getDisplayExtras = () => {
+    if (Array.isArray(car?.extras) && car.extras.length > 0) {
+      return car.extras;
+    }
+
+    return Object.entries(EXTRA_BOOLEAN_LABELS)
+      .filter(([key]) => Boolean(car?.[key]))
+      .map(([, label]) => label);
+  };
+
   const goBack = () => {
     navigate(-1);
   };
@@ -271,6 +295,7 @@ const CarDetail = () => {
   const galleryImages = getGalleryImages();
   const locationMapConfig = getLocationMapConfig();
   const listingArea = car?.area || car?.car_location || null;
+  const displayExtras = getDisplayExtras();
 
   return (
     <div className="cd-container">
@@ -468,7 +493,10 @@ const CarDetail = () => {
                   ['Transmission', car?.transmission_type || 'N/A'],
                   ['Cylinders', car?.cylinders || 'N/A'],
                   ['Horsepower', car?.horsepower || 'N/A'],
+                  ['Engine', car?.engine_capacity || 'N/A'],
                   ['Doors', car?.doors || 'N/A'],
+                  ['Seating Capacity', car?.seating_capacity || 'N/A'],
+                  ['Steering Side', car?.steering_side || 'N/A'],
                   ['Regional Specs', car?.regional_spec || 'N/A'],
                   ['Warranty', car?.warranty || 'N/A'],
                   ['Service History', car?.service_history || 'N/A']
@@ -485,9 +513,9 @@ const CarDetail = () => {
               <div className="cd-section-header">
                 <h3 className="cd-section-title">Extras & Features</h3>
               </div>
-              {car?.extras && car.extras.length > 0 ? (
+              {displayExtras.length > 0 ? (
                 <div className="cd-extras-grid">
-                  {car.extras.map((extra, index) => (
+                  {displayExtras.map((extra, index) => (
                     <div key={index} className="cd-extra-item">
                       <span className="cd-extra-dot"></span>
                       {extra}
@@ -515,19 +543,42 @@ const CarDetail = () => {
                 <span>{car?.car_city || 'UAE'}</span>
               </div>
               <div className="cd-location-subtitle">
-                {locationMapConfig?.approximate 
-                  ? 'Approximate city location'
-                  : 'Exact seller location'
-                }
+                {locationMapConfig?.approximate ? 'Approximate city location' : 'Pinned listing location'}
               </div>
-              <div className="cd-map-placeholder">
-                <svg className="cd-icon cd-icon-map-pin" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
-              </div>
+              {locationMapConfig ? (
+                <div className="cd-map-placeholder">
+                  <MapContainer
+                    center={locationMapConfig.center}
+                    zoom={locationMapConfig.zoom}
+                    scrollWheelZoom={false}
+                    dragging={!locationMapConfig.approximate}
+                    zoomControl={!locationMapConfig.approximate}
+                    doubleClickZoom={false}
+                    attributionControl
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer
+                      attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    />
+                    <Marker position={locationMapConfig.center} />
+                  </MapContainer>
+                </div>
+              ) : (
+                <div className="cd-map-placeholder">
+                  <svg className="cd-icon cd-icon-map-pin" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                </div>
+              )}
               <div className="cd-location-subtitle" style={{ marginTop: '0.75rem' }}>
                 Area: {listingArea || 'Not specified'}
               </div>
+              {car?.car_location && (
+                <div className="cd-location-subtitle">
+                  Address: {car.car_location}
+                </div>
+              )}
             </div>
 
             <div className="cd-card cd-loan-card">

@@ -604,6 +604,14 @@ def _validate_description_word_count(description, *, field_name="description"):
         raise ValueError(f"{field_name} must be {MAX_DESCRIPTION_WORDS} words or fewer")
 
 
+def _is_valid_car_fuel_type(value):
+    if value in CAR_FUEL_OPTIONS:
+        return True
+    if not isinstance(value, str):
+        return False
+    return value.lower().startswith("other - ") and len(value.split("-", 1)[1].strip()) > 0
+
+
 def _get_cors_origins():
     origins_env = os.getenv("CORS_ORIGINS", "")
     if origins_env:
@@ -1722,6 +1730,12 @@ def create_car(current_user):
             car_data["trim"] = car_data.get("car_variant")
         if "exterior_color" in car_data and "color" not in car_data:
             car_data["color"] = car_data.get("exterior_color")
+        if "mileage" in car_data and "kilometer_driven" not in car_data:
+            car_data["kilometer_driven"] = car_data.get("mileage")
+        if "transmission" in car_data and "transmission_type" not in car_data:
+            car_data["transmission_type"] = car_data.get("transmission")
+        if "engine" in car_data and "engine_capacity" not in car_data:
+            car_data["engine_capacity"] = car_data.get("engine")
 
         try:
             logger.info(
@@ -1762,11 +1776,11 @@ def create_car(current_user):
 
             # Validate fuel_type
             if "fuel_type" in car_data and car_data.get("fuel_type"):
-                if car_data["fuel_type"] not in CAR_FUEL_OPTIONS:
+                if not _is_valid_car_fuel_type(car_data["fuel_type"]):
                     logger.error(f"Invalid fuel_type: {car_data.get('fuel_type')}")
                     return jsonify(
                         {
-                            "error": "Fuel type must be Petrol, Diesel, Electric, Hybrid, or Other"
+                            "error": "Fuel type must be Petrol, Diesel, Electric, Hybrid, Other, or Other - <custom>"
                         }
                     ), 400
 
@@ -2138,10 +2152,10 @@ def update_car(current_user, car_id):
                     ), 400
             # Validate fuel_type if provided
             if "fuel_type" in update_data and update_data.get("fuel_type"):
-                if update_data["fuel_type"] not in CAR_FUEL_OPTIONS:
+                if not _is_valid_car_fuel_type(update_data["fuel_type"]):
                     return jsonify(
                         {
-                            "error": "Fuel type must be Petrol, Diesel, Electric, Hybrid, or Other"
+                            "error": "Fuel type must be Petrol, Diesel, Electric, Hybrid, Other, or Other - <custom>"
                         }
                     ), 400
             # Validate steering_side if provided
