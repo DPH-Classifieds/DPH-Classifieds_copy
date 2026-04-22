@@ -412,7 +412,7 @@ const EditListing = () => {
         formDataToSend.append('crop_data', JSON.stringify(cropPayload));
       }
       
-      const response = await apiClient.request(`/api/cars/${id}/update`, {
+      await apiClient.request(`/api/cars/${id}/update`, {
         method: 'POST',
         body: formDataToSend
       });
