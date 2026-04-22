@@ -1633,7 +1633,7 @@ const PostCar = () => {
                         style={{
                           objectPosition: `${imageCropSettings[index]?.focalX ?? 50}% ${imageCropSettings[index]?.focalY ?? 50}%`,
                           transform: `scale(${imageCropSettings[index]?.zoom ?? 1})`,
-                          transformOrigin: 'center'
+                          transformOrigin: `${imageCropSettings[index]?.focalX ?? 50}% ${imageCropSettings[index]?.focalY ?? 50}%`
                         }}
                       />
                       <button 

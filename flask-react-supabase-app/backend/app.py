@@ -1394,7 +1394,11 @@ def get_cars():
                     images_response, images_status = supabase_request(
                         "get",
                         "/rest/v1/car_images",
-                        params={"select": "*", "car_id": f"eq.{car_id}"},
+                        params={
+                            "select": "*",
+                            "car_id": f"eq.{car_id}",
+                            "order": "created_at.asc",
+                        },
                         use_service_role=True,
                     )
 
@@ -1553,7 +1557,9 @@ def get_car_by_id(car_id):
             f"Found car: {car.get('listing_title', 'Untitled')} (ID: {car['id']})"
         )
 
-        images_query = f"/rest/v1/car_images?car_id=eq.{car_id}&select=*"
+        images_query = (
+            f"/rest/v1/car_images?car_id=eq.{car_id}&select=*&order=created_at.asc"
+        )
         images_response, images_status = supabase_request(
             "get", images_query, use_service_role=True
         )
@@ -2320,7 +2326,11 @@ def update_car(current_user, car_id):
         images_data, images_status = supabase_request(
             "get",
             "/rest/v1/car_images",
-            params={"select": "*", "car_id": f"eq.{car_id}"},
+            params={
+                "select": "*",
+                "car_id": f"eq.{car_id}",
+                "order": "created_at.asc",
+            },
             user_id=current_user,
         )
 
@@ -6199,7 +6209,11 @@ def admin_get_cars(current_user):
                 images_response, images_status = supabase_request(
                     "get",
                     "/rest/v1/car_images",
-                    params={"select": "*", "car_id": f"eq.{car_id}"},
+                    params={
+                        "select": "*",
+                        "car_id": f"eq.{car_id}",
+                        "order": "created_at.asc",
+                    },
                     use_service_role=True,
                 )
 

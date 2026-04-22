@@ -106,7 +106,8 @@ const ImageFramingModal = ({
                   alt={currentImage.name || `Photo ${safeIndex + 1}`}
                   style={{
                     objectPosition: `${currentCrop.focalX ?? 50}% ${currentCrop.focalY ?? 50}%`,
-                    transform: `scale(${currentCrop.zoom ?? 1})`
+                    transform: `scale(${currentCrop.zoom ?? 1})`,
+                    transformOrigin: `${currentCrop.focalX ?? 50}% ${currentCrop.focalY ?? 50}%`
                   }}
                 />
               ) : null}
@@ -156,7 +157,8 @@ const ImageFramingModal = ({
                 alt="Mini preview"
                 style={{
                   objectPosition: `${currentCrop.focalX ?? 50}% ${currentCrop.focalY ?? 50}%`,
-                  transform: `scale(${currentCrop.zoom ?? 1})`
+                  transform: `scale(${currentCrop.zoom ?? 1})`,
+                  transformOrigin: `${currentCrop.focalX ?? 50}% ${currentCrop.focalY ?? 50}%`
                 }}
               />
             </div>

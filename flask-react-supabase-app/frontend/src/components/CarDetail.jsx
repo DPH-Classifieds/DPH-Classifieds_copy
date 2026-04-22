@@ -217,7 +217,7 @@ const CarDetail = () => {
 
   const getThumbnailUrl = (image) => {
     if (!image) return null;
-    return image.originalUrl || image.displayUrl;
+    return image.displayUrl || image.originalUrl;
   };
 
   const getDisplayTitle = () => {
