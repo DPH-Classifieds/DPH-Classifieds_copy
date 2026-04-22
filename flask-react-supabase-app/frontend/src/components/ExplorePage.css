@@ -324,7 +324,7 @@
 .explore-v2-card-media {
   position: relative;
   display: block;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.03);
 }

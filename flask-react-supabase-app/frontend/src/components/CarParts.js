@@ -165,7 +165,10 @@ const CarParts = () => {
         {filteredParts.map(part => (
           <div key={part.id} className="part-card">
             <div className="part-image">
-              <img src={part.image || part.image_url || part.images?.[0]?.image_url || part.images?.[0]?.url} alt={part.name || part.part_name} />
+              <img
+                src={part.image || part.display_url || part.image_url || part.images?.[0]?.display_url || part.images?.[0]?.image_url || part.images?.[0]?.url}
+                alt={part.name || part.part_name}
+              />
             </div>
             <div className="part-details">
               <h3>{part.name || part.part_name}</h3>

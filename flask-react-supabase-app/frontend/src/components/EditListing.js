@@ -5,6 +5,7 @@ import { getAccessToken } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import ImageFramingModal from './ImageFramingModal';
+import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import {
   CYLINDER_OPTIONS,
   DOOR_OPTIONS,
@@ -33,18 +34,19 @@ const EditListing = () => {
     car_model: '',
     car_variant: '',
     make_year: '',
-    mileage: '',
+    kilometer_driven: '',
     color: '',
     cylinders: '',
     doors: '',
     warranty: '',
     service_history: '',
     expected_selling_price: '',
-    description: '',
-    location: '',
+    car_description: '',
+    car_location: '',
     area: '',
     emirate: 'Dubai',
-    contact_phone: '',
+    country_code: defaultCountryCode,
+    car_owner_phone_number: '',
     contact_email: '',
     whatsapp_prefill_text: '',
     vin_number: '',
@@ -88,7 +90,7 @@ const EditListing = () => {
     if (words.length <= maxWords) return text;
     return words.slice(0, maxWords).join(' ');
   };
-  const descriptionWordCount = countWords(formData.description || '');
+  const descriptionWordCount = countWords(formData.car_description || '');
   const areaOptions = getAreasForEmirate(formData.emirate);
 
   const clearFieldHighlights = () => {
@@ -176,18 +178,19 @@ const EditListing = () => {
         car_model: data.car_model || '',
         car_variant: data.trim || data.car_variant || '',
         make_year: data.make_year || '',
-        mileage: data.kilometer_driven || data.mileage || '',
+        kilometer_driven: data.kilometer_driven || data.mileage || '',
         color: data.color || data.exterior_color || '',
         cylinders: data.cylinders || '',
         doors: data.doors || '',
         warranty: data.warranty || '',
         service_history: data.service_history || '',
         expected_selling_price: data.expected_selling_price || '',
-        description: data.car_description || data.description || '',
-        location: data.car_city || data.car_location || data.location || '',
+        car_description: data.car_description || data.description || '',
+        car_location: data.car_location || data.location || '',
         area: data.area || '',
         emirate: data.emirate || data.car_city || 'Dubai',
-        contact_phone: data.car_owner_phone_number || data.contact_phone || '',
+        country_code: data.country_code || defaultCountryCode,
+        car_owner_phone_number: data.car_owner_phone_number || data.contact_phone || '',
         contact_email: data.contact_email || data.user_email || '',
         whatsapp_prefill_text: data.whatsapp_prefill_text || '',
         vin_number: data.vin_number || '',
@@ -245,13 +248,17 @@ const EditListing = () => {
         ...formData,
         [name]: checked
       });
-    } else if (name === 'make_year' || name === 'mileage' || name === 'expected_selling_price') {
+    } else if (
+      name === 'make_year' ||
+      name === 'kilometer_driven' ||
+      name === 'expected_selling_price'
+    ) {
       setFormData({
         ...formData,
         [name]: value === '' ? '' : Number(value)
       });
     } else {
-      if (name === 'description') {
+      if (name === 'car_description') {
         setFormData({
           ...formData,
           [name]: limitWords(value, MAX_DESCRIPTION_WORDS)
@@ -405,42 +412,10 @@ const EditListing = () => {
         formDataToSend.append('crop_data', JSON.stringify(cropPayload));
       }
       
-      let response;
-      const updateAttempts = [
-        { endpoint: `/api/cars/${id}`, method: 'PUT' },
-        { endpoint: `/api/cars/${id}`, method: 'PATCH' },
-        { endpoint: `/api/cars/${id}`, method: 'POST' },
-        // Fallback alias for environments that block methods on /api/cars/:id.
-        { endpoint: `/api/cars/${id}/update`, method: 'POST' }
-      ];
-      let lastError = null;
-
-      for (const attempt of updateAttempts) {
-        try {
-          response = await apiClient.request(attempt.endpoint, {
-            method: attempt.method,
-            body: formDataToSend
-          });
-          break;
-        } catch (requestError) {
-          lastError = requestError;
-          const isMethodBlocked =
-            Number(requestError?.status) === 405 ||
-            String(requestError?.message || '').includes('status 405');
-
-          if (!isMethodBlocked) {
-            throw requestError;
-          }
-        }
-      }
-
-      if (!response && lastError) {
-        throw lastError;
-      }
-      
-      if (!response) {
-        throw new Error('Failed to update listing');
-      }
+      const response = await apiClient.request(`/api/cars/${id}/update`, {
+        method: 'POST',
+        body: formDataToSend
+      });
       
       // Redirect to the listing page on success
       navigate(`/cars/${id}`);
@@ -559,12 +534,12 @@ const EditListing = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="mileage">Mileage (km)</label>
+              <label htmlFor="kilometer_driven">Mileage (km)</label>
               <input
                 type="number"
-                id="mileage"
-                name="mileage"
-                value={formData.mileage}
+                id="kilometer_driven"
+                name="kilometer_driven"
+                value={formData.kilometer_driven}
                 onChange={handleChange}
                 placeholder="e.g. 35000 km"
                 min="0"
@@ -872,11 +847,11 @@ const EditListing = () => {
           
           <div className="form-row">
             <div className="form-group full-width">
-              <label htmlFor="description">Description</label>
+              <label htmlFor="car_description">Description</label>
               <textarea
-                id="description"
-                name="description"
-                value={formData.description}
+                id="car_description"
+                name="car_description"
+                value={formData.car_description}
                 onChange={handleChange}
                 placeholder="Describe your car in detail, including condition, features, history, etc."
                 rows="6"
@@ -1075,12 +1050,12 @@ const EditListing = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="location">Location Details</label>
+              <label htmlFor="car_location">Location Details</label>
               <input
                 type="text"
-                id="location"
-                name="location"
-                value={formData.location}
+                id="car_location"
+                name="car_location"
+                value={formData.car_location}
                 onChange={handleChange}
                 placeholder="e.g. Building / Street / Landmark"
                 required
@@ -1088,16 +1063,32 @@ const EditListing = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="contact_phone">Phone</label>
-              <input
-                type="tel"
-                id="contact_phone"
-                name="contact_phone"
-                value={formData.contact_phone}
-                onChange={handleChange}
-                placeholder="e.g. 555-123-4567"
-                className="phone-number-input"
-              />
+              <label htmlFor="car_owner_phone_number">Phone</label>
+              <div className="phone-input-group">
+                <SearchableSelect
+                  id="country_code"
+                  name="country_code"
+                  className="country-code-select"
+                  value={formData.country_code}
+                  onChange={handleChange}
+                >
+                  {countryCodes.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </SearchableSelect>
+                <input
+                  type="tel"
+                  id="car_owner_phone_number"
+                  name="car_owner_phone_number"
+                  value={formData.car_owner_phone_number}
+                  onChange={handleChange}
+                  placeholder="e.g. 555-123-4567"
+                  className="phone-number-input"
+                  required
+                />
+              </div>
             </div>
           </div>
           

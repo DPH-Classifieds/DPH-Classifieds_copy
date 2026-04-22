@@ -299,7 +299,7 @@
 
 .car-image {
   position: relative;
-  height: 200px;
+  aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   overflow: hidden;
   background-color: #272729;
 }
@@ -552,10 +552,6 @@
 @media (max-width: 480px) {
   .car-list-container h1 {
     font-size: 24px;
-  }
-  
-  .car-image {
-    height: 160px;
   }
   
   .car-content {
