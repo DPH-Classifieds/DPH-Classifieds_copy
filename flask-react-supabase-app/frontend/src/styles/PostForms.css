@@ -573,6 +573,20 @@
   max-width: 360px;
 }
 
+.form-actions-section .btn-secondary {
+  min-height: 50px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 255, 123, 0.34);
+  background: rgba(123, 255, 123, 0.1);
+  color: #e6ffe8;
+  font-weight: 700;
+}
+
+.form-actions-section .btn-secondary:hover {
+  filter: brightness(1.08);
+}
+
 .plate-preview-panel {
   display: flex;
   flex-direction: column;
@@ -702,6 +716,21 @@
   min-height: 140px;
   padding: 16px;
   resize: vertical;
+}
+
+.form-subsection-title {
+  margin: 12px 0 4px;
+  color: #f5fff7;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.form-subsection-desc {
+  margin: 0 0 12px;
+  color: rgba(225, 238, 230, 0.68);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .description-word-counter {

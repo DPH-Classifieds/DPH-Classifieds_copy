@@ -38,6 +38,7 @@ const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
 const MAX_DESCRIPTION_WORDS = 300;
 const DEFAULT_MAP_POSITION = [25.276987, 55.296249];
+const CAR_DRAFT_STORAGE_KEY = 'dph_post_car_draft_v2';
 
 const PostCar = () => {
   const navigate = useNavigate();
@@ -58,6 +59,7 @@ const PostCar = () => {
   const [activeFramingIndex, setActiveFramingIndex] = useState(0);
   const [mapPosition, setMapPosition] = useState(DEFAULT_MAP_POSITION); // Default to Dubai coordinates
   const [marker, setMarker] = useState(DEFAULT_MAP_POSITION);
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   
   // Enhanced map features state
   const [addressSuggestions, setAddressSuggestions] = useState([]);
@@ -101,6 +103,18 @@ const PostCar = () => {
     vehicle_type: 'Used',
     vin_number: '',
     is_dealer: false,
+    featured_listing: false,
+    ownership_status: '',
+    drivetrain: '',
+    fuel_efficiency: '',
+    top_speed: '',
+    zero_to_hundred: '',
+    torque: '',
+    interior_color: '',
+    seller_name: '',
+    whatsapp_number: '',
+    seller_email: '',
+    contact_preference: 'phone',
     extras: [],
     images: []
   });
@@ -185,6 +199,7 @@ const PostCar = () => {
   };
 
   const descriptionWordCount = countWords(formData.car_description || '');
+  const descriptionCharacterCount = (formData.car_description || '').length;
   const areaOptions = getAreasForEmirate(formData.car_city);
 
   // Organized car extras by category
@@ -275,6 +290,31 @@ const PostCar = () => {
     }
   }, [user, isLoading]);
 
+  useEffect(() => {
+    try {
+      const rawDraft = localStorage.getItem(CAR_DRAFT_STORAGE_KEY);
+      if (!rawDraft) return;
+      const draft = JSON.parse(rawDraft);
+      if (!draft || typeof draft !== 'object') return;
+
+      if (draft.formData && typeof draft.formData === 'object') {
+        setFormData((prev) => ({ ...prev, ...draft.formData }));
+      }
+      if (typeof draft.otherFuelType === 'string') {
+        setOtherFuelType(draft.otherFuelType);
+      }
+      if (Array.isArray(draft.marker) && draft.marker.length === 2) {
+        setMarker(draft.marker);
+        setMapPosition(draft.marker);
+      }
+      if (draft.formData?.listing_title) {
+        setTitleManuallyEdited(true);
+      }
+    } catch (draftError) {
+      console.warn('Failed to load car draft:', draftError);
+    }
+  }, []);
+
   // Update models when manufacturer changes
   useEffect(() => {
     if (formData.car_manufacturer) {
@@ -300,11 +340,11 @@ const PostCar = () => {
 
   // Update listing title when key fields change
   useEffect(() => {
-    if (formData.car_manufacturer && formData.car_model && formData.make_year) {
+    if (!titleManuallyEdited && formData.car_manufacturer && formData.car_model && formData.make_year) {
       const newTitle = `${formData.make_year} ${formData.car_manufacturer} ${formData.car_model}${formData.trim ? ` ${formData.trim}` : ''}`;
       setFormData(prev => ({ ...prev, listing_title: newTitle }));
     }
-  }, [formData.car_manufacturer, formData.car_model, formData.make_year, formData.trim]);
+  }, [titleManuallyEdited, formData.car_manufacturer, formData.car_model, formData.make_year, formData.trim]);
 
   // Remove Google Maps related code and replace with Leaflet
   useEffect(() => {
@@ -516,6 +556,10 @@ const PostCar = () => {
         setFormData(prev => ({ ...prev, [name]: checked }));
       }
     } else {
+      if (name === 'listing_title') {
+        setTitleManuallyEdited(true);
+      }
+
       if (name === 'car_description') {
         setFormData(prev => ({ ...prev, [name]: limitWords(value, MAX_DESCRIPTION_WORDS) }));
         return;
@@ -775,6 +819,22 @@ const PostCar = () => {
     setShowExtras(!showExtras);
   };
 
+  const handleSaveDraft = () => {
+    try {
+      const draftPayload = {
+        formData,
+        otherFuelType,
+        marker,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(CAR_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+      setError(null);
+    } catch (draftError) {
+      console.error('Failed to save car draft:', draftError);
+      setError('Could not save draft. Please try again.');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -823,6 +883,7 @@ const PostCar = () => {
       
       const response = await apiClient.post('/api/cars', submissionData);
       console.log('Car listing created:', response);
+      localStorage.removeItem(CAR_DRAFT_STORAGE_KEY);
       setSuccess(true);
       // Redirect to my listings after 2 seconds
       setTimeout(() => {
@@ -882,7 +943,7 @@ const PostCar = () => {
           {error && <div className="form-error-message">{error}</div>}
           <form onSubmit={handleSubmit} id="carDetailsForm" className="post-form" ref={formRef} noValidate>
         <div className="form-section">
-          <h2>Car Details</h2>
+          <h2>Basic Details</h2>
           
           <div className="form-row">
             <div className="form-group">
@@ -1080,6 +1141,40 @@ const PostCar = () => {
               </SearchableSelect>
             </div>
           </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="vehicle_type">Condition *</label>
+              <SearchableSelect
+                id="vehicle_type"
+                name="vehicle_type"
+                value={formData.vehicle_type}
+                onChange={handleChange}
+                required
+                className="form-control form-select"
+              >
+                <option value="Used">Used</option>
+                <option value="New">New</option>
+                <option value="Certified Pre-Owned">Certified Pre-Owned</option>
+              </SearchableSelect>
+            </div>
+            <div className="form-group">
+              <label htmlFor="ownership_status">Ownership</label>
+              <SearchableSelect
+                id="ownership_status"
+                name="ownership_status"
+                value={formData.ownership_status}
+                onChange={handleChange}
+                className="form-control form-select"
+              >
+                <option value="">Select ownership</option>
+                <option value="First Owner">First Owner</option>
+                <option value="Second Owner">Second Owner</option>
+                <option value="Third Owner or more">Third Owner or more</option>
+                <option value="Company Fleet">Company Fleet</option>
+              </SearchableSelect>
+            </div>
+          </div>
           
           <div className="form-row">
             <div className="form-group">
@@ -1141,9 +1236,48 @@ const PostCar = () => {
             </div>
           </div>
 
+          <div className="form-subsection-title">Listing Description</div>
+          <p className="form-subsection-desc">
+            Add a clear title and summary so buyers can quickly trust the listing. Mention service history, ownership, upgrades, and reason for sale.
+          </p>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="listing_title">Listing Title *</label>
+              <input
+                type="text"
+                id="listing_title"
+                name="listing_title"
+                value={formData.listing_title}
+                onChange={handleChange}
+                required
+                placeholder="2021 BMW M3 Competition"
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="featured_listing">Featured Listing</label>
+              <SearchableSelect
+                id="featured_listing"
+                name="featured_listing"
+                value={formData.featured_listing ? 'true' : 'false'}
+                onChange={(event) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    featured_listing: event.target.value === 'true',
+                  }))
+                }
+                className="form-control form-select"
+              >
+                <option value="false">Standard listing</option>
+                <option value="true">Featured listing</option>
+              </SearchableSelect>
+            </div>
+          </div>
+
           <div className="form-row">
             <div className="form-group full-width">
-              <label htmlFor="car_description">Describe your car *</label>
+              <label htmlFor="car_description">Listing Description *</label>
               <textarea
                 id="car_description"
                 name="car_description"
@@ -1151,11 +1285,11 @@ const PostCar = () => {
                 onChange={handleChange}
                 rows="5"
                 required
-                placeholder="Describe your car"
+                placeholder="Include service history, accident history, upgrades, ownership, and reason for sale."
                 className="form-control"
               ></textarea>
               <div className="form-text description-word-counter">
-                {descriptionWordCount}/{MAX_DESCRIPTION_WORDS} words
+                {descriptionWordCount}/{MAX_DESCRIPTION_WORDS} words • {descriptionCharacterCount} characters
               </div>
             </div>
           </div>
@@ -1184,7 +1318,7 @@ const PostCar = () => {
         </div>
         
         <div className="form-section">
-          <h2>Car Specifications</h2>
+          <h2>Specifications</h2>
           
           <div className="form-row">
             <div className="form-group">
@@ -1313,10 +1447,53 @@ const PostCar = () => {
               </SearchableSelect>
             </div>
           </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="drivetrain">Drivetrain</label>
+              <SearchableSelect
+                id="drivetrain"
+                name="drivetrain"
+                value={formData.drivetrain}
+                onChange={handleChange}
+                className="form-control form-select"
+              >
+                <option value="">Select drivetrain</option>
+                <option value="FWD">FWD</option>
+                <option value="RWD">RWD</option>
+                <option value="AWD">AWD</option>
+                <option value="4WD">4WD</option>
+              </SearchableSelect>
+            </div>
+            <div className="form-group">
+              <label htmlFor="fuel_efficiency">Fuel Efficiency</label>
+              <input
+                type="text"
+                id="fuel_efficiency"
+                name="fuel_efficiency"
+                value={formData.fuel_efficiency}
+                onChange={handleChange}
+                placeholder="e.g. 12.4 km/l"
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="torque">Torque</label>
+              <input
+                type="text"
+                id="torque"
+                name="torque"
+                value={formData.torque}
+                onChange={handleChange}
+                placeholder="e.g. 500 Nm"
+                className="form-control"
+              />
+            </div>
+          </div>
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="color">Color *</label>
+              <label htmlFor="color">Exterior Color *</label>
               <input
                 type="text"
                 id="color"
@@ -1325,6 +1502,18 @@ const PostCar = () => {
                 onChange={handleChange}
                 required
                 placeholder="e.g. Black"
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="interior_color">Interior Color</label>
+              <input
+                type="text"
+                id="interior_color"
+                name="interior_color"
+                value={formData.interior_color}
+                onChange={handleChange}
+                placeholder="e.g. Beige"
                 className="form-control"
               />
             </div>
@@ -1343,6 +1532,33 @@ const PostCar = () => {
                   <option key={option} value={option}>{option}</option>
                 ))}
               </SearchableSelect>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="top_speed">Top Speed</label>
+              <input
+                type="text"
+                id="top_speed"
+                name="top_speed"
+                value={formData.top_speed}
+                onChange={handleChange}
+                placeholder="e.g. 280 km/h"
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="zero_to_hundred">0 - 100 km/h</label>
+              <input
+                type="text"
+                id="zero_to_hundred"
+                name="zero_to_hundred"
+                value={formData.zero_to_hundred}
+                onChange={handleChange}
+                placeholder="e.g. 4.3 sec"
+                className="form-control"
+              />
             </div>
           </div>
 
@@ -1435,9 +1651,12 @@ const PostCar = () => {
             </div>
           </div>
           
+          <div className="form-subsection-title">Extra Features</div>
+          <p className="form-subsection-desc">Pick all options that apply. Chips stay aligned for quick scanning.</p>
+
           <div className="form-row">
             <div className="form-group full-width">
-              <label htmlFor="extras">Car Extras & Features</label>
+              <label htmlFor="extras">Extra Features</label>
               <button type="button" className="text-danger extras-toggle" onClick={toggleExtras}>
                 {showExtras ? 'Show less ▲' : 'Show all ▼'}
               </button>
@@ -1470,6 +1689,66 @@ const PostCar = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          <div className="form-subsection-title">Contact and Location</div>
+          <p className="form-subsection-desc">Enter trusted contact details and pin the exact vehicle location.</p>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="contact_preference">Contact Preference</label>
+              <SearchableSelect
+                id="contact_preference"
+                name="contact_preference"
+                value={formData.contact_preference}
+                onChange={handleChange}
+                className="form-control form-select"
+              >
+                <option value="phone">Phone</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="email">Email</option>
+                <option value="any">Any</option>
+              </SearchableSelect>
+            </div>
+            <div className="form-group">
+              <label htmlFor="seller_name">Seller Name</label>
+              <input
+                type="text"
+                id="seller_name"
+                name="seller_name"
+                value={formData.seller_name}
+                onChange={handleChange}
+                placeholder="Your full name"
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="whatsapp_number">WhatsApp Number</label>
+              <input
+                type="text"
+                id="whatsapp_number"
+                name="whatsapp_number"
+                value={formData.whatsapp_number}
+                onChange={handleChange}
+                placeholder="501234567"
+                className="form-control"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="seller_email">Email</label>
+              <input
+                type="email"
+                id="seller_email"
+                name="seller_email"
+                value={formData.seller_email}
+                onChange={handleChange}
+                placeholder="name@email.com"
+                className="form-control"
+              />
             </div>
           </div>
           
@@ -1704,7 +1983,15 @@ const PostCar = () => {
           </div>
         </div>
         
-        <div className="form-actions">
+        <div className="form-actions-section">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={isSubmitting}
+            onClick={handleSaveDraft}
+          >
+            Save Draft
+          </button>
           <button
             type="submit"
             className="btn btn-danger"
@@ -1712,6 +1999,7 @@ const PostCar = () => {
           >
             {isSubmitting ? 'Submitting...' : 'Submit Listing'}
           </button>
+          <p>Save a draft anytime and come back later. Submit when everything looks right.</p>
         </div>
         </form>
         </div>
