@@ -452,7 +452,7 @@ const Profile = () => {
               <button onClick={() => navigate('/my-listings')} className="btn btn-primary">
                 My Listings
               </button>
-              <button onClick={() => navigate('/create-listing')} className="btn btn-success">
+              <button onClick={() => navigate('/post-car')} className="btn btn-success">
                 Create Listing
               </button>
               <button onClick={() => navigate('/settings')} className="btn btn-secondary">

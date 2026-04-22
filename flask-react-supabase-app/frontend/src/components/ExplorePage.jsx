@@ -80,8 +80,10 @@ const normalizeText = (value) => (value ? String(value).trim() : '');
 
 const getPrimaryImage = (item) => {
   const candidate =
+    item?.images?.[0]?.display_url ||
     item?.images?.[0]?.image_url ||
     item?.images?.[0]?.url ||
+    item?.display_url ||
     item?.image_url ||
     item?.image ||
     item?.main_image_url ||
@@ -1102,7 +1104,7 @@ const ExplorePage = () => {
           </div>
           <p>
             {activeMode === 'all'
-              ? 'All mode stays intentionally simple: one search bar with relevance-based ranking across every live category.'
+              ? 'Search everything from one bar with relevance-based ranking across all live categories.'
               : 'Focused modes swap in category-aware controls so the filter UI only shows fields that make sense for the listings you are exploring.'}
           </p>
         </div>

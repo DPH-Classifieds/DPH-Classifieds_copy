@@ -10,10 +10,10 @@ import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import {
   CYLINDER_OPTIONS,
   DOOR_OPTIONS,
-  DUBAI_AREAS,
   SERVICE_HISTORY_OPTIONS,
   UAE_EMIRATES,
   WARRANTY_OPTIONS,
+  getAreasForEmirate,
   getYearOptions
 } from '../utils/listingConstants';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
@@ -185,6 +185,7 @@ const PostCar = () => {
   };
 
   const descriptionWordCount = countWords(formData.car_description || '');
+  const areaOptions = getAreasForEmirate(formData.car_city);
 
   // Organized car extras by category
   const carExtrasCategories = {
@@ -244,6 +245,10 @@ const PostCar = () => {
       'Off-Road Camera Modes',
       'All-Terrain Drive Modes (Sand, Rock, Mud, Snow)',
       'Tow Hook / Recovery Package'
+    ],
+    'Seller Notes': [
+      'Lady Driven',
+      'Mallu Doctor Driven'
     ]
   };
 
@@ -482,11 +487,12 @@ const PostCar = () => {
     clearFieldHighlights();
 
     if (name === 'car_city') {
+      const nextAreas = getAreasForEmirate(value);
       setFormData((prev) => ({
         ...prev,
         car_city: value,
         emirate: value,
-        area: value === 'Dubai' ? prev.area : ''
+        area: nextAreas.includes(prev.area) ? prev.area : ''
       }));
       return;
     }
@@ -899,7 +905,7 @@ const PostCar = () => {
             </div>
             <div className="form-group">
               <label htmlFor="area">Area *</label>
-              {formData.car_city === 'Dubai' ? (
+              {areaOptions.length > 0 ? (
                 <SearchableSelect
                   id="area"
                   name="area"
@@ -908,8 +914,8 @@ const PostCar = () => {
                   required
                   className="form-control form-select"
                 >
-                  <option value="">Select Dubai Area</option>
-                  {DUBAI_AREAS.map((area) => (
+                  <option value="">Select Area</option>
+                  {areaOptions.map((area) => (
                     <option key={area} value={area}>{area}</option>
                   ))}
                 </SearchableSelect>

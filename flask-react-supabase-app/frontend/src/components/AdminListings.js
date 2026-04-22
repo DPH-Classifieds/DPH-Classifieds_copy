@@ -13,7 +13,9 @@ const AdminListings = () => {
   const [selectedListing, setSelectedListing] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [rejectionNote, setRejectionNote] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -76,6 +78,39 @@ const AdminListings = () => {
     }
   };
 
+  const getDeleteType = (value) => {
+    const map = {
+      cars: 'car',
+      bikes: 'bike',
+      parts: 'car-part',
+      plates: 'plate',
+    };
+    return map[value] || 'car';
+  };
+
+  const handleDeleteListing = async () => {
+    if (!selectedListing) return;
+    try {
+      setActionLoading(true);
+      await apiClient.request(`/api/${getDeleteType(filter)}/${selectedListing.id}/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: { reason: deleteReason || 'Removed by admin' },
+      });
+      setListings(listings.filter((l) => l.id !== selectedListing.id));
+      setSuccessMessage('Listing removed successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      setShowDeleteModal(false);
+      setShowDetailModal(false);
+      setDeleteReason('');
+    } catch (error) {
+      console.error('Failed to delete listing:', error);
+      alert('Failed to delete listing. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getListingTitle = (listing) => {
     if (listing.display_title) return listing.display_title;
     if (listing.listing_title) return listing.listing_title;
@@ -92,7 +127,7 @@ const AdminListings = () => {
   const getListingImage = (listing) => {
     if (!listing.images || listing.images.length === 0) return null;
     const img = listing.images[0];
-    return img.image_url || img.url || null;
+    return img.display_url || img.image_url || img.url || null;
   };
 
   const getStatusBadge = (status) => {
@@ -116,13 +151,14 @@ const AdminListings = () => {
           <img
             src={getListingImage(listing)}
             alt={getListingTitle(listing)}
-            style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', marginBottom: '12px' }}
+            style={{ width: '100%', aspectRatio: 'var(--listing-image-frame-ratio, 16 / 10)', objectFit: 'cover', borderRadius: '8px', marginBottom: '12px' }}
             onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
           />
         )}
         <h3>{getListingTitle(listing)}</h3>
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>
         <p><strong>Seller:</strong> {listing.user_email || listing.seller_email || 'N/A'}</p>
+        {listing.vin_number && <p><strong>VIN:</strong> {listing.vin_number}</p>}
         <p><strong>Status:</strong> {getStatusBadge(listing.status || statusFilter)}</p>
         <p><strong>Created:</strong> {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : 'N/A'}</p>
       </div>
@@ -220,6 +256,7 @@ const AdminListings = () => {
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="close-modal"
+                type="button"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -232,7 +269,7 @@ const AdminListings = () => {
                 <img
                   src={getListingImage(selectedListing)}
                   alt={getListingTitle(selectedListing)}
-                  style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '8px', marginBottom: '16px' }}
+                  style={{ width: '100%', aspectRatio: 'var(--listing-image-frame-ratio, 16 / 10)', objectFit: 'cover', borderRadius: '8px', marginBottom: '16px' }}
                   onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                 />
               )}
@@ -251,14 +288,15 @@ const AdminListings = () => {
               {selectedListing.body_type && <p><strong>Body:</strong> {selectedListing.body_type}</p>}
               {selectedListing.car_city && <p><strong>City:</strong> {selectedListing.car_city}</p>}
               {selectedListing.car_owner_phone_number && <p><strong>Phone:</strong> {selectedListing.country_code || '+971'}{selectedListing.car_owner_phone_number}</p>}
+              {selectedListing.vin_number && <p><strong>VIN:</strong> {selectedListing.vin_number}</p>}
               {selectedListing.rejection_note && <p><strong>Rejection Reason:</strong> {selectedListing.rejection_note}</p>}
               {selectedListing.images && selectedListing.images.length > 0 && (
                 <div>
                   <strong>All Images ({selectedListing.images.length}):</strong>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {selectedListing.images.map((img, idx) => (
-                      <img key={idx} src={img.image_url || img.url} alt={`${idx + 1}`}
-                        style={{ width: '80px', height: '60px', objectFit: 'cover', borderRadius: '4px' }}
+                      <img key={idx} src={img.display_url || img.image_url || img.url} alt={`${idx + 1}`}
+                        style={{ width: '96px', aspectRatio: 'var(--listing-image-frame-ratio, 16 / 10)', objectFit: 'cover', borderRadius: '4px' }}
                         onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                       />
                     ))}
@@ -293,6 +331,16 @@ const AdminListings = () => {
                   Close
                 </button>
               )}
+              <button
+                onClick={() => {
+                  setShowDeleteModal(true);
+                  setShowDetailModal(false);
+                }}
+                className="action-button reject-btn"
+                disabled={actionLoading}
+              >
+                Delete Listing
+              </button>
             </div>
           </div>
         </div>
@@ -306,6 +354,7 @@ const AdminListings = () => {
               <button
                 onClick={() => setShowRejectModal(false)}
                 className="close-modal"
+                type="button"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -335,6 +384,48 @@ const AdminListings = () => {
                 disabled={actionLoading || !rejectionNote.trim()}
               >
                 Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && selectedListing && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h2>Remove Listing</h2>
+              <button onClick={() => setShowDeleteModal(false)} className="close-modal" type="button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="modal-body">
+              <p><strong>{getListingTitle(selectedListing)}</strong> will be removed from the marketplace.</p>
+              <label htmlFor="delete-reason"><strong>Removal reason</strong></label>
+              <textarea
+                id="delete-reason"
+                value={deleteReason}
+                onChange={(event) => setDeleteReason(event.target.value)}
+                placeholder="Enter removal reason for admin history..."
+                rows={4}
+              />
+            </div>
+            <div className="modal-footer">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="action-button secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteListing}
+                className="action-button reject-btn"
+                disabled={actionLoading || !deleteReason.trim()}
+              >
+                {actionLoading ? 'Removing...' : 'Remove Listing'}
               </button>
             </div>
           </div>

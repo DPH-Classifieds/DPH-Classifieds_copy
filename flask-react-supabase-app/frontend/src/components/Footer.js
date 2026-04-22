@@ -32,7 +32,7 @@ const Footer = () => {
             <li><Link to="/">Home</Link></li>
             <li><Link to="/explore">Explore</Link></li>
             <li><Link to="/cars">Browse Cars</Link></li>
-            <li><Link to="/create-listing">Sell Your Car</Link></li>
+            <li><Link to="/post-car">Sell Your Car</Link></li>
             <li>
               <ReportBugButton className="footer-button" buttonText="Report a Bug" />
             </li>

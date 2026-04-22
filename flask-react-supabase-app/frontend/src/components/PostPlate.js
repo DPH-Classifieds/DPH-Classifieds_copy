@@ -3,7 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
-import { DUBAI_AREAS } from '../utils/listingConstants';
+import { getAreasForEmirate } from '../utils/listingConstants';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -85,6 +85,7 @@ const PostPlate = () => {
 
   const isUnauthed = !isLoading && !user;
   const codeOptions = useMemo(() => getCodeOptions(formData.city), [formData.city]);
+  const areaOptions = useMemo(() => getAreasForEmirate(formData.city), [formData.city]);
 
   useEffect(() => {
     if (!formData.city) {
@@ -117,9 +118,7 @@ const PostPlate = () => {
 
       if (name === 'city') {
         updated.emirate = nextValue;
-        if (nextValue !== 'Dubai') {
-          updated.area = '';
-        }
+        updated.area = getAreasForEmirate(nextValue).includes(prev.area) ? prev.area : '';
       }
 
       if (name === 'number' && nextValue) {
@@ -333,10 +332,10 @@ const PostPlate = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="area">Area</label>
-                    {formData.city === 'Dubai' ? (
+                    {areaOptions.length > 0 ? (
                       <SearchableSelect id="area" name="area" value={formData.area} onChange={handleChange} required>
-                        <option value="">Select Dubai Area</option>
-                        {DUBAI_AREAS.map((area) => (
+                        <option value="">Select Area</option>
+                        {areaOptions.map((area) => (
                           <option key={area} value={area}>{area}</option>
                         ))}
                       </SearchableSelect>

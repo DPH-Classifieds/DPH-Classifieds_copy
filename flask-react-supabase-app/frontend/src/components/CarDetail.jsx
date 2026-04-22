@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
+import { supabase } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
@@ -49,10 +51,18 @@ const EXTRA_BOOLEAN_LABELS = {
 const CarDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [car, setCar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [viewerProfile, setViewerProfile] = useState(null);
+  const [showPhoneVerifyModal, setShowPhoneVerifyModal] = useState(false);
+  const [verificationPhone, setVerificationPhone] = useState('');
+  const [verificationOtp, setVerificationOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
 
   const [loanCalculator, setLoanCalculator] = useState({
     carPrice: 0,
@@ -103,6 +113,35 @@ const CarDetail = () => {
     
     fetchCarDetails();
   }, [id]);
+
+  useEffect(() => {
+    const fetchViewerProfile = async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          setViewerProfile(null);
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          setViewerProfile(null);
+          return;
+        }
+        const data = await response.json();
+        setViewerProfile(data);
+        if (data?.phone) {
+          setVerificationPhone((prev) => prev || data.phone);
+        }
+      } catch (profileError) {
+        console.warn('Failed to fetch viewer profile:', profileError);
+      }
+    };
+
+    fetchViewerProfile();
+  }, [user?.id]);
 
   useEffect(() => {
     const { carPrice, downPayment, loanTerm, interestRate } = loanCalculator;
@@ -164,6 +203,40 @@ const CarDetail = () => {
     const countryCode = (car?.country_code || '+971').replace('+', '');
     const phone = (car?.car_owner_phone_number || car?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
     return `${countryCode}${phone}`;
+  };
+
+  const getWhatsappPrefillText = () => {
+    if (!car) return 'Hi, I saw your listing on DPH and want more details.';
+    const title = [car.make_year, car.car_manufacturer, car.car_model].filter(Boolean).join(' ') || 'your listing';
+    const price = car.expected_selling_price ? `AED ${Number(car.expected_selling_price).toLocaleString()}` : 'price on request';
+    return `Hi, I saw your ${title} listing on DPH. Is it still available? (${price})`;
+  };
+
+  const trackLeadEvent = async (action, payload = {}) => {
+    try {
+      const token = await getAccessToken();
+      await fetch(`${API_URL}/api/listings/car/${id}/lead-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action,
+          source: 'car_detail',
+          payload,
+        }),
+      });
+    } catch (trackingError) {
+      console.warn('Lead tracking failed:', trackingError);
+    }
+  };
+
+  const maskVin = (vin) => {
+    if (!vin) return 'Not provided';
+    const cleaned = String(vin).trim();
+    if (cleaned.length <= 4) return cleaned;
+    return `${'•'.repeat(Math.max(0, cleaned.length - 4))}${cleaned.slice(-4)}`;
   };
 
   const normalizeImageUrl = (imageUrl) => {
@@ -266,6 +339,81 @@ const CarDetail = () => {
 
   const goBack = () => {
     navigate(-1);
+  };
+
+  const isOwner = Boolean(user?.id && car?.user_id && user.id === car.user_id);
+  const isPhoneVerified = Boolean(viewerProfile?.phone_verified || user?.phone_confirmed_at);
+  const canViewVin = isOwner || isPhoneVerified;
+  const visibleVin = canViewVin ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
+
+  const handleCallClick = () => {
+    trackLeadEvent('call_click', { listing_id: id });
+  };
+
+  const handleWhatsappClick = () => {
+    trackLeadEvent('whatsapp_click', { listing_id: id });
+  };
+
+  const handleVinReveal = async () => {
+    if (!canViewVin) {
+      setShowPhoneVerifyModal(true);
+      return;
+    }
+    await trackLeadEvent('vin_open', { listing_id: id });
+  };
+
+  const sendPhoneOtp = async () => {
+    setVerificationLoading(true);
+    setVerificationError('');
+    try {
+      if (!verificationPhone.trim()) {
+        throw new Error('Enter a valid phone number first.');
+      }
+
+      const normalizedPhone = verificationPhone.trim();
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        phone: normalizedPhone,
+      });
+      if (otpError) throw otpError;
+      setOtpSent(true);
+    } catch (otpErr) {
+      setVerificationError(otpErr.message || 'Failed to send OTP');
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const verifyPhoneOtp = async () => {
+    setVerificationLoading(true);
+    setVerificationError('');
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        phone: verificationPhone.trim(),
+        token: verificationOtp.trim(),
+        type: 'sms',
+      });
+      if (verifyError) throw verifyError;
+
+      const token = await getAccessToken();
+      if (token) {
+        const profileResponse = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (profileResponse.ok) {
+          const data = await profileResponse.json();
+          setViewerProfile(data);
+        }
+      }
+
+      setShowPhoneVerifyModal(false);
+      setOtpSent(false);
+      setVerificationOtp('');
+      await trackLeadEvent('vin_reveal', { listing_id: id });
+    } catch (verifyErr) {
+      setVerificationError(verifyErr.message || 'Failed to verify OTP');
+    } finally {
+      setVerificationLoading(false);
+    }
   };
 
   if (loading) {
@@ -418,14 +566,16 @@ const CarDetail = () => {
                 <a 
                   href={`tel:${car?.country_code || ''}${car?.car_owner_phone_number || car?.contact_phone}`} 
                   className="cd-button cd-button-primary"
+                  onClick={handleCallClick}
                 >
                   Call Seller
                 </a>
                 <a 
-                  href={`https://wa.me/${formatWhatsappNumber()}`} 
+                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"
+                  onClick={handleWhatsappClick}
                 >
                   WhatsApp
                 </a>
@@ -472,7 +622,14 @@ const CarDetail = () => {
               </div>
               <div className="cd-vin-block">
                 <span className="cd-vin-label">Vehicle Identification Number</span>
-                <div className="cd-vin-value">{car?.vin_number || 'Not provided'}</div>
+                <div className="cd-vin-value" onClick={handleVinReveal} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') handleVinReveal(); }}>
+                  {visibleVin}
+                </div>
+                {!canViewVin && (
+                  <button type="button" className="cd-button cd-button-secondary" onClick={handleVinReveal}>
+                    Verify phone to reveal VIN
+                  </button>
+                )}
               </div>
             </div>
 
@@ -661,6 +818,56 @@ const CarDetail = () => {
         </div>
 
         <ReportButton listingId={id} listingType="car" />
+
+        {showPhoneVerifyModal && (
+          <div className="cd-phone-modal-overlay" role="dialog" aria-modal="true">
+            <div className="cd-phone-modal">
+              <h3>Phone Verification Required</h3>
+              <p>Verify your phone to reveal the VIN for this listing.</p>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="verification_phone">Phone Number</label>
+                  <input
+                    id="verification_phone"
+                    type="tel"
+                    value={verificationPhone}
+                    onChange={(event) => setVerificationPhone(event.target.value)}
+                    placeholder="+971501234567"
+                  />
+                </div>
+              </div>
+              {otpSent && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="verification_otp">OTP Code</label>
+                    <input
+                      id="verification_otp"
+                      type="text"
+                      value={verificationOtp}
+                      onChange={(event) => setVerificationOtp(event.target.value)}
+                      placeholder="Enter SMS OTP"
+                    />
+                  </div>
+                </div>
+              )}
+              {verificationError && <p className="alert alert-danger">{verificationError}</p>}
+              <div className="cd-phone-modal-actions">
+                <button type="button" className="cd-button cd-button-secondary" onClick={() => setShowPhoneVerifyModal(false)}>
+                  Close
+                </button>
+                {!otpSent ? (
+                  <button type="button" className="cd-button cd-button-primary" disabled={verificationLoading} onClick={sendPhoneOtp}>
+                    {verificationLoading ? 'Sending...' : 'Send OTP'}
+                  </button>
+                ) : (
+                  <button type="button" className="cd-button cd-button-primary" disabled={verificationLoading} onClick={verifyPhoneOtp}>
+                    {verificationLoading ? 'Verifying...' : 'Verify & Reveal VIN'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

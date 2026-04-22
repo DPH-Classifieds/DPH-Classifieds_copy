@@ -3,7 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
-import { DUBAI_AREAS, UAE_EMIRATES } from '../utils/listingConstants';
+import { UAE_EMIRATES, getAreasForEmirate } from '../utils/listingConstants';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -82,15 +82,17 @@ const PostCarParts = () => {
     }),
     [formData.compatible_makes, formData.compatible_models]
   );
+  const areaOptions = getAreasForEmirate(formData.emirate);
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
 
     if (name === 'emirate') {
+      const nextAreas = getAreasForEmirate(value);
       setFormData((prev) => ({
         ...prev,
         emirate: value,
-        area: value === 'Dubai' ? prev.area : '',
+        area: nextAreas.includes(prev.area) ? prev.area : '',
       }));
       return;
     }
@@ -371,10 +373,10 @@ const PostCarParts = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="area">Area</label>
-                    {formData.emirate === 'Dubai' ? (
+                    {areaOptions.length > 0 ? (
                       <SearchableSelect id="area" name="area" value={formData.area} onChange={handleChange} required>
-                        <option value="">Select Dubai Area</option>
-                        {DUBAI_AREAS.map((area) => (
+                        <option value="">Select Area</option>
+                        {areaOptions.map((area) => (
                           <option key={area} value={area}>{area}</option>
                         ))}
                       </SearchableSelect>

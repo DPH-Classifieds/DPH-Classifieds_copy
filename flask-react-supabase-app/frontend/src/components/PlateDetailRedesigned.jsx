@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
 import './CarDetailRedesigned.css';
@@ -129,6 +130,27 @@ const PlateDetailRedesigned = () => {
     const countryCode = (plate?.country_code || '+971').replace('+', '');
     const phone = (plate?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
     return `${countryCode}${phone}`;
+  };
+
+  const getWhatsappPrefillText = () => {
+    const title = `${plate?.city || ''} ${plate?.code || ''} ${plate?.number || ''}`.trim();
+    return `Hi, I saw your ${title || 'plate'} listing on DPH. Is it still available?`;
+  };
+
+  const trackLeadEvent = async (action) => {
+    try {
+      const token = await getAccessToken();
+      await fetch(`${API_URL}/api/listings/plate/${id}/lead-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action, source: 'plate_detail' }),
+      });
+    } catch (error) {
+      console.warn('Plate lead tracking failed:', error);
+    }
   };
 
   const getGalleryImages = () => {
@@ -296,14 +318,16 @@ const PlateDetailRedesigned = () => {
                 <a 
                   href={`tel:${plate?.country_code || ''}${plate?.contact_phone}`} 
                   className="cd-button cd-button-primary"
+                  onClick={() => trackLeadEvent('call_click')}
                 >
                   Call Seller
                 </a>
                 <a 
-                  href={`https://wa.me/${formatWhatsappNumber()}`} 
+                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"
+                  onClick={() => trackLeadEvent('whatsapp_click')}
                 >
                   WhatsApp
                 </a>

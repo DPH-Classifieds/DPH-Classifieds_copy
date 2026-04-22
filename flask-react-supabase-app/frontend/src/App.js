@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import Footer from './components/ui/hover-footer';
@@ -74,7 +74,6 @@ const AuthCallback = lazy(() => import('./components/AuthCallback'));
 const Profile = lazy(() => import('./components/Profile'));
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const MyListings = lazy(() => import('./components/MyListings'));
-const CreateListing = lazy(() => import('./components/CreateListing'));
 const EditListing = lazy(() => import('./components/EditListing'));
 const PostCar = lazy(() => import('./components/PostCar'));
 const PostBike = lazy(() => import('./components/PostBike'));
@@ -85,6 +84,7 @@ const Contact = lazy(() => import('./components/Contact'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const AdminUsers = lazy(() => import('./components/AdminUsers'));
 const AdminListings = lazy(() => import('./components/AdminListings'));
+const AdminReports = lazy(() => import('./components/AdminReports'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
 const ExplorePage = lazy(() => import('./components/ExplorePage'));
@@ -184,7 +184,7 @@ function App() {
                   <Route path="/settings" element={<AccountSettings />} />
                   <Route path="/account-settings" element={<AccountSettings />} />
                   <Route path="/my-listings" element={<MyListings />} />
-                  <Route path="/create-listing" element={<CreateListing />} />
+                  <Route path="/create-listing" element={<Navigate to="/post-car" replace />} />
                   <Route path="/edit-listing/:id" element={<EditListing />} />
                   <Route path="/post-car" element={<PostCar />} />
                   <Route path="/post-bike" element={<PostBike />} />
@@ -205,7 +205,7 @@ function App() {
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="listings" element={<AdminListings />} />
                   <Route path="dealers" element={<AdminDashboard />} />
-                  <Route path="reports" element={<AdminDashboard />} />
+                  <Route path="reports" element={<AdminReports />} />
                 </Route>
                 
                 {/* 404 route */}

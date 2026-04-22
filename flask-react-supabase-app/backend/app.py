@@ -79,9 +79,14 @@ MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
 LISTING_EXPIRY_DAYS = 15
 LISTING_RETENTION_DAYS = 30
+LISTING_SOLD_RESPONSE_WINDOW_HOURS = int(
+    os.getenv("LISTING_SOLD_RESPONSE_WINDOW_HOURS", "48")
+)
 LISTING_DISPLAY_WIDTH = int(os.getenv("LISTING_DISPLAY_WIDTH", "1600"))
 LISTING_DISPLAY_HEIGHT = int(os.getenv("LISTING_DISPLAY_HEIGHT", "1000"))
 LISTING_DISPLAY_RATIO = LISTING_DISPLAY_WIDTH / LISTING_DISPLAY_HEIGHT
+LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
+LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
 
 LISTING_TABLE_CONFIG = {
     "car": {"table": "cars", "images_table": "car_images", "fk": "car_id"},
@@ -92,6 +97,18 @@ LISTING_TABLE_CONFIG = {
         "images_table": "plate_images",
         "fk": "plate_id",
     },
+}
+ADMIN_ITEM_TYPE_TO_TABLE = {
+    "cars": "cars",
+    "bikes": "bikes",
+    "parts": "car_parts",
+    "plates": "license_plates",
+}
+API_ITEM_TYPE_TO_TABLE = {
+    "car": "cars",
+    "bike": "bikes",
+    "part": "car_parts",
+    "plate": "license_plates",
 }
 
 CAR_TRANSMISSION_OPTIONS = {"Automatic", "Manual"}
@@ -170,6 +187,12 @@ def _compute_listing_lifecycle(record):
             days=LISTING_RETENTION_DAYS
         )
 
+    sold_response_deadline = _parse_datetime(record.get("sold_response_deadline"))
+    if not sold_response_deadline and expired_at:
+        sold_response_deadline = expired_at + datetime.timedelta(
+            hours=LISTING_SOLD_RESPONSE_WINDOW_HOURS
+        )
+
     is_archived = bool(record.get("is_archived")) or now >= retention_expires_at
     is_expired = now >= expires_at
 
@@ -184,6 +207,7 @@ def _compute_listing_lifecycle(record):
         "expires_at": expires_at,
         "expired_at": expired_at,
         "retention_expires_at": retention_expires_at,
+        "sold_response_deadline": sold_response_deadline,
         "is_expired": is_expired,
         "is_archived": is_archived,
         "state": state,
@@ -205,6 +229,9 @@ def _apply_listing_lifecycle_metadata(record):
     record["expires_at"] = _isoformat_utc(lifecycle["expires_at"])
     record["expired_at"] = _isoformat_utc(lifecycle["expired_at"])
     record["retention_expires_at"] = _isoformat_utc(lifecycle["retention_expires_at"])
+    record["sold_response_deadline"] = _isoformat_utc(
+        lifecycle["sold_response_deadline"]
+    )
     record["days_until_expiry"] = lifecycle["days_until_expiry"]
     record["days_until_deletion"] = lifecycle["days_until_deletion"]
     record["can_extend"] = not lifecycle["is_archived"] and record.get(
@@ -244,6 +271,35 @@ def _delete_listing_with_assets(table_name, listing_id):
     )
 
 
+def _record_listing_deletion_event(
+    *,
+    listing_id,
+    listing_type,
+    reason,
+    deleted_by_role,
+    deleted_by=None,
+    metadata=None,
+):
+    payload = {
+        "listing_id": str(listing_id),
+        "listing_type": str(listing_type),
+        "reason": reason or "Deleted",
+        "deleted_by_role": deleted_by_role,
+        "deleted_by": deleted_by,
+        "metadata": metadata or {},
+    }
+    response, status_code = supabase_request(
+        "post",
+        "/rest/v1/listing_deletion_events",
+        data=payload,
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        logger.warning(
+            f"Failed to record listing deletion event for {listing_type}/{listing_id}: {response}"
+        )
+
+
 def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     if not isinstance(record, dict):
         return record
@@ -261,6 +317,27 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
         updates["retention_expires_at"] = _isoformat_utc(
             lifecycle["retention_expires_at"]
         )
+    if record.get("sold_response_deadline") is None and lifecycle.get(
+        "sold_response_deadline"
+    ):
+        updates["sold_response_deadline"] = _isoformat_utc(
+            lifecycle["sold_response_deadline"]
+        )
+
+    sold_response_deadline = lifecycle.get("sold_response_deadline")
+    sold_status_set_at = _parse_datetime(record.get("sold_status_set_at"))
+    if (
+        lifecycle["is_expired"]
+        and sold_response_deadline
+        and _utc_now() >= sold_response_deadline
+        and not sold_status_set_at
+        and record.get("status") not in {"deleted", "rejected", "sold"}
+    ):
+        updates["status"] = "deleted"
+        updates["auto_removed_at"] = _isoformat_utc(_utc_now())
+        updates["sold_status"] = record.get("sold_status") or "sold_elsewhere"
+        updates["sold_status_set_at"] = _isoformat_utc(_utc_now())
+
     if lifecycle["is_archived"] and not record.get("is_archived"):
         updates["is_archived"] = True
 
@@ -277,6 +354,28 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
             )
         else:
             record.update(updates)
+            if updates.get("status") == "deleted" and updates.get("auto_removed_at"):
+                listing_type = next(
+                    (
+                        key
+                        for key, cfg in LISTING_TABLE_CONFIG.items()
+                        if cfg["table"] == table_name
+                    ),
+                    None,
+                )
+                if listing_type:
+                    _record_listing_deletion_event(
+                        listing_id=record.get("id"),
+                        listing_type=listing_type,
+                        reason="No listing outcome selected within 48 hours of expiry",
+                        deleted_by_role="system",
+                        metadata={
+                            "expired_at": record.get("expired_at"),
+                            "sold_response_deadline": record.get(
+                                "sold_response_deadline"
+                            ),
+                        },
+                    )
 
     _apply_listing_lifecycle_metadata(record)
 
@@ -321,6 +420,10 @@ def _new_listing_lifecycle_fields():
         "last_extended_at": None,
         "extension_count": 0,
         "is_archived": False,
+        "sold_status": None,
+        "sold_status_set_at": None,
+        "sold_response_deadline": None,
+        "auto_removed_at": None,
     }
 
 
@@ -334,6 +437,10 @@ def _strip_lifecycle_fields(payload):
         "last_extended_at",
         "extension_count",
         "is_archived",
+        "sold_status",
+        "sold_status_set_at",
+        "sold_response_deadline",
+        "auto_removed_at",
     }
     return {key: value for key, value in payload.items() if key not in lifecycle_keys}
 
@@ -1077,6 +1184,37 @@ def token_required(f):
             return jsonify({"message": "Token has expired or is invalid"}), 401
 
     return decorated
+
+
+def _get_optional_user_id_from_auth_header():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return None
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    token = parts[1]
+    try:
+        import base64
+        import jwt as pyjwt
+
+        secret = SUPABASE_JWT_SECRET
+        try:
+            secret = base64.b64decode(secret + "==")
+        except Exception:
+            pass
+        payload = pyjwt.decode(
+            token, secret, algorithms=["HS256"], options={"verify_aud": False}
+        )
+        return payload.get("sub")
+    except Exception:
+        return None
+
+
+def _resolve_listing_table(item_type):
+    return API_ITEM_TYPE_TO_TABLE.get(item_type) or ADMIN_ITEM_TYPE_TO_TABLE.get(
+        item_type
+    )
 
 
 @app.route("/api/auth/admin-check", methods=["GET"])
@@ -4686,6 +4824,10 @@ def extend_user_listing(current_user, item_type, item_id):
         "last_extended_at": _isoformat_utc(now),
         "extension_count": int(listing.get("extension_count") or 0) + 1,
         "is_archived": False,
+        "sold_status": "not_sold_renew",
+        "sold_status_set_at": _isoformat_utc(now),
+        "sold_response_deadline": None,
+        "auto_removed_at": None,
     }
 
     update_response, update_status = supabase_request(
@@ -6427,9 +6569,7 @@ def api_approve_item(current_user, item_type, item_id):
 
             email_sent = False
             email_error = None
-            if item_type == "cars":
-                email_error = "Queued via Supabase email events"
-            elif listing:
+            if listing:
                 user_email = listing.get("user_email") or listing.get("contact_email")
                 if not user_email:
                     user_id = listing.get("user_id")
@@ -6536,9 +6676,7 @@ def api_reject_item(current_user, item_type, item_id):
 
             email_sent = False
             email_error = None
-            if item_type == "cars":
-                email_error = "Queued via Supabase email events"
-            elif listing:
+            if listing:
                 user_email = listing.get("user_email") or listing.get("contact_email")
                 if not user_email:
                     user_id = listing.get("user_id")
@@ -6589,6 +6727,51 @@ def api_reject_item(current_user, item_type, item_id):
     except Exception as e:
         logger.error(f"Exception in api_reject_item: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/approve/<item_type>", methods=["GET"])
+@token_required
+def api_admin_list_items(current_user, item_type):
+    """Token-auth admin listing endpoint used by React admin screens."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Admin access required"}), 403
+
+        table_name = ADMIN_ITEM_TYPE_TO_TABLE.get(item_type)
+        if not table_name:
+            return jsonify({"error": "Invalid item type"}), 400
+
+        status = request.args.get("status", "pending")
+        query_params = {"select": "*", "order": "created_at.desc"}
+        if status:
+            query_params["status"] = f"eq.{status}"
+
+        response, status_code = supabase_request(
+            "get",
+            f"/rest/v1/{table_name}",
+            params=query_params,
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            return jsonify({"error": "Failed to fetch listings"}), status_code
+
+        return jsonify(response or []), 200
+    except Exception as e:
+        logger.error(f"Exception in api_admin_list_items: {e}")
+        return jsonify({"error": "Failed to fetch listings"}), 500
+
+
+@app.route("/api/admin/approve/<item_type>/<item_id>/approve", methods=["POST"])
+@token_required
+def api_admin_approve_item(current_user, item_type, item_id):
+    return api_approve_item(current_user, item_type, item_id)
+
+
+@app.route("/api/admin/approve/<item_type>/<item_id>/reject", methods=["POST"])
+@token_required
+def api_admin_reject_item(current_user, item_type, item_id):
+    return api_reject_item(current_user, item_type, item_id)
 
 
 def admin_required(f):
@@ -7236,6 +7419,158 @@ logger.info("Admin web routes registered successfully")
 # ... (End of admin_bp blueprint, before app.register_blueprint(admin_bp) if it was moved, or before if __name__ ...)
 
 # =====================
+# Lead + Lifecycle APIs
+# =====================
+
+
+@app.route("/api/listings/<item_type>/<item_id>/lead-events", methods=["POST"])
+def track_listing_lead_event(item_type, item_id):
+    """Track listing lead interactions (call, WhatsApp, VIN opens)."""
+    try:
+        normalized_type = item_type.rstrip("s")
+        table_name = _resolve_listing_table(normalized_type)
+        if not table_name:
+            return jsonify({"error": "Invalid listing type"}), 400
+
+        payload = request.json or {}
+        action = (payload.get("action") or "").strip()
+        if action not in LEAD_EVENT_ACTIONS:
+            return jsonify({"error": "Invalid action"}), 400
+
+        listing_resp, listing_status = supabase_request(
+            "get",
+            f"/rest/v1/{table_name}",
+            params={"id": f"eq.{item_id}", "select": "id", "limit": 1},
+            use_service_role=True,
+        )
+        if listing_status >= 400:
+            return jsonify({"error": "Failed to validate listing"}), listing_status
+        if not listing_resp:
+            return jsonify({"error": "Listing not found"}), 404
+
+        user_id = _get_optional_user_id_from_auth_header()
+        event_payload = {
+            "listing_id": str(item_id),
+            "listing_type": normalized_type,
+            "action": action,
+            "user_id": user_id,
+            "session_id": payload.get("session_id"),
+            "source": payload.get("source"),
+            "user_agent": request.headers.get("User-Agent"),
+            "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "payload": payload.get("payload") or {},
+        }
+
+        response, status_code = supabase_request(
+            "post",
+            "/rest/v1/lead_events",
+            data=event_payload,
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            logger.error(f"Failed to track lead event: {response}")
+            return jsonify({"error": "Failed to track lead event"}), status_code
+
+        return jsonify({"message": "Lead event tracked"}), 201
+    except Exception as e:
+        logger.error(f"Error tracking lead event: {e}")
+        return jsonify({"error": "Failed to track lead event"}), 500
+
+
+@app.route("/api/user/listings/<item_type>/<item_id>/outcome", methods=["POST"])
+@token_required
+def set_listing_outcome(current_user, item_type, item_id):
+    """Handle listing outcome popup action after expiry."""
+    config = LISTING_TABLE_CONFIG.get(item_type)
+    if not config:
+        return jsonify({"error": "Invalid listing type"}), 400
+
+    data = request.json or {}
+    outcome = (data.get("outcome") or "").strip()
+    if outcome not in LISTING_OUTCOME_OPTIONS:
+        return jsonify({"error": "Invalid outcome"}), 400
+
+    listing_resp, listing_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={"id": f"eq.{item_id}", "select": "*", "limit": 1},
+        user_id=current_user,
+    )
+    if listing_status >= 400:
+        return jsonify({"error": "Failed to fetch listing"}), listing_status
+    if not listing_resp:
+        return jsonify({"error": "Listing not found"}), 404
+
+    listing = listing_resp[0]
+    if listing.get("user_id") != current_user:
+        return jsonify(
+            {"error": "You do not have permission to update this listing"}
+        ), 403
+
+    listing = _sync_listing_lifecycle(
+        config["table"], listing, hard_delete_archived=False
+    )
+    if not listing:
+        return jsonify({"error": "Listing is no longer available"}), 410
+
+    now = _utc_now()
+    updates = {
+        "sold_status": outcome,
+        "sold_status_set_at": _isoformat_utc(now),
+    }
+
+    if outcome == "not_sold_renew":
+        expiry_anchor = _parse_datetime(listing.get("expires_at")) or now
+        if expiry_anchor < now:
+            expiry_anchor = now
+        new_expires_at = expiry_anchor + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
+        updates.update(
+            {
+                "status": "approved",
+                "expires_at": _isoformat_utc(new_expires_at),
+                "expired_at": None,
+                "retention_expires_at": _isoformat_utc(
+                    new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+                ),
+                "sold_response_deadline": None,
+                "auto_removed_at": None,
+                "last_extended_at": _isoformat_utc(now),
+                "extension_count": int(listing.get("extension_count") or 0) + 1,
+                "is_archived": False,
+            }
+        )
+    else:
+        updates.update(
+            {
+                "status": "sold",
+                "sold_response_deadline": None,
+            }
+        )
+
+    patch_resp, patch_status = supabase_request(
+        "patch",
+        f"/rest/v1/{config['table']}?id=eq.{item_id}",
+        data=updates,
+        user_id=current_user,
+    )
+    if patch_status >= 400:
+        return jsonify({"error": "Failed to update listing outcome"}), patch_status
+
+    refreshed_resp, refreshed_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={"id": f"eq.{item_id}", "select": "*", "limit": 1},
+        user_id=current_user,
+    )
+    if refreshed_status < 400 and refreshed_resp:
+        refreshed = _sync_listing_lifecycle(
+            config["table"], refreshed_resp[0], hard_delete_archived=False
+        )
+        return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
+
+    return jsonify({"message": "Listing outcome saved"}), 200
+
+# =====================
 # Reports API Routes
 # =====================
 
@@ -7385,6 +7720,106 @@ def get_admin_reports(current_user):
     except Exception as e:
         logger.error(f"Error fetching admin reports: {str(e)}")
         return jsonify({"error": "An error occurred while fetching reports"}), 500
+
+
+@app.route("/api/admin/lead-metrics", methods=["GET"])
+@token_required
+def get_admin_lead_metrics(current_user):
+    """Admin lead metrics summary + recent events."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+        leads_resp, leads_status = supabase_request(
+            "get",
+            "/rest/v1/lead_events",
+            params={
+                "select": "*",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "500",
+            },
+            use_service_role=True,
+        )
+        if leads_status >= 400:
+            return jsonify({"error": "Failed to fetch lead metrics"}), leads_status
+
+        reports_resp, reports_status = supabase_request(
+            "get",
+            "/rest/v1/reports",
+            params={
+                "select": "id,listing_id,listing_type,status,created_at",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "500",
+            },
+            use_service_role=True,
+        )
+        if reports_status >= 400:
+            reports_resp = []
+
+        totals = defaultdict(int)
+        leads_per_listing = defaultdict(int)
+        for event in leads_resp or []:
+            totals[event.get("action") or "unknown"] += 1
+            listing_key = f"{event.get('listing_type')}:{event.get('listing_id')}"
+            if event.get("action") in {"call_click", "whatsapp_click"}:
+                leads_per_listing[listing_key] += 1
+
+        report_count = len(reports_resp or [])
+        qualified_leads = totals["call_click"] + totals["whatsapp_click"]
+        conversion_rate = (
+            round((report_count / qualified_leads) * 100, 2) if qualified_leads > 0 else 0
+        )
+
+        return jsonify(
+            {
+                "window_days": days,
+                "totals": {
+                    "call_click": totals["call_click"],
+                    "whatsapp_click": totals["whatsapp_click"],
+                    "vin_open": totals["vin_open"],
+                    "vin_reveal": totals["vin_reveal"],
+                    "qualified_leads": qualified_leads,
+                    "reports_created": report_count,
+                    "report_conversion_percent": conversion_rate,
+                },
+                "recent_events": leads_resp[:100] if isinstance(leads_resp, list) else [],
+                "recent_reports": reports_resp[:100]
+                if isinstance(reports_resp, list)
+                else [],
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error fetching lead metrics: {str(e)}")
+        return jsonify({"error": "Failed to fetch lead metrics"}), 500
+
+
+@app.route("/api/admin/listing-history", methods=["GET"])
+@token_required
+def get_admin_listing_history(current_user):
+    """Admin history of auto/user/admin removed listings."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        limit = max(min(int(request.args.get("limit", 200)), 500), 1)
+        response, status_code = supabase_request(
+            "get",
+            "/rest/v1/listing_deletion_events",
+            params={"select": "*", "order": "created_at.desc", "limit": str(limit)},
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            return jsonify({"error": "Failed to fetch listing history"}), status_code
+        return jsonify(response or []), 200
+    except Exception as e:
+        logger.error(f"Error fetching listing history: {e}")
+        return jsonify({"error": "Failed to fetch listing history"}), 500
 
 
 @app.route("/api/admin/dealers", methods=["GET"])
@@ -7606,7 +8041,7 @@ def delete_listing(current_user, item_type, item_id):
             return jsonify({"error": "Admin access required"}), 403
 
         # Validate item_type
-        valid_types = ["car", "bike", "car-part", "plate"]
+        valid_types = {"car", "bike", "car-part", "plate"}
         if item_type not in valid_types:
             return jsonify({"error": "Invalid item type"}), 400
 
@@ -7619,6 +8054,13 @@ def delete_listing(current_user, item_type, item_id):
         }
 
         table_name = table_mapping[item_type]
+        delete_reason = "Removed by admin"
+        if request.is_json and request.json:
+            delete_reason = (
+                request.json.get("reason")
+                or request.json.get("deletion_reason")
+                or delete_reason
+            )
 
         # Delete the listing using service role
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
@@ -7633,6 +8075,15 @@ def delete_listing(current_user, item_type, item_id):
         response = requests.delete(url, headers=headers)
 
         if response.status_code == 200 or response.status_code == 204:
+            normalized_type = "part" if item_type == "car-part" else item_type
+            _record_listing_deletion_event(
+                listing_id=item_id,
+                listing_type=normalized_type,
+                reason=delete_reason,
+                deleted_by_role="admin",
+                deleted_by=current_user,
+                metadata={"endpoint": "admin_delete"},
+            )
             logger.info(f"Admin {current_user} deleted {item_type} {item_id}")
             return jsonify(
                 {"message": f"{item_type.title()} deleted successfully"}

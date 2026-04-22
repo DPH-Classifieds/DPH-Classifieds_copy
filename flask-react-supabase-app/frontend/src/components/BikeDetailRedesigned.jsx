@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
 import './CarDetailRedesigned.css';
@@ -154,6 +155,29 @@ const BikeDetailRedesigned = () => {
     const countryCode = (bike?.country_code || '+971').replace('+', '');
     const phone = (bike?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
     return `${countryCode}${phone}`;
+  };
+
+  const getWhatsappPrefillText = () => {
+    const title = [bike?.year || bike?.make_year, bike?.make || bike?.bike_brand, bike?.model || bike?.bike_model]
+      .filter(Boolean)
+      .join(' ');
+    return `Hi, I saw your ${title || 'bike'} listing on DPH. Is it still available?`;
+  };
+
+  const trackLeadEvent = async (action) => {
+    try {
+      const token = await getAccessToken();
+      await fetch(`${API_URL}/api/listings/bike/${id}/lead-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action, source: 'bike_detail' }),
+      });
+    } catch (error) {
+      console.warn('Bike lead tracking failed:', error);
+    }
   };
 
   const getGalleryImages = () => {
@@ -345,14 +369,16 @@ const BikeDetailRedesigned = () => {
                 <a 
                   href={`tel:${bike?.country_code || ''}${bike?.contact_phone}`} 
                   className="cd-button cd-button-primary"
+                  onClick={() => trackLeadEvent('call_click')}
                 >
                   Call Seller
                 </a>
                 <a 
-                  href={`https://wa.me/${formatWhatsappNumber()}`} 
+                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"
+                  onClick={() => trackLeadEvent('whatsapp_click')}
                 >
                   WhatsApp
                 </a>

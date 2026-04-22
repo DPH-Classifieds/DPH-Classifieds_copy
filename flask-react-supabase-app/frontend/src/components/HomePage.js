@@ -49,8 +49,10 @@ const secondaryHeroButtonClass =
 const normalizeMarketplaceItem = (categoryKey, item, index) => {
   const image =
     resolveMediaUrl(
-      item?.images?.[0]?.image_url ||
+      item?.images?.[0]?.display_url ||
+        item?.images?.[0]?.image_url ||
         item?.images?.[0]?.url ||
+        item?.display_url ||
         item?.image_url ||
         item?.image ||
         item?.main_image_url ||
@@ -227,11 +229,23 @@ const HomePage = () => {
               </Link>
             </Button>
             <Button asChild variant="outline" className={secondaryHeroButtonClass}>
-              <Link to="/create-listing">
+              <Link to="/post-car">
                 List Your Vehicle
                 <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
               </Link>
             </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="cn-brand-strip">
+        <div className="cn-brand-marquee">
+          <div className="cn-brand-track">
+            {[...carMakes, ...carMakes].map((make, index) => (
+              <span key={`${make}-${index}`} className="cn-brand-mark">
+                {make}
+              </span>
+            ))}
           </div>
         </div>
       </section>
@@ -276,18 +290,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      <section className="cn-brand-strip">
-        <div className="cn-brand-marquee">
-          <div className="cn-brand-track">
-            {[...carMakes, ...carMakes].map((make, index) => (
-              <span key={`${make}-${index}`} className="cn-brand-mark">
-                {make}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="cn-cta-section">
         <div className="cn-cta-media">
           <img src={ctaImage} alt="Abstract performance silhouette" className="cn-cta-image" loading="lazy" decoding="async" width="1920" height="600" />
@@ -308,7 +310,7 @@ const HomePage = () => {
               </Link>
             </Button>
             <Button asChild variant="outline" className={secondaryHeroButtonClass}>
-              <Link to="/create-listing">
+              <Link to="/post-car">
                 Start Selling
                 <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
               </Link>

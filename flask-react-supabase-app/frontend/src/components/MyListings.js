@@ -9,7 +9,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const getImageUrl = (image) => {
   if (!image) return null;
 
-  const imageUrl = image.image_url || image.url || image;
+  const imageUrl = image.display_url || image.image_url || image.url || image;
   if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('/')) {
     return `${API_URL}${imageUrl}`;
   }
@@ -120,6 +120,7 @@ const MyListings = () => {
   const [error, setError] = useState(null);
   const [actioningId, setActioningId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { listing }
+  const [outcomePromptListing, setOutcomePromptListing] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -147,7 +148,17 @@ const MyListings = () => {
       }
 
       const payload = await response.json();
-      setListings(Array.isArray(payload.listings) ? payload.listings : []);
+      const nextListings = Array.isArray(payload.listings) ? payload.listings : [];
+      setListings(nextListings);
+
+      const pendingOutcome = nextListings.find(
+        (listing) =>
+          listing.listing_state === 'expired'
+          && !listing.sold_status_set_at
+          && !listing.auto_removed_at
+          && !['deleted', 'rejected', 'sold'].includes(listing.status)
+      );
+      setOutcomePromptListing(pendingOutcome || null);
     } catch (err) {
       console.error('Error fetching listings:', err);
       setError('Could not load your listings. Please try again later.');
@@ -244,6 +255,43 @@ const MyListings = () => {
     }
   };
 
+  const handleOutcomeAction = async (listing, outcome) => {
+    setActioningId(listing.id);
+    setError(null);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await fetch(`${API_URL}/api/user/listings/${listing.listing_type}/${listing.id}/outcome`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ outcome }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to save listing outcome');
+      }
+
+      if (payload.listing) {
+        setListings((current) =>
+          current.map((item) => (item.id === listing.id ? payload.listing : item)),
+        );
+      } else {
+        await fetchUserListings();
+      }
+      setOutcomePromptListing(null);
+    } catch (err) {
+      console.error('Listing outcome update error:', err);
+      setError(err.message || 'Failed to save listing outcome.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner message="Loading your listings..." size="large" />;
   }
@@ -260,6 +308,41 @@ const MyListings = () => {
             <div className="delete-confirm-actions">
               <button className="btn btn-danger" onClick={confirmDelete}>Yes, delete it</button>
               <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {outcomePromptListing && (
+        <div className="delete-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="outcome-confirm-title">
+          <div className="delete-confirm-modal">
+            <h3 id="outcome-confirm-title">Did this listing sell?</h3>
+            <p>
+              <strong>{buildListingTitle(outcomePromptListing)}</strong> expired. Please tell us the outcome.
+              If no action is selected in 48 hours, it will be removed automatically.
+            </p>
+            <div className="delete-confirm-actions">
+              <button
+                className="btn btn-primary"
+                disabled={actioningId === outcomePromptListing.id}
+                onClick={() => handleOutcomeAction(outcomePromptListing, 'sold_on_dph')}
+              >
+                Sold on DPH
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={actioningId === outcomePromptListing.id}
+                onClick={() => handleOutcomeAction(outcomePromptListing, 'sold_elsewhere')}
+              >
+                Sold Elsewhere
+              </button>
+              <button
+                className="btn btn-danger"
+                disabled={actioningId === outcomePromptListing.id}
+                onClick={() => handleOutcomeAction(outcomePromptListing, 'not_sold_renew')}
+              >
+                Not Sold, Renew
+              </button>
             </div>
           </div>
         </div>
@@ -343,6 +426,9 @@ const MyListings = () => {
                         <p className="my-listing-price">{formatMoney(getListingPrice(listing))}</p>
                         <p className="my-listing-date">Posted on {formatDate(listing.created_at)}</p>
                         <p className="my-listing-lifecycle">{getLifecycleCopy(listing)}</p>
+                        {listing.rejection_note && (
+                          <p className="my-listing-lifecycle">Rejection reason: {listing.rejection_note}</p>
+                        )}
                         {listing.view_count !== undefined && listing.view_count !== null && (
                           <p className="my-listing-views">
                             {listing.view_count} view{listing.view_count === 1 ? '' : 's'}

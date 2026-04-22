@@ -75,6 +75,72 @@ export const DUBAI_AREAS = [
   "Wadi Al Safa",
 ];
 
+export const EMIRATE_AREAS = {
+  Dubai: DUBAI_AREAS,
+  "Abu Dhabi": [
+    "Abu Dhabi Island",
+    "Al Reem Island",
+    "Al Raha Beach",
+    "Yas Island",
+    "Khalifa City",
+    "Mohammed Bin Zayed City",
+    "Mussafah",
+    "Baniyas",
+    "Saadiyat Island",
+    "Corniche Area",
+  ],
+  Sharjah: [
+    "Al Nahda",
+    "Al Majaz",
+    "Al Qasimia",
+    "Al Khan",
+    "Muwaileh",
+    "Al Taawun",
+    "Aljada",
+    "University City",
+    "Muwailih Commercial",
+    "Al Mamzar",
+  ],
+  Ajman: [
+    "Al Nuaimiya",
+    "Al Rashidiya",
+    "Al Jurf",
+    "Al Mowaihat",
+    "Al Rawda",
+    "Ajman Downtown",
+    "Corniche Ajman",
+    "Al Rumaila",
+  ],
+  "Umm Al Quwain": [
+    "UAQ Marina",
+    "Al Salamah",
+    "Al Raas",
+    "Falaj Al Mualla",
+    "Al Dar Al Baida",
+  ],
+  "Ras Al Khaimah": [
+    "Al Nakheel",
+    "Al Hamra",
+    "Al Marjan Island",
+    "Khuzam",
+    "Mina Al Arab",
+    "Julphar",
+    "Al Dhait",
+    "Dafan Al Khor",
+  ],
+  Fujairah: [
+    "Fujairah City",
+    "Al Faseel",
+    "Sakamkam",
+    "Dibba",
+    "Mirbah",
+    "Qidfa",
+    "Masafi",
+  ],
+};
+
+export const getAreasForEmirate = (emirate) => EMIRATE_AREAS[emirate] || [];
+
 export const WARRANTY_OPTIONS = [
   "No",
   "Yes",
@@ -105,4 +171,3 @@ export const getYearOptions = (minYear = MIN_CAR_YEAR) => {
   }
   return years;
 };
-

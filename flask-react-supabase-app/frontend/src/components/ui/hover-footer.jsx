@@ -7,7 +7,7 @@ const navLinks = [
   { title: 'Terms of Use', href: '/terms-of-use' },
   { title: 'Contact', href: '/contact' },
   { title: 'Explore', href: '/explore' },
-  { title: 'Help', href: '/create-listing' },
+  { title: 'Help', href: '/post-car' },
 ];
 
 const Footer = () => {

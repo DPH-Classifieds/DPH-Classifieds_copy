@@ -49,7 +49,7 @@ const About = () => {
             <Link to="/explore" className="about-v2-button about-v2-button-primary">
               Explore Inventory
             </Link>
-            <Link to="/create-listing" className="about-v2-button about-v2-button-secondary">
+            <Link to="/post-car" className="about-v2-button about-v2-button-secondary">
               Create Listing
             </Link>
           </div>

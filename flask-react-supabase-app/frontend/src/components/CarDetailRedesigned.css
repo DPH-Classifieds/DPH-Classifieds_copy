@@ -126,7 +126,7 @@
 .cd-main-image {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   background:
     radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.1) 0%, transparent 45%),
     var(--cd-color-background-secondary);
@@ -484,6 +484,36 @@
   letter-spacing: 0.12em;
   color: var(--cd-color-text-primary);
   word-break: break-all;
+}
+
+.cd-vin-value[role="button"] {
+  cursor: pointer;
+}
+
+.cd-phone-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.cd-phone-modal {
+  width: min(480px, 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(148, 218, 153, 0.22);
+  background: linear-gradient(180deg, rgba(12, 28, 19, 0.98) 0%, rgba(7, 15, 10, 0.99) 100%);
+  padding: 20px;
+}
+
+.cd-phone-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .cd-specs-list {

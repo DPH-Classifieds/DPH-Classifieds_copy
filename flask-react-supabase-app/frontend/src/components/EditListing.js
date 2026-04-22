@@ -8,10 +8,10 @@ import ImageFramingModal from './ImageFramingModal';
 import {
   CYLINDER_OPTIONS,
   DOOR_OPTIONS,
-  DUBAI_AREAS,
   SERVICE_HISTORY_OPTIONS,
   UAE_EMIRATES,
   WARRANTY_OPTIONS,
+  getAreasForEmirate,
   getYearOptions
 } from '../utils/listingConstants';
 import '../styles/CreateListing.css';
@@ -88,6 +88,7 @@ const EditListing = () => {
     return words.slice(0, maxWords).join(' ');
   };
   const descriptionWordCount = countWords(formData.description || '');
+  const areaOptions = getAreasForEmirate(formData.emirate);
 
   const clearFieldHighlights = () => {
     if (!formRef.current) return;
@@ -228,10 +229,11 @@ const EditListing = () => {
     clearFieldHighlights();
 
     if (name === 'emirate') {
+      const nextAreas = getAreasForEmirate(value);
       setFormData((prev) => ({
         ...prev,
         emirate: value,
-        area: value === 'Dubai' ? prev.area : ''
+        area: nextAreas.includes(prev.area) ? prev.area : ''
       }));
       return;
     }
@@ -1042,7 +1044,7 @@ const EditListing = () => {
 
             <div className="form-group">
               <label htmlFor="area">Area</label>
-              {formData.emirate === 'Dubai' ? (
+              {areaOptions.length > 0 ? (
                 <SearchableSelect
                   id="area"
                   name="area"
@@ -1050,8 +1052,8 @@ const EditListing = () => {
                   onChange={handleChange}
                   required
                 >
-                  <option value="">Select Dubai Area</option>
-                  {DUBAI_AREAS.map((area) => (
+                  <option value="">Select Area</option>
+                  {areaOptions.map((area) => (
                     <option key={area} value={area}>{area}</option>
                   ))}
                 </SearchableSelect>

@@ -118,6 +118,8 @@
 .phone-input-group {
   display: flex;
   gap: 10px;
+  flex-wrap: nowrap;
+  align-items: center;
 }
 
 .country-code-select {
@@ -584,5 +586,23 @@
 
   .create-listing-form {
     border-radius: 24px;
+  }
+
+  .form-section {
+    padding: 18px;
+  }
+
+  .form-row {
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+
+  .phone-input-group {
+    gap: 8px;
+  }
+
+  .country-code-select {
+    flex: 0 0 120px;
+    min-width: 120px;
   }
 }
