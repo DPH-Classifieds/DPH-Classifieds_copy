@@ -46,6 +46,7 @@ const AccountSettings = () => {
     // Contact
     phone: '',
     countryCode: '+971',
+    whatsappCountryCode: '+971',
     whatsappNumber: '',
     
     // Location
@@ -109,7 +110,8 @@ const AccountSettings = () => {
         
         phone: user.phone || '',
         countryCode: user.country_code || '+971',
-        whatsappNumber: user.whatsapp_number || '',
+        whatsappCountryCode: user.whatsapp_number ? (user.whatsapp_number.match(/^(\+\d+)/)?.[1] || '+971') : '+971',
+        whatsappNumber: user.whatsapp_number ? (user.whatsapp_number.replace(/^\+\d+/, '') || '') : '',
         
         city: user.city || '',
         emirate: user.emirate || '',
@@ -140,6 +142,16 @@ const AccountSettings = () => {
 
   const handleProfileInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    if (name === 'countryCode') {
+      setProfileData(prev => ({
+        ...prev,
+        countryCode: value,
+        whatsappCountryCode: value
+      }));
+      return;
+    }
+    
     setProfileData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -232,7 +244,10 @@ const AccountSettings = () => {
 
       const updateData = {
         ...profileData,
-        profilePhotoUrl
+        profilePhotoUrl,
+        whatsappNumber: profileData.whatsappNumber
+          ? `${profileData.whatsappCountryCode}${profileData.whatsappNumber}`
+          : ''
       };
 
       console.log('Sending profile update request with data:', updateData);
@@ -671,14 +686,30 @@ const AccountSettings = () => {
 
                 <div className="form-group">
                   <label htmlFor="whatsappNumber">WhatsApp Number (Optional)</label>
-                  <input
-                    type="tel"
-                    id="whatsappNumber"
-                    name="whatsappNumber"
-                    value={profileData.whatsappNumber}
-                    onChange={handleProfileInputChange}
-                    placeholder="If different from phone number"
-                  />
+                  <div className="phone-input-group">
+                    <SearchableSelect
+                      id="whatsappCountryCode"
+                      name="whatsappCountryCode"
+                      className="country-code-select"
+                      value={profileData.whatsappCountryCode}
+                      onChange={handleProfileInputChange}
+                    >
+                      {COUNTRY_CODES.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {country.flag} {country.code}
+                        </option>
+                      ))}
+                    </SearchableSelect>
+                    <input
+                      type="tel"
+                      id="whatsappNumber"
+                      name="whatsappNumber"
+                      value={profileData.whatsappNumber}
+                      onChange={handleProfileInputChange}
+                      placeholder="If different from phone number"
+                      className="phone-number-input"
+                    />
+                  </div>
                 </div>
               </div>
 

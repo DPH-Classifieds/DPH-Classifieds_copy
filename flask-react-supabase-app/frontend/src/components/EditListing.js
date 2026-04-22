@@ -48,6 +48,8 @@ const EditListing = () => {
     country_code: defaultCountryCode,
     car_owner_phone_number: '',
     contact_email: '',
+    whatsapp_country_code: defaultCountryCode,
+    whatsapp_number: '',
     whatsapp_prefill_text: '',
     vin_number: '',
     body_type: '',
@@ -171,6 +173,19 @@ const EditListing = () => {
       const hasCustomFuel = typeof fuelValue === 'string' && fuelValue.toLowerCase().startsWith('other - ');
       const parsedOtherFuelType = hasCustomFuel ? fuelValue.slice(8).trim() : '';
       
+      // Parse WhatsApp number to extract country code and local number
+      let whatsappCountryCode = defaultCountryCode;
+      let whatsappNumber = '';
+      if (data.whatsapp_number) {
+        const match = data.whatsapp_number.match(/^(\+\d+)(\d+)$/);
+        if (match) {
+          whatsappCountryCode = match[1];
+          whatsappNumber = match[2];
+        } else {
+          whatsappNumber = data.whatsapp_number;
+        }
+      }
+
       // Format the data for the form
       setFormData({
         listing_title: data.listing_title || '',
@@ -192,6 +207,8 @@ const EditListing = () => {
         country_code: data.country_code || defaultCountryCode,
         car_owner_phone_number: data.car_owner_phone_number || data.contact_phone || '',
         contact_email: data.contact_email || data.user_email || '',
+        whatsapp_country_code: whatsappCountryCode,
+        whatsapp_number: whatsappNumber,
         whatsapp_prefill_text: data.whatsapp_prefill_text || '',
         vin_number: data.vin_number || '',
         body_type: data.body_type || '',
@@ -242,7 +259,16 @@ const EditListing = () => {
       }));
       return;
     }
-    
+
+    if (name === 'country_code') {
+      setFormData((prev) => ({
+        ...prev,
+        country_code: value,
+        whatsapp_country_code: value
+      }));
+      return;
+    }
+
     if (type === 'checkbox') {
       setFormData({
         ...formData,
@@ -382,10 +408,15 @@ const EditListing = () => {
       
       // Add all form fields to the form data
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== '') {
+        if (value !== '' && key !== 'whatsapp_country_code') {
           formDataToSend.append(key, value);
         }
       });
+
+      // Combine WhatsApp country code and number
+      if (formData.whatsapp_number) {
+        formDataToSend.set('whatsapp_number', `${formData.whatsapp_country_code}${formData.whatsapp_number}`);
+      }
 
       if (formData.fuel_type === 'Other') {
         formDataToSend.set('fuel_type', `Other - ${otherFuelType.trim()}`);
@@ -1116,15 +1147,31 @@ const EditListing = () => {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="whatsapp_prefill_text">WhatsApp Pre-text (Optional)</label>
-              <textarea
-                id="whatsapp_prefill_text"
-                name="whatsapp_prefill_text"
-                value={formData.whatsapp_prefill_text}
-                onChange={handleChange}
-                rows="3"
-                placeholder="Hi, yes it's available. When would you like to view it?"
-              />
+              <label htmlFor="whatsapp_number">WhatsApp Number</label>
+              <div className="phone-input-group">
+                <SearchableSelect
+                  id="whatsapp_country_code"
+                  name="whatsapp_country_code"
+                  className="country-code-select"
+                  value={formData.whatsapp_country_code}
+                  onChange={handleChange}
+                >
+                  {countryCodes.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </SearchableSelect>
+                <input
+                  type="tel"
+                  id="whatsapp_number"
+                  name="whatsapp_number"
+                  value={formData.whatsapp_number}
+                  onChange={handleChange}
+                  placeholder="e.g. 501234567"
+                  className="phone-number-input"
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -112,6 +112,7 @@ const PostCar = () => {
     torque: '',
     interior_color: '',
     seller_name: '',
+    whatsapp_country_code: defaultCountryCode,
     whatsapp_number: '',
     whatsapp_prefill_text: '',
     seller_email: '',
@@ -537,6 +538,15 @@ const PostCar = () => {
       }));
       return;
     }
+
+    if (name === 'country_code') {
+      setFormData((prev) => ({
+        ...prev,
+        country_code: value,
+        whatsapp_country_code: value
+      }));
+      return;
+    }
     
     if (type === 'checkbox') {
       if (name === 'extras[]') {
@@ -877,7 +887,10 @@ const PostCar = () => {
           formData.fuel_type === 'Other' ? `Other - ${otherFuelType.trim()}` : formData.fuel_type,
         latitude: marker[0],
         longitude: marker[1],
-        images: uploadedImages
+        images: uploadedImages,
+        whatsapp_number: formData.whatsapp_number
+          ? `${formData.whatsapp_country_code}${formData.whatsapp_number}`
+          : ''
       };
       
       console.log('Submitting car listing:', JSON.stringify(submissionData, null, 2));
@@ -1726,15 +1739,30 @@ const PostCar = () => {
             </div>
             <div className="form-group">
               <label htmlFor="whatsapp_number">WhatsApp Number</label>
-              <input
-                type="text"
-                id="whatsapp_number"
-                name="whatsapp_number"
-                value={formData.whatsapp_number}
-                onChange={handleChange}
-                placeholder="501234567"
-                className="form-control"
-              />
+              <div className="phone-input-group">
+                <SearchableSelect
+                  id="whatsapp_country_code"
+                  name="whatsapp_country_code"
+                  className="form-control country-code-select"
+                  value={formData.whatsapp_country_code}
+                  onChange={handleChange}
+                >
+                  {countryCodes.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </SearchableSelect>
+                <input
+                  type="text"
+                  id="whatsapp_number"
+                  name="whatsapp_number"
+                  value={formData.whatsapp_number}
+                  onChange={handleChange}
+                  placeholder="501234567"
+                  className="form-control phone-number-input"
+                />
+              </div>
             </div>
           </div>
 
