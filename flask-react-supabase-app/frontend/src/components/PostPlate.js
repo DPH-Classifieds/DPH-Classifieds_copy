@@ -8,8 +8,7 @@ import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
 
-const HERO_IMAGE =
-  'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1200&q=80';
+const HERO_IMAGE = '/images/toplanding.webp';
 
 const PLATE_FORMAT_OPTIONS = [
   'Any format',

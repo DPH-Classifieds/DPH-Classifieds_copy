@@ -34,19 +34,14 @@ const marketplaceInsights = [
 
 const heroImage = '/images/toplanding.webp';
 const ctaImage = '/images/bottom-landing.jpg';
-const fallbackImages = [
-  'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1200&q=80',
-];
+const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const primaryHeroButtonClass =
   'group border-0 bg-gradient-to-r from-[#0b6b4c] via-[#0a5f47] to-[#004e37] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[#0b6b4c] hover:to-[#0a5f47]';
 const secondaryHeroButtonClass =
   'group border border-white/15 bg-[rgba(255,255,255,0.06)] text-white hover:bg-[rgba(255,255,255,0.12)] hover:text-white';
 
-const normalizeMarketplaceItem = (categoryKey, item, index) => {
+const normalizeMarketplaceItem = (categoryKey, item) => {
   const image =
     resolveMediaUrl(
       item?.images?.[0]?.display_url ||
@@ -57,7 +52,7 @@ const normalizeMarketplaceItem = (categoryKey, item, index) => {
         item?.image ||
         item?.main_image_url ||
         null
-    ) || fallbackImages[index % fallbackImages.length];
+    );
 
   if (categoryKey === 'cars') {
     const year = item.car_year || item.make_year || '';
@@ -179,8 +174,8 @@ const HomePage = () => {
               ? payload.cars
               : [];
 
-          items.forEach((item, index) => {
-            nextItems.push(normalizeMarketplaceItem(key, item, nextItems.length + index));
+          items.forEach((item) => {
+            nextItems.push(normalizeMarketplaceItem(key, item));
           });
         });
 
@@ -275,7 +270,23 @@ const HomePage = () => {
               {marketplaceItems.map((item) => (
                 <Link key={`${item.category}-${item.id}`} to={item.route} className="cn-market-card">
                   <div className="cn-market-media">
-                    <img src={item.image} alt={item.title} className="cn-market-image" loading="lazy" decoding="async" width="400" height="300" />
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="cn-market-image"
+                        loading="lazy"
+                        decoding="async"
+                        width="400"
+                        height="300"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+                        }}
+                      />
+                    ) : (
+                      <div className="cn-market-image-placeholder">No image uploaded</div>
+                    )}
                     <span className="cn-market-badge">{item.category}</span>
                   </div>
                   <div className="cn-market-copy">

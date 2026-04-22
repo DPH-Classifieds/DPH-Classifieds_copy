@@ -8,7 +8,8 @@ import ReportButton from './ReportButton';
 import './CarDetailRedesigned.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/1200x800/0b1c12/a2e4a6?text=Image+Not+Available';
+const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
+const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const PartDetailRedesigned = () => {
   const { id } = useParams();
@@ -135,7 +136,8 @@ const PartDetailRedesigned = () => {
 
   const getWhatsappPrefillText = () => {
     const title = part?.listing_title || part?.name || 'part';
-    return `Hi, I saw your ${title} listing on DPH. Is it still available?`;
+    const listingUrl = `${SITE_URL}/car-parts/${id}`;
+    return `Hi, I saw your listing (${title}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;
   };
 
   const trackLeadEvent = async (action) => {

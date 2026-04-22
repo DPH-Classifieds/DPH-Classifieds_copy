@@ -24,7 +24,8 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/1200x800/0b1c12/a2e4a6?text=Image+Not+Available';
+const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
+const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 const UAE_CITY_COORDINATES = {
   'abu dhabi': [24.4539, 54.3773],
   dubai: [25.2048, 55.2708],
@@ -208,8 +209,8 @@ const CarDetail = () => {
   const getWhatsappPrefillText = () => {
     if (!car) return 'Hi, I saw your listing on DPH and want more details.';
     const title = [car.make_year, car.car_manufacturer, car.car_model].filter(Boolean).join(' ') || 'your listing';
-    const price = car.expected_selling_price ? `AED ${Number(car.expected_selling_price).toLocaleString()}` : 'price on request';
-    return `Hi, I saw your ${title} listing on DPH. Is it still available? (${price})`;
+    const listingUrl = `${SITE_URL}/cars/${id}`;
+    return `Hi, I saw your car (${title}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;
   };
 
   const trackLeadEvent = async (action, payload = {}) => {

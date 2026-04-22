@@ -25,8 +25,7 @@ const PART_TYPES = [
   'Other',
 ];
 const COMPATIBLE_YEAR_OPTIONS = ['Any', '2000-2005', '2006-2010', '2011-2015', '2016-2020', '2021-2026'];
-const HERO_IMAGE =
-  'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1200&q=80';
+const HERO_IMAGE = '/images/toplanding.webp';
 
 const PostCarParts = () => {
   const navigate = useNavigate();

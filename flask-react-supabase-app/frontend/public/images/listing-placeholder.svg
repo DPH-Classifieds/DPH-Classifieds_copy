@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">Listing image placeholder</title>
+  <desc id="desc">Placeholder shown when a listing has no uploaded image.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10241b" />
+      <stop offset="100%" stop-color="#1f4b37" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)" />
+  <g fill="none" stroke="#9ed7ba" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <rect x="290" y="190" width="620" height="420" rx="30" />
+    <path d="M355 525l135-150 110 120 95-95 150 125" />
+    <circle cx="470" cy="310" r="34" />
+  </g>
+  <text x="600" y="690" text-anchor="middle" fill="#e7f7ee" font-size="48" font-family="Arial, sans-serif" font-weight="700">
+    No Uploaded Image
+  </text>
+</svg>

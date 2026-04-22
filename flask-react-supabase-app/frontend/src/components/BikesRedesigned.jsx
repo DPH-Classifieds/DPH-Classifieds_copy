@@ -2,9 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
+import { resolveMediaUrl } from '../utils/media';
 import './BikesRedesigned.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const BikesRedesigned = () => {
   const [bikes, setBikes] = useState([]);
@@ -26,18 +28,13 @@ const BikesRedesigned = () => {
 
   const getImageUrl = (image) => {
     if (!image) return null;
-    
+
     if (typeof image === 'string') {
-      return image.startsWith('/') ? `${API_URL}${image}` : image;
+      return resolveMediaUrl(image);
     }
-    
-    const imageUrl = image.image_url || image.url;
-    
-    if (imageUrl && imageUrl.startsWith('/')) {
-      return `${API_URL}${imageUrl}`;
-    }
-    
-    return imageUrl;
+
+    const imageUrl = image.display_url || image.image_url || image.url;
+    return resolveMediaUrl(imageUrl);
   };
 
   useEffect(() => {
@@ -394,9 +391,8 @@ const BikesRedesigned = () => {
                       src={getImageUrl(bike.images[0])} 
                       alt={`${bike.make || bike.manufacturer || ''} ${bike.model || ''}`}
                       onError={(e) => {
-                        console.error("Image failed to load:", e.target.src);
                         e.target.onerror = null;
-                        e.target.src = "https://via.placeholder.com/600x400?text=No+Image+Available";
+                        e.target.src = LISTING_PLACEHOLDER_IMAGE;
                       }}
                     />
                   ) : (

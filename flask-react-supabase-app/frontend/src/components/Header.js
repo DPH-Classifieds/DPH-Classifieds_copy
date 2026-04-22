@@ -94,6 +94,12 @@ const Header = () => {
   const isPostActive = postLinks.some((item) => location.pathname.startsWith(item.href.replace('/login?redirect=', '')));
   const isExploreActive = location.pathname.startsWith('/explore');
 
+  const handleHomeNavigation = () => {
+    if (location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -113,7 +119,7 @@ const Header = () => {
     >
       <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
         {/* Logo */}
-        <Link to="/" className="flex items-center text-white transition-opacity hover:opacity-80">
+        <Link to="/" onClick={handleHomeNavigation} className="flex items-center text-white transition-opacity hover:opacity-80">
           <span className="text-[1.3rem] font-bold tracking-[-0.03em] text-white">
             DPH<span className="text-[#8bd6b4]">Classifieds</span>
           </span>
@@ -251,7 +257,7 @@ const Header = () => {
           >
             <SheetHeader>
               <SheetTitle>
-                <Link to="/" className="flex items-center gap-3 text-left text-white">
+                <Link to="/" onClick={handleHomeNavigation} className="flex items-center gap-3 text-left text-white">
                   <span className="text-[1.2rem] font-bold tracking-[-0.03em] text-white">
                     DPH<span className="text-[#8bd6b4]">Classifieds</span>
                   </span>

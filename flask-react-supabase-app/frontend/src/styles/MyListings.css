@@ -41,6 +41,26 @@
   line-height: 1.6;
 }
 
+.my-listings-lead-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.my-listings-lead-stats span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 218, 153, 0.25);
+  background: rgba(18, 52, 35, 0.6);
+  color: rgba(225, 238, 230, 0.88);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -144,7 +164,7 @@
 
 .my-listing-image {
   position: relative;
-  height: 210px;
+  aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   overflow: hidden;
   background: #101712;
 }

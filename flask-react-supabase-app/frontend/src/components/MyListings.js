@@ -1,19 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
+import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/MyListings.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const getImageUrl = (image) => {
   if (!image) return null;
 
   const imageUrl = image.display_url || image.image_url || image.url || image;
-  if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('/')) {
-    return `${API_URL}${imageUrl}`;
-  }
-  return imageUrl;
+  return resolveMediaUrl(imageUrl);
 };
 
 const TYPE_CONFIG = {
@@ -116,6 +115,13 @@ const getPrimaryImage = (listing) => {
 
 const MyListings = () => {
   const [listings, setListings] = useState([]);
+  const [leadTotals, setLeadTotals] = useState({
+    qualified_leads: 0,
+    call_click: 0,
+    whatsapp_click: 0,
+    vin_open: 0,
+    vin_reveal: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actioningId, setActioningId] = useState(null);
@@ -125,7 +131,29 @@ const MyListings = () => {
 
   useEffect(() => {
     fetchUserListings();
+    fetchLeadTotals();
   }, []);
+
+  const fetchLeadTotals = async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/api/user/lead-metrics?days=30`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) return;
+      const payload = await response.json();
+      if (payload?.totals) {
+        setLeadTotals((current) => ({ ...current, ...payload.totals }));
+      }
+    } catch (err) {
+      console.warn('Failed to fetch user lead totals:', err);
+    }
+  };
 
   const fetchUserListings = async () => {
     setLoading(true);
@@ -354,6 +382,12 @@ const MyListings = () => {
           <p className="my-listings-subtitle">
             Listings stay live for 15 days. After expiry, they remain here for another 30 days so you can extend or delete them.
           </p>
+          <div className="my-listings-lead-stats">
+            <span>Leads (30d): {leadTotals.qualified_leads || 0}</span>
+            <span>Calls: {leadTotals.call_click || 0}</span>
+            <span>WhatsApp: {leadTotals.whatsapp_click || 0}</span>
+            <span>VIN opens: {leadTotals.vin_open || 0}</span>
+          </div>
         </div>
         <div className="action-buttons">
           {SELL_ACTIONS.map((action) => (
@@ -405,7 +439,7 @@ const MyListings = () => {
                             alt={buildListingTitle(listing)}
                             onError={(event) => {
                               event.currentTarget.onerror = null;
-                              event.currentTarget.src = 'https://via.placeholder.com/400x300?text=No+Image+Available';
+                              event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
                             }}
                           />
                         ) : (

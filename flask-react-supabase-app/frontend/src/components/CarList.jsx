@@ -4,9 +4,11 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import { carMakes, carModels, carTrims } from '../utils/carData';
+import { resolveMediaUrl } from '../utils/media';
 import './CarList.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const CarList = () => {
   const [cars, setCarsState] = useState([]);
@@ -130,14 +132,8 @@ const CarList = () => {
     if (!image) return null;
     
     // Try all possible image URL fields
-    const imageUrl = image.image_url || image.url;
-    
-    // Check if the URL is a relative URL that needs the API base URL
-    if (imageUrl && imageUrl.startsWith('/')) {
-      return `${API_URL}${imageUrl}`;
-    }
-    
-    return imageUrl;
+    const imageUrl = image.display_url || image.image_url || image.url || image;
+    return resolveMediaUrl(imageUrl);
   };
 
   const fetchCars = useCallback(async (filterParams = {}) => {
@@ -766,9 +762,8 @@ const CarList = () => {
                           width="400"
                           height="300"
                           onError={(e) => {
-                            console.error("Image failed to load:", e.target.src);
                             e.target.onerror = null;
-                            e.target.src = "https://via.placeholder.com/400x300?text=No+Image+Available";
+                            e.target.src = LISTING_PLACEHOLDER_IMAGE;
                           }}
                         />
                       ) : (

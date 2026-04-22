@@ -41,8 +41,7 @@ const BIKE_FEATURES = [
   'Saddlebags/Panniers',
 ];
 
-const HERO_IMAGE =
-  'https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=1200&q=80';
+const HERO_IMAGE = '/images/toplanding.webp';
 
 const PostBike = () => {
   const navigate = useNavigate();

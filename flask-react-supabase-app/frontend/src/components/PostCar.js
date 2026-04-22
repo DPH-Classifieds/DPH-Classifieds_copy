@@ -875,7 +875,7 @@ const PostCar = () => {
             <p className="post-hero-subtitle">Curate your automotive legacy. Our listing process is designed for precision.</p>
           </div>
           <div className="post-hero-image">
-            <img src="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=800&q=80" alt="Luxury Car" />
+            <img src="/images/toplanding.webp" alt="DPH car listing" />
           </div>
         </div>
       </section>
