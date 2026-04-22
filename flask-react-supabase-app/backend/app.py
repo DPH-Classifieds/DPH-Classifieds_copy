@@ -2488,6 +2488,26 @@ def update_car(current_user, car_id):
         else:
             car["images"] = []
 
+        # Send edit notification email
+        try:
+            user_email = car.get("user_email") or car.get("contact_email")
+            if not user_email:
+                user_email = get_user_email(current_user)
+            if user_email and EMAIL_REGEX.match(user_email):
+                _, email_error = _send_listing_status_email(
+                    user_email,
+                    "cars",
+                    car,
+                    "updated",
+                    request.headers.get("Origin"),
+                )
+                if email_error:
+                    logger.error(f"Edit email failed for car {car_id}: {email_error}")
+                else:
+                    logger.info(f"Edit email sent for car {car_id}")
+        except Exception as email_err:
+            logger.error(f"Error sending edit email: {email_err}")
+
         return jsonify(car), 200
     except Exception as e:
         logger.error(f"Error updating car: {e}")
