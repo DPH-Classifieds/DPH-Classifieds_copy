@@ -135,6 +135,8 @@ const PartDetailRedesigned = () => {
   };
 
   const getWhatsappPrefillText = () => {
+    const customPrefill = String(part?.whatsapp_prefill_text || '').trim();
+    if (customPrefill) return customPrefill;
     const title = part?.listing_title || part?.name || 'part';
     const listingUrl = `${SITE_URL}/car-parts/${id}`;
     return `Hi, I saw your listing (${title}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;

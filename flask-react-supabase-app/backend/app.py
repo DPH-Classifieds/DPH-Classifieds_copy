@@ -2015,6 +2015,7 @@ def create_car(current_user):
             "is_approved",
             "user_id",
             "country_code",
+            "whatsapp_prefill_text",
             "vin_number",
             "latitude",
             "longitude",
@@ -2353,6 +2354,7 @@ def update_car(current_user, car_id):
             "vehicle_type",
             "is_approved",
             "country_code",
+            "whatsapp_prefill_text",
             "vin_number",
             "latitude",
             "longitude",
@@ -4943,6 +4945,8 @@ def create_bike(current_user):
             "emirate",
             "contact_number",
             "contact_phone",
+            "vin_number",
+            "whatsapp_prefill_text",
             "description",
             "transmission",
             "fuel_type",
@@ -5081,6 +5085,8 @@ def update_bike(current_user, bike_id):
             "emirate",
             "contact_number",
             "contact_phone",
+            "vin_number",
+            "whatsapp_prefill_text",
             "description",
             "transmission",
             "fuel_type",
@@ -5605,6 +5611,7 @@ def create_part(current_user):
             "area",
             "emirate",
             "contact_number",
+            "whatsapp_prefill_text",
             "description",
             "is_negotiable",
             "status",
@@ -6140,6 +6147,7 @@ def _create_plate_with_image_impl(current_user):
         plate_format = payload.get("plate_format")
         contact_name = payload.get("contact_name")
         contact_phone = payload.get("contact_phone")
+        whatsapp_prefill_text = payload.get("whatsapp_prefill_text")
         description = payload.get("description")
         area = payload.get("area")
         emirate = payload.get("emirate")
@@ -6178,6 +6186,7 @@ def _create_plate_with_image_impl(current_user):
             "plate_format": plate_format,
             "contact_name": contact_name,
             "contact_phone": contact_phone,
+            "whatsapp_prefill_text": whatsapp_prefill_text,
             "description": description,
             "area": area,
             "emirate": emirate,
@@ -6756,7 +6765,62 @@ def api_admin_list_items(current_user, item_type):
         if status_code >= 400:
             return jsonify({"error": "Failed to fetch listings"}), status_code
 
-        return jsonify(response or []), 200
+        listings = response or []
+        listing_ids = {
+            str(item.get("id"))
+            for item in listings
+            if isinstance(item, dict) and item.get("id") is not None
+        }
+
+        lead_counts_by_listing = defaultdict(lambda: defaultdict(int))
+        if listing_ids:
+            normalized_listing_type = item_type.rstrip("s")
+            lead_events, lead_status = supabase_request(
+                "get",
+                "/rest/v1/lead_events",
+                params={
+                    "select": "listing_id,action,created_at",
+                    "listing_type": f"eq.{normalized_listing_type}",
+                    "order": "created_at.desc",
+                    "limit": "10000",
+                },
+                use_service_role=True,
+            )
+            if lead_status < 400:
+                for event in lead_events or []:
+                    listing_id = str(event.get("listing_id"))
+                    if listing_id not in listing_ids:
+                        continue
+                    action = event.get("action") or "unknown"
+                    lead_counts_by_listing[listing_id][action] += 1
+            else:
+                logger.warning(
+                    f"Failed loading lead events for admin listing view: {lead_events}"
+                )
+
+        enriched_listings = []
+        for item in listings:
+            item_copy = dict(item) if isinstance(item, dict) else item
+            if not isinstance(item_copy, dict):
+                enriched_listings.append(item_copy)
+                continue
+
+            listing_id = str(item_copy.get("id"))
+            counts = lead_counts_by_listing.get(listing_id, {})
+            call_click = int(counts.get("call_click", 0))
+            whatsapp_click = int(counts.get("whatsapp_click", 0))
+            vin_open = int(counts.get("vin_open", 0))
+            vin_reveal = int(counts.get("vin_reveal", 0))
+            item_copy["lead_metrics"] = {
+                "call_click": call_click,
+                "whatsapp_click": whatsapp_click,
+                "vin_open": vin_open,
+                "vin_reveal": vin_reveal,
+                "qualified_leads": call_click + whatsapp_click,
+            }
+            enriched_listings.append(item_copy)
+
+        return jsonify(enriched_listings), 200
     except Exception as e:
         logger.error(f"Exception in api_admin_list_items: {e}")
         return jsonify({"error": "Failed to fetch listings"}), 500

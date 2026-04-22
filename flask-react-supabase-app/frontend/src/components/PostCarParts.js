@@ -49,6 +49,7 @@ const PostCarParts = () => {
     emirate: 'Dubai',
     contact_number: '',
     country_code: '+971',
+    whatsapp_prefill_text: '',
     description: '',
     is_negotiable: false,
     is_dealer: false,
@@ -180,6 +181,7 @@ const PostCarParts = () => {
         emirate: formData.emirate,
         contact_number: `${formData.country_code}${formData.contact_number.trim()}`,
         country_code: formData.country_code,
+        whatsapp_prefill_text: formData.whatsapp_prefill_text.trim(),
         description: formData.description.trim(),
         is_negotiable: formData.is_negotiable,
         is_dealer: formData.is_dealer,
@@ -431,6 +433,19 @@ const PostCarParts = () => {
                       value={formData.description}
                       onChange={handleChange}
                       placeholder="State fitment notes, OEM or aftermarket status, warranty, condition details, and any included extras."
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="whatsapp_prefill_text">WhatsApp Pre-text (Optional)</label>
+                    <textarea
+                      id="whatsapp_prefill_text"
+                      name="whatsapp_prefill_text"
+                      rows="3"
+                      value={formData.whatsapp_prefill_text}
+                      onChange={handleChange}
+                      placeholder="Hi, this part is available. Share your vehicle details so I can confirm compatibility."
                     />
                   </div>
                 </div>

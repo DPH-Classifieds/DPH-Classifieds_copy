@@ -134,6 +134,8 @@ const PlateDetailRedesigned = () => {
   };
 
   const getWhatsappPrefillText = () => {
+    const customPrefill = String(plate?.whatsapp_prefill_text || '').trim();
+    if (customPrefill) return customPrefill;
     const title = `${plate?.city || ''} ${plate?.code || ''} ${plate?.number || ''}`.trim();
     const listingUrl = `${SITE_URL}/plates/${id}`;
     return `Hi, I saw your plate (${title || 'listing'}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;

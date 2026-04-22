@@ -46,6 +46,7 @@ const EditListing = () => {
     emirate: 'Dubai',
     contact_phone: '',
     contact_email: '',
+    whatsapp_prefill_text: '',
     vin_number: '',
     body_type: '',
     fuel_type: '',
@@ -188,6 +189,7 @@ const EditListing = () => {
         emirate: data.emirate || data.car_city || 'Dubai',
         contact_phone: data.car_owner_phone_number || data.contact_phone || '',
         contact_email: data.contact_email || data.user_email || '',
+        whatsapp_prefill_text: data.whatsapp_prefill_text || '',
         vin_number: data.vin_number || '',
         body_type: data.body_type || '',
         fuel_type: hasCustomFuel ? 'Other' : fuelValue,
@@ -1109,6 +1111,17 @@ const EditListing = () => {
                 value={formData.contact_email}
                 onChange={handleChange}
                 placeholder="e.g. your@email.com"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="whatsapp_prefill_text">WhatsApp Pre-text (Optional)</label>
+              <textarea
+                id="whatsapp_prefill_text"
+                name="whatsapp_prefill_text"
+                value={formData.whatsapp_prefill_text}
+                onChange={handleChange}
+                rows="3"
+                placeholder="Hi, yes it's available. When would you like to view it?"
               />
             </div>
           </div>

@@ -207,6 +207,8 @@ const CarDetail = () => {
   };
 
   const getWhatsappPrefillText = () => {
+    const customPrefill = String(car?.whatsapp_prefill_text || '').trim();
+    if (customPrefill) return customPrefill;
     if (!car) return 'Hi, I saw your listing on DPH and want more details.';
     const title = [car.make_year, car.car_manufacturer, car.car_model].filter(Boolean).join(' ') || 'your listing';
     const listingUrl = `${SITE_URL}/cars/${id}`;

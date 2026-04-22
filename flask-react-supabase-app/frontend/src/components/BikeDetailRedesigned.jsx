@@ -159,6 +159,8 @@ const BikeDetailRedesigned = () => {
   };
 
   const getWhatsappPrefillText = () => {
+    const customPrefill = String(bike?.whatsapp_prefill_text || '').trim();
+    if (customPrefill) return customPrefill;
     const title = [bike?.year || bike?.make_year, bike?.make || bike?.bike_brand, bike?.model || bike?.bike_model]
       .filter(Boolean)
       .join(' ');

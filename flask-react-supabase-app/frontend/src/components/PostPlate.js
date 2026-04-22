@@ -70,6 +70,7 @@ const PostPlate = () => {
     plate_format: 'Any format',
     contact_name: '',
     contact_phone: '',
+    whatsapp_prefill_text: '',
     area: '',
     emirate: '',
     description: '',
@@ -146,6 +147,7 @@ const PostPlate = () => {
         plate_format: formData.plate_format,
         contact_name: formData.contact_name.trim(),
         contact_phone: formData.contact_phone.trim(),
+        whatsapp_prefill_text: formData.whatsapp_prefill_text.trim(),
         area: formData.area.trim(),
         emirate: formData.emirate || formData.city,
         description: formData.description.trim(),
@@ -370,6 +372,19 @@ const PostPlate = () => {
                       value={formData.description}
                       onChange={handleChange}
                       placeholder="Share any provenance, rarity, transfer notes, or negotiation context."
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="whatsapp_prefill_text">WhatsApp Pre-text (Optional)</label>
+                    <textarea
+                      id="whatsapp_prefill_text"
+                      name="whatsapp_prefill_text"
+                      rows="3"
+                      value={formData.whatsapp_prefill_text}
+                      onChange={handleChange}
+                      placeholder="Hi, this plate is available. Let me know your preferred transfer timeline."
                     />
                   </div>
                 </div>

@@ -113,6 +113,7 @@ const PostCar = () => {
     interior_color: '',
     seller_name: '',
     whatsapp_number: '',
+    whatsapp_prefill_text: '',
     seller_email: '',
     contact_preference: 'phone',
     extras: [],
@@ -1748,6 +1749,18 @@ const PostCar = () => {
                 onChange={handleChange}
                 placeholder="name@email.com"
                 className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="whatsapp_prefill_text">WhatsApp Pre-text (Optional)</label>
+              <textarea
+                id="whatsapp_prefill_text"
+                name="whatsapp_prefill_text"
+                value={formData.whatsapp_prefill_text}
+                onChange={handleChange}
+                placeholder="Hi, this is still available. Let me know if you'd like to view it."
+                className="form-control"
+                rows="3"
               />
             </div>
           </div>

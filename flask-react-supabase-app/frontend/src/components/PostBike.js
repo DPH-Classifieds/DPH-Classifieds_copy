@@ -67,6 +67,7 @@ const PostBike = () => {
     emirate: 'Dubai',
     description: '',
     vin_number: '',
+    whatsapp_prefill_text: '',
     is_dealer: false,
     cylinders: '',
     wheels: '2',
@@ -208,6 +209,7 @@ const PostBike = () => {
         area: formData.area.trim(),
         emirate: formData.emirate,
         description: formData.description.trim(),
+        whatsapp_prefill_text: formData.whatsapp_prefill_text.trim(),
         features: formData.features,
         condition: formData.condition,
         vin_number: formData.vin_number.trim().toUpperCase(),
@@ -467,6 +469,17 @@ const PostBike = () => {
                     onChange={handleChange}
                     required
                     placeholder="Summarize condition, ownership history, maintenance, upgrades, and why this bike stands out."
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="whatsapp_prefill_text">WhatsApp Pre-text (Optional)</label>
+                  <textarea
+                    id="whatsapp_prefill_text"
+                    name="whatsapp_prefill_text"
+                    rows="3"
+                    value={formData.whatsapp_prefill_text}
+                    onChange={handleChange}
+                    placeholder="Hi, yes this bike is available. Please share when you want to inspect it."
                   />
                 </div>
               </div>

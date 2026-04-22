@@ -4,6 +4,20 @@ import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminDashboard.css';
 
+const ADMIN_DELETE_REASONS = [
+  'Duplicate listing',
+  'Fraud or suspicious activity',
+  'Prohibited or inappropriate content',
+  'Policy violation',
+];
+
+const ADMIN_REJECTION_REASONS = [
+  'Incomplete listing information',
+  'Duplicate listing',
+  'Fraud or suspicious activity',
+  'Prohibited or inappropriate content',
+];
+
 const AdminListings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get('filter') || 'cars';
@@ -16,6 +30,7 @@ const AdminListings = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [rejectionNote, setRejectionNote] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
+  const [deleteReasonDetails, setDeleteReasonDetails] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -90,12 +105,19 @@ const AdminListings = () => {
 
   const handleDeleteListing = async () => {
     if (!selectedListing) return;
+    if (!deleteReason.trim()) {
+      alert('Please select a removal reason.');
+      return;
+    }
     try {
       setActionLoading(true);
+      const finalReason = deleteReasonDetails.trim()
+        ? `${deleteReason}: ${deleteReasonDetails.trim()}`
+        : deleteReason;
       await apiClient.request(`/api/${getDeleteType(filter)}/${selectedListing.id}/delete`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: { reason: deleteReason || 'Removed by admin' },
+        body: { reason: finalReason },
       });
       setListings(listings.filter((l) => l.id !== selectedListing.id));
       setSuccessMessage('Listing removed successfully');
@@ -103,6 +125,7 @@ const AdminListings = () => {
       setShowDeleteModal(false);
       setShowDetailModal(false);
       setDeleteReason('');
+      setDeleteReasonDetails('');
     } catch (error) {
       console.error('Failed to delete listing:', error);
       alert('Failed to delete listing. Please try again.');
@@ -144,6 +167,18 @@ const AdminListings = () => {
     );
   };
 
+  const getListingVin = (listing) =>
+    listing?.vin_number || listing?.chassis_number || listing?.vin || null;
+
+  const getLeadMetrics = (listing) => {
+    const metrics = listing?.lead_metrics || {};
+    const callClick = Number(metrics.call_click || 0);
+    const whatsappClick = Number(metrics.whatsapp_click || 0);
+    const vinOpen = Number(metrics.vin_open || 0);
+    const qualifiedLeads = Number(metrics.qualified_leads || (callClick + whatsappClick));
+    return { callClick, whatsappClick, vinOpen, qualifiedLeads };
+  };
+
   const ListingCard = ({ listing }) => (
     <div className="listing-card">
       <div className="listing-info">
@@ -158,7 +193,10 @@ const AdminListings = () => {
         <h3>{getListingTitle(listing)}</h3>
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>
         <p><strong>Seller:</strong> {listing.user_email || listing.seller_email || 'N/A'}</p>
-        {listing.vin_number && <p><strong>VIN:</strong> {listing.vin_number}</p>}
+        <p><strong>VIN:</strong> {getListingVin(listing) || 'N/A'}</p>
+        <p><strong>Leads:</strong> {getLeadMetrics(listing).qualifiedLeads}</p>
+        <p><strong>Calls:</strong> {getLeadMetrics(listing).callClick} · <strong>WhatsApp:</strong> {getLeadMetrics(listing).whatsappClick}</p>
+        <p><strong>VIN Opens:</strong> {getLeadMetrics(listing).vinOpen}</p>
         <p><strong>Status:</strong> {getStatusBadge(listing.status || statusFilter)}</p>
         <p><strong>Created:</strong> {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : 'N/A'}</p>
       </div>
@@ -279,6 +317,11 @@ const AdminListings = () => {
               <p><strong>Description:</strong> {selectedListing.display_description || selectedListing.description || selectedListing.car_description || 'No description provided'}</p>
               <p><strong>Seller:</strong> {selectedListing.user_email || selectedListing.seller_email || 'N/A'}</p>
               <p><strong>Created:</strong> {selectedListing.created_at ? new Date(selectedListing.created_at).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>VIN:</strong> {getListingVin(selectedListing) || 'N/A'}</p>
+              <p><strong>Total Leads:</strong> {getLeadMetrics(selectedListing).qualifiedLeads}</p>
+              <p><strong>Call Clicks:</strong> {getLeadMetrics(selectedListing).callClick}</p>
+              <p><strong>WhatsApp Clicks:</strong> {getLeadMetrics(selectedListing).whatsappClick}</p>
+              <p><strong>VIN Opens:</strong> {getLeadMetrics(selectedListing).vinOpen}</p>
               {selectedListing.display_make && <p><strong>Make:</strong> {selectedListing.display_make}</p>}
               {selectedListing.display_model && <p><strong>Model:</strong> {selectedListing.display_model}</p>}
               {selectedListing.display_year && <p><strong>Year:</strong> {selectedListing.display_year}</p>}
@@ -288,7 +331,6 @@ const AdminListings = () => {
               {selectedListing.body_type && <p><strong>Body:</strong> {selectedListing.body_type}</p>}
               {selectedListing.car_city && <p><strong>City:</strong> {selectedListing.car_city}</p>}
               {selectedListing.car_owner_phone_number && <p><strong>Phone:</strong> {selectedListing.country_code || '+971'}{selectedListing.car_owner_phone_number}</p>}
-              {selectedListing.vin_number && <p><strong>VIN:</strong> {selectedListing.vin_number}</p>}
               {selectedListing.rejection_note && <p><strong>Rejection Reason:</strong> {selectedListing.rejection_note}</p>}
               {selectedListing.images && selectedListing.images.length > 0 && (
                 <div>
@@ -333,6 +375,8 @@ const AdminListings = () => {
               )}
               <button
                 onClick={() => {
+                  setDeleteReason('');
+                  setDeleteReasonDetails('');
                   setShowDeleteModal(true);
                   setShowDetailModal(false);
                 }}
@@ -363,6 +407,22 @@ const AdminListings = () => {
               </button>
             </div>
             <div className="modal-body">
+              <label htmlFor="rejection-reason-preset">Quick reason</label>
+              <select
+                id="rejection-reason-preset"
+                value=""
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value) setRejectionNote(value);
+                }}
+              >
+                <option value="">Select one of 4 generic reasons</option>
+                {ADMIN_REJECTION_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
+                  </option>
+                ))}
+              </select>
               <label>Rejection Note (required)</label>
               <textarea
                 value={rejectionNote}
@@ -405,12 +465,27 @@ const AdminListings = () => {
             <div className="modal-body">
               <p><strong>{getListingTitle(selectedListing)}</strong> will be removed from the marketplace.</p>
               <label htmlFor="delete-reason"><strong>Removal reason</strong></label>
-              <textarea
+              <select
                 id="delete-reason"
                 value={deleteReason}
                 onChange={(event) => setDeleteReason(event.target.value)}
-                placeholder="Enter removal reason for admin history..."
-                rows={4}
+              >
+                <option value="">Select a reason</option>
+                {ADMIN_DELETE_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="delete-reason-details" style={{ marginTop: '12px' }}>
+                <strong>Additional details (optional)</strong>
+              </label>
+              <textarea
+                id="delete-reason-details"
+                value={deleteReasonDetails}
+                onChange={(event) => setDeleteReasonDetails(event.target.value)}
+                placeholder="Optional internal details for admin history..."
+                rows={3}
               />
             </div>
             <div className="modal-footer">
