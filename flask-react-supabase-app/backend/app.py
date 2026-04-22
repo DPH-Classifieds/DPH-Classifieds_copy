@@ -716,7 +716,9 @@ def _is_valid_car_fuel_type(value):
         return True
     if not isinstance(value, str):
         return False
-    return value.lower().startswith("other - ") and len(value.split("-", 1)[1].strip()) > 0
+    return (
+        value.lower().startswith("other - ") and len(value.split("-", 1)[1].strip()) > 0
+    )
 
 
 def _get_cors_origins():
@@ -1322,9 +1324,9 @@ def supabase_request(
         elif method.lower() == "post":
             response = requests.post(url, headers=headers, json=data)
         elif method.lower() == "put":
-            response = requests.put(url, headers=headers, json=data)
+            response = requests.put(url, headers=headers, json=data, params=params)
         elif method.lower() == "patch":
-            response = requests.patch(url, headers=headers, json=data)
+            response = requests.patch(url, headers=headers, json=data, params=params)
         elif method.lower() == "delete":
             response = requests.delete(url, headers=headers, params=params)
         else:
@@ -2254,7 +2256,10 @@ def update_car(current_user, car_id):
             update_data["car_city"] = update_data.get("location")
         if "location" in update_data and "area" not in update_data:
             update_data["area"] = update_data.get("location")
-        if "contact_phone" in update_data and "car_owner_phone_number" not in update_data:
+        if (
+            "contact_phone" in update_data
+            and "car_owner_phone_number" not in update_data
+        ):
             update_data["car_owner_phone_number"] = update_data.get("contact_phone")
         if "car_variant" in update_data and "trim" not in update_data:
             update_data["trim"] = update_data.get("car_variant")
@@ -2423,7 +2428,7 @@ def update_car(current_user, car_id):
                             bucket_name="listing-images",
                             folder=str(current_user),
                             return_metadata=True,
-                            crop_settings=crop_data[index]
+                            crop_settings=crop_data[index],
                         )
 
                         if upload_error:
@@ -2698,7 +2703,9 @@ def _build_display_variant(base_image, crop_settings):
     crop_width = max(1, int(round(base_crop_width / zoom)))
     crop_height = max(1, int(round(base_crop_height / zoom)))
 
-    left = int(round(_clamp(focal_x - (crop_width / 2), 0, base_image.width - crop_width)))
+    left = int(
+        round(_clamp(focal_x - (crop_width / 2), 0, base_image.width - crop_width))
+    )
     top = int(
         round(_clamp(focal_y - (crop_height / 2), 0, base_image.height - crop_height))
     )
@@ -2722,7 +2729,9 @@ def _build_display_variant(base_image, crop_settings):
     return display_image, crop_meta
 
 
-def _upload_bytes_to_supabase_storage(file_data, bucket_name, object_path, content_type):
+def _upload_bytes_to_supabase_storage(
+    file_data, bucket_name, object_path, content_type
+):
     upload_url = f"{SUPABASE_URL}/storage/v1/object/{bucket_name}/{object_path}"
     headers = {
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -2806,6 +2815,7 @@ def upload_to_supabase_storage(
 
         # Save to bytes with compression
         from io import BytesIO
+
         output = BytesIO()
 
         # Store listing images as optimized JPEGs except when the source is already WebP.
@@ -2845,7 +2855,9 @@ def upload_to_supabase_storage(
             display_image, crop_meta = _build_display_variant(img, normalized_crop)
             if display_image is not None:
                 display_buffer = BytesIO()
-                display_image.save(display_buffer, format="JPEG", quality=88, optimize=True)
+                display_image.save(
+                    display_buffer, format="JPEG", quality=88, optimize=True
+                )
                 display_buffer.seek(0)
                 display_data = display_buffer.read()
                 display_filename = unique_filename.rsplit(".", 1)[0] + "_display.jpg"
@@ -2901,9 +2913,7 @@ def upload_images(current_user):
             logger.error("No image files selected")
             return jsonify({"error": "No images selected"}), 400
 
-        crop_data = _parse_crop_data_payload(
-            request.form.get("crop_data"), len(files)
-        )
+        crop_data = _parse_crop_data_payload(request.form.get("crop_data"), len(files))
 
         logger.info(f"Processing {len(files)} images for user {current_user}")
         image_records = []
@@ -7634,6 +7644,7 @@ def set_listing_outcome(current_user, item_type, item_id):
 
     return jsonify({"message": "Listing outcome saved"}), 200
 
+
 # =====================
 # Reports API Routes
 # =====================
@@ -7836,7 +7847,9 @@ def get_admin_lead_metrics(current_user):
         report_count = len(reports_resp or [])
         qualified_leads = totals["call_click"] + totals["whatsapp_click"]
         conversion_rate = (
-            round((report_count / qualified_leads) * 100, 2) if qualified_leads > 0 else 0
+            round((report_count / qualified_leads) * 100, 2)
+            if qualified_leads > 0
+            else 0
         )
 
         return jsonify(
@@ -7851,7 +7864,9 @@ def get_admin_lead_metrics(current_user):
                     "reports_created": report_count,
                     "report_conversion_percent": conversion_rate,
                 },
-                "recent_events": leads_resp[:100] if isinstance(leads_resp, list) else [],
+                "recent_events": leads_resp[:100]
+                if isinstance(leads_resp, list)
+                else [],
                 "recent_reports": reports_resp[:100]
                 if isinstance(reports_resp, list)
                 else [],
@@ -7875,7 +7890,11 @@ def get_user_lead_metrics(current_user):
             listing_rows, listing_status = supabase_request(
                 "get",
                 f"/rest/v1/{config['table']}",
-                params={"select": "id", "user_id": f"eq.{current_user}", "limit": "1000"},
+                params={
+                    "select": "id",
+                    "user_id": f"eq.{current_user}",
+                    "limit": "1000",
+                },
                 use_service_role=True,
             )
             if listing_status >= 400:
