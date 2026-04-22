@@ -412,29 +412,40 @@ const EditListing = () => {
         formDataToSend.append('crop_data', JSON.stringify(cropPayload));
       }
       
-      await apiClient.request(`/api/cars/${id}/update`, {
-        method: 'POST',
-        body: formDataToSend
-      });
+      const updateAttempts = [
+        { endpoint: `/api/cars/${id}`, method: 'PUT' },
+        { endpoint: `/api/cars/${id}`, method: 'PATCH' },
+        { endpoint: `/api/cars/${id}`, method: 'POST' },
+        { endpoint: `/api/cars/${id}/update`, method: 'POST' }
+      ];
+      let lastError = null;
+
+      for (const attempt of updateAttempts) {
+        try {
+          await apiClient.request(attempt.endpoint, {
+            method: attempt.method,
+            body: formDataToSend
+          });
+          lastError = null;
+          break;
+        } catch (err) {
+          console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status);
+          lastError = err;
+          if (err.status === 405 || err.status === 404) {
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
       
-      // Redirect to the listing page on success
       navigate(`/cars/${id}`);
     } catch (err) {
       console.error('Error updating listing:', err);
-
-      const allowHeader = err?.allow || err?.responseHeaders?.allow;
-      const requestId = err?.responseHeaders?.xRailwayRequestId || err?.responseHeaders?.cfRay;
-
-      if (Number(err?.status) === 405) {
-        const methodMessage = allowHeader
-          ? `Update endpoint rejected this request. Allowed methods: ${allowHeader}.`
-          : 'Update endpoint rejected this request method (HTTP 405).';
-        const traceMessage = requestId ? ` Request ID: ${requestId}` : '';
-        setError(`${methodMessage}${traceMessage}`);
-      } else {
-        setError(err.message || 'Failed to update the listing. Please try again.');
-      }
-
+      setError(err.message || 'Failed to update the listing. Please try again.');
       setSubmitting(false);
     }
   };
