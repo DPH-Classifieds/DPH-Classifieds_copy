@@ -25,8 +25,6 @@ const PART_TYPES = [
   'Other',
 ];
 const COMPATIBLE_YEAR_OPTIONS = ['Any', '2000-2005', '2006-2010', '2011-2015', '2016-2020', '2021-2026'];
-const HERO_IMAGE = '/images/toplanding.webp';
-
 const PostCarParts = () => {
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
@@ -234,9 +232,6 @@ const PostCarParts = () => {
             <p className="post-hero-subtitle">
               The parts flow now follows the same structure as the car form and uses the field names the backend `car_parts` endpoint actually stores.
             </p>
-          </div>
-          <div className="post-hero-image">
-            <img src={HERO_IMAGE} alt="Automotive parts listing" />
           </div>
         </div>
       </section>

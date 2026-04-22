@@ -8,8 +8,6 @@ import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
 
-const HERO_IMAGE = '/images/toplanding.webp';
-
 const PLATE_FORMAT_OPTIONS = [
   'Any format',
   'Contains digit repeated 2 times',
@@ -200,9 +198,6 @@ const PostPlate = () => {
             <p className="post-hero-subtitle">
               This flow now mirrors the car form structure and posts directly to the backend plate endpoint without the old client-side image detour.
             </p>
-          </div>
-          <div className="post-hero-image">
-            <img src={HERO_IMAGE} alt="Premium number plate listing" />
           </div>
         </div>
       </section>

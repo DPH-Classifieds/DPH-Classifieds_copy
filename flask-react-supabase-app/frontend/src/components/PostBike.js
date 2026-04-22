@@ -41,8 +41,6 @@ const BIKE_FEATURES = [
   'Saddlebags/Panniers',
 ];
 
-const HERO_IMAGE = '/images/toplanding.webp';
-
 const PostBike = () => {
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
@@ -265,9 +263,6 @@ const PostBike = () => {
             <p className="post-hero-subtitle">
               Use the same polished listing flow as the car form. Clean specs, crisp media, and a clear seller story help the right buyer move faster.
             </p>
-          </div>
-          <div className="post-hero-image">
-            <img src={HERO_IMAGE} alt="Premium motorcycle listing" />
           </div>
         </div>
       </section>
