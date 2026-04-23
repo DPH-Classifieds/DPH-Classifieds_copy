@@ -515,29 +515,47 @@ def _send_listing_expiry_reminder(
         "license_plates": "plates",
     }
     path = detail_paths.get(listing_type, listing_type)
-    listing_url = f"{SITE_URL}/{path}/{listing_id}"
     my_listings_url = f"{SITE_URL}/my-listings"
 
-    subject = f"Your listing '{listing_title}' expires in {days_left} day{'s' if days_left != 1 else ''}"
+    subject = f"Your listing '{listing_title}' expires in {days_left} day{'s' if days_left != 1 else ''} - DPH Classifieds"
 
-    lines = [
-        "Hi there",
-        "",
-        f"Your listing '{listing_title}' will expire in {days_left} day{'s' if days_left != 1 else ''}.",
-        f"After expiry, your listing will no longer be visible to buyers. You can renew it from your listings page.",
-        "",
-        f"Renew your listing: {my_listings_url}",
-        f"View listing: {listing_url}",
-        "",
-        "Thanks,",
-        SITE_NAME,
-    ]
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 28px; font-weight: 800; color: #8bd6b4; letter-spacing: -0.02em;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+        </div>
+        
+        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
+            <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Action Required: Listing Expiring</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
+                Hi there, your listing <strong>"{listing_title}"</strong> is set to expire in <strong>{days_left} day{'s' if days_left != 1 else ''}</strong>.
+            </p>
+            
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
+                To keep your listing visible to potential buyers, please visit your dashboard and choose an action:
+            </p>
+            
+            <div style="background: rgba(139, 214, 180, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px dashed rgba(139, 214, 180, 0.2);">
+                <ul style="margin: 0; padding-left: 20px; color: #8bd6b4;">
+                    <li style="margin-bottom: 8px;"><strong>Renew Listing:</strong> Extend visibility for another 15 days.</li>
+                    <li style="margin-bottom: 8px;"><strong>Mark as Sold:</strong> Let us know if you sold it on DPH or elsewhere.</li>
+                </ul>
+            </div>
+
+            <a href="{my_listings_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; transition: transform 0.2s;">Go to My Listings</a>
+        </div>
+        
+        <div style="text-align: center; color: #64748b; font-size: 14px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+        </div>
+    </div>
+    """
 
     payload = {
         "from": from_email,
         "to": [user_email],
         "subject": subject,
-        "text": "\n".join(lines),
+        "html": html_content,
     }
 
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
@@ -560,25 +578,41 @@ def _send_listing_expired_email(
         return None, "Missing RESEND_FROM_EMAIL"
 
     my_listings_url = f"{SITE_URL}/my-listings"
-    subject = f"Your listing '{listing_title}' has expired"
+    subject = f"Your listing '{listing_title}' has expired – action needed"
 
-    lines = [
-        "Hi there",
-        "",
-        f"Your listing '{listing_title}' has expired and is no longer visible to buyers.",
-        f"You have {days_until_deletion} day{'s' if days_until_deletion != 1 else ''} to renew it before it's permanently deleted.",
-        "",
-        f"Renew now: {my_listings_url}",
-        "",
-        "Thanks,",
-        SITE_NAME,
-    ]
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 28px; font-weight: 800; color: #8bd6b4; letter-spacing: -0.02em;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+        </div>
+        <div style="background: rgba(239, 68, 68, 0.08); border-radius: 20px; padding: 32px; border: 1px solid rgba(239, 68, 68, 0.2); margin-bottom: 24px;">
+            <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Your Listing Has Expired</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 16px;">
+                Hi there, your listing <strong style="color: #f0fdf4;">"{listing_title}"</strong> has expired and is no longer visible to buyers.
+            </p>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
+                You have <strong style="color: #ef4444;">{days_until_deletion} day{'s' if days_until_deletion != 1 else ''}</strong> to take action before it is permanently removed.
+            </p>
+            <div style="background: rgba(139, 214, 180, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px dashed rgba(139, 214, 180, 0.2);">
+                <ul style="margin: 0; padding-left: 20px; color: #8bd6b4;">
+                    <li style="margin-bottom: 8px;"><strong>Renew Listing:</strong> Extend visibility for another 15 days.</li>
+                    <li style="margin-bottom: 8px;"><strong>Sold on DPH:</strong> Mark it as sold via our platform.</li>
+                    <li style="margin-bottom: 8px;"><strong>Sold Elsewhere:</strong> Let us know it sold outside DPH.</li>
+                </ul>
+            </div>
+            <a href="{my_listings_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">Go to My Listings</a>
+        </div>
+        <div style="text-align: center; color: #64748b; font-size: 14px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+        </div>
+    </div>
+    """
 
     payload = {
         "from": from_email,
         "to": [user_email],
         "subject": subject,
-        "text": "\n".join(lines),
+        "html": html_content,
     }
 
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
@@ -3192,33 +3226,73 @@ def _send_listing_status_email(
         return None, "Missing RESEND_FROM_EMAIL"
 
     item_label_map = {
-        "cars": "car",
-        "bikes": "bike",
-        "plates": "plate",
-        "parts": "car part",
+        "cars": "Car",
+        "bikes": "Bike",
+        "plates": "Plate",
+        "parts": "Car Part",
     }
-    item_label = item_label_map.get(item_type, "listing")
+    item_label = item_label_map.get(item_type, "Listing")
     listing_title = _build_listing_title(item_type, listing)
     listing_url = _build_listing_url(
         item_type, listing.get("id") if listing else None, request_origin
     )
 
-    subject = f"Your {item_label} listing has been {status}"
-    lines = [
-        f"Hi there,",
-        "",
-        f"Your {item_label} listing has been {status}.",
-        f"Listing: {listing_title}",
-    ]
-    if listing_url:
-        lines.append(f"View listing: {listing_url}")
-    lines.extend(["", "Thanks,", "DPH Classifieds"])
+    status_colors = {
+        "approved": "#10b981",
+        "rejected": "#ef4444",
+        "updated": "#3b82f6",
+        "renewed": "#8b5cf6",
+    }
+    status_color = status_colors.get(status, "#3b82f6")
+
+    subject = f"Your {item_label} listing has been {status} - DPH Classifieds"
+    
+    rejection_note = listing.get("rejection_note", "") if listing else ""
+    rejection_block = ""
+    if status == "rejected" and rejection_note:
+        rejection_block = f'<div style="background: rgba(239,68,68,0.08); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid rgba(239,68,68,0.2);"><p style="margin: 0; color: #fca5a5; font-size: 14px;"><strong>Reason:</strong> {rejection_note}</p></div>'
+
+    action_label_map = {
+        "approved": "approved and is now live",
+        "rejected": "rejected",
+        "updated": "updated successfully",
+        "renewed": "renewed for another 15 days",
+    }
+    action_label = action_label_map.get(status, status)
+
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 28px; font-weight: 800; color: #8bd6b4; letter-spacing: -0.02em;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+        </div>
+        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
+            <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Listing {status.capitalize()}</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 20px;">
+                Hi there, your <strong style="color: #f0fdf4;">{item_label}</strong> listing for <strong style="color: #f0fdf4;">"{listing_title}"</strong> has been <strong style="color: {status_color};">{action_label}</strong>.
+            </p>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+                <div style="width: 4px; height: 40px; background-color: {status_color}; border-radius: 2px;"></div>
+                <div style="padding-left: 12px;">
+                    <div style="font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Status</div>
+                    <div style="font-size: 18px; font-weight: 600; color: {status_color};">{status.capitalize()}</div>
+                </div>
+            </div>
+            {rejection_block}
+            {f'<a href="{listing_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">View Your Listing</a>' if listing_url and status == 'approved' else ''}
+            {f'<a href="{SITE_URL}/my-listings" style="display: inline-block; background-color: rgba(255,255,255,0.05); color: #ffffff; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; border: 1px solid rgba(255,255,255,0.1);">Manage Listings</a>' if status != 'approved' else ''}
+        </div>
+        <div style="text-align: center; color: #64748b; font-size: 14px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+            <p>If you have any questions, please reply to this email.</p>
+        </div>
+    </div>
+    """
 
     payload = {
         "from": from_email,
         "to": [user_email],
         "subject": subject,
-        "text": "\n".join(lines),
+        "html": html_content,
     }
 
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
@@ -3271,34 +3345,42 @@ def _send_new_listing_admin_notification(item_type, listing, user_email):
     if not from_email or not to_email:
         return None, "Missing RESEND_FROM_EMAIL or RESEND_TO_EMAIL"
 
-    item_label_map = {
-        "car": "Car",
-        "bike": "Bike",
-        "part": "Car Part",
-        "plate": "Plate",
-    }
+    item_label_map = {"car": "Car", "bike": "Bike", "part": "Car Part", "plate": "Plate"}
     item_label = item_label_map.get(item_type, "Listing")
     listing_title = _build_listing_title(
-        f"{item_type}s" if not item_type.endswith("s") else item_type,
-        listing,
+        f"{item_type}s" if not item_type.endswith("s") else item_type, listing
     )
+    admin_url = f"{SITE_URL}/admin/listings"
+    listing_id = listing.get("id", "N/A")
 
-    subject = f"[New {item_label}] {listing_title}"
-    lines = [
-        f"A new {item_label.lower()} listing has been submitted and is pending approval.",
-        "",
-        f"Title: {listing_title}",
-        f"Listed by: {user_email or 'Unknown'}",
-        f"Listing ID: {listing.get('id', 'N/A')}",
-        "",
-        f"Review it in the admin panel: {SITE_URL}/admin/listings",
-    ]
+    subject = f"[New {item_label}] {listing_title} – Pending Review"
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 28px; font-weight: 800; color: #8bd6b4;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+            <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Admin Notification</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+            <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">New {item_label} Listing Submitted</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">A new <strong style="color: #8bd6b4;">{item_label}</strong> listing is pending your review.</p>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #64748b; font-size: 14px; width: 40%;">Title</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #f0fdf4; font-weight: 600;">{listing_title}</td></tr>
+                <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #64748b; font-size: 14px;">Submitted by</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #f0fdf4;">{user_email or 'Unknown'}</td></tr>
+                <tr><td style="padding: 10px 0; color: #64748b; font-size: 14px;">Listing ID</td><td style="padding: 10px 0; color: #8bd6b4; font-family: monospace;">{listing_id}</td></tr>
+            </table>
+            <a href="{admin_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">Review in Admin Panel</a>
+        </div>
+        <div style="text-align: center; color: #64748b; font-size: 13px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. Admin notification – do not reply.</p>
+        </div>
+    </div>
+    """
 
     payload = {
         "from": from_email,
         "to": [to_email],
         "subject": subject,
-        "text": "\n".join(lines),
+        "html": html_content,
     }
 
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL")
@@ -3318,38 +3400,45 @@ def _send_new_listing_user_confirmation(user_email, item_type, listing):
     if not from_email:
         return None, "Missing RESEND_FROM_EMAIL"
 
-    item_label_map = {
-        "car": "car",
-        "bike": "bike",
-        "part": "car part",
-        "plate": "plate",
-    }
-    item_label = item_label_map.get(item_type, "listing")
+    item_label_map = {"car": "Car", "bike": "Bike", "part": "Car Part", "plate": "Plate"}
+    item_label = item_label_map.get(item_type, "Listing")
+    item_label_lower = item_label.lower()
     listing_title = _build_listing_title(
-        f"{item_type}s" if not item_type.endswith("s") else item_type,
-        listing,
+        f"{item_type}s" if not item_type.endswith("s") else item_type, listing
     )
     my_listings_url = f"{SITE_URL}/my-listings"
 
-    subject = f"Your {item_label} listing has been submitted"
-    lines = [
-        "Hi there,",
-        "",
-        f"Your {item_label} listing has been submitted and is pending review.",
-        f"Title: {listing_title}",
-        "",
-        "We will notify you once it has been approved.",
-        f"Manage your listings: {my_listings_url}",
-        "",
-        "Thanks,",
-        "DPH Classifieds",
-    ]
+    subject = f"Your {item_label} listing has been submitted – DPH Classifieds"
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 28px; font-weight: 800; color: #8bd6b4; letter-spacing: -0.02em;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+            <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Listing Submitted Successfully</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 16px;">
+                Hi there, your <strong style="color: #f0fdf4;">{item_label}</strong> listing for <strong style="color: #f0fdf4;">"{listing_title}"</strong> has been received and is now <strong style="color: #f59e0b;">pending review</strong>.
+            </p>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
+                Our team typically reviews listings within 24 hours. You will receive another email as soon as your listing is approved and goes live.
+            </p>
+            <div style="background: rgba(139,214,180,0.05); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px dashed rgba(139,214,180,0.2);">
+                <p style="margin: 0; color: #8bd6b4; font-size: 14px;">💡 <strong>Tip:</strong> You can track the status of all your listings anytime from your dashboard.</p>
+            </div>
+            <a href="{my_listings_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">View My Listings</a>
+        </div>
+        <div style="text-align: center; color: #64748b; font-size: 14px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+            <p>If you have any questions, please reply to this email.</p>
+        </div>
+    </div>
+    """
 
     payload = {
         "from": from_email,
         "to": [user_email],
         "subject": subject,
-        "text": "\n".join(lines),
+        "html": html_content,
     }
 
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
@@ -5319,6 +5408,26 @@ def update_bike(current_user, bike_id):
         else:
             bike["images"] = []
 
+        # Send edit notification email
+        try:
+            user_email = bike.get("user_email") or bike.get("contact_email")
+            if not user_email:
+                user_email = get_user_email(current_user)
+            if user_email and EMAIL_REGEX.match(user_email):
+                _, email_error = _send_listing_status_email(
+                    user_email,
+                    "bikes",
+                    bike,
+                    "updated",
+                    request.headers.get("Origin"),
+                )
+                if email_error:
+                    logger.error(f"Edit email failed for bike {bike_id}: {email_error}")
+                else:
+                    logger.info(f"Edit email sent for bike {bike_id}")
+        except Exception as email_err:
+            logger.error(f"Error sending edit email: {email_err}")
+
         return jsonify(bike), 200
     except Exception as e:
         logger.error(f"Error updating bike: {e}")
@@ -5528,6 +5637,34 @@ def update_plate(current_user, plate_id):
         if status_code >= 400:
             return jsonify(data), status_code
             
+        # Fetch full plate data for email
+        refreshed_resp, refreshed_status = supabase_request(
+            "get",
+            "/rest/v1/license_plates",
+            params={"id": f"eq.{plate_id}", "select": "*", "limit": 1},
+            user_id=current_user,
+        )
+        
+        if refreshed_status < 400 and refreshed_resp:
+            plate = refreshed_resp[0]
+            # Send edit notification email
+            try:
+                user_email = plate.get("user_email") or plate.get("contact_email")
+                if not user_email:
+                    user_email = get_user_email(current_user)
+                if user_email and EMAIL_REGEX.match(user_email):
+                    _, email_error = _send_listing_status_email(
+                        user_email,
+                        "plates",
+                        plate,
+                        "updated",
+                        request.headers.get("Origin"),
+                    )
+                    if email_error:
+                        logger.error(f"Edit email failed for plate {plate_id}: {email_error}")
+            except Exception as email_err:
+                logger.error(f"Error sending edit email: {email_err}")
+
         return jsonify({"message": "Plate updated successfully"}), 200
         
     except Exception as e:
@@ -5884,6 +6021,34 @@ def update_part(current_user, part_id):
         # Handle images if needed (simplified for parts for now)
         # In a full implementation, we would handle image deletion/upload here
         
+        # Fetch full part data for email
+        refreshed_resp, refreshed_status = supabase_request(
+            "get",
+            "/rest/v1/car_parts",
+            params={"id": f"eq.{part_id}", "select": "*", "limit": 1},
+            user_id=current_user,
+        )
+        
+        if refreshed_status < 400 and refreshed_resp:
+            part = refreshed_resp[0]
+            # Send edit notification email
+            try:
+                user_email = part.get("user_email") or part.get("contact_email")
+                if not user_email:
+                    user_email = get_user_email(current_user)
+                if user_email and EMAIL_REGEX.match(user_email):
+                    _, email_error = _send_listing_status_email(
+                        user_email,
+                        "parts",
+                        part,
+                        "updated",
+                        request.headers.get("Origin"),
+                    )
+                    if email_error:
+                        logger.error(f"Edit email failed for part {part_id}: {email_error}")
+            except Exception as email_err:
+                logger.error(f"Error sending edit email: {email_err}")
+
         return jsonify({"message": "Part updated successfully"}), 200
         
     except Exception as e:
@@ -7775,6 +7940,24 @@ def set_listing_outcome(current_user, item_type, item_id):
         refreshed = _sync_listing_lifecycle(
             config["table"], refreshed_resp[0], hard_delete_archived=False
         )
+        
+        # Send renewal notification email if renewed
+        if outcome == "not_sold_renew":
+            try:
+                user_email = refreshed.get("user_email") or refreshed.get("contact_email")
+                if not user_email:
+                    user_email = get_user_email(current_user)
+                if user_email and EMAIL_REGEX.match(user_email):
+                    _send_listing_status_email(
+                        user_email,
+                        item_type,
+                        refreshed,
+                        "renewed",
+                        request.headers.get("Origin"),
+                    )
+            except Exception as email_err:
+                logger.error(f"Error sending renewal email: {email_err}")
+
         return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
 
     return jsonify({"message": "Listing outcome saved"}), 200

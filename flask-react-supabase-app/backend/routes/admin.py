@@ -1241,49 +1241,64 @@ def get_stats():
             "Content-Type": "application/json",
         }
 
-        stats = {}
+        stats = {
+            "cars_total": 0, "cars_pending": 0, "cars_views": 0,
+            "bikes_total": 0, "bikes_pending": 0, "bikes_views": 0,
+            "plates_total": 0, "plates_pending": 0, "plates_views": 0,
+            "parts_total": 0, "parts_pending": 0, "parts_views": 0,
+            "total_leads": 0, "total_calls": 0, "total_whatsapp": 0,
+            "total_vin_reveals": 0,
+            "total_dealers": 0, "verified_dealers": 0,
+            "total_users": 0, "total_reports": 0, "pending_reports": 0
+        }
 
-        # Get total views across all listing types
-        for table, label in [
+        # Get stats for each listing type
+        for table, key_prefix in [
             ("cars", "cars"),
             ("bikes", "bikes"),
             ("license_plates", "plates"),
             ("car_parts", "parts"),
         ]:
-            query = f"{SUPABASE_URL}/rest/v1/{table}?select=view_count"
+            query = f"{SUPABASE_URL}/rest/v1/{table}?select=status,view_count"
             response = requests.get(query, headers=headers, timeout=5)
 
             if response.status_code == 200:
                 listings = response.json()
-                total_views = sum(
-                    listing.get("view_count", 0) or 0 for listing in listings
-                )
-                stats[f"{label}_total_views"] = total_views
-                stats[f"{label}_count"] = len(listings)
+                stats[f"{key_prefix}_total"] = len(listings)
+                stats[f"{key_prefix}_pending"] = sum(1 for l in listings if l.get("status") == "pending")
+                stats[f"{key_prefix}_views"] = sum(l.get("view_count", 0) or 0 for l in listings)
+
+        # Get lead metrics from lead_events table
+        lead_query = f"{SUPABASE_URL}/rest/v1/lead_events?select=action"
+        lead_response = requests.get(lead_query, headers=headers, timeout=5)
+        if lead_response.status_code == 200:
+            events = lead_response.json()
+            stats["total_leads"] = len(events)
+            stats["total_calls"] = sum(1 for e in events if e.get("action") == "call_click")
+            stats["total_whatsapp"] = sum(1 for e in events if e.get("action") == "whatsapp_click")
+            stats["total_vin_reveals"] = sum(1 for e in events if e.get("action") == "vin_reveal")
 
         # Get dealer stats
-        dealer_query = (
-            f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=dealer_verified"
-        )
+        dealer_query = f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=dealer_verified"
         dealer_response = requests.get(dealer_query, headers=headers, timeout=5)
-
         if dealer_response.status_code == 200:
             dealers = dealer_response.json()
             stats["total_dealers"] = len(dealers)
-            stats["verified_dealers"] = sum(
-                1 for d in dealers if d.get("dealer_verified")
-            )
+            stats["verified_dealers"] = sum(1 for d in dealers if d.get("dealer_verified"))
+
+        # Get user count
+        user_query = f"{SUPABASE_URL}/rest/v1/users?select=id"
+        user_response = requests.get(user_query, headers=headers, timeout=5)
+        if user_response.status_code == 200:
+            stats["total_users"] = len(user_response.json())
 
         # Get report stats
         report_query = f"{SUPABASE_URL}/rest/v1/reports?select=status"
         report_response = requests.get(report_query, headers=headers, timeout=5)
-
         if report_response.status_code == 200:
             reports = report_response.json()
             stats["total_reports"] = len(reports)
-            stats["pending_reports"] = sum(
-                1 for r in reports if r.get("status") == "pending"
-            )
+            stats["pending_reports"] = sum(1 for r in reports if r.get("status") == "pending")
 
         return jsonify(stats), 200
 

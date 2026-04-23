@@ -25,25 +25,23 @@ const AdminDashboard = () => {
       try {
         setLoading(true);
         
-        const [carsRes, partsRes, platesRes, bikesRes, dealersRes, usersRes, reportsRes] = await Promise.all([
-          apiClient.get('/api/admin/approve/cars').catch(() => []),
-          apiClient.get('/api/admin/approve/parts').catch(() => []),
-          apiClient.get('/api/admin/approve/plates').catch(() => []),
-          apiClient.get('/api/admin/approve/bikes').catch(() => []),
-          apiClient.get('/api/admin/dealers/pending').catch(() => []),
-          apiClient.get('/api/admin/users').catch(() => []),
-          apiClient.get('/api/admin/reports').catch(() => [])
-        ]);
-
-        setStats({
-          pendingCars: Array.isArray(carsRes) ? carsRes.length : 0,
-          pendingParts: Array.isArray(partsRes) ? partsRes.length : 0,
-          pendingPlates: Array.isArray(platesRes) ? platesRes.length : 0,
-          pendingBikes: Array.isArray(bikesRes) ? bikesRes.length : 0,
-          pendingDealers: Array.isArray(dealersRes) ? dealersRes.length : 0,
-          totalUsers: Array.isArray(usersRes) ? usersRes.length : 0,
-          totalReports: Array.isArray(reportsRes) ? reportsRes.length : 0
-        });
+        const res = await apiClient.get('/api/admin/stats');
+        
+        if (res) {
+          setStats({
+            pendingCars: res.cars_pending || 0,
+            pendingParts: res.parts_pending || 0,
+            pendingPlates: res.plates_pending || 0,
+            pendingBikes: res.bikes_pending || 0,
+            pendingDealers: res.pending_dealers || 0, // Note: backend should probably return this too
+            totalUsers: res.total_users || 0,
+            totalReports: res.total_reports || 0,
+            totalLeads: res.total_leads || 0,
+            totalCalls: res.total_calls || 0,
+            totalWhatsapp: res.total_whatsapp || 0,
+            totalViews: (res.cars_views || 0) + (res.bikes_views || 0) + (res.plates_views || 0) + (res.parts_views || 0)
+          });
+        }
       } catch (error) {
         console.error('Failed to fetch stats:', error);
         setError('Failed to load dashboard data');
@@ -210,6 +208,28 @@ const AdminDashboard = () => {
           }
           path="/admin/reports"
           color="#f44336"
+        />
+        <StatCard
+          title="Phone Calls"
+          count={stats.totalCalls}
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          }
+          path="/admin/analytics"
+          color="#2196f3"
+        />
+        <StatCard
+          title="WhatsApp Clicks"
+          count={stats.totalWhatsapp}
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          }
+          path="/admin/analytics"
+          color="#4caf50"
         />
       </div>
 

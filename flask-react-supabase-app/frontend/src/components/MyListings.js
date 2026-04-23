@@ -347,12 +347,14 @@ const MyListings = () => {
       {outcomePromptListing && (
         <div className="delete-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="outcome-confirm-title">
           <div className="delete-confirm-modal">
-            <h3 id="outcome-confirm-title">Did this listing sell?</h3>
+            <h3 id="outcome-confirm-title">Update Listing Status</h3>
             <p>
-              <strong>{buildListingTitle(outcomePromptListing)}</strong> expired. Please tell us the outcome.
-              If no action is selected in 48 hours, it will be removed automatically.
+              Please let us know the status of <strong>{buildListingTitle(outcomePromptListing)}</strong>.
+              {outcomePromptListing.listing_state === 'expired' 
+                ? ' It has expired. If no action is taken in 48 hours, it will be removed.'
+                : ' You can extend it for another 15 days or mark it as sold.'}
             </p>
-            <div className="delete-confirm-actions">
+            <div className="delete-confirm-actions renewal-actions">
               <button
                 className="btn btn-primary"
                 disabled={actioningId === outcomePromptListing.id}
@@ -368,11 +370,17 @@ const MyListings = () => {
                 Sold Elsewhere
               </button>
               <button
-                className="btn btn-danger"
+                className="btn btn-success"
                 disabled={actioningId === outcomePromptListing.id}
                 onClick={() => handleOutcomeAction(outcomePromptListing, 'not_sold_renew')}
               >
-                Not Sold, Renew
+                Renew Listing
+              </button>
+              <button
+                className="btn btn-link"
+                onClick={() => setOutcomePromptListing(null)}
+              >
+                Cancel
               </button>
             </div>
           </div>
@@ -494,11 +502,11 @@ const MyListings = () => {
 
                         {listing.can_extend && (
                           <button
-                            onClick={() => handleExtendListing(listing)}
+                            onClick={() => setOutcomePromptListing(listing)}
                             className="btn btn-primary"
                             disabled={isBusy}
                           >
-                            {isBusy ? 'Updating...' : 'Extend 15 Days'}
+                            {isBusy ? 'Updating...' : 'Renew / Sold'}
                           </button>
                         )}
 

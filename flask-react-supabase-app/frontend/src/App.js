@@ -74,11 +74,7 @@ const AuthCallback = lazy(() => import('./components/AuthCallback'));
 const Profile = lazy(() => import('./components/Profile'));
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const MyListings = lazy(() => import('./components/MyListings'));
-const EditListing = lazy(() => import('./components/EditListing'));
-const PostCar = lazy(() => import('./components/PostCar'));
-const PostBike = lazy(() => import('./components/PostBike'));
-const PostPlate = lazy(() => import('./components/PostPlate'));
-const PostCarParts = lazy(() => import('./components/PostCarParts'));
+const ListingForm = lazy(() => import('./components/ListingForm'));
 const About = lazy(() => import('./components/About'));
 const Contact = lazy(() => import('./components/Contact'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
@@ -185,12 +181,13 @@ function App() {
                   <Route path="/account-settings" element={<AccountSettings />} />
                   <Route path="/my-listings" element={<MyListings />} />
                   <Route path="/create-listing" element={<Navigate to="/post-car" replace />} />
-                  <Route path="/edit-listing/:id" element={<EditListing />} />
-                  <Route path="/edit/:type/:id" element={<EditListing />} />
-                  <Route path="/post-car" element={<PostCar />} />
-                  <Route path="/post-bike" element={<PostBike />} />
-                  <Route path="/post-plate" element={<PostPlate />} />
-                  <Route path="/post-car-parts" element={<PostCarParts />} />
+                  <Route path="/edit-listing/:id" element={<ListingForm />} />
+                  <Route path="/edit/:type/:id" element={<ListingForm />} />
+                  <Route path="/post-car" element={<ListingForm type="car" />} />
+                  <Route path="/post-bike" element={<ListingForm type="bike" />} />
+                  <Route path="/post-plate" element={<ListingForm type="plate" />} />
+                  <Route path="/post-car-parts" element={<ListingForm type="part" />} />
+                  <Route path="/post/:type" element={<ListingForm />} />
                 </Route>
                 
                 {/* Admin routes */}

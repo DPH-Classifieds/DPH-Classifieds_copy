@@ -383,6 +383,35 @@
   gap: 12px;
 }
 
+.delete-confirm-actions.renewal-actions {
+  flex-direction: column;
+}
+
 .delete-confirm-actions .btn {
   flex: 1;
+}
+
+.my-listings-container .btn-success {
+  background: #28a745;
+  color: #ffffff;
+  border-color: #28a745;
+}
+
+.my-listings-container .btn-success:hover {
+  background: #218838;
+  box-shadow: 0 8px 16px rgba(40, 167, 69, 0.25);
+}
+
+.btn-link {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 0.9rem !important;
+  padding: 8px !important;
+  min-height: auto !important;
+}
+
+.btn-link:hover {
+  color: #fff !important;
+  text-decoration: underline !important;
 }

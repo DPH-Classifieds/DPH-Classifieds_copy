@@ -1,6 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
@@ -15,7 +15,26 @@ import {
   getAreasForEmirate,
   getYearOptions
 } from '../utils/listingConstants';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import UAELicensePlate from './UAELicensePlate';
 import '../styles/CreateListing.css';
+import '../styles/PostForms.css';
+import '../styles/UAELicensePlate.css';
+
+// Fix Leaflet default icon issue
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -26,46 +45,78 @@ const MAX_DESCRIPTION_WORDS = 300;
 const LISTING_TYPE_CONFIG = {
   car: {
     fetchUrl: (id) => `${API_URL}/api/cars/${id}`,
+    createEndpoint: '/api/cars',
     updateEndpoint: (id) => `/api/cars/${id}`,
     imagesTable: 'car_images',
     fkField: 'car_id',
     detailPath: (id) => `/cars/${id}`,
     label: 'Car',
     statusReset: true,
+    heroTitle: 'Publish A Car Listing With Confidence',
+    heroSubtitle: 'Fill in the details below to reach thousands of buyers across the UAE.',
+    heroKicker: 'Sell Your Car'
   },
   bike: {
     fetchUrl: (id) => `${API_URL}/api/bikes/${id}`,
+    createEndpoint: '/api/bikes',
     updateEndpoint: (id) => `/api/bikes/${id}`,
     imagesTable: 'bike_images',
     fkField: 'bike_id',
     detailPath: (id) => `/bikes/${id}`,
     label: 'Bike',
     statusReset: true,
+    heroTitle: 'Publish A Bike Listing With Confidence',
+    heroSubtitle: 'Clean specs, crisp media, and a clear seller story help the right buyer move faster.',
+    heroKicker: 'Sell Your Bike'
   },
   part: {
     fetchUrl: (id) => `${API_URL}/api/parts/${id}`,
+    createEndpoint: '/api/parts',
     updateEndpoint: (id) => `/api/parts/${id}`,
     imagesTable: 'part_images',
     fkField: 'part_id',
     detailPath: (id) => `/car-parts/${id}`,
     label: 'Car Part',
     statusReset: true,
+    heroTitle: 'Sell Your Car Parts Fast',
+    heroSubtitle: 'List your performance parts, body kits, or accessories for our community.',
+    heroKicker: 'Sell Parts'
   },
   plate: {
     fetchUrl: (id) => `${API_URL}/api/plates/${id}`,
+    createEndpoint: '/api/plates',
     updateEndpoint: (id) => `/api/plates/${id}`,
     imagesTable: 'plate_images',
     fkField: 'plate_id',
     detailPath: (id) => `/plates/${id}`,
     label: 'Plate',
     statusReset: true,
+    heroTitle: 'Present Your Plate Like A Premium Asset',
+    heroSubtitle: 'Reach the right audience for your unique license plate digits.',
+    heroKicker: 'Sell Your Plate'
   },
 };
 
-const EditListing = () => {
+const LocationMarker = ({ position, setPosition }) => {
+  const map = useMap();
+  
+  useMemo(() => {
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      setPosition([lat, lng]);
+      map.flyTo([lat, lng], map.getZoom());
+    });
+  }, [map, setPosition]);
+
+  return position ? <Marker position={position} /> : null;
+};
+
+const ListingForm = ({ type: typeProp }) => {
   const params = useParams();
+  const location = useLocation();
   const id = params.id;
-  const listingType = params.type || 'car';
+  const listingType = typeProp || params.type || 'car';
+  const isEdit = Boolean(id);
   const navigate = useNavigate();
   const formRef = useRef(null);
   const typeConfig = LISTING_TYPE_CONFIG[listingType] || LISTING_TYPE_CONFIG.car;
@@ -103,7 +154,33 @@ const EditListing = () => {
     engine_capacity: '',
     steering_side: '',
     is_insured: false,
-    // Features/Extras
+    // Bike specific
+    bike_brand: '',
+    bike_model: '',
+    year: '',
+    bike_category: '',
+    engine_size: '',
+    mileage: '',
+    condition: 'Good',
+    price: '',
+    location: '',
+    description: '',
+    is_dealer: false,
+    features: [],
+    // Part specific
+    name: '',
+    part_type: '',
+    is_negotiable: false,
+    contact_number: '',
+    // Plate specific
+    city: '',
+    code: '',
+    digits: '',
+    number: '',
+    plate_format: 'Any format',
+    contact_name: '',
+    contact_phone: '',
+    // Features/Extras (Cars)
     climate_control: false,
     dvd_player: false,
     keyless_entry: false,
@@ -115,6 +192,9 @@ const EditListing = () => {
     parking_sensors: false,
     rear_view_camera: false,
     lady_driven: false,
+    // Location
+    latitude: 25.276987,
+    longitude: 55.296249,
   });
   
   const [images, setImages] = useState([]);
@@ -188,10 +268,14 @@ const EditListing = () => {
     return null;
   };
   
-  // Fetch the listing data when component mounts
+  // Fetch the listing data when component mounts if in edit mode
   useEffect(() => {
-    fetchListing();
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isEdit) {
+      fetchListing();
+    } else {
+      setLoading(false);
+    }
+  }, [id, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const fetchListing = async () => {
     try {
@@ -540,38 +624,43 @@ const EditListing = () => {
         formDataToSend.append('crop_data', JSON.stringify(cropPayload));
       }
       
-      // Try PATCH first as it's the most compatible with PostgREST updates
-      const updateAttempts = [
-        { endpoint: typeConfig.updateEndpoint(id), method: 'PATCH' },
-        { endpoint: typeConfig.updateEndpoint(id), method: 'PUT' },
-        { endpoint: typeConfig.updateEndpoint(id), method: 'POST' }
-      ];
-      
-      let lastError = null;
-      for (const attempt of updateAttempts) {
-        try {
-          await apiClient.request(attempt.endpoint, {
-            method: attempt.method,
-            body: formDataToSend
-          });
-          lastError = null;
-          break;
-        } catch (err) {
-          console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status, err.message);
-          lastError = err;
-          // If 405 or 404, try the next method
-          if (err.status === 405 || err.status === 404) continue;
-          // For other errors (like 400), don't retry if it's likely a payload issue
-          throw err;
+      if (isEdit) {
+        // Try PATCH first as it's the most compatible with PostgREST updates
+        const updateAttempts = [
+          { endpoint: typeConfig.updateEndpoint(id), method: 'PATCH' },
+          { endpoint: typeConfig.updateEndpoint(id), method: 'PUT' },
+          { endpoint: typeConfig.updateEndpoint(id), method: 'POST' }
+        ];
+        
+        let lastError = null;
+        for (const attempt of updateAttempts) {
+          try {
+            await apiClient.request(attempt.endpoint, {
+              method: attempt.method,
+              body: formDataToSend
+            });
+            lastError = null;
+            break;
+          } catch (err) {
+            console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status, err.message);
+            lastError = err;
+            if (err.status === 405 || err.status === 404) continue;
+            throw err;
+          }
         }
+        if (lastError) throw lastError;
+      } else {
+        // Create mode
+        const response = await apiClient.post(typeConfig.createEndpoint, formDataToSend);
+        const newId = response.id;
+        navigate(typeConfig.detailPath(newId));
+        return;
       }
-
-      if (lastError) throw lastError;
       
       navigate(typeConfig.detailPath(id));
     } catch (err) {
-      console.error('Error updating listing:', err);
-      setError(err.message || 'Failed to update the listing. Please try again.');
+      console.error(`Error ${isEdit ? 'updating' : 'creating'} listing:`, err);
+      setError(err.message || `Failed to ${isEdit ? 'update' : 'create'} the listing. Please try again.`);
       setSubmitting(false);
     }
   };
@@ -584,7 +673,23 @@ const EditListing = () => {
   
   return (
     <div className="create-listing-container">
-      <h1 className="section-title">Edit {typeConfig.label || listingType.charAt(0).toUpperCase() + listingType.slice(1)} Listing</h1>
+      {!isEdit && (
+        <section className="post-hero-section">
+          <div className="post-hero-content">
+            <div className="post-hero-text">
+              <span className="post-hero-kicker">{typeConfig.heroKicker}</span>
+              <h1 className="post-hero-title">{typeConfig.heroTitle}</h1>
+              <p className="post-hero-subtitle">{typeConfig.heroSubtitle}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {isEdit && (
+        <h1 className="section-title">
+          Edit {typeConfig.label || listingType.charAt(0).toUpperCase() + listingType.slice(1)} Listing
+        </h1>
+      )}
       
       {error && <div className="alert alert-danger">{error}</div>}
       
@@ -592,105 +697,255 @@ const EditListing = () => {
         <div className="form-section">
           <h2>Basic Information</h2>
           
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="listing_title">Listing Title</label>
-              <input
-                type="text"
-                id="listing_title"
-                name="listing_title"
-                value={formData.listing_title}
-                onChange={handleChange}
-                placeholder="e.g. 2019 Toyota Camry XSE - Low Miles, Great Condition"
-                required
-              />
-            </div>
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="car_manufacturer">Manufacturer</label>
-              <input
-                type="text"
-                id="car_manufacturer"
-                name="car_manufacturer"
-                value={formData.car_manufacturer}
-                onChange={handleChange}
-                placeholder="e.g. Toyota"
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="car_model">Model</label>
-              <input
-                type="text"
-                id="car_model"
-                name="car_model"
-                value={formData.car_model}
-                onChange={handleChange}
-                placeholder="e.g. Camry"
-                required
-              />
-            </div>
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="car_variant">Variant/Trim</label>
-              <input
-                type="text"
-                id="car_variant"
-                name="car_variant"
-                value={formData.car_variant}
-                onChange={handleChange}
-                placeholder="e.g. XSE"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="make_year">Year</label>
-              <SearchableSelect
-                id="make_year"
-                name="make_year"
-                value={formData.make_year}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Year</option>
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </SearchableSelect>
-            </div>
-          </div>
+          {listingType === 'car' && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="listing_title">Listing Title *</label>
+                  <input
+                    type="text"
+                    id="listing_title"
+                    name="listing_title"
+                    value={formData.listing_title}
+                    onChange={handleChange}
+                    placeholder="e.g. 2021 BMW M3 Competition"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="car_manufacturer">Manufacturer *</label>
+                  <input
+                    type="text"
+                    id="car_manufacturer"
+                    name="car_manufacturer"
+                    value={formData.car_manufacturer}
+                    onChange={handleChange}
+                    placeholder="e.g. BMW"
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="car_model">Model *</label>
+                  <input
+                    type="text"
+                    id="car_model"
+                    name="car_model"
+                    value={formData.car_model}
+                    onChange={handleChange}
+                    placeholder="e.g. M3"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="car_variant">Variant/Trim</label>
+                  <input
+                    type="text"
+                    id="car_variant"
+                    name="car_variant"
+                    value={formData.car_variant}
+                    onChange={handleChange}
+                    placeholder="e.g. Competition"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="make_year">Year *</label>
+                  <SearchableSelect
+                    id="make_year"
+                    name="make_year"
+                    value={formData.make_year}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Year</option>
+                    {yearOptions.map((year) => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </SearchableSelect>
+                </div>
+              </div>
+            </>
+          )}
+
+          {listingType === 'bike' && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="bike_brand">Brand *</label>
+                  <input
+                    type="text"
+                    id="bike_brand"
+                    name="bike_brand"
+                    value={formData.bike_brand}
+                    onChange={handleChange}
+                    placeholder="e.g. Yamaha"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="bike_model">Model *</label>
+                  <input
+                    type="text"
+                    id="bike_model"
+                    name="bike_model"
+                    value={formData.bike_model}
+                    onChange={handleChange}
+                    placeholder="e.g. R6"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="year">Year *</label>
+                  <SearchableSelect id="year" name="year" value={formData.year} onChange={handleChange} required>
+                    <option value="">Select Year</option>
+                    {yearOptions.map((year) => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </SearchableSelect>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="bike_category">Category *</label>
+                  <SearchableSelect id="bike_category" name="bike_category" value={formData.bike_category} onChange={handleChange} required>
+                    <option value="">Select category</option>
+                    {['Sport', 'Cruiser', 'Touring', 'Adventure', 'Naked', 'Off-road', 'Scooter', 'Electric'].map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </SearchableSelect>
+                </div>
+              </div>
+            </>
+          )}
+
+          {listingType === 'part' && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="name">Part Name *</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="e.g. BMW M3 Brake Pads"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="part_type">Part Type *</label>
+                  <input
+                    type="text"
+                    id="part_type"
+                    name="part_type"
+                    value={formData.part_type}
+                    onChange={handleChange}
+                    placeholder="e.g. Brakes"
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {listingType === 'plate' && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="city">City *</label>
+                  <SearchableSelect id="city" name="city" value={formData.city} onChange={handleChange} required>
+                    <option value="">Select city</option>
+                    {['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Fujairah', 'Ras Al Khaimah', 'Umm Al Quwain'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </SearchableSelect>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="code">Plate Code *</label>
+                  <input
+                    type="text"
+                    id="code"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleChange}
+                    placeholder="e.g. A"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="number">Plate Number *</label>
+                  <input
+                    type="text"
+                    id="number"
+                    name="number"
+                    value={formData.number}
+                    onChange={handleChange}
+                    placeholder="e.g. 12345"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="plate_format">Format</label>
+                  <SearchableSelect id="plate_format" name="plate_format" value={formData.plate_format} onChange={handleChange}>
+                    <option value="Any format">Any format</option>
+                    <option value="Solid">Solid</option>
+                    <option value="Repeated">Repeated</option>
+                  </SearchableSelect>
+                </div>
+              </div>
+              <div className="plate-preview-panel" style={{ marginTop: '20px', textAlign: 'center' }}>
+                <h3>Plate Preview</h3>
+                <div className="plate-preview-shell" style={{ display: 'inline-block', padding: '20px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+                  <UAELicensePlate 
+                    city={formData.city || 'Dubai'} 
+                    code={formData.code || 'A'} 
+                    number={formData.number || '12345'} 
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
         
         <div className="form-section">
-          <h2>Vehicle Details</h2>
+          <h2>Details & Pricing</h2>
           
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="kilometer_driven">Mileage (km)</label>
-              <input
-                type="number"
-                id="kilometer_driven"
-                name="kilometer_driven"
-                value={formData.kilometer_driven}
-                onChange={handleChange}
-                placeholder="e.g. 35000 km"
-                min="0"
-                required
-              />
-            </div>
+            {(listingType === 'car' || listingType === 'bike') && (
+              <div className="form-group">
+                <label htmlFor={listingType === 'car' ? 'kilometer_driven' : 'mileage'}>
+                  {listingType === 'car' ? 'Mileage (km) *' : 'Mileage (km) *'}
+                </label>
+                <input
+                  type="number"
+                  id={listingType === 'car' ? 'kilometer_driven' : 'mileage'}
+                  name={listingType === 'car' ? 'kilometer_driven' : 'mileage'}
+                  value={listingType === 'car' ? formData.kilometer_driven : formData.mileage}
+                  onChange={handleChange}
+                  placeholder="e.g. 35000"
+                  min="0"
+                  required
+                />
+              </div>
+            )}
             
             <div className="form-group">
-              <label htmlFor="expected_selling_price">Price (AED)</label>
+              <label htmlFor={listingType === 'car' ? 'expected_selling_price' : 'price'}>Price (AED) *</label>
               <input
                 type="number"
-                id="expected_selling_price"
-                name="expected_selling_price"
-                value={formData.expected_selling_price}
+                id={listingType === 'car' ? 'expected_selling_price' : 'price'}
+                name={listingType === 'car' ? 'expected_selling_price' : 'price'}
+                value={listingType === 'car' ? formData.expected_selling_price : formData.price}
                 onChange={handleChange}
                 placeholder="e.g. 25000"
                 min="0"
@@ -1241,6 +1496,24 @@ const EditListing = () => {
               </div>
             </div>
           </div>
+
+          {listingType === 'car' && (
+            <div className="form-row">
+              <div className="form-group full-width">
+                <label>Pin Location on Map (Optional)</label>
+                <div className="map-selection-container" style={{ height: '300px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <MapContainer center={[formData.latitude, formData.longitude]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <LocationMarker 
+                      position={[formData.latitude, formData.longitude]} 
+                      setPosition={(pos) => setFormData(prev => ({ ...prev, latitude: pos[0], longitude: pos[1] }))} 
+                    />
+                  </MapContainer>
+                </div>
+                <small className="form-text">Click on the map to set the exact location of the vehicle.</small>
+              </div>
+            </div>
+          )}
           
           <div className="form-row">
             <div className="form-group">
@@ -1418,4 +1691,4 @@ const EditListing = () => {
   );
 };
 
-export default EditListing; 
+export default ListingForm;
