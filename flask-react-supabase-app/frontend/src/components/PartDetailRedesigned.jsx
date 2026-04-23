@@ -137,9 +137,8 @@ const PartDetailRedesigned = () => {
   const getWhatsappPrefillText = () => {
     const customPrefill = String(part?.whatsapp_prefill_text || '').trim();
     if (customPrefill) return customPrefill;
-    const title = part?.listing_title || part?.name || 'part';
     const listingUrl = `${SITE_URL}/car-parts/${id}`;
-    return `Hi, I saw your listing (${title}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;
+    return `Hi, I saw your listing on dphclassifieds.com and I am interested. Listing: ${listingUrl}`;
   };
 
   const trackLeadEvent = async (action) => {
@@ -151,7 +150,7 @@ const PartDetailRedesigned = () => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action, source: 'part_detail' }),
+        body: JSON.stringify({ action, source: 'part_detail', payload: { listing_id: id } }),
       });
     } catch (error) {
       console.warn('Part lead tracking failed:', error);

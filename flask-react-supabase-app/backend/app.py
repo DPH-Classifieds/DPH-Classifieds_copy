@@ -1968,6 +1968,8 @@ def create_car(current_user):
             "Leather Seats": "leather_seats",
             "Parking Sensors": "parking_sensors",
             "Rear View Camera": "rear_view_camera",
+            "Lady Driven": "lady_driven",
+            "Mallu Doctor Driven": "mallu_doctor_driven",
         }
 
         # Set all extras boolean fields to False first
@@ -2033,6 +2035,8 @@ def create_car(current_user):
             "leather_seats",
             "parking_sensors",
             "rear_view_camera",
+            "lady_driven",
+            "mallu_doctor_driven",
             "expires_at",
             "expired_at",
             "retention_expires_at",
@@ -2042,7 +2046,6 @@ def create_car(current_user):
         }
         car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
 
-        # Enforce at least one image
         if not images or len(images) == 0:
             return jsonify(
                 {"error": "At least one image is required for a car listing."}
@@ -2376,6 +2379,8 @@ def update_car(current_user, car_id):
             "leather_seats",
             "parking_sensors",
             "rear_view_camera",
+            "lady_driven",
+            "mallu_doctor_driven",
         }
         update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
 

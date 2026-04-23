@@ -161,11 +161,8 @@ const BikeDetailRedesigned = () => {
   const getWhatsappPrefillText = () => {
     const customPrefill = String(bike?.whatsapp_prefill_text || '').trim();
     if (customPrefill) return customPrefill;
-    const title = [bike?.year || bike?.make_year, bike?.make || bike?.bike_brand, bike?.model || bike?.bike_model]
-      .filter(Boolean)
-      .join(' ');
     const listingUrl = `${SITE_URL}/bikes/${id}`;
-    return `Hi, I saw your bike (${title || 'listing'}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;
+    return `Hi, I saw your bike on dphclassifieds.com and I am interested. Listing: ${listingUrl}`;
   };
 
   const trackLeadEvent = async (action) => {
@@ -177,7 +174,7 @@ const BikeDetailRedesigned = () => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action, source: 'bike_detail' }),
+        body: JSON.stringify({ action, source: 'bike_detail', payload: { listing_id: id } }),
       });
     } catch (error) {
       console.warn('Bike lead tracking failed:', error);

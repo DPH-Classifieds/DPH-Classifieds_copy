@@ -136,9 +136,8 @@ const PlateDetailRedesigned = () => {
   const getWhatsappPrefillText = () => {
     const customPrefill = String(plate?.whatsapp_prefill_text || '').trim();
     if (customPrefill) return customPrefill;
-    const title = `${plate?.city || ''} ${plate?.code || ''} ${plate?.number || ''}`.trim();
     const listingUrl = `${SITE_URL}/plates/${id}`;
-    return `Hi, I saw your plate (${title || 'listing'}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;
+    return `Hi, I saw your listing on dphclassifieds.com and I am interested. Listing: ${listingUrl}`;
   };
 
   const trackLeadEvent = async (action) => {
@@ -150,7 +149,7 @@ const PlateDetailRedesigned = () => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action, source: 'plate_detail' }),
+        body: JSON.stringify({ action, source: 'plate_detail', payload: { listing_id: id } }),
       });
     } catch (error) {
       console.warn('Plate lead tracking failed:', error);

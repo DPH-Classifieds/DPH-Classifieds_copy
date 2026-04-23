@@ -788,6 +788,12 @@ const CarList = () => {
                             <span className="vin-value">{car.vin_number.replace(/.(?=.{4})/g, '•')}</span>
                           </div>
                         )}
+                        {(car.lady_driven || car.mallu_doctor_driven) && (
+                          <div className="car-tags">
+                            {car.lady_driven && <span className="car-tag tag-lady-driven">Lady Driven</span>}
+                            {car.mallu_doctor_driven && <span className="car-tag tag-mallu-driven">Mallu Doctor Driven</span>}
+                          </div>
+                        )}
                         <p className="car-location">{car.car_city || 'Location not specified'}</p>
                       </div>
                       <div className="view-details-btn">

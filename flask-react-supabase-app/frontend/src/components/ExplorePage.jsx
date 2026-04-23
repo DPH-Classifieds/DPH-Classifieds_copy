@@ -700,9 +700,6 @@ const ExplorePage = () => {
               placeholder="Search cars, parts, plates, bikes, brands, cities, and more..."
             />
           </label>
-          <p className="explore-v2-filter-note">
-            All mode ranks results by relevance first, then freshness.
-          </p>
         </div>
       );
     }

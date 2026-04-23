@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
@@ -9,6 +9,9 @@ const ADMIN_DELETE_REASONS = [
   'Fraud or suspicious activity',
   'Prohibited or inappropriate content',
   'Policy violation',
+  'Incorrect information',
+  'Spam',
+  'Price manipulation',
 ];
 
 const ADMIN_REJECTION_REASONS = [
@@ -16,6 +19,9 @@ const ADMIN_REJECTION_REASONS = [
   'Duplicate listing',
   'Fraud or suspicious activity',
   'Prohibited or inappropriate content',
+  'Poor image quality',
+  'Incorrect pricing',
+  'Missing required details',
 ];
 
 const AdminListings = () => {
@@ -34,22 +40,28 @@ const AdminListings = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        setLoading(true);
-        const response = await apiClient.get(`/api/admin/approve/${filter}?status=${statusFilter}`);
-        setListings(Array.isArray(response) ? response : []);
-      } catch (error) {
-        console.error('Failed to fetch listings:', error);
-        setListings([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchListings();
+  const fetchListings = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get(`/api/admin/approve/${filter}?status=${statusFilter}`);
+      setListings(Array.isArray(response) ? response : []);
+    } catch (error) {
+      console.error('Failed to fetch listings:', error);
+      setListings([]);
+    } finally {
+      setLoading(false);
+    }
   }, [filter, statusFilter]);
+
+  useEffect(() => {
+    fetchListings();
+  }, [fetchListings]);
+
+  useEffect(() => {
+    const onFocus = () => fetchListings();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchListings]);
 
   const updateParams = (key, value) => {
     const params = new URLSearchParams(searchParams);

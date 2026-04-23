@@ -23,10 +23,52 @@ const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
 const MAX_DESCRIPTION_WORDS = 300;
 
+const LISTING_TYPE_CONFIG = {
+  car: {
+    fetchUrl: (id) => `${API_URL}/api/cars/${id}`,
+    updateEndpoint: (id) => `/api/cars/${id}`,
+    imagesTable: 'car_images',
+    fkField: 'car_id',
+    detailPath: (id) => `/cars/${id}`,
+    label: 'Car',
+    statusReset: true,
+  },
+  bike: {
+    fetchUrl: (id) => `${API_URL}/api/bikes/${id}`,
+    updateEndpoint: (id) => `/api/bikes/${id}`,
+    imagesTable: 'bike_images',
+    fkField: 'bike_id',
+    detailPath: (id) => `/bikes/${id}`,
+    label: 'Bike',
+    statusReset: true,
+  },
+  part: {
+    fetchUrl: (id) => `${API_URL}/api/parts/${id}`,
+    updateEndpoint: (id) => `/api/parts/${id}`,
+    imagesTable: 'part_images',
+    fkField: 'part_id',
+    detailPath: (id) => `/car-parts/${id}`,
+    label: 'Car Part',
+    statusReset: true,
+  },
+  plate: {
+    fetchUrl: (id) => `${API_URL}/api/plates/${id}`,
+    updateEndpoint: (id) => `/api/plates/${id}`,
+    imagesTable: 'plate_images',
+    fkField: 'plate_id',
+    detailPath: (id) => `/plates/${id}`,
+    label: 'Plate',
+    statusReset: true,
+  },
+};
+
 const EditListing = () => {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params.id;
+  const listingType = params.type || 'car';
   const navigate = useNavigate();
   const formRef = useRef(null);
+  const typeConfig = LISTING_TYPE_CONFIG[listingType] || LISTING_TYPE_CONFIG.car;
   
   const [formData, setFormData] = useState({
     listing_title: '',
@@ -71,7 +113,9 @@ const EditListing = () => {
     front_wheel_drive: false,
     leather_seats: false,
     parking_sensors: false,
-    rear_view_camera: false
+    rear_view_camera: false,
+    lady_driven: false,
+    mallu_doctor_driven: false,
   });
   
   const [images, setImages] = useState([]);
@@ -158,7 +202,7 @@ const EditListing = () => {
         throw new Error('Authentication token not found');
       }
       
-      const response = await fetch(`${API_URL}/api/cars/${id}`, {
+      const response = await fetch(typeConfig.fetchUrl(id), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -173,7 +217,6 @@ const EditListing = () => {
       const hasCustomFuel = typeof fuelValue === 'string' && fuelValue.toLowerCase().startsWith('other - ');
       const parsedOtherFuelType = hasCustomFuel ? fuelValue.slice(8).trim() : '';
       
-      // Parse WhatsApp number to extract country code and local number
       let whatsappCountryCode = defaultCountryCode;
       let whatsappNumber = '';
       if (data.whatsapp_number) {
@@ -186,54 +229,110 @@ const EditListing = () => {
         }
       }
 
-      // Format the data for the form
-      setFormData({
-        listing_title: data.listing_title || '',
-        car_manufacturer: data.car_manufacturer || '',
-        car_model: data.car_model || '',
-        car_variant: data.trim || data.car_variant || '',
-        make_year: data.make_year || '',
-        kilometer_driven: data.kilometer_driven || data.mileage || '',
-        color: data.color || data.exterior_color || '',
-        cylinders: data.cylinders || '',
-        doors: data.doors || '',
-        warranty: data.warranty || '',
-        service_history: data.service_history || '',
-        expected_selling_price: data.expected_selling_price || '',
-        car_description: data.car_description || data.description || '',
-        car_location: data.car_location || data.location || '',
-        area: data.area || '',
-        emirate: data.emirate || data.car_city || 'Dubai',
-        country_code: data.country_code || defaultCountryCode,
-        car_owner_phone_number: data.car_owner_phone_number || data.contact_phone || '',
-        contact_email: data.contact_email || data.user_email || '',
-        whatsapp_country_code: whatsappCountryCode,
-        whatsapp_number: whatsappNumber,
-        whatsapp_prefill_text: data.whatsapp_prefill_text || '',
-        vin_number: data.vin_number || '',
-        body_type: data.body_type || '',
-        fuel_type: hasCustomFuel ? 'Other' : fuelValue,
-        transmission_type: data.transmission_type || '',
-        regional_spec: data.regional_spec || '',
-        seating_capacity: data.seating_capacity || '',
-        horsepower: data.horsepower || '',
-        engine_capacity: data.engine_capacity || '',
-        steering_side: data.steering_side || '',
-        is_insured: data.is_insured || false,
-        climate_control: data.climate_control || false,
-        dvd_player: data.dvd_player || false,
-        keyless_entry: data.keyless_entry || false,
-        navigation_system: data.navigation_system || false,
-        premium_sound_system: data.premium_sound_system || false,
-        cooled_seats: data.cooled_seats || false,
-        front_wheel_drive: data.front_wheel_drive || false,
-        leather_seats: data.leather_seats || false,
-        parking_sensors: data.parking_sensors || false,
-        rear_view_camera: data.rear_view_camera || false
-      });
-      setOtherFuelType(parsedOtherFuelType);
+      if (listingType === 'bike') {
+        setFormData(prev => ({
+          ...prev,
+          bike_brand: data.bike_brand || data.make || '',
+          bike_model: data.bike_model || data.model || '',
+          year: data.year || '',
+          bike_category: data.bike_type || data.bike_category || '',
+          engine_capacity: data.engine_size || data.engine_capacity || '',
+          mileage: data.mileage || '',
+          color: data.color || '',
+          condition: data.condition || '',
+          price: data.price || '',
+          location: data.location || '',
+          area: data.area || '',
+          emirate: data.emirate || 'Dubai',
+          description: data.description || '',
+          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          vin_number: data.vin_number || '',
+          is_dealer: data.is_dealer || false,
+        }));
+      } else if (listingType === 'part') {
+        setFormData(prev => ({
+          ...prev,
+          name: data.name || '',
+          part_type: data.part_type || '',
+          condition: data.condition || '',
+          price: data.price || '',
+          location: data.location || '',
+          area: data.area || '',
+          emirate: data.emirate || 'Dubai',
+          contact_number: data.contact_number || '',
+          country_code: data.country_code || defaultCountryCode,
+          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          description: data.description || '',
+          is_negotiable: data.is_negotiable || false,
+          is_dealer: data.is_dealer || false,
+        }));
+      } else if (listingType === 'plate') {
+        setFormData(prev => ({
+          ...prev,
+          city: data.city || '',
+          code: data.code || '',
+          digits: data.digits || '',
+          number: data.number || '',
+          price: data.price || '',
+          plate_format: data.plate_format || '',
+          contact_name: data.contact_name || '',
+          contact_phone: data.contact_phone || '',
+          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          area: data.area || '',
+          emirate: data.emirate || 'Dubai',
+          description: data.description || '',
+          is_dealer: data.is_dealer || false,
+        }));
+      } else {
+        setFormData({
+          listing_title: data.listing_title || '',
+          car_manufacturer: data.car_manufacturer || '',
+          car_model: data.car_model || '',
+          car_variant: data.trim || data.car_variant || '',
+          make_year: data.make_year || '',
+          kilometer_driven: data.kilometer_driven || data.mileage || '',
+          color: data.color || data.exterior_color || '',
+          cylinders: data.cylinders || '',
+          doors: data.doors || '',
+          warranty: data.warranty || '',
+          service_history: data.service_history || '',
+          expected_selling_price: data.expected_selling_price || '',
+          car_description: data.car_description || data.description || '',
+          car_location: data.car_location || data.location || '',
+          area: data.area || '',
+          emirate: data.emirate || data.car_city || 'Dubai',
+          country_code: data.country_code || defaultCountryCode,
+          car_owner_phone_number: data.car_owner_phone_number || data.contact_phone || '',
+          contact_email: data.contact_email || data.user_email || '',
+          whatsapp_country_code: whatsappCountryCode,
+          whatsapp_number: whatsappNumber,
+          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          vin_number: data.vin_number || '',
+          body_type: data.body_type || '',
+          fuel_type: hasCustomFuel ? 'Other' : fuelValue,
+          transmission_type: data.transmission_type || '',
+          regional_spec: data.regional_spec || '',
+          seating_capacity: data.seating_capacity || '',
+          horsepower: data.horsepower || '',
+          engine_capacity: data.engine_capacity || '',
+          steering_side: data.steering_side || '',
+          is_insured: data.is_insured || false,
+          climate_control: data.climate_control || false,
+          dvd_player: data.dvd_player || false,
+          keyless_entry: data.keyless_entry || false,
+          navigation_system: data.navigation_system || false,
+          premium_sound_system: data.premium_sound_system || false,
+          cooled_seats: data.cooled_seats || false,
+          front_wheel_drive: data.front_wheel_drive || false,
+          leather_seats: data.leather_seats || false,
+          parking_sensors: data.parking_sensors || false,
+          rear_view_camera: data.rear_view_camera || false,
+          lady_driven: data.lady_driven || false,
+          mallu_doctor_driven: data.mallu_doctor_driven || false,
+        });
+        setOtherFuelType(parsedOtherFuelType);
+      }
       
-      // Set the existing images
       if (data.images && data.images.length > 0) {
         setImages(data.images);
       }
@@ -443,37 +542,44 @@ const EditListing = () => {
         formDataToSend.append('crop_data', JSON.stringify(cropPayload));
       }
       
-      const updateAttempts = [
-        { endpoint: `/api/cars/${id}`, method: 'PUT' },
-        { endpoint: `/api/cars/${id}`, method: 'PATCH' },
-        { endpoint: `/api/cars/${id}`, method: 'POST' },
-        { endpoint: `/api/cars/${id}/update`, method: 'POST' }
-      ];
-      let lastError = null;
+      if (listingType === 'car') {
+        const updateAttempts = [
+          { endpoint: typeConfig.updateEndpoint(id), method: 'PUT' },
+          { endpoint: typeConfig.updateEndpoint(id), method: 'PATCH' },
+          { endpoint: typeConfig.updateEndpoint(id), method: 'POST' },
+          { endpoint: `/api/cars/${id}/update`, method: 'POST' }
+        ];
+        let lastError = null;
 
-      for (const attempt of updateAttempts) {
-        try {
-          await apiClient.request(attempt.endpoint, {
-            method: attempt.method,
-            body: formDataToSend
-          });
-          lastError = null;
-          break;
-        } catch (err) {
-          console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status);
-          lastError = err;
-          if (err.status === 405 || err.status === 404) {
-            continue;
+        for (const attempt of updateAttempts) {
+          try {
+            await apiClient.request(attempt.endpoint, {
+              method: attempt.method,
+              body: formDataToSend
+            });
+            lastError = null;
+            break;
+          } catch (err) {
+            console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status);
+            lastError = err;
+            if (err.status === 405 || err.status === 404) {
+              continue;
+            }
+            throw err;
           }
-          throw err;
         }
-      }
 
-      if (lastError) {
-        throw lastError;
+        if (lastError) {
+          throw lastError;
+        }
+      } else {
+        await apiClient.request(typeConfig.updateEndpoint(id), {
+          method: 'PUT',
+          body: formDataToSend
+        });
       }
       
-      navigate(`/cars/${id}`);
+      navigate(typeConfig.detailPath(id));
     } catch (err) {
       console.error('Error updating listing:', err);
       setError(err.message || 'Failed to update the listing. Please try again.');
@@ -489,7 +595,7 @@ const EditListing = () => {
   
   return (
     <div className="create-listing-container">
-      <h1 className="section-title">Edit Listing</h1>
+      <h1 className="section-title">Edit {typeConfig.label || listingType.charAt(0).toUpperCase() + listingType.slice(1)} Listing</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
       
@@ -1037,6 +1143,32 @@ const EditListing = () => {
                   onChange={handleChange}
                 />
                 <span>Rear View Camera</span>
+              </label>
+            </div>
+
+            <div className="feature-item">
+              <label htmlFor="lady_driven">
+                <input
+                  type="checkbox"
+                  id="lady_driven"
+                  name="lady_driven"
+                  checked={formData.lady_driven}
+                  onChange={handleChange}
+                />
+                <span>Lady Driven</span>
+              </label>
+            </div>
+
+            <div className="feature-item">
+              <label htmlFor="mallu_doctor_driven">
+                <input
+                  type="checkbox"
+                  id="mallu_doctor_driven"
+                  name="mallu_doctor_driven"
+                  checked={formData.mallu_doctor_driven}
+                  onChange={handleChange}
+                />
+                <span>Mallu Doctor Driven</span>
               </label>
             </div>
           </div>

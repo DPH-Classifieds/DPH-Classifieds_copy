@@ -186,6 +186,7 @@ function App() {
                   <Route path="/my-listings" element={<MyListings />} />
                   <Route path="/create-listing" element={<Navigate to="/post-car" replace />} />
                   <Route path="/edit-listing/:id" element={<EditListing />} />
+                  <Route path="/edit/:type/:id" element={<EditListing />} />
                   <Route path="/post-car" element={<PostCar />} />
                   <Route path="/post-bike" element={<PostBike />} />
                   <Route path="/post-plate" element={<PostPlate />} />

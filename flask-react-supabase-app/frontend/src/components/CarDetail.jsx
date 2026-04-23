@@ -46,7 +46,9 @@ const EXTRA_BOOLEAN_LABELS = {
   front_wheel_drive: 'Front Wheel Drive',
   leather_seats: 'Leather Seats',
   parking_sensors: 'Parking Sensors',
-  rear_view_camera: 'Rear View Camera'
+  rear_view_camera: 'Rear View Camera',
+  lady_driven: 'Lady Driven',
+  mallu_doctor_driven: 'Mallu Doctor Driven',
 };
 
 const CarDetail = () => {
@@ -209,10 +211,8 @@ const CarDetail = () => {
   const getWhatsappPrefillText = () => {
     const customPrefill = String(car?.whatsapp_prefill_text || '').trim();
     if (customPrefill) return customPrefill;
-    if (!car) return 'Hi, I saw your listing on DPH and want more details.';
-    const title = [car.make_year, car.car_manufacturer, car.car_model].filter(Boolean).join(' ') || 'your listing';
     const listingUrl = `${SITE_URL}/cars/${id}`;
-    return `Hi, I saw your car (${title}) on dphclassifieds.com. Is it still available? Listing: ${listingUrl}`;
+    return `Hi, I saw your car on dphclassifieds.com and I am interested. Listing: ${listingUrl}`;
   };
 
   const trackLeadEvent = async (action, payload = {}) => {

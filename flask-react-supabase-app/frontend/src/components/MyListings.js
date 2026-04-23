@@ -19,25 +19,28 @@ const TYPE_CONFIG = {
   car: {
     label: 'Car',
     detailPath: (id) => `/cars/${id}`,
-    editPath: (id) => `/edit-listing/${id}`,
+    editPath: (id) => `/edit/car/${id}`,
     deletePath: (id) => `${API_URL}/api/cars/${id}`,
     createPath: '/post-car',
   },
   bike: {
     label: 'Bike',
     detailPath: (id) => `/bikes/${id}`,
+    editPath: (id) => `/edit/bike/${id}`,
     deletePath: (id) => `${API_URL}/api/bikes/${id}`,
     createPath: '/post-bike',
   },
   part: {
     label: 'Part',
     detailPath: (id) => `/car-parts/${id}`,
+    editPath: (id) => `/edit/part/${id}`,
     deletePath: (id) => `${API_URL}/api/parts/${id}`,
     createPath: '/post-car-parts',
   },
   plate: {
     label: 'Plate',
     detailPath: (id) => `/plates/${id}`,
+    editPath: (id) => `/edit/plate/${id}`,
     deletePath: (id) => `${API_URL}/api/plates/${id}`,
     createPath: '/post-plate',
   },
@@ -427,7 +430,7 @@ const MyListings = () => {
               <div className="my-listings-grid">
                 {typeListings.map((listing) => {
                   const imageUrl = getPrimaryImage(listing);
-                  const canEdit = listing.listing_type === 'car';
+                  const canEdit = Boolean(config.editPath);
                   const isBusy = actioningId === listing.id;
 
                   return (

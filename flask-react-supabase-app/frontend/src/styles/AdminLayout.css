@@ -174,12 +174,14 @@
 .header-right {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .user-name {
@@ -333,6 +335,24 @@
   }
 
   .admin-header {
-    padding: 0 16px;
+    padding: 0 12px;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  .back-to-site-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .logout-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .sidebar-toggle {
+    padding: 8px 10px;
   }
 }
