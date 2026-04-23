@@ -290,15 +290,38 @@ export const apiClient = {
    * @returns {Promise<object>} - Response data
    */
   async put(endpoint, data, options = {}) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
-      body: JSON.stringify(data)
-    });
+    const isFormData = data instanceof FormData;
+    
+    // Ensure FormData is properly sent without content-type header
+    // to let the browser set the correct content-type with boundary
+    const headers = {
+      ...(options.headers || {})
+    };
+
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    console.log(`Making PUT request with ${isFormData ? 'FormData' : 'JSON'} payload to ${endpoint}`);
+    
+    try {
+      const result = await this.request(endpoint, { 
+        ...options,
+        method: 'PUT',
+        headers,
+        body: isFormData ? data : JSON.stringify(data || {})
+      });
+      
+      return result;
+    } catch (error) {
+      // Enhance error with more details for debugging
+      if (error.status === 500) {
+        console.error('Server error occurred:', error);
+        error.message = 'A server error occurred. Please try again or contact support.';
+      }
+      
+      throw error;
+    }
   },
 
   /**

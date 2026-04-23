@@ -202,6 +202,26 @@ def approve_listing(listing_id):
         )
 
         if response.status_code in [200, 204]:
+            # Send email notification
+            try:
+                from app import _get_user_email_by_id, _send_listing_status_email
+                
+                updated_listings = response.json()
+                if updated_listings and len(updated_listings) > 0:
+                    listing = updated_listings[0]
+                    user_id = listing.get("user_id")
+                    if user_id:
+                        user_info = _get_user_email_by_id(user_id)
+                        if user_info and user_info.get("email"):
+                            _send_listing_status_email(
+                                user_info["email"], 
+                                listing_type, 
+                                listing, 
+                                "approved"
+                            )
+            except Exception as email_err:
+                logger.error(f"Failed to send approval email: {email_err}")
+
             return jsonify({"message": "Listing approved successfully"}), 200
         else:
             return jsonify({"error": "Failed to approve listing"}), response.status_code
@@ -251,6 +271,26 @@ def reject_listing(listing_id):
         )
 
         if response.status_code in [200, 204]:
+            # Send email notification
+            try:
+                from app import _get_user_email_by_id, _send_listing_status_email
+                
+                updated_listings = response.json()
+                if updated_listings and len(updated_listings) > 0:
+                    listing = updated_listings[0]
+                    user_id = listing.get("user_id")
+                    if user_id:
+                        user_info = _get_user_email_by_id(user_id)
+                        if user_info and user_info.get("email"):
+                            _send_listing_status_email(
+                                user_info["email"], 
+                                listing_type, 
+                                listing, 
+                                "rejected"
+                            )
+            except Exception as email_err:
+                logger.error(f"Failed to send rejection email: {email_err}")
+
             return jsonify({"message": "Listing rejected successfully"}), 200
         else:
             return jsonify({"error": "Failed to reject listing"}), response.status_code
@@ -400,6 +440,26 @@ def approve_item(item_type, item_id):
             timeout=5,
         )
         if response.status_code in [200, 204]:
+            # Send email notification
+            try:
+                from app import _get_user_email_by_id, _send_listing_status_email
+                
+                updated_listings = response.json()
+                if updated_listings and len(updated_listings) > 0:
+                    listing = updated_listings[0]
+                    user_id = listing.get("user_id")
+                    if user_id:
+                        user_info = _get_user_email_by_id(user_id)
+                        if user_info and user_info.get("email"):
+                            _send_listing_status_email(
+                                user_info["email"], 
+                                item_type, 
+                                listing, 
+                                "approved"
+                            )
+            except Exception as email_err:
+                logger.error(f"Failed to send approval email: {email_err}")
+
             return jsonify(
                 {"success": True, "message": f"{item_type} {item_id} approved"}
             ), 200
@@ -451,6 +511,26 @@ def reject_item(item_type, item_id):
             timeout=5,
         )
         if response.status_code in [200, 204]:
+            # Send email notification
+            try:
+                from app import _get_user_email_by_id, _send_listing_status_email
+                
+                updated_listings = response.json()
+                if updated_listings and len(updated_listings) > 0:
+                    listing = updated_listings[0]
+                    user_id = listing.get("user_id")
+                    if user_id:
+                        user_info = _get_user_email_by_id(user_id)
+                        if user_info and user_info.get("email"):
+                            _send_listing_status_email(
+                                user_info["email"], 
+                                item_type, 
+                                listing, 
+                                "rejected"
+                            )
+            except Exception as email_err:
+                logger.error(f"Failed to send rejection email: {email_err}")
+
             return jsonify(
                 {"success": True, "message": f"{item_type} {item_id} rejected"}
             ), 200

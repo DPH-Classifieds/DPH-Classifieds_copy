@@ -2408,6 +2408,11 @@ def update_car(current_user, car_id):
             "rear_view_camera",
             "lady_driven",
         }
+        # Sanitize update data to ensure 'id' is NOT sent to Supabase as part of the body
+        # (Supabase/PostgREST rejects updates where the primary key is in the body)
+        update_data.pop("id", None)
+        
+        # Strictly apply allowed fields filter
         update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
 
         # Update the car
@@ -5264,6 +5269,9 @@ def update_bike(current_user, bike_id):
             "user_id",
             "is_dealer",
         }
+        # Sanitize update data to ensure 'id' is NOT sent to Supabase as part of the body
+        update_data.pop("id", None)
+        
         update_data = {k: v for k, v in update_data.items() if k in bike_allowed_fields}
 
         # Update the bike
