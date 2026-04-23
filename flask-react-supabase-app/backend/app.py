@@ -2183,8 +2183,21 @@ def update_car(current_user, car_id):
             request.content_type and "multipart/form-data" in request.content_type
         )
 
-        if not is_form_data and not request.json:
-            return jsonify({"error": "Invalid request data"}), 400
+        # Also treat as form data if request.form has fields (some proxies strip content-type)
+        if not is_form_data and request.form:
+            is_form_data = True
+
+        # Try JSON as fallback
+        parsed_json = None
+        try:
+            parsed_json = request.get_json(silent=True)
+        except Exception:
+            pass
+
+        if not is_form_data and not parsed_json:
+            return jsonify(
+                {"error": "Invalid request data", "content_type": request.content_type}
+            ), 400
 
         # Verify car ownership
         car_data, car_status = supabase_request(
@@ -2246,7 +2259,7 @@ def update_car(current_user, car_id):
 
         else:
             logger.info("Processing JSON request")
-            update_data = request.json
+            update_data = parsed_json or {}
             new_images = []
             keep_image_ids = []
             crop_data = []

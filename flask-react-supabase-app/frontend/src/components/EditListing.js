@@ -560,7 +560,7 @@ const EditListing = () => {
             lastError = null;
             break;
           } catch (err) {
-            console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status);
+            console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status, err.message, err.details);
             lastError = err;
             if (err.status === 405 || err.status === 404) {
               continue;

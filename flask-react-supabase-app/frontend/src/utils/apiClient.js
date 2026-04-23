@@ -90,7 +90,8 @@ export const apiClient = {
       // Note: user_id and user_email are now extracted from JWT on the backend
       // Remove client-side user info injection for security
       if (requestOptions.body instanceof FormData) {
-        // FormData - don't add user info, backend gets it from JWT
+        // FormData - let browser set Content-Type with boundary automatically
+        delete headers['Content-Type'];
       } 
       else if (requestOptions.headers && requestOptions.headers['Content-Type'] === 'application/json') {
         // Only stringify if body is not already a string (avoid double stringify)
@@ -177,7 +178,8 @@ export const apiClient = {
         }
         
         // Create an error with detailed information
-        const error = new Error(errorData.message || `API request failed with status ${response.status}`);
+        const errorMessage = errorData.message || errorData.error || errorData.raw || `API request failed with status ${response.status}`;
+        const error = new Error(errorMessage);
         error.status = response.status;
         error.details = errorData;
         error.allow = allowHeader;
