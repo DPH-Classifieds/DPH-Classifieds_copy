@@ -2145,6 +2145,16 @@ def create_car(current_user):
 
             data[0]["images"] = inserted_images
 
+        # Send email notifications
+        try:
+            user_details = _get_user_email_by_id(current_user)
+            user_email = user_details.get("email") if user_details else None
+            _send_new_listing_admin_notification("car", data[0], user_email)
+            if user_email:
+                _send_new_listing_user_confirmation(user_email, "car", data[0])
+        except Exception as email_err:
+            logger.warning(f"Failed to send listing notification emails: {email_err}")
+
         return jsonify(data[0]), 201
     except Exception as e:
         logger.error(f"Error creating car listing: {e}")
@@ -3257,6 +3267,100 @@ def _send_dealer_status_email(
     lines.extend(
         [f"Manage your account: {profile_url}", "", "Thanks,", "DPH Classifieds"]
     )
+
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "text": "\n".join(lines),
+    }
+
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    return _send_resend_email(payload)
+
+
+def _send_new_listing_admin_notification(item_type, listing, user_email):
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    to_email = os.getenv("RESEND_TO_EMAIL")
+    if not from_email or not to_email:
+        return None, "Missing RESEND_FROM_EMAIL or RESEND_TO_EMAIL"
+
+    item_label_map = {
+        "car": "Car",
+        "bike": "Bike",
+        "part": "Car Part",
+        "plate": "Plate",
+    }
+    item_label = item_label_map.get(item_type, "Listing")
+    listing_title = _build_listing_title(
+        f"{item_type}s" if not item_type.endswith("s") else item_type,
+        listing,
+    )
+
+    subject = f"[New {item_label}] {listing_title}"
+    lines = [
+        f"A new {item_label.lower()} listing has been submitted and is pending approval.",
+        "",
+        f"Title: {listing_title}",
+        f"Listed by: {user_email or 'Unknown'}",
+        f"Listing ID: {listing.get('id', 'N/A')}",
+        "",
+        f"Review it in the admin panel: {SITE_URL}/admin/listings",
+    ]
+
+    payload = {
+        "from": from_email,
+        "to": [to_email],
+        "subject": subject,
+        "text": "\n".join(lines),
+    }
+
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    return _send_resend_email(payload)
+
+
+def _send_new_listing_user_confirmation(user_email, item_type, listing):
+    if not user_email:
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    item_label_map = {
+        "car": "car",
+        "bike": "bike",
+        "part": "car part",
+        "plate": "plate",
+    }
+    item_label = item_label_map.get(item_type, "listing")
+    listing_title = _build_listing_title(
+        f"{item_type}s" if not item_type.endswith("s") else item_type,
+        listing,
+    )
+    my_listings_url = f"{SITE_URL}/my-listings"
+
+    subject = f"Your {item_label} listing has been submitted"
+    lines = [
+        "Hi there,",
+        "",
+        f"Your {item_label} listing has been submitted and is pending review.",
+        f"Title: {listing_title}",
+        "",
+        "We will notify you once it has been approved.",
+        f"Manage your listings: {my_listings_url}",
+        "",
+        "Thanks,",
+        "DPH Classifieds",
+    ]
 
     payload = {
         "from": from_email,
@@ -5053,6 +5157,16 @@ def create_bike(current_user):
             else:
                 data[0]["images"] = []
 
+        # Send email notifications
+        try:
+            user_details = _get_user_email_by_id(current_user)
+            user_email = user_details.get("email") if user_details else None
+            _send_new_listing_admin_notification("bike", data[0], user_email)
+            if user_email:
+                _send_new_listing_user_confirmation(user_email, "bike", data[0])
+        except Exception as email_err:
+            logger.warning(f"Failed to send listing notification emails: {email_err}")
+
         return jsonify(data[0]), 201
     except Exception as e:
         logger.error(f"Error creating bike listing: {e}")
@@ -5728,6 +5842,16 @@ def create_part(current_user):
         else:
             data[0]["images"] = []
 
+        # Send email notifications
+        try:
+            user_details = _get_user_email_by_id(current_user)
+            user_email = user_details.get("email") if user_details else None
+            _send_new_listing_admin_notification("part", data[0], user_email)
+            if user_email:
+                _send_new_listing_user_confirmation(user_email, "part", data[0])
+        except Exception as email_err:
+            logger.warning(f"Failed to send listing notification emails: {email_err}")
+
         return jsonify(data[0]), 201
 
     except Exception as e:
@@ -6339,6 +6463,17 @@ def _create_plate_with_image_impl(current_user):
 
         # Return the created plate
         response[0]["image_url"] = image_url
+
+        # Send email notifications
+        try:
+            user_details = _get_user_email_by_id(current_user)
+            user_email = user_details.get("email") if user_details else None
+            _send_new_listing_admin_notification("plate", response[0], user_email)
+            if user_email:
+                _send_new_listing_user_confirmation(user_email, "plate", response[0])
+        except Exception as email_err:
+            logger.warning(f"Failed to send listing notification emails: {email_err}")
+
         return jsonify(response[0]), 201
 
     except Exception as e:
@@ -6384,6 +6519,34 @@ def get_user_email(user_id):
     except Exception as e:
         logger.error(f"Error getting user email: {str(e)}")
         return "unknown@example.com"
+
+
+def _get_user_email_by_id(user_id):
+    try:
+        user_data, status_code = supabase_request(
+            "get",
+            f"/rest/v1/users?id=eq.{user_id}&select=id,email,first_name,last_name",
+            use_service_role=True,
+        )
+        if status_code < 400 and user_data and len(user_data) > 0:
+            return user_data[0]
+    except Exception:
+        pass
+
+    try:
+        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+        headers = {"apikey": service_key, "Authorization": f"Bearer {service_key}"}
+        resp = requests.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers=headers,
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+
+    return None
 
 
 # Admin-only endpoints to fetch ALL listings (including pending) for admin dashboard
