@@ -2226,25 +2226,32 @@ def update_car(current_user, car_id):
             # Extract form fields
             for key in request.form.keys():
                 value = request.form.get(key)
-                if key not in ["keep_image_ids", "crop_data"] and value not in [
-                    "",
-                    "false",
-                    "undefined",
-                    "null",
-                ]:
-                    # Convert boolean strings
-                    if value == "true":
-                        update_data[key] = True
-                    elif value == "false":
-                        update_data[key] = False
-                    # Convert numeric strings
-                    elif (
-                        key in ["make_year", "mileage", "expected_selling_price"]
-                        and value.isdigit()
-                    ):
-                        update_data[key] = int(value)
-                    else:
-                        update_data[key] = value
+                if key in ["keep_image_ids", "crop_data"]:
+                    continue
+                if value in ["undefined", "null"]:
+                    continue
+                if value == "":
+                    continue
+                # Convert boolean strings
+                if value == "true":
+                    update_data[key] = True
+                elif value == "false":
+                    update_data[key] = False
+                # Convert numeric strings
+                elif (
+                    key
+                    in [
+                        "make_year",
+                        "mileage",
+                        "expected_selling_price",
+                        "price",
+                        "kilometer_driven",
+                    ]
+                    and value.lstrip("-").isdigit()
+                ):
+                    update_data[key] = int(value)
+                else:
+                    update_data[key] = value
 
             logger.info(f"Extracted form data: {update_data}")
 
