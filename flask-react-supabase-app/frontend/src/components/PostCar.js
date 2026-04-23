@@ -14,7 +14,11 @@ import {
   UAE_EMIRATES,
   WARRANTY_OPTIONS,
   getAreasForEmirate,
-  getYearOptions
+  getYearOptions,
+  EXTERIOR_COLOR_OPTIONS,
+  INTERIOR_COLOR_OPTIONS,
+  FUEL_EFFICIENCY_OPTIONS,
+  TAG_OPTIONS
 } from '../utils/listingConstants';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -263,10 +267,7 @@ const PostCar = () => {
       'All-Terrain Drive Modes (Sand, Rock, Mud, Snow)',
       'Tow Hook / Recovery Package'
     ],
-    'Seller Notes': [
-      'Lady Driven',
-      'Mallu Doctor Driven'
-    ]
+    'Tags': TAG_OPTIONS
   };
 
   // Note: carExtras is now organized by categories above
@@ -1464,72 +1465,53 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="drivetrain">Drivetrain</label>
+              <label htmlFor="fuel_efficiency">Fuel Efficiency (km/l)</label>
               <SearchableSelect
-                id="drivetrain"
-                name="drivetrain"
-                value={formData.drivetrain}
-                onChange={handleChange}
-                className="form-control form-select"
-              >
-                <option value="">Select drivetrain</option>
-                <option value="FWD">FWD</option>
-                <option value="RWD">RWD</option>
-                <option value="AWD">AWD</option>
-                <option value="4WD">4WD</option>
-              </SearchableSelect>
-            </div>
-            <div className="form-group">
-              <label htmlFor="fuel_efficiency">Fuel Efficiency</label>
-              <input
-                type="text"
                 id="fuel_efficiency"
                 name="fuel_efficiency"
                 value={formData.fuel_efficiency}
                 onChange={handleChange}
-                placeholder="e.g. 12.4 km/l"
-                className="form-control"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="torque">Torque</label>
-              <input
-                type="text"
-                id="torque"
-                name="torque"
-                value={formData.torque}
-                onChange={handleChange}
-                placeholder="e.g. 500 Nm"
-                className="form-control"
-              />
+                className="form-control form-select"
+              >
+                <option value="">Select efficiency</option>
+                {FUEL_EFFICIENCY_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt} km/l</option>
+                ))}
+              </SearchableSelect>
             </div>
           </div>
           
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="color">Exterior Color *</label>
-              <input
-                type="text"
+              <SearchableSelect
                 id="color"
                 name="color"
                 value={formData.color}
                 onChange={handleChange}
                 required
-                placeholder="e.g. Black"
-                className="form-control"
-              />
+                className="form-control form-select"
+              >
+                <option value="">Select color</option>
+                {EXTERIOR_COLOR_OPTIONS.map(color => (
+                  <option key={color} value={color}>{color}</option>
+                ))}
+              </SearchableSelect>
             </div>
             <div className="form-group">
               <label htmlFor="interior_color">Interior Color</label>
-              <input
-                type="text"
+              <SearchableSelect
                 id="interior_color"
                 name="interior_color"
                 value={formData.interior_color}
                 onChange={handleChange}
-                placeholder="e.g. Beige"
-                className="form-control"
-              />
+                className="form-control form-select"
+              >
+                <option value="">Select color</option>
+                {INTERIOR_COLOR_OPTIONS.map(color => (
+                  <option key={color} value={color}>{color}</option>
+                ))}
+              </SearchableSelect>
             </div>
             <div className="form-group">
               <label htmlFor="cylinders">Cylinders *</label>

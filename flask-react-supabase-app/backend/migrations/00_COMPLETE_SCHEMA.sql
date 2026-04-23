@@ -75,7 +75,6 @@ CREATE TABLE IF NOT EXISTS public.cars (
     parking_sensors BOOLEAN DEFAULT FALSE,
     rear_view_camera BOOLEAN DEFAULT FALSE,
     lady_driven BOOLEAN DEFAULT FALSE,
-    mallu_doctor_driven BOOLEAN DEFAULT FALSE,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     rejection_note TEXT,
     expires_at TIMESTAMPTZ,

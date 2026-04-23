@@ -115,7 +115,6 @@ const EditListing = () => {
     parking_sensors: false,
     rear_view_camera: false,
     lady_driven: false,
-    mallu_doctor_driven: false,
   });
   
   const [images, setImages] = useState([]);
@@ -328,7 +327,6 @@ const EditListing = () => {
           parking_sensors: data.parking_sensors || false,
           rear_view_camera: data.rear_view_camera || false,
           lady_driven: data.lady_driven || false,
-          mallu_doctor_driven: data.mallu_doctor_driven || false,
         });
         setOtherFuelType(parsedOtherFuelType);
       }
@@ -1156,19 +1154,6 @@ const EditListing = () => {
                   onChange={handleChange}
                 />
                 <span>Lady Driven</span>
-              </label>
-            </div>
-
-            <div className="feature-item">
-              <label htmlFor="mallu_doctor_driven">
-                <input
-                  type="checkbox"
-                  id="mallu_doctor_driven"
-                  name="mallu_doctor_driven"
-                  checked={formData.mallu_doctor_driven}
-                  onChange={handleChange}
-                />
-                <span>Mallu Doctor Driven</span>
               </label>
             </div>
           </div>

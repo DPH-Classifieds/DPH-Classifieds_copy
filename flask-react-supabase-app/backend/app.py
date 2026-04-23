@@ -1968,8 +1968,6 @@ def create_car(current_user):
             "Leather Seats": "leather_seats",
             "Parking Sensors": "parking_sensors",
             "Rear View Camera": "rear_view_camera",
-            "Lady Driven": "lady_driven",
-            "Mallu Doctor Driven": "mallu_doctor_driven",
         }
 
         # Set all extras boolean fields to False first
@@ -2036,7 +2034,6 @@ def create_car(current_user):
             "parking_sensors",
             "rear_view_camera",
             "lady_driven",
-            "mallu_doctor_driven",
             "expires_at",
             "expired_at",
             "retention_expires_at",
@@ -2410,7 +2407,6 @@ def update_car(current_user, car_id):
             "parking_sensors",
             "rear_view_camera",
             "lady_driven",
-            "mallu_doctor_driven",
         }
         update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
 

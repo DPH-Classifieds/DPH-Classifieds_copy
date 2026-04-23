@@ -48,7 +48,6 @@ const EXTRA_BOOLEAN_LABELS = {
   parking_sensors: 'Parking Sensors',
   rear_view_camera: 'Rear View Camera',
   lady_driven: 'Lady Driven',
-  mallu_doctor_driven: 'Mallu Doctor Driven',
 };
 
 const CarDetail = () => {
