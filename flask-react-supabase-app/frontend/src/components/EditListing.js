@@ -540,42 +540,33 @@ const EditListing = () => {
         formDataToSend.append('crop_data', JSON.stringify(cropPayload));
       }
       
-      if (listingType === 'car') {
-        const updateAttempts = [
-          { endpoint: typeConfig.updateEndpoint(id), method: 'PUT' },
-          { endpoint: typeConfig.updateEndpoint(id), method: 'PATCH' },
-          { endpoint: typeConfig.updateEndpoint(id), method: 'POST' },
-          { endpoint: `/api/cars/${id}/update`, method: 'POST' }
-        ];
-        let lastError = null;
-
-        for (const attempt of updateAttempts) {
-          try {
-            await apiClient.request(attempt.endpoint, {
-              method: attempt.method,
-              body: formDataToSend
-            });
-            lastError = null;
-            break;
-          } catch (err) {
-            console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status, err.message, err.details);
-            lastError = err;
-            if (err.status === 405 || err.status === 404) {
-              continue;
-            }
-            throw err;
-          }
+      // Try PATCH first as it's the most compatible with PostgREST updates
+      const updateAttempts = [
+        { endpoint: typeConfig.updateEndpoint(id), method: 'PATCH' },
+        { endpoint: typeConfig.updateEndpoint(id), method: 'PUT' },
+        { endpoint: typeConfig.updateEndpoint(id), method: 'POST' }
+      ];
+      
+      let lastError = null;
+      for (const attempt of updateAttempts) {
+        try {
+          await apiClient.request(attempt.endpoint, {
+            method: attempt.method,
+            body: formDataToSend
+          });
+          lastError = null;
+          break;
+        } catch (err) {
+          console.warn(`Update attempt ${attempt.method} ${attempt.endpoint} failed:`, err.status, err.message);
+          lastError = err;
+          // If 405 or 404, try the next method
+          if (err.status === 405 || err.status === 404) continue;
+          // For other errors (like 400), don't retry if it's likely a payload issue
+          throw err;
         }
-
-        if (lastError) {
-          throw lastError;
-        }
-      } else {
-        await apiClient.request(typeConfig.updateEndpoint(id), {
-          method: 'PUT',
-          body: formDataToSend
-        });
       }
+
+      if (lastError) throw lastError;
       
       navigate(typeConfig.detailPath(id));
     } catch (err) {

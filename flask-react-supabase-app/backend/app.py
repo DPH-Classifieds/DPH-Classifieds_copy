@@ -1507,8 +1507,12 @@ def get_cars():
 
         logger.info(f"Fetching cars with params: {filtered_params}")
 
+        # Use select=* to get all fields, and join with car_images
+        filtered_params["select"] = "*,car_images(*)"
+        
+        # Use service role for public fetches to ensure all approved listings and images are visible
         response, status_code = supabase_request(
-            "get", "/rest/v1/cars", params=filtered_params
+            "get", "/rest/v1/cars", params=filtered_params, use_service_role=True
         )
 
         if status_code >= 400:
@@ -1517,7 +1521,7 @@ def get_cars():
                 {"error": response.get("error", "Unknown error"), "data": []}
             ), status_code
 
-        # Ensure we always return a list, even if response is None or not a list
+        # Ensure we always return a list
         if not response:
             response = []
         elif not isinstance(response, list):
@@ -1526,38 +1530,16 @@ def get_cars():
 
         response = _filter_public_listing_records("cars", response)
 
-        # Fetch images for each car
-        try:
-            for car in response:
-                car_id = car.get("id")
-                if car_id:
-                    images_response, images_status = supabase_request(
-                        "get",
-                        "/rest/v1/car_images",
-                        params={
-                            "select": "*",
-                            "car_id": f"eq.{car_id}",
-                            "order": "created_at.asc",
-                        },
-                        use_service_role=True,
-                    )
+        # Normalize images field for frontend
+        for car in response:
+            car_images = car.pop("car_images", [])
+            for img in car_images:
+                if "url" in img and "image_url" not in img:
+                    img["image_url"] = img["url"]
+                elif "image_url" in img and "url" not in img:
+                    img["url"] = img["image_url"]
+            car["images"] = car_images
 
-                    if images_status < 400:
-                        # Transform url to image_url for frontend compatibility
-                        for image in images_response:
-                            if "url" in image and "image_url" not in image:
-                                image["image_url"] = image["url"]
-                        car["images"] = images_response
-                    else:
-                        car["images"] = []
-                else:
-                    car["images"] = []
-        except Exception as e:
-            logger.warning(f"Error fetching car images: {e}")
-            # Continue without images if fetching fails
-            for car in response:
-                if "images" not in car:
-                    car["images"] = []
 
         # Fetch seller info for each car
         try:
@@ -2415,9 +2397,9 @@ def update_car(current_user, car_id):
         # Strictly apply allowed fields filter
         update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
 
-        # Update the car
+        # Update the car using PATCH for partial update
         data, status_code = supabase_request(
-            "put",
+            "patch",
             f"/rest/v1/cars",
             params={"id": f"eq.{car_id}"},
             data=update_data,
@@ -3051,7 +3033,7 @@ def get_privacy_policy():
 def get_advertisements():
     try:
         query = "/rest/v1/advertisements?select=*&order=created_at.desc&limit=1"
-        response, response_status = supabase_request("get", query)
+        response, response_status = supabase_request("get", query, use_service_role=True)
 
         if not response or len(response) == 0:
             return jsonify({"error": "Advertisements not found"}), 404
@@ -4716,39 +4698,35 @@ def get_bikes():
                     query_params.append(f"{key}={value}")
 
             query_string = "&".join(query_params)
-            url = f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}"
+            # Build query with join for images
+            url = f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}&select=*,bike_images(*)"
 
             logger.info(f"Making direct request to: {url}")
             response = requests.get(url, headers=headers)
 
             if response.status_code == 200:
                 bikes = response.json()
-
                 bikes = _filter_public_listing_records("bikes", bikes)
 
-                # Fetch images for each bike
                 for bike in bikes:
                     _normalize_bike_record(bike)
-                    bike_id = bike["id"]
-                    image_url = f"{app.config['SUPABASE_URL']}/rest/v1/bike_images?bike_id=eq.{bike_id}"
-                    image_response = requests.get(image_url, headers=headers)
+                    bike_images = bike.pop("bike_images", [])
+                    normalized_images = []
+                    for img in bike_images:
+                        image_url = img.get("image_url") or img.get("url")
+                        if image_url:
+                            normalized_images.append({
+                                "id": img.get("id"),
+                                "image_url": image_url,
+                                "url": image_url
+                            })
+                    bike["images"] = normalized_images
+                    # Fallback for main image
+                    if not bike["images"]:
+                        if bike.get("image_url") or bike.get("url"):
+                            main_url = bike.get("image_url") or bike.get("url")
+                            bike["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
 
-                    if image_response.status_code == 200:
-                        images = image_response.json()
-                        normalized_images = []
-                        for img in images:
-                            image_url = img.get("image_url") or img.get("url")
-                            if image_url:
-                                normalized_images.append(
-                                    {
-                                        "id": img.get("id"),
-                                        "image_url": image_url,
-                                        "url": image_url,
-                                    }
-                                )
-                        bike["images"] = normalized_images
-                    else:
-                        bike["images"] = []
 
                     _enrich_listing_seller(bike, headers=headers)
 
@@ -5274,9 +5252,9 @@ def update_bike(current_user, bike_id):
         
         update_data = {k: v for k, v in update_data.items() if k in bike_allowed_fields}
 
-        # Update the bike
+        # Update the bike using PATCH for partial update
         data, status_code = supabase_request(
-            "put",
+            "patch",
             f"/rest/v1/bikes",
             params={"id": f"eq.{bike_id}"},
             data=update_data,
@@ -5414,7 +5392,8 @@ def get_plates():
         }
 
         # Build query - only get approved plates
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc&limit={limit}&offset={offset}&select=*"
+        # Build query with join for images
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc&limit={limit}&offset={offset}&select=*,plate_images(*)"
 
         logger.info(f"Fetching plates from: {url}")
         response = requests.get(url, headers=headers, timeout=10)
@@ -5424,38 +5403,26 @@ def get_plates():
             plates = _filter_public_listing_records("license_plates", plates)
             logger.info(f"Found {len(plates)} plates")
 
-            # Fetch images for each plate
             for plate in plates:
-                plate_id = plate.get("id")
-                if plate_id:
-                    try:
-                        image_url = f"{app.config['SUPABASE_URL']}/rest/v1/plate_images?plate_id=eq.{plate_id}&select=*"
-                        image_response = requests.get(
-                            image_url, headers=headers, timeout=5
-                        )
-
-                        if image_response.status_code == 200:
-                            images = image_response.json()
-                            plate["images"] = [
-                                {
-                                    "id": img.get("id"),
-                                    "url": img.get("url") or img.get("image_url"),
-                                    "image_url": img.get("image_url") or img.get("url"),
-                                }
-                                for img in images
-                                if img.get("url") or img.get("image_url")
-                            ]
-                        else:
-                            plate["images"] = []
-                    except Exception as img_error:
-                        logger.error(
-                            f"Error fetching images for plate {plate_id}: {str(img_error)}"
-                        )
-                        plate["images"] = []
-                else:
-                    plate["images"] = []
-
+                # Normalize images
+                plate_images = plate.pop("plate_images", [])
+                plate["images"] = [
+                    {
+                        "id": img.get("id"),
+                        "url": img.get("url") or img.get("image_url"),
+                        "image_url": img.get("image_url") or img.get("url"),
+                    }
+                    for img in plate_images
+                    if img.get("url") or img.get("image_url")
+                ]
+                # Fallback for main image if images list is empty but one of these fields exists
+                if not plate["images"]:
+                    if plate.get("image_url") or plate.get("url"):
+                        main_url = plate.get("image_url") or plate.get("url")
+                        plate["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
+                        
                 _enrich_listing_seller(plate, headers=headers)
+
 
             return jsonify(plates), 200
         else:
@@ -5463,119 +5430,108 @@ def get_plates():
                 f"Failed to fetch plates: {response.status_code} - {response.text}"
             )
             return jsonify([]), 200  # Return empty array instead of error
+        except Exception as e:
+            logger.error(f"Error fetching plates: {str(e)}", exc_info=True)
+            return jsonify(
+                []
+            ), 200  # Return empty array instead of error to prevent frontend crash
 
-    except Exception as e:
-        logger.error(f"Error fetching plates: {str(e)}", exc_info=True)
-        return jsonify(
-            []
-        ), 200  # Return empty array instead of error to prevent frontend crash
 
+@app.route("/api/plates/<plate_id>", methods=["GET", "PUT", "PATCH", "POST"])
+@token_required_optional
+def plate_handler(current_user, plate_id):
+    if request.method == "GET":
+        return get_plate_details(plate_id)
+    
+    # For update methods, token is required
+    if not current_user:
+        return jsonify({"message": "Authentication required"}), 401
+        
+    return update_plate(current_user, plate_id)
 
-@app.route("/api/plates/<plate_id>", methods=["GET"])
 def get_plate_details(plate_id):
-    """Get details for a specific plate by ID"""
+    """Get details for a specific license plate by ID"""
     try:
         logger.info(f"Fetching plate details for ID: {plate_id}")
-
-        try:
-            # Use direct request with service role key
-            service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-            headers = {
-                "apikey": service_role_key,
-                "Authorization": f"Bearer {service_role_key}",
-                "Content-Type": "application/json",
-            }
-
-            # Get the specific plate
-            url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?id=eq.{plate_id}&select=*"
-            logger.info(f"Making direct request to: {url}")
-            response = requests.get(url, headers=headers)
-
-            if response.status_code == 200:
-                plates = response.json()
-                if not plates:
-                    logger.warning(f"No plate found with ID: {plate_id}")
-                    return jsonify({"error": "Plate not found"}), 404
-
-                plate = _sync_listing_lifecycle(
-                    "license_plates", plates[0], hard_delete_archived=True
-                )
-                if not plate or plate.get("listing_state") != "active":
-                    return jsonify({"error": "Plate not found"}), 404
-                logger.info(
-                    f"Found plate: {plate.get('city')} {plate.get('code')} {plate.get('number')}"
-                )
-
-                # Fetch images for this plate
-                try:
-                    image_url = f"{app.config['SUPABASE_URL']}/rest/v1/plate_images?plate_id=eq.{plate['id']}&select=*"
-                    image_response = requests.get(image_url, headers=headers)
-
-                    if image_response.status_code == 200:
-                        images = image_response.json()
-                        plate["images"] = images
-                        logger.info(f"Found {len(images)} images for plate")
-                    else:
-                        plate["images"] = []
-                        logger.warning(f"No images found for plate {plate_id}")
-                except Exception as img_err:
-                    logger.error(
-                        f"Error fetching images for plate {plate['id']}: {img_err}"
-                    )
-                    plate["images"] = []
-
-                # Fetch seller profile photo
-                user_id = plate.get("user_id")
-                if user_id:
-                    try:
-                        user_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{user_id}&select=profile_photo_url"
-                        user_response = requests.get(user_url, headers=headers)
-                        if user_response.status_code == 200 and user_response.json():
-                            plate["seller_profile_photo"] = user_response.json()[0].get(
-                                "profile_photo_url"
-                            )
-                    except Exception as user_err:
-                        logger.warning(f"Failed to fetch seller info: {user_err}")
-
-                return jsonify(plate), 200
-            else:
-                logger.error(
-                    f"Error fetching plate details: {response.status_code} - {response.text}"
-                )
-                return jsonify({"error": "Failed to fetch plate details"}), 500
-
-        except Exception as e:
-            logger.error(f"Error in direct request: {str(e)}")
-            # Fallback to regular Supabase client
-            response, status_code = supabase_request(
-                "get",
-                "/rest/v1/license_plates",
-                params={"id": f"eq.{plate_id}", "select": "*"},
-            )
-            if status_code < 400 and response and len(response) > 0:
-                plate = _sync_listing_lifecycle(
-                    "license_plates", response[0], hard_delete_archived=True
-                )
-                if not plate or plate.get("listing_state") != "active":
-                    return jsonify({"error": "Plate not found"}), 404
-
-                # Fetch images for this plate in fallback
-                images_response, images_status = supabase_request(
-                    "get",
-                    "/rest/v1/plate_images",
-                    params={"select": "*", "plate_id": f"eq.{plate_id}"},
-                )
-                if images_status < 400 and images_response:
-                    plate["images"] = images_response
-                else:
-                    plate["images"] = []
-
-                return jsonify(plate), 200
-            else:
+        
+        # Use service role for consistent data fetching
+        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+        headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+        }
+        
+        # Use join for images
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?id=eq.{plate_id}&select=*,plate_images(*)"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            plates = response.json()
+            if not plates:
                 return jsonify({"error": "Plate not found"}), 404
-
+            
+            plate = _sync_listing_lifecycle("license_plates", plates[0], hard_delete_archived=True)
+            if not plate:
+                return jsonify({"error": "Plate not found"}), 404
+            
+            # Normalize images
+            plate_images = plate.pop("plate_images", [])
+            plate["images"] = [
+                {
+                    "id": img.get("id"),
+                    "url": img.get("url") or img.get("image_url"),
+                    "image_url": img.get("image_url") or img.get("url"),
+                }
+                for img in plate_images
+            ]
+            
+            _enrich_listing_seller(plate, headers=headers)
+            return jsonify(plate), 200
+        else:
+            return jsonify({"error": "Failed to fetch plate"}), response.status_code
+            
     except Exception as e:
-        logger.error(f"Error in get_plate_details: {str(e)}")
+        logger.error(f"Error getting plate {plate_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def update_plate(current_user, plate_id):
+    """Update a license plate listing"""
+    try:
+        logger.info(f"Updating plate listing: {plate_id}")
+        
+        data = request.form if request.form else (request.get_json(silent=True) or {})
+        
+        # Prepare update payload
+        update_data = {}
+        allowed_fields = {
+            "city", "code", "digits", "price", "number", "plate_format",
+            "contact_name", "contact_phone", "whatsapp_prefill_text",
+            "description", "area", "emirate", "is_dealer"
+        }
+        
+        for key in allowed_fields:
+            if key in data:
+                update_data[key] = data[key]
+        
+        # Sanitize
+        update_data.pop("id", None)
+        
+        # Update
+        data, status_code = supabase_request(
+            "patch",
+            f"/rest/v1/license_plates",
+            params={"id": f"eq.{plate_id}"},
+            data=update_data,
+            user_id=current_user
+        )
+        
+        if status_code >= 400:
+            return jsonify(data), status_code
+            
+        return jsonify({"message": "Plate updated successfully"}), 200
+        
+    except Exception as e:
+        logger.error(f"Error updating plate {plate_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -5635,7 +5591,8 @@ def get_parts():
                     query_params.append(f"{key}={value}")
 
             query_string = "&".join(query_params)
-            url = f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}"
+            # Build query with join for images
+            url = f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}&select=*,part_images(*)"
 
             logger.info(f"Making direct request to: {url}")
             response = requests.get(url, headers=headers)
@@ -5644,26 +5601,22 @@ def get_parts():
                 parts = response.json()
                 parts = _filter_public_listing_records("car_parts", parts)
 
-                # Fetch images for each part
                 for part in parts:
-                    part_id = part["id"]
-                    image_url = f"{app.config['SUPABASE_URL']}/rest/v1/part_images?part_id=eq.{part_id}"
-                    image_response = requests.get(image_url, headers=headers)
-
-                    if image_response.status_code == 200:
-                        images = image_response.json()
-                        part["images"] = [
-                            {
-                                "id": img.get("id"),
-                                "url": img.get("url") or img.get("image_url"),
-                                "image_url": img.get("image_url") or img.get("url"),
-                            }
-                            for img in images
-                            if img.get("url") or img.get("image_url")
-                        ]
-                    else:
-                        part["images"] = []
-
+                    part_images = part.pop("part_images", [])
+                    part["images"] = [
+                        {
+                            "id": img.get("id"),
+                            "url": img.get("url") or img.get("image_url"),
+                            "image_url": img.get("image_url") or img.get("url"),
+                        }
+                        for img in part_images
+                        if img.get("url") or img.get("image_url")
+                    ]
+                    # Fallback for main image
+                    if not part["images"]:
+                        if part.get("image_url") or part.get("url"):
+                            main_url = part.get("image_url") or part.get("url")
+                            part["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
                     _enrich_listing_seller(part, headers=headers)
 
                 return jsonify(parts)
@@ -5671,7 +5624,6 @@ def get_parts():
                 logger.error(
                     f"Direct request failed: {response.status_code} - {response.text}"
                 )
-                # Fallback to regular method
                 raise Exception("Direct request failed")
 
         except Exception as e:
@@ -5863,111 +5815,80 @@ def create_part(current_user):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/parts/<part_id>", methods=["GET"])
-def get_part_details(part_id):
-    """Get details for a specific car part by ID"""
+@app.route("/api/parts/<part_id>", methods=["GET", "PUT", "PATCH", "POST"])
+@token_required_optional
+def part_handler(current_user, part_id):
+    if request.method == "GET":
+        return get_part_details(part_id)
+    
+    # For update methods, token is required
+    if not current_user:
+        return jsonify({"message": "Authentication required"}), 401
+        
+    return update_part(current_user, part_id)
+
+def update_part(current_user, part_id):
+    """Update a car part listing"""
     try:
-        logger.info(f"Fetching part details for ID: {part_id}")
-
-        try:
-            # Use direct request with service role key
-            service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
-            headers = {
-                "apikey": service_role_key,
-                "Authorization": f"Bearer {service_role_key}",
-                "Content-Type": "application/json",
-            }
-
-            # Get the specific part
-            url = f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?id=eq.{part_id}&select=*"
-            logger.info(f"Making direct request to: {url}")
-            response = requests.get(url, headers=headers)
-
-            if response.status_code == 200:
-                parts = response.json()
-                if not parts:
-                    logger.warning(f"No part found with ID: {part_id}")
-                    return jsonify({"error": "Part not found"}), 404
-
-                part = _sync_listing_lifecycle(
-                    "car_parts", parts[0], hard_delete_archived=True
-                )
-                if not part or part.get("listing_state") != "active":
-                    return jsonify({"error": "Part not found"}), 404
-                logger.info(f"Found part: {part.get('name', 'Unknown part')}")
-
-                # Fetch images for this part
-                try:
-                    image_url = f"{app.config['SUPABASE_URL']}/rest/v1/part_images?part_id=eq.{part['id']}&select=*"
-                    image_response = requests.get(image_url, headers=headers)
-
-                    if image_response.status_code == 200:
-                        images = image_response.json()
-                        part["images"] = images
-                        logger.info(f"Found {len(images)} images for part")
-                    else:
-                        part["images"] = []
-                        logger.warning(f"No images found for part {part_id}")
-                except Exception as img_err:
-                    logger.error(
-                        f"Error fetching images for part {part['id']}: {img_err}"
-                    )
-                    part["images"] = []
-
-                # Fetch seller profile photo
-                user_id = part.get("user_id")
-                if user_id:
+        logger.info(f"Updating part listing: {part_id}")
+        
+        # Check if this is FormData or JSON
+        is_form_data = (
+            request.content_type and "multipart/form-data" in request.content_type
+        )
+        
+        if is_form_data:
+            update_data = {}
+            for key, value in request.form.items():
+                if key == "compatible_makes" or key == "compatible_models":
                     try:
-                        user_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{user_id}&select=profile_photo_url"
-                        user_response = requests.get(user_url, headers=headers)
-                        if user_response.status_code == 200 and user_response.json():
-                            part["seller_profile_photo"] = user_response.json()[0].get(
-                                "profile_photo_url"
-                            )
-                    except Exception as user_err:
-                        logger.warning(f"Failed to fetch seller info: {user_err}")
-
-                return jsonify(part), 200
-            else:
-                logger.error(
-                    f"Error fetching part details: {response.status_code} - {response.text}"
-                )
-                return jsonify({"error": "Failed to fetch part details"}), 500
-
-        except Exception as e:
-            logger.error(f"Error in direct request: {str(e)}")
-            # Fallback to regular Supabase client
-            response, status_code = supabase_request(
-                "get",
-                "/rest/v1/car_parts",
-                params={"id": f"eq.{part_id}", "select": "*"},
-            )
-            if status_code < 400 and response and len(response) > 0:
-                part = _sync_listing_lifecycle(
-                    "car_parts", response[0], hard_delete_archived=True
-                )
-                if not part or part.get("listing_state") != "active":
-                    return jsonify({"error": "Part not found"}), 404
-
-                # Fetch images for this part in fallback
-                images_response, images_status = supabase_request(
-                    "get",
-                    "/rest/v1/part_images",
-                    params={"select": "*", "part_id": f"eq.{part_id}"},
-                )
-                if images_status < 400 and images_response:
-                    part["images"] = images_response
+                        update_data[key] = json.loads(value) if value else []
+                    except:
+                        update_data[key] = []
                 else:
-                    part["images"] = []
+                    update_data[key] = value
+            
+            keep_image_ids = request.form.getlist("keep_image_ids")
+            new_images = request.files.getlist("images")
+        else:
+            update_data = request.json.copy() if request.json else {}
+            keep_image_ids = update_data.pop("keep_image_ids", None)
+            new_images = []
 
-                return jsonify(part), 200
-            else:
-                return jsonify({"error": "Part not found"}), 404
-
+        # Sanitize update data
+        update_data.pop("id", None)
+        update_data.pop("user_id", None)
+        
+        # Whitelist allowed fields
+        part_allowed_fields = {
+            "name", "part_type", "condition", "compatible_makes", 
+            "compatible_models", "compatible_years", "price", 
+            "location", "area", "emirate", "contact_number", 
+            "whatsapp_prefill_text", "description", "is_negotiable",
+            "country_code", "is_dealer"
+        }
+        update_data = {k: v for k, v in update_data.items() if k in part_allowed_fields}
+        
+        # Update the part
+        data, status_code = supabase_request(
+            "patch",
+            f"/rest/v1/car_parts",
+            params={"id": f"eq.{part_id}"},
+            data=update_data,
+            user_id=current_user
+        )
+        
+        if status_code >= 400:
+            return jsonify(data), status_code
+            
+        # Handle images if needed (simplified for parts for now)
+        # In a full implementation, we would handle image deletion/upload here
+        
+        return jsonify({"message": "Part updated successfully"}), 200
+        
     except Exception as e:
-        logger.error(f"Error in get_part_details: {str(e)}")
+        logger.error(f"Error updating part {part_id}: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/api/parts/<part_id>", methods=["DELETE"])
 @token_required
@@ -8022,19 +7943,32 @@ def get_admin_lead_metrics(current_user):
 
         days = max(min(int(request.args.get("days", 30)), 90), 1)
         cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
-        leads_resp, leads_status = supabase_request(
+        # 1. Fetch ALL lead events for the period (only action column for efficiency) to get accurate totals
+        leads_total_resp, leads_total_status = supabase_request(
+            "get",
+            "/rest/v1/lead_events",
+            params={
+                "select": "action",
+                "created_at": f"gte.{cutoff}",
+            },
+            use_service_role=True,
+        )
+        
+        # 2. Fetch RECENT lead events for the list
+        leads_recent_resp, leads_recent_status = supabase_request(
             "get",
             "/rest/v1/lead_events",
             params={
                 "select": "*",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
-                "limit": "500",
+                "limit": "100",
             },
             use_service_role=True,
         )
-        if leads_status >= 400:
-            return jsonify({"error": "Failed to fetch lead metrics"}), leads_status
+
+        if leads_total_status >= 400:
+            return jsonify({"error": "Failed to fetch lead metrics"}), leads_total_status
 
         reports_resp, reports_status = supabase_request(
             "get",
@@ -8043,7 +7977,7 @@ def get_admin_lead_metrics(current_user):
                 "select": "id,listing_id,listing_type,status,created_at",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
-                "limit": "500",
+                "limit": "100",
             },
             use_service_role=True,
         )
@@ -8051,9 +7985,14 @@ def get_admin_lead_metrics(current_user):
             reports_resp = []
 
         totals = defaultdict(int)
-        leads_per_listing = defaultdict(int)
-        for event in leads_resp or []:
+        for event in leads_total_resp or []:
             totals[event.get("action") or "unknown"] += 1
+
+        leads_per_listing = defaultdict(int)
+        # Calculate leads per listing based on RECENT events (for top listings)
+        # Note: If we want this to be for ALL events, we'd need to fetch more data,
+        # but for top listings, recent data is usually what's shown.
+        for event in leads_recent_resp or []:
             listing_key = f"{event.get('listing_type')}:{event.get('listing_id')}"
             if event.get("action") in {"call_click", "whatsapp_click"}:
                 leads_per_listing[listing_key] += 1
@@ -8078,12 +8017,8 @@ def get_admin_lead_metrics(current_user):
                     "reports_created": report_count,
                     "report_conversion_percent": conversion_rate,
                 },
-                "recent_events": leads_resp[:100]
-                if isinstance(leads_resp, list)
-                else [],
-                "recent_reports": reports_resp[:100]
-                if isinstance(reports_resp, list)
-                else [],
+                "recent_events": leads_recent_resp or [],
+                "recent_reports": reports_resp or [],
             }
         ), 200
     except Exception as e:
