@@ -486,7 +486,7 @@
   background: linear-gradient(180deg, rgba(12, 28, 19, 0.98) 0%, rgba(7, 15, 10, 0.99) 100%);
   border: 1px solid rgba(148, 218, 153, 0.15);
   border-radius: 28px;
-  max-width: 600px;
+  max-width: 900px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -573,6 +573,31 @@
 
 .modal-body textarea::placeholder {
   color: rgba(191, 201, 196, 0.5);
+}
+
+.modal-body select {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(148, 218, 153, 0.05);
+  border: 1px solid rgba(148, 218, 153, 0.15);
+  border-radius: 12px;
+  font-size: 14px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
+}
+
+.modal-body select:focus {
+  outline: none;
+  border-color: #8bd6b4;
+  background: rgba(148, 218, 153, 0.08);
+  box-shadow: 0 0 0 3px rgba(139, 214, 180, 0.15);
+}
+
+.modal-body select option {
+  background: rgba(12, 28, 19, 0.98);
+  color: #ffffff;
 }
 
 .modal-footer {
