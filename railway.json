@@ -2,10 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "cd flask-react-supabase-app/backend && pip install -r requirements.txt"
+    "buildCommand": "if [ -f requirements.txt ]; then pip install -r requirements.txt; elif [ -f flask-react-supabase-app/backend/requirements.txt ]; then pip install -r flask-react-supabase-app/backend/requirements.txt; else echo 'requirements.txt not found' && exit 1; fi"
   },
   "deploy": {
-    "startCommand": "cd flask-react-supabase-app/backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120",
+    "startCommand": "if [ -f app.py ]; then gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120; elif [ -f flask-react-supabase-app/backend/app.py ]; then gunicorn --chdir flask-react-supabase-app/backend app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120; else echo 'app.py not found' && exit 1; fi",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
