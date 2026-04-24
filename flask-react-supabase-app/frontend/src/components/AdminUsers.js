@@ -1,19 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
-import '../styles/AdminDashboard.css';
-import '../styles/AdminUsers.css';
+import '../styles/AdminOps.css';
 
 const AdminUsers = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -83,6 +82,15 @@ const AdminUsers = () => {
     );
   });
 
+  const userSummary = useMemo(() => {
+    const total = users.length;
+    const admins = users.filter((u) => u.is_admin).length;
+    const dealers = users.filter((u) => u.is_dealer).length;
+    const suspended = users.filter((u) => (u.account_status || 'active') === 'suspended' || (u.account_status || 'active') === 'banned').length;
+    const verified = users.filter((u) => u.email_verified && u.phone_verified).length;
+    return { total, admins, dealers, suspended, verified };
+  }, [users]);
+
   const getDisplayName = (u) => {
     if (u.display_name) return u.display_name;
     if (u.first_name && u.last_name) return `${u.first_name} ${u.last_name}`;
@@ -111,15 +119,47 @@ const AdminUsers = () => {
   }
 
   return (
-    <div className="admin-users">
-      <div className="page-header">
-        <h1>User Management</h1>
-        <p>Manage user accounts and permissions</p>
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
+    <div className="admin-ops admin-page admin-users">
+      <div className="admin-page-header">
+        <div>
+          <div className="admin-label">People</div>
+          <h1 className="admin-page-title">User intelligence and moderation</h1>
+          <p className="admin-page-subtitle">Search every account, inspect verification status, and jump into a deep user profile with listing and activity context.</p>
+        </div>
+        <div className="admin-actions">
+          <span className="admin-status-pill tone-success">{userSummary.verified} verified</span>
+          <span className="admin-status-pill tone-warning">{userSummary.suspended} restricted</span>
+          <span className="admin-status-pill">{userSummary.dealers} dealers</span>
+        </div>
+      </div>
+      <div className="admin-kpi-grid" style={{ marginBottom: '18px' }}>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Total users</div>
+          <div className="admin-kpi-value">{userSummary.total}</div>
+          <div className="admin-kpi-note">All user records in the platform.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Admins</div>
+          <div className="admin-kpi-value">{userSummary.admins}</div>
+          <div className="admin-kpi-note">Accounts with admin privileges.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Dealers</div>
+          <div className="admin-kpi-value">{userSummary.dealers}</div>
+          <div className="admin-kpi-note">Accounts flagged as dealers.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Restricted</div>
+          <div className="admin-kpi-value">{userSummary.suspended}</div>
+          <div className="admin-kpi-note">Suspended or banned accounts.</div>
+        </div>
       </div>
 
-      <div className="search-section">
+      <div className="admin-surface">
+        <h2 style={{ marginTop: 0 }}>Search users</h2>
+        {error && <div className="error-message">{error}</div>}
+        {success && <div className="success-message">{success}</div>}
+        <div className="search-section" style={{ marginTop: '16px' }}>
         <input
           type="text"
           placeholder="Search users by name, email, or username..."
@@ -129,14 +169,15 @@ const AdminUsers = () => {
         />
         <span className="user-count">{filteredUsers.length} users found</span>
       </div>
+      </div>
 
       {filteredUsers.length === 0 ? (
-        <div className="empty-state">
+        <div className="empty-state admin-section">
           <h2>No users found</h2>
           <p>Try adjusting your search query</p>
         </div>
       ) : (
-        <div className="users-grid">
+        <div className="users-grid admin-section">
           {filteredUsers.map((u) => (
             <div key={u.id} className="user-card">
               <div className="user-header">
@@ -166,10 +207,7 @@ const AdminUsers = () => {
               <div className="user-actions">
                 <button
                   className="action-button view-btn"
-                  onClick={() => {
-                    setSelectedUser(u);
-                    setShowDetailModal(true);
-                  }}
+                  onClick={() => navigate(`/admin/users/${u.id}`)}
                 >
                   View Details
                 </button>
@@ -204,86 +242,6 @@ const AdminUsers = () => {
         </div>
       )}
 
-      {showDetailModal && selectedUser && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>User Details</h2>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="close-modal"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="user-detail-header">
-                <div className="user-avatar large">
-                  {selectedUser.profile_photo_url ? (
-                    <img src={selectedUser.profile_photo_url} alt={getDisplayName(selectedUser)} />
-                  ) : (
-                    <div className="avatar-placeholder">{getInitials(selectedUser)}</div>
-                  )}
-                </div>
-                <div>
-                  <h3>{getDisplayName(selectedUser)}</h3>
-                  <p>{selectedUser.email}</p>
-                </div>
-              </div>
-              
-              <div className="detail-grid">
-                <div className="detail-item">
-                  <label>User ID</label>
-                  <span>{selectedUser.id}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Username</label>
-                  <span>{selectedUser.username || 'Not set'}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Phone</label>
-                  <span>{selectedUser.phone || 'Not set'}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Location</label>
-                  <span>{selectedUser.city || selectedUser.emirate || 'Not set'}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Account Status</label>
-                  <span className={`status-badge status-${selectedUser.account_status || 'active'}`}>
-                    {selectedUser.account_status || 'active'}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <label>Admin Status</label>
-                  <span className={`status-badge ${selectedUser.is_admin ? 'status-admin' : ''}`}>
-                    {selectedUser.is_admin ? 'Admin' : 'Regular User'}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <label>Joined</label>
-                  <span>{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleString() : 'N/A'}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Last Login</label>
-                  <span>{selectedUser.last_login_at ? new Date(selectedUser.last_login_at).toLocaleString() : 'Never'}</span>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="action-button secondary"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

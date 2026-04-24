@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
@@ -7,7 +7,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import '../styles/AdminDashboard.css';
+import '../styles/AdminOps.css';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -68,7 +68,7 @@ const AdminListings = () => {
   const statusFilter = searchParams.get('status') || 'pending';
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedListing, setSelectedListing] = useState(null);
+  const [selectedListing] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -78,6 +78,7 @@ const AdminListings = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const navigate = useNavigate();
 
   const fetchListings = useCallback(async () => {
     try {
@@ -148,7 +149,7 @@ const AdminListings = () => {
     const map = {
       cars: 'car',
       bikes: 'bike',
-      parts: 'car-part',
+      parts: 'part',
       plates: 'plate',
     };
     return map[value] || 'car';
@@ -286,6 +287,17 @@ const AdminListings = () => {
       .map(([, label]) => label);
   };
 
+  const listingSummary = useMemo(() => {
+    const visible = listings.length;
+    const pending = listings.filter((listing) => (listing.status || statusFilter) === 'pending').length;
+    const views = listings.reduce((sum, listing) => sum + Number(listing.view_count || 0), 0);
+    const leads = listings.reduce((sum, listing) => {
+      const metrics = getLeadMetrics(listing);
+      return sum + metrics.qualifiedLeads;
+    }, 0);
+    return { visible, pending, views, leads };
+  }, [listings, statusFilter]);
+
   const ListingCard = ({ listing }) => (
     <div className="listing-card">
       <div className="listing-info">
@@ -310,9 +322,7 @@ const AdminListings = () => {
       <div className="listing-actions">
         <button
           onClick={() => {
-            setSelectedListing(listing);
-            setActiveImageIndex(0);
-            setShowDetailModal(true);
+            navigate(`/admin/listings/${filter}/${listing.id}`);
           }}
           className="action-button view-btn"
         >
@@ -348,14 +358,47 @@ const AdminListings = () => {
   ];
 
   return (
-    <div className="admin-listings">
-      <div className="page-header">
-        <h1>{statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} {filter.charAt(0).toUpperCase() + filter.slice(1)}</h1>
-        <p>Review and manage {statusFilter} {filter} listings</p>
-        {successMessage && (
-          <div className="success-message">{successMessage}</div>
-        )}
+    <div className="admin-ops admin-page admin-listings">
+      <div className="admin-page-header">
+        <div>
+          <div className="admin-label">Listings</div>
+          <h1 className="admin-page-title">{statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} {filter.charAt(0).toUpperCase() + filter.slice(1)}</h1>
+          <p className="admin-page-subtitle">Review and manage listing approvals, drill into a listing record, and move into the specific detail page when you need the full history.</p>
+        </div>
+        <div className="admin-actions">
+          <span className="admin-status-pill tone-warning">{listingSummary.visible} shown</span>
+          <span className="admin-status-pill">{statusFilter}</span>
+        </div>
       </div>
+
+      <div className="admin-kpi-grid" style={{ marginBottom: '18px' }}>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Visible listings</div>
+          <div className="admin-kpi-value">{listingSummary.visible}</div>
+          <div className="admin-kpi-note">Listings in the current queue.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Pending</div>
+          <div className="admin-kpi-value">{listingSummary.pending}</div>
+          <div className="admin-kpi-note">Listings still awaiting action.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Views</div>
+          <div className="admin-kpi-value">{listingSummary.views}</div>
+          <div className="admin-kpi-note">Combined views across visible items.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Leads</div>
+          <div className="admin-kpi-value">{listingSummary.leads}</div>
+          <div className="admin-kpi-note">Call and WhatsApp actions for the current queue.</div>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div className="admin-surface" style={{ marginBottom: '18px' }}>
+          {successMessage}
+        </div>
+      )}
 
       <div className="filter-tabs" style={{ marginBottom: '12px' }}>
         {statusOptions.map(opt => (

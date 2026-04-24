@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
-import '../styles/AdminDealers.css';
+import '../styles/AdminOps.css';
 
 const AdminDealers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -10,6 +10,7 @@ const AdminDealers = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const filter = (searchParams.get('filter') || 'all').toLowerCase();
 
@@ -41,6 +42,18 @@ const AdminDealers = () => {
     }
     return dealers;
   }, [dealers, filter]);
+
+  const dealerSummary = useMemo(() => {
+    const verified = dealers.filter((dealer) => Boolean(dealer.dealer_verified)).length;
+    const pending = dealers.filter((dealer) => !dealer.dealer_verified).length;
+    const withCompany = dealers.filter((dealer) => Boolean(dealer.company_name)).length;
+    return {
+      total: dealers.length,
+      verified,
+      pending,
+      withCompany,
+    };
+  }, [dealers]);
 
   const updateDealerStatus = async (dealerId, approved) => {
     setActionLoadingId(dealerId);
@@ -75,11 +88,42 @@ const AdminDealers = () => {
   }
 
   return (
-    <section className="admin-dealers">
-      <header className="admin-dealers__header">
-        <h2>Dealer Requests</h2>
-        <p>Review pending and verified dealer accounts.</p>
+    <section className="admin-ops admin-page admin-dealers">
+      <header className="admin-page-header">
+        <div>
+          <div className="admin-label">Dealers</div>
+          <h1 className="admin-page-title">Dealer verification and performance</h1>
+          <p className="admin-page-subtitle">Review company profiles, verification state, and move straight into a dealer detail page when you need deeper context.</p>
+        </div>
+        <div className="admin-actions">
+          <span className="admin-status-pill tone-success">{dealerSummary.verified} verified</span>
+          <span className="admin-status-pill tone-warning">{dealerSummary.pending} pending</span>
+          <span className="admin-status-pill">{dealerSummary.withCompany} with company info</span>
+        </div>
       </header>
+
+      <div className="admin-kpi-grid" style={{ marginBottom: '18px' }}>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Total dealers</div>
+          <div className="admin-kpi-value">{dealerSummary.total}</div>
+          <div className="admin-kpi-note">All dealer-flagged accounts.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Verified dealers</div>
+          <div className="admin-kpi-value">{dealerSummary.verified}</div>
+          <div className="admin-kpi-note">Approved and active dealer profiles.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Pending review</div>
+          <div className="admin-kpi-value">{dealerSummary.pending}</div>
+          <div className="admin-kpi-note">Need moderation or verification.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Company records</div>
+          <div className="admin-kpi-value">{dealerSummary.withCompany}</div>
+          <div className="admin-kpi-note">Profiles with company details on file.</div>
+        </div>
+      </div>
 
       <div className="admin-dealers__filters" role="tablist" aria-label="Dealer status filters">
         <button
@@ -147,6 +191,14 @@ const AdminDealers = () => {
                     </td>
                     <td>
                       <div className="admin-dealers__actions">
+                        <button
+                          type="button"
+                          disabled={loadingForRow}
+                          onClick={() => navigate(`/admin/dealers/${dealer.id}`)}
+                          className="view"
+                        >
+                          View Details
+                        </button>
                         {!dealer.dealer_verified && (
                           <>
                             <button

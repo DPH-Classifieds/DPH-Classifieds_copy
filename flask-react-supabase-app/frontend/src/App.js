@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import Footer from './components/ui/hover-footer';
@@ -74,13 +74,19 @@ const AuthCallback = lazy(() => import('./components/AuthCallback'));
 const Profile = lazy(() => import('./components/Profile'));
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const MyListings = lazy(() => import('./components/MyListings'));
-const ListingForm = lazy(() => import('./components/ListingForm'));
+const PostCar = lazy(() => import('./components/PostCar'));
+const PostBike = lazy(() => import('./components/PostBike'));
+const PostPlate = lazy(() => import('./components/PostPlate'));
+const PostCarParts = lazy(() => import('./components/PostCarParts'));
 const About = lazy(() => import('./components/About'));
 const Contact = lazy(() => import('./components/Contact'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const AdminUsers = lazy(() => import('./components/AdminUsers'));
+const AdminUserDetail = lazy(() => import('./components/AdminUserDetail'));
 const AdminListings = lazy(() => import('./components/AdminListings'));
+const AdminListingDetail = lazy(() => import('./components/AdminListingDetail'));
 const AdminDealers = lazy(() => import('./components/AdminDealers'));
+const AdminDealerDetail = lazy(() => import('./components/AdminDealerDetail'));
 const AdminReports = lazy(() => import('./components/AdminReports'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
@@ -117,6 +123,39 @@ const AuthHashHandler = () => {
   }, [location.pathname, navigate]);
 
   return null;
+};
+
+const PostTypeRedirect = () => {
+  const { type } = useParams();
+  const normalized = String(type || '').toLowerCase();
+  if (normalized === 'bike' || normalized === 'bikes') {
+    return <Navigate to="/post-bike" replace />;
+  }
+  if (normalized === 'plate' || normalized === 'plates') {
+    return <Navigate to="/post-plate" replace />;
+  }
+  if (normalized === 'part' || normalized === 'parts' || normalized === 'car-parts' || normalized === 'carparts') {
+    return <Navigate to="/post-car-parts" replace />;
+  }
+  return <Navigate to="/post-car" replace />;
+};
+
+const EditTypeRedirect = () => {
+  const { type, id } = useParams();
+  const normalized = String(type || '').toLowerCase();
+  if (!id) {
+    return <Navigate to="/my-listings" replace />;
+  }
+  if (normalized === 'bike' || normalized === 'bikes') {
+    return <Navigate to={`/edit/bike/${id}`} replace />;
+  }
+  if (normalized === 'plate' || normalized === 'plates') {
+    return <Navigate to={`/edit/plate/${id}`} replace />;
+  }
+  if (normalized === 'part' || normalized === 'parts' || normalized === 'car-parts' || normalized === 'carparts') {
+    return <Navigate to={`/edit/part/${id}`} replace />;
+  }
+  return <Navigate to={`/edit/car/${id}`} replace />;
 };
 
 function App() {
@@ -182,13 +221,17 @@ function App() {
                   <Route path="/account-settings" element={<AccountSettings />} />
                   <Route path="/my-listings" element={<MyListings />} />
                   <Route path="/create-listing" element={<Navigate to="/post-car" replace />} />
-                  <Route path="/edit-listing/:id" element={<ListingForm />} />
-                  <Route path="/edit/:type/:id" element={<ListingForm />} />
-                  <Route path="/post-car" element={<ListingForm type="car" />} />
-                  <Route path="/post-bike" element={<ListingForm type="bike" />} />
-                  <Route path="/post-plate" element={<ListingForm type="plate" />} />
-                  <Route path="/post-car-parts" element={<ListingForm type="part" />} />
-                  <Route path="/post/:type" element={<ListingForm />} />
+                  <Route path="/edit-listing/:id" element={<Navigate to="/my-listings" replace />} />
+                  <Route path="/edit/car/:id" element={<PostCar />} />
+                  <Route path="/edit/bike/:id" element={<PostBike />} />
+                  <Route path="/edit/plate/:id" element={<PostPlate />} />
+                  <Route path="/edit/part/:id" element={<PostCarParts />} />
+                  <Route path="/edit/:type/:id" element={<EditTypeRedirect />} />
+                  <Route path="/post-car" element={<PostCar />} />
+                  <Route path="/post-bike" element={<PostBike />} />
+                  <Route path="/post-plate" element={<PostPlate />} />
+                  <Route path="/post-car-parts" element={<PostCarParts />} />
+                  <Route path="/post/:type" element={<PostTypeRedirect />} />
                 </Route>
                 
                 {/* Admin routes */}
@@ -202,8 +245,11 @@ function App() {
                 >
                   <Route path="" element={<AdminDashboard />} />
                   <Route path="users" element={<AdminUsers />} />
+                  <Route path="users/:userId" element={<AdminUserDetail />} />
                   <Route path="listings" element={<AdminListings />} />
+                  <Route path="listings/:itemType/:itemId" element={<AdminListingDetail />} />
                   <Route path="dealers" element={<AdminDealers />} />
+                  <Route path="dealers/:dealerId" element={<AdminDealerDetail />} />
                   <Route path="reports" element={<AdminReports />} />
                 </Route>
                 

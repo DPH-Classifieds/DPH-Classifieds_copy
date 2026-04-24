@@ -325,6 +325,45 @@ export const apiClient = {
   },
 
   /**
+   * Make a PATCH request
+   * @param {string} endpoint - API endpoint path
+   * @param {object} data - Request body data
+   * @param {object} options - Additional request options
+   * @returns {Promise<object>} - Response data
+   */
+  async patch(endpoint, data, options = {}) {
+    const isFormData = data instanceof FormData;
+
+    const headers = {
+      ...(options.headers || {})
+    };
+
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    console.log(`Making PATCH request with ${isFormData ? 'FormData' : 'JSON'} payload to ${endpoint}`);
+
+    try {
+      const result = await this.request(endpoint, {
+        ...options,
+        method: 'PATCH',
+        headers,
+        body: isFormData ? data : JSON.stringify(data || {})
+      });
+
+      return result;
+    } catch (error) {
+      if (error.status === 500) {
+        console.error('Server error occurred:', error);
+        error.message = 'A server error occurred. Please try again or contact support.';
+      }
+
+      throw error;
+    }
+  },
+
+  /**
    * Make a DELETE request
    * @param {string} endpoint - API endpoint path
    * @param {object} options - Additional request options
