@@ -437,10 +437,7 @@ def _strip_lifecycle_fields(payload):
         "last_extended_at",
         "extension_count",
         "is_archived",
-        "sold_status",
-        "sold_status_set_at",
-        "sold_response_deadline",
-        "auto_removed_at",
+        "extras",
     }
     return {key: value for key, value in payload.items() if key not in lifecycle_keys}
 
@@ -528,7 +525,7 @@ def _send_listing_expiry_reminder(
         <div style="background: rgba(255, 255, 255, 0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
             <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Action Required: Listing Expiring</h2>
             <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
-                Hi there, your listing <strong>"{listing_title}"</strong> is set to expire in <strong>{days_left} day{'s' if days_left != 1 else ''}</strong>.
+                Hi there, your listing <strong>"{listing_title}"</strong> is set to expire in <strong>{days_left} day{"s" if days_left != 1 else ""}</strong>.
             </p>
             
             <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
@@ -591,7 +588,7 @@ def _send_listing_expired_email(
                 Hi there, your listing <strong style="color: #f0fdf4;">"{listing_title}"</strong> has expired and is no longer visible to buyers.
             </p>
             <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
-                You have <strong style="color: #ef4444;">{days_until_deletion} day{'s' if days_until_deletion != 1 else ''}</strong> to take action before it is permanently removed.
+                You have <strong style="color: #ef4444;">{days_until_deletion} day{"s" if days_until_deletion != 1 else ""}</strong> to take action before it is permanently removed.
             </p>
             <div style="background: rgba(139, 214, 180, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px dashed rgba(139, 214, 180, 0.2);">
                 <ul style="margin: 0; padding-left: 20px; color: #8bd6b4;">
@@ -1621,7 +1618,7 @@ def get_cars():
 
         # Use select=* to get all fields, and join with car_images
         filtered_params["select"] = "*,car_images(*)"
-        
+
         # Use service role for public fetches to ensure all approved listings and images are visible
         response, status_code = supabase_request(
             "get", "/rest/v1/cars", params=filtered_params, use_service_role=True
@@ -1651,7 +1648,6 @@ def get_cars():
                 elif "image_url" in img and "url" not in img:
                     img["url"] = img["image_url"]
             car["images"] = car_images
-
 
         # Fetch seller info for each car
         try:
@@ -2047,10 +2043,11 @@ def create_car(current_user):
             logger.error(f"Validation error: {validation_error}")
             return jsonify({"error": str(validation_error)}), 400
 
-        # Extract and transform extras array to individual boolean fields
-        extras = car_data.pop("extras", [])
+        # Extract extras array and save to JSONB column
+        extras = car_data.get("extras", [])
+        car_data["extras"] = extras
 
-        # Mapping from extras array values to database boolean columns
+        # Also map extras to boolean columns for backward compatibility
         extras_mapping = {
             "Keyless Entry": "keyless_entry",
             "DVD Player": "dvd_player",
@@ -2159,7 +2156,7 @@ def create_car(current_user):
 
         # Add images if any
         image_inserts = []
-        for image_entry in images:
+        for index, image_entry in enumerate(images):
             if isinstance(image_entry, str):
                 image_url = image_entry
                 display_url = image_url
@@ -2183,6 +2180,7 @@ def create_car(current_user):
                 "focal_x": normalized_crop["focal_x"],
                 "focal_y": normalized_crop["focal_y"],
                 "crop_meta": crop_meta,
+                "is_primary": (index == 0),  # First image is primary
             }
             image_inserts.append(image_insert)
 
@@ -2356,6 +2354,34 @@ def update_car(current_user, car_id):
 
             logger.info(f"Extracted form data: {update_data}")
 
+            # Handle extras array (multiple checkboxes with same name)
+            if "extras[]" in request.form:
+                extras_list = request.form.getlist("extras[]")
+                update_data["extras"] = extras_list
+
+                # Also map to boolean columns for backward compatibility
+                extras_mapping = {
+                    "Keyless Entry": "keyless_entry",
+                    "DVD Player": "dvd_player",
+                    "Climate Control": "climate_control",
+                    "Navigation System": "navigation_system",
+                    "Premium Sound System": "premium_sound_system",
+                    "Cooled Seats": "cooled_seats",
+                    "Front Wheel Drive": "front_wheel_drive",
+                    "Leather Seats": "leather_seats",
+                    "Parking Sensors": "parking_sensors",
+                    "Rear View Camera": "rear_view_camera",
+                }
+
+                # Set all extras boolean fields to False first
+                for db_field in extras_mapping.values():
+                    update_data[db_field] = False
+
+                # Set selected extras to True
+                for extra in extras_list:
+                    if extra in extras_mapping:
+                        update_data[extras_mapping[extra]] = True
+
             # Handle new images
             new_images = (
                 request.files.getlist("images") if "images" in request.files else []
@@ -2505,7 +2531,7 @@ def update_car(current_user, car_id):
         # Sanitize update data to ensure 'id' is NOT sent to Supabase as part of the body
         # (Supabase/PostgREST rejects updates where the primary key is in the body)
         update_data.pop("id", None)
-        
+
         # Strictly apply allowed fields filter
         update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
 
@@ -2553,6 +2579,13 @@ def update_car(current_user, car_id):
                 if not ensure_storage_bucket("listing-images"):
                     return jsonify({"error": "Storage bucket not available."}), 500
 
+                # Check if any kept image is primary
+                has_primary_kept = any(
+                    img.get("is_primary", False)
+                    for img in current_images
+                    if img["id"] in keep_image_ids
+                )
+
                 for index, file in enumerate(new_images):
                     if file and file.filename:
                         upload_metadata, upload_error = upload_to_supabase_storage(
@@ -2577,6 +2610,9 @@ def update_car(current_user, car_id):
                             "focal_x": upload_metadata.get("focal_x", 50),
                             "focal_y": upload_metadata.get("focal_y", 50),
                             "crop_meta": upload_metadata.get("crop_meta"),
+                            "is_primary": (
+                                index == 0 and not has_primary_kept
+                            ),  # First new image is primary only if no kept primary image
                         }
 
                         supabase_request(
@@ -2721,11 +2757,12 @@ def upload_car_images(current_user, car_id):
         image_urls = data.get("image_urls", [])
 
         # Save each image URL to the database
-        for image_url in image_urls:
+        for index, image_url in enumerate(image_urls):
             image_data = {
                 "car_id": car_id,
                 "url": image_url,
                 "image_url": image_url,  # Add image_url field for frontend compatibility
+                "is_primary": (index == 0),  # First image is primary
             }
             supabase_request(
                 "post", "/rest/v1/car_images", data=image_data, user_id=current_user
@@ -3145,7 +3182,9 @@ def get_privacy_policy():
 def get_advertisements():
     try:
         query = "/rest/v1/advertisements?select=*&order=created_at.desc&limit=1"
-        response, response_status = supabase_request("get", query, use_service_role=True)
+        response, response_status = supabase_request(
+            "get", query, use_service_role=True
+        )
 
         if not response or len(response) == 0:
             return jsonify({"error": "Advertisements not found"}), 404
@@ -3324,7 +3363,7 @@ def _send_listing_status_email(
     status_color = status_colors.get(status, "#3b82f6")
 
     subject = f"Your {item_label} listing has been {status} - DPH Classifieds"
-    
+
     rejection_note = listing.get("rejection_note", "") if listing else ""
     rejection_block = ""
     if status == "rejected" and rejection_note:
@@ -3356,8 +3395,8 @@ def _send_listing_status_email(
                 </div>
             </div>
             {rejection_block}
-            {f'<a href="{listing_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">View Your Listing</a>' if listing_url and status == 'approved' else ''}
-            {f'<a href="{SITE_URL}/my-listings" style="display: inline-block; background-color: rgba(255,255,255,0.05); color: #ffffff; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; border: 1px solid rgba(255,255,255,0.1);">Manage Listings</a>' if status != 'approved' else ''}
+            {f'<a href="{listing_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">View Your Listing</a>' if listing_url and status == "approved" else ""}
+            {f'<a href="{SITE_URL}/my-listings" style="display: inline-block; background-color: rgba(255,255,255,0.05); color: #ffffff; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; border: 1px solid rgba(255,255,255,0.1);">Manage Listings</a>' if status != "approved" else ""}
         </div>
         <div style="text-align: center; color: #64748b; font-size: 14px;">
             <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
@@ -3423,7 +3462,12 @@ def _send_new_listing_admin_notification(item_type, listing, user_email):
     if not from_email or not to_email:
         return None, "Missing RESEND_FROM_EMAIL or RESEND_TO_EMAIL"
 
-    item_label_map = {"car": "Car", "bike": "Bike", "part": "Car Part", "plate": "Plate"}
+    item_label_map = {
+        "car": "Car",
+        "bike": "Bike",
+        "part": "Car Part",
+        "plate": "Plate",
+    }
     item_label = item_label_map.get(item_type, "Listing")
     listing_title = _build_listing_title(
         f"{item_type}s" if not item_type.endswith("s") else item_type, listing
@@ -3443,7 +3487,7 @@ def _send_new_listing_admin_notification(item_type, listing, user_email):
             <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">A new <strong style="color: #8bd6b4;">{item_label}</strong> listing is pending your review.</p>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
                 <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #64748b; font-size: 14px; width: 40%;">Title</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #f0fdf4; font-weight: 600;">{listing_title}</td></tr>
-                <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #64748b; font-size: 14px;">Submitted by</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #f0fdf4;">{user_email or 'Unknown'}</td></tr>
+                <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #64748b; font-size: 14px;">Submitted by</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #f0fdf4;">{user_email or "Unknown"}</td></tr>
                 <tr><td style="padding: 10px 0; color: #64748b; font-size: 14px;">Listing ID</td><td style="padding: 10px 0; color: #8bd6b4; font-family: monospace;">{listing_id}</td></tr>
             </table>
             <a href="{admin_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">Review in Admin Panel</a>
@@ -3478,7 +3522,12 @@ def _send_new_listing_user_confirmation(user_email, item_type, listing):
     if not from_email:
         return None, "Missing RESEND_FROM_EMAIL"
 
-    item_label_map = {"car": "Car", "bike": "Bike", "part": "Car Part", "plate": "Plate"}
+    item_label_map = {
+        "car": "Car",
+        "bike": "Bike",
+        "part": "Car Part",
+        "plate": "Plate",
+    }
     item_label = item_label_map.get(item_type, "Listing")
     item_label_lower = item_label.lower()
     listing_title = _build_listing_title(
@@ -4882,18 +4931,21 @@ def get_bikes():
                     for img in bike_images:
                         image_url = img.get("image_url") or img.get("url")
                         if image_url:
-                            normalized_images.append({
-                                "id": img.get("id"),
-                                "image_url": image_url,
-                                "url": image_url
-                            })
+                            normalized_images.append(
+                                {
+                                    "id": img.get("id"),
+                                    "image_url": image_url,
+                                    "url": image_url,
+                                }
+                            )
                     bike["images"] = normalized_images
                     # Fallback for main image
                     if not bike["images"]:
                         if bike.get("image_url") or bike.get("url"):
                             main_url = bike.get("image_url") or bike.get("url")
-                            bike["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
-
+                            bike["images"] = [
+                                {"id": "main", "url": main_url, "image_url": main_url}
+                            ]
 
                     _enrich_listing_seller(bike, headers=headers)
 
@@ -5416,7 +5468,7 @@ def update_bike(current_user, bike_id):
         }
         # Sanitize update data to ensure 'id' is NOT sent to Supabase as part of the body
         update_data.pop("id", None)
-        
+
         update_data = {k: v for k, v in update_data.items() if k in bike_allowed_fields}
 
         # Update the bike using PATCH for partial update
@@ -5606,10 +5658,11 @@ def get_plates():
                 if not plate["images"]:
                     if plate.get("image_url") or plate.get("url"):
                         main_url = plate.get("image_url") or plate.get("url")
-                        plate["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
-                        
-                _enrich_listing_seller(plate, headers=headers)
+                        plate["images"] = [
+                            {"id": "main", "url": main_url, "image_url": main_url}
+                        ]
 
+                _enrich_listing_seller(plate, headers=headers)
 
             return jsonify(plates), 200
         else:
@@ -5629,38 +5682,41 @@ def get_plates():
 def plate_handler(current_user, plate_id):
     if request.method == "GET":
         return get_plate_details(plate_id)
-    
+
     # For update methods, token is required
     if not current_user:
         return jsonify({"message": "Authentication required"}), 401
-        
+
     return update_plate(current_user, plate_id)
+
 
 def get_plate_details(plate_id):
     """Get details for a specific license plate by ID"""
     try:
         logger.info(f"Fetching plate details for ID: {plate_id}")
-        
+
         # Use service role for consistent data fetching
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
             "apikey": service_role_key,
             "Authorization": f"Bearer {service_role_key}",
         }
-        
+
         # Use join for images
         url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?id=eq.{plate_id}&select=*,plate_images(*)"
         response = requests.get(url, headers=headers)
-        
+
         if response.status_code == 200:
             plates = response.json()
             if not plates:
                 return jsonify({"error": "Plate not found"}), 404
-            
-            plate = _sync_listing_lifecycle("license_plates", plates[0], hard_delete_archived=True)
+
+            plate = _sync_listing_lifecycle(
+                "license_plates", plates[0], hard_delete_archived=True
+            )
             if not plate:
                 return jsonify({"error": "Plate not found"}), 404
-            
+
             # Normalize images
             plate_images = plate.pop("plate_images", [])
             plate["images"] = [
@@ -5671,50 +5727,61 @@ def get_plate_details(plate_id):
                 }
                 for img in plate_images
             ]
-            
+
             _enrich_listing_seller(plate, headers=headers)
             return jsonify(plate), 200
         else:
             return jsonify({"error": "Failed to fetch plate"}), response.status_code
-            
+
     except Exception as e:
         logger.error(f"Error getting plate {plate_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 def update_plate(current_user, plate_id):
     """Update a license plate listing"""
     try:
         logger.info(f"Updating plate listing: {plate_id}")
-        
+
         data = request.form if request.form else (request.get_json(silent=True) or {})
-        
+
         # Prepare update payload
         update_data = {}
         allowed_fields = {
-            "city", "code", "digits", "price", "number", "plate_format",
-            "contact_name", "contact_phone", "whatsapp_prefill_text",
-            "description", "area", "emirate", "is_dealer"
+            "city",
+            "code",
+            "digits",
+            "price",
+            "number",
+            "plate_format",
+            "contact_name",
+            "contact_phone",
+            "whatsapp_prefill_text",
+            "description",
+            "area",
+            "emirate",
+            "is_dealer",
         }
-        
+
         for key in allowed_fields:
             if key in data:
                 update_data[key] = data[key]
-        
+
         # Sanitize
         update_data.pop("id", None)
-        
+
         # Update
         data, status_code = supabase_request(
             "patch",
             f"/rest/v1/license_plates",
             params={"id": f"eq.{plate_id}"},
             data=update_data,
-            user_id=current_user
+            user_id=current_user,
         )
-        
+
         if status_code >= 400:
             return jsonify(data), status_code
-            
+
         # Fetch full plate data for email
         refreshed_resp, refreshed_status = supabase_request(
             "get",
@@ -5722,7 +5789,7 @@ def update_plate(current_user, plate_id):
             params={"id": f"eq.{plate_id}", "select": "*", "limit": 1},
             user_id=current_user,
         )
-        
+
         if refreshed_status < 400 and refreshed_resp:
             plate = refreshed_resp[0]
             # Send edit notification email
@@ -5739,12 +5806,14 @@ def update_plate(current_user, plate_id):
                         request.headers.get("Origin"),
                     )
                     if email_error:
-                        logger.error(f"Edit email failed for plate {plate_id}: {email_error}")
+                        logger.error(
+                            f"Edit email failed for plate {plate_id}: {email_error}"
+                        )
             except Exception as email_err:
                 logger.error(f"Error sending edit email: {email_err}")
 
         return jsonify({"message": "Plate updated successfully"}), 200
-        
+
     except Exception as e:
         logger.error(f"Error updating plate {plate_id}: {e}")
         return jsonify({"error": str(e)}), 500
@@ -5831,7 +5900,9 @@ def get_parts():
                     if not part["images"]:
                         if part.get("image_url") or part.get("url"):
                             main_url = part.get("image_url") or part.get("url")
-                            part["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
+                            part["images"] = [
+                                {"id": "main", "url": main_url, "image_url": main_url}
+                            ]
                     _enrich_listing_seller(part, headers=headers)
 
                 return jsonify(parts)
@@ -6035,11 +6106,11 @@ def create_part(current_user):
 def part_handler(current_user, part_id):
     if request.method == "GET":
         return get_part_details(part_id)
-    
+
     # For update methods, token is required
     if not current_user:
         return jsonify({"message": "Authentication required"}), 401
-        
+
     return update_part(current_user, part_id)
 
 
@@ -6095,12 +6166,12 @@ def update_part(current_user, part_id):
     """Update a car part listing"""
     try:
         logger.info(f"Updating part listing: {part_id}")
-        
+
         # Check if this is FormData or JSON
         is_form_data = (
             request.content_type and "multipart/form-data" in request.content_type
         )
-        
+
         if is_form_data:
             update_data = {}
             for key, value in request.form.items():
@@ -6111,43 +6182,80 @@ def update_part(current_user, part_id):
                         update_data[key] = []
                 else:
                     update_data[key] = value
-            
+
             keep_image_ids = request.form.getlist("keep_image_ids")
             new_images = request.files.getlist("images")
+            images = None
         else:
             update_data = request.json.copy() if request.json else {}
             keep_image_ids = update_data.pop("keep_image_ids", None)
             new_images = []
+            images = update_data.pop("images", None)
 
         # Sanitize update data
         update_data.pop("id", None)
         update_data.pop("user_id", None)
-        
+
         # Whitelist allowed fields
         part_allowed_fields = {
-            "name", "part_type", "condition", "compatible_makes", 
-            "compatible_models", "compatible_years", "price", 
-            "location", "area", "emirate", "contact_number", 
-            "whatsapp_prefill_text", "description", "is_negotiable",
-            "country_code", "is_dealer"
+            "name",
+            "part_type",
+            "condition",
+            "compatible_makes",
+            "compatible_models",
+            "compatible_years",
+            "price",
+            "location",
+            "area",
+            "emirate",
+            "contact_number",
+            "whatsapp_prefill_text",
+            "description",
+            "is_negotiable",
+            "country_code",
+            "is_dealer",
         }
         update_data = {k: v for k, v in update_data.items() if k in part_allowed_fields}
-        
+
         # Update the part
         data, status_code = supabase_request(
             "patch",
             f"/rest/v1/car_parts",
             params={"id": f"eq.{part_id}"},
             data=update_data,
-            user_id=current_user
+            user_id=current_user,
         )
-        
+
         if status_code >= 400:
             return jsonify(data), status_code
-            
-        # Handle images if needed (simplified for parts for now)
-        # In a full implementation, we would handle image deletion/upload here
-        
+
+        # Handle image updates from JSON payload (uploaded URLs)
+        if images is not None:
+            supabase_request(
+                "delete",
+                "/rest/v1/part_images",
+                params={"part_id": f"eq.{part_id}"},
+                user_id=current_user,
+            )
+
+            if images:
+                image_inserts = []
+                for image_url in images:
+                    image_inserts.append(
+                        {
+                            "part_id": part_id,
+                            "url": image_url,
+                            "image_url": image_url,
+                        }
+                    )
+
+                supabase_request(
+                    "post",
+                    "/rest/v1/part_images",
+                    data=image_inserts,
+                    user_id=current_user,
+                )
+
         # Fetch full part data for email
         refreshed_resp, refreshed_status = supabase_request(
             "get",
@@ -6155,7 +6263,7 @@ def update_part(current_user, part_id):
             params={"id": f"eq.{part_id}", "select": "*", "limit": 1},
             user_id=current_user,
         )
-        
+
         if refreshed_status < 400 and refreshed_resp:
             part = refreshed_resp[0]
             # Send edit notification email
@@ -6172,15 +6280,18 @@ def update_part(current_user, part_id):
                         request.headers.get("Origin"),
                     )
                     if email_error:
-                        logger.error(f"Edit email failed for part {part_id}: {email_error}")
+                        logger.error(
+                            f"Edit email failed for part {part_id}: {email_error}"
+                        )
             except Exception as email_err:
                 logger.error(f"Error sending edit email: {email_err}")
 
         return jsonify({"message": "Part updated successfully"}), 200
-        
+
     except Exception as e:
         logger.error(f"Error updating part {part_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/parts/<part_id>", methods=["DELETE"])
 @token_required
@@ -8067,11 +8178,13 @@ def set_listing_outcome(current_user, item_type, item_id):
         refreshed = _sync_listing_lifecycle(
             config["table"], refreshed_resp[0], hard_delete_archived=False
         )
-        
+
         # Send renewal notification email if renewed
         if outcome == "not_sold_renew":
             try:
-                user_email = refreshed.get("user_email") or refreshed.get("contact_email")
+                user_email = refreshed.get("user_email") or refreshed.get(
+                    "contact_email"
+                )
                 if not user_email:
                     user_email = get_user_email(current_user)
                 if user_email and EMAIL_REGEX.match(user_email):
@@ -8263,7 +8376,7 @@ def get_admin_lead_metrics(current_user):
             },
             use_service_role=True,
         )
-        
+
         # 2. Fetch RECENT lead events for the list
         leads_recent_resp, leads_recent_status = supabase_request(
             "get",
@@ -8278,7 +8391,9 @@ def get_admin_lead_metrics(current_user):
         )
 
         if leads_total_status >= 400:
-            return jsonify({"error": "Failed to fetch lead metrics"}), leads_total_status
+            return jsonify(
+                {"error": "Failed to fetch lead metrics"}
+            ), leads_total_status
 
         reports_resp, reports_status = supabase_request(
             "get",
