@@ -16,29 +16,29 @@ from dotenv import load_dotenv
 import os
 import requests
 from flask_cors import CORS
-import logging
-from functools import wraps
-import jwt
-import json
-import time
-import re
-from collections import defaultdict, deque
-from werkzeug.utils import secure_filename
-import psycopg2
-from PIL import Image, ImageDraw, ImageFont
-import uuid
-import threading
-import datetime
-import secrets
-from urllib.parse import quote, parse_qs, urlparse
 
-load_dotenv()  # Loads the environment variables from .env
+# Wrap your Flask app with CORS
+app = Flask(__name__, static_folder="static")
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max request size
 
-# Set up logging with conditional verbosity
-log_level = logging.INFO if os.getenv("FLASK_ENV") == "production" else logging.DEBUG
-logging.basicConfig(
-    level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# Flask-Mail configuration
+
+# Configure CORS with explicit OPTIONS handling
+cors = CORS(
+    app,
+    resources={r"/api/*": {
+        "origins": _get_cors_origins(),
+        "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+        "expose_headers": ["Content-Type", "Authorization"],
+    },
+    supports_credentials=True,
 )
+
+app = cors(app)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder="static")
