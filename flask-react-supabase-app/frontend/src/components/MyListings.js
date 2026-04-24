@@ -250,42 +250,6 @@ const MyListings = () => {
     }
   };
 
-  const handleExtendListing = async (listing) => {
-    setActioningId(listing.id);
-    setError(null);
-
-    try {
-      const token = await getAccessToken();
-      if (!token) throw new Error('Authentication token not found');
-
-      const response = await fetch(`${API_URL}/api/user/listings/${listing.listing_type}/${listing.id}/extend`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to extend listing');
-      }
-
-      if (payload.listing) {
-        setListings((current) =>
-          current.map((item) => (item.id === listing.id ? payload.listing : item)),
-        );
-      } else {
-        await fetchUserListings();
-      }
-    } catch (err) {
-      console.error('Extend listing error:', err);
-      setError(err.message || 'Failed to extend listing. Please try again.');
-    } finally {
-      setActioningId(null);
-    }
-  };
-
   const handleOutcomeAction = async (listing, outcome) => {
     setActioningId(listing.id);
     setError(null);

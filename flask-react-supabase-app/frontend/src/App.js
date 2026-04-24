@@ -80,6 +80,7 @@ const Contact = lazy(() => import('./components/Contact'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const AdminUsers = lazy(() => import('./components/AdminUsers'));
 const AdminListings = lazy(() => import('./components/AdminListings'));
+const AdminDealers = lazy(() => import('./components/AdminDealers'));
 const AdminReports = lazy(() => import('./components/AdminReports'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
@@ -202,7 +203,7 @@ function App() {
                   <Route path="" element={<AdminDashboard />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="listings" element={<AdminListings />} />
-                  <Route path="dealers" element={<AdminDashboard />} />
+                  <Route path="dealers" element={<AdminDealers />} />
                   <Route path="reports" element={<AdminReports />} />
                 </Route>
                 

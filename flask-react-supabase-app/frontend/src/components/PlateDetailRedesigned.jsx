@@ -39,29 +39,7 @@ const PlateDetailRedesigned = () => {
       setError(null);
 
       try {
-        let response;
-        try {
-          response = await axios.get(`${API_URL}/api/plates/${id}`);
-        } catch (e) {
-          response = {
-            data: {
-              id: id,
-              listing_title: "Dubai 12345",
-              city: "Dubai",
-              code: "A",
-              number: "12345",
-              price: 150000,
-              plate_format: "xxxX (5 Digits)",
-              digits: 5,
-              description: "Premium 5-digit plate with excellent readability. Perfect for collectors or anyone wanting a standout plate on their vehicle.",
-              contact_name: "Ahmed Al",
-              contact_phone: "555-123-4567",
-              user_email: "ahmed@example.com",
-              created_at: new Date().toISOString(),
-              images: []
-            }
-          };
-        }
+        const response = await axios.get(`${API_URL}/api/plates/${id}`);
 
         setPlate(response.data);
 

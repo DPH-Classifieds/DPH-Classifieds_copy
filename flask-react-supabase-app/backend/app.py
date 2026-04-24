@@ -787,7 +787,9 @@ CORS(
 try:
     from flask_compress import Compress
 
-    Compress(app, compress_level=6, gzip=True, brotli=True)
+    app.config.setdefault("COMPRESS_LEVEL", 6)
+    app.config.setdefault("COMPRESS_ALGORITHM", ["br", "gzip"])
+    Compress(app)
     logger.info("Flask-Compress enabled with Gzip and Brotli")
 except ImportError:
     logger.warning("flask-compress not installed, skipping compression")
@@ -1218,6 +1220,82 @@ def token_required(f):
         except Exception as e_fallback:
             logger.error(f"Fallback token validation error: {str(e_fallback)}")
             return jsonify({"message": "Token has expired or is invalid"}), 401
+
+    return decorated
+
+
+def token_required_optional(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            token = request.cookies.get("access_token")
+            if token:
+                auth_header = f"Bearer {token}"
+
+        if not auth_header:
+            return f(None, *args, **kwargs)
+
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return f(None, *args, **kwargs)
+
+        token = parts[1]
+
+        try:
+            import base64
+            import jwt as pyjwt
+
+            secret = SUPABASE_JWT_SECRET
+            try:
+                secret = base64.b64decode(secret + "==")
+            except Exception:
+                pass
+
+            payload = pyjwt.decode(
+                token, secret, algorithms=["HS256"], options={"verify_aud": False}
+            )
+
+            current_user = payload.get("sub")
+            if current_user:
+                request.user_id = current_user
+                request.user_data = {
+                    "id": current_user,
+                    "email": payload.get("email", ""),
+                    "role": payload.get("role", "authenticated"),
+                }
+                request.supabase_token = token
+                return f(current_user, *args, **kwargs)
+        except Exception as local_error:
+            logger.info(f"Optional local token validation skipped: {local_error}")
+
+        try:
+            auth_headers = {
+                "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            auth_response = requests.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers=auth_headers,
+                timeout=10,
+            )
+            if auth_response.status_code == 200:
+                supabase_user = auth_response.json()
+                current_user = supabase_user.get("id")
+                if current_user:
+                    request.user_id = current_user
+                    request.user_data = {
+                        "id": current_user,
+                        "email": supabase_user.get("email", ""),
+                        "role": supabase_user.get("role", "authenticated"),
+                    }
+                    request.supabase_token = token
+                    return f(current_user, *args, **kwargs)
+        except Exception as fallback_error:
+            logger.info(f"Optional Supabase token validation skipped: {fallback_error}")
+
+        return f(None, *args, **kwargs)
 
     return decorated
 
@@ -5539,11 +5617,11 @@ def get_plates():
                 f"Failed to fetch plates: {response.status_code} - {response.text}"
             )
             return jsonify([]), 200  # Return empty array instead of error
-        except Exception as e:
-            logger.error(f"Error fetching plates: {str(e)}", exc_info=True)
-            return jsonify(
-                []
-            ), 200  # Return empty array instead of error to prevent frontend crash
+    except Exception as e:
+        logger.error(f"Error fetching plates: {str(e)}", exc_info=True)
+        return jsonify(
+            []
+        ), 200  # Return empty array instead of error to prevent frontend crash
 
 
 @app.route("/api/plates/<plate_id>", methods=["GET", "PUT", "PATCH", "POST"])
@@ -5963,6 +6041,55 @@ def part_handler(current_user, part_id):
         return jsonify({"message": "Authentication required"}), 401
         
     return update_part(current_user, part_id)
+
+
+def get_part_details(part_id):
+    """Get details for a specific car part by ID"""
+    try:
+        logger.info(f"Fetching part details for ID: {part_id}")
+
+        service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+        headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+        }
+
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?id=eq.{part_id}&select=*,part_images(*)"
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch part"}), response.status_code
+
+        parts = response.json()
+        if not parts:
+            return jsonify({"error": "Part not found"}), 404
+
+        part = _sync_listing_lifecycle("car_parts", parts[0], hard_delete_archived=True)
+        if not part:
+            return jsonify({"error": "Part not found"}), 404
+
+        part_images = part.pop("part_images", [])
+        part["images"] = [
+            {
+                "id": img.get("id"),
+                "url": img.get("url") or img.get("image_url"),
+                "image_url": img.get("image_url") or img.get("url"),
+            }
+            for img in part_images
+            if img.get("url") or img.get("image_url")
+        ]
+
+        if not part["images"] and (part.get("image_url") or part.get("url")):
+            main_url = part.get("image_url") or part.get("url")
+            part["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
+
+        _enrich_listing_seller(part, headers=headers)
+        return jsonify(part), 200
+
+    except Exception as e:
+        logger.error(f"Error getting part {part_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 def update_part(current_user, part_id):
     """Update a car part listing"""

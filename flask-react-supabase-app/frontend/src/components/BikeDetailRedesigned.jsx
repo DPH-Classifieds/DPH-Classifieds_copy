@@ -39,43 +39,7 @@ const BikeDetailRedesigned = () => {
       setError(null);
 
       try {
-        let response;
-        try {
-          response = await axios.get(`${API_URL}/api/bikes/${id}`);
-        } catch (e) {
-          response = {
-            data: {
-              id: id,
-              listing_title: "2020 Kawasaki Ninja 400",
-              make: "Kawasaki",
-              bike_brand: "Kawasaki",
-              model: "Ninja 400",
-              year: 2020,
-              make_year: 2020,
-              price: 25000,
-              bike_type: "Sport",
-              engine_size: "400cc",
-              engine_capacity: "400cc",
-              cylinders: 4,
-              wheels: 2,
-              kilometer_driven: 35000,
-              color: "Green",
-              location: "Dubai",
-              contact_phone: "555-123-4567",
-              contact_name: "John Doe",
-              user_email: "john@example.com",
-              description: "Well-maintained sports bike with low mileage. Perfect for both city riding and weekend trips. Recently serviced with new tires and brakes.",
-              features: [
-                "Anti-lock braking system",
-                "Digital dashboard",
-                "LED headlights",
-                "USB charging port"
-              ],
-              country_code: "+971",
-              images: []
-            }
-          };
-        }
+        const response = await axios.get(`${API_URL}/api/bikes/${id}`);
 
         setBike(response.data);
 

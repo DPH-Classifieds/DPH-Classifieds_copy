@@ -39,30 +39,7 @@ const PartDetailRedesigned = () => {
       setError(null);
 
       try {
-        let response;
-        try {
-          response = await axios.get(`${API_URL}/api/parts/${id}`);
-        } catch (e) {
-          response = {
-            data: {
-              id: id,
-              listing_title: "Complete Engine Assembly V8",
-              name: "Engine Assembly",
-              part_name: "Engine Assembly V8",
-              category: "Engine",
-              part_type: "Complete Engine",
-              brand: "Toyota",
-              condition: "Used",
-              price: 8500,
-              description: "Complete V8 engine assembly with all components. Low mileage, well-maintained. Perfect replacement or upgrade for your vehicle. Includes all necessary components for installation.",
-              contact_name: "Mohammed S.",
-              contact_number: "555-987-6543",
-              user_email: "mohammed@example.com",
-              created_at: new Date().toISOString(),
-              images: []
-            }
-          };
-        }
+        const response = await axios.get(`${API_URL}/api/parts/${id}`);
 
         setPart(response.data);
 

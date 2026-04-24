@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
@@ -113,7 +113,6 @@ const LocationMarker = ({ position, setPosition }) => {
 
 const ListingForm = ({ type: typeProp }) => {
   const params = useParams();
-  const location = useLocation();
   const id = params.id;
   const listingType = typeProp || params.type || 'car';
   const isEdit = Boolean(id);
