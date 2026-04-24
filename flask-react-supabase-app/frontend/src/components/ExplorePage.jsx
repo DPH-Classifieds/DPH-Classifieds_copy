@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
+import MarketplaceListingCard from './MarketplaceListingCard';
 import { carMakes, carModels } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import './ExplorePage.css';
@@ -658,35 +658,6 @@ const ExplorePage = () => {
     setActiveMode(modeKey);
   };
 
-  const renderCardVisual = (item) => {
-    if (item.image) {
-      return <img src={item.image} alt={item.title} />;
-    }
-
-    return (
-      <div className="explore-v2-card-fallback">
-        <span>{item.categoryLabel}</span>
-        <strong>{item.title}</strong>
-      </div>
-    );
-  };
-
-  const renderSellerIdentity = (item) => {
-    if (item.sellerPhoto) {
-      return (
-        <span className="explore-v2-seller-avatar">
-          <img src={item.sellerPhoto} alt={`${item.sellerName} profile`} className="explore-v2-seller-avatar-image" />
-        </span>
-      );
-    }
-
-    return (
-      <span className="explore-v2-seller-avatar">
-        {item.sellerName.charAt(0).toUpperCase()}
-      </span>
-    );
-  };
-
   const renderModeFilters = () => {
     if (activeMode === 'all') {
       return (
@@ -1134,56 +1105,7 @@ const ExplorePage = () => {
         ) : (
           <div className="explore-v2-grid">
             {filteredItems.map((item) => (
-              <article key={`${item.categoryKey}-${item.id}`} className="explore-v2-card">
-                <Link to={item.route} className="explore-v2-card-media">
-                  {renderCardVisual(item)}
-                  <span className="explore-v2-card-badge">{item.categoryLabel}</span>
-                </Link>
-
-                <div className="explore-v2-card-copy">
-                  <div className="explore-v2-card-head">
-                    <div>
-                      <p className="explore-v2-card-price">{item.priceLabel}</p>
-                      <h3>
-                        <Link to={item.route}>{item.title}</Link>
-                      </h3>
-                    </div>
-                  </div>
-
-                  <p className="explore-v2-card-meta">{item.subtitle}</p>
-                  <p className="explore-v2-card-description">{item.description}</p>
-
-                  <div className="explore-v2-seller-row">
-                    <div className="explore-v2-seller">
-                      {renderSellerIdentity(item)}
-                      <div>
-                        <strong>{item.sellerName}</strong>
-                        <span>{item.location || 'UAE'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="explore-v2-card-actions">
-                    <Link to={item.route} className="explore-v2-button explore-v2-button-primary">
-                      View Listing
-                    </Link>
-                    <Link
-                      to={
-                        item.categoryKey === 'cars'
-                          ? '/cars'
-                          : item.categoryKey === 'car-parts'
-                            ? '/car-parts'
-                            : item.categoryKey === 'plates'
-                              ? '/plates'
-                              : '/bikes'
-                      }
-                      className="explore-v2-card-link"
-                    >
-                      More {item.categoryLabel}s
-                    </Link>
-                  </div>
-                </div>
-              </article>
+              <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
             ))}
           </div>
         )}

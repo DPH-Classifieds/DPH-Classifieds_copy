@@ -332,7 +332,7 @@
 }
 
 .cn-explore-section {
-  padding: 110px 0;
+  padding: 84px 0 104px;
   background: linear-gradient(180deg, #eef5ef 0%, #f6faf5 100%);
   color: #0d1d14;
 }
@@ -342,7 +342,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 42px;
+  margin-bottom: 30px;
 }
 
 .cn-section-heading h2,

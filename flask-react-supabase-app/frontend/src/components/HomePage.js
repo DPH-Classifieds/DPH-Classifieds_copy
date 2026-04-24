@@ -2,11 +2,13 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
+import MarketplaceListingCard from './MarketplaceListingCard';
 import { carMakes } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { Button } from './ui/button';
 import { ArrowRight } from 'lucide-react';
 import '../styles/HomePage.css';
+import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const HeroBackground = lazy(() => import('./HeroBackground'));
@@ -34,8 +36,6 @@ const marketplaceInsights = [
 
 const heroImage = '/images/toplanding.webp';
 const ctaImage = '/images/bottom-landing.jpg';
-const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
-
 const primaryHeroButtonClass =
   'group border-0 bg-gradient-to-r from-[#0b6b4c] via-[#0a5f47] to-[#004e37] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[#0b6b4c] hover:to-[#0a5f47]';
 const secondaryHeroButtonClass =
@@ -67,15 +67,24 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
 
     return {
       id: item.id,
-      category: 'Car',
+      categoryKey: 'cars',
+      categoryLabel: 'Car',
       route: `/cars/${item.id}`,
       title,
-      price: item.expected_selling_price || item.price,
-      meta: [item.car_city || item.city || 'UAE', item.fuel_type || item.fuel || 'Specs pending']
+      priceLabel: formatPrice(item.expected_selling_price || item.price),
+      subtitle: [
+        item.kilometer_driven || item.kilometer || item.mileage ? `${Number(item.kilometer_driven || item.kilometer || item.mileage).toLocaleString()} km` : null,
+        item.fuel_type || item.fuel || 'Specs pending',
+        item.car_city || item.city || 'UAE',
+      ]
         .filter(Boolean)
         .join(' • '),
       image,
       createdAt: item.created_at,
+      description: item.description || item.price_insight || 'Freshly listed vehicle in the UAE marketplace.',
+      sellerName: getSellerName(item),
+      sellerPhoto: getSellerPhoto(item),
+      location: item.car_city || item.city || 'UAE',
     };
   }
 
@@ -87,44 +96,59 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
 
     return {
       id: item.id,
-      category: 'Bike',
+      categoryKey: 'bikes',
+      categoryLabel: 'Bike',
       route: `/bikes/${item.id}`,
       title,
-      price: item.price || item.expected_selling_price,
-      meta: [item.location || 'UAE', item.bike_type || item.type || item.bike_category || 'Bike']
+      priceLabel: formatPrice(item.price || item.expected_selling_price),
+      subtitle: [item.location || 'UAE', item.bike_type || item.type || item.bike_category || 'Bike']
         .filter(Boolean)
         .join(' • '),
       image,
       createdAt: item.created_at,
+      description: item.description || 'Motorcycle listing ready to view.',
+      sellerName: getSellerName(item),
+      sellerPhoto: getSellerPhoto(item),
+      location: item.location || 'UAE',
     };
   }
 
   if (categoryKey === 'parts') {
     return {
       id: item.id,
-      category: 'Car Part',
+      categoryKey: 'car-parts',
+      categoryLabel: 'Car Part',
       route: `/car-parts/${item.id}`,
       title: item.name || item.part_name || 'Untitled part',
-      price: item.price,
-      meta: [item.category || item.part_type || 'Parts', item.location || item.emirate || 'UAE']
+      priceLabel: formatPrice(item.price),
+      subtitle: [item.category || item.part_type || 'Parts', item.location || item.emirate || 'UAE']
         .filter(Boolean)
         .join(' • '),
       image,
       createdAt: item.created_at,
+      description: item.description || 'Part listing ready to compare.',
+      sellerName: getSellerName(item),
+      sellerPhoto: getSellerPhoto(item),
+      location: item.location || item.emirate || 'UAE',
     };
   }
 
   return {
     id: item.id,
-    category: 'Plate',
+    categoryKey: 'plates',
+    categoryLabel: 'Plate',
     route: `/plates/${item.id}`,
     title: `${item.city || 'UAE'} ${item.code || ''} ${item.number || ''}`.replace(/\s+/g, ' ').trim(),
-    price: item.price,
-    meta: [`${item.digits || String(item.number || '').length || 'N/A'} digits`, item.city || 'UAE']
+    priceLabel: formatPrice(item.price),
+    subtitle: [`${item.digits || String(item.number || '').length || 'N/A'} digits`, item.city || 'UAE']
       .filter(Boolean)
       .join(' • '),
     image,
     createdAt: item.created_at,
+    description: item.description || 'Premium plate listing ready to view.',
+    sellerName: getSellerName(item),
+    sellerPhoto: getSellerPhoto(item),
+    location: item.city || 'UAE',
   };
 };
 
@@ -135,6 +159,14 @@ const formatPrice = (price) => {
   }
   return `AED ${numericPrice.toLocaleString()}`;
 };
+
+const getSellerName = (item) =>
+  [item.seller_name, item.display_name, item.user_name, item.username, item.dealer_name, item.email]
+    .map((value) => (value ? String(value).trim() : ''))
+    .find(Boolean) || 'Marketplace Seller';
+
+const getSellerPhoto = (item) =>
+  resolveMediaUrl(item.seller_profile_photo || item.profile_photo_url || item.user_profile_photo);
 
 const HomePage = () => {
   const [marketplaceItems, setMarketplaceItems] = useState([]);
@@ -268,33 +300,7 @@ const HomePage = () => {
           ) : (
             <div className="cn-market-grid">
               {marketplaceItems.map((item) => (
-                <Link key={`${item.category}-${item.id}`} to={item.route} className="cn-market-card">
-                  <div className="cn-market-media">
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="cn-market-image"
-                        loading="lazy"
-                        decoding="async"
-                        width="400"
-                        height="300"
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
-                        }}
-                      />
-                    ) : (
-                      <div className="cn-market-image-placeholder">No image uploaded</div>
-                    )}
-                    <span className="cn-market-badge">{item.category}</span>
-                  </div>
-                  <div className="cn-market-copy">
-                    <strong className="cn-market-price">{formatPrice(item.price)}</strong>
-                    <h3>{item.title}</h3>
-                    <p>{item.meta}</p>
-                  </div>
-                </Link>
+                <MarketplaceListingCard key={`${item.categoryLabel}-${item.id}`} item={item} />
               ))}
             </div>
           )}
