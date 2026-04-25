@@ -894,7 +894,8 @@ def _normalize_phone_number(phone, country_code=None):
 
     prefix = str(country_code or "").strip()
     if prefix and not prefix.startswith("+"):
-        prefix = f"+{re.sub(r'[^\d]', '', prefix)}"
+        prefix_digits = re.sub(r"[^\d]", "", prefix)
+        prefix = f"+{prefix_digits}"
     if not prefix:
         prefix = "+971"
 
