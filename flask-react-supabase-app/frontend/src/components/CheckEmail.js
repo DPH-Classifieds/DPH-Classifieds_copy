@@ -7,6 +7,8 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const CheckEmail = () => {
   const location = useLocation();
   const email = location.state?.email;
+  const redirectTarget = location.state?.redirect;
+  const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
   const [resendStatus, setResendStatus] = useState(null);
   const [resending, setResending] = useState(false);
 
@@ -28,7 +30,7 @@ const CheckEmail = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`
         })
       });
 
@@ -106,7 +108,7 @@ const CheckEmail = () => {
           >
             {resending ? 'Resending...' : 'Resend confirmation email'}
           </button>
-          <Link to="/login" className="auth-inline-action">
+          <Link to={`/login?redirect=${encodeURIComponent(safeRedirect)}`} className="auth-inline-action">
             Back to login
           </Link>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { setAuthHeader } from '../utils/authService';
 import '../styles/Auth.css';
@@ -15,6 +15,8 @@ const Login = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const { syncWithSupabase } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTarget = new URLSearchParams(location.search).get('redirect');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,7 +57,8 @@ const Login = () => {
       }
 
       await syncWithSupabase();
-      navigate('/profile');
+      const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
+      navigate(safeRedirect, { replace: true });
     } catch (err) {
       if (err.message && err.message.toLowerCase().includes('network')) {
         setError('Network error. Please check your connection and try again.');
@@ -147,7 +150,7 @@ const Login = () => {
             Forgot Password?
           </Link>
           <span className="auth-divider">•</span>
-          <Link to="/signup" className="auth-link">
+          <Link to={redirectTarget && redirectTarget.startsWith('/') ? `/signup?redirect=${encodeURIComponent(redirectTarget)}` : '/signup'} className="auth-link">
             Create Account
           </Link>
         </div>

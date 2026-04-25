@@ -231,6 +231,15 @@ const Profile = () => {
                   )}
                 </div>
 
+                {userData?.phone && !userData?.phone_verified && (
+                  <div className="profile-verification-callout">
+                    <p>Your phone number is on file but not verified yet.</p>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/settings')}>
+                      Verify phone
+                    </button>
+                  </div>
+                )}
+
                 <p className="member-since">
                   Member since {userData?.created_at ? new Date(userData.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
                 </p>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useAuth } from '../context/AuthContext';
-import { getAccessToken } from '../utils/authService';
+import { getAccessToken, getCurrentUser } from '../utils/authService';
 import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/profileCompletion';
 import { resolveMediaUrl } from '../utils/media';
+import PhoneVerificationFlow from './PhoneVerificationFlow';
 import '../styles/AccountSettings.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -89,6 +90,7 @@ const AccountSettings = () => {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
 
   // Calculate profile completion whenever user data changes
   useEffect(() => {
@@ -313,6 +315,15 @@ const AccountSettings = () => {
         setProfileCompletion(newCompletion);
         
         setMessage(`✓ Profile updated successfully! Your profile is now ${newCompletion.percentage}% complete.`);
+
+        if (responseData.phone_verification_required && responseData.phone_verification) {
+          setPhoneVerificationSession({
+            verificationId: responseData.phone_verification.verification_id,
+            phone: responseData.phone_verification.phone || updatedUser.phone,
+            countryCode: updatedUser.country_code || profileData.countryCode || '+971',
+            purpose: 'phone_change',
+          });
+        }
       } else {
         setMessage('✓ Profile updated successfully!');
       }
@@ -333,6 +344,21 @@ const AccountSettings = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePhoneVerificationSuccess = async () => {
+    try {
+      const { user: refreshedUser } = await getCurrentUser();
+      if (refreshedUser && refreshedUser.id) {
+        updateUser(refreshedUser);
+      }
+      setPhoneVerificationSession(null);
+      setMessage('✓ Phone number verified successfully.');
+    } catch (refreshError) {
+      console.error('Failed to refresh user after phone verification:', refreshError);
+      setPhoneVerificationSession(null);
+      setMessage('✓ Phone number verified successfully.');
     }
   };
 
@@ -1106,6 +1132,22 @@ const AccountSettings = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {phoneVerificationSession && (
+          <PhoneVerificationFlow
+            mode="modal"
+            open
+            title="Verify your new phone number"
+            description="We sent a code to your updated phone number. Enter it to finish the change."
+            phone={phoneVerificationSession.phone}
+            countryCode={phoneVerificationSession.countryCode}
+            purpose={phoneVerificationSession.purpose}
+            verificationId={phoneVerificationSession.verificationId}
+            onVerified={handlePhoneVerificationSuccess}
+            onClose={() => setPhoneVerificationSession(null)}
+            autoStart={false}
+          />
         )}
       </div>
     </div>

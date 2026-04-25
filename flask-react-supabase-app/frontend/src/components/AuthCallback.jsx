@@ -9,6 +9,9 @@ const AuthCallback = () => {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectTarget = searchParams.get('redirect');
+    const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
     const hash = window.location.hash ? window.location.hash.substring(1) : '';
     const params = new URLSearchParams(hash);
     const type = params.get('type');
@@ -36,7 +39,7 @@ const AuthCallback = () => {
             return;
           }
           setMessage('Email confirmed successfully! You can continue.');
-          setTimeout(() => navigate('/profile'), 1200);
+          setTimeout(() => navigate(safeRedirect, { replace: true }), 1200);
         });
       return;
     }

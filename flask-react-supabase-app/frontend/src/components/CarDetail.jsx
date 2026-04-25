@@ -4,9 +4,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
-import { supabase } from '../utils/supabaseClient';
+import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
+import PhoneVerificationFlow from './PhoneVerificationFlow';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -61,10 +62,7 @@ const CarDetail = () => {
   const [viewerProfile, setViewerProfile] = useState(null);
   const [showPhoneVerifyModal, setShowPhoneVerifyModal] = useState(false);
   const [verificationPhone, setVerificationPhone] = useState('');
-  const [verificationOtp, setVerificationOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [verificationLoading, setVerificationLoading] = useState(false);
-  const [verificationError, setVerificationError] = useState('');
+  const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
 
   const [loanCalculator, setLoanCalculator] = useState({
     carPrice: 0,
@@ -241,20 +239,40 @@ const CarDetail = () => {
     return `${'•'.repeat(Math.max(0, cleaned.length - 4))}${cleaned.slice(-4)}`;
   };
 
-  const normalizeImageUrl = (imageUrl) => {
-    if (!imageUrl) return null;
-    return imageUrl.startsWith('/') ? `${API_URL}${imageUrl}` : imageUrl;
-  };
-
   const getGalleryImages = () => {
-    if (!car?.images?.length) {
+    const rawImages = Array.isArray(car?.images)
+      ? car.images
+      : Array.isArray(car?.car_images)
+        ? car.car_images
+        : [];
+
+    const fallbackImages = rawImages.length > 0
+      ? rawImages
+      : [car?.display_url, car?.image_url, car?.url].filter(Boolean);
+
+    if (!fallbackImages.length) {
       return [];
     }
-    return car.images
+
+    return fallbackImages
       .map((image) => {
         if (!image) return null;
-        const displayUrl = normalizeImageUrl(image.display_url || image.image_url || image.url);
-        const originalUrl = normalizeImageUrl(image.image_url || image.url || image.display_url);
+
+        if (typeof image === 'string') {
+          const resolved = resolveMediaUrl(image);
+          if (!resolved) return null;
+          return {
+            id: resolved,
+            displayUrl: resolved,
+            originalUrl: resolved,
+            hasDisplayVariant: false,
+            focalX: 50,
+            focalY: 50,
+          };
+        }
+
+        const displayUrl = resolveMediaUrl(image.display_url || image.image_url || image.url);
+        const originalUrl = resolveMediaUrl(image.image_url || image.url || image.display_url);
         if (!displayUrl && !originalUrl) return null;
 
         const focalX = Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50;
@@ -344,7 +362,7 @@ const CarDetail = () => {
   };
 
   const isOwner = Boolean(user?.id && car?.user_id && user.id === car.user_id);
-  const isPhoneVerified = Boolean(viewerProfile?.phone_verified || user?.phone_confirmed_at);
+  const isPhoneVerified = Boolean(viewerProfile?.phone_verified || user?.phone_verified);
   const canViewVin = isOwner || isPhoneVerified;
   const visibleVin = canViewVin ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
 
@@ -357,65 +375,15 @@ const CarDetail = () => {
   };
 
   const handleVinReveal = async () => {
-    if (!canViewVin) {
-      setShowPhoneVerifyModal(true);
+    await trackLeadEvent('vin_open', { listing_id: id });
+    if (!user?.id) {
+      navigate(`/login?redirect=${encodeURIComponent(`/cars/${id}`)}`);
       return;
     }
-    await trackLeadEvent('vin_open', { listing_id: id });
-  };
-
-  const sendPhoneOtp = async () => {
-    setVerificationLoading(true);
-    setVerificationError('');
-    try {
-      if (!verificationPhone.trim()) {
-        throw new Error('Enter a valid phone number first.');
-      }
-
-      const normalizedPhone = verificationPhone.trim();
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        phone: normalizedPhone,
-      });
-      if (otpError) throw otpError;
-      setOtpSent(true);
-    } catch (otpErr) {
-      setVerificationError(otpErr.message || 'Failed to send OTP');
-    } finally {
-      setVerificationLoading(false);
+    if (canViewVin) {
+      return;
     }
-  };
-
-  const verifyPhoneOtp = async () => {
-    setVerificationLoading(true);
-    setVerificationError('');
-    try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        phone: verificationPhone.trim(),
-        token: verificationOtp.trim(),
-        type: 'sms',
-      });
-      if (verifyError) throw verifyError;
-
-      const token = await getAccessToken();
-      if (token) {
-        const profileResponse = await fetch(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (profileResponse.ok) {
-          const data = await profileResponse.json();
-          setViewerProfile(data);
-        }
-      }
-
-      setShowPhoneVerifyModal(false);
-      setOtpSent(false);
-      setVerificationOtp('');
-      await trackLeadEvent('vin_reveal', { listing_id: id });
-    } catch (verifyErr) {
-      setVerificationError(verifyErr.message || 'Failed to verify OTP');
-    } finally {
-      setVerificationLoading(false);
-    }
+    setShowPhoneVerifyModal(true);
   };
 
   if (loading) {
@@ -822,53 +790,31 @@ const CarDetail = () => {
         <ReportButton listingId={id} listingType="car" />
 
         {showPhoneVerifyModal && (
-          <div className="cd-phone-modal-overlay" role="dialog" aria-modal="true">
-            <div className="cd-phone-modal">
-              <h3>Phone Verification Required</h3>
-              <p>Verify your phone to reveal the VIN for this listing.</p>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="verification_phone">Phone Number</label>
-                  <input
-                    id="verification_phone"
-                    type="tel"
-                    value={verificationPhone}
-                    onChange={(event) => setVerificationPhone(event.target.value)}
-                    placeholder="+971501234567"
-                  />
-                </div>
-              </div>
-              {otpSent && (
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="verification_otp">OTP Code</label>
-                    <input
-                      id="verification_otp"
-                      type="text"
-                      value={verificationOtp}
-                      onChange={(event) => setVerificationOtp(event.target.value)}
-                      placeholder="Enter SMS OTP"
-                    />
-                  </div>
-                </div>
-              )}
-              {verificationError && <p className="alert alert-danger">{verificationError}</p>}
-              <div className="cd-phone-modal-actions">
-                <button type="button" className="cd-button cd-button-secondary" onClick={() => setShowPhoneVerifyModal(false)}>
-                  Close
-                </button>
-                {!otpSent ? (
-                  <button type="button" className="cd-button cd-button-primary" disabled={verificationLoading} onClick={sendPhoneOtp}>
-                    {verificationLoading ? 'Sending...' : 'Send OTP'}
-                  </button>
-                ) : (
-                  <button type="button" className="cd-button cd-button-primary" disabled={verificationLoading} onClick={verifyPhoneOtp}>
-                    {verificationLoading ? 'Verifying...' : 'Verify & Reveal VIN'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <PhoneVerificationFlow
+            mode="modal"
+            open={showPhoneVerifyModal}
+            title="Phone verification required"
+            description="Verify your phone to reveal the VIN for this listing."
+            phone={verificationPhone || viewerProfile?.phone || user?.phone || ''}
+            countryCode={viewerProfile?.country_code || user?.country_code || '+971'}
+            purpose="vin_reveal"
+            listingId={id}
+            verificationId={phoneVerificationSession?.verificationId || null}
+            onClose={() => {
+              setShowPhoneVerifyModal(false);
+              setPhoneVerificationSession(null);
+            }}
+            onVerified={async (result) => {
+              setPhoneVerificationSession(null);
+              setShowPhoneVerifyModal(false);
+              setViewerProfile((prev) => ({
+                ...(prev || {}),
+                phone_verified: true,
+              }));
+              await trackLeadEvent('vin_reveal', { listing_id: id, verification: result?.verification });
+            }}
+            autoStart
+          />
         )}
       </div>
     </div>

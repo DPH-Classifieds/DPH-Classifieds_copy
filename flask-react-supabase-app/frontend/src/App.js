@@ -68,6 +68,7 @@ const PartDetail = lazy(() => import('./components/PartDetailRedesigned'));
 const Login = lazy(() => import('./components/Login'));
 const Signup = lazy(() => import('./components/Signup'));
 const CheckEmail = lazy(() => import('./components/CheckEmail'));
+const VerifyPhone = lazy(() => import('./components/VerifyPhone'));
 const ForgotPassword = lazy(() => import('./components/ForgotPassword'));
 const ResetPassword = lazy(() => import('./components/ResetPassword'));
 const AuthCallback = lazy(() => import('./components/AuthCallback'));
@@ -205,6 +206,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/check-email" element={<CheckEmail />} />
+                <Route path="/verify-phone" element={<VerifyPhone />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />

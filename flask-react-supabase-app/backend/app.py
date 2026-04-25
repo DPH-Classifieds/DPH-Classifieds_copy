@@ -14,6 +14,7 @@ from flask import (
 )
 from dotenv import load_dotenv
 import datetime
+import hashlib
 import threading
 import logging
 import json
@@ -67,6 +68,17 @@ CONTACT_RATE_LIMIT = defaultdict(deque)
 AUTH_RATE_LIMIT_WINDOW_SEC = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SEC", "300"))
 AUTH_RATE_LIMIT_MAX = int(os.getenv("AUTH_RATE_LIMIT_MAX", "5"))
 AUTH_RATE_LIMIT = defaultdict(deque)
+PHONE_VERIFICATION_PURPOSES = {"signup", "phone_change", "vin_reveal"}
+PHONE_VERIFICATION_CODE_LENGTH = int(os.getenv("PHONE_VERIFICATION_CODE_LENGTH", "6"))
+PHONE_VERIFICATION_TTL_MINUTES = int(os.getenv("PHONE_VERIFICATION_TTL_MINUTES", "10"))
+PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(
+    os.getenv("PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS", "60")
+)
+PHONE_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("PHONE_VERIFICATION_MAX_ATTEMPTS", "5"))
+PHONE_VERIFICATION_MAX_SENDS = int(os.getenv("PHONE_VERIFICATION_MAX_SENDS", "6"))
+INFOBIP_BASE_URL = os.getenv("INFOBIP_BASE_URL", "https://api.infobip.com").rstrip("/")
+INFOBIP_API_KEY = os.getenv("INFOBIP_API_KEY")
+INFOBIP_SENDER = os.getenv("INFOBIP_SENDER", "ServiceSMS")
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
@@ -862,6 +874,397 @@ def _auth_rate_limited(client_ip):
         return True
     entries.append(now)
     return False
+
+
+def _normalize_phone_number(phone, country_code=None):
+    if phone is None:
+        return None
+
+    phone_str = str(phone).strip()
+    if not phone_str:
+        return None
+
+    if phone_str.startswith("+"):
+        digits = re.sub(r"[^\d]", "", phone_str)
+        return f"+{digits}" if digits else None
+
+    digits = re.sub(r"[^\d]", "", phone_str)
+    if not digits:
+        return None
+
+    prefix = str(country_code or "").strip()
+    if prefix and not prefix.startswith("+"):
+        prefix = f"+{re.sub(r'[^\d]', '', prefix)}"
+    if not prefix:
+        prefix = "+971"
+
+    normalized_digits = digits.lstrip("0") or digits
+    return f"{prefix}{normalized_digits}"
+
+
+def _mask_phone_number(phone):
+    if not phone:
+        return None
+    normalized = re.sub(r"[^\d+]", "", str(phone))
+    if len(normalized) <= 5:
+        return normalized
+    return f"{normalized[:4]}***{normalized[-2:]}"
+
+
+def _generate_phone_verification_code():
+    alphabet = "0123456789"
+    return "".join(secrets.choice(alphabet) for _ in range(PHONE_VERIFICATION_CODE_LENGTH))
+
+
+def _hash_phone_verification_code(code, salt):
+    return hashlib.sha256(f"{salt}:{code}".encode("utf-8")).hexdigest()
+
+
+def _send_infobip_sms(to_phone, message):
+    if not INFOBIP_API_KEY:
+        return False, {"message": "INFOBIP_API_KEY is not configured"}
+
+    payload = {
+        "messages": [
+            {
+                "sender": INFOBIP_SENDER,
+                "destinations": [{"to": re.sub(r"[^\d]", "", str(to_phone))}],
+                "content": {"text": message},
+            }
+        ]
+    }
+    headers = {
+        "Authorization": f"App {INFOBIP_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    try:
+        response = requests.post(
+            f"{INFOBIP_BASE_URL}/sms/3/messages", headers=headers, json=payload, timeout=15
+        )
+        if response.status_code >= 400:
+            logger.error(f"Infobip SMS send failed: {response.status_code} {response.text}")
+            return False, {"status": response.status_code, "details": response.text}
+        return True, response.json()
+    except Exception as exc:
+        logger.error(f"Infobip SMS send error: {exc}", exc_info=True)
+        return False, {"message": str(exc)}
+
+
+def _get_user_profile_for_verification(user_id):
+    if not user_id:
+        return None
+
+    resp, status = supabase_request(
+        "get",
+        f"/rest/v1/users?id=eq.{user_id}&select=id,email,phone,country_code,phone_verified,phone_verified_at",
+        use_service_role=True,
+    )
+    if status >= 400 or not resp:
+        return None
+    return resp[0]
+
+
+def _lookup_phone_verification(*, verification_id=None, user_id=None, purpose=None, listing_id=None):
+    params = {"select": "*", "order": "created_at.desc", "limit": 1}
+    if verification_id:
+        params["id"] = f"eq.{verification_id}"
+    if user_id:
+        params["user_id"] = f"eq.{user_id}"
+    if purpose:
+        params["purpose"] = f"eq.{purpose}"
+    if listing_id:
+        params["listing_id"] = f"eq.{listing_id}"
+
+    response, status = supabase_request(
+        "get",
+        "/rest/v1/phone_verifications",
+        params=params,
+        use_service_role=True,
+    )
+    if status >= 400 or not response:
+        return None
+    return response[0]
+
+
+def _expire_active_phone_verifications(user_id, purpose, listing_id=None):
+    params = {
+        "user_id": f"eq.{user_id}",
+        "purpose": f"eq.{purpose}",
+        "status": "eq.pending",
+    }
+    if listing_id:
+        params["listing_id"] = f"eq.{listing_id}"
+
+    records, status = supabase_request(
+        "get",
+        "/rest/v1/phone_verifications",
+        params={"select": "id", **params},
+        use_service_role=True,
+    )
+    if status >= 400 or not records:
+        return
+
+    for record in records:
+        supabase_request(
+            "patch",
+            f"/rest/v1/phone_verifications?id=eq.{record.get('id')}",
+            data={
+                "status": "expired",
+                "updated_at": _isoformat_utc(_utc_now()),
+            },
+            use_service_role=True,
+        )
+
+
+def _issue_phone_verification(*, user_id, phone, purpose, country_code=None, listing_id=None, metadata=None):
+    normalized_phone = _normalize_phone_number(phone, country_code)
+    if not normalized_phone:
+        raise ValueError("A valid phone number is required")
+    if purpose not in PHONE_VERIFICATION_PURPOSES:
+        raise ValueError("Invalid verification purpose")
+
+    _expire_active_phone_verifications(user_id, purpose, listing_id)
+
+    code = _generate_phone_verification_code()
+    salt = secrets.token_hex(16)
+    now = _utc_now()
+    expires_at = now + datetime.timedelta(minutes=PHONE_VERIFICATION_TTL_MINUTES)
+    record_payload = {
+        "user_id": user_id,
+        "phone": normalized_phone,
+        "purpose": purpose,
+        "listing_id": listing_id,
+        "status": "pending",
+        "code_hash": _hash_phone_verification_code(code, salt),
+        "code_salt": salt,
+        "attempt_count": 0,
+        "send_count": 1,
+        "expires_at": _isoformat_utc(expires_at),
+        "verified_at": None,
+        "last_sent_at": _isoformat_utc(now),
+        "last_error": None,
+        "metadata": metadata or {},
+        "updated_at": _isoformat_utc(now),
+    }
+
+    insert_response, insert_status = supabase_request(
+        "post",
+        "/rest/v1/phone_verifications",
+        data=record_payload,
+        use_service_role=True,
+    )
+    if insert_status >= 400:
+        raise RuntimeError(f"Failed to create phone verification: {insert_response}")
+
+    verification = insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response
+
+    message = (
+        f"Your DPH Classifieds verification code is {code}. "
+        f"It expires in {PHONE_VERIFICATION_TTL_MINUTES} minutes."
+    )
+    sent, send_result = _send_infobip_sms(normalized_phone, message)
+    if not sent:
+        supabase_request(
+            "patch",
+            f"/rest/v1/phone_verifications?id=eq.{verification.get('id')}",
+            data={
+                "status": "failed",
+                "last_error": "sms_send_failed",
+                "updated_at": _isoformat_utc(_utc_now()),
+                "metadata": {"send_error": send_result},
+            },
+            use_service_role=True,
+        )
+        raise RuntimeError(
+            "Failed to send verification SMS. Please try again in a moment."
+        )
+
+    return {
+        "verification": verification,
+        "code": code,
+        "expires_at": _isoformat_utc(expires_at),
+        "send_result": send_result,
+    }
+
+
+def _resend_phone_verification(verification_record):
+    if not verification_record:
+        raise ValueError("Verification record not found")
+
+    if verification_record.get("status") != "pending":
+        raise ValueError("Verification is no longer active")
+
+    expires_at = _parse_datetime(verification_record.get("expires_at"))
+    if expires_at and _utc_now() >= expires_at:
+        supabase_request(
+            "patch",
+            f"/rest/v1/phone_verifications?id=eq.{verification_record.get('id')}",
+            data={
+                "status": "expired",
+                "updated_at": _isoformat_utc(_utc_now()),
+            },
+            use_service_role=True,
+        )
+        raise ValueError("Verification code has expired")
+
+    send_count = int(verification_record.get("send_count") or 0)
+    if send_count >= PHONE_VERIFICATION_MAX_SENDS:
+        raise ValueError("Too many resend attempts")
+
+    code = _generate_phone_verification_code()
+    salt = secrets.token_hex(16)
+    now = _utc_now()
+    expires_at = now + datetime.timedelta(minutes=PHONE_VERIFICATION_TTL_MINUTES)
+    patch_payload = {
+        "code_hash": _hash_phone_verification_code(code, salt),
+        "code_salt": salt,
+        "attempt_count": 0,
+        "send_count": send_count + 1,
+        "expires_at": _isoformat_utc(expires_at),
+        "last_sent_at": _isoformat_utc(now),
+        "last_error": None,
+        "status": "pending",
+        "updated_at": _isoformat_utc(now),
+    }
+
+    patch_response, patch_status = supabase_request(
+        "patch",
+        f"/rest/v1/phone_verifications?id=eq.{verification_record.get('id')}",
+        data=patch_payload,
+        use_service_role=True,
+    )
+    if patch_status >= 400:
+        raise RuntimeError(f"Failed to refresh verification: {patch_response}")
+
+    message = (
+        f"Your DPH Classifieds verification code is {code}. "
+        f"It expires in {PHONE_VERIFICATION_TTL_MINUTES} minutes."
+    )
+    sent, send_result = _send_infobip_sms(verification_record.get("phone"), message)
+    if not sent:
+        raise RuntimeError(
+            f"Failed to send verification SMS: {send_result.get('message') or send_result.get('details')}"
+        )
+
+    verification = patch_response[0] if isinstance(patch_response, list) and patch_response else patch_response
+    verification["expires_at"] = _isoformat_utc(expires_at)
+    return {"verification": verification, "code": code, "send_result": send_result}
+
+
+def _finalize_phone_verification(verification_record, code, *, ip_address=None, user_agent=None):
+    if not verification_record:
+        raise ValueError("Verification record not found")
+
+    if verification_record.get("status") != "pending":
+        raise ValueError("Verification is no longer active")
+
+    expires_at = _parse_datetime(verification_record.get("expires_at"))
+    if expires_at and _utc_now() >= expires_at:
+        supabase_request(
+            "patch",
+            f"/rest/v1/phone_verifications?id=eq.{verification_record.get('id')}",
+            data={
+                "status": "expired",
+                "updated_at": _isoformat_utc(_utc_now()),
+            },
+            use_service_role=True,
+        )
+        raise ValueError("Verification code has expired")
+
+    attempt_count = int(verification_record.get("attempt_count") or 0)
+    if attempt_count >= PHONE_VERIFICATION_MAX_ATTEMPTS:
+        supabase_request(
+            "patch",
+            f"/rest/v1/phone_verifications?id=eq.{verification_record.get('id')}",
+            data={
+                "status": "failed",
+                "last_error": "max_attempts_reached",
+                "updated_at": _isoformat_utc(_utc_now()),
+            },
+            use_service_role=True,
+        )
+        raise ValueError("Too many verification attempts")
+
+    expected_hash = _hash_phone_verification_code(
+        code, verification_record.get("code_salt") or ""
+    )
+    if expected_hash != verification_record.get("code_hash"):
+        next_attempts = attempt_count + 1
+        update_payload = {
+            "attempt_count": next_attempts,
+            "last_error": "invalid_code",
+            "updated_at": _isoformat_utc(_utc_now()),
+        }
+        if next_attempts >= PHONE_VERIFICATION_MAX_ATTEMPTS:
+            update_payload["status"] = "failed"
+        supabase_request(
+            "patch",
+            f"/rest/v1/phone_verifications?id=eq.{verification_record.get('id')}",
+            data=update_payload,
+            use_service_role=True,
+        )
+        raise ValueError("Invalid verification code")
+
+    now = _utc_now()
+    supabase_request(
+        "patch",
+        f"/rest/v1/phone_verifications?id=eq.{verification_record.get('id')}",
+        data={
+            "status": "verified",
+            "attempt_count": attempt_count + 1,
+            "verified_at": _isoformat_utc(now),
+            "verified_ip": ip_address,
+            "verified_user_agent": user_agent,
+            "last_error": None,
+            "updated_at": _isoformat_utc(now),
+        },
+        use_service_role=True,
+    )
+
+    supabase_request(
+        "patch",
+        f"/rest/v1/users?id=eq.{verification_record.get('user_id')}",
+        data={
+            "phone_verified": True,
+            "phone_verified_at": _isoformat_utc(now),
+            "updated_at": _isoformat_utc(now),
+        },
+        use_service_role=True,
+    )
+
+    return {
+        "verification_id": verification_record.get("id"),
+        "status": "verified",
+        "phone": verification_record.get("phone"),
+        "purpose": verification_record.get("purpose"),
+        "listing_id": verification_record.get("listing_id"),
+        "verified_at": _isoformat_utc(now),
+    }
+
+
+def _phone_verification_response(record):
+    if not record:
+        return None
+    expires_at = _parse_datetime(record.get("expires_at"))
+    resend_available_at = None
+    if record.get("last_sent_at"):
+        resend_available_at = _parse_datetime(record.get("last_sent_at")) + datetime.timedelta(seconds=PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS)
+    return {
+        "verification_id": record.get("id"),
+        "phone": record.get("phone"),
+        "purpose": record.get("purpose"),
+        "listing_id": record.get("listing_id"),
+        "status": record.get("status"),
+        "attempt_count": int(record.get("attempt_count") or 0),
+        "send_count": int(record.get("send_count") or 0),
+        "expires_at": _isoformat_utc(expires_at) if expires_at else record.get("expires_at"),
+        "resend_available_at": _isoformat_utc(resend_available_at) if resend_available_at else None,
+        "masked_phone": _mask_phone_number(record.get("phone")),
+        "last_error": record.get("last_error"),
+        "verified_at": record.get("verified_at"),
+    }
 
 
 # Create static directory for file uploads if it doesn't exist
@@ -3844,12 +4247,27 @@ def update_user_profile(current_user):
         }
 
         # Check if user exists
-        check_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=id,email"
+        check_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
         check_response = requests.get(check_url, headers=headers, timeout=10)
 
         if check_response.status_code != 200 or not check_response.json():
             logger.error(f"User not found: {current_user}")
             return jsonify({"message": "User not found"}), 404
+
+        existing_user = check_response.json()[0]
+        existing_phone = _normalize_phone_number(
+            existing_user.get("phone"),
+            existing_user.get("country_code"),
+        )
+        requested_phone = _normalize_phone_number(
+            update_payload.get("phone", existing_user.get("phone")),
+            update_payload.get("country_code", existing_user.get("country_code")),
+        )
+        phone_changed = bool(requested_phone and requested_phone != existing_phone)
+
+        if phone_changed:
+            update_payload["phone_verified"] = False
+            update_payload["phone_verified_at"] = None
 
         logger.info(f"User exists, proceeding with update")
 
@@ -3882,6 +4300,35 @@ def update_user_profile(current_user):
 
                 if users and len(users) > 0:
                     updated_user = users[0]
+                    phone_verification = None
+
+                    if phone_changed and requested_phone:
+                        try:
+                            verification_result = _issue_phone_verification(
+                                user_id=current_user,
+                                phone=requested_phone,
+                                country_code=update_payload.get(
+                                    "country_code", existing_user.get("country_code")
+                                ),
+                                purpose="phone_change",
+                                metadata={
+                                    "source": "account_settings",
+                                    "phone_changed": True,
+                                },
+                            )
+                            phone_verification = _phone_verification_response(
+                                verification_result["verification"]
+                            )
+                        except Exception as verification_err:
+                            logger.error(
+                                f"Failed to start phone verification after profile update: {verification_err}",
+                                exc_info=True,
+                            )
+                            phone_verification = {
+                                "status": "failed",
+                                "message": str(verification_err),
+                            }
+
                     logger.info(
                         f"✓ Profile updated successfully for: {updated_user.get('email')}"
                     )
@@ -3893,6 +4340,8 @@ def update_user_profile(current_user):
                             "message": "Profile updated successfully",
                             "user": updated_user,
                             "updated_fields": list(update_payload.keys()),
+                            "phone_verification": phone_verification,
+                            "phone_verification_required": bool(phone_verification),
                         }
                     ), 200
                 else:
@@ -4369,7 +4818,46 @@ def signup():
         response = requests.post(url, headers=headers, json=payload, timeout=10)
 
         if response.status_code == 200:
-            return jsonify(response.json()), 200
+            response_data = response.json()
+            user_id = None
+            try:
+                user_id = (
+                    response_data.get("user", {}).get("id")
+                    or response_data.get("id")
+                    or response_data.get("user_id")
+                )
+            except Exception:
+                user_id = None
+
+            signup_phone_verification = None
+            if user_id and cleaned_metadata.get("phone"):
+                try:
+                    verification_result = _issue_phone_verification(
+                        user_id=user_id,
+                        phone=cleaned_metadata.get("phone"),
+                        country_code=cleaned_metadata.get("country_code", "+971"),
+                        purpose="signup",
+                        metadata={
+                            "source": "signup",
+                            "email": email,
+                        },
+                    )
+                    signup_phone_verification = _phone_verification_response(
+                        verification_result["verification"]
+                    )
+                except Exception as verification_err:
+                    logger.error(
+                        f"Failed to send signup phone verification: {verification_err}",
+                        exc_info=True,
+                    )
+                    signup_phone_verification = {
+                        "status": "failed",
+                        "message": str(verification_err),
+                    }
+
+            response_data["phone_verification"] = signup_phone_verification
+            response_data["phone_verification_required"] = bool(signup_phone_verification)
+            return jsonify(response_data), 200
 
         # Try to parse error details; fall back to raw text
         try:
@@ -4387,6 +4875,168 @@ def signup():
     except Exception as e:
         logger.error(f"Signup error: {str(e)}")
         return jsonify({"message": "An error occurred during signup"}), 500
+
+
+@app.route("/api/phone-verifications/start", methods=["POST"])
+def start_phone_verification():
+    current_user = _get_optional_user_id_from_auth_header()
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    user_agent = request.headers.get("User-Agent", "")
+
+    if _auth_rate_limited(client_ip):
+        return jsonify(
+            {"message": "Too many verification attempts. Please try again later."}
+        ), 429
+
+    data = request.json or {}
+    purpose = str(data.get("purpose") or "vin_reveal").strip()
+    listing_id = data.get("listing_id")
+    verification_id = data.get("verification_id")
+    phone = data.get("phone")
+    country_code = data.get("country_code")
+
+    if purpose not in PHONE_VERIFICATION_PURPOSES:
+        return jsonify({"message": "Invalid verification purpose"}), 400
+
+    if verification_id:
+        verification_record = _lookup_phone_verification(
+            verification_id=verification_id,
+        )
+        if not verification_record:
+            return jsonify({"message": "Verification record not found"}), 404
+        if current_user and verification_record.get("user_id") != current_user:
+            return jsonify({"message": "You cannot resend this verification"}), 403
+        try:
+            refreshed = _resend_phone_verification(verification_record)
+            return jsonify(
+                {
+                    "message": "Verification code resent",
+                    "phone_verification": _phone_verification_response(
+                        refreshed["verification"]
+                    ),
+                }
+            ), 200
+        except ValueError as resend_err:
+            return jsonify({"message": str(resend_err)}), 400
+        except Exception as resend_err:
+            logger.error(f"Failed to resend verification: {resend_err}", exc_info=True)
+            return jsonify(
+                {"message": "Failed to resend verification code"}
+            ), 500
+
+    if not current_user:
+        return jsonify({"message": "Authentication required"}), 401
+
+    profile = _get_user_profile_for_verification(current_user) or {}
+    if purpose == "vin_reveal" and profile.get("phone_verified"):
+        return jsonify(
+            {
+                "message": "Phone already verified",
+                "already_verified": True,
+                "phone_verification": None,
+            }
+        ), 200
+
+    verification_phone = _normalize_phone_number(
+        phone or profile.get("phone"),
+        country_code or profile.get("country_code"),
+    )
+    if not verification_phone:
+        return jsonify({"message": "A valid phone number is required"}), 400
+
+    try:
+        issued = _issue_phone_verification(
+            user_id=current_user,
+            phone=verification_phone,
+            country_code=country_code or profile.get("country_code"),
+            purpose=purpose,
+            listing_id=listing_id,
+            metadata={
+                "source": data.get("source") or "frontend",
+                "client_ip": client_ip,
+                "user_agent": user_agent,
+            },
+        )
+        return jsonify(
+            {
+                "message": "Verification code sent",
+                "phone_verification": _phone_verification_response(
+                    issued["verification"]
+                ),
+            }
+        ), 200
+    except ValueError as verification_err:
+        return jsonify({"message": str(verification_err)}), 400
+    except Exception as verification_err:
+        logger.error(
+            f"Failed to start phone verification: {verification_err}",
+            exc_info=True,
+        )
+        return jsonify({"message": "Failed to send verification code"}), 500
+
+
+@app.route("/api/phone-verifications/verify", methods=["POST"])
+def verify_phone_verification():
+    current_user = _get_optional_user_id_from_auth_header()
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    user_agent = request.headers.get("User-Agent", "")
+
+    if _auth_rate_limited(client_ip):
+        return jsonify(
+            {"message": "Too many verification attempts. Please try again later."}
+        ), 429
+
+    data = request.json or {}
+    code = str(data.get("code") or "").strip()
+    verification_id = data.get("verification_id")
+    purpose = data.get("purpose")
+    listing_id = data.get("listing_id")
+
+    if not code:
+        return jsonify({"message": "Verification code is required"}), 400
+
+    verification_record = None
+    if verification_id:
+        verification_record = _lookup_phone_verification(verification_id=verification_id)
+    elif current_user:
+        verification_record = _lookup_phone_verification(
+            user_id=current_user,
+            purpose=purpose,
+            listing_id=listing_id,
+        )
+
+    if not verification_record:
+        return jsonify({"message": "Verification record not found"}), 404
+
+    if current_user and verification_record.get("user_id") != current_user:
+        return jsonify({"message": "You cannot verify this code"}), 403
+
+    try:
+        result = _finalize_phone_verification(
+            verification_record,
+            code,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        return jsonify(
+            {
+                "message": "Phone verified successfully",
+                "verification": result,
+            }
+        ), 200
+    except ValueError as verification_err:
+        status_code = 400
+        error_message = str(verification_err)
+        if "expired" in error_message.lower():
+            status_code = 410
+        elif "too many" in error_message.lower():
+            status_code = 429
+        return jsonify({"message": error_message}), status_code
+    except Exception as verification_err:
+        logger.error(
+            f"Failed to verify phone code: {verification_err}", exc_info=True
+        )
+        return jsonify({"message": "Failed to verify code"}), 500
 
 
 @app.route("/api/auth/logout", methods=["POST"])
@@ -4602,7 +5252,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
             auth_phone_confirmed = auth_user_data.get("phone_confirmed_at")
 
     email_verified = email_verified or bool(auth_email_confirmed)
-    phone_verified = phone_verified or bool(auth_phone_confirmed)
+    phone_verified = phone_verified or False
 
     final_user_details = {}
     if db_user_data:
@@ -4622,6 +5272,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
             else False,
             "email_verified": email_verified,
             "phone_verified": phone_verified,
+            "phone_confirmed_at": auth_phone_confirmed,
         }
     )
     logger.info(

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { DUBAI_AREAS, UAE_EMIRATES } from '../utils/listingConstants';
 import '../styles/Auth.css';
 
@@ -21,6 +21,10 @@ const COUNTRY_CODES = [
 ];
 
 const Signup = () => {
+  const location = useLocation();
+  const redirectTarget = new URLSearchParams(location.search).get('redirect');
+  const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
+
   const [formData, setFormData] = useState({
     // Basic credentials
     email: '',
@@ -284,7 +288,7 @@ const Signup = () => {
       const signupData = {
         email: formData.email,
         password: formData.password,
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`,
         firstName: formData.firstName,
         lastName: formData.lastName,
         username: formData.username,
@@ -316,7 +320,23 @@ const Signup = () => {
         throw new Error(data.message || 'Signup failed');
       }
 
-      navigate('/check-email', { state: { email: signupData.email } });
+      const verification = data.phone_verification;
+      if (verification?.verification_id && verification?.status !== 'failed') {
+        navigate('/verify-phone', {
+          replace: true,
+          state: {
+            verificationId: verification.verification_id,
+            phone: verification.phone || signupData.phone,
+            countryCode: signupData.countryCode,
+            purpose: 'signup',
+            email: signupData.email,
+            redirect: safeRedirect,
+          },
+        });
+        return;
+      }
+
+      navigate('/check-email', { state: { email: signupData.email, redirect: safeRedirect } });
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
@@ -734,7 +754,7 @@ const Signup = () => {
         
         <div className="auth-links">
           <span>Already have an account?</span>
-          <Link to="/login" className="auth-link">
+          <Link to={safeRedirect ? `/login?redirect=${encodeURIComponent(safeRedirect)}` : '/login'} className="auth-link">
             Sign In
           </Link>
         </div>

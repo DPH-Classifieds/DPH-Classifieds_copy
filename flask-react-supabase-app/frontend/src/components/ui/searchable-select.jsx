@@ -50,48 +50,48 @@ const flattenOptions = (options) =>
 const sharedStyles = {
   control: (base, state) => ({
     ...base,
-    minHeight: 54,
-    borderRadius: 16,
-    borderColor: state.isFocused ? 'rgba(139, 214, 180, 0.38)' : 'rgba(148, 218, 153, 0.16)',
-    background: 'rgba(244, 251, 245, 0.05)',
-    boxShadow: state.isFocused ? '0 0 0 4px rgba(139, 214, 180, 0.12)' : 'none',
+    minHeight: 44,
+    borderRadius: 10,
+    borderColor: state.isFocused ? '#4ade80' : '#2a2a2a',
+    background: '#1a1a1a',
+    boxShadow: state.isFocused ? '0 0 0 3px rgba(74, 222, 128, 0.26)' : 'none',
     '&:hover': {
-      borderColor: 'rgba(139, 214, 180, 0.28)',
+      borderColor: state.isFocused ? '#4ade80' : 'rgba(74, 222, 128, 0.6)',
     },
   }),
   valueContainer: (base) => ({
     ...base,
-    padding: '0 14px',
+    padding: '0 10px',
   }),
   input: (base) => ({
     ...base,
-    color: '#f7fcf7',
+    color: '#ffffff',
     margin: 0,
     padding: 0,
   }),
   placeholder: (base) => ({
     ...base,
-    color: 'rgba(232, 242, 233, 0.46)',
+    color: '#555555',
   }),
   singleValue: (base) => ({
     ...base,
-    color: '#f7fcf7',
+    color: '#ffffff',
   }),
   indicatorSeparator: () => ({
     display: 'none',
   }),
   dropdownIndicator: (base, state) => ({
     ...base,
-    color: state.isFocused ? '#8bd6b4' : 'rgba(232, 242, 233, 0.52)',
+    color: state.isFocused ? '#4ade80' : '#8a8a8a',
     '&:hover': {
-      color: '#8bd6b4',
+      color: '#4ade80',
     },
   }),
   clearIndicator: (base) => ({
     ...base,
-    color: 'rgba(232, 242, 233, 0.52)',
+    color: '#8a8a8a',
     '&:hover': {
-      color: '#ffffff',
+      color: '#4ade80',
     },
   }),
   menuPortal: (base) => ({
@@ -101,11 +101,10 @@ const sharedStyles = {
   menu: (base) => ({
     ...base,
     overflow: 'hidden',
-    borderRadius: 18,
-    border: '1px solid rgba(148, 218, 153, 0.14)',
-    background:
-      'linear-gradient(180deg, rgba(12, 28, 19, 0.98) 0%, rgba(7, 15, 10, 0.99) 100%)',
-    boxShadow: '0 22px 42px rgba(0, 0, 0, 0.28)',
+    borderRadius: 10,
+    border: '1px solid #2a2a2a',
+    background: '#1c1c1c',
+    boxShadow: '0 16px 28px rgba(0, 0, 0, 0.35)',
   }),
   menuList: (base) => ({
     ...base,
@@ -113,22 +112,22 @@ const sharedStyles = {
   }),
   option: (base, state) => ({
     ...base,
-    borderRadius: 12,
+    borderRadius: 8,
     cursor: state.isDisabled ? 'not-allowed' : 'pointer',
     backgroundColor: state.isSelected
-      ? 'rgba(11, 107, 76, 0.92)'
+      ? 'rgba(74, 222, 128, 0.15)'
       : state.isFocused
-        ? 'rgba(255, 255, 255, 0.06)'
+        ? 'rgba(74, 222, 128, 0.08)'
         : 'transparent',
-    color: state.isSelected ? '#ffffff' : state.isDisabled ? 'rgba(226, 239, 229, 0.34)' : '#eef7ef',
-    padding: '12px 14px',
+    color: state.isSelected ? '#4ade80' : state.isDisabled ? '#666666' : '#f0f0f0',
+    padding: '10px 12px',
   }),
   groupHeading: (base) => ({
     ...base,
-    color: 'rgba(139, 214, 180, 0.72)',
+    color: '#8a8a8a',
     fontSize: '0.72rem',
-    fontWeight: 800,
-    letterSpacing: '0.12em',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
     textTransform: 'uppercase',
     padding: '6px 10px 4px',
   }),
