@@ -29,8 +29,9 @@ worker_class = "sync"
 max_requests = 1000
 max_requests_jitter = 50
 
-# Preload app for faster worker spawn
-preload = True
+# Avoid preloading the Flask app because this repo starts background work at
+# import time in some environments, which is fragile under Gunicorn preload.
+preload = False
 
 # Security
 limit_request_line = 4094
