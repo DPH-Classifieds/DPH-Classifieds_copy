@@ -315,6 +315,10 @@
 }
 
 .explore-v2-card {
+  --ex-text: #ffffff;
+  --ex-text-muted: #bfc9c4;
+  --ex-primary: #0b6b4c;
+  --ex-primary-strong: #004e37;
   overflow: hidden;
   display: flex;
   flex-direction: column;

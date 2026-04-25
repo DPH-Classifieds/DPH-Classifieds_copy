@@ -300,7 +300,11 @@ const HomePage = () => {
           ) : (
             <div className="cn-market-grid">
               {marketplaceItems.map((item) => (
-                <MarketplaceListingCard key={`${item.categoryLabel}-${item.id}`} item={item} />
+                <MarketplaceListingCard
+                  key={`${item.categoryLabel}-${item.id}`}
+                  item={item}
+                  showMoreLink={false}
+                />
               ))}
             </div>
           )}

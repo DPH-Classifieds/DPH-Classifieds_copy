@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
-const MarketplaceListingCard = ({ item }) => {
+const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
   const sellerName = item.sellerName || 'Marketplace Seller';
   const sellerInitial = sellerName.charAt(0).toUpperCase();
   const moreRoute =
@@ -76,9 +76,11 @@ const MarketplaceListingCard = ({ item }) => {
           <Link to={item.route} className="explore-v2-button explore-v2-button-primary">
             View Listing
           </Link>
-          <Link to={moreRoute} className="explore-v2-card-link">
-            More {item.categoryLabel}s
-          </Link>
+          {showMoreLink ? (
+            <Link to={moreRoute} className="explore-v2-card-link">
+              More {item.categoryLabel}s
+            </Link>
+          ) : null}
         </div>
       </div>
     </article>
