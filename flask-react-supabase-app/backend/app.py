@@ -13,39 +13,32 @@ from flask import (
     make_response,
 )
 from dotenv import load_dotenv
+import datetime
+import threading
+import logging
+import json
+import uuid
 import os
+import re
 import requests
+import secrets
+import time
+from collections import defaultdict, deque
+from functools import wraps
+from urllib.parse import urlparse
 from flask_cors import CORS
+from PIL import Image
+from werkzeug.utils import secure_filename
 
-# Wrap your Flask app with CORS
+load_dotenv()
+
 app = Flask(__name__, static_folder="static")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max request size
 
-# Flask-Mail configuration
-
-# Configure CORS with explicit OPTIONS handling
-cors = CORS(
-    app,
-    resources={r"/api/*": {
-        "origins": _get_cors_origins(),
-        "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-        "expose_headers": ["Content-Type", "Authorization"],
-    },
-    supports_credentials=True,
-)
-
-app = cors(app)
 logger = logging.getLogger(__name__)
-
-app = Flask(__name__, static_folder="static")
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max request size
 
 # Flask-Mail configuration
 try:
@@ -1021,6 +1014,10 @@ def ensure_tables_exist():
         logger.info("Checking if required tables exist")
         service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
 
+        if not SUPABASE_URL or not service_key:
+            logger.info("Skipping startup table check because Supabase config is missing")
+            return
+
         headers = {
             "apikey": service_key,
             "Authorization": f"Bearer {service_key}",
@@ -1031,7 +1028,7 @@ def ensure_tables_exist():
 
         # Check if users table exists by trying to query it
         users_check = requests.get(
-            f"{SUPABASE_URL}/rest/v1/users?limit=1", headers=headers
+            f"{SUPABASE_URL}/rest/v1/users?limit=1", headers=headers, timeout=10
         )
 
         if (
@@ -1076,7 +1073,10 @@ def ensure_tables_exist():
             }
 
             rpc_response = requests.post(
-                f"{SUPABASE_URL}/rest/v1/rpc", json=create_table_query, headers=headers
+                f"{SUPABASE_URL}/rest/v1/rpc",
+                json=create_table_query,
+                headers=headers,
+                timeout=10,
             )
 
             if rpc_response.status_code >= 400:
@@ -1092,8 +1092,13 @@ def ensure_tables_exist():
         logger.error(f"Error checking/creating tables: {str(e)}")
 
 
-# Start the table check in a background thread to not delay startup
-threading.Thread(target=ensure_tables_exist).start()
+# Only run the table check when explicitly enabled. Running this at import time
+# under Gunicorn preload can fork after a live background thread starts, which
+# is fragile in production and can destabilize deploys.
+if os.getenv("ENABLE_STARTUP_DB_CHECK", "false").lower() == "true":
+    threading.Thread(target=ensure_tables_exist, daemon=True).start()
+else:
+    logger.info("Startup table check disabled")
 
 
 # Database connection
@@ -1788,7 +1793,7 @@ def get_car_by_id(car_id):
         )
 
         images_query = (
-            f"/rest/v1/car_images?car_id=eq.{car_id}&select=*&order=created_at.asc"
+            f"/rest/v1/car_images?car_id=eq.{car_id}&select=*&order=uploaded_at.asc"
         )
         images_response, images_status = supabase_request(
             "get", images_query, use_service_role=True
@@ -2180,7 +2185,6 @@ def create_car(current_user):
                 "focal_x": normalized_crop["focal_x"],
                 "focal_y": normalized_crop["focal_y"],
                 "crop_meta": crop_meta,
-                "is_primary": (index == 0),  # First image is primary
             }
             image_inserts.append(image_insert)
 
@@ -2527,6 +2531,7 @@ def update_car(current_user, car_id):
             "parking_sensors",
             "rear_view_camera",
             "lady_driven",
+            "extras",
         }
         # Sanitize update data to ensure 'id' is NOT sent to Supabase as part of the body
         # (Supabase/PostgREST rejects updates where the primary key is in the body)
@@ -2562,17 +2567,10 @@ def update_car(current_user, car_id):
             )
 
             current_images = current_images_resp if current_images_status < 400 else []
+            kept_images = [img for img in current_images if img["id"] in keep_image_ids]
 
-            # Delete images not in keep_image_ids
-            for img in current_images:
-                if img["id"] not in keep_image_ids:
-                    logger.info(f"Deleting image {img['id']}")
-                    supabase_request(
-                        "delete",
-                        "/rest/v1/car_images",
-                        params={"id": f"eq.{img['id']}"},
-                        user_id=current_user,
-                    )
+            upload_failures = []
+            inserted_new_images = 0
 
             # Upload new images
             if new_images:
@@ -2581,10 +2579,9 @@ def update_car(current_user, car_id):
 
                 # Check if any kept image is primary
                 has_primary_kept = any(
-                    img.get("is_primary", False)
-                    for img in current_images
-                    if img["id"] in keep_image_ids
+                    img.get("is_primary", False) for img in kept_images
                 )
+                primary_assigned = has_primary_kept
 
                 for index, file in enumerate(new_images):
                     if file and file.filename:
@@ -2597,9 +2594,11 @@ def update_car(current_user, car_id):
                         )
 
                         if upload_error:
-                            logger.error(
+                            message = (
                                 f"Failed to upload new image {file.filename}: {upload_error}"
                             )
+                            logger.error(message)
+                            upload_failures.append(message)
                             continue
 
                         image_data = {
@@ -2610,17 +2609,44 @@ def update_car(current_user, car_id):
                             "focal_x": upload_metadata.get("focal_x", 50),
                             "focal_y": upload_metadata.get("focal_y", 50),
                             "crop_meta": upload_metadata.get("crop_meta"),
-                            "is_primary": (
-                                index == 0 and not has_primary_kept
-                            ),  # First new image is primary only if no kept primary image
                         }
 
-                        supabase_request(
+                        image_insert_response, image_insert_status = supabase_request(
                             "post",
                             "/rest/v1/car_images",
                             data=image_data,
                             user_id=current_user,
                         )
+                        if image_insert_status >= 400:
+                            message = (
+                                f"Failed to save image metadata for {file.filename}: "
+                                f"{image_insert_status} - {image_insert_response}"
+                            )
+                            logger.error(message)
+                            upload_failures.append(message)
+                            continue
+
+                        inserted_new_images += 1
+                        primary_assigned = True
+
+                if upload_failures and inserted_new_images == 0 and not kept_images:
+                    return jsonify(
+                        {
+                            "error": "All uploaded images failed to save. Existing images were kept.",
+                            "details": upload_failures,
+                        }
+                    ), 500
+
+            # Delete images not in keep_image_ids after new uploads succeed.
+            for img in current_images:
+                if img["id"] not in keep_image_ids:
+                    logger.info(f"Deleting image {img['id']}")
+                    supabase_request(
+                        "delete",
+                        "/rest/v1/car_images",
+                        params={"id": f"eq.{img['id']}"},
+                        user_id=current_user,
+                    )
 
         # Get updated car with images
         updated_car, updated_status = supabase_request(
@@ -2642,7 +2668,7 @@ def update_car(current_user, car_id):
             params={
                 "select": "*",
                 "car_id": f"eq.{car_id}",
-                "order": "created_at.asc",
+                "order": "uploaded_at.asc",
             },
             user_id=current_user,
         )
@@ -2762,7 +2788,6 @@ def upload_car_images(current_user, car_id):
                 "car_id": car_id,
                 "url": image_url,
                 "image_url": image_url,  # Add image_url field for frontend compatibility
-                "is_primary": (index == 0),  # First image is primary
             }
             supabase_request(
                 "post", "/rest/v1/car_images", data=image_data, user_id=current_user
@@ -6549,13 +6574,19 @@ def update_admin_user_status(current_user, user_id):
 
         data = request.get_json(silent=True) or {}
         next_status = (data.get("status") or "").strip().lower()
-        if next_status not in {"active", "suspended"}:
-            return jsonify({"error": "Status must be either active or suspended"}), 400
+        if next_status not in {"active", "suspended", "banned"}:
+            return jsonify({"error": "Status must be active, suspended, or banned"}), 400
+
+        status_reason = (data.get("reason") or data.get("note") or "").strip()
+
+        update_data = {"account_status": next_status}
+        if status_reason:
+            update_data["rejection_note"] = status_reason
 
         response, status_code = supabase_request(
             "patch",
             f"/rest/v1/users?id=eq.{user_id}",
-            data={"account_status": next_status},
+            data=update_data,
             use_service_role=True,
         )
 
@@ -6563,9 +6594,10 @@ def update_admin_user_status(current_user, user_id):
             logger.error(f"Failed updating user status for {user_id}: {response}")
             return jsonify({"error": "Failed to update user status"}), status_code
 
-        return jsonify(
-            {"message": f"User marked as {next_status}", "status": next_status}
-        ), 200
+        payload = {"message": f"User marked as {next_status}", "status": next_status}
+        if status_reason:
+            payload["reason"] = status_reason
+        return jsonify(payload), 200
     except Exception as e:
         logger.error(f"Error updating admin user status: {str(e)}")
         return jsonify({"error": "An error occurred while updating user status"}), 500
@@ -6911,7 +6943,7 @@ def admin_get_cars(current_user):
                     params={
                         "select": "*",
                         "car_id": f"eq.{car_id}",
-                        "order": "created_at.asc",
+                        "order": "uploaded_at.asc",
                     },
                     use_service_role=True,
                 )
@@ -8560,6 +8592,360 @@ def get_admin_listing_history(current_user):
     except Exception as e:
         logger.error(f"Error fetching listing history: {e}")
         return jsonify({"error": "Failed to fetch listing history"}), 500
+
+
+def _admin_get_listing_meta(item_type):
+    normalized = (item_type or "").strip().lower().rstrip("s")
+    return LISTING_TABLE_CONFIG.get(normalized)
+
+
+def _admin_fetch_user_rows(user_id):
+    user_response, user_status = supabase_request(
+        "get",
+        f"/rest/v1/users?id=eq.{user_id}&select=*",
+        use_service_role=True,
+    )
+    if user_status >= 400 or not user_response:
+        return None
+    return user_response[0]
+
+
+def _admin_fetch_listing_rows(table_name, owner_user_id=None, item_id=None, limit=25):
+    params = {"select": "*", "order": "created_at.desc", "limit": str(limit)}
+    if owner_user_id:
+        params["user_id"] = f"eq.{owner_user_id}"
+    if item_id:
+        params["id"] = f"eq.{item_id}"
+
+    response, status_code = supabase_request(
+        "get",
+        f"/rest/v1/{table_name}",
+        params=params,
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        return []
+    return response or []
+
+
+def _admin_listing_brief(listing_type, listing):
+    if not listing:
+        return None
+
+    title = (
+        listing.get("listing_title")
+        or listing.get("title")
+        or listing.get("name")
+        or listing.get("car_model")
+        or listing.get("bike_model")
+        or listing.get("code")
+        or "Untitled listing"
+    )
+    price = (
+        listing.get("display_price")
+        or listing.get("price")
+        or listing.get("expected_selling_price")
+    )
+    return {
+        "id": listing.get("id"),
+        "type": listing_type,
+        "title": title,
+        "status": listing.get("status") or "unknown",
+        "view_count": int(listing.get("view_count") or 0),
+        "price": price,
+        "created_at": listing.get("created_at"),
+        "last_viewed_at": listing.get("last_viewed_at"),
+    }
+
+
+def _admin_collect_owned_listing_stats(user_id):
+    summary = {
+        "cars": {"count": 0, "views": 0, "pending": 0, "approved": 0, "rejected": 0},
+        "bikes": {"count": 0, "views": 0, "pending": 0, "approved": 0, "rejected": 0},
+        "parts": {"count": 0, "views": 0, "pending": 0, "approved": 0, "rejected": 0},
+        "plates": {"count": 0, "views": 0, "pending": 0, "approved": 0, "rejected": 0},
+    }
+    recent_listings = []
+    owned_listing_ids = defaultdict(list)
+
+    for listing_type, config in LISTING_TABLE_CONFIG.items():
+        rows = _admin_fetch_listing_rows(config["table"], owner_user_id=user_id, limit=50)
+        stats = summary[listing_type if listing_type != "part" else "parts"]
+        for row in rows:
+            stats["count"] += 1
+            stats["views"] += int(row.get("view_count") or 0)
+            status = (row.get("status") or "pending").lower()
+            if status in stats:
+                stats[status] += 1
+            owned_listing_ids[listing_type].append(str(row.get("id")))
+            brief = _admin_listing_brief(listing_type, row)
+            if brief:
+                recent_listings.append(brief)
+
+    recent_listings.sort(
+        key=lambda item: item.get("created_at") or "",
+        reverse=True,
+    )
+
+    return summary, recent_listings[:20], owned_listing_ids
+
+
+def _admin_collect_user_events(user_id, owned_listing_ids, days=90):
+    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+    lead_events_resp, lead_events_status = supabase_request(
+        "get",
+        "/rest/v1/lead_events",
+        params={
+            "select": "*",
+            "created_at": f"gte.{cutoff}",
+            "order": "created_at.desc",
+            "limit": "2000",
+        },
+        use_service_role=True,
+    )
+    if lead_events_status >= 400:
+        lead_events_resp = []
+
+    report_resp, report_status = supabase_request(
+        "get",
+        "/rest/v1/reports",
+        params={
+            "select": "id,listing_id,listing_type,status,reason,details,created_at,reviewed_by,reviewed_at",
+            "created_at": f"gte.{cutoff}",
+            "order": "created_at.desc",
+            "limit": "500",
+        },
+        use_service_role=True,
+    )
+    if report_status >= 400:
+        report_resp = []
+
+    recent_events = []
+    lead_totals = defaultdict(int)
+    for event in lead_events_resp or []:
+        listing_type = (event.get("listing_type") or "").rstrip("s")
+        listing_id = str(event.get("listing_id"))
+        if listing_id in owned_listing_ids.get(listing_type, []):
+            recent_events.append(event)
+            lead_totals[event.get("action") or "unknown"] += 1
+
+    user_reports = []
+    owned_listing_set = {
+        listing_id
+        for ids in owned_listing_ids.values()
+        for listing_id in ids
+    }
+    for report in report_resp or []:
+        if report.get("reporter_id") == user_id or str(report.get("listing_id")) in owned_listing_set:
+            user_reports.append(report)
+
+    return {
+        "lead_totals": dict(lead_totals),
+        "recent_events": recent_events[:100],
+        "reports": user_reports[:100],
+    }
+
+
+def _admin_collect_dealer_stats(dealer_id):
+    return _admin_collect_owned_listing_stats(dealer_id)
+
+
+@app.route("/api/admin/users/<user_id>/overview", methods=["GET"])
+@token_required
+def get_admin_user_overview(current_user, user_id):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        user_row = _admin_fetch_user_rows(user_id)
+        if not user_row:
+            return jsonify({"error": "User not found"}), 404
+
+        listing_summary, recent_listings, owned_listing_ids = _admin_collect_owned_listing_stats(user_id)
+        activity = _admin_collect_user_events(user_id, owned_listing_ids)
+
+        total_views = sum(bucket["views"] for bucket in listing_summary.values())
+        total_listings = sum(bucket["count"] for bucket in listing_summary.values())
+        active_listings = sum(bucket["approved"] for bucket in listing_summary.values())
+        pending_listings = sum(bucket["pending"] for bucket in listing_summary.values())
+
+        recent_reports = activity["reports"]
+        lead_totals = activity["lead_totals"]
+
+        return jsonify(
+            {
+                "user": user_row,
+                "summary": {
+                    "total_listings": total_listings,
+                    "active_listings": active_listings,
+                    "pending_listings": pending_listings,
+                    "total_views": total_views,
+                    "call_clicks": int(lead_totals.get("call_click", 0)),
+                    "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
+                    "vin_opens": int(lead_totals.get("vin_open", 0)),
+                    "qualified_leads": int(lead_totals.get("call_click", 0)) + int(lead_totals.get("whatsapp_click", 0)),
+                    "report_count": len(recent_reports),
+                },
+                "listing_summary": listing_summary,
+                "recent_listings": recent_listings,
+                "recent_events": activity["recent_events"],
+                "recent_reports": recent_reports,
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error fetching admin user overview for {user_id}: {e}")
+        return jsonify({"error": "Failed to fetch user overview"}), 500
+
+
+@app.route("/api/admin/listings/<item_type>/<item_id>/overview", methods=["GET"])
+@token_required
+def get_admin_listing_overview(current_user, item_type, item_id):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        meta = _admin_get_listing_meta(item_type)
+        if not meta:
+            return jsonify({"error": "Invalid listing type"}), 400
+
+        listing_rows, listing_status = supabase_request(
+            "get",
+            f"/rest/v1/{meta['table']}",
+            params={"id": f"eq.{item_id}", "select": "*", "limit": "1"},
+            use_service_role=True,
+        )
+        if listing_status >= 400 or not listing_rows:
+            return jsonify({"error": "Listing not found"}), 404
+
+        listing = listing_rows[0]
+        owner_id = listing.get("user_id")
+        owner_row = _admin_fetch_user_rows(owner_id) if owner_id else None
+
+        images_rows, images_status = supabase_request(
+            "get",
+            f"/rest/v1/{meta['images_table']}",
+            params={
+                "select": "*",
+                meta["fk"]: f"eq.{item_id}",
+                "order": "uploaded_at.asc",
+            },
+            use_service_role=True,
+        )
+        if images_status >= 400:
+            images_rows = []
+
+        lead_events, lead_status = supabase_request(
+            "get",
+            "/rest/v1/lead_events",
+            params={
+                "select": "*",
+                "listing_id": f"eq.{item_id}",
+                "listing_type": f"eq.{item_type.rstrip('s')}",
+                "order": "created_at.desc",
+                "limit": "100",
+            },
+            use_service_role=True,
+        )
+        if lead_status >= 400:
+            lead_events = []
+
+        report_rows, report_status = supabase_request(
+            "get",
+            "/rest/v1/reports",
+            params={
+                "select": "*",
+                "listing_id": f"eq.{item_id}",
+                "listing_type": f"eq.{item_type.rstrip('s')}",
+                "order": "created_at.desc",
+                "limit": "100",
+            },
+            use_service_role=True,
+        )
+        if report_status >= 400:
+            report_rows = []
+
+        deletion_rows, deletion_status = supabase_request(
+            "get",
+            "/rest/v1/listing_deletion_events",
+            params={
+                "select": "*",
+                "listing_id": f"eq.{item_id}",
+                "listing_type": f"eq.{item_type.rstrip('s')}",
+                "order": "created_at.desc",
+                "limit": "50",
+            },
+            use_service_role=True,
+        )
+        if deletion_status >= 400:
+            deletion_rows = []
+
+        lead_totals = defaultdict(int)
+        for event in lead_events or []:
+            lead_totals[event.get("action") or "unknown"] += 1
+
+        return jsonify(
+            {
+                "listing": listing,
+                "owner": owner_row,
+                "images": images_rows or [],
+                "summary": {
+                    "view_count": int(listing.get("view_count") or 0),
+                    "call_clicks": int(lead_totals.get("call_click", 0)),
+                    "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
+                    "vin_opens": int(lead_totals.get("vin_open", 0)),
+                    "qualified_leads": int(lead_totals.get("call_click", 0)) + int(lead_totals.get("whatsapp_click", 0)),
+                    "report_count": len(report_rows or []),
+                    "deletion_count": len(deletion_rows or []),
+                },
+                "lead_events": lead_events or [],
+                "reports": report_rows or [],
+                "deletion_events": deletion_rows or [],
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error fetching listing overview for {item_type}/{item_id}: {e}")
+        return jsonify({"error": "Failed to fetch listing overview"}), 500
+
+
+@app.route("/api/admin/dealers/<dealer_id>/overview", methods=["GET"])
+@token_required
+def get_admin_dealer_overview(current_user, dealer_id):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        dealer_row = _admin_fetch_user_rows(dealer_id)
+        if not dealer_row:
+            return jsonify({"error": "Dealer not found"}), 404
+
+        listing_summary, recent_listings, owned_listing_ids = _admin_collect_owned_listing_stats(dealer_id)
+        activity = _admin_collect_user_events(dealer_id, owned_listing_ids)
+
+        dealer_bucket_total = sum(bucket["count"] for bucket in listing_summary.values())
+        dealer_views_total = sum(bucket["views"] for bucket in listing_summary.values())
+        lead_totals = activity["lead_totals"]
+
+        return jsonify(
+            {
+                "dealer": dealer_row,
+                "summary": {
+                    "total_listings": dealer_bucket_total,
+                    "total_views": dealer_views_total,
+                    "call_clicks": int(lead_totals.get("call_click", 0)),
+                    "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
+                    "vin_opens": int(lead_totals.get("vin_open", 0)),
+                    "qualified_leads": int(lead_totals.get("call_click", 0)) + int(lead_totals.get("whatsapp_click", 0)),
+                    "recent_reports": len(activity["reports"]),
+                },
+                "listing_summary": listing_summary,
+                "recent_listings": recent_listings,
+                "recent_events": activity["recent_events"],
+                "reports": activity["reports"],
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error fetching dealer overview for {dealer_id}: {e}")
+        return jsonify({"error": "Failed to fetch dealer overview"}), 500
 
 
 @app.route("/api/admin/dealers", methods=["GET"])
