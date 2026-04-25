@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.phone_verifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     phone TEXT NOT NULL,
-    purpose TEXT NOT NULL CHECK (purpose IN ('signup', 'phone_change', 'vin_reveal')),
+    purpose TEXT NOT NULL CHECK (purpose IN ('signup', 'phone_change', 'profile_verify', 'vin_reveal')),
     listing_id UUID,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'verified', 'expired', 'failed')),
     code_hash TEXT NOT NULL,

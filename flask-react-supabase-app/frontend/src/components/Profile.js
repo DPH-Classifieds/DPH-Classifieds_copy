@@ -234,8 +234,22 @@ const Profile = () => {
                 {userData?.phone && !userData?.phone_verified && (
                   <div className="profile-verification-callout">
                     <p>Your phone number is on file but not verified yet.</p>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/settings')}>
-                      Verify phone
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() =>
+                        navigate('/verify-phone', {
+                          state: {
+                            phone: userData.phone,
+                            countryCode: userData.country_code || '+971',
+                            purpose: 'profile_verify',
+                            redirect: '/profile',
+                            nextRoute: '/profile',
+                          },
+                        })
+                      }
+                    >
+                      Verify number
                     </button>
                   </div>
                 )}
