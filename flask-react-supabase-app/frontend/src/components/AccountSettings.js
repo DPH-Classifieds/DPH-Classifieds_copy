@@ -703,11 +703,11 @@ const AccountSettings = () => {
                       name="phone"
                       value={profileData.phone}
                       onChange={handleProfileInputChange}
-                      placeholder="50 123 4567"
+                      placeholder="501234567"
                       className="phone-number-input"
                     />
                   </div>
-                  <small className="form-text">Used for buyer inquiries</small>
+                  <small className="form-text">Choose your country code, then enter the local number without spaces or dashes.</small>
                 </div>
 
                 <div className="form-group">

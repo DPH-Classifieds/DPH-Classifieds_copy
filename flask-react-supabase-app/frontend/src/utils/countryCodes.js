@@ -60,18 +60,43 @@ export const countryCodes = [
 // Default country code (UAE)
 export const defaultCountryCode = '+971';
 
+const stripPhoneDigits = (value) => String(value || '').replace(/[^\d]/g, '');
+
+const normalizePhoneForDisplay = (phoneNumber, countryCode = defaultCountryCode) => {
+  if (!phoneNumber) return 'N/A';
+
+  const rawPhone = String(phoneNumber).trim();
+  if (!rawPhone) return 'N/A';
+
+  if (rawPhone.startsWith('+')) {
+    const digits = stripPhoneDigits(rawPhone);
+    return digits ? `+${digits}` : 'N/A';
+  }
+
+  const digits = stripPhoneDigits(rawPhone);
+  if (!digits) return 'N/A';
+
+  const resolvedCountryCode = String(countryCode || defaultCountryCode).trim() || defaultCountryCode;
+  const countryDigits = stripPhoneDigits(resolvedCountryCode) || stripPhoneDigits(defaultCountryCode);
+
+  if (countryDigits && digits.startsWith(countryDigits) && digits.length > 10) {
+    return `+${digits}`;
+  }
+
+  const cleanedNumber = digits.replace(/^0+/, '') || digits;
+  return `${resolvedCountryCode.startsWith('+') ? resolvedCountryCode : `+${countryDigits}`}${cleanedNumber}`;
+};
+
 // Helper function to format phone number for display
 export const formatPhoneNumber = (countryCode, phoneNumber) => {
-  if (!phoneNumber) return 'N/A';
-  
-  // Remove leading zeros from phone number
-  const cleanedNumber = String(phoneNumber).replace(/^0+/, '');
-  
-  return `${countryCode || defaultCountryCode}${cleanedNumber}`;
+  return normalizePhoneForDisplay(phoneNumber, countryCode);
+};
+
+export const formatVerificationPhone = (phoneNumber, countryCode) => {
+  return normalizePhoneForDisplay(phoneNumber, countryCode);
 };
 
 // Helper function to get country info by code
 export const getCountryByCode = (code) => {
   return countryCodes.find(c => c.code === code) || countryCodes[0];
 };
-

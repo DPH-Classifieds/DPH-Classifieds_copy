@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAccessToken } from '../utils/authService';
+import { formatVerificationPhone } from '../utils/countryCodes';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -30,6 +31,8 @@ const PhoneVerificationFlow = ({
   const [error, setError] = useState('');
   const [phoneVerification, setPhoneVerification] = useState(null);
   const [verified, setVerified] = useState(false);
+  const displayPhone = phoneVerification?.masked_phone
+    || (phoneInput || phone ? formatVerificationPhone(phoneInput || phone, countryCode) : '');
 
   useEffect(() => {
     setVerificationId(initialVerificationId);
@@ -218,7 +221,7 @@ const PhoneVerificationFlow = ({
       {phoneVerification?.masked_phone || phone ? (
         <div className="phone-verification-highlight">
           <span>Sent to</span>
-          <strong>{phoneVerification?.masked_phone || phoneInput || phone}</strong>
+          <strong>{displayPhone}</strong>
         </div>
       ) : null}
 
@@ -232,9 +235,12 @@ const PhoneVerificationFlow = ({
           type="tel"
           value={phoneInput}
           onChange={(e) => setPhoneInput(e.target.value)}
-          placeholder="+971501234567"
+          placeholder="+971501234567 or 0501234567"
           autoComplete="tel"
         />
+        <small className="form-hint">
+          Enter the number however you normally write it. We normalize it before sending the SMS.
+        </small>
       </div>
 
       <div className="form-group">

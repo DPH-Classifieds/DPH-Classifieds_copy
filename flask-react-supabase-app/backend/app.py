@@ -893,11 +893,16 @@ def _normalize_phone_number(phone, country_code=None):
         return None
 
     prefix = str(country_code or "").strip()
+    prefix_digits = re.sub(r"[^\d]", "", prefix)
     if prefix and not prefix.startswith("+"):
-        prefix_digits = re.sub(r"[^\d]", "", prefix)
         prefix = f"+{prefix_digits}"
     if not prefix:
         prefix = "+971"
+        if not prefix_digits:
+            prefix_digits = "971"
+
+    if prefix_digits and len(digits) > 10 and digits.startswith(prefix_digits):
+        return f"+{digits}"
 
     normalized_digits = digits.lstrip("0") or digits
     return f"{prefix}{normalized_digits}"
@@ -925,11 +930,13 @@ def _send_infobip_sms(to_phone, message):
     if not INFOBIP_API_KEY:
         return False, {"message": "INFOBIP_API_KEY is not configured"}
 
+    normalized_phone = _normalize_phone_number(to_phone)
+    destination_phone = re.sub(r"[^\d]", "", normalized_phone or str(to_phone or ""))
     payload = {
         "messages": [
             {
                 "sender": INFOBIP_SENDER,
-                "destinations": [{"to": re.sub(r"[^\d]", "", str(to_phone))}],
+                "destinations": [{"to": destination_phone}],
                 "content": {"text": message},
             }
         ]

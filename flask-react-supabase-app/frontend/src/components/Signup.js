@@ -525,12 +525,12 @@ const Signup = () => {
                   value={formData.phone}
                   onChange={handleInputChange}
                   required
-                  placeholder="50 123 4567"
+                  placeholder="501234567"
                   className="phone-number-input"
                 />
               </div>
               {renderFieldError('phone')}
-              <small className="form-hint">Used for buyer inquiries (will be displayed on your listings)</small>
+              <small className="form-hint">Choose your country code, then enter the local number without spaces or dashes.</small>
             </div>
           </div>
 
