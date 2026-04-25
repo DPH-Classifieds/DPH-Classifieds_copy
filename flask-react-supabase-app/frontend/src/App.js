@@ -7,6 +7,7 @@ import CookieBanner from './components/CookieBanner';
 import LoadingSpinner from './components/LoadingSpinner';
 import NotFound from './components/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import PhoneVerifiedRoute from './components/PhoneVerifiedRoute';
 import AdminRoute from './components/AdminRoute';
 import AdminLayout from './components/AdminLayout';
 import './App.css';
@@ -229,11 +230,13 @@ function App() {
                   <Route path="/edit/plate/:id" element={<PostPlate />} />
                   <Route path="/edit/part/:id" element={<PostCarParts />} />
                   <Route path="/edit/:type/:id" element={<EditTypeRedirect />} />
-                  <Route path="/post-car" element={<PostCar />} />
-                  <Route path="/post-bike" element={<PostBike />} />
-                  <Route path="/post-plate" element={<PostPlate />} />
-                  <Route path="/post-car-parts" element={<PostCarParts />} />
-                  <Route path="/post/:type" element={<PostTypeRedirect />} />
+                  <Route element={<PhoneVerifiedRoute />}>
+                    <Route path="/post-car" element={<PostCar />} />
+                    <Route path="/post-bike" element={<PostBike />} />
+                    <Route path="/post-plate" element={<PostPlate />} />
+                    <Route path="/post-car-parts" element={<PostCarParts />} />
+                    <Route path="/post/:type" element={<PostTypeRedirect />} />
+                  </Route>
                 </Route>
                 
                 {/* Admin routes */}

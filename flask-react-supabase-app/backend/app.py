@@ -4250,11 +4250,20 @@ def update_user_profile(current_user):
         check_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
         check_response = requests.get(check_url, headers=headers, timeout=10)
 
-        if check_response.status_code != 200 or not check_response.json():
+        try:
+            existing_rows = check_response.json()
+        except Exception:
+            logger.error(
+                f"Failed to parse user lookup response: {check_response.text}",
+                exc_info=True,
+            )
+            return jsonify({"message": "Failed to load user profile"}), 502
+
+        if check_response.status_code != 200 or not isinstance(existing_rows, list) or not existing_rows:
             logger.error(f"User not found: {current_user}")
             return jsonify({"message": "User not found"}), 404
 
-        existing_user = check_response.json()[0]
+        existing_user = existing_rows[0]
         existing_phone = _normalize_phone_number(
             existing_user.get("phone"),
             existing_user.get("country_code"),
@@ -4818,7 +4827,16 @@ def signup():
         response = requests.post(url, headers=headers, json=payload, timeout=10)
 
         if response.status_code == 200:
-            response_data = response.json()
+            try:
+                response_data = response.json()
+            except Exception:
+                logger.error(
+                    f"Signup succeeded but response was not valid JSON: {response.text}",
+                    exc_info=True,
+                )
+                return jsonify(
+                    {"message": "Signup succeeded but response was invalid"}
+                ), 502
             user_id = None
             try:
                 user_id = (
