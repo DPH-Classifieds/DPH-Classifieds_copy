@@ -1,6 +1,7 @@
 import React, { useEffect, Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import BetaGate from './components/BetaGate';
 import Header from './components/Header';
 import Footer from './components/ui/hover-footer';
 import CookieBanner from './components/CookieBanner';
@@ -162,7 +163,20 @@ const EditTypeRedirect = () => {
 
 function App() {
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [betaUnlocked, setBetaUnlocked] = useState(false);
   const telemetryEnabled = process.env.REACT_APP_ENABLE_VERCEL_TELEMETRY === 'true';
+
+  useEffect(() => {
+    const stored = localStorage.getItem('beta_unlocked');
+    if (stored === 'true') {
+      setBetaUnlocked(true);
+    }
+  }, []);
+
+  const handleBetaUnlock = () => {
+    localStorage.setItem('beta_unlocked', 'true');
+    setBetaUnlocked(true);
+  };
 
   useEffect(() => {
     if (!telemetryEnabled) {
@@ -189,7 +203,8 @@ function App() {
     <AuthProvider>
       <Router>
         <AuthHashHandler />
-        <div className="app">
+        {!betaUnlocked && <BetaGate onUnlock={handleBetaUnlock} />}
+        <div className="app" style={{ filter: betaUnlocked ? 'none' : 'blur(8px)', pointerEvents: betaUnlocked ? 'auto' : 'none' }}>
           <Header />
           <main className="app-content">
             <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
