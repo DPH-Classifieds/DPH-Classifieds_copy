@@ -31,6 +31,8 @@ const PhoneVerificationFlow = ({
   const [error, setError] = useState('');
   const [phoneVerification, setPhoneVerification] = useState(null);
   const [verified, setVerified] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const RESEND_COOLDOWN = 50;
   const displayPhone = phoneVerification?.masked_phone
     || (phoneInput || phone ? formatVerificationPhone(phoneInput || phone, countryCode) : '');
 
@@ -41,6 +43,14 @@ const PhoneVerificationFlow = ({
     setVerified(false);
     setCode('');
   }, [initialVerificationId, phone, purpose, listingId]);
+
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownRemaining((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownRemaining]);
 
   useEffect(() => {
     if (!open || verified) {
@@ -100,6 +110,7 @@ const PhoneVerificationFlow = ({
         setVerificationId(data.phone_verification?.verification_id || null);
         setPhoneVerification(data.phone_verification || null);
         setMessage('Verification code sent.');
+        setCooldownRemaining(RESEND_COOLDOWN);
       } catch (sendError) {
         setError(sendError.message || 'Failed to send verification code');
       } finally {
@@ -158,6 +169,7 @@ const PhoneVerificationFlow = ({
       setVerificationId(data.phone_verification?.verification_id || verificationId);
       setPhoneVerification(data.phone_verification || phoneVerification);
       setMessage('Verification code sent.');
+      setCooldownRemaining(RESEND_COOLDOWN);
     } catch (sendError) {
       setError(sendError.message || 'Failed to send verification code');
     } finally {
@@ -264,8 +276,13 @@ const PhoneVerificationFlow = ({
           </button>
         )}
         {!verified && (
-          <button type="button" className="auth-button auth-button-secondary" onClick={sendOrResend} disabled={loading || starting}>
-            {verificationId ? 'Resend code' : 'Send code'}
+          <button
+            type="button"
+            className="auth-button auth-button-secondary"
+            onClick={sendOrResend}
+            disabled={loading || starting || cooldownRemaining > 0}
+          >
+            {cooldownRemaining > 0 ? `Resend in ${cooldownRemaining}s` : verificationId ? 'Resend code' : 'Send code'}
           </button>
         )}
         <button type="submit" className="auth-button primary-button" disabled={loading || verified || !code.trim()}>
