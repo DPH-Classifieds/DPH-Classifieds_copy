@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
-import { formatCurrencyAED, formatDateTime, formatNumber, getDisplayName, getListingTitle, getListingTypeLabel, getStatusTone } from './admin/adminUtils';
+import { formatCurrencyAED, formatDateTime, formatNumber, getDisplayName, getEventActorLabel, getListingTitle, getListingTypeLabel, getStatusTone } from './admin/adminUtils';
 import '../styles/AdminOps.css';
 
 const EMPTY_ARRAY = [];
@@ -267,6 +267,7 @@ const AdminListingDetail = () => {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>Actor</th>
                 <th>Lead event</th>
                 <th>Action</th>
                 <th>Date</th>
@@ -274,9 +275,10 @@ const AdminListingDetail = () => {
             </thead>
             <tbody>
               {leadEvents.length === 0 ? (
-                <tr><td colSpan="3" className="admin-muted">No lead events found.</td></tr>
+                <tr><td colSpan="4" className="admin-muted">No lead events found.</td></tr>
               ) : leadEvents.slice(0, 15).map((event) => (
                 <tr key={event.id}>
+                  <td>{getEventActorLabel(event)}</td>
                   <td>{event.listing_type} · {event.listing_id}</td>
                   <td>{event.action}</td>
                   <td>{formatDateTime(event.created_at)}</td>

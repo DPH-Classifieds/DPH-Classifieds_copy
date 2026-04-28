@@ -112,6 +112,76 @@ def _admin_fetch_user(user_id):
     return rows[0] if rows else None
 
 
+def _admin_display_name_from_user_row(user_row):
+    if not user_row:
+        return None
+
+    display_name = user_row.get("display_name")
+    if display_name:
+        return display_name
+
+    full_name = " ".join(
+        part for part in [user_row.get("first_name"), user_row.get("last_name")] if part
+    ).strip()
+    if full_name:
+        return full_name
+
+    return user_row.get("username") or user_row.get("email")
+
+
+def _admin_fetch_user_display_map(user_ids):
+    normalized_ids = []
+    seen_ids = set()
+
+    for user_id in user_ids or []:
+        if not user_id:
+            continue
+        user_id = str(user_id)
+        if user_id in seen_ids:
+            continue
+        seen_ids.add(user_id)
+        normalized_ids.append(user_id)
+
+    if not normalized_ids:
+        return {}
+
+    user_map = {}
+    for index in range(0, len(normalized_ids), 50):
+        chunk = normalized_ids[index:index + 50]
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users",
+            headers=_admin_headers(),
+            params={
+                "select": "id,username,display_name,first_name,last_name,email",
+                "id": f"in.({','.join(chunk)})",
+            },
+            timeout=10,
+        )
+        if response.status_code != 200:
+            continue
+        for row in response.json() or []:
+            user_map[str(row.get("id"))] = row
+
+    return user_map
+
+
+def _admin_enrich_activity_rows(rows, user_field="user_id"):
+    enriched_rows = [dict(row) for row in (rows or [])]
+    user_ids = [row.get(user_field) for row in enriched_rows if row.get(user_field)]
+    user_map = _admin_fetch_user_display_map(user_ids)
+
+    for row in enriched_rows:
+        user_id = row.get(user_field)
+        user_row = user_map.get(str(user_id)) if user_id else None
+        actor_name = _admin_display_name_from_user_row(user_row)
+        row["actor_name"] = actor_name or ("Guest" if not user_id else "Unknown user")
+        if user_row:
+            row["actor_username"] = user_row.get("username")
+            row["actor_email"] = user_row.get("email")
+
+    return enriched_rows
+
+
 def _admin_listing_config(item_type):
     normalized = (item_type or "").strip().lower().rstrip("s")
     return {
@@ -211,6 +281,8 @@ def _admin_user_activity(user_id, owned_listing_ids, days=90):
         if listing_id in owned_listing_ids.get(listing_type, []):
             recent_events.append(event)
             lead_totals[event.get("action") or "unknown"] += 1
+
+    recent_events = _admin_enrich_activity_rows(recent_events, "user_id")
 
     owned_listing_set = {listing_id for ids in owned_listing_ids.values() for listing_id in ids}
     user_reports = []
@@ -1502,6 +1574,8 @@ def get_lead_metrics():
         report_count = len(report_rows or [])
         conversion_rate = round((report_count / qualified) * 100, 2) if qualified else 0
 
+        recent_rows = _admin_enrich_activity_rows(recent_rows, "user_id")
+
         return jsonify({
             "window_days": days,
             "totals": {
@@ -1644,6 +1718,8 @@ def get_listing_overview(item_type, item_id):
             timeout=15,
         )
         deletion_rows = deletion_resp.json() if deletion_resp.status_code == 200 else []
+
+        lead_rows = _admin_enrich_activity_rows(lead_rows, "user_id")
 
         lead_totals = defaultdict(int)
         for event in lead_rows or []:

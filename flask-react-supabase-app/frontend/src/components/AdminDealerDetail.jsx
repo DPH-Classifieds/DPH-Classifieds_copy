@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
-import { formatDateTime, formatNumber, getDisplayName, getStatusTone } from './admin/adminUtils';
+import { formatDateTime, formatNumber, getDisplayName, getEventActorLabel, getStatusTone } from './admin/adminUtils';
 import '../styles/AdminOps.css';
 
 const AdminDealerDetail = () => {
@@ -253,6 +253,7 @@ const AdminDealerDetail = () => {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>Actor</th>
                 <th>Recent activity</th>
                 <th>Action</th>
                 <th>When</th>
@@ -260,9 +261,10 @@ const AdminDealerDetail = () => {
             </thead>
             <tbody>
               {recentEvents.length === 0 ? (
-                <tr><td colSpan="3" className="admin-muted">No events found.</td></tr>
+                <tr><td colSpan="4" className="admin-muted">No events found.</td></tr>
               ) : recentEvents.slice(0, 12).map((event) => (
                 <tr key={event.id}>
+                  <td>{getEventActorLabel(event)}</td>
                   <td>{event.listing_type} · {event.listing_id}</td>
                   <td>{event.action}</td>
                   <td>{formatDateTime(event.created_at)}</td>

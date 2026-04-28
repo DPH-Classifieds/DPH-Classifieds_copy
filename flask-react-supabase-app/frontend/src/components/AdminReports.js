@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
+import { getEventActorLabel } from './admin/adminUtils';
 import '../styles/AdminOps.css';
 
 const AdminReports = () => {
@@ -59,6 +60,7 @@ const AdminReports = () => {
     reports_created: reports.length,
     report_conversion_percent: 0,
   };
+  const recentEvents = leadMetrics?.recent_events || [];
 
   return (
     <div className="admin-ops admin-page">
@@ -95,6 +97,39 @@ const AdminReports = () => {
           <div className="admin-kpi-label">VIN opens</div>
           <div className="admin-kpi-value">{totals.vin_open || 0}</div>
           <div className="admin-kpi-note">Protected data reveal actions.</div>
+        </div>
+      </div>
+
+      <div className="admin-section">
+        <div className="admin-surface">
+          <div className="admin-label">Recent lead activity</div>
+          <h2 style={{ margin: '8px 0 16px' }}>Who opened what</h2>
+          <div className="admin-table-card">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Actor</th>
+                  <th>Listing</th>
+                  <th>Action</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentEvents.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="admin-muted">No lead events found.</td>
+                  </tr>
+                ) : recentEvents.slice(0, 15).map((event) => (
+                  <tr key={event.id}>
+                    <td>{getEventActorLabel(event)}</td>
+                    <td>{event.listing_type} · {event.listing_id}</td>
+                    <td>{event.action}</td>
+                    <td>{event.created_at ? new Date(event.created_at).toLocaleString() : 'N/A'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

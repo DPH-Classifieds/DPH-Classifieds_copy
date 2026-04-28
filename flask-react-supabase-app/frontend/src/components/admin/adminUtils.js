@@ -49,6 +49,12 @@ export const getDisplayName = (user) =>
   user?.email ||
   'Unknown user';
 
+export const getEventActorLabel = (event) =>
+  event?.actor_name ||
+  event?.actor_username ||
+  event?.actor_email ||
+  (event?.user_id ? 'Unknown user' : 'Guest');
+
 export const getListingTitle = (listing) => {
   if (!listing) {
     return 'Unknown listing';

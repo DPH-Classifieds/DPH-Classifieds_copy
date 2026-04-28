@@ -1,8 +1,11 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, NavLink } from 'react-router-dom';
 import '../styles/AdminLayout.css';
 
-const AdminSidebar = ({ open }) => {
+const AdminSidebar = ({ open, user, onLogout }) => {
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
   const menuItems = [
     {
       path: '/admin',
@@ -15,7 +18,7 @@ const AdminSidebar = ({ open }) => {
         </svg>
       ),
       label: 'Dashboard',
-      exact: true
+      exact: true,
     },
     {
       path: '/admin/listings',
@@ -28,7 +31,7 @@ const AdminSidebar = ({ open }) => {
           <polyline points="10 9 9 9 8 9" />
         </svg>
       ),
-      label: 'Listings'
+      label: 'Listings',
     },
     {
       path: '/admin/dealers',
@@ -38,7 +41,7 @@ const AdminSidebar = ({ open }) => {
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       ),
-      label: 'Dealers'
+      label: 'Dealers',
     },
     {
       path: '/admin/users',
@@ -50,7 +53,7 @@ const AdminSidebar = ({ open }) => {
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
       ),
-      label: 'Users'
+      label: 'Users',
     },
     {
       path: '/admin/reports',
@@ -60,9 +63,54 @@ const AdminSidebar = ({ open }) => {
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>
       ),
-      label: 'Reports'
-    }
+      label: 'Reports',
+    },
   ];
+
+  const displayName = useMemo(
+    () =>
+      user?.display_name ||
+      [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
+      user?.username ||
+      user?.email ||
+      'Admin',
+    [user]
+  );
+
+  const avatarLabel = useMemo(() => (displayName ? displayName.charAt(0).toUpperCase() : 'A'), [displayName]);
+
+  useEffect(() => {
+    if (!profileMenuOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [profileMenuOpen]);
+
+  const handleLogout = async () => {
+    setProfileMenuOpen(false);
+    if (onLogout) {
+      await onLogout();
+    }
+  };
 
   return (
     <aside className={`admin-sidebar ${open ? 'open' : 'closed'}`}>
@@ -75,30 +123,53 @@ const AdminSidebar = ({ open }) => {
             key={item.path}
             to={item.path}
             end={item.exact}
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'active' : ''}`
-            }
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
           >
             <span className="sidebar-icon">{item.icon}</span>
             <span className="sidebar-label">{item.label}</span>
           </NavLink>
         ))}
       </nav>
-      <div className="sidebar-footer">
-        <NavLink
-          to="/profile"
-          className={({ isActive }) =>
-            `sidebar-link sidebar-profile-link ${isActive ? 'active' : ''}`
-          }
+      <div className="sidebar-footer" ref={menuRef}>
+        <button
+          type="button"
+          className="sidebar-profile-trigger"
+          onClick={() => setProfileMenuOpen((current) => !current)}
+          aria-expanded={profileMenuOpen}
+          aria-label="Profile menu"
         >
-          <span className="sidebar-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+          <span className="sidebar-profile-avatar" aria-hidden="true">
+            {avatarLabel}
           </span>
-          <span className="sidebar-label">Profile</span>
-        </NavLink>
+          <span className="sidebar-profile-copy">
+            <span className="sidebar-profile-label">Profile</span>
+            <span className="sidebar-profile-name">{displayName}</span>
+          </span>
+          <span className={`sidebar-profile-caret ${profileMenuOpen ? 'open' : ''}`} aria-hidden="true">
+            ▾
+          </span>
+        </button>
+
+        {profileMenuOpen && (
+          <div className="sidebar-profile-menu" role="menu" aria-label="Admin account menu">
+            <Link
+              to="/"
+              className="sidebar-profile-action"
+              onClick={() => setProfileMenuOpen(false)}
+              role="menuitem"
+            >
+              Back to Site
+            </Link>
+            <button
+              type="button"
+              className="sidebar-profile-action logout-action"
+              onClick={handleLogout}
+              role="menuitem"
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );
