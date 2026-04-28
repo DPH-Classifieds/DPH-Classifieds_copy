@@ -119,6 +119,7 @@ const PhoneVerificationFlow = ({
     };
 
     startVerification();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     open,
     autoStart,
@@ -131,7 +132,6 @@ const PhoneVerificationFlow = ({
     verificationId,
     verified,
     initialVerificationId,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   const sendOrResend = async () => {
