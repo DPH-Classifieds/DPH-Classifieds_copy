@@ -1778,7 +1778,28 @@ def _get_optional_user_id_from_auth_header():
         )
         return payload.get("sub")
     except Exception:
-        return None
+        pass
+
+    try:
+        auth_headers = {
+            "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        auth_response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers=auth_headers,
+            timeout=10,
+        )
+        if auth_response.status_code == 200:
+            supabase_user = auth_response.json()
+            current_user = supabase_user.get("id")
+            if current_user:
+                return current_user
+    except Exception as fallback_error:
+        logger.info(f"Optional Supabase token validation skipped: {fallback_error}")
+
+    return None
 
 
 def _resolve_listing_table(item_type):

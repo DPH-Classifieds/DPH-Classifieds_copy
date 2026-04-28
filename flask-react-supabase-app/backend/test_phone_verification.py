@@ -49,5 +49,23 @@ class InfobipPayloadTests(unittest.TestCase):
         )
 
 
+class OptionalAuthTests(unittest.TestCase):
+    @patch.object(backend.requests, "get")
+    def test_optional_auth_falls_back_to_supabase_validation(self, mock_get):
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {"id": "user-123"}
+        mock_get.return_value = response
+
+        with backend.app.test_request_context(
+            "/api/phone-verifications/start",
+            headers={"Authorization": "Bearer invalid.jwt.token"},
+        ):
+            user_id = backend._get_optional_user_id_from_auth_header()
+
+        self.assertEqual(user_id, "user-123")
+        self.assertTrue(mock_get.called)
+
+
 if __name__ == "__main__":
     unittest.main()

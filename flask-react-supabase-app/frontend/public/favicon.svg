@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DPH Classifieds">
+  <rect width="512" height="512" rx="112" fill="#0a1f14" />
+
+  <text
+    x="256"
+    y="308"
+    text-anchor="middle"
+    font-family="Inter, Arial, Helvetica, sans-serif"
+    font-size="182"
+    font-weight="900"
+    letter-spacing="-14"
+    fill="#ffffff"
+  >DPH</text>
+</svg>
