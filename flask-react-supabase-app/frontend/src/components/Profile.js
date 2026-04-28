@@ -9,6 +9,7 @@ import {
   getNextSuggestedField 
 } from '../utils/profileCompletion';
 import { resolveMediaUrl } from '../utils/media';
+import { formatPhoneNumber } from '../utils/countryCodes';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/Profile.css';
 
@@ -313,7 +314,7 @@ const Profile = () => {
                       Phone
                     </div>
                     <div className="profile-info-value">
-                      {userData?.country_code} {userData?.phone}
+                      {formatPhoneNumber(userData?.country_code, userData?.phone)}
                     </div>
                   </div>
                 )}

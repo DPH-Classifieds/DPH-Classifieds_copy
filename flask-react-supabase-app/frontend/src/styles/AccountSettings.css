@@ -220,6 +220,39 @@
   margin: 0;
 }
 
+.phone-field-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.phone-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.phone-status-pill.is-verified {
+  background: rgba(112, 201, 119, 0.16);
+  color: #c5f2c8;
+  border: 1px solid rgba(148, 218, 153, 0.18);
+}
+
+.phone-status-pill.needs-verification {
+  background: rgba(255, 204, 102, 0.12);
+  color: #ffe1a6;
+  border: 1px solid rgba(255, 204, 102, 0.16);
+}
+
 /* Buttons */
 .account-settings-container .btn {
   padding: 12px 24px;
@@ -737,6 +770,16 @@
   border-color: rgba(255, 204, 102, 0.18);
   color: #ffe1a6;
 }
+
+.phone-verification-inline-shell {
+  margin-top: 24px;
+}
+
+.phone-verification-inline {
+  max-width: none;
+  margin: 0;
+}
+
 
 @media (max-width: 768px) {
   .account-settings-container {

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAccessToken, getCurrentUser } from '../utils/authService';
 import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/profileCompletion';
 import { resolveMediaUrl } from '../utils/media';
+import { splitPhoneNumberForInput } from '../utils/countryCodes';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import '../styles/AccountSettings.css';
 
@@ -24,6 +25,51 @@ const COUNTRY_CODES = [
   { code: '+974', country: 'Qatar', flag: '🇶🇦' },
   { code: '+966', country: 'Saudi Arabia', flag: '🇸🇦' },
 ];
+
+const buildProfileDataFromUser = (user = {}) => {
+  const phoneParts = splitPhoneNumberForInput(user.phone, user.country_code || '+971');
+  const whatsappCountryCode = user.whatsapp_number
+    ? (user.whatsapp_number.match(/^(\+\d+)/)?.[1] || user.country_code || '+971')
+    : (user.country_code || '+971');
+  const whatsappParts = splitPhoneNumberForInput(user.whatsapp_number, whatsappCountryCode);
+
+  return {
+    email: user.email || '',
+    firstName: user.first_name || '',
+    lastName: user.last_name || '',
+    username: user.username || '',
+    displayName: user.display_name || user.displayName || '',
+    bio: user.bio || '',
+
+    phone: phoneParts.phoneNumber,
+    countryCode: phoneParts.countryCode,
+    whatsappCountryCode: whatsappParts.countryCode,
+    whatsappNumber: whatsappParts.phoneNumber,
+
+    city: user.city || '',
+    emirate: user.emirate || '',
+    country: user.country || 'United Arab Emirates',
+    postalCode: user.postal_code || '',
+    address: user.address || '',
+
+    isDealer: user.is_dealer || false,
+    companyName: user.company_name || '',
+    companyRegistrationNumber: user.company_registration_number || '',
+    tradeLicenseNumber: user.trade_license_number || '',
+    taxRegistrationNumber: user.tax_registration_number || '',
+
+    websiteUrl: user.website_url || '',
+    facebookUrl: user.facebook_url || '',
+    instagramUrl: user.instagram_url || '',
+    twitterUrl: user.twitter_url || '',
+
+    emailNotifications: user.email_notifications !== undefined ? user.email_notifications : true,
+    smsNotifications: user.sms_notifications !== undefined ? user.sms_notifications : true,
+    marketingEmails: user.marketing_emails || false,
+
+    profilePhotoUrl: user.profile_photo_url || user.profilePhotoUrl || '',
+  };
+};
 
 const AccountSettings = () => {
   const { user, updateUser, signOut } = useAuth();
@@ -102,42 +148,7 @@ const AccountSettings = () => {
 
   useEffect(() => {
     if (user) {
-      setProfileData({
-        email: user.email || '',
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
-        username: user.username || '',
-        displayName: user.display_name || user.displayName || '',
-        bio: user.bio || '',
-        
-        phone: user.phone || '',
-        countryCode: user.country_code || '+971',
-        whatsappCountryCode: user.whatsapp_number ? (user.whatsapp_number.match(/^(\+\d+)/)?.[1] || '+971') : '+971',
-        whatsappNumber: user.whatsapp_number ? (user.whatsapp_number.replace(/^\+\d+/, '') || '') : '',
-        
-        city: user.city || '',
-        emirate: user.emirate || '',
-        country: user.country || 'United Arab Emirates',
-        postalCode: user.postal_code || '',
-        address: user.address || '',
-        
-        isDealer: user.is_dealer || false,
-        companyName: user.company_name || '',
-        companyRegistrationNumber: user.company_registration_number || '',
-        tradeLicenseNumber: user.trade_license_number || '',
-        taxRegistrationNumber: user.tax_registration_number || '',
-        
-        websiteUrl: user.website_url || '',
-        facebookUrl: user.facebook_url || '',
-        instagramUrl: user.instagram_url || '',
-        twitterUrl: user.twitter_url || '',
-        
-        emailNotifications: user.email_notifications !== undefined ? user.email_notifications : true,
-        smsNotifications: user.sms_notifications !== undefined ? user.sms_notifications : true,
-        marketingEmails: user.marketing_emails || false,
-        
-        profilePhotoUrl: user.profile_photo_url || user.profilePhotoUrl || ''
-      });
+      setProfileData(buildProfileDataFromUser(user));
       setPhotoPreview(resolveMediaUrl(user.profile_photo_url || user.profilePhotoUrl || null));
     }
   }, [user]);
@@ -244,11 +255,20 @@ const AccountSettings = () => {
         console.log('Profile photo uploaded:', profilePhotoUrl);
       }
 
+      const phoneParts = splitPhoneNumberForInput(profileData.phone, profileData.countryCode);
+      const whatsappParts = splitPhoneNumberForInput(
+        profileData.whatsappNumber,
+        profileData.whatsappCountryCode,
+      );
+
       const updateData = {
         ...profileData,
+        phone: phoneParts.phoneNumber,
+        countryCode: phoneParts.countryCode,
         profilePhotoUrl,
-        whatsappNumber: profileData.whatsappNumber
-          ? `${profileData.whatsappCountryCode}${profileData.whatsappNumber}`
+        whatsappCountryCode: whatsappParts.countryCode,
+        whatsappNumber: whatsappParts.phoneNumber
+          ? `${whatsappParts.countryCode}${whatsappParts.phoneNumber}`
           : ''
       };
 
@@ -280,34 +300,7 @@ const AccountSettings = () => {
         updateUser(updatedUser);
         
         // Update local profile data state
-        setProfileData({
-          email: updatedUser.email || '',
-          firstName: updatedUser.first_name || '',
-          lastName: updatedUser.last_name || '',
-          username: updatedUser.username || '',
-          displayName: updatedUser.display_name || '',
-          phone: updatedUser.phone || '',
-          countryCode: updatedUser.country_code || '+971',
-          whatsappNumber: updatedUser.whatsapp_number || '',
-          city: updatedUser.area || '',
-          emirate: updatedUser.emirate || '',
-          country: updatedUser.country || 'United Arab Emirates',
-          postalCode: updatedUser.postal_code || '',
-          address: updatedUser.address || '',
-          bio: updatedUser.bio || '',
-          companyName: updatedUser.company_name || '',
-          companyRegistrationNumber: updatedUser.company_registration_number || '',
-          tradeLicenseNumber: updatedUser.trade_license_number || '',
-          taxRegistrationNumber: updatedUser.tax_registration_number || '',
-          websiteUrl: updatedUser.website_url || '',
-          instagramUrl: updatedUser.instagram_url || '',
-          facebookUrl: updatedUser.facebook_url || '',
-          twitterUrl: updatedUser.twitter_url || '',
-          emailNotifications: updatedUser.email_notifications ?? true,
-          smsNotifications: updatedUser.sms_notifications ?? false,
-          marketingEmails: updatedUser.marketing_emails ?? false,
-          profilePhotoUrl: updatedUser.profile_photo_url || ''
-        });
+        setProfileData(buildProfileDataFromUser(updatedUser));
         setPhotoPreview(resolveMediaUrl(updatedUser.profile_photo_url || updatedUser.profilePhotoUrl || null));
         
         // Recalculate profile completion
@@ -323,6 +316,7 @@ const AccountSettings = () => {
             countryCode: updatedUser.country_code || profileData.countryCode || '+971',
             purpose: 'phone_change',
           });
+          setMessage('✓ Profile updated successfully. Verify your new phone number below to keep phone verification active.');
         }
       } else {
         setMessage('✓ Profile updated successfully!');
@@ -707,7 +701,12 @@ const AccountSettings = () => {
                       className="phone-number-input"
                     />
                   </div>
-                  <small className="form-text">Choose your country code, then enter the local number without spaces or dashes.</small>
+                  <div className="phone-field-meta">
+                    <small className="form-text">Choose your country code, then enter the local number without spaces or dashes.</small>
+                    <span className={`phone-status-pill ${user?.phone_verified ? 'is-verified' : 'needs-verification'}`}>
+                      {user?.phone_verified ? 'Phone verified' : 'Phone needs verification'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -732,10 +731,11 @@ const AccountSettings = () => {
                       name="whatsappNumber"
                       value={profileData.whatsappNumber}
                       onChange={handleProfileInputChange}
-                      placeholder="If different from phone number"
+                      placeholder="501234567"
                       className="phone-number-input"
                     />
                   </div>
+                  <small className="form-text">Leave this blank if WhatsApp uses the same number as your phone.</small>
                 </div>
               </div>
 
@@ -856,6 +856,25 @@ const AccountSettings = () => {
                 {loading ? 'Updating Profile...' : 'Update Profile'}
               </button>
             </form>
+
+            {phoneVerificationSession && (
+              <div className="phone-verification-inline-shell">
+                <PhoneVerificationFlow
+                  mode="inline"
+                  open
+                  title="Verify your new phone number"
+                  description="We sent a code to your updated phone number. Enter it to finish the change."
+                  phone={phoneVerificationSession.phone}
+                  countryCode={phoneVerificationSession.countryCode}
+                  purpose={phoneVerificationSession.purpose}
+                  verificationId={phoneVerificationSession.verificationId}
+                  onVerified={handlePhoneVerificationSuccess}
+                  onClose={() => setPhoneVerificationSession(null)}
+                  autoStart={false}
+                  className="phone-verification-inline"
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -1134,21 +1153,6 @@ const AccountSettings = () => {
           </div>
         )}
 
-        {phoneVerificationSession && (
-          <PhoneVerificationFlow
-            mode="modal"
-            open
-            title="Verify your new phone number"
-            description="We sent a code to your updated phone number. Enter it to finish the change."
-            phone={phoneVerificationSession.phone}
-            countryCode={phoneVerificationSession.countryCode}
-            purpose={phoneVerificationSession.purpose}
-            verificationId={phoneVerificationSession.verificationId}
-            onVerified={handlePhoneVerificationSuccess}
-            onClose={() => setPhoneVerificationSession(null)}
-            autoStart={false}
-          />
-        )}
       </div>
     </div>
   );

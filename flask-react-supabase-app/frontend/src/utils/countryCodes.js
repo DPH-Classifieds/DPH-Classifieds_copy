@@ -62,29 +62,52 @@ export const defaultCountryCode = '+971';
 
 const stripPhoneDigits = (value) => String(value || '').replace(/[^\d]/g, '');
 
-const normalizePhoneForDisplay = (phoneNumber, countryCode = defaultCountryCode) => {
-  if (!phoneNumber) return 'N/A';
+const normalizeCountryCode = (countryCode = defaultCountryCode) => {
+  const resolvedCountryCode = String(countryCode || '').trim();
+  const digits = stripPhoneDigits(resolvedCountryCode) || stripPhoneDigits(defaultCountryCode);
+  return digits ? `+${digits}` : defaultCountryCode;
+};
 
-  const rawPhone = String(phoneNumber).trim();
-  if (!rawPhone) return 'N/A';
+export const splitPhoneNumberForInput = (phoneNumber, countryCode = defaultCountryCode) => {
+  const normalizedCountryCode = normalizeCountryCode(countryCode);
+  const rawPhone = String(phoneNumber || '').trim();
 
-  if (rawPhone.startsWith('+')) {
-    const digits = stripPhoneDigits(rawPhone);
-    return digits ? `+${digits}` : 'N/A';
+  if (!rawPhone) {
+    return {
+      countryCode: normalizedCountryCode,
+      phoneNumber: '',
+    };
   }
 
   const digits = stripPhoneDigits(rawPhone);
-  if (!digits) return 'N/A';
-
-  const resolvedCountryCode = String(countryCode || defaultCountryCode).trim() || defaultCountryCode;
-  const countryDigits = stripPhoneDigits(resolvedCountryCode) || stripPhoneDigits(defaultCountryCode);
-
-  if (countryDigits && digits.startsWith(countryDigits) && digits.length > 10) {
-    return `+${digits}`;
+  if (!digits) {
+    return {
+      countryCode: normalizedCountryCode,
+      phoneNumber: '',
+    };
   }
 
-  const cleanedNumber = digits.replace(/^0+/, '') || digits;
-  return `${resolvedCountryCode.startsWith('+') ? resolvedCountryCode : `+${countryDigits}`}${cleanedNumber}`;
+  const countryDigits = stripPhoneDigits(normalizedCountryCode);
+  const localNumber = digits.startsWith(countryDigits) && digits.length > countryDigits.length
+    ? digits.slice(countryDigits.length)
+    : digits;
+
+  return {
+    countryCode: normalizedCountryCode,
+    phoneNumber: localNumber.replace(/^0+/, ''),
+  };
+};
+
+const normalizePhoneForDisplay = (phoneNumber, countryCode = defaultCountryCode) => {
+  if (!phoneNumber) return 'N/A';
+
+  const { countryCode: resolvedCountryCode, phoneNumber: localNumber } = splitPhoneNumberForInput(
+    phoneNumber,
+    countryCode,
+  );
+
+  if (!localNumber) return 'N/A';
+  return `${resolvedCountryCode} ${localNumber}`;
 };
 
 // Helper function to format phone number for display
