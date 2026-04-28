@@ -26,11 +26,11 @@ export const AuthProvider = ({ children }) => {
 
     try {
       // First, refresh the Supabase session to ensure we have a fresh token
-      const { data: { session } } = await supabase.auth.refreshSession();
-      if (session?.access_token) {
+      const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+      if (refreshedSession?.access_token) {
         console.log('Session refreshed, storing new token');
-        localStorage.setItem('supabase_access_token', session.access_token);
-        authService.setAuthHeader(session.access_token);
+        localStorage.setItem('supabase_access_token', refreshedSession.access_token);
+        authService.setAuthHeader(refreshedSession.access_token);
       }
 
       // Always check with our backend first for admin status
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('Error syncing with backend:', err);
       }
-    
+
       // Continue with Supabase session check as backup
       const { session, error } = await getSession();
       
