@@ -2,9 +2,11 @@
 import unittest
 import os
 import sys
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import app as backend
 from analytics_metrics import build_platform_metrics, classify_platform_path
 
 
@@ -131,6 +133,35 @@ class PlatformAnalyticsHelperTests(unittest.TestCase):
         self.assertEqual(metrics["plate_metrics"]["total_listings"], 1)
         self.assertEqual(metrics["plate_metrics"]["most_in_demand"]["segment"], "Dubai")
         self.assertEqual(metrics["plate_metrics"]["most_in_demand"]["views"], 1)
+
+
+class PlatformAnalyticsRouteTests(unittest.TestCase):
+    @patch.object(backend, "ensure_platform_events_table")
+    @patch.object(backend, "supabase_request")
+    def test_event_route_bootstraps_missing_table_then_retries(self, mock_supabase_request, mock_ensure_table):
+        first_insert = ({"error": "relation \"platform_events\" does not exist"}, 404)
+        second_insert = ([{"id": "evt-1"}], 201)
+        mock_supabase_request.side_effect = [
+            first_insert,
+            second_insert,
+        ]
+        mock_ensure_table.return_value = True
+
+        with backend.app.test_request_context(
+            "/api/analytics/events",
+            method="POST",
+            json={
+                "event_name": "page_view",
+                "page_path": "/cars/abc-123",
+                "session_id": "session-1",
+                "visitor_id": "visitor-1",
+            },
+        ):
+            response = backend.track_platform_event()
+
+        self.assertEqual(response[1], 201)
+        self.assertTrue(mock_ensure_table.called)
+        self.assertEqual(mock_supabase_request.call_count, 2)
 
 
 if __name__ == "__main__":

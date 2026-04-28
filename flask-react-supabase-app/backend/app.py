@@ -1544,79 +1544,106 @@ def ensure_tables_exist():
         else:
             logger.info("Users table already exists")
 
-        platform_check = requests.get(
-            f"{SUPABASE_URL}/rest/v1/platform_events?limit=1", headers=headers, timeout=10
-        )
-        if (
-            platform_check.status_code == 404
-            or "does not exist" in platform_check.text.lower()
-        ):
-            logger.info("Platform analytics table does not exist, creating it")
-            create_platform_events_query = {
-                "name": "execute_sql",
-                "schema": "postgres",
-                "arguments": {
-                    "query": """
-                    CREATE TABLE IF NOT EXISTS public.platform_events (
-                        id UUID PRIMARY KEY,
-                        event_name TEXT NOT NULL,
-                        event_category TEXT,
-                        page_path TEXT,
-                        page_title TEXT,
-                        page_kind TEXT,
-                        element_tag TEXT,
-                        element_text TEXT,
-                        target_url TEXT,
-                        listing_type TEXT,
-                        listing_id TEXT,
-                        user_id UUID,
-                        visitor_id TEXT,
-                        session_id TEXT NOT NULL,
-                        duration_ms INTEGER DEFAULT 0,
-                        metadata JSONB DEFAULT '{}'::jsonb,
-                        created_at TIMESTAMPTZ DEFAULT NOW()
-                    );
-
-                    CREATE INDEX IF NOT EXISTS idx_platform_events_event_name ON public.platform_events(event_name);
-                    CREATE INDEX IF NOT EXISTS idx_platform_events_created_at ON public.platform_events(created_at DESC);
-                    CREATE INDEX IF NOT EXISTS idx_platform_events_session_id ON public.platform_events(session_id);
-                    CREATE INDEX IF NOT EXISTS idx_platform_events_visitor_id ON public.platform_events(visitor_id);
-                    CREATE INDEX IF NOT EXISTS idx_platform_events_user_id ON public.platform_events(user_id);
-                    CREATE INDEX IF NOT EXISTS idx_platform_events_listing ON public.platform_events(listing_type, listing_id);
-
-                    ALTER TABLE public.platform_events ENABLE ROW LEVEL SECURITY;
-
-                    DROP POLICY IF EXISTS "Service role all platform events" ON public.platform_events;
-                    CREATE POLICY "Service role all platform events"
-                    ON public.platform_events
-                    FOR ALL
-                    USING (true)
-                    WITH CHECK (true);
-
-                    GRANT ALL ON public.platform_events TO service_role;
-                    GRANT INSERT, SELECT ON public.platform_events TO authenticated;
-                    """
-                },
-            }
-
-            platform_rpc_response = requests.post(
-                f"{SUPABASE_URL}/rest/v1/rpc",
-                json=create_platform_events_query,
-                headers=headers,
-                timeout=10,
-            )
-
-            if platform_rpc_response.status_code >= 400:
-                logger.error(
-                    f"Failed to create platform events table: {platform_rpc_response.status_code} - {platform_rpc_response.text}"
-                )
-            else:
-                logger.info("Successfully created platform events table")
-        else:
-            logger.info("Platform analytics table already exists")
+        ensure_platform_events_table(headers=headers)
 
     except Exception as e:
         logger.error(f"Error checking/creating tables: {str(e)}")
+
+
+def ensure_platform_events_table(headers=None):
+    try:
+        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+        if not SUPABASE_URL or not service_key:
+            logger.info(
+                "Skipping platform events table check because Supabase config is missing"
+            )
+            return False
+
+        active_headers = headers or {
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+            "X-Postgres-Role": "service_role",
+        }
+
+        platform_check = requests.get(
+            f"{SUPABASE_URL}/rest/v1/platform_events?limit=1",
+            headers=active_headers,
+            timeout=10,
+        )
+        if (
+            platform_check.status_code != 404
+            and "does not exist" not in platform_check.text.lower()
+        ):
+            return True
+
+        logger.info("Platform analytics table does not exist, creating it")
+        create_platform_events_query = {
+            "name": "execute_sql",
+            "schema": "postgres",
+            "arguments": {
+                "query": """
+                CREATE TABLE IF NOT EXISTS public.platform_events (
+                    id UUID PRIMARY KEY,
+                    event_name TEXT NOT NULL,
+                    event_category TEXT,
+                    page_path TEXT,
+                    page_title TEXT,
+                    page_kind TEXT,
+                    element_tag TEXT,
+                    element_text TEXT,
+                    target_url TEXT,
+                    listing_type TEXT,
+                    listing_id TEXT,
+                    user_id UUID,
+                    visitor_id TEXT,
+                    session_id TEXT NOT NULL,
+                    duration_ms INTEGER DEFAULT 0,
+                    metadata JSONB DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_platform_events_event_name ON public.platform_events(event_name);
+                CREATE INDEX IF NOT EXISTS idx_platform_events_created_at ON public.platform_events(created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_platform_events_session_id ON public.platform_events(session_id);
+                CREATE INDEX IF NOT EXISTS idx_platform_events_visitor_id ON public.platform_events(visitor_id);
+                CREATE INDEX IF NOT EXISTS idx_platform_events_user_id ON public.platform_events(user_id);
+                CREATE INDEX IF NOT EXISTS idx_platform_events_listing ON public.platform_events(listing_type, listing_id);
+
+                ALTER TABLE public.platform_events ENABLE ROW LEVEL SECURITY;
+
+                DROP POLICY IF EXISTS "Service role all platform events" ON public.platform_events;
+                CREATE POLICY "Service role all platform events"
+                ON public.platform_events
+                FOR ALL
+                USING (true)
+                WITH CHECK (true);
+
+                GRANT ALL ON public.platform_events TO service_role;
+                GRANT INSERT, SELECT ON public.platform_events TO authenticated;
+                """
+            },
+        }
+
+        platform_rpc_response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/rpc",
+            json=create_platform_events_query,
+            headers=active_headers,
+            timeout=10,
+        )
+
+        if platform_rpc_response.status_code >= 400:
+            logger.error(
+                f"Failed to create platform events table: {platform_rpc_response.status_code} - {platform_rpc_response.text}"
+            )
+            return False
+
+        logger.info("Successfully created platform events table")
+        return True
+    except Exception as exc:
+        logger.error(f"Error ensuring platform events table exists: {exc}")
+        return False
 
 
 # Only run the table check when explicitly enabled. Running this at import time
@@ -8948,6 +8975,19 @@ def track_platform_event():
             data=row,
             use_service_role=True,
         )
+        if status_code >= 400 and (
+            status_code == 404
+            or "does not exist" in str(response).lower()
+            or "relation" in str(response).lower()
+        ):
+            if ensure_platform_events_table():
+                response, status_code = supabase_request(
+                    "post",
+                    "/rest/v1/platform_events",
+                    data=row,
+                    use_service_role=True,
+                )
+
         if status_code >= 400:
             logger.error(f"Failed to store platform event: {response}")
             return jsonify({"error": "Failed to track event"}), 500
