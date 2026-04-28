@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { DUBAI_AREAS, UAE_EMIRATES } from '../utils/listingConstants';
+import { saveAuthData, setAuthHeader } from '../utils/authService';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -318,6 +319,17 @@ const Signup = () => {
 
       if (!response.ok) {
         throw new Error(data.message || 'Signup failed');
+      }
+
+      // Save authentication tokens if present in response
+      if (data.access_token || data.session?.access_token) {
+        const authData = {
+          access_token: data.access_token || data.session?.access_token,
+          refresh_token: data.refresh_token || data.session?.refresh_token,
+          user: data.user || data.session?.user
+        };
+        saveAuthData(authData);
+        setAuthHeader(authData.access_token);
       }
 
       const verification = data.phone_verification;
