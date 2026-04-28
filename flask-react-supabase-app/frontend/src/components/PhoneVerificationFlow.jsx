@@ -131,7 +131,7 @@ const PhoneVerificationFlow = ({
     verificationId,
     verified,
     initialVerificationId,
-    // Remove mode and onVerified from dependencies to prevent re-triggers
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   const sendOrResend = async () => {
