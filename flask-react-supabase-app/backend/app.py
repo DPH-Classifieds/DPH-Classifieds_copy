@@ -31,6 +31,8 @@ from flask_cors import CORS
 from PIL import Image
 from werkzeug.utils import secure_filename
 
+from analytics_metrics import build_platform_metrics, classify_platform_path
+
 load_dotenv()
 
 app = Flask(__name__, static_folder="static")
@@ -1541,6 +1543,77 @@ def ensure_tables_exist():
                 logger.info("Successfully created users table")
         else:
             logger.info("Users table already exists")
+
+        platform_check = requests.get(
+            f"{SUPABASE_URL}/rest/v1/platform_events?limit=1", headers=headers, timeout=10
+        )
+        if (
+            platform_check.status_code == 404
+            or "does not exist" in platform_check.text.lower()
+        ):
+            logger.info("Platform analytics table does not exist, creating it")
+            create_platform_events_query = {
+                "name": "execute_sql",
+                "schema": "postgres",
+                "arguments": {
+                    "query": """
+                    CREATE TABLE IF NOT EXISTS public.platform_events (
+                        id UUID PRIMARY KEY,
+                        event_name TEXT NOT NULL,
+                        event_category TEXT,
+                        page_path TEXT,
+                        page_title TEXT,
+                        page_kind TEXT,
+                        element_tag TEXT,
+                        element_text TEXT,
+                        target_url TEXT,
+                        listing_type TEXT,
+                        listing_id TEXT,
+                        user_id UUID,
+                        visitor_id TEXT,
+                        session_id TEXT NOT NULL,
+                        duration_ms INTEGER DEFAULT 0,
+                        metadata JSONB DEFAULT '{}'::jsonb,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+
+                    CREATE INDEX IF NOT EXISTS idx_platform_events_event_name ON public.platform_events(event_name);
+                    CREATE INDEX IF NOT EXISTS idx_platform_events_created_at ON public.platform_events(created_at DESC);
+                    CREATE INDEX IF NOT EXISTS idx_platform_events_session_id ON public.platform_events(session_id);
+                    CREATE INDEX IF NOT EXISTS idx_platform_events_visitor_id ON public.platform_events(visitor_id);
+                    CREATE INDEX IF NOT EXISTS idx_platform_events_user_id ON public.platform_events(user_id);
+                    CREATE INDEX IF NOT EXISTS idx_platform_events_listing ON public.platform_events(listing_type, listing_id);
+
+                    ALTER TABLE public.platform_events ENABLE ROW LEVEL SECURITY;
+
+                    DROP POLICY IF EXISTS "Service role all platform events" ON public.platform_events;
+                    CREATE POLICY "Service role all platform events"
+                    ON public.platform_events
+                    FOR ALL
+                    USING (true)
+                    WITH CHECK (true);
+
+                    GRANT ALL ON public.platform_events TO service_role;
+                    GRANT INSERT, SELECT ON public.platform_events TO authenticated;
+                    """
+                },
+            }
+
+            platform_rpc_response = requests.post(
+                f"{SUPABASE_URL}/rest/v1/rpc",
+                json=create_platform_events_query,
+                headers=headers,
+                timeout=10,
+            )
+
+            if platform_rpc_response.status_code >= 400:
+                logger.error(
+                    f"Failed to create platform events table: {platform_rpc_response.status_code} - {platform_rpc_response.text}"
+                )
+            else:
+                logger.info("Successfully created platform events table")
+        else:
+            logger.info("Platform analytics table already exists")
 
     except Exception as e:
         logger.error(f"Error checking/creating tables: {str(e)}")
@@ -8812,6 +8885,184 @@ logger.info("Admin web routes registered successfully")
 # =====================
 # Lead + Lifecycle APIs
 # =====================
+
+
+@app.route("/api/analytics/events", methods=["POST"])
+def track_platform_event():
+    """Persist a raw platform analytics event."""
+    try:
+        payload = request.json or {}
+        event_name = (payload.get("event_name") or payload.get("action") or "").strip()
+        if not event_name:
+            return jsonify({"error": "event_name is required"}), 400
+
+        page_path = (payload.get("page_path") or payload.get("path") or "/").strip() or "/"
+        classified = classify_platform_path(page_path)
+        metadata = payload.get("metadata") or payload.get("payload") or {}
+        if not isinstance(metadata, dict):
+            metadata = {"value": metadata}
+
+        session_id = (
+            payload.get("session_id")
+            or metadata.get("session_id")
+            or payload.get("visitor_id")
+            or payload.get("user_id")
+            or str(uuid.uuid4())
+        )
+        visitor_id = payload.get("visitor_id") or metadata.get("visitor_id") or session_id
+        user_id = _get_optional_user_id_from_auth_header()
+
+        row = {
+            "id": str(uuid.uuid4()),
+            "event_name": event_name,
+            "event_category": (payload.get("event_category") or metadata.get("event_category") or event_name).strip(),
+            "page_path": page_path,
+            "page_title": payload.get("page_title") or metadata.get("page_title"),
+            "page_kind": payload.get("page_kind") or metadata.get("page_kind"),
+            "element_tag": payload.get("element_tag") or metadata.get("element_tag"),
+            "element_text": payload.get("element_text") or metadata.get("element_text"),
+            "target_url": payload.get("target_url") or metadata.get("target_url"),
+            "listing_type": (payload.get("listing_type") or classified.get("listing_type") or metadata.get("listing_type") or "").rstrip("s") or None,
+            "listing_id": str(payload.get("listing_id") or classified.get("listing_id") or metadata.get("listing_id") or "") or None,
+            "user_id": user_id,
+            "visitor_id": str(visitor_id),
+            "session_id": str(session_id),
+            "duration_ms": int(payload.get("duration_ms") or metadata.get("duration_ms") or 0),
+            "metadata": metadata,
+        }
+        if not row["page_kind"]:
+            if row["listing_id"]:
+                row["page_kind"] = "listing_detail"
+            elif page_path.startswith("/admin"):
+                row["page_kind"] = "admin"
+            elif page_path.startswith("/post-") or page_path.startswith("/create"):
+                row["page_kind"] = "post_form"
+            elif page_path == "/":
+                row["page_kind"] = "home"
+            else:
+                row["page_kind"] = "other"
+
+        response, status_code = supabase_request(
+            "post",
+            "/rest/v1/platform_events",
+            data=row,
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            logger.error(f"Failed to store platform event: {response}")
+            return jsonify({"error": "Failed to track event"}), 500
+
+        return jsonify({"success": True}), 201
+    except Exception as e:
+        logger.error(f"Error tracking platform event: {e}")
+        return jsonify({"error": "Failed to track event"}), 500
+
+
+@app.route("/api/admin/metrics/overview", methods=["GET"])
+@token_required
+def get_admin_metrics_overview(current_user):
+    """Return user, car, and plate analytics for the admin metrics page."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+
+        events_resp, events_status = supabase_request(
+            "get",
+            "/rest/v1/platform_events",
+            params={
+                "select": "*",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "5000",
+            },
+            use_service_role=True,
+        )
+        if events_status >= 400:
+            return jsonify({"error": "Failed to fetch analytics events"}), events_status
+
+        car_rows_resp, car_status = supabase_request(
+            "get",
+            "/rest/v1/cars",
+            params={
+                "select": "id,car_manufacturer,car_model,make_year,body_type,vehicle_type,expected_selling_price,view_count,status,user_id,created_at",
+                "order": "created_at.desc",
+                "limit": "1000",
+            },
+            use_service_role=True,
+        )
+        if car_status >= 400:
+            car_rows_resp = []
+
+        plate_rows_resp, plate_status = supabase_request(
+            "get",
+            "/rest/v1/license_plates",
+            params={
+                "select": "id,city,code,number,digits,price,plate_format,view_count,status,user_id,created_at",
+                "order": "created_at.desc",
+                "limit": "1000",
+            },
+            use_service_role=True,
+        )
+        if plate_status >= 400:
+            plate_rows_resp = []
+
+        bike_rows_resp, bike_status = supabase_request(
+            "get",
+            "/rest/v1/bikes",
+            params={
+                "select": "id,make,model,make_year,body_type,vehicle_type,price,view_count,status,user_id,created_at",
+                "order": "created_at.desc",
+                "limit": "1000",
+            },
+            use_service_role=True,
+        )
+        if bike_status >= 400:
+            bike_rows_resp = []
+
+        part_rows_resp, part_status = supabase_request(
+            "get",
+            "/rest/v1/car_parts",
+            params={
+                "select": "id,title,name,price,view_count,status,user_id,created_at",
+                "order": "created_at.desc",
+                "limit": "1000",
+            },
+            use_service_role=True,
+        )
+        if part_status >= 400:
+            part_rows_resp = []
+
+        user_rows_resp, user_status = supabase_request(
+            "get",
+            "/rest/v1/users",
+            params={
+                "select": "id,username,display_name,first_name,last_name,email,created_at,is_dealer,account_status,phone_verified,email_verified",
+                "order": "created_at.desc",
+                "limit": "2000",
+            },
+            use_service_role=True,
+        )
+        if user_status >= 400:
+            user_rows_resp = []
+
+        metrics = build_platform_metrics(
+            events_resp or [],
+            car_rows=car_rows_resp or [],
+            plate_rows=plate_rows_resp or [],
+            user_rows=user_rows_resp or [],
+            bike_rows=bike_rows_resp or [],
+            part_rows=part_rows_resp or [],
+            days=days,
+        )
+
+        return jsonify(metrics), 200
+    except Exception as e:
+        logger.error(f"Error fetching admin metrics overview: {str(e)}")
+        return jsonify({"error": "Failed to fetch admin metrics"}), 500
 
 
 @app.route("/api/listings/<item_type>/<item_id>/lead-events", methods=["POST"])

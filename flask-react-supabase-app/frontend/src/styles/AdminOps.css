@@ -763,6 +763,24 @@
   align-items: center;
 }
 
+.admin-ops .admin-metrics-surface {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-ops .admin-metrics-title {
+  margin: 8px 0 0;
+  font-size: 1.5rem;
+  line-height: 1.15;
+}
+
+.admin-ops .admin-chart-label {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
 .admin-ops .admin-chart-track {
   position: relative;
   height: 10px;
@@ -855,5 +873,14 @@
   .admin-ops .action-button,
   .admin-ops .admin-dealers__actions button {
     width: 100%;
+  }
+
+  .admin-ops .admin-chart-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-ops .admin-chart-value {
+    text-align: left;
   }
 }

@@ -170,6 +170,7 @@ const AdminDashboard = () => {
     { label: 'Review Listings', href: '/admin/listings', description: 'Inspect listing performance and moderation.' },
     { label: 'Review Dealers', href: '/admin/dealers', description: 'Check verification and dealer health.' },
     { label: 'Open Reports', href: '/admin/reports', description: 'Track reports, removals, and lead history.' },
+    { label: 'Open Metrics', href: '/admin/metrics', description: 'Review retention, car demand, and plate analysis.' },
   ];
 
   if (loading) {

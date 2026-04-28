@@ -65,6 +65,17 @@ const AdminSidebar = ({ open, user, onLogout }) => {
       ),
       label: 'Reports',
     },
+    {
+      path: '/admin/metrics',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 3v18h18" />
+          <path d="M7 14l3-3 3 2 4-6" />
+          <path d="M17 7h3v3" />
+        </svg>
+      ),
+      label: 'Metrics',
+    },
   ];
 
   const displayName = useMemo(

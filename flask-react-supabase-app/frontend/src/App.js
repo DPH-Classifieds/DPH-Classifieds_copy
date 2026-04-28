@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PhoneVerifiedRoute from './components/PhoneVerifiedRoute';
 import AdminRoute from './components/AdminRoute';
 import AdminLayout from './components/AdminLayout';
+import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -90,6 +91,7 @@ const AdminListingDetail = lazy(() => import('./components/AdminListingDetail'))
 const AdminDealers = lazy(() => import('./components/AdminDealers'));
 const AdminDealerDetail = lazy(() => import('./components/AdminDealerDetail'));
 const AdminReports = lazy(() => import('./components/AdminReports'));
+const AdminMetrics = lazy(() => import('./components/AdminMetrics'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
 const ExplorePage = lazy(() => import('./components/ExplorePage'));
@@ -189,6 +191,7 @@ function App() {
     <AuthProvider>
       <Router>
         <AuthHashHandler />
+        <PlatformAnalyticsTracker />
         <div className="app">
           <Header />
           <main className="app-content">
@@ -256,6 +259,7 @@ function App() {
                   <Route path="dealers" element={<AdminDealers />} />
                   <Route path="dealers/:dealerId" element={<AdminDealerDetail />} />
                   <Route path="reports" element={<AdminReports />} />
+                  <Route path="metrics" element={<AdminMetrics />} />
                 </Route>
                 
                 {/* 404 route */}
