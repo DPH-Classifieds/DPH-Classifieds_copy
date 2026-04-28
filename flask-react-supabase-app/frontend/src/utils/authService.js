@@ -34,22 +34,22 @@ axios.interceptors.response.use(
 );
 
 // Save auth data to local storage
-const saveAuthData = (authData) => {
+export const saveAuthData = (authData) => {
   logger.debug('Saving auth data to localStorage', { ...authData, access_token: '[REDACTED]' });
   localStorage.setItem('authData', JSON.stringify(authData));
 };
 
 // Get auth data from local storage
-const getAuthData = () => {
+export const getAuthData = () => {
   const authData = localStorage.getItem('authData');
   const parsedData = authData ? JSON.parse(authData) : null;
-  logger.debug('Retrieved auth data from localStorage', parsedData ? 
+  logger.debug('Retrieved auth data from localStorage', parsedData ?
     { ...parsedData, access_token: parsedData.access_token ? '[REDACTED]' : null } : null);
   return parsedData;
 };
 
 // Clear auth data from local storage
-const clearAuthData = () => {
+export const clearAuthData = () => {
   logger.debug('Clearing auth data from localStorage');
   localStorage.removeItem('authData');
 };
