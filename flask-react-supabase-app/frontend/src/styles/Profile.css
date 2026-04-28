@@ -891,6 +891,7 @@
   --pf-focus: 0 0 0 3px rgba(74, 222, 128, 0.26);
   max-width: 1024px;
   padding: 24px 16px 96px;
+  overflow-x: clip;
   background:
     radial-gradient(72rem 36rem at 50% -20%, rgba(74, 222, 128, 0.09), transparent 58%),
     linear-gradient(180deg, #0a0a0a 0%, #090909 100%);
@@ -929,6 +930,7 @@
   padding: 22px;
   background: transparent;
   border-bottom: 1px solid var(--pf-border);
+  align-items: flex-start;
 }
 
 .profile-avatar-large {
@@ -939,6 +941,13 @@
 .profile-avatar-large.placeholder {
   background: linear-gradient(135deg, #0f2b18 0%, #143a1f 100%);
   color: #eaffef;
+}
+
+.profile-basic-info,
+.profile-details,
+.profile-actions,
+.social-links {
+  min-width: 0;
 }
 
 .profile-name,
@@ -1026,6 +1035,8 @@
 
 .profile-info-value {
   color: #edf6ee;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .profile-section.dealer-info-section {
@@ -1050,6 +1061,7 @@
 
 .social-links {
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .social-link {
@@ -1095,6 +1107,14 @@
   color: #ffd4da;
 }
 
+.profile-actions {
+  gap: 12px;
+}
+
+.profile-actions .btn {
+  flex: 1 1 180px;
+}
+
 .profile-container .alert-danger,
 .profile-container .alert-warning {
   border-radius: 14px;
@@ -1115,9 +1135,21 @@
     padding: 16px 14px 80px;
   }
 
+  .profile-header-banner {
+    padding: 24px 16px;
+    margin-bottom: 18px;
+    text-align: left;
+  }
+
   .profile-header-section {
     padding: 18px;
-    gap: 20px;
+    gap: 18px;
+    flex-direction: column;
+  }
+
+  .profile-avatar-large {
+    width: 112px;
+    height: 112px;
   }
 
   .profile-section,
@@ -1126,8 +1158,84 @@
     padding: 16px;
   }
 
+  .profile-completion-card {
+    padding: 18px;
+  }
+
+  .completion-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .profile-info-label {
+    flex: 1 1 auto;
+  }
+
   .profile-info-row {
     flex-direction: column;
     gap: 6px;
+  }
+
+  .profile-info-value {
+    width: 100%;
+  }
+
+  .profile-actions {
+    padding: 16px;
+  }
+
+  .profile-actions .btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .social-link {
+    flex: 1 1 calc(50% - 6px);
+    text-align: center;
+  }
+
+  .profile-photo-overlay {
+    position: static;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    opacity: 1;
+    margin-top: 12px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-page-title {
+    font-size: 2rem;
+  }
+
+  .profile-page-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .social-link {
+    flex: 1 1 100%;
+  }
+
+  .profile-badges {
+    gap: 6px;
+  }
+
+  .badge {
+    width: 100%;
+    text-align: center;
   }
 }
