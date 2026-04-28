@@ -202,27 +202,26 @@ export const getCurrentUser = async () => {
       logger.debug('No access token available, user not logged in');
       return { user: null, error: null };
     }
-    
+
     logger.debug(`Sending request to ${API_URL}/api/auth/me with token`);
     const response = await axios.get(`${API_URL}/api/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    
+
     logger.info('User info retrieved successfully:', response.data);
     return { user: response.data, error: null };
   } catch (error) {
     logger.error('Get user error:', error);
-    
-    // If unauthorized (e.g., token expired), clear local data
+
+    // Don't automatically clear auth data on 401 - let the caller decide
+    // This prevents clearing valid auth data when there are transient issues
     if (error.response && error.response.status === 401) {
-      logger.warn('Unauthorized, clearing auth data');
-      clearAuthData();
-      setAuthHeader(null);
+      logger.warn('Unauthorized (token may be expired)');
     }
-    
-    return { 
-      user: null, 
-      error: error.response?.data?.message || error.message || 'Failed to get user information' 
+
+    return {
+      user: null,
+      error: error.response?.data?.message || error.message || 'Failed to get user information'
     };
   }
 };

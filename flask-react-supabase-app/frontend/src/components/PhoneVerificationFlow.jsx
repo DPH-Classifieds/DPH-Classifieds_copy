@@ -131,8 +131,7 @@ const PhoneVerificationFlow = ({
     verificationId,
     verified,
     initialVerificationId,
-    mode,
-    onVerified,
+    // Remove mode and onVerified from dependencies to prevent re-triggers
   ]);
 
   const sendOrResend = async () => {

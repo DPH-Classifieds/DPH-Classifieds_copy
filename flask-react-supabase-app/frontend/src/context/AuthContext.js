@@ -11,14 +11,32 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Flag to prevent concurrent auth checks
+  let isAuthChecking = false;
+
   // Function to sync with Supabase's session
   const syncWithSupabase = async () => {
+    if (isAuthChecking) {
+      console.log('Auth check already in progress, skipping');
+      return false;
+    }
+
+    isAuthChecking = true;
     console.log('Syncing auth state with Supabase');
+
     try {
+      // First, refresh the Supabase session to ensure we have a fresh token
+      const { data: { session } } = await supabase.auth.refreshSession();
+      if (session?.access_token) {
+        console.log('Session refreshed, storing new token');
+        localStorage.setItem('supabase_access_token', session.access_token);
+        authService.setAuthHeader(session.access_token);
+      }
+
       // Always check with our backend first for admin status
       try {
         const { user: backendUser, error: userError } = await authService.getCurrentUser();
-        
+
         if (backendUser) {
           console.log('Backend user found:', backendUser.email, 'Admin:', backendUser.is_admin);
           // Keep any existing values but update with backend data
@@ -28,6 +46,7 @@ export const AuthProvider = ({ children }) => {
             // Keep the access_token if it exists in the current user object
             access_token: prevUser?.access_token || backendUser.access_token
           }));
+          isAuthChecking = false;
           return true;
         } else if (userError) {
           console.error('Error checking backend user:', userError);
@@ -173,12 +192,14 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('supabase_access_token');
           }
         }
-        
+
         return false;
       }
     } catch (err) {
       console.error('Error syncing with Supabase:', err);
       return false;
+    } finally {
+      isAuthChecking = false;
     }
   };
 
@@ -224,14 +245,16 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('supabase_access_token', session.access_token);
           authService.setAuthHeader(session.access_token);
 
-          const { user: backendUser } = await authService.getCurrentUser();
+          // Only check backend if we have a valid token
+          const { user: backendUser, error: userError } = await authService.getCurrentUser();
           if (backendUser) {
             setUser({
               ...backendUser,
               access_token: session.access_token,
               session
             });
-          } else {
+          } else if (!userError || userError !== 'Token has expired or is invalid') {
+            // Only set Supabase user if backend error is not a token expiration
             setUser({
               ...session.user,
               access_token: session.access_token,
