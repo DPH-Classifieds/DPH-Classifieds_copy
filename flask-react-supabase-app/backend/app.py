@@ -919,7 +919,9 @@ def _mask_phone_number(phone):
 
 def _generate_phone_verification_code():
     alphabet = "0123456789"
-    return "".join(secrets.choice(alphabet) for _ in range(PHONE_VERIFICATION_CODE_LENGTH))
+    return "".join(
+        secrets.choice(alphabet) for _ in range(PHONE_VERIFICATION_CODE_LENGTH)
+    )
 
 
 def _hash_phone_verification_code(code, salt):
@@ -932,6 +934,20 @@ def _send_infobip_sms(to_phone, message):
 
     normalized_phone = _normalize_phone_number(to_phone)
     destination_phone = re.sub(r"[^\d]", "", normalized_phone or str(to_phone or ""))
+
+    # Development mode: log code to console instead of sending SMS
+    if os.getenv("ENVIRONMENT") == "development" or os.getenv("SKIP_SMS") == "true":
+        print("\n" + "=" * 60)
+        print("📱 DEVELOPMENT MODE - SMS NOT SENT")
+        print("=" * 60)
+        print(f"Phone: {normalized_phone}")
+        print(f"Message: {message}")
+        print("=" * 60 + "\n")
+        return True, {
+            "status": "dev_mode",
+            "message": "SMS logged to console in dev mode",
+        }
+
     payload = {
         "messages": [
             {
@@ -949,10 +965,15 @@ def _send_infobip_sms(to_phone, message):
 
     try:
         response = requests.post(
-            f"{INFOBIP_BASE_URL}/sms/3/messages", headers=headers, json=payload, timeout=15
+            f"{INFOBIP_BASE_URL}/sms/3/messages",
+            headers=headers,
+            json=payload,
+            timeout=15,
         )
         if response.status_code >= 400:
-            logger.error(f"Infobip SMS send failed: {response.status_code} {response.text}")
+            logger.error(
+                f"Infobip SMS send failed: {response.status_code} {response.text}"
+            )
             return False, {"status": response.status_code, "details": response.text}
         return True, response.json()
     except Exception as exc:
@@ -974,7 +995,9 @@ def _get_user_profile_for_verification(user_id):
     return resp[0]
 
 
-def _lookup_phone_verification(*, verification_id=None, user_id=None, purpose=None, listing_id=None):
+def _lookup_phone_verification(
+    *, verification_id=None, user_id=None, purpose=None, listing_id=None
+):
     params = {"select": "*", "order": "created_at.desc", "limit": 1}
     if verification_id:
         params["id"] = f"eq.{verification_id}"
@@ -1026,7 +1049,9 @@ def _expire_active_phone_verifications(user_id, purpose, listing_id=None):
         )
 
 
-def _issue_phone_verification(*, user_id, phone, purpose, country_code=None, listing_id=None, metadata=None):
+def _issue_phone_verification(
+    *, user_id, phone, purpose, country_code=None, listing_id=None, metadata=None
+):
     normalized_phone = _normalize_phone_number(phone, country_code)
     if not normalized_phone:
         raise ValueError("A valid phone number is required")
@@ -1066,7 +1091,11 @@ def _issue_phone_verification(*, user_id, phone, purpose, country_code=None, lis
     if insert_status >= 400:
         raise RuntimeError(f"Failed to create phone verification: {insert_response}")
 
-    verification = insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response
+    verification = (
+        insert_response[0]
+        if isinstance(insert_response, list) and insert_response
+        else insert_response
+    )
 
     message = (
         f"Your DPH Classifieds verification code is {code}. "
@@ -1156,12 +1185,18 @@ def _resend_phone_verification(verification_record):
             f"Failed to send verification SMS: {send_result.get('message') or send_result.get('details')}"
         )
 
-    verification = patch_response[0] if isinstance(patch_response, list) and patch_response else patch_response
+    verification = (
+        patch_response[0]
+        if isinstance(patch_response, list) and patch_response
+        else patch_response
+    )
     verification["expires_at"] = _isoformat_utc(expires_at)
     return {"verification": verification, "code": code, "send_result": send_result}
 
 
-def _finalize_phone_verification(verification_record, code, *, ip_address=None, user_agent=None):
+def _finalize_phone_verification(
+    verification_record, code, *, ip_address=None, user_agent=None
+):
     if not verification_record:
         raise ValueError("Verification record not found")
 
@@ -1258,7 +1293,9 @@ def _phone_verification_response(record):
     expires_at = _parse_datetime(record.get("expires_at"))
     resend_available_at = None
     if record.get("last_sent_at"):
-        resend_available_at = _parse_datetime(record.get("last_sent_at")) + datetime.timedelta(seconds=PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS)
+        resend_available_at = _parse_datetime(
+            record.get("last_sent_at")
+        ) + datetime.timedelta(seconds=PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS)
     return {
         "verification_id": record.get("id"),
         "phone": record.get("phone"),
@@ -1267,8 +1304,12 @@ def _phone_verification_response(record):
         "status": record.get("status"),
         "attempt_count": int(record.get("attempt_count") or 0),
         "send_count": int(record.get("send_count") or 0),
-        "expires_at": _isoformat_utc(expires_at) if expires_at else record.get("expires_at"),
-        "resend_available_at": _isoformat_utc(resend_available_at) if resend_available_at else None,
+        "expires_at": _isoformat_utc(expires_at)
+        if expires_at
+        else record.get("expires_at"),
+        "resend_available_at": _isoformat_utc(resend_available_at)
+        if resend_available_at
+        else None,
         "masked_phone": _mask_phone_number(record.get("phone")),
         "last_error": record.get("last_error"),
         "verified_at": record.get("verified_at"),
@@ -1426,7 +1467,9 @@ def ensure_tables_exist():
         service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
 
         if not SUPABASE_URL or not service_key:
-            logger.info("Skipping startup table check because Supabase config is missing")
+            logger.info(
+                "Skipping startup table check because Supabase config is missing"
+            )
             return
 
         headers = {
@@ -3005,9 +3048,7 @@ def update_car(current_user, car_id):
                         )
 
                         if upload_error:
-                            message = (
-                                f"Failed to upload new image {file.filename}: {upload_error}"
-                            )
+                            message = f"Failed to upload new image {file.filename}: {upload_error}"
                             logger.error(message)
                             upload_failures.append(message)
                             continue
@@ -4255,7 +4296,9 @@ def update_user_profile(current_user):
         }
 
         # Check if user exists
-        check_url = f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
+        check_url = (
+            f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=*"
+        )
         check_response = requests.get(check_url, headers=headers, timeout=10)
 
         try:
@@ -4267,7 +4310,11 @@ def update_user_profile(current_user):
             )
             return jsonify({"message": "Failed to load user profile"}), 502
 
-        if check_response.status_code != 200 or not isinstance(existing_rows, list) or not existing_rows:
+        if (
+            check_response.status_code != 200
+            or not isinstance(existing_rows, list)
+            or not existing_rows
+        ):
             logger.error(f"User not found: {current_user}")
             return jsonify({"message": "User not found"}), 404
 
@@ -4882,7 +4929,9 @@ def signup():
                     }
 
             response_data["phone_verification"] = signup_phone_verification
-            response_data["phone_verification_required"] = bool(signup_phone_verification)
+            response_data["phone_verification_required"] = bool(
+                signup_phone_verification
+            )
             return jsonify(response_data), 200
 
         # Try to parse error details; fall back to raw text
@@ -4946,9 +4995,7 @@ def start_phone_verification():
             return jsonify({"message": str(resend_err)}), 400
         except Exception as resend_err:
             logger.error(f"Failed to resend verification: {resend_err}", exc_info=True)
-            return jsonify(
-                {"message": "Failed to resend verification code"}
-            ), 500
+            return jsonify({"message": "Failed to resend verification code"}), 500
 
     if not current_user:
         return jsonify({"message": "Authentication required"}), 401
@@ -5023,7 +5070,9 @@ def verify_phone_verification():
 
     verification_record = None
     if verification_id:
-        verification_record = _lookup_phone_verification(verification_id=verification_id)
+        verification_record = _lookup_phone_verification(
+            verification_id=verification_id
+        )
     elif current_user:
         verification_record = _lookup_phone_verification(
             user_id=current_user,
@@ -5059,9 +5108,7 @@ def verify_phone_verification():
             status_code = 429
         return jsonify({"message": error_message}), status_code
     except Exception as verification_err:
-        logger.error(
-            f"Failed to verify phone code: {verification_err}", exc_info=True
-        )
+        logger.error(f"Failed to verify phone code: {verification_err}", exc_info=True)
         return jsonify({"message": "Failed to verify code"}), 500
 
 
@@ -7252,7 +7299,9 @@ def update_admin_user_status(current_user, user_id):
         data = request.get_json(silent=True) or {}
         next_status = (data.get("status") or "").strip().lower()
         if next_status not in {"active", "suspended", "banned"}:
-            return jsonify({"error": "Status must be active, suspended, or banned"}), 400
+            return jsonify(
+                {"error": "Status must be active, suspended, or banned"}
+            ), 400
 
         status_reason = (data.get("reason") or data.get("note") or "").strip()
 
@@ -9346,7 +9395,9 @@ def _admin_collect_owned_listing_stats(user_id):
     owned_listing_ids = defaultdict(list)
 
     for listing_type, config in LISTING_TABLE_CONFIG.items():
-        rows = _admin_fetch_listing_rows(config["table"], owner_user_id=user_id, limit=50)
+        rows = _admin_fetch_listing_rows(
+            config["table"], owner_user_id=user_id, limit=50
+        )
         stats = summary[listing_type if listing_type != "part" else "parts"]
         for row in rows:
             stats["count"] += 1
@@ -9408,12 +9459,13 @@ def _admin_collect_user_events(user_id, owned_listing_ids, days=90):
 
     user_reports = []
     owned_listing_set = {
-        listing_id
-        for ids in owned_listing_ids.values()
-        for listing_id in ids
+        listing_id for ids in owned_listing_ids.values() for listing_id in ids
     }
     for report in report_resp or []:
-        if report.get("reporter_id") == user_id or str(report.get("listing_id")) in owned_listing_set:
+        if (
+            report.get("reporter_id") == user_id
+            or str(report.get("listing_id")) in owned_listing_set
+        ):
             user_reports.append(report)
 
     return {
@@ -9438,7 +9490,9 @@ def get_admin_user_overview(current_user, user_id):
         if not user_row:
             return jsonify({"error": "User not found"}), 404
 
-        listing_summary, recent_listings, owned_listing_ids = _admin_collect_owned_listing_stats(user_id)
+        listing_summary, recent_listings, owned_listing_ids = (
+            _admin_collect_owned_listing_stats(user_id)
+        )
         activity = _admin_collect_user_events(user_id, owned_listing_ids)
 
         total_views = sum(bucket["views"] for bucket in listing_summary.values())
@@ -9460,7 +9514,8 @@ def get_admin_user_overview(current_user, user_id):
                     "call_clicks": int(lead_totals.get("call_click", 0)),
                     "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
                     "vin_opens": int(lead_totals.get("vin_open", 0)),
-                    "qualified_leads": int(lead_totals.get("call_click", 0)) + int(lead_totals.get("whatsapp_click", 0)),
+                    "qualified_leads": int(lead_totals.get("call_click", 0))
+                    + int(lead_totals.get("whatsapp_click", 0)),
                     "report_count": len(recent_reports),
                 },
                 "listing_summary": listing_summary,
@@ -9570,7 +9625,8 @@ def get_admin_listing_overview(current_user, item_type, item_id):
                     "call_clicks": int(lead_totals.get("call_click", 0)),
                     "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
                     "vin_opens": int(lead_totals.get("vin_open", 0)),
-                    "qualified_leads": int(lead_totals.get("call_click", 0)) + int(lead_totals.get("whatsapp_click", 0)),
+                    "qualified_leads": int(lead_totals.get("call_click", 0))
+                    + int(lead_totals.get("whatsapp_click", 0)),
                     "report_count": len(report_rows or []),
                     "deletion_count": len(deletion_rows or []),
                 },
@@ -9595,10 +9651,14 @@ def get_admin_dealer_overview(current_user, dealer_id):
         if not dealer_row:
             return jsonify({"error": "Dealer not found"}), 404
 
-        listing_summary, recent_listings, owned_listing_ids = _admin_collect_owned_listing_stats(dealer_id)
+        listing_summary, recent_listings, owned_listing_ids = (
+            _admin_collect_owned_listing_stats(dealer_id)
+        )
         activity = _admin_collect_user_events(dealer_id, owned_listing_ids)
 
-        dealer_bucket_total = sum(bucket["count"] for bucket in listing_summary.values())
+        dealer_bucket_total = sum(
+            bucket["count"] for bucket in listing_summary.values()
+        )
         dealer_views_total = sum(bucket["views"] for bucket in listing_summary.values())
         lead_totals = activity["lead_totals"]
 
@@ -9611,7 +9671,8 @@ def get_admin_dealer_overview(current_user, dealer_id):
                     "call_clicks": int(lead_totals.get("call_click", 0)),
                     "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
                     "vin_opens": int(lead_totals.get("vin_open", 0)),
-                    "qualified_leads": int(lead_totals.get("call_click", 0)) + int(lead_totals.get("whatsapp_click", 0)),
+                    "qualified_leads": int(lead_totals.get("call_click", 0))
+                    + int(lead_totals.get("whatsapp_click", 0)),
                     "recent_reports": len(activity["reports"]),
                 },
                 "listing_summary": listing_summary,

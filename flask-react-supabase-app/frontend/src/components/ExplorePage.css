@@ -577,15 +577,143 @@
 
 @media (max-width: 560px) {
   .explore-v2-hero {
-    padding-top: 66px;
+    padding-top: 40px;
+    padding-bottom: 16px;
   }
 
   .explore-v2-hero-copy h1 {
-    font-size: clamp(2.35rem, 12vw, 3.8rem);
+    font-size: clamp(1.8rem, 8vw, 2.5rem);
+    margin-bottom: 12px;
+  }
+
+  .explore-v2-hero-copy p,
+  .explore-v2-filter-header p,
+  .explore-v2-results-header p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .explore-v2-hero-stats {
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .explore-v2-stat {
+    padding: 14px;
+  }
+
+  .explore-v2-stat strong {
+    font-size: 1.5rem;
+    margin-bottom: 6px;
+  }
+
+  .explore-v2-stat span {
+    font-size: 0.86rem;
+  }
+
+  .explore-v2-mode-band,
+  .explore-v2-filter-section,
+  .explore-v2-results-section {
+    margin-top: 16px;
   }
 
   .explore-v2-filter-panel,
+  .explore-v2-state-card {
+    padding: 16px;
+  }
+
+  .explore-v2-filter-header h2,
+  .explore-v2-results-header h2 {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+  }
+
+  .explore-v2-filter-header,
+  .explore-v2-results-header {
+    margin-bottom: 12px;
+  }
+
+  .explore-v2-filter-grid {
+    gap: 10px;
+  }
+
+  .explore-v2-field {
+    gap: 6px;
+  }
+
+  .explore-v2-field input,
+  .explore-v2-field select {
+    min-height: 48px;
+    padding: 0 14px;
+    font-size: 0.9rem;
+  }
+
+  .explore-v2-field span {
+    font-size: 0.72rem;
+  }
+
+  .explore-v2-filter-actions {
+    margin-top: 12px;
+  }
+
+  .explore-v2-button {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 0.9rem;
+  }
+
+  .explore-v2-grid {
+    gap: 14px;
+  }
+
+  .explore-v2-card {
+    border-radius: 18px;
+  }
+
+  .explore-v2-card-media {
+    aspect-ratio: 16 / 9;
+  }
+
   .explore-v2-card-copy {
-    padding: 20px;
+    padding: 14px;
+  }
+
+  .explore-v2-card-price {
+    font-size: 0.92rem;
+  }
+
+  .explore-v2-card-head h3 {
+    font-size: 0.94rem;
+  }
+
+  .explore-v2-card-meta {
+    font-size: 0.78rem;
+  }
+
+  .explore-v2-card-description {
+    font-size: 0.78rem;
+  }
+
+  .explore-v2-seller-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .explore-v2-seller strong {
+    font-size: 0.86rem;
+  }
+
+  .explore-v2-seller span {
+    font-size: 0.74rem;
+  }
+
+  .explore-v2-card-actions {
+    padding-top: 12px;
+  }
+
+  .explore-v2-card-actions .explore-v2-button {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 0.86rem;
   }
 }
