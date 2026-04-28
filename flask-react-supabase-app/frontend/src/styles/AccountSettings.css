@@ -780,22 +780,243 @@
   margin: 0;
 }
 
+/* Post-car aligned refresh */
+.account-settings-container {
+  --pf-bg: #0a0a0a;
+  --pf-surface: #0e0e0e;
+  --pf-card: #1c1c1c;
+  --pf-input: #1a1a1a;
+  --pf-border: #2a2a2a;
+  --pf-text: #f0f0f0;
+  --pf-label: #c0c0c0;
+  --pf-muted: #8a8a8a;
+  --pf-placeholder: #555555;
+  --pf-accent: #4ade80;
+  --pf-accent-hover: #22c55e;
+  --pf-focus: 0 0 0 3px rgba(74, 222, 128, 0.26);
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 24px 16px 96px;
+  background:
+    radial-gradient(72rem 36rem at 50% -20%, rgba(74, 222, 128, 0.09), transparent 58%),
+    linear-gradient(180deg, #0a0a0a 0%, #090909 100%);
+  color: var(--pf-text);
+}
+
+.account-settings-container .settings-header {
+  padding: 22px 20px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  background: var(--pf-surface);
+  border: 1px solid var(--pf-border);
+  box-shadow: none;
+  text-align: left;
+}
+
+.account-settings-container .settings-header h1 {
+  margin: 0 0 6px;
+  color: #ffffff;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: -0.01em;
+}
+
+.account-settings-container .settings-header p {
+  color: var(--pf-muted);
+  margin: 0;
+}
+
+.account-settings-container .completion-indicator,
+.account-settings-container .settings-tabs,
+.account-settings-container .settings-content,
+.account-settings-container .form-section,
+.account-settings-container .profile-photo-section,
+.account-settings-container .account-details,
+.account-settings-container .danger-zone,
+.account-settings-container .verification-notice {
+  background: var(--pf-card);
+  border: 1px solid var(--pf-border);
+  box-shadow: none;
+}
+
+.account-settings-container .settings-tabs {
+  padding: 8px;
+  gap: 8px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+
+.account-settings-container .tab-button {
+  border-radius: 12px;
+  color: var(--pf-muted);
+  background: transparent;
+  border-bottom: none;
+}
+
+.account-settings-container .tab-button.active {
+  background: var(--pf-accent);
+  color: #09110a;
+}
+
+.account-settings-container .settings-content {
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.account-settings-container .tab-content h2,
+.account-settings-container .form-section h3,
+.account-settings-container .account-info-section h3,
+.account-settings-container .danger-zone h3,
+.account-settings-container .danger-content h4 {
+  color: #ffffff;
+}
+
+.account-settings-container .tab-content h2 {
+  margin-top: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--pf-border);
+}
+
+.account-settings-container .form-section {
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.account-settings-container .profile-form,
+.account-settings-container .security-form {
+  gap: 14px;
+}
+
+.account-settings-container .profile-photo-section,
+.account-settings-container .account-details,
+.account-settings-container .danger-zone {
+  border-radius: 14px;
+}
+
+.account-settings-container .form-group label,
+.account-settings-container .info-label,
+.account-settings-container .checkbox-label strong {
+  color: var(--pf-label);
+}
+
+.account-settings-container .form-group input,
+.account-settings-container .form-group select,
+.account-settings-container .form-group textarea,
+.account-settings-container .country-code-select,
+.account-settings-container .phone-number-input {
+  background: var(--pf-input);
+  border: 1px solid var(--pf-border);
+  color: var(--pf-text);
+  border-radius: 10px;
+}
+
+.account-settings-container .form-group input:focus,
+.account-settings-container .form-group select:focus,
+.account-settings-container .form-group textarea:focus,
+.account-settings-container .country-code-select:focus,
+.account-settings-container .phone-number-input:focus {
+  border-color: var(--pf-accent);
+  box-shadow: var(--pf-focus);
+}
+
+.account-settings-container .phone-input-group {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.account-settings-container .phone-field-meta,
+.account-settings-container .phone-verification-inline-shell {
+  margin-top: 10px;
+}
+
+.account-settings-container .phone-status-pill {
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.18);
+  color: #d9fce5;
+}
+
+.account-settings-container .btn {
+  border-radius: 999px;
+  min-height: 46px;
+}
+
+.account-settings-container .btn-primary {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: #07110b;
+}
+
+.account-settings-container .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6ee7a3 0%, #34d399 100%);
+  box-shadow: 0 10px 24px rgba(74, 222, 128, 0.18);
+}
+
+.account-settings-container .btn-secondary,
+.account-settings-container .btn-outline {
+  background: rgba(74, 222, 128, 0.08);
+  color: #eaf9ee;
+  border: 1px solid rgba(74, 222, 128, 0.16);
+}
+
+.account-settings-container .btn-danger {
+  background: rgba(220, 53, 69, 0.14);
+  color: #ffd4da;
+  border: 1px solid rgba(220, 53, 69, 0.22);
+}
+
+.account-settings-container .alert-success,
+.account-settings-container .alert-danger,
+.account-settings-container .alert-warning {
+  border-radius: 14px;
+  border-width: 1px;
+}
+
+.account-settings-container .alert-success {
+  background: rgba(74, 222, 128, 0.12);
+  color: #d9fce5;
+}
+
+.account-settings-container .alert-danger {
+  background: rgba(220, 53, 69, 0.12);
+  color: #ffd4da;
+}
+
+.account-settings-container .alert-warning {
+  background: rgba(255, 204, 102, 0.12);
+  color: #ffe1a6;
+}
+
+.account-settings-container .verification-notice {
+  border-radius: 14px;
+}
+
+.account-settings-container .social-link {
+  background: #141414;
+  border-color: var(--pf-border);
+  color: #edf6ee;
+}
+
+.account-settings-container .social-link:hover {
+  background: #1a1a1a;
+  border-color: var(--pf-accent);
+  color: #ffffff;
+}
 
 @media (max-width: 768px) {
   .account-settings-container {
-    padding: 36px 16px 72px;
+    padding: 16px 14px 80px;
   }
 
-  .settings-header,
-  .settings-content {
-    padding: 22px;
+  .account-settings-container .settings-header,
+  .account-settings-container .settings-content {
+    padding: 16px;
   }
 
-  .settings-tabs {
-    flex-direction: column;
+  .account-settings-container .phone-input-group {
+    grid-template-columns: 1fr;
   }
 
-  .tab-button {
+  .account-settings-container .tab-button {
     width: 100%;
   }
 }

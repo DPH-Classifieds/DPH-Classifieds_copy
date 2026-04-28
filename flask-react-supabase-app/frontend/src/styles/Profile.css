@@ -874,3 +874,260 @@
     font-size: 24px;
   }
 }
+
+/* Post-car aligned refresh */
+.profile-container {
+  --pf-bg: #0a0a0a;
+  --pf-surface: #0e0e0e;
+  --pf-card: #1c1c1c;
+  --pf-input: #1a1a1a;
+  --pf-border: #2a2a2a;
+  --pf-text: #f0f0f0;
+  --pf-label: #c0c0c0;
+  --pf-muted: #8a8a8a;
+  --pf-placeholder: #555555;
+  --pf-accent: #4ade80;
+  --pf-accent-hover: #22c55e;
+  --pf-focus: 0 0 0 3px rgba(74, 222, 128, 0.26);
+  max-width: 1024px;
+  padding: 24px 16px 96px;
+  background:
+    radial-gradient(72rem 36rem at 50% -20%, rgba(74, 222, 128, 0.09), transparent 58%),
+    linear-gradient(180deg, #0a0a0a 0%, #090909 100%);
+  color: var(--pf-text);
+}
+
+.profile-header-banner {
+  background: var(--pf-surface);
+  border: 1px solid var(--pf-border);
+  text-align: left;
+  padding: 22px 20px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.profile-content-wrapper {
+  gap: 16px;
+}
+
+.profile-completion-card,
+.modern-card,
+.profile-section,
+.profile-bio-section,
+.profile-statistics {
+  background: var(--pf-card);
+  border: 1px solid var(--pf-border);
+  box-shadow: none;
+}
+
+.profile-completion-card,
+.modern-card {
+  border-radius: 14px;
+}
+
+.profile-header-section {
+  padding: 22px;
+  background: transparent;
+  border-bottom: 1px solid var(--pf-border);
+}
+
+.profile-avatar-large {
+  border-color: var(--pf-border);
+  box-shadow: none;
+}
+
+.profile-avatar-large.placeholder {
+  background: linear-gradient(135deg, #0f2b18 0%, #143a1f 100%);
+  color: #eaffef;
+}
+
+.profile-name,
+.profile-bio-section h3,
+.profile-statistics h3,
+.profile-section h3 {
+  color: #ffffff;
+}
+
+.profile-username,
+.member-since,
+.profile-page-subtitle,
+.profile-bio-section p,
+.profile-info-value,
+.profile-info-label,
+.stat-label {
+  color: var(--pf-muted);
+}
+
+.badge-verified,
+.badge-dealer,
+.badge-dealer-verified,
+.badge-admin {
+  border-radius: 999px;
+}
+
+.badge-verified {
+  background: rgba(74, 222, 128, 0.12);
+  color: #d9fce5;
+}
+
+.badge-dealer,
+.badge-dealer-verified {
+  background: rgba(74, 222, 128, 0.1);
+  color: #d9fce5;
+}
+
+.badge-admin {
+  background: rgba(220, 53, 69, 0.12);
+  color: #ffd4da;
+}
+
+.profile-bio-section,
+.profile-statistics,
+.profile-section {
+  padding: 18px 22px;
+  border-radius: 14px;
+  border-bottom: 1px solid var(--pf-border);
+}
+
+.profile-statistics {
+  background: linear-gradient(180deg, rgba(28, 28, 28, 0.95) 0%, rgba(16, 16, 16, 0.98) 100%);
+}
+
+.stats-grid {
+  gap: 12px;
+}
+
+.stat-item {
+  background: #141414;
+  border: 1px solid var(--pf-border);
+  border-radius: 12px;
+}
+
+.stat-number {
+  color: #ffffff;
+}
+
+.stat-label {
+  color: rgba(74, 222, 128, 0.86);
+}
+
+.profile-details {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-info-row {
+  border-color: var(--pf-border);
+}
+
+.profile-info-label {
+  color: var(--pf-label);
+}
+
+.profile-info-value {
+  color: #edf6ee;
+}
+
+.profile-section.dealer-info-section {
+  background: linear-gradient(180deg, rgba(13, 29, 18, 0.98) 0%, rgba(10, 18, 12, 0.98) 100%);
+}
+
+.verified-badge,
+.social-link {
+  border-radius: 999px;
+}
+
+.verified-badge {
+  background: rgba(74, 222, 128, 0.12);
+  color: #d9fce5;
+}
+
+.verification-pending {
+  background: rgba(255, 204, 102, 0.12);
+  color: #ffe1a6;
+  border-radius: 12px;
+}
+
+.social-links {
+  gap: 10px;
+}
+
+.social-link {
+  background: #141414;
+  border: 1px solid var(--pf-border);
+  color: #edf6ee;
+}
+
+.social-link:hover {
+  background: #1a1a1a;
+  border-color: var(--pf-accent);
+  color: #ffffff;
+}
+
+.profile-verification-callout {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.16);
+}
+
+.profile-container .btn {
+  border-radius: 999px;
+}
+
+.profile-container .btn-primary {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: #07110b;
+}
+
+.profile-container .btn-primary:hover {
+  background: linear-gradient(135deg, #6ee7a3 0%, #34d399 100%);
+}
+
+.profile-container .btn-secondary {
+  background: rgba(74, 222, 128, 0.08);
+  color: #edf6ee;
+}
+
+.profile-container .btn-danger {
+  background: rgba(220, 53, 69, 0.14);
+  color: #ffd4da;
+}
+
+.profile-container .alert-danger,
+.profile-container .alert-warning {
+  border-radius: 14px;
+}
+
+.profile-container .alert-danger {
+  background: rgba(220, 53, 69, 0.12);
+  color: #ffd4da;
+}
+
+.profile-container .alert-warning {
+  background: rgba(255, 204, 102, 0.12);
+  color: #ffe1a6;
+}
+
+@media (max-width: 768px) {
+  .profile-container {
+    padding: 16px 14px 80px;
+  }
+
+  .profile-header-section {
+    padding: 18px;
+    gap: 20px;
+  }
+
+  .profile-section,
+  .profile-bio-section,
+  .profile-statistics {
+    padding: 16px;
+  }
+
+  .profile-info-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
