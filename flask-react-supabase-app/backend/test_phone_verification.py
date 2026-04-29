@@ -48,6 +48,24 @@ class InfobipPayloadTests(unittest.TestCase):
             "971501234567",
         )
 
+    @patch.object(backend.requests, "post")
+    def test_send_sms_normalizes_missing_url_scheme(self, mock_post):
+        backend.INFOBIP_API_KEY = "test-key"
+        backend.INFOBIP_BASE_URL = "eedd6r.api.infobip.com"
+        backend.INFOBIP_SENDER = "ServiceSMS"
+
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {"messages": []}
+        mock_post.return_value = response
+
+        sent, result = backend._send_infobip_sms("+971 50 123 4567", "Hello")
+
+        self.assertTrue(sent)
+        self.assertEqual(result, {"messages": []})
+        self.assertTrue(mock_post.called)
+        self.assertTrue(mock_post.call_args.args[0].startswith("https://eedd6r.api.infobip.com/sms/3/messages"))
+
 
 class OptionalAuthTests(unittest.TestCase):
     @patch.object(backend.requests, "get")

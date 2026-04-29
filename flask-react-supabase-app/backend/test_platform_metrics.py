@@ -138,14 +138,12 @@ class PlatformAnalyticsHelperTests(unittest.TestCase):
 class PlatformAnalyticsRouteTests(unittest.TestCase):
     @patch.object(backend, "ensure_platform_events_table")
     @patch.object(backend, "supabase_request")
-    def test_event_route_bootstraps_missing_table_then_retries(self, mock_supabase_request, mock_ensure_table):
+    def test_event_route_returns_clear_error_when_table_missing(self, mock_supabase_request, mock_ensure_table):
         first_insert = ({"error": "relation \"platform_events\" does not exist"}, 404)
-        second_insert = ([{"id": "evt-1"}], 201)
         mock_supabase_request.side_effect = [
             first_insert,
-            second_insert,
         ]
-        mock_ensure_table.return_value = True
+        mock_ensure_table.return_value = False
 
         with backend.app.test_request_context(
             "/api/analytics/events",
@@ -159,9 +157,9 @@ class PlatformAnalyticsRouteTests(unittest.TestCase):
         ):
             response = backend.track_platform_event()
 
-        self.assertEqual(response[1], 201)
+        self.assertEqual(response[1], 503)
         self.assertTrue(mock_ensure_table.called)
-        self.assertEqual(mock_supabase_request.call_count, 2)
+        self.assertEqual(mock_supabase_request.call_count, 1)
 
 
 if __name__ == "__main__":

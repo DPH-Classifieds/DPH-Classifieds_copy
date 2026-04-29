@@ -78,7 +78,18 @@ PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(
 )
 PHONE_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("PHONE_VERIFICATION_MAX_ATTEMPTS", "5"))
 PHONE_VERIFICATION_MAX_SENDS = int(os.getenv("PHONE_VERIFICATION_MAX_SENDS", "6"))
-INFOBIP_BASE_URL = os.getenv("INFOBIP_BASE_URL", "https://api.infobip.com").rstrip("/")
+def _normalize_base_url(value, default_scheme="https"):
+    raw_value = str(value or "").strip().strip('"').strip("'").rstrip("/")
+    if not raw_value:
+        return ""
+    if "://" not in raw_value:
+        return f"{default_scheme}://{raw_value}"
+    return raw_value
+
+
+INFOBIP_BASE_URL = _normalize_base_url(
+    os.getenv("INFOBIP_BASE_URL", "https://api.infobip.com")
+)
 INFOBIP_API_KEY = os.getenv("INFOBIP_API_KEY")
 INFOBIP_SENDER = os.getenv("INFOBIP_SENDER", "ServiceSMS")
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -936,6 +947,7 @@ def _send_infobip_sms(to_phone, message):
 
     normalized_phone = _normalize_phone_number(to_phone)
     destination_phone = re.sub(r"[^\d]", "", normalized_phone or str(to_phone or ""))
+    infobip_base_url = _normalize_base_url(INFOBIP_BASE_URL, default_scheme="https")
 
     # Development mode: log code to console instead of sending SMS
     if os.getenv("ENVIRONMENT") == "development" or os.getenv("SKIP_SMS") == "true":
@@ -967,7 +979,7 @@ def _send_infobip_sms(to_phone, message):
 
     try:
         response = requests.post(
-            f"{INFOBIP_BASE_URL}/sms/3/messages",
+            f"{infobip_base_url}/sms/3/messages",
             headers=headers,
             json=payload,
             timeout=15,
@@ -1572,75 +1584,13 @@ def ensure_platform_events_table(headers=None):
             headers=active_headers,
             timeout=10,
         )
-        if (
-            platform_check.status_code != 404
-            and "does not exist" not in platform_check.text.lower()
-        ):
+        if platform_check.status_code != 404 and "does not exist" not in platform_check.text.lower():
             return True
 
-        logger.info("Platform analytics table does not exist, creating it")
-        create_platform_events_query = {
-            "name": "execute_sql",
-            "schema": "postgres",
-            "arguments": {
-                "query": """
-                CREATE TABLE IF NOT EXISTS public.platform_events (
-                    id UUID PRIMARY KEY,
-                    event_name TEXT NOT NULL,
-                    event_category TEXT,
-                    page_path TEXT,
-                    page_title TEXT,
-                    page_kind TEXT,
-                    element_tag TEXT,
-                    element_text TEXT,
-                    target_url TEXT,
-                    listing_type TEXT,
-                    listing_id TEXT,
-                    user_id UUID,
-                    visitor_id TEXT,
-                    session_id TEXT NOT NULL,
-                    duration_ms INTEGER DEFAULT 0,
-                    metadata JSONB DEFAULT '{}'::jsonb,
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_platform_events_event_name ON public.platform_events(event_name);
-                CREATE INDEX IF NOT EXISTS idx_platform_events_created_at ON public.platform_events(created_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_platform_events_session_id ON public.platform_events(session_id);
-                CREATE INDEX IF NOT EXISTS idx_platform_events_visitor_id ON public.platform_events(visitor_id);
-                CREATE INDEX IF NOT EXISTS idx_platform_events_user_id ON public.platform_events(user_id);
-                CREATE INDEX IF NOT EXISTS idx_platform_events_listing ON public.platform_events(listing_type, listing_id);
-
-                ALTER TABLE public.platform_events ENABLE ROW LEVEL SECURITY;
-
-                DROP POLICY IF EXISTS "Service role all platform events" ON public.platform_events;
-                CREATE POLICY "Service role all platform events"
-                ON public.platform_events
-                FOR ALL
-                USING (true)
-                WITH CHECK (true);
-
-                GRANT ALL ON public.platform_events TO service_role;
-                GRANT INSERT, SELECT ON public.platform_events TO authenticated;
-                """
-            },
-        }
-
-        platform_rpc_response = requests.post(
-            f"{SUPABASE_URL}/rest/v1/rpc",
-            json=create_platform_events_query,
-            headers=active_headers,
-            timeout=10,
+        logger.error(
+            "Platform analytics table is missing. Apply backend/migrations/add_platform_analytics_tracking.sql to the live Supabase project."
         )
-
-        if platform_rpc_response.status_code >= 400:
-            logger.error(
-                f"Failed to create platform events table: {platform_rpc_response.status_code} - {platform_rpc_response.text}"
-            )
-            return False
-
-        logger.info("Successfully created platform events table")
-        return True
+        return False
     except Exception as exc:
         logger.error(f"Error ensuring platform events table exists: {exc}")
         return False
@@ -8980,12 +8930,14 @@ def track_platform_event():
             or "does not exist" in str(response).lower()
             or "relation" in str(response).lower()
         ):
-            if ensure_platform_events_table():
-                response, status_code = supabase_request(
-                    "post",
-                    "/rest/v1/platform_events",
-                    data=row,
-                    use_service_role=True,
+            if not ensure_platform_events_table():
+                return (
+                    jsonify(
+                        {
+                            "error": "Analytics table missing. Apply backend/migrations/add_platform_analytics_tracking.sql to the live Supabase project."
+                        }
+                    ),
+                    503,
                 )
 
         if status_code >= 400:
