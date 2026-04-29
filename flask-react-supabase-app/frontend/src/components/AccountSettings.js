@@ -316,7 +316,7 @@ const AccountSettings = () => {
             countryCode: updatedUser.country_code || profileData.countryCode || '+971',
             purpose: 'phone_change',
           });
-          setMessage('✓ Profile updated successfully. Verify your new phone number below to keep phone verification active.');
+          setMessage('✓ Profile updated successfully. A verification popup has opened to confirm your new phone number.');
         }
       } else {
         setMessage('✓ Profile updated successfully!');
@@ -858,22 +858,19 @@ const AccountSettings = () => {
             </form>
 
             {phoneVerificationSession && (
-              <div className="phone-verification-inline-shell">
-                <PhoneVerificationFlow
-                  mode="inline"
-                  open
-                  title="Verify your new phone number"
-                  description="We sent a code to your updated phone number. Enter it to finish the change."
-                  phone={phoneVerificationSession.phone}
-                  countryCode={phoneVerificationSession.countryCode}
-                  purpose={phoneVerificationSession.purpose}
-                  verificationId={phoneVerificationSession.verificationId}
-                  onVerified={handlePhoneVerificationSuccess}
-                  onClose={() => setPhoneVerificationSession(null)}
-                  autoStart={false}
-                  className="phone-verification-inline"
-                />
-              </div>
+              <PhoneVerificationFlow
+                mode="modal"
+                open
+                title="Verify your new phone number"
+                description="We sent a code to your updated phone number. Enter it to finish the change."
+                phone={phoneVerificationSession.phone}
+                countryCode={phoneVerificationSession.countryCode}
+                purpose={phoneVerificationSession.purpose}
+                verificationId={phoneVerificationSession.verificationId}
+                onVerified={handlePhoneVerificationSuccess}
+                onClose={() => setPhoneVerificationSession(null)}
+                autoStart={false}
+              />
             )}
           </div>
         )}

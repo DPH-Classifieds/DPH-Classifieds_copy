@@ -12,12 +12,17 @@
   --admin-danger: #ff7a7a;
   color: var(--admin-text);
   background: var(--admin-bg);
+  overflow-x: clip;
 }
 
 .admin-ops .admin-page {
-  max-width: 1440px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 24px 24px 48px;
+}
+
+.admin-ops .admin-page.admin-metrics {
+  overflow-x: clip;
 }
 
 .admin-ops .admin-page-header {
@@ -48,11 +53,14 @@
 .admin-ops .admin-table-card,
 .admin-ops .admin-hero-card,
 .admin-ops .admin-empty-state,
-.admin-ops .admin-list-item {
+.admin-ops .admin-list-item,
+.admin-ops .admin-chart-card,
+.admin-ops .admin-kpi-card {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
   border-radius: 24px;
   box-shadow: none;
+  min-width: 0;
 }
 
 .admin-ops .admin-surface {
@@ -87,6 +95,7 @@
 
 .admin-ops .admin-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .admin-ops .admin-grid-3 {
@@ -102,6 +111,10 @@
   border-radius: 22px;
   border: 1px solid var(--admin-border);
   background: var(--admin-surface-2);
+  min-height: 146px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .admin-ops .admin-kpi-label,
@@ -115,9 +128,10 @@
 
 .admin-ops .admin-kpi-value {
   margin-top: 12px;
-  font-size: clamp(1.9rem, 3vw, 2.8rem);
+  font-size: clamp(1.6rem, 2.6vw, 2.45rem);
   line-height: 1;
   font-weight: 700;
+  word-break: break-word;
 }
 
 .admin-ops .admin-kpi-note,
@@ -741,6 +755,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 22px;
   background: var(--admin-surface-2);
+  overflow: hidden;
 }
 
 .admin-ops .admin-chart-title {
@@ -749,6 +764,8 @@
   gap: 12px;
   align-items: center;
   margin-bottom: 14px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .admin-ops .admin-chart-bars {
@@ -758,14 +775,17 @@
 
 .admin-ops .admin-chart-row {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(112px, 1fr) minmax(0, 1.4fr) auto;
   gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 
 .admin-ops .admin-metrics-surface {
   display: grid;
   gap: 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .admin-ops .admin-metrics-title {
@@ -779,6 +799,7 @@
   font-size: 0.82rem;
   font-weight: 600;
   word-break: break-word;
+  min-width: 0;
 }
 
 .admin-ops .admin-chart-track {
@@ -817,15 +838,19 @@
   border-radius: 16px;
   border: 1px solid var(--admin-border);
   background: var(--admin-surface-2);
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .admin-ops .admin-queue-item strong {
   display: block;
   color: #fff;
+  overflow-wrap: anywhere;
 }
 
 .admin-ops .admin-queue-item small {
   color: var(--admin-muted);
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 960px) {
