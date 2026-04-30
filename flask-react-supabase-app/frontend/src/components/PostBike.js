@@ -10,6 +10,8 @@ import {
   getYearOptions,
 } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
+import ActionNoticeModal from './ui/ActionNoticeModal';
+import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -170,6 +172,34 @@ const PostBike = () => {
   }, [formData.features]);
   const yearOptions = getYearOptions();
   const areaOptions = getAreasForEmirate(formData.emirate);
+  const errorNotice = useMemo(() => buildErrorNotice(error), [error]);
+  const listingLimitActions = useMemo(
+    () => [
+      {
+        label: 'My Listings',
+        onClick: () => {
+          setError(null);
+          navigate('/my-listings');
+        },
+      },
+      {
+        label: "I’m a Dealer",
+        href: buildDealerHelpMailto({
+          subject: 'Dealer listing help',
+          body: `Hi team,\n\nI reached the listing limit and would like help with dealer posting access.\n\nAccount email: ${user?.email || 'Not set'}\nListing page: ${typeof window !== 'undefined' ? window.location.href : ''}\n`,
+        }),
+      },
+      {
+        label: 'Home',
+        onClick: () => {
+          setError(null);
+          navigate('/');
+        },
+      },
+    ],
+    [navigate, user?.email]
+  );
+  const errorActions = errorNotice?.code === 'listing_limit' ? listingLimitActions : [];
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -330,7 +360,11 @@ const PostBike = () => {
         navigate('/my-listings');
       }, 1800);
     } catch (submissionError) {
-      setError(submissionError.response?.data?.error || submissionError.message || `Failed to ${isEdit ? 'update' : 'submit'} bike listing.`);
+      setError({
+        message: submissionError.response?.data?.error || submissionError.message || `Failed to ${isEdit ? 'update' : 'submit'} bike listing.`,
+        code: submissionError?.code || submissionError?.response?.data?.code || submissionError?.details?.code || null,
+        details: submissionError?.details || submissionError?.response?.data || null,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -383,7 +417,14 @@ const PostBike = () => {
 
       <section className="post-form-section">
         <div className="form-container">
-          {error && <div className="form-error-message">{error}</div>}
+          <ActionNoticeModal
+            open={Boolean(errorNotice)}
+            title={errorNotice?.code === 'listing_limit' ? 'Listing limit reached' : 'We could not save this listing'}
+            message={errorNotice?.message || 'Please review the message and try again.'}
+            details={errorNotice?.details}
+            actions={errorActions}
+            onClose={() => setError(null)}
+          />
 
           <form onSubmit={handleSubmit} className="post-form">
             <div className="form-section-layout">

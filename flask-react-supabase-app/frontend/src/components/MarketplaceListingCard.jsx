@@ -52,6 +52,16 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
         <p className="explore-v2-card-meta">{item.subtitle}</p>
         <p className="explore-v2-card-description">{item.description}</p>
 
+        {Array.isArray(item.tags) && item.tags.length > 0 ? (
+          <div className="explore-v2-card-tags" aria-label="Listing tags">
+            {item.tags.map((tag) => (
+              <span key={tag} className="explore-v2-card-tag">
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <div className="explore-v2-seller-row">
           <div className="explore-v2-seller">
             {item.sellerPhoto ? (

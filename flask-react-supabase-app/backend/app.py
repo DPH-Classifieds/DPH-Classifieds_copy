@@ -7558,6 +7558,94 @@ def make_admin_user(current_user, user_id):
         return jsonify({"error": "An error occurred while promoting the user"}), 500
 
 
+@app.route("/api/admin/users/<user_id>/profile", methods=["PATCH"])
+@token_required
+def update_admin_user_profile(current_user, user_id):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        if user_id == current_user:
+            return jsonify({"error": "You cannot modify your own admin profile from this panel"}), 400
+
+        data = request.get_json(silent=True) or {}
+        allowed_fields = {
+            "account_status": {"active", "suspended", "banned"},
+            "is_admin": bool,
+            "is_dealer": bool,
+            "dealer_verified": bool,
+            "first_name": str,
+            "last_name": str,
+            "display_name": str,
+            "username": str,
+            "phone": str,
+            "city": str,
+            "emirate": str,
+            "company_name": str,
+            "company_registration_number": str,
+            "trade_license_number": str,
+            "profile_photo_url": str,
+            "rejection_note": str,
+        }
+
+        update_data = {}
+        for field, validator in allowed_fields.items():
+            if field not in data:
+                continue
+
+            value = data.get(field)
+            if validator is bool:
+                update_data[field] = bool(value)
+            elif validator is str:
+                if value is None:
+                    update_data[field] = None
+                else:
+                    next_value = str(value).strip()
+                    update_data[field] = next_value if next_value else None
+            elif isinstance(validator, set):
+                next_value = str(value or "").strip().lower()
+                if next_value not in validator:
+                    return jsonify({"error": f"{field} must be one of: {', '.join(sorted(validator))}"}), 400
+                update_data[field] = next_value
+
+        if not update_data:
+            return jsonify({"error": "No supported profile fields were provided"}), 400
+
+        if "is_dealer" in update_data and not update_data["is_dealer"]:
+            update_data["dealer_verified"] = False
+            update_data["dealer_verified_at"] = None
+        elif update_data.get("dealer_verified") is True:
+            from datetime import datetime
+
+            update_data["dealer_verified_at"] = datetime.utcnow().isoformat()
+
+        response, status_code = supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{user_id}",
+            data=update_data,
+            use_service_role=True,
+        )
+
+        if status_code not in [200, 204]:
+            logger.error(f"Failed updating admin profile for {user_id}: {response}")
+            return jsonify({"error": "Failed to update user profile"}), status_code
+
+        refreshed_response, refreshed_status = supabase_request(
+            "get",
+            f"/rest/v1/users?id=eq.{user_id}&select=id,email,first_name,last_name,display_name,username,phone,city,emirate,profile_photo_url,profile_completion_percentage,email_verified,phone_verified,is_dealer,dealer_verified,dealer_verified_at,is_admin,account_status,created_at,company_name,company_registration_number,trade_license_number",
+            use_service_role=True,
+        )
+
+        updated_user = refreshed_response[0] if refreshed_status < 400 and refreshed_response else update_data
+        return jsonify({
+            "message": "User profile updated successfully",
+            "user": updated_user,
+        }), 200
+    except Exception as e:
+        logger.error(f"Error updating admin user profile: {str(e)}")
+        return jsonify({"error": "An error occurred while updating user profile"}), 500
+
+
 @app.route("/api/admin/users/<user_id>", methods=["DELETE"])
 @token_required
 def delete_admin_user(current_user, user_id):

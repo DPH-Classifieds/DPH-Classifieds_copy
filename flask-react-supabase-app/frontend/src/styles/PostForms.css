@@ -825,6 +825,115 @@
   background: rgba(10, 10, 10, 0.66);
 }
 
+.post-notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(5, 10, 7, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.post-notice-modal {
+  position: relative;
+  width: min(560px, 100%);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top, rgba(74, 222, 128, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(20, 24, 20, 0.98) 0%, rgba(11, 13, 11, 0.98) 100%);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55);
+  padding: 22px;
+}
+
+.post-notice-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.post-notice-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #062313;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  box-shadow: 0 14px 30px rgba(74, 222, 128, 0.18);
+}
+
+.post-notice-content {
+  margin-top: 16px;
+}
+
+.post-notice-kicker {
+  margin: 0 0 8px;
+  color: var(--pf-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.post-notice-message {
+  margin: 10px 0 0;
+  color: #d8e7dc;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.post-notice-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.post-notice-meta span {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d7e6db;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.post-notice-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.post-notice-action {
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .post-notice-modal {
+    padding: 18px;
+  }
+
+  .post-notice-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .vin-help-text {
   color: var(--pf-muted);
 }

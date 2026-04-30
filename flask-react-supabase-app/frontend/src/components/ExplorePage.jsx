@@ -4,6 +4,7 @@ import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import SeoMeta from './SeoMeta';
 import { carMakes, carModels } from '../utils/carData';
+import { TAG_OPTIONS } from '../utils/listingConstants';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
 import './ExplorePage.css';
@@ -155,6 +156,31 @@ const buildSearchableText = (parts) =>
     .join(' ')
     .toLowerCase();
 
+const extractCarTags = (car) => {
+  const rawTags = Array.isArray(car?.tags) ? car.tags : [];
+  const normalizedTags = new Set(
+    rawTags
+      .map((tag) => normalizeText(tag))
+      .filter(Boolean)
+      .filter((tag) => TAG_OPTIONS.includes(tag))
+  );
+
+  const booleanTagMap = {
+    lady_driven: 'Lady Driven',
+    doctor_driven: 'Doctor Driven',
+    expat_owned: 'Expat Owned',
+    executive_driven: 'Executive Driven',
+  };
+
+  Object.entries(booleanTagMap).forEach(([key, label]) => {
+    if (car?.[key]) {
+      normalizedTags.add(label);
+    }
+  });
+
+  return TAG_OPTIONS.filter((tag) => normalizedTags.has(tag));
+};
+
 const normalizeCar = (car) => {
   const year = car.make_year || car.car_year;
   const make = car.car_manufacturer || car.make;
@@ -183,6 +209,7 @@ const normalizeCar = (car) => {
     sellerName: getSellerName(car),
     sellerPhoto: getSellerPhoto(car),
     createdAt: car.created_at,
+    tags: extractCarTags(car),
     searchableText: buildSearchableText([
       title,
       make,

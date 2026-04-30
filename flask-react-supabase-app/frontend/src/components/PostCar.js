@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import ImageFramingModal from './ImageFramingModal';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
+import ActionNoticeModal from './ui/ActionNoticeModal';
+import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -215,6 +217,34 @@ const PostCar = () => {
   const descriptionWordCount = countWords(formData.car_description || '');
   const descriptionCharacterCount = (formData.car_description || '').length;
   const areaOptions = getAreasForEmirate(formData.car_city);
+  const errorNotice = useMemo(() => buildErrorNotice(error), [error]);
+  const listingLimitActions = useMemo(
+    () => [
+      {
+        label: 'My Listings',
+        onClick: () => {
+          setError(null);
+          navigate('/my-listings');
+        },
+      },
+      {
+        label: "I’m a Dealer",
+        href: buildDealerHelpMailto({
+          subject: 'Dealer listing help',
+          body: `Hi team,\n\nI reached the listing limit and would like help with dealer posting access.\n\nAccount email: ${user?.email || 'Not set'}\nListing page: ${typeof window !== 'undefined' ? window.location.href : ''}\n`,
+        }),
+      },
+      {
+        label: 'Home',
+        onClick: () => {
+          setError(null);
+          navigate('/');
+        },
+      },
+    ],
+    [navigate, user?.email]
+  );
+  const errorActions = errorNotice?.code === 'listing_limit' ? listingLimitActions : [];
 
   // Organized car extras by category
   const carExtrasCategories = {
@@ -1103,7 +1133,11 @@ const PostCar = () => {
         message: err.message,
         details: err.details
       });
-      setError(err.message || err.details?.error || `Failed to ${isEdit ? 'update' : 'create'} car listing. Please try again.`);
+      setError({
+        message: err.message || err.details?.error || `Failed to ${isEdit ? 'update' : 'create'} car listing. Please try again.`,
+        code: err?.code || err?.details?.code || err?.response?.data?.code || null,
+        details: err?.details || err?.response?.data || null,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1155,7 +1189,14 @@ const PostCar = () => {
 
       <section className="post-form-section">
         <div className="form-container">
-          {error && <div className="form-error-message">{error}</div>}
+          <ActionNoticeModal
+            open={Boolean(errorNotice)}
+            title={errorNotice?.code === 'listing_limit' ? 'Listing limit reached' : 'We could not save this listing'}
+            message={errorNotice?.message || 'Please review the message and try again.'}
+            details={errorNotice?.details}
+            actions={errorActions}
+            onClose={() => setError(null)}
+          />
           <form onSubmit={handleSubmit} id="carDetailsForm" className="post-form" ref={formRef} noValidate>
         <div className="form-section">
           <h2>Basic Details</h2>

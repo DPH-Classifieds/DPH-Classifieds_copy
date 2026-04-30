@@ -439,6 +439,28 @@
   overflow: hidden;
 }
 
+.explore-v2-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.explore-v2-card-tag {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  background: rgba(74, 222, 128, 0.08);
+  color: #dff7e6;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .explore-v2-seller-row {
   margin-top: 14px;
   padding-top: 14px;
@@ -692,6 +714,10 @@
 
   .explore-v2-card-description {
     font-size: 0.78rem;
+  }
+
+  .explore-v2-card-tags {
+    justify-content: flex-start;
   }
 
   .explore-v2-seller-avatar {

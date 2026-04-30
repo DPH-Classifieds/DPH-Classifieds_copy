@@ -6,6 +6,7 @@ import { formatCurrencyAED, formatDateTime, formatNumber, getDisplayName, getEve
 import '../styles/AdminOps.css';
 
 const EMPTY_ARRAY = [];
+const EMPTY_OBJECT = {};
 
 const listingRouteType = (value) => {
   const normalized = String(value || '').toLowerCase();
@@ -33,6 +34,9 @@ const listingExtrasFromRecord = (listing) => {
     parking_sensors: 'Parking Sensors',
     rear_view_camera: 'Rear View Camera',
     lady_driven: 'Lady Driven',
+    doctor_driven: 'Doctor Driven',
+    expat_owned: 'Expat Owned',
+    executive_driven: 'Executive Driven',
   };
 
   return Object.entries(extraMap)
@@ -112,8 +116,8 @@ const AdminListingDetail = () => {
     fetchDetail();
   }, [itemId, itemType]);
 
-  const listing = data?.listing ?? null;
-  const owner = data?.owner ?? null;
+  const listing = data?.listing ?? EMPTY_OBJECT;
+  const owner = data?.owner ?? EMPTY_OBJECT;
   const summary = data?.summary || {};
   const images = data?.images ?? EMPTY_ARRAY;
   const leadEvents = data?.lead_events ?? EMPTY_ARRAY;
@@ -123,7 +127,7 @@ const AdminListingDetail = () => {
   const primaryRouteType = listingRouteType(itemType);
   const approvalRouteType = primaryRouteType === 'part' ? 'parts' : `${primaryRouteType}s`;
   const listingTypeLabel = getListingTypeLabel(itemType);
-  const statusTone = getStatusTone(listing.status);
+  const statusTone = getStatusTone(listing?.status || 'pending');
 
   const handleModerationAction = async (action) => {
     try {

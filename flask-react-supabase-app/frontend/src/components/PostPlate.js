@@ -6,6 +6,8 @@ import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
 import { getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
+import ActionNoticeModal from './ui/ActionNoticeModal';
+import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -142,6 +144,34 @@ const PostPlate = () => {
   const isUnauthed = !isLoading && !user;
   const codeOptions = useMemo(() => getCodeOptions(formData.city), [formData.city]);
   const areaOptions = useMemo(() => getAreasForEmirate(formData.city), [formData.city]);
+  const errorNotice = useMemo(() => buildErrorNotice(error), [error]);
+  const listingLimitActions = useMemo(
+    () => [
+      {
+        label: 'My Listings',
+        onClick: () => {
+          setError(null);
+          navigate('/my-listings');
+        },
+      },
+      {
+        label: "I’m a Dealer",
+        href: buildDealerHelpMailto({
+          subject: 'Dealer listing help',
+          body: `Hi team,\n\nI reached the listing limit and would like help with dealer posting access.\n\nAccount email: ${user?.email || 'Not set'}\nListing page: ${typeof window !== 'undefined' ? window.location.href : ''}\n`,
+        }),
+      },
+      {
+        label: 'Home',
+        onClick: () => {
+          setError(null);
+          navigate('/');
+        },
+      },
+    ],
+    [navigate, user?.email]
+  );
+  const errorActions = errorNotice?.code === 'listing_limit' ? listingLimitActions : [];
 
   useEffect(() => {
     if (!formData.city) {
@@ -244,7 +274,11 @@ const PostPlate = () => {
         navigate('/my-listings');
       }, 1800);
     } catch (submissionError) {
-      setError(submissionError.response?.data?.error || submissionError.message || `Failed to ${isEdit ? 'update' : 'submit'} plate listing.`);
+      setError({
+        message: submissionError.response?.data?.error || submissionError.message || `Failed to ${isEdit ? 'update' : 'submit'} plate listing.`,
+        code: submissionError?.code || submissionError?.response?.data?.code || submissionError?.details?.code || null,
+        details: submissionError?.details || submissionError?.response?.data || null,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -297,7 +331,14 @@ const PostPlate = () => {
 
       <section className="post-form-section">
         <div className="form-container">
-          {error && <div className="form-error-message">{error}</div>}
+          <ActionNoticeModal
+            open={Boolean(errorNotice)}
+            title={errorNotice?.code === 'listing_limit' ? 'Listing limit reached' : 'We could not save this listing'}
+            message={errorNotice?.message || 'Please review the message and try again.'}
+            details={errorNotice?.details}
+            actions={errorActions}
+            onClose={() => setError(null)}
+          />
 
           <form onSubmit={handleSubmit} className="post-form">
             <div className="form-section-layout">

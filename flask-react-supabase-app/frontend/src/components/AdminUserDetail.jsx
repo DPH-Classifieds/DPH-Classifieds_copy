@@ -14,6 +14,13 @@ const AdminUserDetail = () => {
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [actionState, setActionState] = useState(defaultActionState);
+  const [profileState, setProfileState] = useState({
+    account_status: 'active',
+    is_admin: false,
+    is_dealer: false,
+    dealer_verified: false,
+    rejection_note: '',
+  });
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -27,7 +34,15 @@ const AdminUserDetail = () => {
         setActionState((current) => ({
           ...current,
           status: response?.user?.account_status || 'active',
+          reason: response?.user?.rejection_note || '',
         }));
+        setProfileState({
+          account_status: response?.user?.account_status || 'active',
+          is_admin: Boolean(response?.user?.is_admin),
+          is_dealer: Boolean(response?.user?.is_dealer),
+          dealer_verified: Boolean(response?.user?.dealer_verified),
+          rejection_note: response?.user?.rejection_note || '',
+        });
       } catch (fetchError) {
         console.error('Failed to load user overview:', fetchError);
         setError(fetchError.message || 'Failed to load user overview');
@@ -48,19 +63,34 @@ const AdminUserDetail = () => {
   const statusTone = getStatusTone(user.account_status);
   const verifiedTone = user.email_verified && user.phone_verified ? 'success' : 'warning';
 
-  const handleStatusSave = async () => {
+  const handleProfileSave = async () => {
     try {
       setActionLoading(true);
       setMessage('');
-      await apiClient.patch(`/api/admin/users/${userId}/status`, {
-        status: actionState.status,
-        reason: actionState.reason,
+      await apiClient.patch(`/api/admin/users/${userId}/profile`, {
+        account_status: profileState.account_status,
+        is_admin: profileState.is_admin,
+        is_dealer: profileState.is_dealer,
+        dealer_verified: profileState.dealer_verified,
+        rejection_note: actionState.reason,
       });
-      setMessage(`User updated to ${actionState.status}.`);
-      const response = await apiClient.get(`/api/admin/users/${userId}/overview`);
-      setData(response || null);
+      setMessage('User profile updated successfully.');
+      const refreshed = await apiClient.get(`/api/admin/users/${userId}/overview`);
+      setData(refreshed || null);
+      setActionState((current) => ({
+        ...current,
+        status: refreshed?.user?.account_status || profileState.account_status,
+        reason: refreshed?.user?.rejection_note || actionState.reason,
+      }));
+      setProfileState({
+        account_status: refreshed?.user?.account_status || profileState.account_status,
+        is_admin: Boolean(refreshed?.user?.is_admin),
+        is_dealer: Boolean(refreshed?.user?.is_dealer),
+        dealer_verified: Boolean(refreshed?.user?.dealer_verified),
+        rejection_note: refreshed?.user?.rejection_note || actionState.reason || '',
+      });
     } catch (saveError) {
-      setError(saveError.message || 'Failed to update user status');
+      setError(saveError.message || 'Failed to update user profile');
     } finally {
       setActionLoading(false);
     }
@@ -187,20 +217,64 @@ const AdminUserDetail = () => {
 
         <div className="admin-surface">
           <div className="admin-label">Moderation</div>
-          <h3>Account status</h3>
+          <h3>Account status and access</h3>
           <div className="admin-field">
             <label htmlFor="user-status">Status</label>
             <select
               id="user-status"
               className="admin-select"
-              value={actionState.status}
-              onChange={(event) => setActionState((current) => ({ ...current, status: event.target.value }))}
+              value={profileState.account_status}
+              onChange={(event) => setProfileState((current) => ({ ...current, account_status: event.target.value }))}
             >
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
               <option value="banned">Banned</option>
             </select>
           </div>
+          <div className="admin-field" style={{ marginTop: '12px' }}>
+            <label htmlFor="user-role">Admin access</label>
+            <select
+              id="user-role"
+              className="admin-select"
+              value={profileState.is_admin ? 'admin' : 'user'}
+              onChange={(event) => setProfileState((current) => ({ ...current, is_admin: event.target.value === 'admin' }))}
+            >
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div className="admin-field" style={{ marginTop: '12px' }}>
+            <label htmlFor="user-account-type">Account type</label>
+            <select
+              id="user-account-type"
+              className="admin-select"
+              value={profileState.is_dealer ? 'dealer' : 'private'}
+              onChange={(event) =>
+                setProfileState((current) => ({
+                  ...current,
+                  is_dealer: event.target.value === 'dealer',
+                  dealer_verified: event.target.value === 'dealer' ? current.dealer_verified : false,
+                }))
+              }
+            >
+              <option value="private">Private owner</option>
+              <option value="dealer">Dealer</option>
+            </select>
+          </div>
+          {profileState.is_dealer ? (
+            <div className="admin-field" style={{ marginTop: '12px' }}>
+              <label htmlFor="dealer-verified">Dealer verification</label>
+              <select
+                id="dealer-verified"
+                className="admin-select"
+                value={profileState.dealer_verified ? 'verified' : 'pending'}
+                onChange={(event) => setProfileState((current) => ({ ...current, dealer_verified: event.target.value === 'verified' }))}
+              >
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+              </select>
+            </div>
+          ) : null}
           <div className="admin-field" style={{ marginTop: '12px' }}>
             <label htmlFor="user-reason">Reason</label>
             <textarea
@@ -212,8 +286,8 @@ const AdminUserDetail = () => {
             />
           </div>
           <div className="admin-actions" style={{ marginTop: '16px' }}>
-            <button className="admin-button admin-button-primary" type="button" disabled={actionLoading} onClick={handleStatusSave}>
-              {actionLoading ? 'Saving...' : 'Save status'}
+            <button className="admin-button admin-button-primary" type="button" disabled={actionLoading} onClick={handleProfileSave}>
+              {actionLoading ? 'Saving...' : 'Save changes'}
             </button>
             <button className="admin-button admin-button-secondary" type="button" onClick={() => navigate('/admin/listings')}>
               Review listings
