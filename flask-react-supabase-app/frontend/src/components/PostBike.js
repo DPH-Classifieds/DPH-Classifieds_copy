@@ -9,12 +9,14 @@ import {
   getAreasForEmirate,
   getYearOptions,
 } from '../utils/listingConstants';
+import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGES = 10;
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('bike');
 
 const BIKE_CATEGORIES = [
   'Sport',
@@ -73,7 +75,7 @@ const PostBike = () => {
     emirate: 'Dubai',
     description: '',
     vin_number: '',
-    whatsapp_prefill_text: '',
+    whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
     is_dealer: false,
     cylinders: '',
     wheels: '2',
@@ -124,7 +126,7 @@ const PostBike = () => {
           emirate: data.emirate || 'Dubai',
           description: data.description || '',
           vin_number: data.vin_number || '',
-          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          whatsapp_prefill_text: data.whatsapp_prefill_text || DEFAULT_WHATSAPP_PREFILL,
           is_dealer: Boolean(data.is_dealer),
           cylinders: data.cylinders ? String(data.cylinders) : '',
           wheels: data.wheels ? String(data.wheels) : '2',
@@ -589,7 +591,7 @@ const PostBike = () => {
                     rows="3"
                     value={formData.whatsapp_prefill_text}
                     onChange={handleChange}
-                    placeholder="Hi, yes this bike is available. Please share when you want to inspect it."
+                    placeholder={DEFAULT_WHATSAPP_PREFILL}
                   />
                 </div>
               </div>

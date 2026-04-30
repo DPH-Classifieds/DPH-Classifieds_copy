@@ -5,11 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
 import { getAreasForEmirate } from '../utils/listingConstants';
+import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('plate');
 
 const PLATE_FORMAT_OPTIONS = [
   'Any format',
@@ -76,7 +78,7 @@ const PostPlate = () => {
     plate_format: 'Any format',
     contact_name: '',
     contact_phone: '',
-    whatsapp_prefill_text: '',
+    whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
     area: '',
     emirate: '',
     description: '',
@@ -121,7 +123,7 @@ const PostPlate = () => {
           plate_format: data.plate_format || 'Any format',
           contact_name: data.contact_name || '',
           contact_phone: data.contact_phone || '',
-          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          whatsapp_prefill_text: data.whatsapp_prefill_text || DEFAULT_WHATSAPP_PREFILL,
           area: data.area || '',
           emirate: data.emirate || data.city || '',
           description: data.description || '',
@@ -473,7 +475,7 @@ const PostPlate = () => {
                       rows="3"
                       value={formData.whatsapp_prefill_text}
                       onChange={handleChange}
-                      placeholder="Hi, this plate is available. Let me know your preferred transfer timeline."
+                      placeholder={DEFAULT_WHATSAPP_PREFILL}
                     />
                   </div>
                 </div>

@@ -25,6 +25,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import ImageFramingModal from './ImageFramingModal';
+import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -45,6 +46,7 @@ const MAX_DESCRIPTION_WORDS = 300;
 const DEFAULT_MAP_POSITION = [25.276987, 55.296249];
 const CAR_DRAFT_STORAGE_KEY = 'dph_post_car_draft_v2';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('car');
 
 const PostCar = () => {
   const { id: listingId } = useParams();
@@ -124,7 +126,7 @@ const PostCar = () => {
     seller_name: '',
     whatsapp_country_code: defaultCountryCode,
     whatsapp_number: '',
-    whatsapp_prefill_text: '',
+    whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
     seller_email: '',
     contact_preference: 'phone',
     extras: [],
@@ -415,7 +417,7 @@ const PostCar = () => {
           seller_name: data.seller_name || '',
           whatsapp_country_code: whatsappCountryCode,
           whatsapp_number: whatsappNumber,
-          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          whatsapp_prefill_text: data.whatsapp_prefill_text || DEFAULT_WHATSAPP_PREFILL,
           seller_email: data.seller_email || data.contact_email || '',
           contact_preference: data.contact_preference || 'phone',
           extras: Array.isArray(data.extras) ? data.extras : [],
@@ -1970,9 +1972,9 @@ const PostCar = () => {
                 name="whatsapp_prefill_text"
                 value={formData.whatsapp_prefill_text}
                 onChange={handleChange}
-                placeholder="Hi, this is still available. Let me know if you'd like to view it."
+                placeholder={DEFAULT_WHATSAPP_PREFILL}
                 className="form-control"
-                rows="3"
+                rows="4"
               />
             </div>
           </div>

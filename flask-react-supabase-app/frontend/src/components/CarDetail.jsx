@@ -16,6 +16,7 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
+import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -215,12 +216,12 @@ const CarDetail = () => {
     return `${countryCode}${phone}`;
   };
 
-  const getWhatsappPrefillText = () => {
-    const customPrefill = String(car?.whatsapp_prefill_text || '').trim();
-    if (customPrefill) return customPrefill;
-    const listingUrl = `${SITE_URL}/cars/${id}`;
-    return `Hi, I saw your car on dphclassifieds.com and I am interested. Listing: ${listingUrl}`;
-  };
+  const getWhatsappPrefillText = () =>
+    buildWhatsappMessage({
+      template: car?.whatsapp_prefill_text,
+      listingUrl: getWhatsAppListingUrl(`/cars/${id}`, SITE_URL),
+      listingLabel: 'car',
+    });
 
   const trackLeadEvent = async (action, payload = {}) => {
     try {

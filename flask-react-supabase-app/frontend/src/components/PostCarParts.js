@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
 import { UAE_EMIRATES, getAreasForEmirate } from '../utils/listingConstants';
+import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -27,6 +28,7 @@ const PART_TYPES = [
   'Other',
 ];
 const COMPATIBLE_YEAR_OPTIONS = ['Any', '2000-2005', '2006-2010', '2011-2015', '2016-2020', '2021-2026'];
+const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('part');
 const PostCarParts = () => {
   const { id: listingId } = useParams();
   const isEdit = Boolean(listingId);
@@ -55,7 +57,7 @@ const PostCarParts = () => {
     emirate: 'Dubai',
     contact_number: '',
     country_code: '+971',
-    whatsapp_prefill_text: '',
+    whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
     description: '',
     is_negotiable: false,
     is_dealer: false,
@@ -103,7 +105,7 @@ const PostCarParts = () => {
           emirate: data.emirate || 'Dubai',
           contact_number: data.contact_number || '',
           country_code: data.country_code || '+971',
-          whatsapp_prefill_text: data.whatsapp_prefill_text || '',
+          whatsapp_prefill_text: data.whatsapp_prefill_text || DEFAULT_WHATSAPP_PREFILL,
           description: data.description || '',
           is_negotiable: Boolean(data.is_negotiable),
           is_dealer: Boolean(data.is_dealer),
@@ -552,7 +554,7 @@ const PostCarParts = () => {
                       rows="3"
                       value={formData.whatsapp_prefill_text}
                       onChange={handleChange}
-                      placeholder="Hi, this part is available. Share your vehicle details so I can confirm compatibility."
+                      placeholder={DEFAULT_WHATSAPP_PREFILL}
                     />
                   </div>
                 </div>

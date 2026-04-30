@@ -8,6 +8,7 @@ import ReportButton from './ReportButton';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
+import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
@@ -132,12 +133,12 @@ const BikeDetailRedesigned = () => {
     return `${countryCode}${phone}`;
   };
 
-  const getWhatsappPrefillText = () => {
-    const customPrefill = String(bike?.whatsapp_prefill_text || '').trim();
-    if (customPrefill) return customPrefill;
-    const listingUrl = `${SITE_URL}/bikes/${id}`;
-    return `Hi, I saw your bike on dphclassifieds.com and I am interested. Listing: ${listingUrl}`;
-  };
+  const getWhatsappPrefillText = () =>
+    buildWhatsappMessage({
+      template: bike?.whatsapp_prefill_text,
+      listingUrl: getWhatsAppListingUrl(`/bikes/${id}`, SITE_URL),
+      listingLabel: 'bike',
+    });
 
   const trackLeadEvent = async (action) => {
     try {
