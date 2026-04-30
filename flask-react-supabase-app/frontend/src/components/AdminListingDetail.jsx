@@ -16,6 +16,75 @@ const listingRouteType = (value) => {
   return 'car';
 };
 
+const listingExtrasFromRecord = (listing) => {
+  if (Array.isArray(listing?.extras) && listing.extras.length > 0) {
+    return listing.extras;
+  }
+
+  const extraMap = {
+    keyless_entry: 'Keyless Entry',
+    dvd_player: 'DVD Player',
+    climate_control: 'Climate Control',
+    navigation_system: 'Navigation System',
+    premium_sound_system: 'Premium Sound System',
+    cooled_seats: 'Cooled Seats',
+    front_wheel_drive: 'Front Wheel Drive',
+    leather_seats: 'Leather Seats',
+    parking_sensors: 'Parking Sensors',
+    rear_view_camera: 'Rear View Camera',
+    lady_driven: 'Lady Driven',
+  };
+
+  return Object.entries(extraMap)
+    .filter(([key]) => Boolean(listing?.[key]))
+    .map(([, label]) => label);
+};
+
+const formatFieldValue = (value, format) => {
+  if (format === 'currency') {
+    return formatCurrencyAED(value);
+  }
+
+  if (format === 'date') {
+    return formatDateTime(value);
+  }
+
+  if (format === 'number') {
+    return formatNumber(value);
+  }
+
+  if (format === 'chips') {
+    if (!Array.isArray(value) || value.length === 0) {
+      return 'None';
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(', ') : 'None';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'Yes' : 'No';
+  }
+
+  if (value === null || value === undefined || value === '') {
+    return 'Not set';
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value, null, 2);
+  }
+
+  return String(value);
+};
+
+const buildField = (label, value, format) => ({
+  label,
+  value,
+  format,
+});
+
 const AdminListingDetail = () => {
   const { itemType, itemId } = useParams();
   const navigate = useNavigate();
@@ -43,8 +112,8 @@ const AdminListingDetail = () => {
     fetchDetail();
   }, [itemId, itemType]);
 
-  const listing = data?.listing || {};
-  const owner = data?.owner || {};
+  const listing = data?.listing ?? null;
+  const owner = data?.owner ?? null;
   const summary = data?.summary || {};
   const images = data?.images ?? EMPTY_ARRAY;
   const leadEvents = data?.lead_events ?? EMPTY_ARRAY;
@@ -91,6 +160,222 @@ const AdminListingDetail = () => {
       { call_click: 0, whatsapp_click: 0, vin_open: 0, vin_reveal: 0 }
     );
   }, [leadEvents]);
+
+  const detailSections = useMemo(() => {
+    const titleValue = getListingTitle(listing);
+    const priceValue = listing.display_price ?? listing.price ?? listing.expected_selling_price;
+    const extras = listingExtrasFromRecord(listing);
+
+    const identitySection = {
+      title: 'Core Listing',
+      fields: [
+        buildField('Title', titleValue),
+        buildField('Status', listing.status || 'pending'),
+        buildField('Listing type', listingTypeLabel),
+        buildField('Listing ID', listing.id),
+        buildField('Type key', listing.type || primaryRouteType),
+        buildField('Created at', listing.created_at, 'date'),
+        buildField('Updated at', listing.updated_at, 'date'),
+        buildField('Price', priceValue, 'currency'),
+      ],
+    };
+
+    const ownerSection = {
+      title: 'Owner & Contact',
+      fields: [
+        buildField('Owner name', getDisplayName(owner)),
+        buildField('Owner email', owner.email || listing.user_email),
+        buildField('Owner phone', owner.phone || owner.whatsapp_number || listing.car_owner_phone_number),
+        buildField('Seller name', listing.seller_name),
+        buildField('Seller email', listing.seller_email),
+        buildField('Contact preference', listing.contact_preference),
+      ],
+    };
+
+    const locationSection = {
+      title: 'Location & Media',
+      fields: [
+        buildField('City', listing.city || listing.car_city || listing.location || listing.emirate),
+        buildField('Emirate', listing.emirate),
+        buildField('Area', listing.area),
+        buildField('Car location', listing.car_location),
+        buildField('Latitude', listing.latitude),
+        buildField('Longitude', listing.longitude),
+        buildField('Image count', images.length, 'number'),
+        buildField('Listing URL', listing.tour_url),
+      ],
+    };
+
+    if (primaryRouteType === 'bike') {
+      return [
+        identitySection,
+        {
+          title: 'Bike Specifications',
+          fields: [
+            buildField('Make year', listing.make_year, 'number'),
+            buildField('Make', listing.make || listing.bike_brand),
+            buildField('Model', listing.model || listing.bike_model),
+            buildField('Bike type', listing.bike_type || listing.type || listing.bike_category),
+            buildField('Engine size', listing.engine_size || listing.engine_capacity),
+            buildField('Mileage', listing.mileage || listing.kilometer_driven, 'number'),
+            buildField('Fuel type', listing.fuel_type),
+            buildField('Transmission', listing.transmission_type),
+            buildField('Ownership', listing.ownership_status),
+            buildField('Extras', listingExtrasFromRecord(listing), 'chips'),
+            buildField('Description', listing.description || listing.car_description),
+          ],
+        },
+        ownerSection,
+        locationSection,
+        {
+          title: 'Lifecycle & Moderation',
+          fields: [
+            buildField('Approved', listing.is_approved),
+            buildField('Expires at', listing.expires_at, 'date'),
+            buildField('Expired at', listing.expired_at, 'date'),
+            buildField('Retention expires at', listing.retention_expires_at, 'date'),
+            buildField('Archived', listing.is_archived),
+            buildField('Rejection note', listing.rejection_note),
+          ],
+        },
+      ];
+    }
+
+    if (primaryRouteType === 'plate') {
+      return [
+        identitySection,
+        {
+          title: 'Plate Details',
+          fields: [
+            buildField('City', listing.city),
+            buildField('Code', listing.code),
+            buildField('Number', listing.number),
+            buildField('Digits', listing.digits, 'number'),
+            buildField('Format', listing.plate_format),
+            buildField('Plate type', listing.plate_type),
+            buildField('Reserved', listing.is_reserved),
+            buildField('Description', listing.description),
+          ],
+        },
+        ownerSection,
+        locationSection,
+        {
+          title: 'Lifecycle & Moderation',
+          fields: [
+            buildField('Approved', listing.is_approved),
+            buildField('Expires at', listing.expires_at, 'date'),
+            buildField('Expired at', listing.expired_at, 'date'),
+            buildField('Retention expires at', listing.retention_expires_at, 'date'),
+            buildField('Archived', listing.is_archived),
+            buildField('Rejection note', listing.rejection_note),
+          ],
+        },
+      ];
+    }
+
+    if (primaryRouteType === 'part') {
+      return [
+        identitySection,
+        {
+          title: 'Part Details',
+          fields: [
+            buildField('Part name', listing.name || listing.part_name),
+            buildField('Brand', listing.brand),
+            buildField('Category', listing.category || listing.part_type),
+            buildField('Compatibility', listing.compatible_makes || listing.compatible_models),
+            buildField('Condition', listing.condition),
+            buildField('Price', listing.price, 'currency'),
+            buildField('Description', listing.description),
+          ],
+        },
+        ownerSection,
+        locationSection,
+        {
+          title: 'Lifecycle & Moderation',
+          fields: [
+            buildField('Approved', listing.is_approved),
+            buildField('Expires at', listing.expires_at, 'date'),
+            buildField('Expired at', listing.expired_at, 'date'),
+            buildField('Retention expires at', listing.retention_expires_at, 'date'),
+            buildField('Archived', listing.is_archived),
+            buildField('Rejection note', listing.rejection_note),
+          ],
+        },
+      ];
+    }
+
+    return [
+      identitySection,
+      {
+        title: 'Car Identity',
+        fields: [
+          buildField('Make year', listing.make_year, 'number'),
+          buildField('Manufacturer', listing.car_manufacturer || listing.make),
+          buildField('Model', listing.car_model || listing.model),
+          buildField('Trim', listing.trim || listing.car_variant),
+          buildField('Body type', listing.body_type),
+          buildField('Regional spec', listing.regional_spec),
+          buildField('Vehicle type', listing.vehicle_type),
+          buildField('Ownership status', listing.ownership_status),
+          buildField('Dealer listing', listing.is_dealer),
+          buildField('Featured listing', listing.featured_listing),
+        ],
+      },
+      {
+        title: 'Specs & Condition',
+        fields: [
+          buildField('Mileage', listing.kilometer_driven || listing.kilometer || listing.mileage, 'number'),
+          buildField('Fuel type', listing.fuel_type),
+          buildField('Transmission', listing.transmission_type),
+          buildField('Steering side', listing.steering_side),
+          buildField('Seating capacity', listing.seating_capacity),
+          buildField('Horsepower', listing.horsepower),
+          buildField('Engine capacity', listing.engine_capacity),
+          buildField('Cylinders', listing.cylinders),
+          buildField('Doors', listing.doors),
+          buildField('Color', listing.color),
+          buildField('Interior color', listing.interior_color),
+          buildField('Drivetrain', listing.drivetrain),
+          buildField('Fuel efficiency', listing.fuel_efficiency),
+          buildField('Top speed', listing.top_speed),
+          buildField('0-100', listing.zero_to_hundred),
+          buildField('Torque', listing.torque),
+          buildField('Insured', listing.is_insured),
+          buildField('Warranty', listing.warranty),
+          buildField('Service history', listing.service_history),
+          buildField('Lady driven', listing.lady_driven),
+        ],
+      },
+      ownerSection,
+      locationSection,
+      {
+        title: 'Description & Extras',
+        fields: [
+          buildField('Listing title', listing.listing_title),
+          buildField('Car description', listing.car_description),
+          buildField('VIN', listing.vin_number || listing.vin),
+          buildField('WhatsApp number', listing.whatsapp_number),
+          buildField('Country code', listing.country_code),
+          buildField('WhatsApp country code', listing.whatsapp_country_code),
+          buildField('WhatsApp pre-text', listing.whatsapp_prefill_text),
+          buildField('Extras', extras, 'chips'),
+        ],
+      },
+      {
+        title: 'Lifecycle & Moderation',
+        fields: [
+          buildField('Approved', listing.is_approved),
+          buildField('Expires at', listing.expires_at, 'date'),
+          buildField('Expired at', listing.expired_at, 'date'),
+          buildField('Retention expires at', listing.retention_expires_at, 'date'),
+          buildField('Last extended at', listing.last_extended_at, 'date'),
+          buildField('Extension count', listing.extension_count, 'number'),
+          buildField('Archived', listing.is_archived),
+          buildField('Rejection note', listing.rejection_note),
+        ],
+      },
+    ];
+  }, [images.length, listing, listingTypeLabel, owner, primaryRouteType]);
 
   if (loading) {
     return (
@@ -239,6 +524,42 @@ const AdminListingDetail = () => {
               Remove listing
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="admin-section">
+        <h2>Full listing schema</h2>
+        <div className="admin-grid-2">
+          {detailSections.map((section) => (
+            <div key={section.title} className="admin-card">
+              <div className="admin-label">{section.title}</div>
+              <div className="admin-detail-list">
+                {section.fields.map((field) => {
+                  const renderedValue = formatFieldValue(field.value, field.format);
+                  return (
+                    <div key={field.label} className="admin-detail-row">
+                      <div className="admin-detail-label">{field.label}</div>
+                      <div className="admin-detail-value">
+                        {field.format === 'chips' && Array.isArray(renderedValue) ? (
+                          renderedValue.length > 0 ? (
+                            <div className="admin-chip-list">
+                              {renderedValue.map((chip) => (
+                                <span key={chip} className="admin-chip">{chip}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            'None'
+                          )
+                        ) : (
+                          renderedValue
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

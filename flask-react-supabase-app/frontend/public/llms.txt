@@ -1,0 +1,41 @@
+# DPH Classifieds
+
+UAE marketplace for cars, bikes, car parts, and premium license plates.
+
+## Canonical public routes
+- https://www.dphclassifieds.com/
+- https://www.dphclassifieds.com/explore
+- https://www.dphclassifieds.com/cars
+- https://www.dphclassifieds.com/cars/{id}
+- https://www.dphclassifieds.com/bikes
+- https://www.dphclassifieds.com/bikes/{id}
+- https://www.dphclassifieds.com/car-parts
+- https://www.dphclassifieds.com/car-parts/{id}
+- https://www.dphclassifieds.com/plates
+- https://www.dphclassifieds.com/plates/{id}
+- https://www.dphclassifieds.com/about
+- https://www.dphclassifieds.com/contact
+- https://www.dphclassifieds.com/privacy-policy
+- https://www.dphclassifieds.com/terms-of-use
+
+## What the site does
+- Browse marketplace inventory by category, make, model, city, and price.
+- Open a listing detail page to view the full record, images, specs, seller info, and contact actions.
+- Use the public listing pages as the primary discovery surface.
+- Use the post/create and account routes only after authentication.
+
+## Content structure
+- Cars: year, make, model, trim, mileage, price, body type, fuel type, transmission, location, extras.
+- Bikes: year, make, model, engine size, price, location, extras.
+- Plates: city, code, number, format, price, location.
+- Parts: part name, brand, compatibility, price, location.
+
+## Crawl guidance
+- Index the public listing pages and category pages.
+- Do not index private account, post, edit, or admin routes.
+- Prefer the sitemap at https://www.dphclassifieds.com/sitemap.xml for discovery.
+
+## Data source notes
+- Public pages are rendered by the React frontend.
+- Listing details are fetched from the backend API.
+- Listing URLs are stable and ID-based.

@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
+import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
+import { buildListingSeo } from '../utils/seo';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
@@ -32,6 +34,14 @@ const PlateDetailRedesigned = () => {
     totalInterest: 0,
     totalCost: 0
   });
+  const seoData = useMemo(
+    () =>
+      buildListingSeo('plate', plate || {}, {
+        canonicalPath: `/plates/${id}`,
+        location: plate?.city || 'UAE',
+      }),
+    [plate, id]
+  );
 
   useEffect(() => {
     const fetchPlateDetails = async () => {
@@ -187,6 +197,7 @@ const PlateDetailRedesigned = () => {
 
   return (
     <div className="cd-container">
+      <SeoMeta {...seoData} />
       <div className="cd-max-width">
         <nav className="cd-breadcrumb">
           <Link to="/">Home</Link>

@@ -1,9 +1,21 @@
 import React from 'react';
+import SeoMeta from './SeoMeta';
+import { buildStaticSeo } from '../utils/seo';
 import '../styles/About.css';
 
 const TermsOfUse = () => {
+  const seoData = buildStaticSeo({
+    title: 'Terms of Use',
+    description:
+      'Review the platform rules, account responsibilities, and usage conditions for DPH Classifieds.',
+    path: '/terms-of-use',
+    keywords: ['terms of use', 'DPH Classifieds terms', 'marketplace rules'],
+  });
+
   return (
-    <div className="about-v2 legal-v2">
+    <>
+      <SeoMeta {...seoData} />
+      <div className="about-v2 legal-v2">
       <section className="about-v2-hero">
         <div className="about-v2-shell">
           <span className="about-v2-kicker">Legal</span>
@@ -188,7 +200,8 @@ const TermsOfUse = () => {
         </ul>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 };
 

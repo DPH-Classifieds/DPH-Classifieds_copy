@@ -1,9 +1,21 @@
 import React from 'react';
+import SeoMeta from './SeoMeta';
+import { buildStaticSeo } from '../utils/seo';
 import '../styles/About.css';
 
 const PrivacyPolicy = () => {
+  const seoData = buildStaticSeo({
+    title: 'Privacy Policy',
+    description:
+      'Read how DPH Classifieds collects, uses, stores, and protects user data across the platform.',
+    path: '/privacy-policy',
+    keywords: ['privacy policy', 'DPH Classifieds privacy', 'UAE marketplace privacy'],
+  });
+
   return (
-    <div className="about-v2 legal-v2">
+    <>
+      <SeoMeta {...seoData} />
+      <div className="about-v2 legal-v2">
       <section className="about-v2-hero">
         <div className="about-v2-shell">
           <span className="about-v2-kicker">Legal</span>
@@ -232,7 +244,8 @@ const PrivacyPolicy = () => {
         <p>DPH Classifieds, operated by DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES, is committed to protecting your privacy and maintaining transparency about how we handle your data. Your trust is important to us, and we strive to provide a safe and secure environment for buying and selling cars online.</p>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 };
 

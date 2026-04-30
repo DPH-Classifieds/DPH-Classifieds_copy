@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
+import SeoMeta from './SeoMeta';
 import { carMakes, carModels } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
+import { buildStaticSeo } from '../utils/seo';
 import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -351,6 +353,23 @@ const ExplorePage = () => {
   const [partsFilters, setPartsFilters] = useState(partsInitialFilters);
   const [plateFilters, setPlateFilters] = useState(plateInitialFilters);
   const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
+  const seoData = buildStaticSeo({
+    title: activeMode === 'all'
+      ? 'Explore UAE Cars, Bikes, Parts & Plates | DPH Classifieds'
+      : `${exploreModes.find((mode) => mode.key === activeMode)?.label || 'Explore'} Listings in UAE | DPH Classifieds`,
+    description:
+      activeMode === 'all'
+        ? 'Browse the full UAE marketplace with a premium explore surface for cars, bikes, car parts, and plates.'
+        : `Browse ${exploreModes.find((mode) => mode.key === activeMode)?.label?.toLowerCase() || 'listings'} in the UAE marketplace on DPH Classifieds.`,
+    path: '/explore',
+    keywords: [
+      'UAE marketplace',
+      'used cars UAE',
+      'bikes for sale UAE',
+      'car parts UAE',
+      'plates Dubai',
+    ],
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -1035,7 +1054,9 @@ const ExplorePage = () => {
   };
 
   return (
-    <div className="explore-v2">
+    <>
+      <SeoMeta {...seoData} />
+      <div className="explore-v2">
       <section className="explore-v2-hero">
         <div className="explore-v2-shell">
           <div className="explore-v2-hero-copy">
@@ -1112,7 +1133,8 @@ const ExplorePage = () => {
 
         {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}
       </section>
-    </div>
+      </div>
+    </>
   );
 };
 

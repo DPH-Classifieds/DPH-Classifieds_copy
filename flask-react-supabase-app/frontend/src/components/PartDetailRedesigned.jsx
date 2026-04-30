@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
+import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
+import { buildListingSeo } from '../utils/seo';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
@@ -32,6 +34,14 @@ const PartDetailRedesigned = () => {
     totalInterest: 0,
     totalCost: 0
   });
+  const seoData = useMemo(
+    () =>
+      buildListingSeo('part', part || {}, {
+        canonicalPath: `/car-parts/${id}`,
+        location: part?.location || part?.city || 'UAE',
+      }),
+    [part, id]
+  );
 
   useEffect(() => {
     const fetchPartDetails = async () => {
@@ -187,6 +197,7 @@ const PartDetailRedesigned = () => {
 
   return (
     <div className="cd-container">
+      <SeoMeta {...seoData} />
       <div className="cd-max-width">
         <nav className="cd-breadcrumb">
           <Link to="/">Home</Link>

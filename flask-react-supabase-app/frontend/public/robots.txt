@@ -1,13 +1,21 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
+Allow: /
+
 Disallow: /api/
 Disallow: /admin
 Disallow: /admin/
 Disallow: /profile
 Disallow: /settings
+Disallow: /account-settings
 Disallow: /my-listings
 Disallow: /create-listing
 Disallow: /edit-listing
+Disallow: /edit/
 Disallow: /post-
 Disallow: /auth/
-Disallow: /api/auth/
+Disallow: /check-email
+Disallow: /verify-phone
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://www.dphclassifieds.com/sitemap.xml

@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
+import SeoMeta from './SeoMeta';
 import { carMakes } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
+import { buildStaticSeo } from '../utils/seo';
 import { Button } from './ui/button';
 import { ArrowRight } from 'lucide-react';
 import '../styles/HomePage.css';
@@ -172,6 +174,19 @@ const HomePage = () => {
   const [marketplaceItems, setMarketplaceItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const seoData = buildStaticSeo({
+    title: 'DPH Classifieds - Buy & Sell Cars, Bikes, Parts & Plates in UAE',
+    description:
+      "UAE's premier marketplace for petrolheads. Discover verified cars, bikes, parts, and premium license plates with rich search and local discovery.",
+    path: '/',
+    keywords: [
+      'used cars UAE',
+      'Dubai car marketplace',
+      'motorcycles UAE',
+      'car parts UAE',
+      'license plates Dubai',
+    ],
+  });
 
   useEffect(() => {
     const fetchMarketplacePreview = async () => {
@@ -226,6 +241,8 @@ const HomePage = () => {
   }, []);
 
   return (
+    <>
+      <SeoMeta {...seoData} />
     <div className="cn-home">
       <section className="cn-hero">
         <div className="cn-hero-media">
@@ -349,6 +366,7 @@ const HomePage = () => {
         </div>
       </section>
     </div>
+    </>
   );
 };
 

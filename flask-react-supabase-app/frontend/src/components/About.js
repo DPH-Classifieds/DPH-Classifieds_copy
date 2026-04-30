@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import SeoMeta from './SeoMeta';
+import { buildStaticSeo } from '../utils/seo';
 import '../styles/About.css';
 
 const whoWeAreImg = '/images/About-page-removebg-preview.png';
@@ -34,8 +36,18 @@ const communityLinks = [
 ];
 
 const About = () => {
+  const seoData = buildStaticSeo({
+    title: 'About DPH Classifieds',
+    description:
+      'Learn how DPH Classifieds brings a cleaner, more trusted marketplace experience to UAE cars, bikes, parts, and plates.',
+    path: '/about',
+    keywords: ['about DPH Classifieds', 'UAE classifieds', 'Dubai petrolheads'],
+  });
+
   return (
-    <div className="about-v2">
+    <>
+      <SeoMeta {...seoData} />
+      <div className="about-v2">
       <section className="about-v2-hero">
         <div className="about-v2-shell">
           <span className="about-v2-kicker">About DPH Classifieds</span>
@@ -129,7 +141,8 @@ const About = () => {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 };
 

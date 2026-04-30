@@ -162,6 +162,49 @@
   text-transform: uppercase;
 }
 
+.admin-ops .admin-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-ops .admin-detail-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.admin-ops .admin-detail-row {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(74, 95, 86, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+}
+
+.admin-ops .admin-detail-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-muted);
+}
+
+.admin-ops .admin-detail-value {
+  color: var(--admin-text);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.admin-ops .admin-detail-value pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+
 .admin-ops .tone-success {
   border-color: rgba(139, 214, 180, 0.25);
   color: #9ff2cc;

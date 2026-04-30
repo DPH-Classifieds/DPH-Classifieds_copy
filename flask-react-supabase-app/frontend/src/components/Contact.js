@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import SeoMeta from './SeoMeta';
+import { buildStaticSeo } from '../utils/seo';
 import '../styles/Contact.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -26,6 +28,14 @@ const contactChannels = [
 ];
 
 const Contact = () => {
+  const seoData = buildStaticSeo({
+    title: 'Contact DPH Classifieds',
+    description:
+      'Contact the DPH Classifieds team for support, partnerships, and marketplace help across the UAE.',
+    path: '/contact',
+    keywords: ['contact DPH Classifieds', 'support UAE marketplace', 'Dubai classifieds support'],
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -84,7 +94,9 @@ const Contact = () => {
   };
 
   return (
-    <div className="contact-container">
+    <>
+      <SeoMeta {...seoData} />
+      <div className="contact-container">
       <div className="contact-header">
         <h1 className="contact-title">Contact Us</h1>
         <p className="contact-subtitle">
@@ -190,7 +202,8 @@ const Contact = () => {
           </form>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

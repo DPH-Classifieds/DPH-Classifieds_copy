@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -8,12 +8,14 @@ import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
+import SeoMeta from './SeoMeta';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import './CarDetailRedesigned.css';
+import { buildListingSeo } from '../utils/seo';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -63,6 +65,14 @@ const CarDetail = () => {
   const [showPhoneVerifyModal, setShowPhoneVerifyModal] = useState(false);
   const [verificationPhone, setVerificationPhone] = useState('');
   const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
+  const seoData = useMemo(
+    () =>
+      buildListingSeo('car', car || {}, {
+        canonicalPath: `/cars/${id}`,
+        location: car?.car_city || 'UAE',
+      }),
+    [car, id]
+  );
 
   const [loanCalculator, setLoanCalculator] = useState({
     carPrice: 0,
@@ -417,6 +427,7 @@ const CarDetail = () => {
 
   return (
     <div className="cd-container">
+      <SeoMeta {...seoData} />
       <div className="cd-max-width">
         <nav className="cd-breadcrumb">
           <Link to="/">Home</Link>

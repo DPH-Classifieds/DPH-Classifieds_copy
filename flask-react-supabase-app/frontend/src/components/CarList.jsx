@@ -3,8 +3,10 @@ import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
+import SeoMeta from './SeoMeta';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
+import { buildStaticSeo } from '../utils/seo';
 import './CarList.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -14,6 +16,13 @@ const CarList = () => {
   const [cars, setCarsState] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const seoData = buildStaticSeo({
+    title: 'Used Cars for Sale in UAE | DPH Classifieds',
+    description:
+      'Search verified UAE car listings with make, model, trim, year, price, and city filters on DPH Classifieds.',
+    path: '/cars',
+    keywords: ['used cars UAE', 'Dubai cars for sale', 'UAE car listings', 'buy cars Dubai'],
+  });
   
   // Safe wrapper to ensure cars is always an array
   const setCars = (data) => {
@@ -295,6 +304,8 @@ const CarList = () => {
   };
   
   return (
+    <>
+      <SeoMeta {...seoData} />
     <div className="car-list-container">
       <h1>Car Listings</h1>
       
@@ -812,6 +823,7 @@ const CarList = () => {
         </>
       )}
     </div>
+    </>
   );
 };
 

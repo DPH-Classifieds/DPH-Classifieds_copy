@@ -30,6 +30,7 @@ from urllib.parse import urlparse
 from flask_cors import CORS
 from PIL import Image
 from werkzeug.utils import secure_filename
+from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
 
@@ -492,7 +493,7 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
 
 
 SITE_NAME = os.getenv("SITE_NAME", "UAE Classifieds")
-SITE_URL = os.getenv("SITE_URL", "https://your-domain.com")
+SITE_URL = os.getenv("SITE_URL", "https://www.dphclassifieds.com")
 
 
 def _send_email(to_address, subject, html_body):
@@ -647,6 +648,138 @@ def _filter_public_listing_records(table_name, records):
             continue
         filtered.append(synced)
     return filtered
+
+
+def _record_is_active_public_listing(record):
+    if not isinstance(record, dict):
+        return False
+
+    lifecycle = _compute_listing_lifecycle(record)
+    return lifecycle["state"] == "active"
+
+
+def _fetch_public_sitemap_rows(table_name, query_params=None, *, page_size=1000):
+    service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+    headers = {
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
+        "Content-Type": "application/json",
+    }
+
+    offset = 0
+    collected = []
+    base_params = dict(query_params or {})
+
+    while True:
+        params = {
+            "select": "id,created_at,status,is_approved,expires_at,expired_at,retention_expires_at,is_archived",
+            "order": "created_at.desc",
+            "limit": page_size,
+            "offset": offset,
+            **base_params,
+        }
+        response = requests.get(
+            f"{app.config['SUPABASE_URL']}/rest/v1/{table_name}",
+            headers=headers,
+            params=params,
+            timeout=15,
+        )
+        if response.status_code != 200:
+            logger.warning(
+                f"Failed to fetch sitemap rows for {table_name}: "
+                f"{response.status_code} {response.text}"
+            )
+            break
+
+        rows = response.json() or []
+        active_rows = [row for row in rows if _record_is_active_public_listing(row)]
+        collected.extend(active_rows)
+
+        if len(rows) < page_size:
+            break
+
+        offset += page_size
+
+    return collected
+
+
+def _build_sitemap_xml():
+    site_base = SITE_URL.rstrip("/")
+    static_pages = [
+        (f"{site_base}/", "daily", "1.0"),
+        (f"{site_base}/explore", "daily", "0.9"),
+        (f"{site_base}/cars", "daily", "0.9"),
+        (f"{site_base}/bikes", "daily", "0.8"),
+        (f"{site_base}/car-parts", "daily", "0.8"),
+        (f"{site_base}/plates", "daily", "0.8"),
+        (f"{site_base}/about", "weekly", "0.5"),
+        (f"{site_base}/contact", "weekly", "0.5"),
+        (f"{site_base}/privacy-policy", "monthly", "0.3"),
+        (f"{site_base}/terms-of-use", "monthly", "0.3"),
+    ]
+
+    listing_sources = [
+        ("cars", f"{site_base}/cars", {"status": "eq.approved", "is_approved": "eq.true"}),
+        ("bikes", f"{site_base}/bikes", {"status": "eq.approved", "is_approved": "eq.true"}),
+        ("car_parts", f"{site_base}/car-parts", {"status": "eq.approved", "is_approved": "eq.true"}),
+        ("license_plates", f"{site_base}/plates", {"status": "eq.approved"}),
+    ]
+
+    entries = []
+    for url, changefreq, priority in static_pages:
+        entries.append(
+            {
+                "loc": url,
+                "lastmod": datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
+                "changefreq": changefreq,
+                "priority": priority,
+            }
+        )
+
+    for table_name, path_base, query_params in listing_sources:
+        rows = _fetch_public_sitemap_rows(table_name, query_params)
+        for row in rows:
+            listing_id = row.get("id")
+            if not listing_id:
+                continue
+
+            lastmod_value = row.get("created_at") or row.get("updated_at")
+            lastmod = None
+            if lastmod_value:
+                parsed_lastmod = _parse_datetime(lastmod_value)
+                if parsed_lastmod:
+                    lastmod = parsed_lastmod.date().isoformat()
+
+            entries.append(
+                {
+                    "loc": f"{path_base}/{listing_id}",
+                    "lastmod": lastmod,
+                    "changefreq": "weekly",
+                    "priority": "0.7",
+                }
+            )
+
+    urlset = []
+    for entry in entries:
+        parts = [
+            "  <url>",
+            f"    <loc>{xml_escape(entry['loc'])}</loc>",
+        ]
+        if entry.get("lastmod"):
+            parts.append(f"    <lastmod>{xml_escape(entry['lastmod'])}</lastmod>")
+        if entry.get("changefreq"):
+            parts.append(f"    <changefreq>{xml_escape(entry['changefreq'])}</changefreq>")
+        if entry.get("priority"):
+            parts.append(f"    <priority>{xml_escape(entry['priority'])}</priority>")
+        parts.append("  </url>")
+        urlset.extend(parts)
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(urlset)
+        + "\n</urlset>"
+    )
 
 
 def _collect_user_listing_records(current_user, item_type):
@@ -2655,6 +2788,7 @@ def create_car(current_user):
             "parking_sensors",
             "rear_view_camera",
             "lady_driven",
+            "extras",
             "expires_at",
             "expired_at",
             "retention_expires_at",
@@ -10324,6 +10458,32 @@ def check_session_route(current_user):
     ), 200
 
 
+# Beta gate endpoint - verify password server-side
+@app.route("/api/auth/beta-verify", methods=["POST"])
+def beta_verify():
+    if not BETA_PASSWORD:
+        return jsonify({"success": True}), 200
+
+    data = request.json
+    if not data or not data.get("password"):
+        return jsonify({"success": False}), 401
+
+    if data.get("password") == BETA_PASSWORD:
+        return jsonify({"success": True}), 200
+
+    return jsonify({"success": False}), 401
+
+
+@app.route("/api/sitemap.xml", methods=["GET"])
+@app.route("/sitemap.xml", methods=["GET"])
+def sitemap_xml():
+    sitemap_body = _build_sitemap_xml()
+    response = make_response(sitemap_body, 200)
+    response.headers["Content-Type"] = "application/xml; charset=utf-8"
+    response.headers["Cache-Control"] = "public, max-age=900"
+    return response
+
+
 # Admin routes are registered at the top of the file (after imports)
 # No need to register again here
 
@@ -10390,19 +10550,3 @@ if __name__ == "__main__":
     reminder_thread.start()
 
     app.run(debug=debug_mode, host="127.0.0.1", port=8000)
-
-
-# Beta gate endpoint - verify password server-side
-@app.route("/api/auth/beta-verify", methods=["POST"])
-def beta_verify():
-    if not BETA_PASSWORD:
-        return jsonify({"success": True}), 200
-
-    data = request.json
-    if not data or not data.get("password"):
-        return jsonify({"success": False}), 401
-
-    if data.get("password") == BETA_PASSWORD:
-        return jsonify({"success": True}), 200
-
-    return jsonify({"success": False}), 401
