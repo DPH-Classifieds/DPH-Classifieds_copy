@@ -2,8 +2,14 @@ import { getBestAccessToken } from './supabaseClient';
 // eslint-disable-next-line no-unused-vars
 import * as authService from './authService';
 
-// Base URL for API requests - use environment variable or fallback to localhost
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const DEFAULT_PROD_API_URL = 'https://api.dphclassifieds.com';
+
+// Base URL for API requests - prefer the injected env var, fall back to the live Railway API in production,
+// and only use localhost when the app is actually running locally.
+const API_BASE_URL = process.env.REACT_APP_API_URL
+  || (typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : DEFAULT_PROD_API_URL);
 
 // Check if we need to use 127.0.0.1 instead of localhost due to CORS
 // Some backends have CORS configured only for 127.0.0.1
