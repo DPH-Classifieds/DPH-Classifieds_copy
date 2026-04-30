@@ -238,9 +238,22 @@
 }
 
 .phone-input-group {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  display: flex;
+  align-items: stretch;
   gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.phone-input-group > .searchable-select-wrapper {
+  flex: 0 0 150px;
+  min-width: 0;
+}
+
+.phone-input-group > .phone-number-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 .form-group.field-error-highlight {
@@ -944,8 +957,14 @@
   }
 
   .phone-input-group {
-    grid-template-columns: 118px minmax(0, 1fr);
+    flex-direction: column;
     gap: 8px;
+  }
+
+  .phone-input-group > .searchable-select-wrapper,
+  .phone-input-group > .phone-number-input {
+    width: 100%;
+    flex: 1 1 auto;
   }
 
   .features-grid,

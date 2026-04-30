@@ -1421,13 +1421,15 @@ const PostCar = () => {
                   ))}
                 </SearchableSelect>
                 <input
-                  type="text"
+                  type="tel"
                   id="car_owner_phone_number"
                   name="car_owner_phone_number"
                   value={formData.car_owner_phone_number}
                   onChange={handleChange}
                   required
                   placeholder="Phone number"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
                   className="form-control phone-number-input"
                 />
               </div>
@@ -1934,12 +1936,14 @@ const PostCar = () => {
                   ))}
                 </SearchableSelect>
                 <input
-                  type="text"
+                  type="tel"
                   id="whatsapp_number"
                   name="whatsapp_number"
                   value={formData.whatsapp_number}
                   onChange={handleChange}
                   placeholder="501234567"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
                   className="form-control phone-number-input"
                 />
               </div>
