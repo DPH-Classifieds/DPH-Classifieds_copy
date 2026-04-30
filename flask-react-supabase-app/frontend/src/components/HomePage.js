@@ -36,7 +36,7 @@ const marketplaceInsights = [
   },
 ];
 
-const heroImage = '/images/toplanding.webp';
+const heroImage = '/hero.webp';
 const ctaImage = '/images/bottom-landing.jpg';
 const primaryHeroButtonClass =
   'group border-0 bg-gradient-to-r from-[#0b6b4c] via-[#0a5f47] to-[#004e37] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[#0b6b4c] hover:to-[#0a5f47]';
