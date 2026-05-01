@@ -2,6 +2,7 @@ import React, { useEffect, Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
+import BetaGate from './components/BetaGate';
 import Footer from './components/ui/hover-footer';
 import CookieBanner from './components/CookieBanner';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -13,6 +14,8 @@ import AdminLayout from './components/AdminLayout';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import './App.css';
 import './styles/UAELicensePlate.css';
+
+const BETA_GATE_STORAGE_KEY = 'dph_beta_gate_unlocked_v1';
 
 function BackToTop() {
   const [visible, setVisible] = useState(false);
@@ -164,6 +167,8 @@ const EditTypeRedirect = () => {
 
 function App() {
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [betaUnlocked, setBetaUnlocked] = useState(() => localStorage.getItem(BETA_GATE_STORAGE_KEY) === '1');
+  const betaGateEnabled = process.env.REACT_APP_ENABLE_BETA_GATE !== 'false';
   const telemetryEnabled = process.env.REACT_APP_ENABLE_VERCEL_TELEMETRY === 'true';
 
   useEffect(() => {
@@ -187,16 +192,24 @@ function App() {
     };
   }, [showAnalytics, telemetryEnabled]);
 
+  const handleBetaUnlock = () => {
+    localStorage.setItem(BETA_GATE_STORAGE_KEY, '1');
+    setBetaUnlocked(true);
+  };
+
   return (
     <AuthProvider>
       <Router>
         <AuthHashHandler />
         <PlatformAnalyticsTracker />
-        <div className="app">
-          <Header />
-          <main className="app-content">
-            <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
-              <Routes>
+        {betaGateEnabled && !betaUnlocked ? (
+          <BetaGate onUnlock={handleBetaUnlock} />
+        ) : (
+          <div className="app">
+            <Header />
+            <main className="app-content">
+              <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<HomePage />} />
                 <Route path="/cars" element={<CarList />} />
@@ -264,13 +277,14 @@ function App() {
                 
                 {/* 404 route */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </main>
-          <Footer />
-        </div>
-        <CookieBanner />
-        <BackToTop />
+                </Routes>
+              </Suspense>
+            </main>
+            <Footer />
+          </div>
+        )}
+        {(!betaGateEnabled || betaUnlocked) && <CookieBanner />}
+        {(!betaGateEnabled || betaUnlocked) && <BackToTop />}
         {telemetryEnabled && showAnalytics && (
           <Suspense fallback={null}>
             <Analytics />
