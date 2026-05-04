@@ -27,7 +27,7 @@ def create_storage_bucket():
         'id': 'listing-images',
         'name': 'listing-images',
         'public': True,
-        'file_size_limit': 5242880,  # 5MB
+        'file_size_limit': 20971520,  # 20MB
         'allowed_mime_types': ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
     }
     

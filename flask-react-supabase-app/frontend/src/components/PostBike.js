@@ -12,10 +12,11 @@ import {
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImageUrlsDirect } from '../utils/directUpload';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('bike');
@@ -250,7 +251,7 @@ const PostBike = () => {
       }
 
       if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        setError(`File too large: ${file.name}. Max size is 5MB.`);
+        setError(`File too large: ${file.name}. Max size is 20MB.`);
         continue;
       }
 
@@ -278,11 +279,7 @@ const PostBike = () => {
       throw new Error('Please upload at least one bike image.');
     }
 
-    const uploadFormData = new FormData();
-    selectedFiles.forEach((file) => uploadFormData.append('images', file));
-
-    const response = await apiClient.post('/api/upload-images', uploadFormData);
-    return response.urls || [];
+    return uploadListingImageUrlsDirect(selectedFiles, { userId: user.id });
   };
 
   const removeExistingImage = (index) => {
@@ -698,7 +695,7 @@ const PostBike = () => {
                     <span className="material-symbols-outlined">upload</span>
                   </div>
                   <p className="upload-text-main">Drop bike photos here or click to browse</p>
-                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 5MB each</p>
+                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 20MB each</p>
                   <input
                     ref={fileInputRef}
                     className="file-input"

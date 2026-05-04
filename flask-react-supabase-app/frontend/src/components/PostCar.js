@@ -28,6 +28,7 @@ import ImageFramingModal from './ImageFramingModal';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -42,7 +43,7 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
 const MAX_DESCRIPTION_WORDS = 300;
 const DEFAULT_MAP_POSITION = [25.276987, 55.296249];
@@ -805,7 +806,7 @@ const PostCar = () => {
 
     const oversizedFile = files.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
     if (oversizedFile) {
-      setError('Each image must be 5MB or smaller.');
+      setError('Each image must be 20MB or smaller.');
       return;
     }
     
@@ -901,8 +902,7 @@ const PostCar = () => {
 
   const uploadImages = async () => {
     try {
-      // Check if user is still authenticated before uploading
-      if (!user) {
+      if (!user?.id) {
         throw new Error('User authentication required. Please log in again.');
       }
 
@@ -910,79 +910,18 @@ const PostCar = () => {
         throw new Error('No images selected for upload.');
       }
 
-      const formData = new FormData();
-      selectedFiles.forEach((file, index) => {
-        console.log(`Adding file ${index + 1}: ${file.name} (${file.type}, ${file.size} bytes)`);
-        formData.append('images', file);
+      return await uploadListingImagesDirect(selectedFiles, {
+        userId: user.id,
+        cropSettings: imageCropSettings,
       });
-      const cropPayload = selectedFiles.map((_, index) => {
-        const crop = imageCropSettings[index] || DEFAULT_IMAGE_CROP;
-        return {
-          focalX: crop.focalX ?? 50,
-          focalY: crop.focalY ?? 50,
-          zoom: crop.zoom ?? 1
-        };
-      });
-      formData.append('crop_data', JSON.stringify(cropPayload));
-      
-      console.log(`Uploading ${selectedFiles.length} images for user:`, user.email);
-      console.log('API URL:', process.env.REACT_APP_API_URL || 'https://api.dphclassifieds.com');
-      
-      // Use fetch directly for better error visibility
-      const token = localStorage.getItem('authData') ? JSON.parse(localStorage.getItem('authData')).access_token : null;
-      
-      if (!token) {
-        throw new Error('No authentication token found. Please log in again.');
-      }
-      
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://api.dphclassifieds.com'}/api/upload-images`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include',
-        body: formData
-      });
-      
-      console.log('Upload response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Upload error response:', errorData);
-        const uploadError = new Error(errorData.error || errorData.message || `Upload failed with status ${response.status}`);
-        uploadError.status = response.status;
-        throw uploadError;
-      }
-      
-      const data = await response.json();
-      console.log("Images upload response:", data);
-      
-      if (!Array.isArray(data.urls)) {
-        console.error("Invalid response format:", data);
-        throw new Error(data.error || data.message || "Invalid response from server");
-      }
-      
-      const uploadedImages = Array.isArray(data.images) && data.images.length
-        ? data.images
-        : data.urls.map((url) => ({ url, image_url: url, display_url: url, focal_x: 50, focal_y: 50, crop_meta: null }));
-
-      console.log(`Successfully uploaded ${uploadedImages.length} images`);
-      return uploadedImages;
     } catch (error) {
       console.error("Image upload error:", error);
-      
-      // Handle specific errors
-      if (error.status === 401) {
+
+      if (error.status === 401 || /Authentication|session/i.test(error.message || '')) {
         setError("Your session has expired. Please log in again and try submitting your listing.");
         setShowAuthModal(true);
-      } else if (error.status === 413) {
-        setError("File too large. Please upload images smaller than 10MB.");
-      } else if (error.status === 400) {
-        setError(error.message || "Invalid file type. Please upload JPG, PNG, WEBP, or GIF images.");
-      } else if (error.status === 500) {
-        setError(`Server error: ${error.message || 'Please try again later.'}`);
       } else {
-        setError(`Failed to upload images: ${error.message || 'Please try again.'}`);
+        setError(error.message || 'Failed to upload images. Please try again.');
       }
       return [];
     }
@@ -1032,6 +971,12 @@ const PostCar = () => {
       return;
     }
 
+    if (isEdit && existingImages.length + selectedFiles.length === 0) {
+      setError('You must keep or upload at least one image of your car.');
+      focusAndHighlightField('images');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
@@ -1048,38 +993,44 @@ const PostCar = () => {
       };
 
       if (isEdit) {
-        const updateFormData = new FormData();
-        Object.entries(submissionData).forEach(([key, value]) => {
-          if (key === 'images') return;
-          if (value === '' || value === null || value === undefined) return;
-          if (key === 'extras' && Array.isArray(value)) {
-            value.forEach((extra) => updateFormData.append('extras[]', extra));
-            return;
-          }
-          updateFormData.append(key, value);
-        });
+        const uploadedImages = selectedFiles.length > 0 ? await uploadImages() : [];
+        const persistedImages = existingImages
+          .map((image) => {
+            if (!image) {
+              return null;
+            }
 
-        existingImages.forEach((image) => {
-          if (image?.id) {
-            updateFormData.append('keep_image_ids', image.id);
-          }
-        });
+            if (typeof image === 'string') {
+              return {
+                url: image,
+                image_url: image,
+                display_url: image,
+                focal_x: 50,
+                focal_y: 50,
+                crop_meta: null,
+              };
+            }
 
-        selectedFiles.forEach((file) => {
-          updateFormData.append('images', file);
-        });
+            const imageUrl = image.image_url || image.url;
+            if (!imageUrl) {
+              return null;
+            }
 
-        if (selectedFiles.length > 0) {
-          const cropPayload = selectedFiles.map((_, index) => {
-            const crop = imageCropSettings[index] || DEFAULT_IMAGE_CROP;
             return {
-              focalX: crop.focalX ?? 50,
-              focalY: crop.focalY ?? 50,
-              zoom: crop.zoom ?? 1,
+              url: imageUrl,
+              image_url: imageUrl,
+              display_url: image.display_url || imageUrl,
+              focal_x: Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50,
+              focal_y: Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50,
+              crop_meta: image.crop_meta || null,
             };
-          });
-          updateFormData.append('crop_data', JSON.stringify(cropPayload));
-        }
+          })
+          .filter(Boolean);
+
+        const updatePayload = {
+          ...submissionData,
+          images: [...persistedImages, ...uploadedImages],
+        };
 
         const updateAttempts = [
           { endpoint: `/api/cars/${listingId}`, method: 'PATCH' },
@@ -1093,7 +1044,8 @@ const PostCar = () => {
           try {
             await apiClient.request(attempt.endpoint, {
               method: attempt.method,
-              body: updateFormData,
+              headers: { 'Content-Type': 'application/json' },
+              body: updatePayload,
             });
             lastError = null;
             break;
@@ -2159,7 +2111,7 @@ const PostCar = () => {
                 <button type="button" className="browse-btn" onClick={handleBrowseClick}>
                   Browse Files
                 </button>
-                <p className="upload-text-sub">Maximum 10 images • JPG, PNG, WEBP, GIF • 5MB each</p>
+                <p className="upload-text-sub">Maximum 10 images • JPG, PNG, WEBP, GIF • 20MB each</p>
               </div>
               
               {previewImages.length > 0 && (

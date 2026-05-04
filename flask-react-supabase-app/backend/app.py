@@ -40,7 +40,7 @@ app = Flask(__name__, static_folder="static")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB max request size
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25MB max request size
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ except ImportError:
     MAIL_ENABLED = False
     logger.warning("Flask-Mail not installed; email notifications disabled")
 MAX_LISTINGS_PER_USER = int(os.getenv("MAX_LISTINGS_PER_USER", "4"))
-MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))
+MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "20"))
 Image.MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "25000000"))
 CONTACT_RATE_LIMIT_WINDOW_SEC = int(os.getenv("CONTACT_RATE_LIMIT_WINDOW_SEC", "3600"))
 CONTACT_RATE_LIMIT_MAX = int(os.getenv("CONTACT_RATE_LIMIT_MAX", "5"))
@@ -104,6 +104,19 @@ LISTING_SOLD_RESPONSE_WINDOW_HOURS = int(
 LISTING_DISPLAY_WIDTH = int(os.getenv("LISTING_DISPLAY_WIDTH", "1600"))
 LISTING_DISPLAY_HEIGHT = int(os.getenv("LISTING_DISPLAY_HEIGHT", "1000"))
 LISTING_DISPLAY_RATIO = LISTING_DISPLAY_WIDTH / LISTING_DISPLAY_HEIGHT
+LISTING_IMAGE_ALLOWED_MIME_TYPES = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+]
+LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES = int(
+    os.getenv("LISTING_IMAGE_FILE_SIZE_LIMIT_MB", "20")
+) * 1024 * 1024
+PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES = int(
+    os.getenv("PROFILE_PHOTO_FILE_SIZE_LIMIT_MB", "5")
+) * 1024 * 1024
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
 
@@ -2984,6 +2997,7 @@ def update_car(current_user, car_id):
         if is_form_data:
             logger.info("Processing FormData request")
             update_data = {}
+            images = None
 
             # Extract form fields
             for key in request.form.keys():
@@ -3060,6 +3074,7 @@ def update_car(current_user, car_id):
             new_images = []
             keep_image_ids = []
             crop_data = []
+            images = update_data.pop("images", None)
 
         # Normalize legacy/alternate frontend keys.
         if "description" in update_data and "car_description" not in update_data:
@@ -3305,6 +3320,75 @@ def update_car(current_user, car_id):
                         user_id=current_user,
                     )
 
+        elif not is_form_data and images is not None:
+            image_inserts = []
+            for image_entry in images:
+                if isinstance(image_entry, str):
+                    image_url = image_entry
+                    display_url = image_url
+                    normalized_crop = _normalize_crop_settings({})
+                    crop_meta = None
+                elif isinstance(image_entry, dict):
+                    image_url = image_entry.get("image_url") or image_entry.get("url")
+                    if not image_url:
+                        continue
+                    display_url = image_entry.get("display_url") or image_url
+                    normalized_crop = _normalize_crop_settings(image_entry)
+                    crop_meta = image_entry.get("crop_meta")
+                else:
+                    continue
+
+                image_inserts.append(
+                    {
+                        "car_id": car_id,
+                        "url": image_url,
+                        "image_url": image_url,
+                        "display_url": display_url,
+                        "focal_x": normalized_crop["focal_x"],
+                        "focal_y": normalized_crop["focal_y"],
+                        "crop_meta": crop_meta,
+                    }
+                )
+
+            if not image_inserts:
+                return jsonify({"error": "At least one valid image is required."}), 400
+
+            supabase_request(
+                "delete",
+                "/rest/v1/car_images",
+                params={"car_id": f"eq.{car_id}"},
+                user_id=current_user,
+            )
+
+            images_response, images_status = supabase_request(
+                "post",
+                "/rest/v1/car_images",
+                data=image_inserts,
+                user_id=current_user,
+            )
+
+            if images_status >= 400:
+                inserted_images = []
+                for image_insert in image_inserts:
+                    single_image_response, single_image_status = supabase_request(
+                        "post",
+                        "/rest/v1/car_images",
+                        data=image_insert,
+                        user_id=current_user,
+                    )
+                    if single_image_status < 400 and single_image_response:
+                        if isinstance(single_image_response, list):
+                            inserted_images.extend(single_image_response)
+                        else:
+                            inserted_images.append(single_image_response)
+
+                if not inserted_images:
+                    logger.error(
+                        f"Failed to replace car images for {car_id}: "
+                        f"{images_status} - {images_response}"
+                    )
+                    return jsonify({"error": "Failed to save listing images."}), 500
+
         # Get updated car with images
         updated_car, updated_status = supabase_request(
             "get",
@@ -3363,6 +3447,43 @@ def update_car(current_user, car_id):
     except Exception as e:
         logger.error(f"Error updating car: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/storage/signed-upload-url", methods=["POST"])
+@token_required
+def create_storage_signed_upload_url(current_user):
+    try:
+        payload = request.get_json(silent=True) or {}
+        bucket_name = str(payload.get("bucket_name") or "").strip()
+        object_path = str(payload.get("object_path") or "").strip().lstrip("/")
+        upsert = bool(payload.get("upsert"))
+
+        if bucket_name not in {"listing-images", "profile-photos"}:
+            return jsonify({"error": "Unsupported bucket"}), 400
+
+        if not object_path:
+            return jsonify({"error": "object_path is required"}), 400
+
+        if not object_path.startswith(f"{current_user}/"):
+            return jsonify(
+                {"error": "object_path must be scoped to the authenticated user"}
+            ), 403
+
+        if not ensure_storage_bucket(bucket_name):
+            return jsonify({"error": "Storage bucket not available"}), 500
+
+        signed_upload, error = _create_signed_upload_url(
+            bucket_name=bucket_name,
+            object_path=object_path,
+            upsert=upsert,
+        )
+        if error:
+            return jsonify({"error": error}), 502
+
+        return jsonify(signed_upload), 200
+    except Exception as e:
+        logger.error(f"Error creating signed upload URL: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to create signed upload URL"}), 500
 
 
 # Delete a car listing (authenticated)
@@ -3472,12 +3593,57 @@ def ensure_storage_bucket(bucket_name="listing-images"):
 
         if response.status_code == 200:
             logger.info(f"Bucket '{bucket_name}' exists")
+            bucket_data = response.json() or {}
+            desired_config = None
+            if bucket_name == "listing-images":
+                desired_config = {
+                    "id": bucket_name,
+                    "name": bucket_name,
+                    "public": True,
+                    "file_size_limit": LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES,
+                    "allowed_mime_types": LISTING_IMAGE_ALLOWED_MIME_TYPES,
+                }
+            elif bucket_name == "profile-photos":
+                desired_config = {
+                    "id": bucket_name,
+                    "name": bucket_name,
+                    "public": True,
+                    "file_size_limit": PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES,
+                    "allowed_mime_types": LISTING_IMAGE_ALLOWED_MIME_TYPES,
+                }
+
+            if desired_config and (
+                bucket_data.get("public") != desired_config["public"]
+                or bucket_data.get("file_size_limit")
+                != desired_config["file_size_limit"]
+                or sorted(bucket_data.get("allowed_mime_types") or [])
+                != sorted(desired_config["allowed_mime_types"])
+            ):
+                update_url = f"{SUPABASE_URL}/storage/v1/bucket/{bucket_name}"
+                update_response = requests.put(
+                    update_url,
+                    headers={**headers, "Content-Type": "application/json"},
+                    json=desired_config,
+                    timeout=10,
+                )
+                if update_response.status_code not in [200, 204]:
+                    logger.error(
+                        f"Failed to update bucket config: {update_response.status_code} - "
+                        f"{update_response.text}"
+                    )
+                    return False
             return True
         elif response.status_code == 404:
             # Create the bucket
             logger.info(f"Bucket '{bucket_name}' not found, creating...")
             create_url = f"{SUPABASE_URL}/storage/v1/bucket"
             create_data = {"id": bucket_name, "name": bucket_name, "public": True}
+            if bucket_name == "listing-images":
+                create_data["file_size_limit"] = LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES
+                create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
+            elif bucket_name == "profile-photos":
+                create_data["file_size_limit"] = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES
+                create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
             create_response = requests.post(
                 create_url,
                 headers={**headers, "Content-Type": "application/json"},
@@ -3622,6 +3788,47 @@ def _upload_bytes_to_supabase_storage(
     return None, error_msg
 
 
+def _get_public_storage_object_url(bucket_name, object_path):
+    return f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{object_path}"
+
+
+def _create_signed_upload_url(bucket_name, object_path, upsert=False):
+    if not bucket_name or not object_path:
+        return None, "bucket_name and object_path are required"
+
+    upload_url = f"{SUPABASE_URL}/storage/v1/object/upload/sign/{bucket_name}/{object_path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    }
+    if upsert:
+        headers["x-upsert"] = "true"
+
+    response = requests.post(upload_url, headers=headers, json={}, timeout=20)
+    if response.status_code not in [200, 201]:
+        return (
+            None,
+            f"Signed upload URL creation failed: {response.status_code} - {response.text}",
+        )
+
+    payload = response.json() or {}
+    relative_url = payload.get("url")
+    if not relative_url:
+        return None, "Signed upload URL response missing url"
+
+    signed_url = f"{SUPABASE_URL}/storage/v1{relative_url}"
+    token = urlparse(signed_url).query.replace("token=", "", 1)
+    if not token:
+        return None, "Signed upload URL response missing token"
+
+    return {
+        "signed_url": signed_url,
+        "token": token,
+        "path": object_path,
+        "public_url": _get_public_storage_object_url(bucket_name, object_path),
+    }, None
+
+
 def upload_to_supabase_storage(
     file,
     bucket_name="listing-images",
@@ -3637,13 +3844,7 @@ def upload_to_supabase_storage(
         if not file or not file.filename:
             return None, "No file provided"
 
-        allowed_types = {
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-        }
+        allowed_types = set(LISTING_IMAGE_ALLOWED_MIME_TYPES)
         normalized_mimetype = (file.mimetype or "").lower()
         if normalized_mimetype not in allowed_types:
             return None, "Unsupported image type"

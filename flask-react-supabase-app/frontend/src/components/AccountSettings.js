@@ -5,6 +5,7 @@ import { getAccessToken, getCurrentUser } from '../utils/authService';
 import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/profileCompletion';
 import { resolveMediaUrl } from '../utils/media';
 import { splitPhoneNumberForInput } from '../utils/countryCodes';
+import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect } from '../utils/directUpload';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import '../styles/AccountSettings.css';
 
@@ -187,7 +188,7 @@ const AccountSettings = () => {
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > PROFILE_PHOTO_MAX_BYTES) {
         setError('Image size must be less than 5MB');
         return;
       }
@@ -210,29 +211,8 @@ const AccountSettings = () => {
       const token = await getAccessToken();
       if (!token) throw new Error('Authentication token not found');
 
-      const formData = new FormData();
-      formData.append('profile_photo', profilePhoto);
-
-      const response = await fetch(`${API_URL}/api/user/upload-profile-photo`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        let errorData = {};
-        try {
-          errorData = await response.json();
-        } catch (parseError) {
-          errorData = { message: 'Failed to upload photo' };
-        }
-        throw new Error(errorData.message || 'Failed to upload photo');
-      }
-
-      const data = await response.json();
-      return resolveMediaUrl(data.profile_photo_url);
+      const profilePhotoUrl = await uploadProfilePhotoDirect(profilePhoto, { userId: user.id });
+      return resolveMediaUrl(profilePhotoUrl);
     } finally {
       setUploadingPhoto(false);
     }
