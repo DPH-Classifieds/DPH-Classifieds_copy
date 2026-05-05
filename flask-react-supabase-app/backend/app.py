@@ -5587,7 +5587,7 @@ def start_phone_verification():
         return jsonify({"message": "Authentication required"}), 401
 
     profile = _get_user_profile_for_verification(current_user) or {}
-    if not bool(profile.get("email_verified")):
+    if purpose == "signup" and not bool(profile.get("email_verified")):
         return jsonify(
             {
                 "message": "Please verify your email first before phone verification.",
