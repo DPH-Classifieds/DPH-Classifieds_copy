@@ -1271,7 +1271,7 @@ def _get_user_profile_for_verification(user_id):
 
     resp, status = supabase_request(
         "get",
-        f"/rest/v1/users?id=eq.{user_id}&select=id,email,phone,country_code,phone_verified,phone_verified_at",
+        f"/rest/v1/users?id=eq.{user_id}&select=id,email,email_verified,phone,country_code,phone_verified,phone_verified_at",
         use_service_role=True,
     )
     if status >= 400 or not resp:
@@ -5500,32 +5500,11 @@ def signup():
             except Exception:
                 user_id = None
 
-            signup_phone_verification = None
-            if user_id and cleaned_metadata.get("phone"):
-                try:
-                    verification_result = _issue_phone_verification(
-                        user_id=user_id,
-                        phone=cleaned_metadata.get("phone"),
-                        country_code=cleaned_metadata.get("country_code", "+971"),
-                        purpose="signup",
-                        metadata={
-                            "source": "signup",
-                            "email": email,
-                        },
-                    )
-                    signup_phone_verification = _phone_verification_response(
-                        verification_result["verification"]
-                    )
-                except Exception as verification_err:
-                    logger.error(
-                        f"Failed to send signup phone verification: {verification_err}",
-                        exc_info=True,
-                    )
-                    signup_phone_verification = None
-
-            response_data["phone_verification"] = signup_phone_verification
-            response_data["phone_verification_required"] = bool(
-                signup_phone_verification
+            response_data["phone_verification"] = None
+            response_data["phone_verification_required"] = False
+            response_data["email_verification_required"] = True
+            response_data["next_step"] = (
+                "Verify your email first. Phone verification will be available after email confirmation."
             )
             return jsonify(response_data), 200
 
@@ -5558,7 +5537,7 @@ def start_phone_verification():
             {"message": "Too many verification attempts. Please try again later."}
         ), 429
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     purpose = str(data.get("purpose") or "vin_reveal").strip()
     listing_id = data.get("listing_id")
     verification_id = data.get("verification_id")
@@ -5608,6 +5587,14 @@ def start_phone_verification():
         return jsonify({"message": "Authentication required"}), 401
 
     profile = _get_user_profile_for_verification(current_user) or {}
+    if not bool(profile.get("email_verified")):
+        return jsonify(
+            {
+                "message": "Please verify your email first before phone verification.",
+                "email_verification_required": True,
+            }
+        ), 403
+
     if purpose == "vin_reveal" and profile.get("phone_verified"):
         return jsonify(
             {
