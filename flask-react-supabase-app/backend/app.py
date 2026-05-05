@@ -5252,8 +5252,8 @@ def login():
             {"message": "Too many login attempts. Please try again later."}
         ), 429
 
-    data = request.json
-    identifier = data.get("email", "")  # This can now be either email or username
+    data = request.get_json(silent=True) or {}
+    identifier = str(data.get("email", "")).strip()  # email or username
     logger.info(f"[Login] Attempt for identifier: {identifier}")
 
     if not data or not identifier or not data.get("password"):
@@ -5287,7 +5287,7 @@ def login():
 
     try:
         logger.info(f"[Login] Sending login request to Supabase auth: {url}")
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
 
         logger.info(f"[Login] Supabase auth response status: {response.status_code}")
         if response.status_code == 200:
@@ -5356,7 +5356,14 @@ def login():
                 )
             return response
         else:
-            error_data = response.json()
+            try:
+                error_data = response.json()
+            except Exception:
+                logger.error(
+                    "[Login] Supabase auth failed with non-JSON response: %s",
+                    response.text,
+                )
+                return jsonify({"message": "Login failed. Please try again."}), 502
             error_msg = error_data.get("error_description", "Login failed")
             logger.error(
                 f"[Login] Supabase auth failed: {error_msg}. Response: {error_data}"
