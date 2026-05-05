@@ -37,6 +37,11 @@ from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
 
+try:
+    import redis
+except ImportError:
+    redis = None
+
 load_dotenv()
 
 app = Flask(__name__, static_folder="static")
@@ -188,6 +193,84 @@ def _build_http_session():
 HTTP_SESSION = _build_http_session()
 _request_start_time = ContextVar("request_start_time", default=None)
 _request_supabase_durations_ms = ContextVar("request_supabase_durations_ms", default=None)
+REDIS_URL = os.getenv("REDIS_URL")
+API_CACHE_TTL_SECONDS = int(os.getenv("API_CACHE_TTL_SECONDS", "45"))
+_MEMORY_API_CACHE = {}
+_MEMORY_API_CACHE_LOCK = threading.Lock()
+_REDIS_CACHE_CLIENT = None
+
+
+def _get_redis_cache_client():
+    global _REDIS_CACHE_CLIENT
+    if _REDIS_CACHE_CLIENT is not None:
+        return _REDIS_CACHE_CLIENT
+    if not REDIS_URL or redis is None:
+        return None
+    try:
+        _REDIS_CACHE_CLIENT = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            socket_timeout=1.5,
+            socket_connect_timeout=1.5,
+            retry_on_timeout=True,
+        )
+        _REDIS_CACHE_CLIENT.ping()
+        logger.info("Redis cache client initialized")
+        return _REDIS_CACHE_CLIENT
+    except Exception as cache_err:
+        logger.warning(f"Redis unavailable, using memory cache fallback: {cache_err}")
+        _REDIS_CACHE_CLIENT = None
+        return None
+
+
+def _build_api_cache_key():
+    if request.method != "GET":
+        return None
+    query = request.query_string.decode("utf-8") if request.query_string else ""
+    return f"api-cache:{request.path}?{query}"
+
+
+def _api_cache_get(key):
+    if not key:
+        return None
+    redis_client = _get_redis_cache_client()
+    if redis_client:
+        try:
+            cached = redis_client.get(key)
+            if cached:
+                return json.loads(cached)
+        except Exception as cache_err:
+            logger.warning(f"Redis cache read failed: {cache_err}")
+    now_ts = time.time()
+    with _MEMORY_API_CACHE_LOCK:
+        hit = _MEMORY_API_CACHE.get(key)
+        if hit and hit.get("expires_at", 0) > now_ts:
+            return hit.get("payload")
+        if hit:
+            _MEMORY_API_CACHE.pop(key, None)
+    return None
+
+
+def _api_cache_set(key, payload, ttl_seconds=API_CACHE_TTL_SECONDS):
+    if not key:
+        return
+    redis_client = _get_redis_cache_client()
+    if redis_client:
+        try:
+            redis_client.setex(key, ttl_seconds, json.dumps(payload, ensure_ascii=False))
+        except Exception as cache_err:
+            logger.warning(f"Redis cache write failed: {cache_err}")
+    with _MEMORY_API_CACHE_LOCK:
+        _MEMORY_API_CACHE[key] = {
+            "payload": payload,
+            "expires_at": time.time() + ttl_seconds,
+        }
+
+
+def _cached_json_response(payload, status_code=200):
+    response = make_response(jsonify(payload), status_code)
+    response.headers["Cache-Control"] = f"public, max-age={API_CACHE_TTL_SECONDS}"
+    return response
 
 
 def _parse_pagination_args():
@@ -2398,6 +2481,11 @@ def debug_json():
 @app.route("/api/cars", methods=["GET"])
 def get_cars():
     try:
+        cache_key = _build_api_cache_key()
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return _cached_json_response(cached_payload)
+
         # Get query parameters
         limit, offset = _parse_pagination_args()
         order = request.args.get("order", "created_at.desc")
@@ -2573,7 +2661,8 @@ def get_cars():
             logger.warning(f"Error fetching seller info: {e}")
 
         logger.info(f"Successfully fetched {len(response)} cars")
-        return jsonify(response), 200
+        _api_cache_set(cache_key, response)
+        return _cached_json_response(response), 200
 
     except Exception as e:
         logger.error(f"Error getting cars: {str(e)}")
@@ -4757,6 +4846,11 @@ def send_contact_message():
 @app.route("/api/license-plates", methods=["GET"])
 def get_license_plates():
     try:
+        cache_key = _build_api_cache_key()
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return _cached_json_response(cached_payload)
+
         # Optional query parameters
         city = request.args.get("city")
         code = request.args.get("code")
@@ -4774,7 +4868,10 @@ def get_license_plates():
             query += f"&digits=eq.{digits}"
 
         response, response_status = supabase_request("get", query)
-        return jsonify(response)
+        if response_status >= 400:
+            return jsonify(response), response_status
+        _api_cache_set(cache_key, response)
+        return _cached_json_response(response)
     except Exception as e:
         logger.error(f"Error fetching license plates: {e}")
         return jsonify({"error": str(e)}), 500
@@ -6284,6 +6381,11 @@ def _enrich_listing_seller(item, headers=None):
 @app.route("/api/bikes", methods=["GET"])
 def get_bikes():
     try:
+        cache_key = _build_api_cache_key()
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return _cached_json_response(cached_payload)
+
         # Get query parameters
         limit, offset = _parse_pagination_args()
         order = request.args.get("order", "created_at")
@@ -6365,7 +6467,8 @@ def get_bikes():
 
                     _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
 
-                return jsonify(bikes)
+                _api_cache_set(cache_key, bikes)
+                return _cached_json_response(bikes)
             else:
                 logger.error(
                     f"Direct request failed: {response.status_code} - {response.text}"
@@ -6401,9 +6504,12 @@ def get_bikes():
                         bike["images"] = []
 
                     _enrich_listing_seller(bike)
-                return jsonify(response)
+                _api_cache_set(cache_key, response)
+                return _cached_json_response(response)
             else:
-                return jsonify([])
+                empty_payload = []
+                _api_cache_set(cache_key, empty_payload)
+                return _cached_json_response(empty_payload)
 
     except Exception as e:
         logger.error(f"Error fetching bikes: {str(e)}")
@@ -7275,6 +7381,11 @@ def delete_plate(current_user, plate_id):
 @app.route("/api/parts", methods=["GET"])
 def get_parts():
     try:
+        cache_key = _build_api_cache_key()
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return _cached_json_response(cached_payload)
+
         # Get query parameters
         limit, offset = _parse_pagination_args()
         order = request.args.get("order", "created_at")
@@ -7351,7 +7462,8 @@ def get_parts():
                             ]
                     _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
 
-                return jsonify(parts)
+                _api_cache_set(cache_key, parts)
+                return _cached_json_response(parts)
             else:
                 logger.error(
                     f"Direct request failed: {response.status_code} - {response.text}"
@@ -7380,9 +7492,12 @@ def get_parts():
                         part["images"] = []
 
                     _enrich_listing_seller(part)
-                return jsonify(response)
+                _api_cache_set(cache_key, response)
+                return _cached_json_response(response)
             else:
-                return jsonify([])
+                empty_payload = []
+                _api_cache_set(cache_key, empty_payload)
+                return _cached_json_response(empty_payload)
 
     except Exception as e:
         logger.error(f"Error fetching parts: {str(e)}")
