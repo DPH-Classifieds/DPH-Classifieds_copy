@@ -5564,6 +5564,7 @@ def start_phone_verification():
     verification_id = data.get("verification_id")
     phone = data.get("phone")
     country_code = data.get("country_code")
+    verification_record = None
 
     if purpose not in PHONE_VERIFICATION_PURPOSES:
         return jsonify({"message": "Invalid verification purpose"}), 400
@@ -5575,7 +5576,18 @@ def start_phone_verification():
         if not verification_record:
             return jsonify({"message": "Verification record not found"}), 404
         if current_user and verification_record.get("user_id") != current_user:
-            return jsonify({"message": "You cannot resend this verification"}), 403
+            logger.info(
+                "Stale verification_id %s for user %s (owner %s). Issuing a fresh verification.",
+                verification_id,
+                current_user,
+                verification_record.get("user_id"),
+            )
+            verification_id = None
+            verification_record = None
+        elif not current_user:
+            return jsonify({"message": "Authentication required"}), 401
+
+    if verification_record:
         try:
             refreshed = _resend_phone_verification(verification_record)
             return jsonify(

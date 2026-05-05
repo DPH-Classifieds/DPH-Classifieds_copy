@@ -155,7 +155,7 @@ export function OTPVerification({
     }
   }
 
-  const startVerification = async () => {
+  const startVerification = async (allowStaleRetry = true) => {
     setStarting(true)
     setError("")
     setMessage("Sending verification code...")
@@ -183,6 +183,17 @@ export function OTPVerification({
 
       const data = await response.json()
       if (!response.ok) {
+        if (
+          response.status === 403
+          && allowStaleRetry
+          && verificationId
+          && (data?.message || "").toLowerCase().includes("cannot resend")
+        ) {
+          setVerificationId(null)
+          setPhoneVerification(null)
+          await startVerification(false)
+          return
+        }
         throw new Error(data?.message || "Failed to send verification code")
       }
 
