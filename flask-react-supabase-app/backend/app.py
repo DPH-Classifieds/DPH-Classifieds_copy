@@ -1259,11 +1259,16 @@ def _send_infobip_sms(to_phone, message):
         return False, {"message": "INFOBIP_API_KEY is not configured"}
 
     normalized_phone = _normalize_phone_number(to_phone)
-    destination_phone = re.sub(r"[^\d]", "", normalized_phone or str(to_phone or ""))
+    destination_phone = normalized_phone or str(to_phone or "")
     infobip_base_url = _normalize_base_url(INFOBIP_BASE_URL, default_scheme="https")
 
-    # Development mode: log code to console instead of sending SMS
-    if os.getenv("ENVIRONMENT") == "development" or os.getenv("SKIP_SMS") == "true":
+    otp_dev_mode = str(os.getenv("OTP_DEV_MODE", "")).lower() == "true"
+    skip_sms = str(os.getenv("SKIP_SMS", "")).lower() == "true"
+    flask_env = str(os.getenv("FLASK_ENV", "")).lower()
+
+    # Development mode: log code to console instead of sending SMS.
+    # In production, never short-circuit to console mode.
+    if flask_env != "production" and (otp_dev_mode or skip_sms):
         print("\n" + "=" * 60)
         print("📱 DEVELOPMENT MODE - SMS NOT SENT")
         print("=" * 60)
@@ -1274,6 +1279,11 @@ def _send_infobip_sms(to_phone, message):
             "status": "dev_mode",
             "message": "SMS logged to console in dev mode",
         }
+
+    if flask_env == "production" and (otp_dev_mode or skip_sms):
+        logger.warning(
+            "OTP dev flags detected in production environment; ignoring and sending via Infobip."
+        )
 
     payload = {
         "messages": [

@@ -27,7 +27,7 @@ class PhoneNormalizationTests(unittest.TestCase):
 
 class InfobipPayloadTests(unittest.TestCase):
     @patch.object(backend.requests, "post")
-    def test_send_sms_strips_formatting_from_destination(self, mock_post):
+    def test_send_sms_uses_e164_destination(self, mock_post):
         backend.INFOBIP_API_KEY = "test-key"
         backend.INFOBIP_BASE_URL = "https://example.com"
         backend.INFOBIP_SENDER = "ServiceSMS"
@@ -45,7 +45,7 @@ class InfobipPayloadTests(unittest.TestCase):
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(
             payload["messages"][0]["destinations"][0]["to"],
-            "971501234567",
+            "+971501234567",
         )
 
     @patch.object(backend.requests, "post")
@@ -83,6 +83,18 @@ class OptionalAuthTests(unittest.TestCase):
 
         self.assertEqual(user_id, "user-123")
         self.assertTrue(mock_get.called)
+
+
+class UAEPhoneValidationTests(unittest.TestCase):
+    def test_issue_verification_rejects_non_uae_number(self):
+        with self.assertRaises(ValueError) as context:
+            backend._issue_phone_verification(
+                user_id="user-123",
+                phone="+12025550123",
+                purpose="vin_reveal",
+                country_code="+1",
+            )
+        self.assertIn("Only UAE phone numbers are supported", str(context.exception))
 
 
 if __name__ == "__main__":

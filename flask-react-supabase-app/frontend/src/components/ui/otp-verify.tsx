@@ -10,6 +10,7 @@ import { formatVerificationPhone } from "../../utils/countryCodes"
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"
 const OTP_LENGTH = 6
 const RESEND_COOLDOWN = 50
+const UAE_COUNTRY_CODE = "+971"
 
 const emptyOtp = () => Array.from({ length: OTP_LENGTH }, () => "")
 
@@ -19,7 +20,7 @@ export function OTPVerification({
   title = "Verify your phone",
   description = "We sent a one-time code to your phone number.",
   phone,
-  countryCode,
+  countryCode: _countryCode,
   purpose = "vin_reveal",
   listingId,
   verificationId: initialVerificationId = null,
@@ -44,12 +45,13 @@ export function OTPVerification({
   const inputRefs = useRef([])
 
   const closeHandler = onClose || onCancel
+  const effectiveCountryCode = UAE_COUNTRY_CODE
   const displayPhone = useMemo(() => {
     return (
       phoneVerification?.masked_phone
-      || (phoneInput || phone ? formatVerificationPhone(phoneInput || phone, countryCode) : "")
+      || (phoneInput || phone ? formatVerificationPhone(phoneInput || phone, effectiveCountryCode) : "")
     )
-  }, [countryCode, phone, phoneInput, phoneVerification?.masked_phone])
+  }, [effectiveCountryCode, phone, phoneInput, phoneVerification?.masked_phone])
 
   useEffect(() => {
     setVerificationId(initialVerificationId)
@@ -100,7 +102,7 @@ export function OTPVerification({
     autoStart,
     phoneInput,
     phone,
-    countryCode,
+    effectiveCountryCode,
     purpose,
     listingId,
     starting,
@@ -173,7 +175,7 @@ export function OTPVerification({
             ? { verification_id: verificationId, source: mode }
             : {
                 phone: phoneInput,
-                country_code: countryCode,
+                country_code: UAE_COUNTRY_CODE,
                 purpose,
                 listing_id: listingId,
                 source: mode,
@@ -336,6 +338,7 @@ export function OTPVerification({
             </div>
             <h3 id="otp-verification-title" className="text-2xl font-semibold tracking-[-0.04em] text-white">{title}</h3>
             <p className="mt-2 text-sm leading-6 text-white/65">{description}</p>
+            <p className="mt-2 text-xs leading-5 text-[#bfeac8]">OTP is supported for UAE numbers only (+971).</p>
           </div>
           {!hideClose && closeHandler ? (
             <button

@@ -12,7 +12,7 @@ const VerifyPhone = () => {
   const verificationId = state.verificationId || params.get('verification_id') || '';
   const phone = state.phone || params.get('phone') || '';
   const purpose = state.purpose || params.get('purpose') || 'signup';
-  const countryCode = state.countryCode || params.get('country_code') || '+971';
+  const countryCode = '+971';
   const email = state.email || params.get('email') || '';
   const redirect = state.redirect || params.get('redirect') || '/profile';
   const nextRoute = state.nextRoute || params.get('next') || '';
@@ -43,8 +43,8 @@ const VerifyPhone = () => {
       open
       title={purpose === 'signup' ? 'Verify your phone to continue signup' : 'Verify your phone number'}
       description={purpose === 'signup'
-        ? 'Enter the SMS code we sent so we can finish setting up your account.'
-        : 'Enter the SMS code to confirm this phone number.'}
+        ? 'Enter the SMS code we sent so we can finish setting up your account. UAE numbers only (+971).'
+        : 'Enter the SMS code to confirm this phone number. UAE numbers only (+971).'}
       phone={phone}
       countryCode={countryCode}
       purpose={purpose}
