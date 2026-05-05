@@ -27,6 +27,8 @@ import time
 from collections import defaultdict, deque
 from functools import wraps
 from urllib.parse import urlparse
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from flask_cors import CORS
 from PIL import Image
 from werkzeug.utils import secure_filename
@@ -71,6 +73,15 @@ CONTACT_RATE_LIMIT = defaultdict(deque)
 AUTH_RATE_LIMIT_WINDOW_SEC = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SEC", "300"))
 AUTH_RATE_LIMIT_MAX = int(os.getenv("AUTH_RATE_LIMIT_MAX", "5"))
 AUTH_RATE_LIMIT = defaultdict(deque)
+REQUEST_POOL_CONNECTIONS = int(os.getenv("REQUEST_POOL_CONNECTIONS", "100"))
+REQUEST_POOL_MAXSIZE = int(os.getenv("REQUEST_POOL_MAXSIZE", "100"))
+HTTP_DEFAULT_TIMEOUT_SECONDS = float(os.getenv("HTTP_DEFAULT_TIMEOUT_SECONDS", "15"))
+HTTP_RETRY_TOTAL = int(os.getenv("HTTP_RETRY_TOTAL", "2"))
+STORAGE_BUCKET_CACHE_TTL_SECONDS = int(
+    os.getenv("STORAGE_BUCKET_CACHE_TTL_SECONDS", "300")
+)
+_STORAGE_BUCKET_CACHE = {}
+_STORAGE_BUCKET_CACHE_LOCK = threading.Lock()
 PHONE_VERIFICATION_PURPOSES = {"signup", "phone_change", "profile_verify", "vin_reveal"}
 PHONE_VERIFICATION_CODE_LENGTH = int(os.getenv("PHONE_VERIFICATION_CODE_LENGTH", "6"))
 PHONE_VERIFICATION_TTL_MINUTES = int(os.getenv("PHONE_VERIFICATION_TTL_MINUTES", "10"))
@@ -142,6 +153,30 @@ API_ITEM_TYPE_TO_TABLE = {
     "part": "car_parts",
     "plate": "license_plates",
 }
+
+
+def _build_http_session():
+    retry = Retry(
+        total=HTTP_RETRY_TOTAL,
+        connect=HTTP_RETRY_TOTAL,
+        read=HTTP_RETRY_TOTAL,
+        backoff_factor=0.3,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods={"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(
+        pool_connections=REQUEST_POOL_CONNECTIONS,
+        pool_maxsize=REQUEST_POOL_MAXSIZE,
+        max_retries=retry,
+    )
+    http_session = requests.Session()
+    http_session.mount("https://", adapter)
+    http_session.mount("http://", adapter)
+    return http_session
+
+
+HTTP_SESSION = _build_http_session()
 
 CAR_TRANSMISSION_OPTIONS = {"Automatic", "Manual"}
 CAR_FUEL_OPTIONS = {"Petrol", "Diesel", "Electric", "Hybrid", "Other"}
@@ -2104,16 +2139,15 @@ def supabase_request(
         logger.debug(f"Params: {params}")
 
     try:
-        if method.lower() == "get":
-            response = requests.get(url, headers=headers, params=params)
-        elif method.lower() == "post":
-            response = requests.post(url, headers=headers, json=data)
-        elif method.lower() == "put":
-            response = requests.put(url, headers=headers, json=data, params=params)
-        elif method.lower() == "patch":
-            response = requests.patch(url, headers=headers, json=data, params=params)
-        elif method.lower() == "delete":
-            response = requests.delete(url, headers=headers, params=params)
+        if method.lower() in {"get", "post", "put", "patch", "delete"}:
+            response = HTTP_SESSION.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                json=data if method.lower() in {"post", "put", "patch"} else None,
+                timeout=HTTP_DEFAULT_TIMEOUT_SECONDS,
+            )
         else:
             return {"error": "Invalid method"}, 400
 
@@ -3581,6 +3615,12 @@ def ensure_storage_bucket(bucket_name="listing-images"):
     """
     Ensure the storage bucket exists and is public.
     """
+    now_ts = time.time()
+    with _STORAGE_BUCKET_CACHE_LOCK:
+        cached_until = _STORAGE_BUCKET_CACHE.get(bucket_name, 0)
+        if cached_until > now_ts:
+            return True
+
     try:
         # Check if bucket exists
         check_url = f"{SUPABASE_URL}/storage/v1/bucket/{bucket_name}"
@@ -3632,6 +3672,10 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                         f"{update_response.text}"
                     )
                     return False
+            with _STORAGE_BUCKET_CACHE_LOCK:
+                _STORAGE_BUCKET_CACHE[bucket_name] = (
+                    time.time() + STORAGE_BUCKET_CACHE_TTL_SECONDS
+                )
             return True
         elif response.status_code == 404:
             # Create the bucket
@@ -3653,6 +3697,10 @@ def ensure_storage_bucket(bucket_name="listing-images"):
 
             if create_response.status_code in [200, 201]:
                 logger.info(f"Bucket '{bucket_name}' created successfully")
+                with _STORAGE_BUCKET_CACHE_LOCK:
+                    _STORAGE_BUCKET_CACHE[bucket_name] = (
+                        time.time() + STORAGE_BUCKET_CACHE_TTL_SECONDS
+                    )
                 return True
             else:
                 logger.error(

@@ -406,10 +406,10 @@ const ExplorePage = () => {
       setError('');
 
       const requests = await Promise.allSettled([
-        fetch(`${API_URL}/api/cars`).then((response) => response.json()),
-        fetch(`${API_URL}/api/bikes`).then((response) => response.json()),
-        fetch(`${API_URL}/api/parts`).then((response) => response.json()),
-        fetch(`${API_URL}/api/plates`).then((response) => response.json()),
+        fetch(`${API_URL}/api/cars?limit=60&order=created_at.desc`).then((response) => response.json()),
+        fetch(`${API_URL}/api/bikes?limit=60&order=created_at.desc`).then((response) => response.json()),
+        fetch(`${API_URL}/api/parts?limit=60&order=created_at.desc`).then((response) => response.json()),
+        fetch(`${API_URL}/api/plates?limit=60&order=created_at.desc`).then((response) => response.json()),
       ]);
 
       if (!isMounted) {

@@ -5,4 +5,4 @@ nixPkgs = ["python311", "gcc"]
 cmds = ["if [ -f requirements.txt ]; then pip install -r requirements.txt; elif [ -f flask-react-supabase-app/backend/requirements.txt ]; then pip install -r flask-react-supabase-app/backend/requirements.txt; else echo 'requirements.txt not found' && exit 1; fi"]
 
 [start]
-cmd = "if [ -f app.py ]; then gunicorn app:app --bind 0.0.0.0:${PORT} --workers 2 --timeout 120; elif [ -f flask-react-supabase-app/backend/app.py ]; then gunicorn --chdir flask-react-supabase-app/backend app:app --bind 0.0.0.0:${PORT} --workers 2 --timeout 120; else echo 'app.py not found' && exit 1; fi"
+cmd = "if [ -f app.py ]; then gunicorn -c gunicorn.conf.py app:app; elif [ -f flask-react-supabase-app/backend/app.py ]; then gunicorn -c flask-react-supabase-app/backend/gunicorn.conf.py --chdir flask-react-supabase-app/backend app:app; else echo 'app.py not found' && exit 1; fi"
