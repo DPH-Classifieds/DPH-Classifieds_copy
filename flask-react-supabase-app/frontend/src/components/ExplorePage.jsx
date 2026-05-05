@@ -10,6 +10,52 @@ import { buildStaticSeo } from '../utils/seo';
 import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const INVENTORY_CACHE_TTL_MS = 60 * 1000;
+const inflightInventoryRequests = new Map();
+
+const fetchJsonWithCache = async (url, ttlMs = INVENTORY_CACHE_TTL_MS) => {
+  const cacheKey = `explore-cache:${url}`;
+  const now = Date.now();
+
+  try {
+    const cachedRaw = sessionStorage.getItem(cacheKey);
+    if (cachedRaw) {
+      const cached = JSON.parse(cachedRaw);
+      if (cached?.expiresAt > now && cached?.data !== undefined) {
+        return cached.data;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to read cached inventory response', error);
+  }
+
+  if (inflightInventoryRequests.has(url)) {
+    return inflightInventoryRequests.get(url);
+  }
+
+  const fetchPromise = fetch(url)
+    .then((response) => response.json())
+    .then((data) => {
+      try {
+        sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            expiresAt: now + ttlMs,
+            data,
+          })
+        );
+      } catch (error) {
+        console.warn('Failed to store cached inventory response', error);
+      }
+      return data;
+    })
+    .finally(() => {
+      inflightInventoryRequests.delete(url);
+    });
+
+  inflightInventoryRequests.set(url, fetchPromise);
+  return fetchPromise;
+};
 
 const exploreModes = [
   { key: 'all', label: 'Explore All', description: 'Search everything in one place.' },
@@ -406,10 +452,10 @@ const ExplorePage = () => {
       setError('');
 
       const requests = await Promise.allSettled([
-        fetch(`${API_URL}/api/cars?limit=60&order=created_at.desc`).then((response) => response.json()),
-        fetch(`${API_URL}/api/bikes?limit=60&order=created_at.desc`).then((response) => response.json()),
-        fetch(`${API_URL}/api/parts?limit=60&order=created_at.desc`).then((response) => response.json()),
-        fetch(`${API_URL}/api/plates?limit=60&order=created_at.desc`).then((response) => response.json()),
+        fetchJsonWithCache(`${API_URL}/api/cars?limit=60&order=created_at.desc`),
+        fetchJsonWithCache(`${API_URL}/api/bikes?limit=60&order=created_at.desc`),
+        fetchJsonWithCache(`${API_URL}/api/parts?limit=60&order=created_at.desc`),
+        fetchJsonWithCache(`${API_URL}/api/plates?limit=60&order=created_at.desc`),
       ]);
 
       if (!isMounted) {

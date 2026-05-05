@@ -24,6 +24,7 @@ import re
 import requests
 import secrets
 import time
+from contextvars import ContextVar
 from collections import defaultdict, deque
 from functools import wraps
 from urllib.parse import urlparse
@@ -77,6 +78,8 @@ REQUEST_POOL_CONNECTIONS = int(os.getenv("REQUEST_POOL_CONNECTIONS", "100"))
 REQUEST_POOL_MAXSIZE = int(os.getenv("REQUEST_POOL_MAXSIZE", "100"))
 HTTP_DEFAULT_TIMEOUT_SECONDS = float(os.getenv("HTTP_DEFAULT_TIMEOUT_SECONDS", "15"))
 HTTP_RETRY_TOTAL = int(os.getenv("HTTP_RETRY_TOTAL", "2"))
+DEFAULT_LIST_LIMIT = max(1, int(os.getenv("DEFAULT_LIST_LIMIT", "50")))
+MAX_LIST_LIMIT = max(DEFAULT_LIST_LIMIT, int(os.getenv("MAX_LIST_LIMIT", "100")))
 STORAGE_BUCKET_CACHE_TTL_SECONDS = int(
     os.getenv("STORAGE_BUCKET_CACHE_TTL_SECONDS", "300")
 )
@@ -153,6 +156,12 @@ API_ITEM_TYPE_TO_TABLE = {
     "part": "car_parts",
     "plate": "license_plates",
 }
+LISTING_IMAGE_SELECTS = {
+    "cars": "id,car_id,image_url,url,display_url,position,created_at",
+    "bikes": "id,bike_id,image_url,url,display_url,position,created_at",
+    "car_parts": "id,part_id,image_url,url,display_url,position,created_at",
+    "license_plates": "id,plate_id,image_url,url,display_url,position,created_at",
+}
 
 
 def _build_http_session():
@@ -177,6 +186,86 @@ def _build_http_session():
 
 
 HTTP_SESSION = _build_http_session()
+_request_start_time = ContextVar("request_start_time", default=None)
+_request_supabase_durations_ms = ContextVar("request_supabase_durations_ms", default=None)
+
+
+def _parse_pagination_args():
+    raw_limit = request.args.get("limit")
+    raw_offset = request.args.get("offset")
+    try:
+        limit = int(raw_limit) if raw_limit is not None else DEFAULT_LIST_LIMIT
+    except (TypeError, ValueError):
+        limit = DEFAULT_LIST_LIMIT
+    try:
+        offset = int(raw_offset) if raw_offset is not None else 0
+    except (TypeError, ValueError):
+        offset = 0
+
+    limit = max(1, min(limit, MAX_LIST_LIMIT))
+    offset = max(0, offset)
+    return limit, offset
+
+
+def _extract_request_path(path):
+    return path.split("?", 1)[0] if isinstance(path, str) else "unknown"
+
+
+def _extract_payload_size_bytes(payload):
+    try:
+        if payload is None:
+            return 0
+        if isinstance(payload, (dict, list)):
+            return len(json.dumps(payload, ensure_ascii=False))
+        return len(str(payload))
+    except Exception:
+        return 0
+
+
+def _batch_fetch_seller_map(user_ids, headers=None):
+    unique_ids = sorted({uid for uid in user_ids if uid})
+    if not unique_ids:
+        return {}
+
+    user_fields = "id,first_name,last_name,email,profile_photo_url,is_dealer"
+    id_filter = ",".join(unique_ids)
+    seller_map = {}
+    try:
+        if headers:
+            user_url = (
+                f"{app.config['SUPABASE_URL']}/rest/v1/users"
+                f"?id=in.({id_filter})&select={user_fields}"
+            )
+            user_response = HTTP_SESSION.get(
+                user_url, headers=headers, timeout=HTTP_DEFAULT_TIMEOUT_SECONDS
+            )
+            if user_response.status_code == 200:
+                rows = user_response.json() or []
+                seller_map = {row.get("id"): row for row in rows if row.get("id")}
+        else:
+            user_response, user_status = supabase_request(
+                "get",
+                f"/rest/v1/users?id=in.({id_filter})&select={user_fields}",
+                use_service_role=True,
+            )
+            if user_status < 400 and isinstance(user_response, list):
+                seller_map = {
+                    row.get("id"): row for row in user_response if row.get("id")
+                }
+    except Exception as seller_err:
+        logger.warning(f"Failed batch seller fetch: {seller_err}")
+    return seller_map
+
+
+def _apply_seller_to_listing(item, seller):
+    if not isinstance(item, dict) or not isinstance(seller, dict):
+        return item
+    full_name = f"{seller.get('first_name', '')} {seller.get('last_name', '')}".strip()
+    item["seller_name"] = full_name or seller.get("email", "Marketplace Seller")
+    item["seller_id"] = seller.get("id")
+    item["seller_profile_photo"] = seller.get("profile_photo_url")
+    item["seller_verified"] = bool(seller.get("is_dealer", False))
+    return item
 
 CAR_TRANSMISSION_OPTIONS = {"Automatic", "Manual"}
 CAR_FUEL_OPTIONS = {"Petrol", "Diesel", "Electric", "Hybrid", "Other"}
@@ -1515,6 +1604,20 @@ def _phone_verification_response(record):
 os.makedirs(os.path.join("static", "uploads", "plates"), exist_ok=True)
 
 
+@app.before_request
+def start_request_timer():
+    _request_start_time.set(time.perf_counter())
+    _request_supabase_durations_ms.set([])
+
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    if request.path.startswith("/api/"):
+        logger.error("Unhandled internal error on %s: %s", request.path, error, exc_info=True)
+        return jsonify({"message": "Internal server error"}), 500
+    return error
+
+
 @app.after_request
 def add_security_headers(response):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -1527,6 +1630,22 @@ def add_security_headers(response):
         "Content-Security-Policy",
         "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.railway.app; connect-src 'self' https://*.supabase.co https://dph-classifieds-production.up.railway.app https://dphclassifieds.com https://www.dphclassifieds.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com;",
     )
+    started_at = _request_start_time.get()
+    if started_at is not None:
+        total_ms = (time.perf_counter() - started_at) * 1000
+        supabase_timings = _request_supabase_durations_ms.get() or []
+        supabase_total_ms = sum(item.get("duration_ms", 0) for item in supabase_timings)
+        response_size = response.calculate_content_length() or 0
+        logger.info(
+            "REQ_PERF method=%s path=%s status=%s total_ms=%.2f supabase_ms=%.2f supabase_calls=%s response_bytes=%s",
+            request.method,
+            request.path,
+            response.status_code,
+            total_ms,
+            supabase_total_ms,
+            len(supabase_timings),
+            response_size,
+        )
     return response
 
 
@@ -2138,6 +2257,10 @@ def supabase_request(
     if params:
         logger.debug(f"Params: {params}")
 
+    started_at = time.perf_counter()
+    supabase_path = _extract_request_path(path)
+    request_payload_bytes = _extract_payload_size_bytes(data)
+
     try:
         if method.lower() in {"get", "post", "put", "patch", "delete"}:
             response = HTTP_SESSION.request(
@@ -2152,6 +2275,27 @@ def supabase_request(
             return {"error": "Invalid method"}, 400
 
         logger.info(f"Response status: {response.status_code}")
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        response_bytes = len(response.content or b"")
+        logger.info(
+            "SUPABASE_PERF method=%s path=%s status=%s duration_ms=%.2f request_bytes=%s response_bytes=%s",
+            method.upper(),
+            supabase_path,
+            response.status_code,
+            duration_ms,
+            request_payload_bytes,
+            response_bytes,
+        )
+        timings = _request_supabase_durations_ms.get() or []
+        timings.append(
+            {
+                "method": method.upper(),
+                "path": supabase_path,
+                "status": response.status_code,
+                "duration_ms": round(duration_ms, 2),
+            }
+        )
+        _request_supabase_durations_ms.set(timings)
 
         if response.status_code >= 400:
             logger.error(f"Error response: {response.text}")
@@ -2200,15 +2344,14 @@ def debug_json():
 def get_cars():
     try:
         # Get query parameters
-        limit = request.args.get("limit", "50")
-        offset = request.args.get("offset", "0")
+        limit, offset = _parse_pagination_args()
         order = request.args.get("order", "created_at.desc")
 
         # Create parameters for Supabase query, excluding tracking parameters
         params = {
             "select": "*",
-            "limit": limit,
-            "offset": offset,
+            "limit": str(limit),
+            "offset": str(offset),
             "order": order,
             "status": "eq.approved",  # Only show approved cars on the frontend
             "is_approved": "eq.true",  # Double check with is_approved field
@@ -2327,7 +2470,13 @@ def get_cars():
         logger.info(f"Fetching cars with params: {filtered_params}")
 
         # Use select=* to get all fields, and join with car_images
-        filtered_params["select"] = "*,car_images(*)"
+        filtered_params["select"] = (
+            "id,user_id,car_manufacturer,car_model,car_trim,make_year,car_city,"
+            "expected_selling_price,kilometer_driven,description,created_at,updated_at,"
+            "image_url,url,display_url,status,is_approved,featured,views,car_images("
+            + LISTING_IMAGE_SELECTS["cars"]
+            + ")"
+        )
 
         # Use service role for public fetches to ensure all approved listings and images are visible
         response, status_code = supabase_request(
@@ -2361,21 +2510,9 @@ def get_cars():
 
         # Fetch seller info for each car
         try:
+            seller_map = _batch_fetch_seller_map([car.get("user_id") for car in response])
             for car in response:
-                user_id = car.get("user_id")
-                if user_id:
-                    user_response, user_status = supabase_request(
-                        "get",
-                        f"/rest/v1/users?id=eq.{user_id}&select=id,first_name,last_name,email,profile_photo_url,is_dealer",
-                        use_service_role=True,
-                    )
-                    if user_status < 400 and user_response and len(user_response) > 0:
-                        user = user_response[0]
-                        full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
-                        car["seller_name"] = full_name or user.get("email", "Unknown")
-                        car["seller_id"] = user.get("id")
-                        car["seller_profile_photo"] = user.get("profile_photo_url")
-                        car["seller_verified"] = user.get("is_dealer", False)
+                _apply_seller_to_listing(car, seller_map.get(car.get("user_id")))
         except Exception as e:
             logger.warning(f"Error fetching seller info: {e}")
 
@@ -5265,7 +5402,7 @@ def signup():
             {"message": "Too many signup attempts. Please try again later."}
         ), 429
 
-    data = request.json
+    data = request.get_json(silent=True) or {}
     if not data or not data.get("email") or not data.get("password"):
         return jsonify({"message": "Missing email or password"}), 400
 
@@ -5377,10 +5514,7 @@ def signup():
                         f"Failed to send signup phone verification: {verification_err}",
                         exc_info=True,
                     )
-                    signup_phone_verification = {
-                        "status": "failed",
-                        "message": str(verification_err),
-                    }
+                    signup_phone_verification = None
 
             response_data["phone_verification"] = signup_phone_verification
             response_data["phone_verification_required"] = bool(
@@ -5402,7 +5536,7 @@ def signup():
         return jsonify(normalized_error), response.status_code
 
     except Exception as e:
-        logger.error(f"Signup error: {str(e)}")
+        logger.error(f"Signup error: {str(e)}", exc_info=True)
         return jsonify({"message": "An error occurred during signup"}), 500
 
 
@@ -6081,8 +6215,7 @@ def _enrich_listing_seller(item, headers=None):
 def get_bikes():
     try:
         # Get query parameters
-        limit = int(request.args.get("limit", 50))
-        offset = int(request.args.get("offset", 0))
+        limit, offset = _parse_pagination_args()
         order = request.args.get("order", "created_at")
 
         # Construct parameters for Supabase query
@@ -6118,7 +6251,14 @@ def get_bikes():
 
             query_string = "&".join(query_params)
             # Build query with join for images
-            url = f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}&select=*,bike_images(*)"
+            url = (
+                f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}"
+                "&select=id,user_id,bike_brand,bike_model,make_year,bike_category,engine_capacity,"
+                "expected_selling_price,kilometer_driven,description,created_at,updated_at,image_url,url,"
+                "display_url,status,is_approved,featured,views,bike_images("
+                + LISTING_IMAGE_SELECTS["bikes"]
+                + ")"
+            )
 
             logger.info(f"Making direct request to: {url}")
             response = requests.get(url, headers=headers)
@@ -6127,6 +6267,9 @@ def get_bikes():
                 bikes = response.json()
                 bikes = _filter_public_listing_records("bikes", bikes)
 
+                seller_map = _batch_fetch_seller_map(
+                    [bike.get("user_id") for bike in bikes], headers=headers
+                )
                 for bike in bikes:
                     _normalize_bike_record(bike)
                     bike_images = bike.pop("bike_images", [])
@@ -6150,7 +6293,7 @@ def get_bikes():
                                 {"id": "main", "url": main_url, "image_url": main_url}
                             ]
 
-                    _enrich_listing_seller(bike, headers=headers)
+                    _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
 
                 return jsonify(bikes)
             else:
@@ -6820,8 +6963,7 @@ def delete_bike(current_user, bike_id):
 def get_plates():
     try:
         # Get query parameters
-        limit = int(request.args.get("limit", 50))
-        offset = int(request.args.get("offset", 0))
+        limit, offset = _parse_pagination_args()
 
         logger.info(f"Fetching plates with limit: {limit}, offset: {offset}")
 
@@ -6835,7 +6977,14 @@ def get_plates():
 
         # Build query - only get approved plates
         # Build query with join for images
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc&limit={limit}&offset={offset}&select=*,plate_images(*)"
+        url = (
+            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc"
+            f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
+            "description,created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+            "plate_images("
+            + LISTING_IMAGE_SELECTS["license_plates"]
+            + ")"
+        )
 
         logger.info(f"Fetching plates from: {url}")
         response = requests.get(url, headers=headers, timeout=10)
@@ -6845,6 +6994,9 @@ def get_plates():
             plates = _filter_public_listing_records("license_plates", plates)
             logger.info(f"Found {len(plates)} plates")
 
+            seller_map = _batch_fetch_seller_map(
+                [plate.get("user_id") for plate in plates], headers=headers
+            )
             for plate in plates:
                 # Normalize images
                 plate_images = plate.pop("plate_images", [])
@@ -6865,7 +7017,7 @@ def get_plates():
                             {"id": "main", "url": main_url, "image_url": main_url}
                         ]
 
-                _enrich_listing_seller(plate, headers=headers)
+                _apply_seller_to_listing(plate, seller_map.get(plate.get("user_id")))
 
             return jsonify(plates), 200
         else:
@@ -7042,8 +7194,7 @@ def delete_plate(current_user, plate_id):
 def get_parts():
     try:
         # Get query parameters
-        limit = int(request.args.get("limit", 50))
-        offset = int(request.args.get("offset", 0))
+        limit, offset = _parse_pagination_args()
         order = request.args.get("order", "created_at")
 
         # Construct parameters for Supabase query
@@ -7079,7 +7230,14 @@ def get_parts():
 
             query_string = "&".join(query_params)
             # Build query with join for images
-            url = f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}&select=*,part_images(*)"
+            url = (
+                f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}"
+                "&select=id,user_id,category,part_type,brand,model,condition,price,description,city,"
+                "created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+                "part_images("
+                + LISTING_IMAGE_SELECTS["car_parts"]
+                + ")"
+            )
 
             logger.info(f"Making direct request to: {url}")
             response = requests.get(url, headers=headers)
@@ -7088,6 +7246,9 @@ def get_parts():
                 parts = response.json()
                 parts = _filter_public_listing_records("car_parts", parts)
 
+                seller_map = _batch_fetch_seller_map(
+                    [part.get("user_id") for part in parts], headers=headers
+                )
                 for part in parts:
                     part_images = part.pop("part_images", [])
                     part["images"] = [
@@ -7106,7 +7267,7 @@ def get_parts():
                             part["images"] = [
                                 {"id": "main", "url": main_url, "image_url": main_url}
                             ]
-                    _enrich_listing_seller(part, headers=headers)
+                    _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
 
                 return jsonify(parts)
             else:

@@ -106,9 +106,9 @@ export const apiClient = {
         }
       }
       
-      // Add tracking info to URL for debugging
+      const shouldBypassCache = options.bypassCache === true;
       const separator = endpoint.includes('?') ? '&' : '?';
-      const trackingParams = `${separator}_t=${Date.now()}`;
+      const trackingParams = shouldBypassCache ? `${separator}_t=${Date.now()}` : '';
       
       // Create URLs for both localhost and 127.0.0.1
       const localhostUrl = `${API_BASE_URL}${endpoint}${trackingParams}`;

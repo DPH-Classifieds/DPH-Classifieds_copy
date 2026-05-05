@@ -162,9 +162,6 @@ const CarList = () => {
         if (value) params.append(key, value);
       });
       
-      // Add timestamp to avoid caching
-      params.append('_t', new Date().getTime());
-      
       const queryString = params.toString() ? `?${params.toString()}` : '';
       
       console.log('Fetching from:', `${API_URL}/api/cars${queryString}`);
