@@ -588,11 +588,25 @@
     width: min(100% - 32px, 1280px);
   }
 
-  .explore-v2-hero-stats,
   .explore-v2-mode-switch,
   .explore-v2-filter-grid,
   .explore-v2-grid {
     grid-template-columns: 1fr;
+  }
+
+  .explore-v2-hero-stats {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .explore-v2-stat {
+    min-width: 180px;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
   }
 
   .explore-v2-filter-header,

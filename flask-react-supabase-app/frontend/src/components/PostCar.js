@@ -985,6 +985,7 @@ const PostCar = () => {
         ...formData,
         fuel_type:
           formData.fuel_type === 'Other' ? `Other - ${otherFuelType.trim()}` : formData.fuel_type,
+        whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
         latitude: marker[0],
         longitude: marker[1],
         whatsapp_number: formData.whatsapp_number
@@ -1956,18 +1957,6 @@ const PostCar = () => {
                 onChange={handleChange}
                 placeholder="name@email.com"
                 className="form-control"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="whatsapp_prefill_text">WhatsApp Pre-text (Optional)</label>
-              <textarea
-                id="whatsapp_prefill_text"
-                name="whatsapp_prefill_text"
-                value={formData.whatsapp_prefill_text}
-                onChange={handleChange}
-                placeholder={DEFAULT_WHATSAPP_PREFILL}
-                className="form-control"
-                rows="4"
               />
             </div>
           </div>

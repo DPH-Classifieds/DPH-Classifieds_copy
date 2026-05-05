@@ -138,6 +138,10 @@ PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES = int(
 ) * 1024 * 1024
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
+WHATSAPP_PREFILL_TEMPLATE = (
+    "Hi, I saw your listing on DPHClassifieds and I am interested. "
+    "Listing: {{LISTING_URL}}"
+)
 
 LISTING_TABLE_CONFIG = {
     "car": {"table": "cars", "images_table": "car_images", "fk": "car_id"},
@@ -1283,9 +1287,7 @@ def _is_uae_phone(phone):
 def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
     if not isinstance(payload, dict):
         return
-    prefill = str(payload.get("whatsapp_prefill_text") or "").strip()
-    if not prefill:
-        raise ValueError("WhatsApp pre-text is required")
+    payload["whatsapp_prefill_text"] = WHATSAPP_PREFILL_TEMPLATE
 
     if listing_type == "cars":
         contact_phone = payload.get("contact_phone") or payload.get("car_owner_phone_number")
