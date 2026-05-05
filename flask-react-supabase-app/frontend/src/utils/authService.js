@@ -213,10 +213,17 @@ export const getCurrentUser = async () => {
   } catch (error) {
     logger.error('Get user error:', error);
 
-    // Don't automatically clear auth data on 401 - let the caller decide
-    // This prevents clearing valid auth data when there are transient issues
     if (error.response && error.response.status === 401) {
       logger.warn('Unauthorized (token may be expired)');
+      const backendMessage = String(error.response?.data?.message || '').toLowerCase();
+      if (
+        backendMessage.includes('expired')
+        || backendMessage.includes('invalid')
+        || backendMessage.includes('unauthorized')
+      ) {
+        clearAuthData();
+        setAuthHeader(null);
+      }
     }
 
     return {

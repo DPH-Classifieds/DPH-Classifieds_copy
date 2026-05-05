@@ -2516,9 +2516,10 @@ def get_cars():
 
         # Use select=* to get all fields, and join with car_images
         filtered_params["select"] = (
-            "id,user_id,car_manufacturer,car_model,car_trim,make_year,car_city,"
-            "expected_selling_price,kilometer_driven,description,created_at,updated_at,"
-            "image_url,url,display_url,status,is_approved,featured,views,car_images("
+            "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
+            "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
+            "status,is_approved,view_count,lady_driven,"
+            "whatsapp_number,whatsapp_prefill_text,vin_number,car_images("
             + LISTING_IMAGE_SELECTS["cars"]
             + ")"
         )
