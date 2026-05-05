@@ -27,7 +27,7 @@ import time
 from contextvars import ContextVar
 from collections import defaultdict, deque
 from functools import wraps
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from flask_cors import CORS
