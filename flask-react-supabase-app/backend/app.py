@@ -157,10 +157,10 @@ API_ITEM_TYPE_TO_TABLE = {
     "plate": "license_plates",
 }
 LISTING_IMAGE_SELECTS = {
-    "cars": "id,car_id,image_url,url,display_url,position,created_at",
-    "bikes": "id,bike_id,image_url,url,display_url,position,created_at",
-    "car_parts": "id,part_id,image_url,url,display_url,position,created_at",
-    "license_plates": "id,plate_id,image_url,url,display_url,position,created_at",
+    "cars": "id,car_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
+    "bikes": "id,bike_id,image_url,url,uploaded_at",
+    "car_parts": "id,part_id,image_url,uploaded_at",
+    "license_plates": "id,plate_id,image_url,created_at,updated_at",
 }
 
 
