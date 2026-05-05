@@ -218,7 +218,7 @@ const AdminMetrics = () => {
             </div>
             <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
               <StatCard label="Repeat purchase / return rate" value={formatPercent(repeatRate)} />
-              <StatCard label="Avg time on site" value={`${formatDecimal(userMetrics.avg_time_on_site_seconds || 0)}s`} />
+              <StatCard label="Avg time on site" value={`${formatDecimal((userMetrics.avg_time_on_site_seconds || 0) / 3600)}h`} />
               <StatCard label="Pages / session" value={formatDecimal(userMetrics.avg_pages_per_session || 0)} />
               <StatCard label="Conversion rate" value={formatPercent(userMetrics.conversion_rate_percent || 0)} />
             </div>

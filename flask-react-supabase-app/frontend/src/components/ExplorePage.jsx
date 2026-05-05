@@ -216,6 +216,8 @@ const extractCarTags = (car) => {
     doctor_driven: 'Doctor Driven',
     expat_owned: 'Expat Owned',
     executive_driven: 'Executive Driven',
+    mallu_owned: 'Mallu Owned',
+    british_owned: 'British Owned',
   };
 
   Object.entries(booleanTagMap).forEach(([key, label]) => {
@@ -223,6 +225,14 @@ const extractCarTags = (car) => {
       normalizedTags.add(label);
     }
   });
+
+  const descriptionText = String(car?.description || car?.car_description || '').toLowerCase();
+  if (descriptionText.includes('mallu owned')) {
+    normalizedTags.add('Mallu Owned');
+  }
+  if (descriptionText.includes('british owned')) {
+    normalizedTags.add('British Owned');
+  }
 
   return TAG_OPTIONS.filter((tag) => normalizedTags.has(tag));
 };
@@ -1158,22 +1168,6 @@ const ExplorePage = () => {
         </div>
       </section>
 
-      <section className="explore-v2-shell explore-v2-filter-section">
-        <div className="explore-v2-filter-header">
-          <div>
-            <span className="explore-v2-kicker">Adaptive Filters</span>
-            <h2>{activeMode === 'all' ? 'Search the whole marketplace.' : `Refine ${exploreModes.find((mode) => mode.key === activeMode)?.label}.`}</h2>
-          </div>
-          <p>
-            {activeMode === 'all'
-              ? 'Search everything from one bar with relevance-based ranking across all live categories.'
-              : 'Focused modes swap in category-aware controls so the filter UI only shows fields that make sense for the listings you are exploring.'}
-          </p>
-        </div>
-
-        <div className="explore-v2-filter-panel">{renderModeFilters()}</div>
-      </section>
-
       <section className="explore-v2-shell explore-v2-results-section">
         <div className="explore-v2-results-header">
           <div>
@@ -1197,7 +1191,7 @@ const ExplorePage = () => {
             </div>
           </div>
         ) : (
-          <div className="explore-v2-grid">
+          <div className="explore-v2-horizontal-track">
             {filteredItems.map((item) => (
               <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
             ))}

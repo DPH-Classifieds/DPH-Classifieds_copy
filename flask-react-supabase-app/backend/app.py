@@ -1191,6 +1191,49 @@ def _normalize_phone_number(phone, country_code=None):
     return f"{prefix}{normalized_digits}"
 
 
+def _is_uae_phone(phone):
+    normalized = _normalize_phone_number(phone, "+971")
+    digits = re.sub(r"[^\d]", "", normalized or "")
+    return digits.startswith("971") and len(digits) == 12
+
+
+def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
+    if not isinstance(payload, dict):
+        return
+    prefill = str(payload.get("whatsapp_prefill_text") or "").strip()
+    if not prefill:
+        raise ValueError("WhatsApp pre-text is required")
+
+    if listing_type == "cars":
+        contact_phone = payload.get("contact_phone") or payload.get("car_owner_phone_number")
+        normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
+        if not normalized:
+            raise ValueError("A valid contact phone number is required")
+        payload["car_owner_phone_number"] = normalized
+        payload["contact_phone"] = normalized
+        payload["whatsapp_number"] = normalized
+    elif listing_type == "bikes":
+        contact_phone = payload.get("contact_phone") or payload.get("contact_number")
+        normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
+        if not normalized:
+            raise ValueError("A valid contact phone number is required")
+        payload["contact_phone"] = normalized
+        payload["contact_number"] = normalized
+    elif listing_type == "plates":
+        contact_phone = payload.get("contact_phone")
+        normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
+        if not normalized:
+            raise ValueError("A valid contact phone number is required")
+        payload["contact_phone"] = normalized
+    elif listing_type == "parts":
+        contact_phone = payload.get("contact_phone") or payload.get("contact_number")
+        normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
+        if not normalized:
+            raise ValueError("A valid contact phone number is required")
+        payload["contact_phone"] = normalized
+        payload["contact_number"] = normalized
+
+
 def _mask_phone_number(phone):
     if not phone:
         return None
@@ -1339,6 +1382,8 @@ def _issue_phone_verification(
     normalized_phone = _normalize_phone_number(phone, country_code)
     if not normalized_phone:
         raise ValueError("A valid phone number is required")
+    if not _is_uae_phone(normalized_phone):
+        raise ValueError("Only UAE phone numbers are supported for OTP verification")
     if purpose not in PHONE_VERIFICATION_PURPOSES:
         raise ValueError("Invalid verification purpose")
 
@@ -1650,7 +1695,7 @@ def add_security_headers(response):
 
 
 def _get_user_listing_count(user_id):
-    tables = ["cars", "bikes", "license_plates", "car_parts"]
+    tables = ["cars", "bikes", "license_plates"]
     total = 0
 
     for table in tables:
@@ -2819,6 +2864,10 @@ def create_car(current_user):
             car_data["transmission_type"] = car_data.get("transmission")
         if "engine" in car_data and "engine_capacity" not in car_data:
             car_data["engine_capacity"] = car_data.get("engine")
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(car_data, "cars")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         try:
             logger.info(
@@ -3265,6 +3314,10 @@ def update_car(current_user, car_id):
             update_data["trim"] = update_data.get("car_variant")
         if "exterior_color" in update_data and "color" not in update_data:
             update_data["color"] = update_data.get("exterior_color")
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(update_data, "cars")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         try:
             if "make_year" in update_data:
@@ -6598,6 +6651,10 @@ def create_bike(current_user):
             bike_data["engine_size"] = bike_data.get("engine_capacity")
         if "area" not in bike_data and bike_data.get("location"):
             bike_data["area"] = bike_data.get("location")
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(bike_data, "bikes")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         try:
             if "year" in bike_data:
@@ -6764,6 +6821,10 @@ def update_bike(current_user, bike_id):
             update_data["engine_size"] = update_data.get("engine_capacity")
         if "area" not in update_data and update_data.get("location"):
             update_data["area"] = update_data.get("location")
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(update_data, "bikes")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         try:
             if "year" in update_data:
@@ -7127,6 +7188,10 @@ def update_plate(current_user, plate_id):
         for key in allowed_fields:
             if key in data:
                 update_data[key] = data[key]
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(update_data, "plates")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         # Sanitize
         update_data.pop("id", None)
@@ -7320,10 +7385,6 @@ def create_part(current_user):
     try:
         logger.info("Creating new car part listing")
 
-        limit_response = _enforce_listing_limit(current_user)
-        if limit_response:
-            return limit_response
-
         # Check if this is FormData or JSON
         is_form_data = (
             request.content_type and "multipart/form-data" in request.content_type
@@ -7380,6 +7441,10 @@ def create_part(current_user):
         part_data["user_id"] = current_user
         part_data["status"] = "pending"  # Set status as pending for admin approval
         part_data.update(_new_listing_lifecycle_fields())
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(part_data, "parts")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         # Whitelist allowed fields for car parts
         part_allowed_fields = {
@@ -7586,6 +7651,10 @@ def update_part(current_user, part_id):
             "is_dealer",
         }
         update_data = {k: v for k, v in update_data.items() if k in part_allowed_fields}
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(update_data, "parts")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         # Update the part
         data, status_code = supabase_request(
@@ -8173,6 +8242,10 @@ def _create_plate_with_image_impl(current_user):
             "status": "pending",  # Set status as pending for admin approval
         }
         plate_data.update(_new_listing_lifecycle_fields())
+        try:
+            _require_whatsapp_prefill_and_phone_alignment(plate_data, "plates")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
 
         logger.info(f"Creating plate entry with data: {plate_data}")
 
@@ -8670,11 +8743,12 @@ def api_reject_item(current_user, item_type, item_id):
         rejection_note = ""
         if request.is_json and request.json:
             rejection_note = request.json.get("rejection_note", "")
+        rejection_note = str(rejection_note or "").strip()
+        if not rejection_note:
+            return jsonify({"error": "Rejection reason is required"}), 400
 
         # Update the item status to rejected and add rejection note
-        patch_data = {"status": "rejected"}
-        if rejection_note:
-            patch_data["rejection_note"] = rejection_note
+        patch_data = {"status": "rejected", "rejection_note": rejection_note}
 
         response, status_code = supabase_request(
             "patch",
@@ -8751,6 +8825,60 @@ def api_reject_item(current_user, item_type, item_id):
     except Exception as e:
         logger.error(f"Exception in api_reject_item: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/listings/<item_type>/<item_id>/vin-unlock", methods=["POST"])
+@token_required
+def admin_vin_unlock(current_user, item_type, item_id):
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        listing_meta = _admin_get_listing_meta(item_type)
+        if not listing_meta:
+            return jsonify({"error": "Invalid listing type"}), 400
+
+        listing_rows, listing_status = supabase_request(
+            "get",
+            f"/rest/v1/{listing_meta['table']}",
+            params={"select": "id,user_id,vin_number", "id": f"eq.{item_id}", "limit": 1},
+            use_service_role=True,
+        )
+        if listing_status >= 400:
+            return jsonify({"error": "Failed to fetch listing"}), listing_status
+        if not listing_rows:
+            return jsonify({"error": "Listing not found"}), 404
+
+        listing = listing_rows[0]
+        owner_id = listing.get("user_id")
+        if not owner_id:
+            return jsonify({"error": "Listing owner not found"}), 400
+
+        _, update_status = supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{owner_id}",
+            data={
+                "phone_verified": True,
+                "phone_verified_at": _isoformat_utc(_utc_now()),
+                "updated_at": _isoformat_utc(_utc_now()),
+            },
+            use_service_role=True,
+        )
+        if update_status >= 400:
+            return jsonify({"error": "Failed to unlock VIN for owner"}), update_status
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "VIN unlocked for listing owner",
+                "listing_id": listing.get("id"),
+                "owner_id": owner_id,
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error unlocking VIN: {e}")
+        return jsonify({"error": "Failed to unlock VIN"}), 500
 
 
 @app.route("/api/admin/approve/<item_type>", methods=["GET"])

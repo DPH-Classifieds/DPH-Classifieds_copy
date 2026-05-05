@@ -67,6 +67,7 @@ const CarDetail = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [viewerProfile, setViewerProfile] = useState(null);
   const [showPhoneVerifyModal, setShowPhoneVerifyModal] = useState(false);
+  const [vinVisible, setVinVisible] = useState(false);
   const [verificationPhone, setVerificationPhone] = useState('');
   const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
   const seoData = useMemo(
@@ -378,7 +379,7 @@ const CarDetail = () => {
   const isOwner = Boolean(user?.id && car?.user_id && user.id === car.user_id);
   const isPhoneVerified = Boolean(viewerProfile?.phone_verified || user?.phone_verified);
   const canViewVin = isOwner || isPhoneVerified;
-  const visibleVin = canViewVin ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
+  const visibleVin = vinVisible ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
 
   const handleCallClick = () => {
     trackLeadEvent('call_click', { listing_id: id });
@@ -395,6 +396,8 @@ const CarDetail = () => {
       return;
     }
     if (canViewVin) {
+      setVinVisible(true);
+      await trackLeadEvent('vin_reveal', { listing_id: id, source: 'direct_unlock' });
       return;
     }
     setShowPhoneVerifyModal(true);
@@ -822,6 +825,7 @@ const CarDetail = () => {
             onVerified={async (result) => {
               setPhoneVerificationSession(null);
               setShowPhoneVerifyModal(false);
+              setVinVisible(true);
               setViewerProfile((prev) => ({
                 ...(prev || {}),
                 phone_verified: true,

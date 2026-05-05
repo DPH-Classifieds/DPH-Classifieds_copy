@@ -524,6 +524,25 @@ const AdminListingDetail = () => {
             <button className="admin-button" type="button" disabled={actionLoading} onClick={() => handleModerationAction('reject')}>
               Reject
             </button>
+            <button
+              className="admin-button admin-button-secondary"
+              type="button"
+              disabled={actionLoading}
+              onClick={async () => {
+                try {
+                  setActionLoading(true);
+                  await apiClient.post(`/api/admin/listings/${itemType}/${itemId}/vin-unlock`, {});
+                  const response = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
+                  setData(response || null);
+                } catch (unlockError) {
+                  setError(unlockError.message || 'Failed to unlock VIN');
+                } finally {
+                  setActionLoading(false);
+                }
+              }}
+            >
+              VIN Unlock
+            </button>
             <button className="admin-button admin-button-danger" type="button" disabled={actionLoading} onClick={() => handleModerationAction('delete')}>
               Remove listing
             </button>

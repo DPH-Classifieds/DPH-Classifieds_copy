@@ -314,6 +314,22 @@
   gap: 18px;
 }
 
+.explore-v2-horizontal-track {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+}
+
+.explore-v2-horizontal-track .explore-v2-card {
+  min-width: 320px;
+  max-width: 360px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
 .explore-v2-card {
   --ex-text: #ffffff;
   --ex-text-muted: #bfc9c4;

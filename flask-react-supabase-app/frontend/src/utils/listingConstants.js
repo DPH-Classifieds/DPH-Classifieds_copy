@@ -285,4 +285,6 @@ export const TAG_OPTIONS = [
   "Doctor Driven",
   "Expat Owned",
   "Executive Driven",
+  "Mallu Owned",
+  "British Owned",
 ];
