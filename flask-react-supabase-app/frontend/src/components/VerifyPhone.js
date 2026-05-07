@@ -1,10 +1,13 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getCurrentUser } from '../utils/authService';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 
 const VerifyPhone = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { updateUser } = useAuth();
 
   const state = location.state || {};
   const params = new URLSearchParams(location.search);
@@ -17,7 +20,17 @@ const VerifyPhone = () => {
   const redirect = state.redirect || params.get('redirect') || '/profile';
   const nextRoute = state.nextRoute || params.get('next') || '';
 
-  const handleVerified = () => {
+  const handleVerified = async () => {
+    // Refresh user data so phone_verified is up-to-date before navigating
+    try {
+      const { user: refreshedUser } = await getCurrentUser();
+      if (refreshedUser && refreshedUser.id) {
+        updateUser(refreshedUser);
+      }
+    } catch (err) {
+      console.error('Failed to refresh user after phone verification:', err);
+    }
+
     if (purpose === 'signup') {
       navigate('/check-email', {
         replace: true,

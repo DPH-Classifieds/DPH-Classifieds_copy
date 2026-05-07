@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
+import { getCurrentUser } from '../utils/authService';
 import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
@@ -60,7 +61,7 @@ const EXTRA_BOOLEAN_LABELS = {
 const CarDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [car, setCar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -830,6 +831,15 @@ const CarDetail = () => {
                 ...(prev || {}),
                 phone_verified: true,
               }));
+              // Refresh global user state so phone_verified is up-to-date
+              try {
+                const { user: refreshedUser } = await getCurrentUser();
+                if (refreshedUser && refreshedUser.id) {
+                  updateUser(refreshedUser);
+                }
+              } catch (err) {
+                console.error('Failed to refresh user after phone verification:', err);
+              }
               await trackLeadEvent('vin_reveal', { listing_id: id, verification: result?.verification });
             }}
             autoStart

@@ -98,6 +98,8 @@ PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(
 )
 PHONE_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("PHONE_VERIFICATION_MAX_ATTEMPTS", "5"))
 PHONE_VERIFICATION_MAX_SENDS = int(os.getenv("PHONE_VERIFICATION_MAX_SENDS", "6"))
+
+
 def _normalize_base_url(value, default_scheme="https"):
     raw_value = str(value or "").strip().strip('"').strip("'").rstrip("/")
     if not raw_value:
@@ -130,12 +132,12 @@ LISTING_IMAGE_ALLOWED_MIME_TYPES = [
     "image/gif",
     "image/webp",
 ]
-LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES = int(
-    os.getenv("LISTING_IMAGE_FILE_SIZE_LIMIT_MB", "20")
-) * 1024 * 1024
-PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES = int(
-    os.getenv("PROFILE_PHOTO_FILE_SIZE_LIMIT_MB", "5")
-) * 1024 * 1024
+LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES = (
+    int(os.getenv("LISTING_IMAGE_FILE_SIZE_LIMIT_MB", "20")) * 1024 * 1024
+)
+PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES = (
+    int(os.getenv("PROFILE_PHOTO_FILE_SIZE_LIMIT_MB", "5")) * 1024 * 1024
+)
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
 WHATSAPP_PREFILL_TEMPLATE = (
@@ -196,7 +198,9 @@ def _build_http_session():
 
 HTTP_SESSION = _build_http_session()
 _request_start_time = ContextVar("request_start_time", default=None)
-_request_supabase_durations_ms = ContextVar("request_supabase_durations_ms", default=None)
+_request_supabase_durations_ms = ContextVar(
+    "request_supabase_durations_ms", default=None
+)
 REDIS_URL = os.getenv("REDIS_URL")
 API_CACHE_TTL_SECONDS = int(os.getenv("API_CACHE_TTL_SECONDS", "45"))
 _MEMORY_API_CACHE = {}
@@ -261,7 +265,9 @@ def _api_cache_set(key, payload, ttl_seconds=API_CACHE_TTL_SECONDS):
     redis_client = _get_redis_cache_client()
     if redis_client:
         try:
-            redis_client.setex(key, ttl_seconds, json.dumps(payload, ensure_ascii=False))
+            redis_client.setex(
+                key, ttl_seconds, json.dumps(payload, ensure_ascii=False)
+            )
         except Exception as cache_err:
             logger.warning(f"Redis cache write failed: {cache_err}")
     with _MEMORY_API_CACHE_LOCK:
@@ -353,6 +359,7 @@ def _apply_seller_to_listing(item, seller):
     item["seller_profile_photo"] = seller.get("profile_photo_url")
     item["seller_verified"] = bool(seller.get("is_dealer", False))
     return item
+
 
 CAR_TRANSMISSION_OPTIONS = {"Automatic", "Manual"}
 CAR_FUEL_OPTIONS = {"Petrol", "Diesel", "Electric", "Hybrid", "Other"}
@@ -943,9 +950,21 @@ def _build_sitemap_xml():
     ]
 
     listing_sources = [
-        ("cars", f"{site_base}/cars", {"status": "eq.approved", "is_approved": "eq.true"}),
-        ("bikes", f"{site_base}/bikes", {"status": "eq.approved", "is_approved": "eq.true"}),
-        ("car_parts", f"{site_base}/car-parts", {"status": "eq.approved", "is_approved": "eq.true"}),
+        (
+            "cars",
+            f"{site_base}/cars",
+            {"status": "eq.approved", "is_approved": "eq.true"},
+        ),
+        (
+            "bikes",
+            f"{site_base}/bikes",
+            {"status": "eq.approved", "is_approved": "eq.true"},
+        ),
+        (
+            "car_parts",
+            f"{site_base}/car-parts",
+            {"status": "eq.approved", "is_approved": "eq.true"},
+        ),
         ("license_plates", f"{site_base}/plates", {"status": "eq.approved"}),
     ]
 
@@ -954,7 +973,9 @@ def _build_sitemap_xml():
         entries.append(
             {
                 "loc": url,
-                "lastmod": datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
+                "lastmod": datetime.datetime.now(datetime.timezone.utc)
+                .date()
+                .isoformat(),
                 "changefreq": changefreq,
                 "priority": priority,
             }
@@ -992,7 +1013,9 @@ def _build_sitemap_xml():
         if entry.get("lastmod"):
             parts.append(f"    <lastmod>{xml_escape(entry['lastmod'])}</lastmod>")
         if entry.get("changefreq"):
-            parts.append(f"    <changefreq>{xml_escape(entry['changefreq'])}</changefreq>")
+            parts.append(
+                f"    <changefreq>{xml_escape(entry['changefreq'])}</changefreq>"
+            )
         if entry.get("priority"):
             parts.append(f"    <priority>{xml_escape(entry['priority'])}</priority>")
         parts.append("  </url>")
@@ -1290,7 +1313,9 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
     payload["whatsapp_prefill_text"] = WHATSAPP_PREFILL_TEMPLATE
 
     if listing_type == "cars":
-        contact_phone = payload.get("contact_phone") or payload.get("car_owner_phone_number")
+        contact_phone = payload.get("contact_phone") or payload.get(
+            "car_owner_phone_number"
+        )
         normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
         if not normalized:
             raise ValueError("A valid contact phone number is required")
@@ -1753,7 +1778,9 @@ def start_request_timer():
 @app.errorhandler(500)
 def handle_internal_error(error):
     if request.path.startswith("/api/"):
-        logger.error("Unhandled internal error on %s: %s", request.path, error, exc_info=True)
+        logger.error(
+            "Unhandled internal error on %s: %s", request.path, error, exc_info=True
+        )
         return jsonify({"message": "Internal server error"}), 500
     return error
 
@@ -2024,7 +2051,10 @@ def ensure_platform_events_table(headers=None):
             headers=active_headers,
             timeout=10,
         )
-        if platform_check.status_code != 404 and "does not exist" not in platform_check.text.lower():
+        if (
+            platform_check.status_code != 404
+            and "does not exist" not in platform_check.text.lower()
+        ):
             return True
 
         logger.error(
@@ -2656,7 +2686,9 @@ def get_cars():
 
         # Fetch seller info for each car
         try:
-            seller_map = _batch_fetch_seller_map([car.get("user_id") for car in response])
+            seller_map = _batch_fetch_seller_map(
+                [car.get("user_id") for car in response]
+            )
             for car in response:
                 _apply_seller_to_listing(car, seller_map.get(car.get("user_id")))
         except Exception as e:
@@ -4136,7 +4168,9 @@ def _create_signed_upload_url(bucket_name, object_path, upsert=False):
     if not bucket_name or not object_path:
         return None, "bucket_name and object_path are required"
 
-    upload_url = f"{SUPABASE_URL}/storage/v1/object/upload/sign/{bucket_name}/{object_path}"
+    upload_url = (
+        f"{SUPABASE_URL}/storage/v1/object/upload/sign/{bucket_name}/{object_path}"
+    )
     headers = {
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -5758,7 +5792,7 @@ def start_phone_verification():
             }
         ), 403
 
-    if purpose == "vin_reveal" and profile.get("phone_verified"):
+    if purpose in ("vin_reveal", "profile_verify") and profile.get("phone_verified"):
         return jsonify(
             {
                 "message": "Phone already verified",
@@ -7167,9 +7201,7 @@ def get_plates():
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
             "description,created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
-            "plate_images("
-            + LISTING_IMAGE_SELECTS["license_plates"]
-            + ")"
+            "plate_images(" + LISTING_IMAGE_SELECTS["license_plates"] + ")"
         )
 
         logger.info(f"Fetching plates from: {url}")
@@ -7429,9 +7461,7 @@ def get_parts():
                 f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}"
                 "&select=id,user_id,category,part_type,brand,model,condition,price,description,city,"
                 "created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
-                "part_images("
-                + LISTING_IMAGE_SELECTS["car_parts"]
-                + ")"
+                "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
             )
 
             logger.info(f"Making direct request to: {url}")
@@ -8179,7 +8209,9 @@ def update_admin_user_profile(current_user, user_id):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
         if user_id == current_user:
-            return jsonify({"error": "You cannot modify your own admin profile from this panel"}), 400
+            return jsonify(
+                {"error": "You cannot modify your own admin profile from this panel"}
+            ), 400
 
         data = request.get_json(silent=True) or {}
         allowed_fields = {
@@ -8218,7 +8250,11 @@ def update_admin_user_profile(current_user, user_id):
             elif isinstance(validator, set):
                 next_value = str(value or "").strip().lower()
                 if next_value not in validator:
-                    return jsonify({"error": f"{field} must be one of: {', '.join(sorted(validator))}"}), 400
+                    return jsonify(
+                        {
+                            "error": f"{field} must be one of: {', '.join(sorted(validator))}"
+                        }
+                    ), 400
                 update_data[field] = next_value
 
         if not update_data:
@@ -8249,11 +8285,17 @@ def update_admin_user_profile(current_user, user_id):
             use_service_role=True,
         )
 
-        updated_user = refreshed_response[0] if refreshed_status < 400 and refreshed_response else update_data
-        return jsonify({
-            "message": "User profile updated successfully",
-            "user": updated_user,
-        }), 200
+        updated_user = (
+            refreshed_response[0]
+            if refreshed_status < 400 and refreshed_response
+            else update_data
+        )
+        return jsonify(
+            {
+                "message": "User profile updated successfully",
+                "user": updated_user,
+            }
+        ), 200
     except Exception as e:
         logger.error(f"Error updating admin user profile: {str(e)}")
         return jsonify({"error": "An error occurred while updating user profile"}), 500
@@ -8970,7 +9012,11 @@ def admin_vin_unlock(current_user, item_type, item_id):
         listing_rows, listing_status = supabase_request(
             "get",
             f"/rest/v1/{listing_meta['table']}",
-            params={"select": "id,user_id,vin_number", "id": f"eq.{item_id}", "limit": 1},
+            params={
+                "select": "id,user_id,vin_number",
+                "id": f"eq.{item_id}",
+                "limit": 1,
+            },
             use_service_role=True,
         )
         if listing_status >= 400:
@@ -9767,7 +9813,9 @@ def track_platform_event():
         if not event_name:
             return jsonify({"error": "event_name is required"}), 400
 
-        page_path = (payload.get("page_path") or payload.get("path") or "/").strip() or "/"
+        page_path = (
+            payload.get("page_path") or payload.get("path") or "/"
+        ).strip() or "/"
         classified = classify_platform_path(page_path)
         metadata = payload.get("metadata") or payload.get("payload") or {}
         if not isinstance(metadata, dict):
@@ -9780,25 +9828,45 @@ def track_platform_event():
             or payload.get("user_id")
             or str(uuid.uuid4())
         )
-        visitor_id = payload.get("visitor_id") or metadata.get("visitor_id") or session_id
+        visitor_id = (
+            payload.get("visitor_id") or metadata.get("visitor_id") or session_id
+        )
         user_id = _get_optional_user_id_from_auth_header()
 
         row = {
             "id": str(uuid.uuid4()),
             "event_name": event_name,
-            "event_category": (payload.get("event_category") or metadata.get("event_category") or event_name).strip(),
+            "event_category": (
+                payload.get("event_category")
+                or metadata.get("event_category")
+                or event_name
+            ).strip(),
             "page_path": page_path,
             "page_title": payload.get("page_title") or metadata.get("page_title"),
             "page_kind": payload.get("page_kind") or metadata.get("page_kind"),
             "element_tag": payload.get("element_tag") or metadata.get("element_tag"),
             "element_text": payload.get("element_text") or metadata.get("element_text"),
             "target_url": payload.get("target_url") or metadata.get("target_url"),
-            "listing_type": (payload.get("listing_type") or classified.get("listing_type") or metadata.get("listing_type") or "").rstrip("s") or None,
-            "listing_id": str(payload.get("listing_id") or classified.get("listing_id") or metadata.get("listing_id") or "") or None,
+            "listing_type": (
+                payload.get("listing_type")
+                or classified.get("listing_type")
+                or metadata.get("listing_type")
+                or ""
+            ).rstrip("s")
+            or None,
+            "listing_id": str(
+                payload.get("listing_id")
+                or classified.get("listing_id")
+                or metadata.get("listing_id")
+                or ""
+            )
+            or None,
             "user_id": user_id,
             "visitor_id": str(visitor_id),
             "session_id": str(session_id),
-            "duration_ms": int(payload.get("duration_ms") or metadata.get("duration_ms") or 0),
+            "duration_ms": int(
+                payload.get("duration_ms") or metadata.get("duration_ms") or 0
+            ),
             "metadata": metadata,
         }
         if not row["page_kind"]:
@@ -10531,7 +10599,7 @@ def _admin_fetch_user_display_map(user_ids):
 
     user_map = {}
     for index in range(0, len(normalized_ids), 50):
-        chunk = normalized_ids[index:index + 50]
+        chunk = normalized_ids[index : index + 50]
         user_rows, user_status = supabase_request(
             "get",
             "/rest/v1/users",
