@@ -232,6 +232,18 @@ const Profile = () => {
                   )}
                 </div>
 
+                {userData?.is_dealer && !userData?.dealer_verified && (
+                  <div className="profile-verification-callout" style={{ borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.08)' }}>
+                    <p style={{ color: '#fbbf24' }}>Your dealer account is pending admin verification.</p>
+                    <p style={{ fontSize: '13px', opacity: 0.7, marginTop: 4 }}>
+                      You cannot post listings until your account is approved. This usually takes 1-2 business days.
+                    </p>
+                    {userData?.dealer_verification_requested_at && (
+                      <small>Requested on {new Date(userData.dealer_verification_requested_at).toLocaleDateString()}</small>
+                    )}
+                  </div>
+                )}
+
                 {userData?.phone && !userData?.phone_verified && (
                   <div className="profile-verification-callout">
                     <p>Your phone number is on file but not verified yet.</p>

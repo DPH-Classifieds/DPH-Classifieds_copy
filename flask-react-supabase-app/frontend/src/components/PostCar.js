@@ -82,6 +82,7 @@ const PostCar = () => {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geoError, setGeoError] = useState(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(false);
 
   const [formData, setFormData] = useState({
     car_manufacturer: '',
@@ -707,8 +708,21 @@ const PostCar = () => {
       setFormData((prev) => ({
         ...prev,
         country_code: value,
-        whatsapp_country_code: value
+        whatsapp_country_code: whatsappSameAsPhone ? value : prev.whatsapp_country_code,
       }));
+      return;
+    }
+
+    // Sync WhatsApp with phone when checkbox is checked
+    if (whatsappSameAsPhone && (name === 'car_owner_phone_number' || name === 'country_code')) {
+      const updates = {};
+      if (name === 'car_owner_phone_number') {
+        updates.whatsapp_number = value;
+      }
+      if (name === 'country_code') {
+        updates.whatsapp_country_code = value;
+      }
+      setFormData((prev) => ({ ...prev, [name]: value, ...updates }));
       return;
     }
     
@@ -1941,8 +1955,28 @@ const PostCar = () => {
                   inputMode="numeric"
                   autoComplete="tel-national"
                   className="form-control phone-number-input"
+                  disabled={whatsappSameAsPhone}
                 />
               </div>
+              <label className="checkbox-label" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                <input
+                  type="checkbox"
+                  checked={whatsappSameAsPhone}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setWhatsappSameAsPhone(checked);
+                    if (checked) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        whatsapp_country_code: prev.country_code,
+                        whatsapp_number: prev.car_owner_phone_number,
+                      }));
+                    }
+                  }}
+                  style={{ width: 14, height: 14 }}
+                />
+                Same as phone number
+              </label>
             </div>
           </div>
 

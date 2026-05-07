@@ -2,6 +2,7 @@ import React, { useEffect, Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
+import DealerPendingBanner from './components/DealerPendingBanner';
 import BetaGate from './components/BetaGate';
 import Footer from './components/ui/hover-footer';
 import CookieBanner from './components/CookieBanner';
@@ -16,6 +17,16 @@ import './App.css';
 import './styles/UAELicensePlate.css';
 
 const BETA_GATE_STORAGE_KEY = 'dph_beta_gate_unlocked_v1';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
 
 function BackToTop() {
   const [visible, setVisible] = useState(false);
@@ -201,12 +212,14 @@ function App() {
     <AuthProvider>
       <Router>
         <AuthHashHandler />
+        <ScrollToTop />
         <PlatformAnalyticsTracker />
         {betaGateEnabled && !betaUnlocked ? (
           <BetaGate onUnlock={handleBetaUnlock} />
         ) : (
           <div className="app">
             <Header />
+            <DealerPendingBanner />
             <main className="app-content">
               <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
                 <Routes>

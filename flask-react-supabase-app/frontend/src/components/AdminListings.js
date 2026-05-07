@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
+import { LISTING_REJECTION_REASONS } from './admin/rejectionConstants';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -26,16 +27,6 @@ const ADMIN_DELETE_REASONS = [
   'Incorrect information',
   'Spam',
   'Price manipulation',
-];
-
-const ADMIN_REJECTION_REASONS = [
-  'Incomplete listing information',
-  'Duplicate listing',
-  'Fraud or suspicious activity',
-  'Prohibited or inappropriate content',
-  'Poor image quality',
-  'Incorrect pricing',
-  'Missing required details',
 ];
 
 const UAE_CITY_COORDINATES = {
@@ -73,6 +64,7 @@ const AdminListings = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [rejectionNote, setRejectionNote] = useState('');
+  const [selectedRejectIndex, setSelectedRejectIndex] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteReasonDetails, setDeleteReasonDetails] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -128,8 +120,13 @@ const AdminListings = () => {
   const handleReject = async () => {
     try {
       setActionLoading(true);
+      const selected = selectedRejectIndex !== '' ? LISTING_REJECTION_REASONS[Number(selectedRejectIndex)] : null;
       await apiClient.post(`/api/admin/approve/${filter}/${selectedListing.id}/reject`, {
-        rejection_note: rejectionNote
+        rejection_note: selected
+          ? `${selected.reason}${rejectionNote.trim() && rejectionNote.trim() !== selected.reason ? ` - ${rejectionNote.trim()}` : ''}`
+          : rejectionNote,
+        rejection_reason: selected?.reason || '',
+        rejection_fix: selected?.fix || '',
       });
       setListings(listings.filter(l => l.id !== selectedListing.id));
       setSuccessMessage('Listing rejected successfully');
@@ -137,6 +134,7 @@ const AdminListings = () => {
       setShowRejectModal(false);
       setShowDetailModal(false);
       setRejectionNote('');
+      setSelectedRejectIndex('');
     } catch (error) {
       console.error('Failed to reject listing:', error);
       alert('Failed to reject listing. Please try again.');
@@ -757,28 +755,37 @@ const AdminListings = () => {
               </button>
             </div>
             <div className="modal-body">
-              <label htmlFor="rejection-reason-preset">Quick reason</label>
+              <label htmlFor="rejection-reason-preset">Reason for rejection *</label>
               <select
                 id="rejection-reason-preset"
-                value=""
+                value={selectedRejectIndex || ''}
                 onChange={(e) => {
-                  const value = e.target.value;
-                  if (value) setRejectionNote(value);
+                  const idx = e.target.value;
+                  setSelectedRejectIndex(idx);
+                  if (idx !== '') {
+                    setRejectionNote(LISTING_REJECTION_REASONS[Number(idx)].reason);
+                  }
                 }}
               >
-                <option value="">Select one of 4 generic reasons</option>
-                {ADMIN_REJECTION_REASONS.map((reason) => (
-                  <option key={reason} value={reason}>
-                    {reason}
+                <option value="">Select a reason...</option>
+                {LISTING_REJECTION_REASONS.map((item, idx) => (
+                  <option key={idx} value={idx}>
+                    {item.reason}
                   </option>
                 ))}
               </select>
-              <label>Rejection Note (required)</label>
+              {selectedRejectIndex !== '' && selectedRejectIndex !== null && (
+                <div style={{ margin: '8px 0 12px', padding: 12, borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <div style={{ fontSize: 12, color: '#fca5a5', marginBottom: 4, fontWeight: 600 }}>How to fix:</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.5 }}>{LISTING_REJECTION_REASONS[Number(selectedRejectIndex)].fix}</div>
+                </div>
+              )}
+              <label>Additional notes (optional)</label>
               <textarea
                 value={rejectionNote}
                 onChange={(e) => setRejectionNote(e.target.value)}
-                placeholder="Enter reason for rejection..."
-                rows={4}
+                placeholder="Add any extra context..."
+                rows={3}
               />
             </div>
             <div className="modal-footer">

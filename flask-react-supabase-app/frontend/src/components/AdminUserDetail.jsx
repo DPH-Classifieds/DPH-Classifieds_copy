@@ -19,6 +19,8 @@ const AdminUserDetail = () => {
     is_admin: false,
     is_dealer: false,
     dealer_verified: false,
+    email_verified: false,
+    phone_verified: false,
     rejection_note: '',
   });
   const [actionLoading, setActionLoading] = useState(false);
@@ -41,6 +43,8 @@ const AdminUserDetail = () => {
           is_admin: Boolean(response?.user?.is_admin),
           is_dealer: Boolean(response?.user?.is_dealer),
           dealer_verified: Boolean(response?.user?.dealer_verified),
+          email_verified: Boolean(response?.user?.email_verified),
+          phone_verified: Boolean(response?.user?.phone_verified),
           rejection_note: response?.user?.rejection_note || '',
         });
       } catch (fetchError) {
@@ -72,6 +76,8 @@ const AdminUserDetail = () => {
         is_admin: profileState.is_admin,
         is_dealer: profileState.is_dealer,
         dealer_verified: profileState.dealer_verified,
+        email_verified: profileState.email_verified,
+        phone_verified: profileState.phone_verified,
         rejection_note: actionState.reason,
       });
       setMessage('User profile updated successfully.');
@@ -87,6 +93,8 @@ const AdminUserDetail = () => {
         is_admin: Boolean(refreshed?.user?.is_admin),
         is_dealer: Boolean(refreshed?.user?.is_dealer),
         dealer_verified: Boolean(refreshed?.user?.dealer_verified),
+        email_verified: Boolean(refreshed?.user?.email_verified),
+        phone_verified: Boolean(refreshed?.user?.phone_verified),
         rejection_note: refreshed?.user?.rejection_note || actionState.reason || '',
       });
     } catch (saveError) {
@@ -275,6 +283,30 @@ const AdminUserDetail = () => {
               </select>
             </div>
           ) : null}
+          <div className="admin-field" style={{ marginTop: '12px' }}>
+            <label htmlFor="email-verified">Email verification</label>
+            <select
+              id="email-verified"
+              className="admin-select"
+              value={profileState.email_verified ? 'verified' : 'unverified'}
+              onChange={(event) => setProfileState((current) => ({ ...current, email_verified: event.target.value === 'verified' }))}
+            >
+              <option value="unverified">Unverified</option>
+              <option value="verified">Verified</option>
+            </select>
+          </div>
+          <div className="admin-field" style={{ marginTop: '12px' }}>
+            <label htmlFor="phone-verified">Phone verification</label>
+            <select
+              id="phone-verified"
+              className="admin-select"
+              value={profileState.phone_verified ? 'verified' : 'unverified'}
+              onChange={(event) => setProfileState((current) => ({ ...current, phone_verified: event.target.value === 'verified' }))}
+            >
+              <option value="unverified">Unverified</option>
+              <option value="verified">Verified</option>
+            </select>
+          </div>
           <div className="admin-field" style={{ marginTop: '12px' }}>
             <label htmlFor="user-reason">Reason</label>
             <textarea

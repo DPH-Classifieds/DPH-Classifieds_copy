@@ -138,6 +138,15 @@ LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES = (
 PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("PROFILE_PHOTO_FILE_SIZE_LIMIT_MB", "5")) * 1024 * 1024
 )
+DEALER_DOCUMENT_ALLOWED_MIME_TYPES = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "application/pdf",
+]
+DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
+    int(os.getenv("DEALER_DOCUMENT_FILE_SIZE_LIMIT_MB", "10")) * 1024 * 1024
+)
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
 WHATSAPP_PREFILL_TEMPLATE = (
@@ -1643,6 +1652,28 @@ def _resend_phone_verification(verification_record):
     return {"verification": verification, "code": code, "send_result": send_result}
 
 
+def _sync_phone_to_listings(user_id, new_phone):
+    """Sync a verified phone number to all of the user's listings across all types."""
+    tables_and_fields = [
+        ("cars", ["car_owner_phone_number", "contact_phone"]),
+        ("bikes", ["contact_number", "contact_phone"]),
+        ("license_plates", ["contact_phone"]),
+        ("car_parts", ["contact_number", "contact_phone"]),
+    ]
+    for table, phone_fields in tables_and_fields:
+        try:
+            update_data = {field: new_phone for field in phone_fields}
+            supabase_request(
+                "patch",
+                f"/rest/v1/{table}?user_id=eq.{user_id}",
+                data=update_data,
+                use_service_role=True,
+            )
+            logger.info(f"Synced phone to {table} for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to sync phone to {table}: {e}")
+
+
 def _finalize_phone_verification(
     verification_record, code, *, ip_address=None, user_agent=None
 ):
@@ -1725,6 +1756,15 @@ def _finalize_phone_verification(
         },
         use_service_role=True,
     )
+
+    # Sync verified phone number to all user's listings
+    try:
+        user_id = verification_record.get("user_id")
+        new_phone = verification_record.get("phone")
+        if user_id and new_phone:
+            _sync_phone_to_listings(user_id, new_phone)
+    except Exception as sync_err:
+        logger.error(f"Failed to sync phone to listings after verification: {sync_err}")
 
     return {
         "verification_id": verification_record.get("id"),
@@ -1855,6 +1895,35 @@ def _enforce_listing_limit(user_id):
                 "current": total,
             }
         ), 403
+    return None
+
+
+def _require_dealer_verified(user_id):
+    """Block unverified dealers from creating listings. Returns error response or None."""
+    try:
+        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_KEY"))
+        headers = {
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+        }
+        resp = requests.get(
+            f"{os.getenv('SUPABASE_URL')}/rest/v1/users?id=eq.{user_id}&select=is_dealer,dealer_verified",
+            headers=headers,
+            timeout=10,
+        )
+        if resp.status_code >= 400:
+            return None  # Don't block on query errors
+        rows = resp.json()
+        if rows and rows[0].get("is_dealer") and not rows[0].get("dealer_verified"):
+            return jsonify(
+                {
+                    "error": "Your dealer account is pending admin verification. You will be able to post listings once your account is approved.",
+                    "code": "dealer_not_verified",
+                }
+            ), 403
+    except Exception as e:
+        logger.error(f"Error checking dealer verification: {e}")
     return None
 
 
@@ -2973,6 +3042,10 @@ def create_car(current_user):
         if limit_response:
             return limit_response
 
+        dealer_check = _require_dealer_verified(current_user)
+        if dealer_check:
+            return dealer_check
+
         car_data = request.json
         car_data["user_id"] = current_user
         car_data.update(_new_listing_lifecycle_fields())
@@ -3816,7 +3889,7 @@ def create_storage_signed_upload_url(current_user):
         object_path = str(payload.get("object_path") or "").strip().lstrip("/")
         upsert = bool(payload.get("upsert"))
 
-        if bucket_name not in {"listing-images", "profile-photos"}:
+        if bucket_name not in {"listing-images", "profile-photos", "dealer-documents"}:
             return jsonify({"error": "Unsupported bucket"}), 400
 
         if not object_path:
@@ -3975,6 +4048,14 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                     "file_size_limit": PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES,
                     "allowed_mime_types": LISTING_IMAGE_ALLOWED_MIME_TYPES,
                 }
+            elif bucket_name == "dealer-documents":
+                desired_config = {
+                    "id": bucket_name,
+                    "name": bucket_name,
+                    "public": True,
+                    "file_size_limit": DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES,
+                    "allowed_mime_types": DEALER_DOCUMENT_ALLOWED_MIME_TYPES,
+                }
 
             if desired_config and (
                 bucket_data.get("public") != desired_config["public"]
@@ -4012,6 +4093,9 @@ def ensure_storage_bucket(bucket_name="listing-images"):
             elif bucket_name == "profile-photos":
                 create_data["file_size_limit"] = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES
                 create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
+            elif bucket_name == "dealer-documents":
+                create_data["file_size_limit"] = DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES
+                create_data["allowed_mime_types"] = DEALER_DOCUMENT_ALLOWED_MIME_TYPES
             create_response = requests.post(
                 create_url,
                 headers={**headers, "Content-Type": "application/json"},
@@ -4588,7 +4672,7 @@ def _build_listing_url(item_type, item_id, request_origin=None):
 
 
 def _send_listing_status_email(
-    user_email, item_type, listing, status, request_origin=None
+    user_email, item_type, listing, status, request_origin=None, rejection_fix=None
 ):
     if not user_email:
         return None, "Missing recipient email"
@@ -4624,7 +4708,9 @@ def _send_listing_status_email(
     rejection_note = listing.get("rejection_note", "") if listing else ""
     rejection_block = ""
     if status == "rejected" and rejection_note:
-        rejection_block = f'<div style="background: rgba(239,68,68,0.08); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid rgba(239,68,68,0.2);"><p style="margin: 0; color: #fca5a5; font-size: 14px;"><strong>Reason:</strong> {rejection_note}</p></div>'
+        rejection_block = f'<div style="background: rgba(239,68,68,0.08); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid rgba(239,68,68,0.2);"><p style="margin: 0; color: #fca5a5; font-size: 14px;"><strong>Reason:</strong> {rejection_note}</p></div>'
+    if status == "rejected" and rejection_fix:
+        rejection_block += f'<div style="background: rgba(59,130,246,0.08); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid rgba(59,130,246,0.2);"><p style="margin: 0; color: #93c5fd; font-size: 14px;"><strong>How to fix:</strong> {rejection_fix}</p></div>'
 
     action_label_map = {
         "approved": "approved and is now live",
@@ -4677,7 +4763,7 @@ def _send_listing_status_email(
 
 
 def _send_dealer_status_email(
-    user_email, status, request_origin=None, rejection_note=None
+    user_email, status, request_origin=None, rejection_note=None, rejection_fix=None
 ):
     if not user_email:
         return None, "Missing recipient email"
@@ -4690,20 +4776,50 @@ def _send_dealer_status_email(
 
     base_url = _get_safe_frontend_origin(request_origin).rstrip("/")
     profile_url = f"{base_url}/profile"
+    settings_url = f"{base_url}/settings"
 
     subject = f"Your dealer verification has been {status}"
-    lines = ["Hi there,", "", f"Your dealer verification request has been {status}."]
+
+    status_colors = {
+        "approved": "#10b981",
+        "rejected": "#ef4444",
+    }
+    status_color = status_colors.get(status, "#3b82f6")
+
+    rejection_reason_block = ""
     if rejection_note and status == "rejected":
-        lines.append(f"Reason: {rejection_note}")
-    lines.extend(
-        [f"Manage your account: {profile_url}", "", "Thanks,", "DPH Classifieds"]
-    )
+        rejection_reason_block = f'<div style="background: rgba(239,68,68,0.08); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid rgba(239,68,68,0.2);"><p style="margin: 0; color: #fca5a5; font-size: 14px;"><strong>Reason:</strong> {rejection_note}</p></div>'
+    if rejection_fix and status == "rejected":
+        rejection_reason_block += f'<div style="background: rgba(59,130,246,0.08); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid rgba(59,130,246,0.2);"><p style="margin: 0; color: #93c5fd; font-size: 14px;"><strong>How to fix:</strong> {rejection_fix}</p></div>'
+
+    cta_url = settings_url if status == "rejected" else profile_url
+    cta_label = "Update Your Profile" if status == "rejected" else "View Your Profile"
+
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 28px; font-weight: 800; color: #8bd6b4; letter-spacing: -0.02em;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+        </div>
+        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
+            <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Dealer Verification {status.capitalize()}</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 20px;">
+                Hi there, your dealer verification request has been <strong style="color: {status_color};">{status}</strong>.
+            </p>
+            {rejection_reason_block}
+            <a href="{cta_url}" style="display: inline-block; background: #8bd6b4; color: #041008; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px;">{cta_label}</a>
+        </div>
+        <div style="text-align: center; color: #64748b; font-size: 14px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+            <p>If you have any questions, please reply to this email.</p>
+        </div>
+    </div>
+    """
 
     payload = {
         "from": from_email,
         "to": [user_email],
         "subject": subject,
-        "text": "\n".join(lines),
+        "html": html_content,
     }
 
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
@@ -5036,8 +5152,7 @@ def update_user_profile(current_user):
             "phone": "phone",
             "countryCode": "country_code",
             "whatsappNumber": "whatsapp_number",
-            "area": "area",
-            "city": "area",  # Support legacy city field
+            "city": "city",
             "emirate": "emirate",
             "country": "country",
             "postalCode": "postal_code",
@@ -5233,6 +5348,205 @@ def update_user_profile(current_user):
         return jsonify(
             {"error": str(e), "message": "Internal server error during profile update"}
         ), 500
+
+
+@app.route("/api/user/company-documents", methods=["POST"])
+@token_required
+def upload_company_document(current_user):
+    """Upload a company document (trade license, registration certificate, etc.)"""
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+
+        file = request.files["file"]
+        if not file.filename:
+            return jsonify({"error": "No file selected"}), 400
+
+        # Validate file type
+        content_type = file.content_type or ""
+        if content_type not in DEALER_DOCUMENT_ALLOWED_MIME_TYPES:
+            return jsonify(
+                {
+                    "error": "Invalid file type. Allowed: JPG, PNG, PDF",
+                }
+            ), 400
+
+        # Validate file size
+        file.seek(0, 2)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES:
+            return jsonify(
+                {
+                    "error": f"File too large. Maximum size: {DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES // (1024 * 1024)}MB",
+                }
+            ), 400
+
+        # Ensure bucket exists
+        if not ensure_storage_bucket("dealer-documents"):
+            return jsonify({"error": "Storage bucket not available"}), 500
+
+        # Generate unique filename
+        import uuid
+
+        ext = (
+            file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
+        )
+        object_path = f"{current_user}/{uuid.uuid4()}.{ext}"
+
+        # Upload to Supabase Storage
+        file_bytes = file.read()
+        upload_url = f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{object_path}"
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": content_type,
+            "x-upsert": "true",
+        }
+
+        upload_response = requests.post(
+            upload_url, headers=headers, data=file_bytes, timeout=30
+        )
+
+        if upload_response.status_code not in [200, 201]:
+            logger.error(
+                f"Document upload failed: {upload_response.status_code} - {upload_response.text}"
+            )
+            return jsonify({"error": "Failed to upload document"}), 500
+
+        # Build public URL
+        public_url = (
+            f"{SUPABASE_URL}/storage/v1/object/public/dealer-documents/{object_path}"
+        )
+
+        # Get existing documents
+        service_key = SUPABASE_SERVICE_ROLE_KEY
+        user_headers = {
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+        }
+        user_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}&select=company_documents",
+            headers=user_headers,
+            timeout=10,
+        )
+
+        existing_docs = []
+        if user_resp.status_code == 200:
+            rows = user_resp.json()
+            if rows:
+                existing_docs = rows[0].get("company_documents") or []
+
+        # Append new document
+        from datetime import datetime
+
+        new_doc = {
+            "url": public_url,
+            "filename": file.filename,
+            "type": content_type,
+            "uploaded_at": datetime.utcnow().isoformat() + "Z",
+            "storage_path": object_path,
+        }
+        existing_docs.append(new_doc)
+
+        # Update user record
+        update_resp = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}",
+            headers={**user_headers, "Prefer": "return=minimal"},
+            json={
+                "company_documents": existing_docs,
+                "verification_documents_submitted": True,
+            },
+            timeout=10,
+        )
+
+        if update_resp.status_code not in [200, 204]:
+            logger.error(f"Failed to update user documents: {update_resp.status_code}")
+            return jsonify({"error": "Failed to save document reference"}), 500
+
+        return jsonify(
+            {
+                "message": "Document uploaded successfully",
+                "document": new_doc,
+                "documents": existing_docs,
+            }
+        ), 200
+
+    except Exception as e:
+        logger.error(f"Error uploading company document: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to upload document"}), 500
+
+
+@app.route("/api/user/company-documents", methods=["DELETE"])
+@token_required
+def delete_company_document(current_user):
+    """Delete a company document"""
+    try:
+        data = request.json
+        storage_path = data.get("storage_path")
+        if not storage_path:
+            return jsonify({"error": "storage_path is required"}), 400
+
+        # Ensure the path belongs to this user
+        if not storage_path.startswith(f"{current_user}/"):
+            return jsonify({"error": "Invalid document path"}), 403
+
+        # Delete from storage
+        delete_url = f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{storage_path}"
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        }
+        requests.delete(delete_url, headers=headers, timeout=10)
+
+        # Get existing documents and remove the deleted one
+        service_key = SUPABASE_SERVICE_ROLE_KEY
+        user_headers = {
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+        }
+        user_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}&select=company_documents",
+            headers=user_headers,
+            timeout=10,
+        )
+
+        existing_docs = []
+        if user_resp.status_code == 200:
+            rows = user_resp.json()
+            if rows:
+                existing_docs = rows[0].get("company_documents") or []
+
+        updated_docs = [
+            doc for doc in existing_docs if doc.get("storage_path") != storage_path
+        ]
+
+        # Update user record
+        update_resp = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}",
+            headers={**user_headers, "Prefer": "return=minimal"},
+            json={
+                "company_documents": updated_docs,
+                "verification_documents_submitted": len(updated_docs) > 0,
+            },
+            timeout=10,
+        )
+
+        if update_resp.status_code not in [200, 204]:
+            return jsonify({"error": "Failed to update document list"}), 500
+
+        return jsonify(
+            {
+                "message": "Document deleted",
+                "documents": updated_docs,
+            }
+        ), 200
+
+    except Exception as e:
+        logger.error(f"Error deleting company document: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to delete document"}), 500
 
 
 @app.route("/api/user/upload-profile-photo", methods=["POST"])
@@ -6683,7 +6997,22 @@ def get_all_user_listings(current_user):
         reverse=True,
     )
 
-    return jsonify({"listings": flattened, **categories}), 200
+    # Get listing count against limit (cars + bikes + plates, parts excluded)
+    listing_count, count_error = _get_user_listing_count(current_user)
+    if count_error is not None:
+        listing_count = 0
+
+    return jsonify(
+        {
+            "listings": flattened,
+            **categories,
+            "listing_limit": {
+                "current": listing_count,
+                "max": MAX_LISTINGS_PER_USER,
+                "remaining": max(0, MAX_LISTINGS_PER_USER - listing_count),
+            },
+        }
+    ), 200
 
 
 @app.route("/api/user/listings/<item_type>/<item_id>/extend", methods=["POST"])
@@ -6787,6 +7116,10 @@ def create_bike(current_user):
         limit_response = _enforce_listing_limit(current_user)
         if limit_response:
             return limit_response
+
+        dealer_check = _require_dealer_verified(current_user)
+        if dealer_check:
+            return dealer_check
 
         bike_data = request.json
         bike_data["user_id"] = current_user
@@ -7543,6 +7876,10 @@ def create_part(current_user):
     try:
         logger.info("Creating new car part listing")
 
+        dealer_check = _require_dealer_verified(current_user)
+        if dealer_check:
+            return dealer_check
+
         # Check if this is FormData or JSON
         is_form_data = (
             request.content_type and "multipart/form-data" in request.content_type
@@ -8219,6 +8556,8 @@ def update_admin_user_profile(current_user, user_id):
             "is_admin": bool,
             "is_dealer": bool,
             "dealer_verified": bool,
+            "email_verified": bool,
+            "phone_verified": bool,
             "first_name": str,
             "last_name": str,
             "display_name": str,
@@ -8229,6 +8568,7 @@ def update_admin_user_profile(current_user, user_id):
             "company_name": str,
             "company_registration_number": str,
             "trade_license_number": str,
+            "tax_registration_number": str,
             "profile_photo_url": str,
             "rejection_note": str,
         }
@@ -8278,6 +8618,79 @@ def update_admin_user_profile(current_user, user_id):
         if status_code not in [200, 204]:
             logger.error(f"Failed updating admin profile for {user_id}: {response}")
             return jsonify({"error": "Failed to update user profile"}), status_code
+
+        # Send notification emails for dealer-related changes
+        try:
+            dealer_fields_changed = any(
+                f in update_data
+                for f in (
+                    "is_dealer",
+                    "dealer_verified",
+                    "company_name",
+                    "company_registration_number",
+                    "trade_license_number",
+                )
+            )
+            if dealer_fields_changed:
+                # Look up dealer email
+                dealer_resp, dealer_status = supabase_request(
+                    "get",
+                    f"/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,company_name",
+                    use_service_role=True,
+                )
+                if dealer_status < 400 and dealer_resp:
+                    dealer_info = dealer_resp[0]
+                    dealer_email = dealer_info.get("email")
+                    dealer_name = (
+                        dealer_info.get("first_name")
+                        or dealer_info.get("display_name")
+                        or "Dealer"
+                    )
+
+                    # Notify dealer
+                    if dealer_email:
+                        if (
+                            update_data.get("dealer_verified") is False
+                            and "dealer_verified" in update_data
+                        ):
+                            _send_dealer_status_email(
+                                dealer_email,
+                                "rejected",
+                                request.headers.get("Origin"),
+                                rejection_note="Your dealer profile was updated by an admin. Please re-submit your verification documents.",
+                            )
+                        elif update_data.get("dealer_verified") is True:
+                            _send_dealer_status_email(
+                                dealer_email,
+                                "approved",
+                                request.headers.get("Origin"),
+                            )
+
+                    # Notify DPH team
+                    admin_email = os.getenv("RESEND_TO_EMAIL") or os.getenv(
+                        "ADMIN_EMAIL"
+                    )
+                    if admin_email:
+                        _send_resend_email(
+                            {
+                                "from": os.getenv(
+                                    "RESEND_FROM_EMAIL", "noreply@dphclassifieds.com"
+                                ),
+                                "to": admin_email,
+                                "subject": f"DPH Admin: Dealer profile updated - {dealer_info.get('company_name') or dealer_name}",
+                                "html": f"""
+                            <div style="font-family: sans-serif; padding: 20px;">
+                                <h2>Dealer Profile Updated</h2>
+                                <p>An admin has updated the dealer profile for <strong>{dealer_info.get("company_name") or dealer_name}</strong>.</p>
+                                <p><strong>Email:</strong> {dealer_email}</p>
+                                <p><strong>Changes:</strong> {", ".join(update_data.keys())}</p>
+                                {'<p style="color: red;"><strong>Dealer verification has been revoked. The dealer will need to re-submit verification documents.</strong></p>' if update_data.get("dealer_verified") is False and "dealer_verified" in update_data else ""}
+                            </div>
+                            """,
+                            }
+                        )
+        except Exception as notify_err:
+            logger.error(f"Error sending admin update notification: {notify_err}")
 
         refreshed_response, refreshed_status = supabase_request(
             "get",
@@ -8348,6 +8761,10 @@ def delete_admin_user(current_user, user_id):
 def _create_plate_with_image_impl(current_user):
     try:
         logger.info("Creating plate listing with image upload")
+
+        dealer_check = _require_dealer_verified(current_user)
+        if dealer_check:
+            return dealer_check
 
         payload = (
             request.form if request.form else (request.get_json(silent=True) or {})
@@ -8911,8 +9328,10 @@ def api_reject_item(current_user, item_type, item_id):
 
         # Get rejection note from request if provided
         rejection_note = ""
+        rejection_fix = ""
         if request.is_json and request.json:
             rejection_note = request.json.get("rejection_note", "")
+            rejection_fix = request.json.get("rejection_fix", "")
         rejection_note = str(rejection_note or "").strip()
         if not rejection_note:
             return jsonify({"error": "Rejection reason is required"}), 400
@@ -8957,6 +9376,7 @@ def api_reject_item(current_user, item_type, item_id):
                         listing,
                         "rejected",
                         request.headers.get("Origin"),
+                        rejection_fix=rejection_fix,
                     )
                     if email_error:
                         logger.error(
@@ -9467,6 +9887,7 @@ def reject_item_api(item_type, item_id):
     try:
         data = request.get_json() or {}
         rejection_note = data.get("rejection_note", "")
+        rejection_fix = data.get("rejection_fix", "")
 
         patch_data = {"status": "rejected"}
         if rejection_note:
@@ -9479,10 +9900,49 @@ def reject_item_api(item_type, item_id):
             use_service_role=True,
         )
         if status_code >= 200 and status_code < 300:
+            # Send rejection email
+            email_sent = False
+            email_error = None
+            try:
+                listing_resp, listing_status = supabase_request(
+                    "get",
+                    f"/rest/v1/{table_name}?id=eq.{item_id}&select=user_id,user_email,contact_email",
+                    use_service_role=True,
+                )
+                if listing_status < 400 and listing_resp:
+                    listing = listing_resp[0]
+                    user_email = listing.get("user_email") or listing.get(
+                        "contact_email"
+                    )
+                    if not user_email:
+                        user_id = listing.get("user_id")
+                        if user_id:
+                            user_email = get_user_email(user_id)
+                    if user_email and EMAIL_REGEX.match(user_email):
+                        _, email_error = _send_listing_status_email(
+                            user_email,
+                            item_type,
+                            listing,
+                            "rejected",
+                            request.headers.get("Origin"),
+                            rejection_fix=rejection_fix,
+                        )
+                        if not email_error:
+                            email_sent = True
+                        else:
+                            logger.error(
+                                f"Rejection email failed for {item_type} {item_id}: {email_error}"
+                            )
+            except Exception as email_exc:
+                logger.error(
+                    f"Error sending rejection email for {item_type} {item_id}: {email_exc}"
+                )
+
             return jsonify(
                 {
                     "success": True,
                     "message": f"{item_type} {item_id} rejected successfully",
+                    "email_sent": email_sent,
                 }
             ), 200
         else:
@@ -9621,6 +10081,7 @@ def reject_dealer_api(dealer_id):
 
         data = request.get_json() or {}
         rejection_note = data.get("rejection_note", "Verification rejected by admin")
+        rejection_fix = data.get("rejection_fix", "")
 
         update_data = {
             "is_dealer": False,
@@ -9646,6 +10107,7 @@ def reject_dealer_api(dealer_id):
                         "rejected",
                         request.headers.get("Origin"),
                         rejection_note=rejection_note,
+                        rejection_fix=rejection_fix,
                     )
                     if email_error:
                         logger.error(
@@ -11012,7 +11474,7 @@ def get_admin_dealers(current_user):
             query += "&dealer_verified=eq.false"
 
         # Add select to get relevant fields
-        query += "&select=id,email,first_name,last_name,company_name,company_registration_number,trade_license_number,is_dealer,dealer_verified,dealer_verified_at,created_at,phone,city,emirate,profile_completion_percentage"
+        query += "&select=id,email,first_name,last_name,company_name,company_registration_number,trade_license_number,is_dealer,dealer_verified,dealer_verified_at,created_at,phone,city,emirate,profile_completion_percentage,company_documents,verification_documents_submitted"
 
         response, status_code = supabase_request("get", query, use_service_role=True)
 
@@ -11095,8 +11557,10 @@ def api_reject_dealer(current_user, dealer_id):
 
         # Get rejection note from request
         rejection_note = ""
+        rejection_fix = ""
         if request.is_json and request.json:
             rejection_note = request.json.get("rejection_note", "")
+            rejection_fix = request.json.get("rejection_fix", "")
 
         # Update user - set is_dealer to false and add rejection note
         update_data = {"is_dealer": False, "rejection_note": rejection_note}
@@ -11121,6 +11585,7 @@ def api_reject_dealer(current_user, dealer_id):
                     "rejected",
                     request.headers.get("Origin"),
                     rejection_note=rejection_note,
+                    rejection_fix=rejection_fix,
                 )
                 if email_error:
                     logger.error(

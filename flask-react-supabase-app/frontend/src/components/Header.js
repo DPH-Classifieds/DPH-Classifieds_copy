@@ -79,14 +79,22 @@ const Header = () => {
     return () => document.body.classList.remove('menu-open');
   }, [mobileMenuOpen]);
 
+  const dealerCanPost = !user?.is_dealer || user?.dealer_verified;
+
   const postLinks = useMemo(
-    () => [
-      { title: 'Post Car', href: user ? '/post-car' : '/login?redirect=/post-car' },
-      { title: 'Post Car Part', href: user ? '/post-car-parts' : '/login?redirect=/post-car-parts' },
-      { title: 'Post Plate', href: user ? '/post-plate' : '/login?redirect=/post-plate' },
-      { title: 'Post Bike', href: user ? '/post-bike' : '/login?redirect=/post-bike' },
-    ],
-    [user]
+    () => {
+      const base = [
+        { title: 'Post Car', href: user ? '/post-car' : '/login?redirect=/post-car' },
+        { title: 'Post Car Part', href: user ? '/post-car-parts' : '/login?redirect=/post-car-parts' },
+        { title: 'Post Plate', href: user ? '/post-plate' : '/login?redirect=/post-plate' },
+        { title: 'Post Bike', href: user ? '/post-bike' : '/login?redirect=/post-bike' },
+      ];
+      if (user && !dealerCanPost) {
+        return base.map((item) => ({ ...item, href: '/settings', disabled: true }));
+      }
+      return base;
+    },
+    [user, dealerCanPost]
   );
 
   const isBrowseActive = browseLinks.some((item) => location.pathname.startsWith(item.href));
@@ -94,8 +102,9 @@ const Header = () => {
   const isPostActive = postLinks.some((item) => location.pathname.startsWith(item.href.replace('/login?redirect=', '')));
   const isExploreActive = location.pathname.startsWith('/explore');
 
-  const handleHomeNavigation = () => {
+  const handleHomeNavigation = (e) => {
     if (location.pathname === '/') {
+      e.preventDefault();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -180,11 +189,21 @@ const Header = () => {
               </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <div className="grid w-[420px] gap-1.5 p-3">
+                  {user && !dealerCanPost && (
+                    <div className="mb-1 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-200">
+                      Admin verification required before you can post.{' '}
+                      <Link to="/settings" className="underline">View status</Link>
+                    </div>
+                  )}
                   {postLinks.map((item) => (
                     <NavigationMenuLink key={item.href} asChild className="rounded-xl p-0">
                       <Link
                         to={item.href}
-                        className="flex items-center justify-between rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] px-4 py-3 text-white/75 transition-all duration-200 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)] hover:text-white"
+                        className={`flex items-center justify-between rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] px-4 py-3 transition-all duration-200 ${
+                          item.disabled
+                            ? 'cursor-not-allowed text-white/30 hover:border-white/5 hover:bg-[rgba(6,24,12,0.92)]'
+                            : 'text-white/75 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)] hover:text-white'
+                        }`}
                       >
                         <span className="text-[14px] font-medium">{item.title}</span>
                         <ChevronRight className="h-4 w-4 opacity-50" />
@@ -300,12 +319,22 @@ const Header = () => {
                     Post a listing
                   </AccordionTrigger>
                   <AccordionContent>
+                    {user && !dealerCanPost && (
+                      <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-200">
+                        Admin verification required before you can post.{' '}
+                        <Link to="/settings" className="underline">View status</Link>
+                      </div>
+                    )}
                     <div className="grid gap-2 pt-2">
                       {postLinks.map((item) => (
                         <Link
                           key={item.href}
                           to={item.href}
-                          className="flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-4 py-3 text-white/80 transition-colors hover:bg-white/8 hover:text-white"
+                          className={`flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-4 py-3 transition-colors ${
+                            item.disabled
+                              ? 'cursor-not-allowed text-white/30 hover:bg-white/4'
+                              : 'text-white/80 hover:bg-white/8 hover:text-white'
+                          }`}
                         >
                           <span>{item.title}</span>
                           <ChevronRight className="h-4 w-4" />

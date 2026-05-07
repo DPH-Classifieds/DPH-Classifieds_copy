@@ -118,6 +118,7 @@ const getPrimaryImage = (listing) => {
 
 const MyListings = () => {
   const [listings, setListings] = useState([]);
+  const [listingLimit, setListingLimit] = useState({ current: 0, max: 4, remaining: 4 });
   const [leadTotals, setLeadTotals] = useState({
     qualified_leads: 0,
     call_click: 0,
@@ -181,6 +182,10 @@ const MyListings = () => {
       const payload = await response.json();
       const nextListings = Array.isArray(payload.listings) ? payload.listings : [];
       setListings(nextListings);
+
+      if (payload.listing_limit) {
+        setListingLimit(payload.listing_limit);
+      }
 
       const pendingOutcome = nextListings.find(
         (listing) =>
@@ -362,6 +367,31 @@ const MyListings = () => {
             <span>Calls: {leadTotals.call_click || 0}</span>
             <span>WhatsApp: {leadTotals.whatsapp_click || 0}</span>
             <span>VIN opens: {leadTotals.vin_open || 0}</span>
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {Array.from({ length: listingLimit.max }, (_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 28,
+                    height: 6,
+                    borderRadius: 3,
+                    background: i < listingLimit.current ? '#8bd6b4' : 'rgba(255,255,255,0.1)',
+                    transition: 'background 0.2s',
+                  }}
+                />
+              ))}
+            </div>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+              {listingLimit.current} of {listingLimit.max} listings used
+              {listingLimit.remaining > 0 && (
+                <span style={{ color: '#8bd6b4', marginLeft: 4 }}>({listingLimit.remaining} left)</span>
+              )}
+              {listingLimit.remaining === 0 && (
+                <span style={{ color: '#ef4444', marginLeft: 4 }}>(limit reached)</span>
+              )}
+            </span>
           </div>
         </div>
         <div className="action-buttons">

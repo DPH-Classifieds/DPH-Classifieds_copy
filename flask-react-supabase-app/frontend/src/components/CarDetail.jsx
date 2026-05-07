@@ -619,6 +619,17 @@ const CarDetail = () => {
                     Verify phone to reveal VIN
                   </button>
                 )}
+                {canViewVin && !vinVisible && (
+                  <span
+                    onClick={handleVinReveal}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => { if (event.key === 'Enter') handleVinReveal(); }}
+                    style={{ cursor: 'pointer', fontSize: 12, color: '#8bd6b4', opacity: 0.7, textDecoration: 'underline', marginTop: 4, display: 'inline-block' }}
+                  >
+                    Click to reveal
+                  </span>
+                )}
               </div>
             </div>
 

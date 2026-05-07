@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
+import { DEALER_REJECTION_REASONS } from './admin/rejectionConstants';
 import { formatDateTime, formatNumber, getDisplayName, getEventActorLabel, getStatusTone } from './admin/adminUtils';
 import '../styles/AdminOps.css';
 
@@ -13,6 +14,8 @@ const AdminDealerDetail = () => {
   const [data, setData] = useState(null);
   const [reason, setReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReasonIndex, setRejectReasonIndex] = useState('');
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -60,10 +63,19 @@ const AdminDealerDetail = () => {
   const handleReject = async () => {
     try {
       setActionLoading(true);
+      const selected = rejectReasonIndex !== '' ? DEALER_REJECTION_REASONS[Number(rejectReasonIndex)] : null;
+      const note = selected
+        ? `${selected.reason}${reason.trim() ? ` - ${reason.trim()}` : ''}`
+        : reason || 'Rejected by admin';
       await apiClient.post(`/api/admin/dealers/${dealerId}/reject`, {
-        rejection_note: reason || 'Rejected by admin',
+        rejection_note: note,
+        rejection_reason: selected?.reason || '',
+        rejection_fix: selected?.fix || '',
       });
       await refreshData();
+      setShowRejectModal(false);
+      setRejectReasonIndex('');
+      setReason('');
     } catch (actionError) {
       setError(actionError.message || 'Failed to reject dealer');
     } finally {
@@ -162,6 +174,22 @@ const AdminDealerDetail = () => {
               <p className="admin-muted">Email verified: {dealer.email_verified ? 'Yes' : 'No'}</p>
               <p className="admin-muted">Verification requested: {formatDateTime(dealer.dealer_verification_requested_at)}</p>
               <p className="admin-muted">Verified at: {formatDateTime(dealer.dealer_verified_at)}</p>
+              {dealer.company_documents && dealer.company_documents.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <p className="admin-muted" style={{ marginBottom: 4 }}>Uploaded documents:</p>
+                  {dealer.company_documents.map((doc, idx) => (
+                    <a
+                      key={doc.storage_path || idx}
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'block', fontSize: 12, color: '#8bd6b4', textDecoration: 'underline', marginBottom: 2 }}
+                    >
+                      {doc.filename || `Document ${idx + 1}`}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="admin-card">
               <div className="admin-label">Location</div>
@@ -177,23 +205,13 @@ const AdminDealerDetail = () => {
         <div className="admin-surface">
           <div className="admin-label">Verification</div>
           <h3>Approve or reject dealer status</h3>
-          <div className="admin-field">
-            <label htmlFor="dealer-reason">Rejection reason</label>
-            <textarea
-              id="dealer-reason"
-              className="admin-textarea"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Add a rejection reason or internal note..."
-            />
-          </div>
           <div className="admin-actions" style={{ marginTop: '16px' }}>
             {!dealer.dealer_verified ? (
               <button className="admin-button admin-button-primary" type="button" disabled={actionLoading} onClick={handleVerify}>
                 Verify dealer
               </button>
             ) : null}
-            <button className="admin-button" type="button" disabled={actionLoading} onClick={handleReject}>
+            <button className="admin-button" type="button" disabled={actionLoading} onClick={() => setShowRejectModal(true)}>
               Reject
             </button>
             <button className="admin-button admin-button-secondary" type="button" onClick={() => navigate(`/admin/users/${dealerId}`)}>
@@ -296,7 +314,27 @@ const AdminDealerDetail = () => {
               </tr>
               <tr>
                 <td>Company documents</td>
-                <td>{dealer.verification_documents_submitted ? 'Submitted' : 'Not submitted'}</td>
+                <td>
+                  {dealer.company_documents && dealer.company_documents.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {dealer.company_documents.map((doc, idx) => (
+                        <a
+                          key={doc.storage_path || idx}
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#8bd6b4', fontSize: 13, textDecoration: 'underline' }}
+                        >
+                          {doc.filename || `Document ${idx + 1}`}
+                        </a>
+                      ))}
+                    </div>
+                  ) : dealer.verification_documents_submitted ? (
+                    'Submitted'
+                  ) : (
+                    'Not submitted'
+                  )}
+                </td>
               </tr>
               <tr>
                 <td>Profile completeness</td>
@@ -306,6 +344,58 @@ const AdminDealerDetail = () => {
           </table>
         </div>
       </div>
+
+      {showRejectModal && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="modal-content" style={{ background: '#1a1a2e', borderRadius: 16, padding: 28, maxWidth: 500, width: '90%', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, color: '#fff', fontSize: 18 }}>Reject Dealer</h2>
+              <button onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setReason(''); }} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 20 }}>×</button>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label htmlFor="dealer-reject-reason" style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>Reason for rejection *</label>
+              <select
+                id="dealer-reject-reason"
+                value={rejectReasonIndex}
+                onChange={(e) => setRejectReasonIndex(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14 }}
+              >
+                <option value="">Select a reason...</option>
+                {DEALER_REJECTION_REASONS.map((item, idx) => (
+                  <option key={idx} value={idx}>{item.reason}</option>
+                ))}
+              </select>
+            </div>
+            {rejectReasonIndex !== '' && (
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <div style={{ fontSize: 12, color: '#fca5a5', marginBottom: 4, fontWeight: 600 }}>How to fix:</div>
+                <div style={{ fontSize: 13, color: '#ddd', lineHeight: 1.5 }}>{DEALER_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</div>
+              </div>
+            )}
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="dealer-reject-note" style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>Additional notes (optional)</label>
+              <textarea
+                id="dealer-reject-note"
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Add any extra context..."
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, resize: 'vertical' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setReason(''); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#aaa', cursor: 'pointer' }}>Cancel</button>
+              <button
+                onClick={handleReject}
+                disabled={actionLoading || rejectReasonIndex === ''}
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: rejectReasonIndex === '' ? '#555' : '#ef4444', color: '#fff', cursor: rejectReasonIndex === '' ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+              >
+                {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

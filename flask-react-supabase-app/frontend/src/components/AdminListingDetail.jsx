@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
+import { LISTING_REJECTION_REASONS } from './admin/rejectionConstants';
 import { formatCurrencyAED, formatDateTime, formatNumber, getDisplayName, getEventActorLabel, getListingTitle, getListingTypeLabel, getStatusTone } from './admin/adminUtils';
 import '../styles/AdminOps.css';
 
@@ -98,6 +99,8 @@ const AdminListingDetail = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [moderationNote, setModerationNote] = useState('');
   const [removeReason, setRemoveReason] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReasonIndex, setRejectReasonIndex] = useState('');
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -129,18 +132,26 @@ const AdminListingDetail = () => {
   const listingTypeLabel = getListingTypeLabel(itemType);
   const statusTone = getStatusTone(listing?.status || 'pending');
 
-  const handleModerationAction = async (action) => {
+  const handleModerationAction = async (action, extraPayload) => {
     try {
       setActionLoading(true);
       const endpoint = action === 'delete'
         ? `/api/${primaryRouteType}/${itemId}/delete`
         : `/api/${approvalRouteType}/${itemId}/${action}`;
-      const payload =
-        action === 'reject'
-          ? { rejection_note: moderationNote }
-          : action === 'delete'
-            ? { reason: removeReason || moderationNote || 'Removed by admin' }
-            : {};
+      let payload = {};
+      if (action === 'reject') {
+        const selected = rejectReasonIndex !== '' ? LISTING_REJECTION_REASONS[Number(rejectReasonIndex)] : null;
+        payload = {
+          rejection_note: selected
+            ? `${selected.reason}${moderationNote.trim() ? ` - ${moderationNote.trim()}` : ''}`
+            : moderationNote || 'Rejected by admin',
+          rejection_reason: selected?.reason || '',
+          rejection_fix: selected?.fix || '',
+          ...extraPayload,
+        };
+      } else if (action === 'delete') {
+        payload = { reason: removeReason || moderationNote || 'Removed by admin' };
+      }
       await apiClient.request(endpoint, {
         method: action === 'delete' ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,6 +159,11 @@ const AdminListingDetail = () => {
       });
       const response = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
       setData(response || null);
+      if (action === 'reject') {
+        setShowRejectModal(false);
+        setRejectReasonIndex('');
+        setModerationNote('');
+      }
     } catch (saveError) {
       setError(saveError.message || `Failed to ${action} listing`);
     } finally {
@@ -521,7 +537,7 @@ const AdminListingDetail = () => {
                 Approve
               </button>
             ) : null}
-            <button className="admin-button" type="button" disabled={actionLoading} onClick={() => handleModerationAction('reject')}>
+            <button className="admin-button" type="button" disabled={actionLoading} onClick={() => setShowRejectModal(true)}>
               Reject
             </button>
             <button
@@ -680,6 +696,58 @@ const AdminListingDetail = () => {
           </table>
         </div>
       </div>
+
+      {showRejectModal && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="modal-content" style={{ background: '#1a1a2e', borderRadius: 16, padding: 28, maxWidth: 500, width: '90%', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, color: '#fff', fontSize: 18 }}>Reject Listing</h2>
+              <button onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setModerationNote(''); }} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 20 }}>×</button>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label htmlFor="reject-reason-select" style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>Reason for rejection *</label>
+              <select
+                id="reject-reason-select"
+                value={rejectReasonIndex}
+                onChange={(e) => setRejectReasonIndex(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14 }}
+              >
+                <option value="">Select a reason...</option>
+                {LISTING_REJECTION_REASONS.map((item, idx) => (
+                  <option key={idx} value={idx}>{item.reason}</option>
+                ))}
+              </select>
+            </div>
+            {rejectReasonIndex !== '' && (
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <div style={{ fontSize: 12, color: '#fca5a5', marginBottom: 4, fontWeight: 600 }}>How to fix:</div>
+                <div style={{ fontSize: 13, color: '#ddd', lineHeight: 1.5 }}>{LISTING_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</div>
+              </div>
+            )}
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="reject-note" style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>Additional notes (optional)</label>
+              <textarea
+                id="reject-note"
+                rows={3}
+                value={moderationNote}
+                onChange={(e) => setModerationNote(e.target.value)}
+                placeholder="Add any extra context..."
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, resize: 'vertical' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setModerationNote(''); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#aaa', cursor: 'pointer' }}>Cancel</button>
+              <button
+                onClick={() => handleModerationAction('reject')}
+                disabled={actionLoading || rejectReasonIndex === ''}
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: rejectReasonIndex === '' ? '#555' : '#ef4444', color: '#fff', cursor: rejectReasonIndex === '' ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+              >
+                {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
