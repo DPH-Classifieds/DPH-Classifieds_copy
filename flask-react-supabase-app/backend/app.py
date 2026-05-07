@@ -1922,6 +1922,41 @@ def _require_dealer_verified(user_id):
                     "code": "dealer_not_verified",
                 }
             ), 403
+
+        # Check that all 3 required documents are approved
+        if rows and rows[0].get("is_dealer") and rows[0].get("dealer_verified"):
+            docs_resp = requests.get(
+                f"{os.getenv('SUPABASE_URL')}/rest/v1/dealer_documents?user_id=eq.{user_id}&select=document_type,status",
+                headers=headers,
+                timeout=10,
+            )
+            if docs_resp.status_code == 200:
+                docs = docs_resp.json()
+                required_types = {
+                    "trade_license",
+                    "company_registration",
+                    "tax_registration",
+                }
+                approved_types = {
+                    d["document_type"] for d in docs if d.get("status") == "approved"
+                }
+                missing = required_types - approved_types
+                if missing:
+                    nice_names = {
+                        "trade_license": "Trade License",
+                        "company_registration": "Company Registration",
+                        "tax_registration": "Tax Registration (TRN)",
+                    }
+                    missing_names = ", ".join(
+                        nice_names.get(t, t) for t in sorted(missing)
+                    )
+                    return jsonify(
+                        {
+                            "error": f"You must upload and get approval for the following documents before posting: {missing_names}",
+                            "code": "dealer_documents_missing",
+                            "missing": list(missing),
+                        }
+                    ), 403
     except Exception as e:
         logger.error(f"Error checking dealer verification: {e}")
     return None
@@ -5384,11 +5419,48 @@ def update_user_profile(current_user):
         ), 500
 
 
-@app.route("/api/user/company-documents", methods=["POST"])
+@app.route("/api/user/dealer-documents", methods=["GET"])
 @token_required
-def upload_company_document(current_user):
-    """Upload a company document (trade license, registration certificate, etc.)"""
+def get_dealer_documents(current_user):
+    """Get all dealer documents for the current user"""
     try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{current_user}&select=*&order=uploaded_at.desc",
+            headers=headers,
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": "Failed to fetch documents"}), 500
+
+        docs = resp.json()
+        return jsonify({"documents": docs}), 200
+    except Exception as e:
+        logger.error(f"Error fetching dealer documents: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to fetch documents"}), 500
+
+
+@app.route("/api/user/dealer-documents", methods=["POST"])
+@token_required
+def upload_dealer_document(current_user):
+    """Upload a dealer document (trade_license, company_registration, or tax_registration)"""
+    try:
+        document_type = request.form.get("document_type")
+        if document_type not in (
+            "trade_license",
+            "company_registration",
+            "tax_registration",
+        ):
+            return jsonify(
+                {
+                    "error": "Invalid document_type. Must be: trade_license, company_registration, or tax_registration"
+                }
+            ), 400
+
         if "file" not in request.files:
             return jsonify({"error": "No file provided"}), 400
 
@@ -5396,42 +5468,31 @@ def upload_company_document(current_user):
         if not file.filename:
             return jsonify({"error": "No file selected"}), 400
 
-        # Validate file type
         content_type = file.content_type or ""
         if content_type not in DEALER_DOCUMENT_ALLOWED_MIME_TYPES:
-            return jsonify(
-                {
-                    "error": "Invalid file type. Allowed: JPG, PNG, PDF",
-                }
-            ), 400
+            return jsonify({"error": "Invalid file type. Allowed: JPG, PNG, PDF"}), 400
 
-        # Validate file size
         file.seek(0, 2)
         file_size = file.tell()
         file.seek(0)
         if file_size > DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES:
             return jsonify(
                 {
-                    "error": f"File too large. Maximum size: {DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES // (1024 * 1024)}MB",
+                    "error": f"File too large. Maximum size: {DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES // (1024 * 1024)}MB"
                 }
             ), 400
 
-        # Ensure bucket exists
         if not ensure_storage_bucket("dealer-documents"):
             return jsonify({"error": "Storage bucket not available"}), 500
-
-        # Generate unique filename
-        import uuid
 
         ext = (
             file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
         )
-        object_path = f"{current_user}/{uuid.uuid4()}.{ext}"
+        object_path = f"{current_user}/{document_type}_{uuid.uuid4()}.{ext}"
 
-        # Upload to Supabase Storage
         file_bytes = file.read()
         upload_url = f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{object_path}"
-        headers = {
+        upload_headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
             "Content-Type": content_type,
@@ -5439,147 +5500,178 @@ def upload_company_document(current_user):
         }
 
         upload_response = requests.post(
-            upload_url, headers=headers, data=file_bytes, timeout=30
+            upload_url, headers=upload_headers, data=file_bytes, timeout=30
         )
-
         if upload_response.status_code not in [200, 201]:
             logger.error(
                 f"Document upload failed: {upload_response.status_code} - {upload_response.text}"
             )
             return jsonify({"error": "Failed to upload document"}), 500
 
-        # Build public URL
         public_url = (
             f"{SUPABASE_URL}/storage/v1/object/public/dealer-documents/{object_path}"
         )
 
-        # Get existing documents
-        service_key = SUPABASE_SERVICE_ROLE_KEY
-        user_headers = {
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
             "Content-Type": "application/json",
         }
-        user_resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}&select=company_documents",
-            headers=user_headers,
+
+        existing_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{current_user}&document_type=eq.{document_type}&select=id,storage_path",
+            headers=headers,
             timeout=10,
         )
 
-        existing_docs = []
-        if user_resp.status_code == 200:
-            rows = user_resp.json()
-            if rows:
-                existing_docs = rows[0].get("company_documents") or []
+        if existing_resp.status_code == 200 and existing_resp.json():
+            existing_doc = existing_resp.json()[0]
+            old_path = existing_doc.get("storage_path")
+            if old_path:
+                del_url = (
+                    f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{old_path}"
+                )
+                requests.delete(
+                    del_url,
+                    headers={
+                        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    },
+                    timeout=10,
+                )
 
-        # Append new document
-        from datetime import datetime
+            update_resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{existing_doc['id']}",
+                headers={**headers, "Prefer": "return=representation"},
+                json={
+                    "url": public_url,
+                    "filename": file.filename,
+                    "file_type": content_type,
+                    "storage_path": object_path,
+                    "status": "pending",
+                    "denial_reason": None,
+                    "denial_fix": None,
+                    "reviewed_at": None,
+                    "reviewed_by": None,
+                    "uploaded_at": "now()",
+                },
+                timeout=10,
+            )
+            if update_resp.status_code not in [200, 204]:
+                logger.error(f"Failed to update document record: {update_resp.text}")
+                return jsonify({"error": "Failed to save document"}), 500
 
-        new_doc = {
-            "url": public_url,
-            "filename": file.filename,
-            "type": content_type,
-            "uploaded_at": datetime.utcnow().isoformat() + "Z",
-            "storage_path": object_path,
-        }
-        existing_docs.append(new_doc)
+            doc_data = (
+                update_resp.json()[0]
+                if update_resp.status_code == 200
+                else {
+                    "id": existing_doc["id"],
+                    "url": public_url,
+                    "filename": file.filename,
+                    "document_type": document_type,
+                    "status": "pending",
+                    "storage_path": object_path,
+                }
+            )
+        else:
+            insert_resp = requests.post(
+                f"{SUPABASE_URL}/rest/v1/dealer_documents",
+                headers={**headers, "Prefer": "return=representation"},
+                json={
+                    "user_id": current_user,
+                    "document_type": document_type,
+                    "url": public_url,
+                    "filename": file.filename,
+                    "file_type": content_type,
+                    "storage_path": object_path,
+                    "status": "pending",
+                },
+                timeout=10,
+            )
+            if insert_resp.status_code not in [200, 201]:
+                logger.error(f"Failed to insert document record: {insert_resp.text}")
+                return jsonify({"error": "Failed to save document"}), 500
+            doc_data = insert_resp.json()[0]
 
-        # Update user record
-        update_resp = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}",
-            headers={**user_headers, "Prefer": "return=minimal"},
-            json={
-                "company_documents": existing_docs,
-                "verification_documents_submitted": True,
-            },
+        all_docs_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{current_user}&select=*&order=uploaded_at.desc",
+            headers=headers,
             timeout=10,
         )
-
-        if update_resp.status_code not in [200, 204]:
-            logger.error(f"Failed to update user documents: {update_resp.status_code}")
-            return jsonify({"error": "Failed to save document reference"}), 500
+        all_docs = (
+            all_docs_resp.json() if all_docs_resp.status_code == 200 else [doc_data]
+        )
 
         return jsonify(
             {
                 "message": "Document uploaded successfully",
-                "document": new_doc,
-                "documents": existing_docs,
+                "document": doc_data,
+                "documents": all_docs,
             }
         ), 200
 
     except Exception as e:
-        logger.error(f"Error uploading company document: {str(e)}", exc_info=True)
+        logger.error(f"Error uploading dealer document: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to upload document"}), 500
 
 
-@app.route("/api/user/company-documents", methods=["DELETE"])
+@app.route("/api/user/dealer-documents", methods=["DELETE"])
 @token_required
-def delete_company_document(current_user):
-    """Delete a company document"""
+def delete_dealer_document(current_user):
+    """Delete a dealer document"""
     try:
         data = request.json
-        storage_path = data.get("storage_path")
-        if not storage_path:
-            return jsonify({"error": "storage_path is required"}), 400
+        document_id = data.get("document_id")
+        if not document_id:
+            return jsonify({"error": "document_id is required"}), 400
 
-        # Ensure the path belongs to this user
-        if not storage_path.startswith(f"{current_user}/"):
-            return jsonify({"error": "Invalid document path"}), 403
-
-        # Delete from storage
-        delete_url = f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{storage_path}"
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        }
-        requests.delete(delete_url, headers=headers, timeout=10)
-
-        # Get existing documents and remove the deleted one
-        service_key = SUPABASE_SERVICE_ROLE_KEY
-        user_headers = {
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
         }
-        user_resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}&select=company_documents",
-            headers=user_headers,
+
+        doc_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{document_id}&user_id=eq.{current_user}&select=storage_path",
+            headers=headers,
             timeout=10,
         )
+        if doc_resp.status_code != 200 or not doc_resp.json():
+            return jsonify({"error": "Document not found"}), 404
 
-        existing_docs = []
-        if user_resp.status_code == 200:
-            rows = user_resp.json()
-            if rows:
-                existing_docs = rows[0].get("company_documents") or []
+        storage_path = doc_resp.json()[0].get("storage_path")
+        if storage_path:
+            del_url = (
+                f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{storage_path}"
+            )
+            requests.delete(
+                del_url,
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                },
+                timeout=10,
+            )
 
-        updated_docs = [
-            doc for doc in existing_docs if doc.get("storage_path") != storage_path
-        ]
-
-        # Update user record
-        update_resp = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{current_user}",
-            headers={**user_headers, "Prefer": "return=minimal"},
-            json={
-                "company_documents": updated_docs,
-                "verification_documents_submitted": len(updated_docs) > 0,
-            },
+        del_db_resp = requests.delete(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{document_id}&user_id=eq.{current_user}",
+            headers={**headers, "Prefer": "return=minimal"},
             timeout=10,
         )
+        if del_db_resp.status_code not in [200, 204]:
+            return jsonify({"error": "Failed to delete document"}), 500
 
-        if update_resp.status_code not in [200, 204]:
-            return jsonify({"error": "Failed to update document list"}), 500
+        all_docs_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{current_user}&select=*&order=uploaded_at.desc",
+            headers=headers,
+            timeout=10,
+        )
+        all_docs = all_docs_resp.json() if all_docs_resp.status_code == 200 else []
 
-        return jsonify(
-            {
-                "message": "Document deleted",
-                "documents": updated_docs,
-            }
-        ), 200
+        return jsonify({"message": "Document deleted", "documents": all_docs}), 200
 
     except Exception as e:
-        logger.error(f"Error deleting company document: {str(e)}", exc_info=True)
+        logger.error(f"Error deleting dealer document: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to delete document"}), 500
 
 
@@ -11639,6 +11731,165 @@ def api_reject_dealer(current_user, dealer_id):
     except Exception as e:
         logger.error(f"Exception in api_reject_dealer: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/dealers/<dealer_id>/documents", methods=["GET"])
+@token_required
+def get_admin_dealer_documents(current_user, dealer_id):
+    """Get all documents for a specific dealer"""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{dealer_id}&select=*&order=uploaded_at.desc",
+            headers=headers,
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": "Failed to fetch documents"}), 500
+
+        return jsonify({"documents": resp.json()}), 200
+    except Exception as e:
+        logger.error(f"Error fetching dealer documents: {str(e)}")
+        return jsonify({"error": "Failed to fetch documents"}), 500
+
+
+@app.route("/api/admin/dealer-documents/<doc_id>/review", methods=["POST"])
+@token_required
+def review_dealer_document(current_user, doc_id):
+    """Approve or deny a specific dealer document"""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        data = request.json
+        action = data.get("action")
+        if action not in ("approve", "deny"):
+            return jsonify({"error": "action must be 'approve' or 'deny'"}), 400
+
+        denial_reason = data.get("denial_reason", "")
+        denial_fix = data.get("denial_fix", "")
+
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        doc_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{doc_id}&select=*,users:user_id(email,first_name,last_name,company_name)",
+            headers=headers,
+            timeout=10,
+        )
+        if doc_resp.status_code != 200 or not doc_resp.json():
+            return jsonify({"error": "Document not found"}), 404
+
+        doc = doc_resp.json()[0]
+        from datetime import datetime
+
+        update_fields = {
+            "status": "approved" if action == "approve" else "denied",
+            "reviewed_at": datetime.utcnow().isoformat(),
+            "reviewed_by": current_user,
+        }
+        if action == "deny":
+            update_fields["denial_reason"] = denial_reason
+            update_fields["denial_fix"] = denial_fix
+
+        update_resp = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{doc_id}",
+            headers={**headers, "Prefer": "return=representation"},
+            json=update_fields,
+            timeout=10,
+        )
+
+        if update_resp.status_code not in [200, 204]:
+            logger.error(f"Failed to update document: {update_resp.text}")
+            return jsonify({"error": "Failed to update document"}), 500
+
+        if action == "deny":
+            user_data = doc.get("users", {})
+            dealer_email = (
+                user_data.get("email") if isinstance(user_data, dict) else None
+            )
+            if dealer_email:
+                doc_type_nice = {
+                    "trade_license": "Trade License",
+                    "company_registration": "Company Registration",
+                    "tax_registration": "Tax Registration (TRN)",
+                }.get(doc.get("document_type", ""), doc.get("document_type", ""))
+
+                try:
+                    _send_document_denial_email(
+                        dealer_email,
+                        doc_type_nice,
+                        denial_reason,
+                        denial_fix,
+                        request.headers.get("Origin"),
+                    )
+                except Exception as email_err:
+                    logger.error(f"Document denial email failed: {email_err}")
+
+        logger.info(f"Admin {current_user} {action}d document {doc_id}")
+        return jsonify(
+            {"success": True, "message": f"Document {action}d successfully"}
+        ), 200
+
+    except Exception as e:
+        logger.error(f"Error reviewing document: {str(e)}")
+        return jsonify({"error": "Failed to review document"}), 500
+
+
+def _send_document_denial_email(email, doc_type_name, reason, fix_hint, origin=None):
+    """Send email when a dealer document is denied"""
+    if not MAIL_ENABLED or not mail:
+        return None, "Email not configured"
+
+    try:
+        base_url = (
+            origin or os.getenv("FRONTEND_URL", "https://dphclassifieds.com")
+        ).rstrip("/")
+        subject = f"Document Update Required - {doc_type_name}"
+
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #e74c3c;">Document Review Update</h2>
+            <p>Hello,</p>
+            <p>Your <strong>{doc_type_name}</strong> document has been reviewed and requires an update.</p>
+            <div style="background: #fdf2f2; border-left: 4px solid #e74c3c; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 8px 0;"><strong>Reason:</strong></p>
+                <p style="margin: 0;">{reason}</p>
+            </div>
+            <div style="background: #fff3cd; border-left: 4px solid #f39c12; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0 0 8px 0;"><strong>How to fix:</strong></p>
+                <p style="margin: 0;">{fix_hint}</p>
+            </div>
+            <p>Please log in to your account and re-upload a corrected version of this document.</p>
+            <a href="{base_url}/account-settings" style="display: inline-block; background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 15px 0;">Upload New Document</a>
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">If you have questions, please contact our support team.</p>
+        </div>
+        """
+
+        msg = MailMessage(
+            subject=subject,
+            recipients=[email],
+            html=html_body,
+            sender=app.config.get("MAIL_DEFAULT_SENDER", "noreply@dphclassifieds.com"),
+        )
+        mail.send(msg)
+        logger.info(f"Document denial email sent to {email} for {doc_type_name}")
+        return True, None
+    except Exception as e:
+        logger.error(f"Failed to send document denial email: {e}")
+        return None, str(e)
 
 
 @app.route("/api/reports/<report_id>", methods=["PATCH"])

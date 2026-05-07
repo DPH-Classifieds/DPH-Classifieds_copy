@@ -80,9 +80,13 @@ const AccountSettings = () => {
   const [error, setError] = useState(null);
   const [profileCompletion, setProfileCompletion] = useState({ percentage: 0 });
   const fileInputRef = useRef(null);
-  const docInputRef = useRef(null);
-  const [companyDocuments, setCompanyDocuments] = useState([]);
-  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const docInputRefs = {
+    trade_license: useRef(null),
+    company_registration: useRef(null),
+    tax_registration: useRef(null),
+  };
+  const [dealerDocuments, setDealerDocuments] = useState([]);
+  const [uploadingDocType, setUploadingDocType] = useState(null);
 
   // Enhanced profile form state
   const [profileData, setProfileData] = useState({
@@ -154,9 +158,25 @@ const AccountSettings = () => {
     if (user) {
       setProfileData(buildProfileDataFromUser(user));
       setPhotoPreview(resolveMediaUrl(user.profile_photo_url || user.profilePhotoUrl || null));
-      setCompanyDocuments(user.company_documents || []);
+      fetchDealerDocuments();
     }
   }, [user]);
+
+  const fetchDealerDocuments = async () => {
+    try {
+      const token = await user?.getToken?.();
+      if (!token) return;
+      const resp = await fetch(`${API_URL}/api/user/dealer-documents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setDealerDocuments(data.documents || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dealer documents:', err);
+    }
+  };
 
   const handleProfileInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -222,7 +242,7 @@ const AccountSettings = () => {
     }
   };
 
-  const handleDocumentUpload = async (e) => {
+  const handleDocumentUpload = async (e, documentType) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -236,14 +256,15 @@ const AccountSettings = () => {
       return;
     }
 
-    setUploadingDoc(true);
+    setUploadingDocType(documentType);
     setError(null);
     try {
       const token = await getAccessToken();
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('document_type', documentType);
 
-      const response = await fetch(`${API_URL}/api/user/company-documents`, {
+      const response = await fetch(`${API_URL}/api/user/dealer-documents`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -254,29 +275,28 @@ const AccountSettings = () => {
         throw new Error(data.error || 'Failed to upload document');
       }
 
-      setCompanyDocuments(data.documents);
-      updateUser({ company_documents: data.documents });
+      setDealerDocuments(data.documents);
       setMessage('Document uploaded successfully');
     } catch (err) {
       setError(err.message || 'Failed to upload document');
     } finally {
-      setUploadingDoc(false);
-      if (docInputRef.current) docInputRef.current.value = '';
+      setUploadingDocType(null);
+      if (docInputRefs[documentType]?.current) docInputRefs[documentType].current.value = '';
     }
   };
 
-  const handleDocumentDelete = async (storagePath) => {
+  const handleDocumentDelete = async (documentId) => {
     if (!window.confirm('Are you sure you want to delete this document?')) return;
 
     try {
       const token = await getAccessToken();
-      const response = await fetch(`${API_URL}/api/user/company-documents`, {
+      const response = await fetch(`${API_URL}/api/user/dealer-documents`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ storage_path: storagePath }),
+        body: JSON.stringify({ document_id: documentId }),
       });
 
       const data = await response.json();
@@ -284,8 +304,7 @@ const AccountSettings = () => {
         throw new Error(data.error || 'Failed to delete document');
       }
 
-      setCompanyDocuments(data.documents);
-      updateUser({ company_documents: data.documents });
+      setDealerDocuments(data.documents);
       setMessage('Document deleted');
     } catch (err) {
       setError(err.message || 'Failed to delete document');
@@ -989,53 +1008,79 @@ const AccountSettings = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Company Documents</label>
+                  <label>Required Documents</label>
                   <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
-                    Upload trade license, registration certificate, or other business documents. Accepted: JPG, PNG, PDF (max 10MB each).
+                    Upload all three documents to activate your dealer account. Accepted: JPG, PNG, PDF (max 10MB each).
                   </p>
-                  <input
-                    ref={docInputRef}
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={handleDocumentUpload}
-                    style={{ display: 'none' }}
-                    id="company-doc-upload"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => docInputRef.current?.click()}
-                    disabled={uploadingDoc}
-                    className="btn btn-secondary"
-                    style={{ marginBottom: 12 }}
-                  >
-                    {uploadingDoc ? 'Uploading...' : 'Upload Document'}
-                  </button>
 
-                  {companyDocuments.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {companyDocuments.map((doc, idx) => (
-                        <div
-                          key={doc.storage_path || idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '8px 12px',
-                            borderRadius: 8,
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            background: 'rgba(255,255,255,0.03)',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                            <span style={{ fontSize: 18 }}>
-                              {doc.type === 'application/pdf' ? '📄' : '🖼️'}
-                            </span>
+                  {[
+                    { type: 'trade_license', label: 'Trade License', icon: '📋' },
+                    { type: 'company_registration', label: 'Company Registration', icon: '🏢' },
+                    { type: 'tax_registration', label: 'Tax Registration (TRN)', icon: '🧾' },
+                  ].map(({ type, label, icon }) => {
+                    const doc = dealerDocuments.find(d => d.document_type === type);
+                    const statusColors = {
+                      pending: { bg: '#fbbf24', text: '#000', label: 'Pending Review' },
+                      approved: { bg: '#22c55e', text: '#000', label: 'Approved' },
+                      denied: { bg: '#ef4444', text: '#fff', label: 'Denied' },
+                    };
+                    const status = doc ? statusColors[doc.status] : null;
+
+                    return (
+                      <div
+                        key={type}
+                        style={{
+                          marginBottom: 12,
+                          padding: '12px 14px',
+                          borderRadius: 10,
+                          border: `1px solid ${status ? (doc.status === 'approved' ? 'rgba(34,197,94,0.3)' : doc.status === 'denied' ? 'rgba(239,68,68,0.3)' : 'rgba(251,191,36,0.3)') : 'rgba(255,255,255,0.1)'}`,
+                          background: 'rgba(255,255,255,0.03)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: doc ? 8 : 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 18 }}>{icon}</span>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>{label}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {status && (
+                              <span style={{
+                                fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 12,
+                                background: status.bg, color: status.text,
+                              }}>
+                                {status.label}
+                              </span>
+                            )}
+                            <input
+                              ref={docInputRefs[type]}
+                              type="file"
+                              accept=".jpg,.jpeg,.png,.pdf"
+                              onChange={(e) => handleDocumentUpload(e, type)}
+                              style={{ display: 'none' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => docInputRefs[type].current?.click()}
+                              disabled={uploadingDocType === type}
+                              style={{
+                                background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
+                                color: '#a5b4fc', padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                                fontSize: 12, fontWeight: 500,
+                              }}
+                            >
+                              {uploadingDocType === type ? 'Uploading...' : doc ? 'Replace' : 'Upload'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {doc && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ minWidth: 0 }}>
                               <a
                                 href={doc.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ fontSize: 13, color: '#8bd6b4', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+                                style={{ fontSize: 12, color: '#8bd6b4', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
                               >
                                 {doc.filename}
                               </a>
@@ -1043,25 +1088,27 @@ const AccountSettings = () => {
                                 Uploaded {new Date(doc.uploaded_at).toLocaleDateString()}
                               </span>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDocumentDelete(doc.id)}
+                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4, fontSize: 13 }}
+                            >
+                              Remove
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDocumentDelete(doc.storage_path)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              padding: 4,
-                              fontSize: 13,
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        )}
+
+                        {doc?.status === 'denied' && doc.denial_reason && (
+                          <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                            <p style={{ margin: 0, fontSize: 12, color: '#fca5a5' }}><strong>Reason:</strong> {doc.denial_reason}</p>
+                            {doc.denial_fix && (
+                              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#fbbf24' }}><strong>How to fix:</strong> {doc.denial_fix}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {user?.dealer_verification_requested_at && !user?.dealer_verified && (

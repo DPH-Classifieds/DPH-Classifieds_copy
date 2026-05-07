@@ -16,6 +16,11 @@ const AdminDealerDetail = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReasonIndex, setRejectReasonIndex] = useState('');
+  const [dealerDocs, setDealerDocs] = useState([]);
+  const [reviewingDocId, setReviewingDocId] = useState(null);
+  const [denyModalDoc, setDenyModalDoc] = useState(null);
+  const [denyReason, setDenyReason] = useState('');
+  const [denyFix, setDenyFix] = useState('');
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -23,6 +28,8 @@ const AdminDealerDetail = () => {
         setLoading(true);
         const response = await apiClient.get(`/api/admin/dealers/${dealerId}/overview`);
         setData(response || null);
+        const docsResp = await apiClient.get(`/api/admin/dealers/${dealerId}/documents`);
+        setDealerDocs(docsResp?.documents || []);
       } catch (fetchError) {
         console.error('Failed to load dealer overview:', fetchError);
         setError(fetchError.message || 'Failed to load dealer overview');
@@ -46,6 +53,39 @@ const AdminDealerDetail = () => {
   const refreshData = async () => {
     const response = await apiClient.get(`/api/admin/dealers/${dealerId}/overview`);
     setData(response || null);
+    const docsResp = await apiClient.get(`/api/admin/dealers/${dealerId}/documents`);
+    setDealerDocs(docsResp?.documents || []);
+  };
+
+  const handleReviewDocument = async (docId, action, reason = '', fix = '') => {
+    setReviewingDocId(docId);
+    try {
+      await apiClient.post(`/api/admin/dealer-documents/${docId}/review`, {
+        action,
+        denial_reason: reason,
+        denial_fix: fix,
+      });
+      await refreshData();
+    } catch (err) {
+      console.error('Failed to review document:', err);
+    } finally {
+      setReviewingDocId(null);
+      setDenyModalDoc(null);
+      setDenyReason('');
+      setDenyFix('');
+    }
+  };
+
+  const DOCUMENT_TYPE_LABELS = {
+    trade_license: 'Trade License',
+    company_registration: 'Company Registration',
+    tax_registration: 'Tax Registration (TRN)',
+  };
+
+  const DOCUMENT_TYPE_ICONS = {
+    trade_license: '📋',
+    company_registration: '🏢',
+    tax_registration: '🧾',
   };
 
   const handleVerify = async () => {
@@ -174,19 +214,46 @@ const AdminDealerDetail = () => {
               <p className="admin-muted">Email verified: {dealer.email_verified ? 'Yes' : 'No'}</p>
               <p className="admin-muted">Verification requested: {formatDateTime(dealer.dealer_verification_requested_at)}</p>
               <p className="admin-muted">Verified at: {formatDateTime(dealer.dealer_verified_at)}</p>
-              {dealer.company_documents && dealer.company_documents.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <p className="admin-muted" style={{ marginBottom: 4 }}>Uploaded documents:</p>
-                  {dealer.company_documents.map((doc, idx) => (
-                    <a
-                      key={doc.storage_path || idx}
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'block', fontSize: 12, color: '#8bd6b4', textDecoration: 'underline', marginBottom: 2 }}
-                    >
-                      {doc.filename || `Document ${idx + 1}`}
-                    </a>
+              {dealerDocs.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <p className="admin-muted" style={{ marginBottom: 6, fontWeight: 600 }}>Documents:</p>
+                  {dealerDocs.map((doc) => (
+                    <div key={doc.id} style={{ padding: '6px 8px', marginBottom: 6, borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                          <span>{DOCUMENT_TYPE_ICONS[doc.document_type] || '📄'}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#8bd6b4', textDecoration: 'underline', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}: {doc.filename}
+                            </a>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 10,
+                            background: doc.status === 'approved' ? '#22c55e' : doc.status === 'denied' ? '#ef4444' : '#fbbf24',
+                            color: doc.status === 'denied' ? '#fff' : '#000',
+                          }}>
+                            {doc.status === 'approved' ? 'Approved' : doc.status === 'denied' ? 'Denied' : 'Pending'}
+                          </span>
+                          {doc.status === 'pending' && (
+                            <>
+                              <button type="button" disabled={reviewingDocId === doc.id} onClick={() => handleReviewDocument(doc.id, 'approve')} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#22c55e', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Approve</button>
+                              <button type="button" disabled={reviewingDocId === doc.id} onClick={() => setDenyModalDoc(doc)} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Deny</button>
+                            </>
+                          )}
+                          {doc.status === 'denied' && (
+                            <button type="button" disabled={reviewingDocId === doc.id} onClick={() => setDenyModalDoc(doc)} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(239,68,68,0.2)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer' }}>Update Denial</button>
+                          )}
+                        </div>
+                      </div>
+                      {doc.status === 'denied' && doc.denial_reason && (
+                        <div style={{ marginTop: 4, fontSize: 11, color: '#fca5a5' }}>
+                          <strong>Reason:</strong> {doc.denial_reason}
+                          {doc.denial_fix && <span style={{ color: '#fbbf24', marginLeft: 8 }}><strong>Fix:</strong> {doc.denial_fix}</span>}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -313,24 +380,24 @@ const AdminDealerDetail = () => {
                 <td>{dealer.dealer_verified ? 'Yes' : 'No'}</td>
               </tr>
               <tr>
-                <td>Company documents</td>
+                <td>Required documents</td>
                 <td>
-                  {dealer.company_documents && dealer.company_documents.length > 0 ? (
+                  {dealerDocs.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {dealer.company_documents.map((doc, idx) => (
-                        <a
-                          key={doc.storage_path || idx}
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: '#8bd6b4', fontSize: 13, textDecoration: 'underline' }}
-                        >
-                          {doc.filename || `Document ${idx + 1}`}
-                        </a>
+                      {dealerDocs.map((doc) => (
+                        <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                          <span>{DOCUMENT_TYPE_ICONS[doc.document_type] || '📄'}</span>
+                          <span>{DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}</span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10,
+                            background: doc.status === 'approved' ? '#22c55e' : doc.status === 'denied' ? '#ef4444' : '#fbbf24',
+                            color: doc.status === 'denied' ? '#fff' : '#000',
+                          }}>
+                            {doc.status}
+                          </span>
+                        </div>
                       ))}
                     </div>
-                  ) : dealer.verification_documents_submitted ? (
-                    'Submitted'
                   ) : (
                     'Not submitted'
                   )}
@@ -391,6 +458,47 @@ const AdminDealerDetail = () => {
                 style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: rejectReasonIndex === '' ? '#555' : '#ef4444', color: '#fff', cursor: rejectReasonIndex === '' ? 'not-allowed' : 'pointer', fontWeight: 600 }}
               >
                 {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {denyModalDoc && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="modal-content" style={{ background: '#1a1a2e', borderRadius: 16, padding: 28, maxWidth: 500, width: '90%', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, color: '#fff', fontSize: 18 }}>Deny {DOCUMENT_TYPE_LABELS[denyModalDoc.document_type] || denyModalDoc.document_type}</h2>
+              <button onClick={() => { setDenyModalDoc(null); setDenyReason(''); setDenyFix(''); }} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 20 }}>×</button>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>Reason for denial *</label>
+              <input
+                type="text"
+                value={denyReason}
+                onChange={(e) => setDenyReason(e.target.value)}
+                placeholder="e.g. Document is expired or unclear"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>How to fix it *</label>
+              <textarea
+                rows={3}
+                value={denyFix}
+                onChange={(e) => setDenyFix(e.target.value)}
+                placeholder="e.g. Upload a clear photo of your current trade license"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, resize: 'vertical', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setDenyModalDoc(null); setDenyReason(''); setDenyFix(''); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#aaa', cursor: 'pointer' }}>Cancel</button>
+              <button
+                onClick={() => handleReviewDocument(denyModalDoc.id, 'deny', denyReason, denyFix)}
+                disabled={reviewingDocId === denyModalDoc.id || !denyReason || !denyFix}
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: !denyReason || !denyFix ? '#555' : '#ef4444', color: '#fff', cursor: !denyReason || !denyFix ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+              >
+                {reviewingDocId === denyModalDoc.id ? 'Denying...' : 'Confirm Denial'}
               </button>
             </div>
           </div>
