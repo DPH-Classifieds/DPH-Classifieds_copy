@@ -339,10 +339,14 @@ const AccountSettings = () => {
 
       console.log('Profile update response status:', response.status);
       const responseData = await response.json();
-      console.log('Profile update response data:', responseData);
+      console.log('Profile update response data:', JSON.stringify(responseData, null, 2));
 
       if (!response.ok) {
-        throw new Error(responseData.message || responseData.error || 'Failed to update profile');
+        const errorDetail = responseData.error;
+        const errorMsg = typeof errorDetail === 'object' && errorDetail !== null
+          ? (errorDetail.message || errorDetail.detail || JSON.stringify(errorDetail))
+          : (errorDetail || responseData.message || 'Failed to update profile');
+        throw new Error(errorMsg);
       }
 
       // Handle the response - it might return { message, user } or just the user object

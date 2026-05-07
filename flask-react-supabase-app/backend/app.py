@@ -5158,6 +5158,7 @@ def update_user_profile(current_user):
             "postalCode": "postal_code",
             "address": "address",
             "bio": "bio",
+            "isDealer": "is_dealer",
             "companyName": "company_name",
             "companyRegistrationNumber": "company_registration_number",
             "tradeLicenseNumber": "trade_license_number",
@@ -5174,6 +5175,23 @@ def update_user_profile(current_user):
 
         # Prepare update data - only include fields that are provided and not empty
         update_payload = {}
+        varchar_limits = {
+            "phone": 20,
+            "country_code": 10,
+            "whatsapp_number": 20,
+            "first_name": 100,
+            "last_name": 100,
+            "username": 100,
+            "display_name": 150,
+            "city": 100,
+            "emirate": 50,
+            "country": 100,
+            "postal_code": 20,
+            "company_name": 255,
+            "company_registration_number": 100,
+            "trade_license_number": 100,
+            "tax_registration_number": 100,
+        }
         for frontend_field, db_field in field_mapping.items():
             if frontend_field in data:
                 value = data[frontend_field]
@@ -5181,6 +5199,13 @@ def update_user_profile(current_user):
                 if (
                     value or value is False or value == 0
                 ):  # Include False and 0 but not empty strings
+                    if isinstance(value, str) and db_field in varchar_limits:
+                        max_len = varchar_limits[db_field]
+                        if len(value) > max_len:
+                            logger.warning(
+                                f"Truncating {db_field} from {len(value)} to {max_len} chars"
+                            )
+                            value = value[:max_len]
                     update_payload[db_field] = value
 
         if not update_payload:
@@ -5331,12 +5356,21 @@ def update_user_profile(current_user):
             error_data = {}
             try:
                 error_data = response.json()
-            except:
+            except Exception:
                 error_data = {"detail": response.text}
+
+            error_message = "Failed to update profile"
+            if isinstance(error_data, dict):
+                error_message = (
+                    error_data.get("message")
+                    or error_data.get("detail")
+                    or error_data.get("hint")
+                    or str(error_data.get("errors", error_data))
+                )
 
             return jsonify(
                 {
-                    "message": "Failed to update profile",
+                    "message": error_message,
                     "error": error_data,
                     "status": response.status_code,
                 }
