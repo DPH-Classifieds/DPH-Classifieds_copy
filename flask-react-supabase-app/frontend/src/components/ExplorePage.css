@@ -315,19 +315,19 @@
 }
 
 .explore-v2-horizontal-track {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 8px;
-  scroll-snap-type: x mandatory;
+  overflow: visible;
+  padding-bottom: 0;
 }
 
 .explore-v2-horizontal-track .explore-v2-card {
-  min-width: 320px;
-  max-width: 360px;
-  flex: 0 0 auto;
-  scroll-snap-align: start;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  flex: unset;
+  scroll-snap-align: unset;
 }
 
 .explore-v2-card {
@@ -630,8 +630,7 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 14px;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: visible;
     scroll-snap-type: none;
     padding-bottom: 0;
   }
