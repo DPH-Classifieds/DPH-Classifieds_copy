@@ -191,6 +191,11 @@
   letter-spacing: normal;
 }
 
+.required-asterisk {
+  color: var(--pf-danger);
+  margin-left: 4px;
+}
+
 .form-group input,
 .form-group select,
 .form-group textarea,
@@ -721,6 +726,49 @@
   backdrop-filter: blur(6px);
 }
 
+.submit-loading-state {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: var(--pf-radius-sm);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.submit-loading-text {
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.submit-loading-bar {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.submit-loading-bar-fill {
+  display: block;
+  width: 36%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--pf-danger), var(--pf-accent));
+  animation: submitLoadingSweep 1.1s ease-in-out infinite;
+}
+
+.draft-success-message {
+  flex: 1 1 100%;
+  color: var(--pf-accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .form-actions-section p {
   flex: 1 1 100%;
 }
@@ -773,6 +821,15 @@
 .current-location-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+@keyframes submitLoadingSweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
 }
 
 .plate-preview-panel {
@@ -1076,6 +1133,22 @@
     flex: 1 1 auto;
   }
 
+  .image-previews-grid,
+  .image-previews .row {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .image-previews-grid > *,
+  .image-previews .row > * {
+    flex: 0 0 82%;
+    scroll-snap-align: start;
+  }
+
   .features-grid,
   .extras-category .row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1116,5 +1189,10 @@
   .image-previews-grid,
   .image-previews .row {
     grid-template-columns: 1fr;
+  }
+
+  .image-previews-grid > *,
+  .image-previews .row > * {
+    flex-basis: 88%;
   }
 }

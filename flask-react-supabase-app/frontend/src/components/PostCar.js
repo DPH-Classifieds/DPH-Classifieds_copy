@@ -50,6 +50,10 @@ const DEFAULT_MAP_POSITION = [25.276987, 55.296249];
 const CAR_DRAFT_STORAGE_KEY = 'dph_post_car_draft_v2';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('car');
+const SUBMISSION_ERROR_MESSAGE =
+  'We could not submit your listing right now. Please try again or contact support at support@dphclassifieds.com.';
+
+const RequiredMark = () => <span className="required-asterisk">*</span>;
 
 const PostCar = () => {
   const { id: listingId } = useParams();
@@ -75,6 +79,10 @@ const PostCar = () => {
   const [mapPosition, setMapPosition] = useState(DEFAULT_MAP_POSITION); // Default to Dubai coordinates
   const [marker, setMarker] = useState(DEFAULT_MAP_POSITION);
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
+  const [draftNotice, setDraftNotice] = useState(null);
+  const locationSearchTimeoutRef = useRef(null);
+  const locationSearchAbortRef = useRef(null);
+  const skipNextLocationSearchRef = useRef(false);
   
   // Enhanced map features state
   const [addressSuggestions, setAddressSuggestions] = useState([]);
@@ -347,6 +355,9 @@ const PostCar = () => {
       if (typeof draft.otherFuelType === 'string') {
         setOtherFuelType(draft.otherFuelType);
       }
+      if (typeof draft.whatsappSameAsPhone === 'boolean') {
+        setWhatsappSameAsPhone(draft.whatsappSameAsPhone);
+      }
       if (Array.isArray(draft.marker) && draft.marker.length === 2) {
         setMarker(draft.marker);
         setMapPosition(draft.marker);
@@ -513,31 +524,128 @@ const PostCar = () => {
     }
   }, [titleManuallyEdited, formData.car_manufacturer, formData.car_model, formData.make_year, formData.trim]);
 
-  // Remove Google Maps related code and replace with Leaflet
-  useEffect(() => {
-    // If location is already set, try to geocode it to get coordinates
-    if (formData.car_location && formData.car_location.trim() !== '') {
-      geocodeAddress(formData.car_location);
+  const searchAddresses = useCallback(async (query) => {
+    const trimmedQuery = query.trim();
+
+    if (locationSearchAbortRef.current) {
+      locationSearchAbortRef.current.abort();
     }
-  }, [formData.car_location]);
 
-  // Geocoding disabled (previously Nominatim). Keep suggestions empty and avoid network calls.
-  const geocodeAddress = async () => {
-    setAddressSuggestions([]);
-    setShowSuggestions(false);
+    if (trimmedQuery.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      setGeoError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    locationSearchAbortRef.current = controller;
+    setIsGeocoding(true);
     setGeoError(null);
-  };
 
-  // Debounced address search (disabled geocoding)
+    try {
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        q: trimmedQuery,
+        limit: '5',
+        addressdetails: '1',
+        countrycodes: 'ae',
+      });
+
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Location search failed');
+      }
+
+      const results = await response.json();
+      const nextSuggestions = Array.isArray(results) ? results : [];
+
+      setAddressSuggestions(nextSuggestions);
+      setShowSuggestions(nextSuggestions.length > 0);
+    } catch (searchError) {
+      if (searchError.name !== 'AbortError') {
+        console.error('Location search error:', searchError);
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+        setGeoError('Could not search that location right now. Please type a more specific address or use the map.');
+      }
+    } finally {
+      if (locationSearchAbortRef.current === controller) {
+        locationSearchAbortRef.current = null;
+      }
+      setIsGeocoding(false);
+    }
+  }, []);
+
+  // Search for addresses as the user types.
   useEffect(() => {
-    setAddressSuggestions([]);
-    setShowSuggestions(false);
-  }, [formData.car_location]);
+    if (skipNextLocationSearchRef.current) {
+      skipNextLocationSearchRef.current = false;
+      return undefined;
+    }
 
-  // Handle address selection from suggestions (disabled suggestions)
-  const handleAddressSelect = () => {
+    if (locationSearchTimeoutRef.current) {
+      clearTimeout(locationSearchTimeoutRef.current);
+    }
+
+    locationSearchTimeoutRef.current = window.setTimeout(() => {
+      searchAddresses(formData.car_location || '');
+    }, 350);
+
+    return () => {
+      if (locationSearchTimeoutRef.current) {
+        clearTimeout(locationSearchTimeoutRef.current);
+      }
+    };
+  }, [formData.car_location, searchAddresses]);
+
+  useEffect(() => {
+    return () => {
+      if (locationSearchTimeoutRef.current) {
+        clearTimeout(locationSearchTimeoutRef.current);
+      }
+      if (locationSearchAbortRef.current) {
+        locationSearchAbortRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Handle address selection from suggestions.
+  const handleAddressSelect = (suggestion) => {
+    if (!suggestion) {
+      return;
+    }
+
+    const lat = Number.parseFloat(suggestion.lat);
+    const lng = Number.parseFloat(suggestion.lon);
+    const nextLabel = suggestion.display_name || formData.car_location;
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setMarker([lat, lng]);
+      setMapPosition([lat, lng]);
+      setFormData((prev) => ({
+        ...prev,
+        car_location: nextLabel,
+        latitude: lat,
+        longitude: lng,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        car_location: nextLabel,
+      }));
+    }
+
+    skipNextLocationSearchRef.current = true;
     setShowSuggestions(false);
     setAddressSuggestions([]);
+    setGeoError(null);
   };
 
   // Map click handler component
@@ -953,13 +1061,18 @@ const PostCar = () => {
         formData,
         otherFuelType,
         marker,
+        whatsappSameAsPhone,
         savedAt: new Date().toISOString(),
       };
       localStorage.setItem(CAR_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+      setDraftNotice('Draft saved locally.');
       setError(null);
+      window.setTimeout(() => {
+        setDraftNotice((current) => (current === 'Draft saved locally.' ? null : current));
+      }, 2500);
     } catch (draftError) {
       console.error('Failed to save car draft:', draftError);
-      setError('Could not save draft. Please try again.');
+      setError('Could not save draft. Please try again or contact support at support@dphclassifieds.com.');
     }
   };
 
@@ -970,6 +1083,8 @@ const PostCar = () => {
       setShowAuthModal(true);
       return;
     }
+
+    setDraftNotice(null);
 
     const invalidField = getFirstInvalidRequiredField();
     if (invalidField) {
@@ -1101,7 +1216,7 @@ const PostCar = () => {
         details: err.details
       });
       setError({
-        message: err.message || err.details?.error || `Failed to ${isEdit ? 'update' : 'create'} car listing. Please try again.`,
+        message: SUBMISSION_ERROR_MESSAGE,
         code: err?.code || err?.details?.code || err?.response?.data?.code || null,
         details: err?.details || err?.response?.data || null,
       });
@@ -1170,7 +1285,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="car_city">Emirate *</label>
+              <label htmlFor="car_city">Emirate <RequiredMark /></label>
               <SearchableSelect
                 id="car_city"
                 name="car_city"
@@ -1185,7 +1300,7 @@ const PostCar = () => {
               </SearchableSelect>
             </div>
             <div className="form-group">
-              <label htmlFor="area">Area *</label>
+              <label htmlFor="area">Area <RequiredMark /></label>
               {areaOptions.length > 0 ? (
                 <SearchableSelect
                   id="area"
@@ -1217,7 +1332,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="car_manufacturer">Make *</label>
+              <label htmlFor="car_manufacturer">Make <RequiredMark /></label>
               <SearchableSelect
                 id="car_manufacturer"
                 name="car_manufacturer"
@@ -1234,7 +1349,7 @@ const PostCar = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="car_model">Model *</label>
+              <label htmlFor="car_model">Model <RequiredMark /></label>
               <SearchableSelect
                 id="car_model"
                 name="car_model"
@@ -1254,16 +1369,17 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="trim">Trim</label>
+              <label htmlFor="trim">Trim <RequiredMark /></label>
               {getAvailableTrims().length > 0 ? (
                 <SearchableSelect
                   id="trim"
                   name="trim"
                   value={formData.trim}
                   onChange={handleChange}
+                  required
                   className="form-control form-select"
                 >
-                  <option value="">Select Trim (Optional)</option>
+                  <option value="">Select Trim</option>
                   {getAvailableTrims().map(trim => (
                     <option key={trim} value={trim}>{trim}</option>
                   ))}
@@ -1275,14 +1391,15 @@ const PostCar = () => {
                   name="trim"
                   value={formData.trim}
                   onChange={handleChange}
+                  required
                   className="form-control"
-                  placeholder="Enter trim (optional)"
+                  placeholder="Enter trim"
                 />
               )}
             </div>
             
             <div className="form-group">
-              <label htmlFor="regional_spec">Regional Spec *</label>
+              <label htmlFor="regional_spec">Regional Spec <RequiredMark /></label>
               <SearchableSelect
                 id="regional_spec"
                 name="regional_spec"
@@ -1300,7 +1417,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="make_year">Year *</label>
+              <label htmlFor="make_year">Year <RequiredMark /></label>
               <SearchableSelect
                 id="make_year"
                 name="make_year"
@@ -1317,7 +1434,7 @@ const PostCar = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="kilometer_driven">Mileage (km) *</label>
+              <label htmlFor="kilometer_driven">Mileage (km) <RequiredMark /></label>
               <input
                 type="number"
                 id="kilometer_driven"
@@ -1334,7 +1451,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="body_type">Body Type *</label>
+              <label htmlFor="body_type">Body Type <RequiredMark /></label>
               <SearchableSelect
                 id="body_type"
                 name="body_type"
@@ -1367,7 +1484,7 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="vehicle_type">Condition *</label>
+              <label htmlFor="vehicle_type">Condition <RequiredMark /></label>
               <SearchableSelect
                 id="vehicle_type"
                 name="vehicle_type"
@@ -1401,7 +1518,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="expected_selling_price">Price (AED) *</label>
+              <label htmlFor="expected_selling_price">Price (AED) <RequiredMark /></label>
               <input
                 type="number"
                 id="expected_selling_price"
@@ -1415,7 +1532,7 @@ const PostCar = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="car_owner_phone_number">Phone Number *</label>
+              <label htmlFor="car_owner_phone_number">Phone Number <RequiredMark /></label>
               <div className="phone-input-group">
                 <SearchableSelect
                   id="country_code"
@@ -1468,7 +1585,7 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="listing_title">Listing Title *</label>
+              <label htmlFor="listing_title">Listing Title <RequiredMark /></label>
               <input
                 type="text"
                 id="listing_title"
@@ -1502,7 +1619,7 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group full-width">
-              <label htmlFor="car_description">Listing Description *</label>
+              <label htmlFor="car_description">Listing Description <RequiredMark /></label>
               <textarea
                 id="car_description"
                 name="car_description"
@@ -1547,7 +1664,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="fuel_type">Fuel Type *</label>
+              <label htmlFor="fuel_type">Fuel Type <RequiredMark /></label>
               <SearchableSelect
                 id="fuel_type"
                 name="fuel_type"
@@ -1566,7 +1683,7 @@ const PostCar = () => {
 
             {formData.fuel_type === 'Other' && (
               <div className="form-group">
-                <label htmlFor="other_fuel_type">Specify Fuel Type *</label>
+                <label htmlFor="other_fuel_type">Specify Fuel Type <RequiredMark /></label>
                 <input
                   type="text"
                   id="other_fuel_type"
@@ -1584,7 +1701,7 @@ const PostCar = () => {
             )}
             
             <div className="form-group">
-              <label htmlFor="transmission_type">Transmission Type *</label>
+              <label htmlFor="transmission_type">Transmission Type <RequiredMark /></label>
               <SearchableSelect
                 id="transmission_type"
                 name="transmission_type"
@@ -1620,7 +1737,7 @@ const PostCar = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="horsepower">Horsepower *</label>
+              <label htmlFor="horsepower">Horsepower <RequiredMark /></label>
               <SearchableSelect
                 id="horsepower"
                 name="horsepower"
@@ -1656,7 +1773,7 @@ const PostCar = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="steering_side">Steering Side *</label>
+              <label htmlFor="steering_side">Steering Side <RequiredMark /></label>
               <SearchableSelect
                 id="steering_side"
                 name="steering_side"
@@ -1693,7 +1810,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="color">Exterior Color *</label>
+              <label htmlFor="color">Exterior Color <RequiredMark /></label>
               <SearchableSelect
                 id="color"
                 name="color"
@@ -1724,7 +1841,7 @@ const PostCar = () => {
               </SearchableSelect>
             </div>
             <div className="form-group">
-              <label htmlFor="cylinders">Cylinders *</label>
+              <label htmlFor="cylinders">Cylinders <RequiredMark /></label>
               <SearchableSelect
                 id="cylinders"
                 name="cylinders"
@@ -1770,7 +1887,7 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="doors">Doors *</label>
+              <label htmlFor="doors">Doors <RequiredMark /></label>
               <SearchableSelect
                 id="doors"
                 name="doors"
@@ -1786,7 +1903,7 @@ const PostCar = () => {
               </SearchableSelect>
             </div>
             <div className="form-group">
-              <label htmlFor="warranty">Warranty *</label>
+              <label htmlFor="warranty">Warranty <RequiredMark /></label>
               <SearchableSelect
                 id="warranty"
                 name="warranty"
@@ -1805,7 +1922,7 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="service_history">Service History *</label>
+              <label htmlFor="service_history">Service History <RequiredMark /></label>
               <SearchableSelect
                 id="service_history"
                 name="service_history"
@@ -1833,7 +1950,7 @@ const PostCar = () => {
                     borderBottom: '1px dotted #8a8a8a'
                   }}
                 >
-                  VIN <span style={{ color: '#4ade80' }}>*</span>
+                  VIN <RequiredMark />
                 </span> <span className="text-muted">(Vehicle Identification Number)</span>
               </label>
               <input
@@ -1930,7 +2047,7 @@ const PostCar = () => {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="whatsapp_number">WhatsApp Number</label>
+              <label htmlFor="whatsapp_number">WhatsApp Number <RequiredMark /></label>
               <div className="phone-input-group">
                 <SearchableSelect
                   id="whatsapp_country_code"
@@ -1951,6 +2068,7 @@ const PostCar = () => {
                   name="whatsapp_number"
                   value={formData.whatsapp_number}
                   onChange={handleChange}
+                  required
                   placeholder="501234567"
                   inputMode="numeric"
                   autoComplete="tel-national"
@@ -1997,7 +2115,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group full-width">
-              <label htmlFor="car_location">Locate your car *</label>
+              <label htmlFor="car_location">Locate your car <RequiredMark /></label>
               
               <div className="location-search-container">
                 <div className="search-input-wrapper">
@@ -2008,7 +2126,7 @@ const PostCar = () => {
                     value={formData.car_location}
                     onChange={handleChange}
                     onFocus={() => {
-                      if (addressSuggestions.length > 0) {
+                      if (formData.car_location.trim() && addressSuggestions.length > 0) {
                         setShowSuggestions(true);
                       }
                     }}
@@ -2056,7 +2174,7 @@ const PostCar = () => {
                 )}
 
                 {/* Current Location Button */}
-                <button
+                  <button
                   type="button"
                   className="current-location-btn"
                   onClick={getCurrentLocation}
@@ -2105,7 +2223,7 @@ const PostCar = () => {
           
           <div className="form-row">
             <div className="form-group full-width">
-              <label>Upload Images *</label>
+              <label>Upload Images <RequiredMark /></label>
               <div 
                 className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
                 onDragOver={handleDragOver}
@@ -2250,6 +2368,15 @@ const PostCar = () => {
         </div>
         
         <div className="form-actions-section">
+          {isSubmitting ? (
+            <div className="submit-loading-state" aria-live="polite" aria-atomic="true">
+              <div className="submit-loading-text">Submitting...</div>
+              <div className="submit-loading-bar" role="progressbar" aria-valuetext="Submitting your listing">
+                <span className="submit-loading-bar-fill" />
+              </div>
+            </div>
+          ) : null}
+          {draftNotice ? <div className="draft-success-message">{draftNotice}</div> : null}
           <button
             type="button"
             className="btn btn-secondary"
