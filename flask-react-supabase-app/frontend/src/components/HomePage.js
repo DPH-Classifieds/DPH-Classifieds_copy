@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
-import RecommendedListings from './RecommendedListings';
 import SeoMeta from './SeoMeta';
 import { carMakes } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
@@ -328,8 +327,6 @@ const HomePage = () => {
           )}
         </div>
       </section>
-
-      <RecommendedListings limit={8} />
 
       <section className="cn-cta-section">
         <div className="cn-cta-media">

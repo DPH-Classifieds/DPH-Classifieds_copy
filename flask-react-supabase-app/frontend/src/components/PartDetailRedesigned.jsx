@@ -4,7 +4,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
-import RecommendedListings from './RecommendedListings';
 import ReportButton from './ReportButton';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
@@ -492,7 +491,6 @@ const PartDetailRedesigned = () => {
 
         <ReportButton listingId={id} listingType="part" />
       </div>
-      <RecommendedListings limit={4} />
     </div>
   );
 };

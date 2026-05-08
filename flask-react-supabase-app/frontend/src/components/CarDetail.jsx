@@ -7,7 +7,6 @@ import { getAccessToken } from '../utils/supabaseClient';
 import { getCurrentUser } from '../utils/authService';
 import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
-import RecommendedListings from './RecommendedListings';
 import ReportButton from './ReportButton';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import SeoMeta from './SeoMeta';
@@ -858,7 +857,6 @@ const CarDetail = () => {
           />
         )}
       </div>
-      <RecommendedListings limit={4} />
     </div>
   );
 };
