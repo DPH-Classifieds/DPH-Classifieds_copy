@@ -61,7 +61,7 @@ export const apiClient = {
   async request(endpoint, options = {}) {
     try {
       // Get authorization token
-      const token = await getBestAccessToken();
+      let token = await getBestAccessToken();
       
       if (!token) {
         console.error('No authentication token available - user might not be logged in');
@@ -118,26 +118,45 @@ export const apiClient = {
       const baseUrl = getEffectiveBaseUrl();
       const url = `${baseUrl}${endpoint}${trackingParams}`;
       
+      const executeRequest = async (requestUrl, authToken) => {
+        const attemptHeaders = {
+          ...headers
+        };
+
+        if (authToken) {
+          attemptHeaders['Authorization'] = `Bearer ${authToken}`;
+        } else {
+          delete attemptHeaders['Authorization'];
+        }
+
+        const requestOptionsForAttempt = {
+          ...requestOptions,
+          headers: attemptHeaders
+        };
+
+        return fetch(requestUrl, requestOptionsForAttempt);
+      };
+
       // Make the request
       console.log(`Making ${options.method || 'GET'} request to ${url}`, requestOptions);
       let response;
       
       try {
         // Try with the effective URL first
-        response = await fetch(url, requestOptions);
+        response = await executeRequest(url, token);
       } catch (error) {
         console.warn(`Request to ${url} failed with error:`, error);
         
         // If the effective URL is localhost and it failed, try with 127.0.0.1
         if (url.includes('localhost')) {
           console.log('Trying with 127.0.0.1 instead...');
-          response = await fetch(ipUrl, requestOptions);
+          response = await executeRequest(ipUrl, token);
           // If this worked, use 127.0.0.1 for future requests
           window.API_BASE_URL_OVERRIDE = API_BASE_URL.replace('localhost', '127.0.0.1');
         } else if (url.includes('127.0.0.1')) {
           // If the effective URL is 127.0.0.1 and it failed, try with localhost
           console.log('Trying with localhost instead...');
-          response = await fetch(localhostUrl, requestOptions);
+          response = await executeRequest(localhostUrl, token);
           // If this worked, use localhost for future requests
           window.API_BASE_URL_OVERRIDE = API_BASE_URL;
         } else {
@@ -145,7 +164,30 @@ export const apiClient = {
           throw error;
         }
       }
-      
+
+      if (response.status === 401 && !options.__retriedAfterRefresh) {
+        let message = '';
+        try {
+          const errorData = await response.clone().json();
+          message = String(errorData?.message || '').toLowerCase();
+        } catch (error) {
+          message = '';
+        }
+
+        if (
+          message.includes('expired')
+          || message.includes('invalid')
+          || message.includes('unauthorized')
+        ) {
+          const refreshResult = await authService.refreshToken();
+          const refreshedToken = refreshResult?.data?.access_token;
+          if (refreshedToken) {
+            token = refreshedToken;
+            response = await executeRequest(url, token);
+          }
+        }
+      }
+
       // Handle error responses
       if (!response.ok) {
         const responseContentType = response.headers.get('content-type') || '';

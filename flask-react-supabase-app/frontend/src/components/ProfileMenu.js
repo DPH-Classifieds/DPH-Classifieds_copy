@@ -55,7 +55,9 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
       }
       try {
         const response = await apiClient.get('/api/auth/admin-check');
-        setIsAdmin(response && response.is_admin === true);
+        setIsAdmin(
+          response && (response.is_admin === true || response.is_super_admin === true)
+        );
       } catch (error) {
         setIsAdmin(false);
       }

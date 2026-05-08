@@ -16,34 +16,65 @@ export const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
   }
 });
 
+const syncStoredAccessToken = (token) => {
+  if (!token) return;
+
+  try {
+    localStorage.setItem('supabase_access_token', token);
+  } catch (error) {
+    console.error('Failed to sync supabase_access_token:', error);
+  }
+
+  try {
+    const authData = localStorage.getItem('authData');
+    if (!authData) return;
+
+    const parsed = JSON.parse(authData);
+    if (!parsed || parsed.access_token === token) return;
+
+    localStorage.setItem(
+      'authData',
+      JSON.stringify({
+        ...parsed,
+        access_token: token
+      })
+    );
+  } catch (error) {
+    console.error('Failed to sync authData token:', error);
+  }
+};
+
 export const getBestAccessToken = async () => {
   try {
-    // First, try to get token from localStorage (where authService stores it)
-    const authData = localStorage.getItem('authData');
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData);
-        if (parsed.access_token) {
-          console.log('Got token from authData localStorage');
-          return parsed.access_token;
-        }
-      } catch (e) {
-        console.error('Error parsing authData:', e);
-      }
+    // Prefer the live Supabase session first because it auto-refreshes.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      console.log('Got token from Supabase session');
+      syncStoredAccessToken(session.access_token);
+      return session.access_token;
     }
 
     // Fallback to supabase_access_token
     const storedToken = localStorage.getItem('supabase_access_token');
     if (storedToken) {
       console.log('Got token from supabase_access_token');
+      syncStoredAccessToken(storedToken);
       return storedToken;
     }
 
-    // Try Supabase session as last resort
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      console.log('Got token from Supabase session');
-      return session.access_token;
+    // Last resort: legacy authData storage
+    const authData = localStorage.getItem('authData');
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData);
+        if (parsed.access_token) {
+          console.log('Got token from authData localStorage');
+          syncStoredAccessToken(parsed.access_token);
+          return parsed.access_token;
+        }
+      } catch (e) {
+        console.error('Error parsing authData:', e);
+      }
     }
 
     console.log('No valid token found');

@@ -98,12 +98,12 @@ export const clearAuthData = () => {
 // Helper function to get the access token
 export const getAccessToken = () => {
   // Try multiple sources for the token
-  const authData = getAuthData();
-  let token = authData?.access_token || null;
-  
-  // Fallback to supabase_access_token if authData doesn't have it
+  let token = localStorage.getItem('supabase_access_token');
+
+  // Legacy fallback to authData if the newer token slot is missing
   if (!token) {
-    token = localStorage.getItem('supabase_access_token');
+    const authData = getAuthData();
+    token = authData?.access_token || null;
   }
   
   logger.debug('Access token retrieved:', token ? '[REDACTED TOKEN PRESENT]' : 'No token found');
