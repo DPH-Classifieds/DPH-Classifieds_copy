@@ -1,12 +1,10 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import RecommendedListings from './RecommendedListings';
 import SeoMeta from './SeoMeta';
-import SearchBar from './ui/search-bar';
-import LocationPicker, { getSavedCity } from './LocationPicker';
 import { carMakes } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
@@ -174,19 +172,9 @@ const getSellerPhoto = (item) =>
   resolveMediaUrl(item.seller_profile_photo || item.profile_photo_url || item.user_profile_photo);
 
 const HomePage = () => {
-  const navigate = useNavigate();
   const [marketplaceItems, setMarketplaceItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [heroSearch, setHeroSearch] = useState('');
-  const [heroLocation, setHeroLocation] = useState(getSavedCity);
-
-  const handleHeroSearch = (query) => {
-    const params = new URLSearchParams();
-    if (query.trim()) params.set('q', query.trim());
-    if (heroLocation) params.set('city', heroLocation);
-    navigate(`/explore?${params.toString()}`);
-  };
   const seoData = buildStaticSeo({
     title: 'DPH Classifieds - Buy & Sell Cars, Bikes, Parts & Plates in UAE',
     description:
@@ -278,21 +266,10 @@ const HomePage = () => {
         <div className="cn-shell cn-hero-content">
           <span className="cn-kicker"><span className="cn-kicker-dph">DPH</span> <span className="cn-kicker-classifieds">Classifieds</span></span>
           <h1 className="cn-display-title">For PetrolHeads. By PetrolHeads.</h1>
-          <p className="cn-hero-subtitle">Buy and sell cars, bikes, parts, and plates across the UAE.</p>
-          <div className="cn-hero-search">
-            <SearchBar
-              value={heroSearch}
-              onChange={setHeroSearch}
-              onSubmit={handleHeroSearch}
-              placeholder="Search cars, parts, plates, bikes..."
-              size="large"
-            />
-            <LocationPicker value={heroLocation} onChange={setHeroLocation} />
-          </div>
           <div className="cn-hero-actions">
             <Button asChild className={primaryHeroButtonClass}>
               <Link to="/explore">
-                Browse All
+                Explore Inventory
                 <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
               </Link>
             </Button>
