@@ -169,6 +169,14 @@
   color: var(--cd-color-text-secondary);
 }
 
+.cd-placeholder-kicker-dph {
+  color: #ffffff;
+}
+
+.cd-placeholder-kicker-classifieds {
+  color: var(--cd-color-text-secondary);
+}
+
 .cd-placeholder-title {
   font-size: 16px;
   font-weight: 500;

@@ -50,7 +50,7 @@ const About = () => {
       <div className="about-v2">
       <section className="about-v2-hero">
         <div className="about-v2-shell">
-          <span className="about-v2-kicker">About DPH Classifieds</span>
+          <span className="about-v2-kicker">About <span style={{ color: '#ffffff' }}>DPH</span> <span style={{ color: '#8bd6b4' }}>Classifieds</span></span>
           <h1>A classifieds platform built by the same people who care about the cars.</h1>
           <p>
             DPH Classifieds exists to make browsing, listing, and buying feel more transparent for the

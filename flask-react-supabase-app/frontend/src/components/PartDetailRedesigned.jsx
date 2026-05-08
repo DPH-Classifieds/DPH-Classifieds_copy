@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
+import RecommendedListings from './RecommendedListings';
 import ReportButton from './ReportButton';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
@@ -254,7 +255,7 @@ const PartDetailRedesigned = () => {
                   <svg className="cd-car-silhouette" viewBox="0 0 120 50" fill="currentColor">
                     <path d="M10,35 L15,25 L25,25 L30,15 L90,15 L95,25 L105,25 L110,35 L10,35 Z" opacity="0.18"/>
                   </svg>
-                  <span className="cd-placeholder-kicker">DPH Classifieds</span>
+                  <span className="cd-placeholder-kicker"><span className="cd-placeholder-kicker-dph">DPH</span> <span className="cd-placeholder-kicker-classifieds">Classifieds</span></span>
                   <span className="cd-placeholder-title">{getDisplayTitle()}</span>
                 </div>
               )}
@@ -491,6 +492,7 @@ const PartDetailRedesigned = () => {
 
         <ReportButton listingId={id} listingType="part" />
       </div>
+      <RecommendedListings limit={4} />
     </div>
   );
 };

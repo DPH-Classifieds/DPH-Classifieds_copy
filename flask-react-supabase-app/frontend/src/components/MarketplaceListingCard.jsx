@@ -17,7 +17,12 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           : '/bikes');
 
   return (
-    <article className="explore-v2-card">
+    <article
+      className="explore-v2-card"
+      data-listing-type={item.categoryLabel?.toLowerCase()}
+      data-listing-id={item.id}
+      data-analytics-event="listing_click"
+    >
       <Link to={item.route} className="explore-v2-card-media">
         {item.image ? (
           <img

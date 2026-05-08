@@ -10,7 +10,7 @@ const Footer = () => {
     <footer className="footer">
       <div className="footer-container">
         <div className="footer-section footer-brand">
-          <span className="footer-kicker">DPH Classifieds</span>
+          <span className="footer-kicker"><span className="footer-kicker-dph">DPH</span> <span className="footer-kicker-classifieds">Classifieds</span></span>
           <p>
             A cleaner green-first marketplace for the UAE car community, built to make browsing and
             listing feel more considered.

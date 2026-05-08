@@ -25,7 +25,7 @@ const AdminHeader = ({ onToggleSidebar, sidebarOpen }) => {
             )}
           </svg>
         </button>
-        <h1 className="header-title">DPH Classifieds Admin</h1>
+        <h1 className="header-title"><span style={{ color: '#ffffff' }}>DPH</span> <span style={{ color: '#8bd6b4' }}>Classifieds</span> Admin</h1>
       </div>
     </header>
   );

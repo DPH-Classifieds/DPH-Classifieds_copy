@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import SeoMeta from './SeoMeta';
@@ -420,6 +421,7 @@ const scoreAllMatch = (item, query) => {
 };
 
 const ExplorePage = () => {
+  const location = useLocation();
   const [inventory, setInventory] = useState({
     cars: [],
     bikes: [],
@@ -429,11 +431,34 @@ const ExplorePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeMode, setActiveMode] = useState('all');
-  const [globalQuery] = useState('');
-  const [carFilters] = useState(carInitialFilters);
-  const [partsFilters] = useState(partsInitialFilters);
-  const [plateFilters] = useState(plateInitialFilters);
-  const [bikeFilters] = useState(bikeInitialFilters);
+  const [globalQuery, setGlobalQuery] = useState('');
+  const [carFilters, setCarFilters] = useState(carInitialFilters);
+  const [partsFilters, setPartsFilters] = useState(partsInitialFilters);
+  const [plateFilters, setPlateFilters] = useState(plateInitialFilters);
+  const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get('q') || '';
+    const city = params.get('city') || '';
+    const cat = params.get('category') || 'all';
+
+    if (q) {
+      setGlobalQuery(q);
+      setCarFilters((prev) => ({ ...prev, query: q }));
+      setPartsFilters((prev) => ({ ...prev, query: q }));
+      setPlateFilters((prev) => ({ ...prev, query: q }));
+      setBikeFilters((prev) => ({ ...prev, query: q }));
+    }
+    if (city) {
+      setCarFilters((prev) => ({ ...prev, city }));
+      setPlateFilters((prev) => ({ ...prev, city }));
+    }
+    if (cat && exploreModes.some((m) => m.key === cat)) {
+      setActiveMode(cat);
+    }
+  }, [location.search]);
+
   const seoData = buildStaticSeo({
     title: activeMode === 'all'
       ? 'Explore UAE Cars, Bikes, Parts & Plates | DPH Classifieds'

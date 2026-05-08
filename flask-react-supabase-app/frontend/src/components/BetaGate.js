@@ -41,7 +41,7 @@ const BetaGate = ({ onUnlock }) => {
   return (
     <div className="beta-gate">
       <div className="beta-gate__card">
-        <h1 className="beta-gate__title">DPH Classifieds Beta</h1>
+        <h1 className="beta-gate__title"><span style={{ color: '#ffffff' }}>DPH</span> <span style={{ color: '#8bd6b4' }}>Classifieds</span> Beta</h1>
         <p className="beta-gate__subtitle">
           Limited access during deployment and testing.
         </p>

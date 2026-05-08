@@ -33,6 +33,49 @@
   text-transform: uppercase;
 }
 
+.cn-kicker-dph {
+  color: #ffffff;
+}
+
+.cn-kicker-classifieds {
+  color: #8bd6b4;
+}
+
+.cn-recommended {
+  padding: 60px 0;
+}
+
+.cn-hero-subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 520px;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.cn-hero-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 640px;
+  margin-bottom: 28px;
+}
+
+.cn-hero-search .search-bar {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .cn-hero-search {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cn-hero-search .search-bar {
+    max-width: 100%;
+  }
+}
+
 .cn-display-title,
 .cn-section-heading h2,
 .cn-cta-content h2,

@@ -12368,19 +12368,28 @@ def delete_listing(current_user, item_type, item_id):
             return jsonify({"error": "Admin access required"}), 403
 
         # Validate item_type
-        valid_types = {"car", "bike", "car-part", "plate"}
+        valid_types = {"car", "bike", "car-part", "part", "plate"}
         if item_type not in valid_types:
             return jsonify({"error": "Invalid item type"}), 400
 
-        # Map item_type to table name
+        # Map item_type to table name and image table
         table_mapping = {
             "car": "cars",
             "bike": "bikes",
             "car-part": "car_parts",
+            "part": "car_parts",
             "plate": "license_plates",
+        }
+        image_table_mapping = {
+            "car": "car_images",
+            "bike": "bike_images",
+            "car-part": "part_images",
+            "part": "part_images",
+            "plate": "plate_images",
         }
 
         table_name = table_mapping[item_type]
+        image_table_name = image_table_mapping.get(item_type)
         delete_reason = "Removed by admin"
         if request.is_json and request.json:
             delete_reason = (
@@ -12396,6 +12405,20 @@ def delete_listing(current_user, item_type, item_id):
             "Authorization": f"Bearer {service_role_key}",
             "Content-Type": "application/json",
         }
+
+        # First, delete associated images if image table exists
+        if image_table_name:
+            try:
+                img_url = f"{app.config['SUPABASE_URL']}/rest/v1/{image_table_name}?listing_id=eq.{item_id}"
+                img_response = requests.delete(img_url, headers=headers)
+                if img_response.status_code not in (200, 204):
+                    logger.warning(
+                        f"Failed to delete images for {item_type} {item_id}: {img_response.status_code}"
+                    )
+            except Exception as img_err:
+                logger.warning(
+                    f"Error deleting images for {item_type} {item_id}: {img_err}"
+                )
 
         url = f"{app.config['SUPABASE_URL']}/rest/v1/{table_name}?id=eq.{item_id}"
 
@@ -12424,6 +12447,133 @@ def delete_listing(current_user, item_type, item_id):
     except Exception as e:
         logger.error(f"Error deleting {item_type} {item_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/recommendations", methods=["POST"])
+def get_recommendations():
+    """Return personalized listing recommendations based on user behavior."""
+    try:
+        data = request.json or {}
+        viewed = data.get("viewed", [])
+        preferred_types = data.get("preferredTypes", [])
+        avg_price = data.get("avgPrice")
+        limit = min(int(data.get("limit", 8)), 20)
+
+        if not viewed and not preferred_types:
+            return _get_newest_recommendations(limit)
+
+        viewed_ids = {v["id"] for v in viewed if v.get("id")}
+        viewed_types = [v["type"] for v in viewed if v.get("type")]
+        target_types = preferred_types or list(set(viewed_types))
+
+        type_map = {
+            "car": ("cars", "expected_selling_price"),
+            "bike": ("bikes", "expected_price"),
+            "part": ("car_parts", "price"),
+            "plate": ("license_plates", "price"),
+        }
+
+        results = []
+        for t in target_types:
+            if t not in type_map:
+                continue
+            table, price_col = type_map[t]
+
+            query = supabase.table(table).select("*").eq("is_approved", True)
+
+            if avg_price and price_col:
+                low = avg_price * 0.6
+                high = avg_price * 1.4
+                query = query.gte(price_col, low).lte(price_col, high)
+
+            items = (
+                query.order("created_at", desc=True).limit(limit).execute().data or []
+            )
+            for item in items:
+                item_id = str(item.get("id", ""))
+                if item_id in viewed_ids:
+                    continue
+                results.append(_normalize_recommendation(item, t))
+
+        results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return jsonify({"recommendations": results[:limit]})
+
+    except Exception as e:
+        logger.error(f"Recommendations error: {e}")
+        return jsonify({"recommendations": [], "error": str(e)}), 500
+
+
+def _get_newest_recommendations(limit):
+    """Cold start: return newest listings across all types."""
+    results = []
+    queries = [
+        ("car", "cars"),
+        ("bike", "bikes"),
+        ("part", "car_parts"),
+        ("plate", "license_plates"),
+    ]
+    for type_key, table in queries:
+        items = (
+            supabase.table(table)
+            .select("*")
+            .eq("is_approved", True)
+            .order("created_at", desc=True)
+            .limit(limit // len(queries) + 1)
+            .execute()
+            .data
+            or []
+        )
+        for item in items:
+            results.append(_normalize_recommendation(item, type_key))
+
+    results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return jsonify({"recommendations": results[:limit]})
+
+
+def _normalize_recommendation(item, item_type):
+    """Normalize a listing into a consistent recommendation shape."""
+    base = {
+        "id": str(item.get("id", "")),
+        "type": item_type,
+        "created_at": item.get("created_at", ""),
+    }
+
+    if item_type == "car":
+        base["title"] = (
+            f"{item.get('car_manufacturer', '')} {item.get('car_model', '')}".strip()
+        )
+        base["subtitle"] = item.get("car_trim", "")
+        base["price"] = item.get("expected_selling_price")
+        base["location"] = item.get("car_city", "")
+        base["image"] = (item.get("photos") or [None])[0]
+        base["route"] = f"/cars/{item.get('id')}"
+    elif item_type == "bike":
+        base["title"] = (
+            f"{item.get('bike_brand', '')} {item.get('bike_model', '')}".strip()
+        )
+        base["subtitle"] = item.get("bike_type", "")
+        base["price"] = item.get("expected_price")
+        base["location"] = item.get("city", "")
+        base["image"] = (item.get("photos") or [None])[0]
+        base["route"] = f"/bikes/{item.get('id')}"
+    elif item_type == "part":
+        base["title"] = item.get("part_name", item.get("title", ""))
+        base["subtitle"] = item.get("category", "")
+        base["price"] = item.get("price")
+        base["location"] = item.get("city", "")
+        base["image"] = (item.get("photos") or [None])[0]
+        base["route"] = f"/car-parts/{item.get('id')}"
+    elif item_type == "plate":
+        base["title"] = (
+            f"{item.get('plate_code', '')} {item.get('plate_number', '')}".strip()
+        )
+        base["subtitle"] = item.get("plate_type", "")
+        base["price"] = item.get("price")
+        base["location"] = item.get("city", "")
+        base["image"] = (item.get("photos") or [None])[0]
+        base["route"] = f"/plates/{item.get('id')}"
+
+    return base
 
 
 @app.route("/api/check-session", methods=["GET"])

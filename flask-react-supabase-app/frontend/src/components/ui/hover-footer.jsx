@@ -36,7 +36,7 @@ const Footer = () => {
           to="/"
           aria-label="DPHClassifieds home"
           className="mx-auto block size-fit">
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, color: '#98d99c' }}>DPHClassifieds</span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 700 }}><span style={{ color: '#ffffff' }}>DPH</span><span style={{ color: '#8bd6b4' }}>Classifieds</span></span>
         </Link>
 
         <div className="my-8 flex flex-wrap justify-center gap-6 text-sm">
@@ -65,7 +65,7 @@ const Footer = () => {
           />
         </div>
         <span style={{ color: 'rgba(226, 239, 229, 0.45)' }} className="block text-center text-sm">
-          © {currentYear} DPHClassifieds, All rights reserved
+          © {currentYear} <span style={{ color: '#ffffff' }}>DPH</span><span style={{ color: '#8bd6b4' }}>Classifieds</span>, All rights reserved
         </span>
       </div>
     </footer>

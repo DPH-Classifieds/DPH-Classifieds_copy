@@ -13,6 +13,7 @@ import PhoneVerifiedRoute from './components/PhoneVerifiedRoute';
 import AdminRoute from './components/AdminRoute';
 import AdminLayout from './components/AdminLayout';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
+import UserBehaviorTracker from './components/UserBehaviorTracker';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -214,6 +215,7 @@ function App() {
         <AuthHashHandler />
         <ScrollToTop />
         <PlatformAnalyticsTracker />
+        <UserBehaviorTracker />
         {betaGateEnabled && !betaUnlocked ? (
           <BetaGate onUnlock={handleBetaUnlock} />
         ) : (
