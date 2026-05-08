@@ -1,16 +1,18 @@
-"""Gunicorn configuration file for optimal performance"""
+"""Gunicorn configuration file for Railway deployment"""
 
-import multiprocessing
 import os
 
 # Bind to the port assigned by Railway
 bind = f"0.0.0.0:{os.getenv('PORT', '8000')}"
 
-# Workers based on CPU cores (Railway typically gives 1-2 cores)
-workers = int(os.getenv("GUNICORN_WORKERS", multiprocessing.cpu_count() * 2 + 1))
+# Fixed worker count - do NOT use multiprocessing.cpu_count() because in
+# Railway containers it returns the *host* CPU count (often 48-96 cores),
+# which spawns far too many workers and exhausts memory.
+workers = int(os.getenv("GUNICORN_WORKERS", "2"))
 
-# Use threads for better concurrency
-threads = int(os.getenv("GUNICORN_THREADS", 4))
+# Use gthread workers for better concurrency with threads
+worker_class = "gthread"
+threads = int(os.getenv("GUNICORN_THREADS", "4"))
 
 # Timeout settings
 timeout = 120
@@ -21,9 +23,6 @@ keepalive = 5
 accesslog = "-"
 errorlog = "-"
 loglevel = os.getenv("LOG_LEVEL", "info")
-
-# Worker class
-worker_class = "sync"
 
 # Max requests per worker before recycling (helps with memory leaks)
 max_requests = 1000

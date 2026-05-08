@@ -116,14 +116,10 @@ USERNAME_AVAILABILITY_CACHE_TTL_SECONDS = int(
 )
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 PRIMARY_SUPER_ADMIN_EMAIL = (
-    os.getenv("PRIMARY_SUPER_ADMIN_EMAIL", "admin@dphclassifieds.com")
-    .strip()
-    .lower()
+    os.getenv("PRIMARY_SUPER_ADMIN_EMAIL", "admin@dphclassifieds.com").strip().lower()
 )
 PRIMARY_SUPER_ADMIN_USERNAME = (
-    os.getenv("PRIMARY_SUPER_ADMIN_USERNAME", "DPHClassifieds")
-    .strip()
-    .lower()
+    os.getenv("PRIMARY_SUPER_ADMIN_USERNAME", "DPHClassifieds").strip().lower()
 )
 PRIMARY_SUPER_ADMIN_USER_ID = os.getenv("PRIMARY_SUPER_ADMIN_USER_ID", "").strip()
 
@@ -2471,7 +2467,10 @@ def _is_super_admin_record(user_data=None, user_id=None):
     if not user_data and not user_id:
         return False
 
-    if PRIMARY_SUPER_ADMIN_USER_ID and str(user_id or "") == PRIMARY_SUPER_ADMIN_USER_ID:
+    if (
+        PRIMARY_SUPER_ADMIN_USER_ID
+        and str(user_id or "") == PRIMARY_SUPER_ADMIN_USER_ID
+    ):
         return True
 
     if bool((user_data or {}).get("is_super_admin")):
@@ -2479,9 +2478,9 @@ def _is_super_admin_record(user_data=None, user_id=None):
 
     email = _normalize_identity((user_data or {}).get("email"))
     username = _normalize_identity((user_data or {}).get("username"))
-    return email == _normalize_identity(PRIMARY_SUPER_ADMIN_EMAIL) or username == _normalize_identity(
-        PRIMARY_SUPER_ADMIN_USERNAME
-    )
+    return email == _normalize_identity(
+        PRIMARY_SUPER_ADMIN_EMAIL
+    ) or username == _normalize_identity(PRIMARY_SUPER_ADMIN_USERNAME)
 
 
 def _is_super_admin_user(user_id):
@@ -2565,7 +2564,9 @@ def admin_check(current_user):
                             "is_admin": is_admin,
                             "is_super_admin": bool(
                                 user_data.get("is_super_admin")
-                                or _is_super_admin_record(user_data, user_id=current_user)
+                                or _is_super_admin_record(
+                                    user_data, user_id=current_user
+                                )
                             ),
                         }
                     ),
@@ -6246,7 +6247,9 @@ def _check_username_availability(username, exclude_user_id=None):
 def _is_username_conflict_error(error_data, response_text=""):
     combined = " ".join(
         [
-            json.dumps(error_data, ensure_ascii=False) if isinstance(error_data, dict) else str(error_data or ""),
+            json.dumps(error_data, ensure_ascii=False)
+            if isinstance(error_data, dict)
+            else str(error_data or ""),
             str(response_text or ""),
         ]
     ).lower()
@@ -6279,7 +6282,9 @@ def check_username_availability():
             result,
             ttl_seconds=USERNAME_AVAILABILITY_CACHE_TTL_SECONDS,
         )
-    return _cached_json_response(result, status, ttl_seconds=USERNAME_AVAILABILITY_CACHE_TTL_SECONDS)
+    return _cached_json_response(
+        result, status, ttl_seconds=USERNAME_AVAILABILITY_CACHE_TTL_SECONDS
+    )
 
 
 @app.route("/api/auth/signup", methods=["POST"])
@@ -6809,7 +6814,9 @@ def _get_user_details_with_admin_status(user_id_from_token):
     final_is_superadmin = is_superadmin
     if db_user_data:
         final_is_admin = db_user_data.get("is_admin", False)
-        final_is_superadmin = final_is_superadmin or bool(db_user_data.get("is_super_admin", False))
+        final_is_superadmin = final_is_superadmin or bool(
+            db_user_data.get("is_super_admin", False)
+        )
     final_is_admin = final_is_admin or final_is_superadmin
 
     final_created_at = None
@@ -8800,9 +8807,13 @@ def get_users(current_user):
             "get", f"/rest/v1/users?id=eq.{current_user}", user_id=current_user
         )
 
-        if status_code >= 400 or not user_data or not (
-            user_data[0].get("is_admin")
-            or _is_super_admin_record(user_data[0], user_id=current_user)
+        if (
+            status_code >= 400
+            or not user_data
+            or not (
+                user_data[0].get("is_admin")
+                or _is_super_admin_record(user_data[0], user_id=current_user)
+            )
         ):
             return jsonify({"error": "Unauthorized. Only admins can view users."}), 403
 
@@ -8963,7 +8974,9 @@ def update_admin_user_profile(current_user, user_id):
                 {"error": "You cannot modify your own admin profile from this panel"}
             ), 400
 
-        protected = _protect_super_admin_target(user_id, "modify the main admin account")
+        protected = _protect_super_admin_target(
+            user_id, "modify the main admin account"
+        )
         if protected:
             return protected
 
@@ -10954,7 +10967,9 @@ def api_health():
                 "worker": worker_health,
             },
         }
-        return jsonify(snapshot), 200 if snapshot["overall_status"] == "healthy" else 503
+        return jsonify(snapshot), 200 if snapshot[
+            "overall_status"
+        ] == "healthy" else 503
     except Exception as exc:
         logger.error(f"Health check failed: {exc}")
         return jsonify({"status": "down", "error": str(exc)}), 503
@@ -10997,7 +11012,9 @@ def admin_health(current_user):
         return jsonify(response_payload), 200
     except Exception as exc:
         logger.error(f"Failed to build admin health payload: {exc}")
-        return jsonify({"error": "Failed to fetch health status", "details": str(exc)}), 500
+        return jsonify(
+            {"error": "Failed to fetch health status", "details": str(exc)}
+        ), 500
 
 
 @app.route("/api/listings/<item_type>/<item_id>/lead-events", methods=["POST"])
