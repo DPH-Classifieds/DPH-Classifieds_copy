@@ -10,6 +10,22 @@ const navLinks = [
   { title: 'Help', href: '/post-car' },
 ];
 
+const SocialIcon = ({ src, alt, href, label }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label={label}
+    className="block duration-150 hover:opacity-80">
+    <img
+      src={`${process.env.PUBLIC_URL}${src}`}
+      alt={alt}
+      style={{ width: 28, height: 28 }}
+      onError={(e) => { e.target.style.display = 'none'; }}
+    />
+  </a>
+);
+
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
@@ -35,22 +51,18 @@ const Footer = () => {
           ))}
         </div>
         <div className="my-8 flex flex-wrap justify-center gap-8 text-sm">
-          <a
+          <SocialIcon
+            src="/reddit-logo.png"
+            alt="Reddit"
             href="https://www.reddit.com/r/DubaiPetrolHeads/"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Reddit"
-            className="block duration-150 hover:opacity-80">
-            <img src="reddit-logo.png" alt="Reddit" style={{ width: 28, height: 28 }} />
-          </a>
-          <a
+            label="Reddit"
+          />
+          <SocialIcon
+            src="/instagram-logo.png"
+            alt="Instagram"
             href="https://www.instagram.com/dubaipetrolheads"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Instagram"
-            className="block duration-150 hover:opacity-80">
-            <img src="instagram-logo.png" alt="Instagram" style={{ width: 28, height: 28 }} />
-          </a>
+            label="Instagram"
+          />
         </div>
         <span style={{ color: 'rgba(226, 239, 229, 0.45)' }} className="block text-center text-sm">
           © {currentYear} DPHClassifieds, All rights reserved
