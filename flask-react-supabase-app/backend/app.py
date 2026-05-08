@@ -98,6 +98,10 @@ PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(
 )
 PHONE_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("PHONE_VERIFICATION_MAX_ATTEMPTS", "5"))
 PHONE_VERIFICATION_MAX_SENDS = int(os.getenv("PHONE_VERIFICATION_MAX_SENDS", "6"))
+USERNAME_AVAILABILITY_CACHE_TTL_SECONDS = int(
+    os.getenv("USERNAME_AVAILABILITY_CACHE_TTL_SECONDS", "30")
+)
+USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 
 
 def _normalize_base_url(value, default_scheme="https"):
@@ -286,9 +290,9 @@ def _api_cache_set(key, payload, ttl_seconds=API_CACHE_TTL_SECONDS):
         }
 
 
-def _cached_json_response(payload, status_code=200):
+def _cached_json_response(payload, status_code=200, ttl_seconds=API_CACHE_TTL_SECONDS):
     response = make_response(jsonify(payload), status_code)
-    response.headers["Cache-Control"] = f"public, max-age={API_CACHE_TTL_SECONDS}"
+    response.headers["Cache-Control"] = f"public, max-age={ttl_seconds}"
     return response
 
 
@@ -5282,6 +5286,23 @@ def update_user_profile(current_user):
             return jsonify({"message": "User not found"}), 404
 
         existing_user = existing_rows[0]
+        requested_username = _normalize_username_value(update_payload.get("username"))
+        existing_username = _normalize_username_value(existing_user.get("username"))
+        if requested_username and requested_username != existing_username:
+            username_check = _check_username_availability(
+                requested_username,
+                current_user,
+            )
+            if not username_check.get("available", False):
+                return jsonify(
+                    {
+                        "message": username_check.get("message")
+                        or _username_conflict_message(),
+                        "code": "username_taken",
+                        "field": "username",
+                    }
+                ), 409
+
         existing_phone = _normalize_phone_number(
             existing_user.get("phone"),
             existing_user.get("country_code"),
@@ -5396,6 +5417,16 @@ def update_user_profile(current_user):
 
             error_message = "Failed to update profile"
             if isinstance(error_data, dict):
+                if _is_username_conflict_error(error_data, response.text):
+                    return jsonify(
+                        {
+                            "message": _username_conflict_message(),
+                            "error": error_data,
+                            "code": "username_taken",
+                            "field": "username",
+                            "status": 409,
+                        }
+                    ), 409
                 error_message = (
                     error_data.get("message")
                     or error_data.get("detail")
@@ -6037,6 +6068,116 @@ def _get_password_policy_errors(password):
     return errors
 
 
+def _normalize_username_value(username):
+    return str(username or "").strip()
+
+
+def _username_availability_cache_key(username, exclude_user_id=None):
+    normalized = _normalize_username_value(username)
+    exclude = str(exclude_user_id or "").strip()
+    return f"username-availability:{normalized.lower()}:{exclude}"
+
+
+def _username_conflict_message():
+    return "This username is taken. Please try something else."
+
+
+def _check_username_availability(username, exclude_user_id=None):
+    normalized_username = _normalize_username_value(username)
+    if not normalized_username:
+        return {
+            "available": False,
+            "message": "Username is required",
+            "username": normalized_username,
+        }
+    if not USERNAME_PATTERN.fullmatch(normalized_username):
+        return {
+            "available": False,
+            "message": "Username can only contain letters, numbers, and underscores",
+            "username": normalized_username,
+        }
+
+    cache_key = _username_availability_cache_key(username, exclude_user_id)
+    cached = _api_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    params = {
+        "select": "id,username",
+        "username": f"eq.{normalized_username}",
+        "limit": "1",
+    }
+    if exclude_user_id:
+        params["id"] = f"neq.{exclude_user_id}"
+
+    response, status = supabase_request(
+        "get",
+        "/rest/v1/users",
+        params=params,
+        use_service_role=True,
+    )
+
+    if status >= 400:
+        return {
+            "available": False,
+            "message": "Unable to check username right now",
+            "username": normalized_username,
+            "status": status,
+        }
+
+    is_taken = bool(response)
+    payload = {
+        "username": normalized_username,
+        "available": not is_taken,
+        "message": None if not is_taken else _username_conflict_message(),
+    }
+    _api_cache_set(
+        cache_key,
+        payload,
+        ttl_seconds=USERNAME_AVAILABILITY_CACHE_TTL_SECONDS,
+    )
+    return payload
+
+
+def _is_username_conflict_error(error_data, response_text=""):
+    combined = " ".join(
+        [
+            json.dumps(error_data, ensure_ascii=False) if isinstance(error_data, dict) else str(error_data or ""),
+            str(response_text or ""),
+        ]
+    ).lower()
+    return (
+        "users_username_key" in combined
+        or ("duplicate key" in combined and "username" in combined)
+        or ("unique constraint" in combined and "username" in combined)
+    )
+
+
+@app.route("/api/auth/check-username", methods=["GET"])
+def check_username_availability():
+    username = request.args.get("username", "")
+    exclude_user_id = request.args.get("exclude_user_id") or None
+    cache_key = _build_api_cache_key()
+    cached = _api_cache_get(cache_key)
+    if cached is not None:
+        return _cached_json_response(
+            cached,
+            ttl_seconds=USERNAME_AVAILABILITY_CACHE_TTL_SECONDS,
+        )
+
+    result = _check_username_availability(username, exclude_user_id)
+    status = 200
+    if "status" in result and result["status"] >= 400:
+        status = result["status"]
+    if status < 400:
+        _api_cache_set(
+            cache_key,
+            result,
+            ttl_seconds=USERNAME_AVAILABILITY_CACHE_TTL_SECONDS,
+        )
+    return _cached_json_response(result, status, ttl_seconds=USERNAME_AVAILABILITY_CACHE_TTL_SECONDS)
+
+
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
     client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
@@ -6098,6 +6239,19 @@ def signup():
             continue
         cleaned_metadata[key] = value
 
+    requested_username = _normalize_username_value(cleaned_metadata.get("username"))
+    if requested_username:
+        username_check = _check_username_availability(requested_username)
+        if not username_check.get("available", False):
+            return jsonify(
+                {
+                    "message": username_check.get("message")
+                    or _username_conflict_message(),
+                    "code": "username_taken",
+                    "field": "username",
+                }
+            ), 409
+
     # Sign up with Supabase
     redirect_to = _get_safe_redirect_url(
         request.headers.get("Origin"),
@@ -6155,6 +6309,14 @@ def signup():
             ), response.status_code
 
         logger.error(f"Signup failed: {error_data}")
+        if _is_username_conflict_error(error_data, response.text):
+            return jsonify(
+                {
+                    "message": _username_conflict_message(),
+                    "code": "username_taken",
+                    "field": "username",
+                }
+            ), 409
         normalized_error = _format_auth_email_error(error_data, "Signup failed")
         return jsonify(normalized_error), response.status_code
 

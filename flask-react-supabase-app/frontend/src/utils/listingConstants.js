@@ -71,6 +71,7 @@ export const DUBAI_AREAS = [
   "Motor City",
   "Mudon",
   "Nad Al Sheba",
+  "Al Kifaf",
   "Palm Jumeirah",
   "Palm Jebel Ali",
   "Ras Al Khor",
@@ -87,6 +88,13 @@ export const DUBAI_AREAS = [
   "Town Square",
   "Umm Suqeim",
   "Wadi Al Safa",
+  "Za'abeel 1",
+  "Za'abeel 2",
+  "Zabeel",
+  "Zabeel 2",
+  "Zabeel 3",
+  "Zabeel District",
+  "One Za'abeel",
   "Dubai Islands",
 ];
 

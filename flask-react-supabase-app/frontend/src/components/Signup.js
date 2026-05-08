@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { DUBAI_AREAS, UAE_EMIRATES } from '../utils/listingConstants';
 import { saveAuthData, setAuthHeader } from '../utils/authService';
+import { checkUsernameAvailability, sanitizeUsernameInput, isUsernameFormatValid } from '../utils/usernameAvailability';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -67,6 +68,11 @@ const Signup = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [allErrors, setAllErrors] = useState([]);
   const [touchedFields, setTouchedFields] = useState({});
+  const [usernameAvailability, setUsernameAvailability] = useState({
+    status: 'idle',
+    message: '',
+    available: null,
+  });
   const navigate = useNavigate();
 
   const getPasswordChecks = (password) => ({
@@ -147,6 +153,78 @@ const Signup = () => {
     }
     return null;
   };
+
+  useEffect(() => {
+    const username = sanitizeUsernameInput(formData.username);
+
+    if (!username || !isUsernameFormatValid(username) || username.length < 3) {
+      setUsernameAvailability({
+        status: 'idle',
+        message: '',
+        available: null,
+      });
+      setError(prev => (
+        prev === 'This username is taken. Please try something else.' ? null : prev
+      ));
+      setFieldErrors(prev => {
+        if (!prev.username) return prev;
+        const next = { ...prev };
+        delete next.username;
+        return next;
+      });
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setUsernameAvailability({
+        status: 'checking',
+        message: 'Checking availability...',
+        available: null,
+      });
+
+      try {
+        const result = await checkUsernameAvailability({ username });
+        if (!active) return;
+        setUsernameAvailability({
+          status: result.available ? 'available' : 'taken',
+          message: result.message,
+          available: result.available,
+        });
+        if (result.available) {
+          setError(prev => (
+            prev === 'This username is taken. Please try something else.' ? null : prev
+          ));
+        }
+        if (!result.available) {
+          setFieldErrors(prev => ({
+            ...prev,
+            username: result.message || 'This username is taken. Please try something else.',
+          }));
+        } else {
+          setFieldErrors(prev => {
+            const next = { ...prev };
+            if (next.username === 'This username is taken. Please try something else.' || next.username === result.message) {
+              delete next.username;
+            }
+            return next;
+          });
+        }
+      } catch (error) {
+        if (!active) return;
+        setUsernameAvailability({
+          status: 'error',
+          message: 'Unable to check username right now',
+          available: null,
+        });
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formData.username]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -283,6 +361,11 @@ const Signup = () => {
       return;
     }
 
+    if (usernameAvailability.available === false) {
+      setError(usernameAvailability.message || 'This username is taken. Please try something else.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -318,6 +401,12 @@ const Signup = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.code === 'username_taken') {
+          setFieldErrors(prev => ({
+            ...prev,
+            username: data.message || 'This username is taken. Please try something else.',
+          }));
+        }
         throw new Error(data.message || 'Signup failed');
       }
 
@@ -459,6 +548,15 @@ const Signup = () => {
                 className={touchedFields.username && fieldErrors.username ? 'error-input' : ''}
               />
               {renderFieldError('username')}
+              {!fieldErrors.username && usernameAvailability.message && (
+                <small
+                  className={`form-hint ${
+                    usernameAvailability.available === false ? 'field-error' : ''
+                  }`}
+                >
+                  {usernameAvailability.message}
+                </small>
+              )}
               <small className="form-hint">Used for login and public profile</small>
             </div>
           </div>

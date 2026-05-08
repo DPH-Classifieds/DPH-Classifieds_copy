@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken, getCurrentUser } from '../utils/authService';
 import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/profileCompletion';
 import { resolveMediaUrl } from '../utils/media';
 import { splitPhoneNumberForInput } from '../utils/countryCodes';
+import { checkUsernameAvailability, sanitizeUsernameInput, isUsernameFormatValid } from '../utils/usernameAvailability';
 import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect } from '../utils/directUpload';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import '../styles/AccountSettings.css';
@@ -87,6 +88,11 @@ const AccountSettings = () => {
   };
   const [dealerDocuments, setDealerDocuments] = useState([]);
   const [uploadingDocType, setUploadingDocType] = useState(null);
+  const [usernameAvailability, setUsernameAvailability] = useState({
+    status: 'idle',
+    message: '',
+    available: null,
+  });
 
   // Enhanced profile form state
   const [profileData, setProfileData] = useState({
@@ -154,15 +160,7 @@ const AccountSettings = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (user) {
-      setProfileData(buildProfileDataFromUser(user));
-      setPhotoPreview(resolveMediaUrl(user.profile_photo_url || user.profilePhotoUrl || null));
-      fetchDealerDocuments();
-    }
-  }, [user]);
-
-  const fetchDealerDocuments = async () => {
+  const fetchDealerDocuments = useCallback(async () => {
     try {
       const token = await user?.getToken?.();
       if (!token) return;
@@ -176,7 +174,80 @@ const AccountSettings = () => {
     } catch (err) {
       console.error('Failed to fetch dealer documents:', err);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      setProfileData(buildProfileDataFromUser(user));
+      setPhotoPreview(resolveMediaUrl(user.profile_photo_url || user.profilePhotoUrl || null));
+      fetchDealerDocuments();
+    }
+  }, [user, fetchDealerDocuments]);
+
+  useEffect(() => {
+    const username = sanitizeUsernameInput(profileData.username);
+
+    if (!username || !isUsernameFormatValid(username) || username.length < 3) {
+      setUsernameAvailability({
+        status: 'idle',
+        message: '',
+        available: null,
+      });
+      setError(prev => (
+        prev === 'This username is taken. Please try something else.' ? null : prev
+      ));
+      return;
+    }
+
+    if (username === sanitizeUsernameInput(user?.username)) {
+      setUsernameAvailability({
+        status: 'available',
+        message: 'This is your current username',
+        available: true,
+      });
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setUsernameAvailability({
+        status: 'checking',
+        message: 'Checking availability...',
+        available: null,
+      });
+
+      try {
+        const result = await checkUsernameAvailability({
+          username,
+          excludeUserId: user?.id || '',
+        });
+        if (!active) return;
+
+        setUsernameAvailability({
+          status: result.available ? 'available' : 'taken',
+          message: result.message,
+          available: result.available,
+        });
+        if (result.available) {
+          setError(prev => (
+            prev === 'This username is taken. Please try something else.' ? null : prev
+          ));
+        }
+      } catch (error) {
+        if (!active) return;
+        setUsernameAvailability({
+          status: 'error',
+          message: 'Unable to check username right now',
+          available: null,
+        });
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [profileData.username, user?.id, user?.username]);
 
   const handleProfileInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -315,6 +386,13 @@ const AccountSettings = () => {
     e.preventDefault();
     setMessage(null);
     setError(null);
+
+    if (usernameAvailability.available === false) {
+      setError(usernameAvailability.message || 'This username is taken. Please try something else.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -361,6 +439,13 @@ const AccountSettings = () => {
       console.log('Profile update response data:', JSON.stringify(responseData, null, 2));
 
       if (!response.ok) {
+        if (responseData.code === 'username_taken') {
+          setUsernameAvailability({
+            status: 'taken',
+            message: responseData.message || 'This username is taken. Please try something else.',
+            available: false,
+          });
+        }
         const errorDetail = responseData.error;
         const errorMsg = typeof errorDetail === 'object' && errorDetail !== null
           ? (errorDetail.message || errorDetail.detail || JSON.stringify(errorDetail))
@@ -719,6 +804,15 @@ const AccountSettings = () => {
                       pattern="[a-zA-Z0-9_]+"
                       title="Username can only contain letters, numbers, and underscores"
                     />
+                    {usernameAvailability.message && (
+                      <small
+                        className={`form-text ${
+                          usernameAvailability.available === false ? 'field-error' : ''
+                        }`}
+                      >
+                        {usernameAvailability.message}
+                      </small>
+                    )}
                     <small className="form-text">Used for login and display</small>
                   </div>
                 </div>
