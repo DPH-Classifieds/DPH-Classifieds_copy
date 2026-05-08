@@ -100,6 +100,7 @@ const AdminListingDetail = () => {
   const [moderationNote, setModerationNote] = useState('');
   const [removeReason, setRemoveReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [rejectReasonIndex, setRejectReasonIndex] = useState('');
 
   useEffect(() => {
@@ -559,7 +560,7 @@ const AdminListingDetail = () => {
             >
               VIN Unlock
             </button>
-            <button className="admin-button admin-button-danger" type="button" disabled={actionLoading} onClick={() => handleModerationAction('delete')}>
+            <button className="admin-button admin-button-danger" type="button" disabled={actionLoading} onClick={() => setShowDeleteConfirm(true)}>
               Remove listing
             </button>
           </div>
@@ -743,6 +744,72 @@ const AdminListingDetail = () => {
                 style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: rejectReasonIndex === '' ? '#555' : '#ef4444', color: '#fff', cursor: rejectReasonIndex === '' ? 'not-allowed' : 'pointer', fontWeight: 600 }}
               >
                 {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="modal-content" style={{ background: '#1a1a2e', borderRadius: 16, padding: 28, maxWidth: 540, width: '90%', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, color: '#fff', fontSize: 18 }}>Confirm Permanent Removal</h2>
+              <button onClick={() => setShowDeleteConfirm(false)} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 20 }}>×</button>
+            </div>
+            <div style={{ marginBottom: 16, textAlign: 'center' }}>
+              <div style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: 'rgba(239,68,68,0.12)',
+                border: '2px solid rgba(239,68,68,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+              </div>
+              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', marginBottom: 8 }}>
+                This action cannot be undone.
+              </p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+                <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{getListingTitle(listing)}</strong>
+                <br />will be permanently deleted and the owner will be emailed.
+              </p>
+            </div>
+            <div style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 10,
+              padding: 12,
+              textAlign: 'left',
+              marginBottom: 20,
+            }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Reason</p>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.8)' }}>{removeReason || moderationNote || 'Removed by admin'}</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#aaa', cursor: 'pointer' }}>Go Back</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await handleModerationAction('delete');
+                    setShowDeleteConfirm(false);
+                  } catch (error) {
+                    // handleModerationAction already surfaces the error
+                  }
+                }}
+                disabled={actionLoading}
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: actionLoading ? '#555' : 'linear-gradient(135deg, #ef4444, #991b1b)', color: '#fff', cursor: actionLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+              >
+                {actionLoading ? 'Removing...' : 'Yes, Delete Permanently'}
               </button>
             </div>
           </div>

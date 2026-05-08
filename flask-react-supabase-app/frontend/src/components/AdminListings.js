@@ -3,21 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import { LISTING_REJECTION_REASONS } from './admin/rejectionConstants';
-import { MapContainer, Marker, TileLayer } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import '../styles/AdminOps.css';
-
-const DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const ADMIN_DELETE_REASONS = [
   'Duplicate listing',
@@ -29,30 +15,6 @@ const ADMIN_DELETE_REASONS = [
   'Price manipulation',
 ];
 
-const UAE_CITY_COORDINATES = {
-  'abu dhabi': [24.4539, 54.3773],
-  dubai: [25.2048, 55.2708],
-  sharjah: [25.3463, 55.4209],
-  ajman: [25.4052, 55.5136],
-  'umm al quwain': [25.5647, 55.5552],
-  'ras al khaimah': [25.7895, 55.9432],
-  fujairah: [25.1288, 56.3265]
-};
-
-const EXTRA_BOOLEAN_LABELS = {
-  climate_control: 'Climate Control',
-  dvd_player: 'DVD Player',
-  keyless_entry: 'Keyless Entry',
-  navigation_system: 'Navigation System',
-  premium_sound_system: 'Premium Sound System',
-  cooled_seats: 'Cooled Seats',
-  front_wheel_drive: 'Front Wheel Drive',
-  leather_seats: 'Leather Seats',
-  parking_sensors: 'Parking Sensors',
-  rear_view_camera: 'Rear View Camera',
-  lady_driven: 'Lady Driven',
-};
-
 const AdminListings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get('filter') || 'cars';
@@ -61,7 +23,6 @@ const AdminListings = () => {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedListing] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -74,7 +35,6 @@ const AdminListings = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [toastType, setToastType] = useState('success');
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const navigate = useNavigate();
 
   const showToast = (message, type = 'success') => {
@@ -156,7 +116,6 @@ const AdminListings = () => {
       await apiClient.post(`/api/admin/approve/${filter}/${listingId}/approve`);
       setListings(listings.filter(l => l.id !== listingId));
       showToast('Listing approved successfully', 'success');
-      setShowDetailModal(false);
     } catch (error) {
       console.error('Failed to approve listing:', error);
       showToast('Failed to approve listing. Please try again.', 'error');
@@ -180,7 +139,6 @@ const AdminListings = () => {
       showToast('Listing rejected successfully', 'success');
       setShowRejectModal(false);
       setShowRejectConfirm(false);
-      setShowDetailModal(false);
       setRejectionNote('');
       setSelectedRejectIndex('');
     } catch (error) {
@@ -221,7 +179,6 @@ const AdminListings = () => {
       showToast('Listing removed successfully. Owner has been notified.', 'success');
       setShowDeleteModal(false);
       setShowDeleteConfirm(false);
-      setShowDetailModal(false);
       setDeleteReason('');
       setDeleteReasonDetails('');
     } catch (error) {
@@ -276,62 +233,6 @@ const AdminListings = () => {
     const vinOpen = Number(metrics.vin_open || 0);
     const qualifiedLeads = Number(metrics.qualified_leads || (callClick + whatsappClick));
     return { callClick, whatsappClick, vinOpen, qualifiedLeads };
-  };
-
-  const formatPrice = (price) => {
-    if (!price) return 'Price on request';
-    return new Intl.NumberFormat('en-AE', {
-      style: 'currency',
-      currency: 'AED',
-      maximumFractionDigits: 0
-    }).format(price);
-  };
-
-  const formatKilometers = (value) => {
-    if (value === null || value === undefined || value === '') {
-      return 'Mileage on request';
-    }
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      return `${value} km`;
-    }
-    return `${parsed.toLocaleString()} km`;
-  };
-
-  const getLocationMapConfig = (listing) => {
-    const lat = Number.parseFloat(listing?.latitude);
-    const lng = Number.parseFloat(listing?.longitude);
-
-    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-      return {
-        center: [lat, lng],
-        zoom: 13,
-        approximate: false
-      };
-    }
-
-    const normalizedCity = (listing?.car_city || '').trim().toLowerCase();
-    const fallbackCenter = UAE_CITY_COORDINATES[normalizedCity];
-
-    if (fallbackCenter) {
-      return {
-        center: fallbackCenter,
-        zoom: 10,
-        approximate: true
-      };
-    }
-
-    return null;
-  };
-
-  const getDisplayExtras = (listing) => {
-    if (Array.isArray(listing?.extras) && listing.extras.length > 0) {
-      return listing.extras;
-    }
-
-    return Object.entries(EXTRA_BOOLEAN_LABELS)
-      .filter(([key]) => Boolean(listing?.[key]))
-      .map(([, label]) => label);
   };
 
   const listingSummary = useMemo(() => {
@@ -395,14 +296,29 @@ const AdminListings = () => {
   );
 
   const DeletedListingCard = ({ listing }) => (
-    <div className="listing-card" style={{ opacity: 0.8 }}>
+    <div className="listing-card">
       <div className="listing-info">
-        <h3 style={{ color: '#9ca3af' }}>{listing.title}</h3>
-        <p><strong>Type:</strong> {listing.listing_type}</p>
-        <p><strong>ID:</strong> <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>{listing.id}</code></p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '10px' }}>
+          <span className="status-badge status-suspended" style={{ margin: 0 }}>
+            Deleted
+          </span>
+          <span className="status-badge status-pending" style={{ margin: 0 }}>
+            {listing.listing_type}
+          </span>
+        </div>
+        <h3>{listing.title}</h3>
         <p><strong>Reason:</strong> {listing.deleted_reason}</p>
         <p><strong>Deleted by:</strong> {listing.deleted_by_role}</p>
         <p><strong>When:</strong> {listing.deleted_at ? new Date(listing.deleted_at).toLocaleString() : 'N/A'}</p>
+        <p><strong>ID:</strong> <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>{listing.id}</code></p>
+      </div>
+      <div className="listing-actions">
+        <button
+          onClick={() => navigate(`/admin/listings/${filter}/${listing.id}`)}
+          className="action-button view-btn"
+        >
+          View Details
+        </button>
       </div>
     </div>
   );
