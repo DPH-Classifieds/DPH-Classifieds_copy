@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import SeoMeta from './SeoMeta';
+import SearchBar from './ui/search-bar';
 import { TAG_OPTIONS } from '../utils/listingConstants';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
@@ -436,6 +437,7 @@ const ExplorePage = () => {
   const [partsFilters, setPartsFilters] = useState(partsInitialFilters);
   const [plateFilters, setPlateFilters] = useState(plateInitialFilters);
   const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
+  const [heroQuery, setHeroQuery] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -445,6 +447,7 @@ const ExplorePage = () => {
 
     if (q) {
       setGlobalQuery(q);
+      setHeroQuery(q);
       setCarFilters((prev) => ({ ...prev, query: q }));
       setPartsFilters((prev) => ({ ...prev, query: q }));
       setPlateFilters((prev) => ({ ...prev, query: q }));
@@ -722,6 +725,19 @@ const ExplorePage = () => {
     setActiveMode(modeKey);
   };
 
+  const handleHeroSearch = (query) => {
+    const nextQuery = query.trim();
+    setHeroQuery(nextQuery);
+    setGlobalQuery(nextQuery);
+    setCarFilters((prev) => ({ ...prev, query: nextQuery }));
+    setPartsFilters((prev) => ({ ...prev, query: nextQuery }));
+    setPlateFilters((prev) => ({ ...prev, query: nextQuery }));
+    setBikeFilters((prev) => ({ ...prev, query: nextQuery }));
+    if (!nextQuery) {
+      setActiveMode('all');
+    }
+  };
+
 
 
   return (
@@ -740,6 +756,17 @@ const ExplorePage = () => {
             </p>
           </div>
 
+          <div className="explore-v2-hero-search">
+            <SearchBar
+              value={heroQuery}
+              onChange={setHeroQuery}
+              onSubmit={handleHeroSearch}
+              placeholder="Search cars, parts, plates, bikes..."
+              size="large"
+              className="explore-v2-hero-searchbar"
+            />
+          </div>
+
           <div className="explore-v2-hero-stats">
             {exploreModes.map((mode) => (
               <button
@@ -748,8 +775,8 @@ const ExplorePage = () => {
                 className={`explore-v2-stat ${activeMode === mode.key ? 'is-active' : ''}`}
                 onClick={() => handleModeChange(mode.key)}
               >
-                <strong>{featuredCounts[mode.key]}</strong>
                 <span>{mode.label}</span>
+                <small>{featuredCounts[mode.key]}</small>
               </button>
             ))}
           </div>
