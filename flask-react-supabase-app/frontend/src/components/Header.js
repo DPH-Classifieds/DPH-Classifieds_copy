@@ -1,24 +1,70 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { MenuIcon, Plus } from 'lucide-react';
+import {
+  Bike,
+  CarFront,
+  ChevronRight,
+  MenuIcon,
+  Package,
+  Plus,
+  Tag,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ProfileMenu from './ProfileMenu';
-import LocationPicker, { getSavedCity } from './LocationPicker';
-import SearchBar from './ui/search-bar';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Button } from './ui/button';
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from './ui/navigation-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
+
+const browseLinks = [
+  {
+    title: 'Cars',
+    description: 'Browse used, luxury, and performance cars.',
+    href: '/cars',
+    icon: CarFront,
+  },
+  {
+    title: 'Car Parts',
+    description: 'Find replacement parts and upgrades fast.',
+    href: '/car-parts',
+    icon: Package,
+  },
+  {
+    title: 'Plates',
+    description: 'Shop collectible and premium UAE plates.',
+    href: '/plates',
+    icon: Tag,
+  },
+  {
+    title: 'Bikes',
+    description: 'Discover motorcycles and specialty bikes.',
+    href: '/bikes',
+    icon: Bike,
+  },
+];
+
+const resourceLinks = [{ title: 'About', href: '/about' }];
 
 const Header = () => {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [locationValue, setLocationValue] = useState(getSavedCity);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 24);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 24);
+    };
+
     handleScroll();
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -33,17 +79,28 @@ const Header = () => {
     return () => document.body.classList.remove('menu-open');
   }, [mobileMenuOpen]);
 
-  const handleSearchSubmit = (query) => {
-    const params = new URLSearchParams();
-    if (query.trim()) params.set('q', query.trim());
-    if (locationValue) params.set('city', locationValue);
-    navigate(`/explore?${params.toString()}`);
-    setMobileMenuOpen(false);
-  };
+  const dealerCanPost = !user?.is_dealer || user?.dealer_verified;
 
-  const handleLocationChange = (city) => {
-    setLocationValue(city);
-  };
+  const postLinks = useMemo(
+    () => {
+      const base = [
+        { title: 'Post Car', href: user ? '/post-car' : '/login?redirect=/post-car' },
+        { title: 'Post Car Part', href: user ? '/post-car-parts' : '/login?redirect=/post-car-parts' },
+        { title: 'Post Plate', href: user ? '/post-plate' : '/login?redirect=/post-plate' },
+        { title: 'Post Bike', href: user ? '/post-bike' : '/login?redirect=/post-bike' },
+      ];
+      if (user && !dealerCanPost) {
+        return base.map((item) => ({ ...item, href: '/settings', disabled: true }));
+      }
+      return base;
+    },
+    [user, dealerCanPost]
+  );
+
+  const isBrowseActive = browseLinks.some((item) => location.pathname.startsWith(item.href));
+  const isResourcesActive = resourceLinks.some((item) => location.pathname.startsWith(item.href));
+  const isPostActive = postLinks.some((item) => location.pathname.startsWith(item.href.replace('/login?redirect=', '')));
+  const isExploreActive = location.pathname.startsWith('/explore');
 
   const handleHomeNavigation = (e) => {
     if (location.pathname === '/') {
@@ -65,41 +122,122 @@ const Header = () => {
     ? 'border-b border-white/10 bg-[rgba(4,16,8,0.95)] shadow-[0_18px_48px_rgba(0,0,0,0.3)]'
     : 'border-b border-white/5 bg-[rgba(4,16,8,0.85)]';
 
-  const navLinks = [
-    { label: 'Explore', href: '/explore' },
-    { label: 'Cars', href: '/cars' },
-    { label: 'Parts', href: '/car-parts' },
-    { label: 'Plates', href: '/plates' },
-    { label: 'Bikes', href: '/bikes' },
-    { label: 'Sell', href: user ? '/post-car' : '/login?redirect=/post-car' },
-  ];
-
-  if (user) {
-    navLinks.push({ label: 'My Listings', href: '/my-listings' });
-  }
-
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
     >
-      <div className="mx-auto flex max-w-[1480px] items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <Link to="/" onClick={handleHomeNavigation} className="flex items-center text-white transition-opacity hover:opacity-80 shrink-0">
+      <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
+        {/* Logo */}
+        <Link to="/" onClick={handleHomeNavigation} className="flex items-center text-white transition-opacity hover:opacity-80">
           <span className="text-[1.3rem] font-bold tracking-[-0.03em] text-white">
             DPH<span className="text-[#8bd6b4]">Classifieds</span>
           </span>
         </Link>
 
-        <div className="hidden lg:flex items-center gap-2 flex-1 justify-center max-w-[680px] mx-6">
-          <SearchBar
-            value={searchValue}
-            onChange={setSearchValue}
-            onSubmit={handleSearchSubmit}
-            placeholder="Search cars, parts, plates, bikes..."
-          />
-          <LocationPicker value={locationValue} onChange={handleLocationChange} />
-        </div>
+        {/* Desktop Navigation - Centered */}
+        <NavigationMenu className="hidden lg:flex lg:absolute lg:left-1/2 lg:-translate-x-1/2">
+          <NavigationMenuList className="gap-0.5">
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                asChild
+                className={`${isExploreActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+              >
+                <Link to="/explore">Explore</Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
 
-        <div className="hidden items-center gap-2.5 lg:flex shrink-0">
+            <NavigationMenuItem>
+              <NavigationMenuTrigger
+                className={`${isBrowseActive ? 'bg-white/10 text-white' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+              >
+                Browse
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[640px] grid-cols-2 gap-2 p-3">
+                  {browseLinks.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavigationMenuLink
+                        key={item.href}
+                        asChild
+                        className="rounded-xl border border-transparent p-0"
+                      >
+                        <Link
+                          to={item.href}
+                          className="flex rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] p-4 transition-all duration-200 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)]"
+                        >
+                          <div className="mr-3.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#8bd6b4]/15 text-[#8bd6b4]">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="mb-0.5 text-[14px] font-semibold text-white">{item.title}</p>
+                            <p className="text-[13px] leading-5 text-white/55">{item.description}</p>
+                          </div>
+                        </Link>
+                      </NavigationMenuLink>
+                    );
+                  })}
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <NavigationMenuTrigger
+                className={`${isPostActive ? 'bg-white/10 text-white' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+              >
+                Sell
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[420px] gap-1.5 p-3">
+                  {user && !dealerCanPost && (
+                    <div className="mb-1 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-200">
+                      Admin verification required before you can post.{' '}
+                      <Link to="/settings" className="underline">View status</Link>
+                    </div>
+                  )}
+                  {postLinks.map((item) => (
+                    <NavigationMenuLink key={item.href} asChild className="rounded-xl p-0">
+                      <Link
+                        to={item.href}
+                        className={`flex items-center justify-between rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] px-4 py-3 transition-all duration-200 ${
+                          item.disabled
+                            ? 'cursor-not-allowed text-white/30 hover:border-white/5 hover:bg-[rgba(6,24,12,0.92)]'
+                            : 'text-white/75 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)] hover:text-white'
+                        }`}
+                      >
+                        <span className="text-[14px] font-medium">{item.title}</span>
+                        <ChevronRight className="h-4 w-4 opacity-50" />
+                      </Link>
+                    </NavigationMenuLink>
+                  ))}
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                asChild
+                className={`${isResourcesActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+              >
+                <Link to="/about">About</Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
+            {user && (
+              <NavigationMenuItem>
+                <NavigationMenuLink
+                  asChild
+                  className={`${location.pathname === '/my-listings' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                >
+                  <Link to="/my-listings">My Listings</Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            )}
+          </NavigationMenuList>
+        </NavigationMenu>
+
+        {/* Auth Buttons / Profile Menu */}
+        <div className="hidden items-center gap-2.5 lg:flex">
           {user ? (
             <ProfileMenu user={user} onLogout={handleLogout} />
           ) : (
@@ -121,6 +259,7 @@ const Header = () => {
           )}
         </div>
 
+        {/* Mobile Menu Button */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild className="lg:hidden">
             <Button
@@ -145,35 +284,82 @@ const Header = () => {
               </SheetTitle>
             </SheetHeader>
 
-            <div className="flex flex-col gap-4 px-1 py-4">
-              <div className="flex flex-col gap-2">
-                <SearchBar
-                  value={searchValue}
-                  onChange={setSearchValue}
-                  onSubmit={handleSearchSubmit}
-                  placeholder="Search anything..."
-                  size="large"
-                />
-                <LocationPicker value={locationValue} onChange={handleLocationChange} />
-              </div>
+            <div className="flex flex-col gap-6 px-1 py-4">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="browse" className="border-white/10">
+                  <AccordionTrigger className="text-base font-medium text-white hover:no-underline">
+                    Browse listings
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-2 pt-2">
+                      {browseLinks.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.href}
+                            to={item.href}
+                            className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3 transition-colors hover:bg-white/8"
+                          >
+                            <div className="mt-0.5 rounded-lg bg-[#8bd6b4]/15 p-2 text-[#8bd6b4]">
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-white">{item.title}</p>
+                              <p className="text-sm text-white/60">{item.description}</p>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="sell" className="border-white/10">
+                  <AccordionTrigger className="text-base font-medium text-white hover:no-underline">
+                    Post a listing
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {user && !dealerCanPost && (
+                      <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-200">
+                        Admin verification required before you can post.{' '}
+                        <Link to="/settings" className="underline">View status</Link>
+                      </div>
+                    )}
+                    <div className="grid gap-2 pt-2">
+                      {postLinks.map((item) => (
+                        <Link
+                          key={item.href}
+                          to={item.href}
+                          className={`flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-4 py-3 transition-colors ${
+                            item.disabled
+                              ? 'cursor-not-allowed text-white/30 hover:bg-white/4'
+                              : 'text-white/80 hover:bg-white/8 hover:text-white'
+                          }`}
+                        >
+                          <span>{item.title}</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <div className="flex flex-col gap-1">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    to={link.href}
-                    className={`rounded-xl px-3 py-2.5 text-base font-medium transition-colors ${
-                      location.pathname === link.href || location.pathname.startsWith(link.href + '/')
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/80 hover:bg-white/6 hover:text-white'
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+                <Link to="/" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                  Home
+                </Link>
+                <Link to="/explore" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                  Explore
+                </Link>
                 <Link to="/about" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
                   About
                 </Link>
+                {user && (
+                  <Link to="/my-listings" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                    My Listings
+                  </Link>
+                )}
               </div>
 
               <div className="flex flex-col gap-2.5 border-t border-white/10 pt-4">
