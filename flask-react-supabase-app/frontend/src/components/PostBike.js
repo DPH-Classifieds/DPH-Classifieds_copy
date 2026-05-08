@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
+import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import {
   UAE_EMIRATES,
   getAreasForEmirate,
@@ -20,6 +21,21 @@ const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('bike');
+const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
+
+const splitPhoneNumber = (value, fallbackCountryCode = defaultCountryCode) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { countryCode: fallbackCountryCode, localNumber: '' };
+  }
+
+  const match = raw.match(PHONE_SPLIT_RE);
+  if (match) {
+    return { countryCode: match[1], localNumber: match[2] };
+  }
+
+  return { countryCode: fallbackCountryCode, localNumber: raw.replace(/^\+/, '') };
+};
 
 const BIKE_CATEGORIES = [
   'Sport',
@@ -63,6 +79,7 @@ const PostBike = () => {
   const [previewImages, setPreviewImages] = useState([]);
   const [existingImageUrls, setExistingImageUrls] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [formData, setFormData] = useState({
     bike_brand: '',
     bike_model: '',
@@ -78,6 +95,10 @@ const PostBike = () => {
     emirate: 'Dubai',
     description: '',
     vin_number: '',
+    contact_number: '',
+    country_code: defaultCountryCode,
+    whatsapp_country_code: defaultCountryCode,
+    whatsapp_number: '',
     whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
     is_dealer: false,
     cylinders: '',
@@ -129,12 +150,29 @@ const PostBike = () => {
           emirate: data.emirate || 'Dubai',
           description: data.description || '',
           vin_number: data.vin_number || '',
+          contact_number: data.contact_number || data.contact_phone || '',
+          country_code: data.country_code || defaultCountryCode,
+          whatsapp_country_code: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).countryCode,
+          whatsapp_number: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).localNumber,
           whatsapp_prefill_text: data.whatsapp_prefill_text || DEFAULT_WHATSAPP_PREFILL,
           is_dealer: Boolean(data.is_dealer),
           cylinders: data.cylinders ? String(data.cylinders) : '',
           wheels: data.wheels ? String(data.wheels) : '2',
           features: Array.isArray(data.features) ? data.features : [],
         }));
+        const normalizedContact = splitPhoneNumber(
+          data.contact_number || data.contact_phone || '',
+          data.country_code || defaultCountryCode
+        );
+        const normalizedWhatsapp = splitPhoneNumber(
+          data.whatsapp_number || '',
+          data.country_code || defaultCountryCode
+        );
+        setWhatsappSameAsPhone(
+          Boolean(data.whatsapp_number) &&
+            normalizedWhatsapp.countryCode === (normalizedContact.countryCode || defaultCountryCode) &&
+            normalizedWhatsapp.localNumber === normalizedContact.localNumber
+        );
 
         const urls = Array.isArray(data.images)
           ? data.images
@@ -211,6 +249,25 @@ const PostBike = () => {
         ...prev,
         emirate: value,
         area: nextAreas.includes(prev.area) ? prev.area : '',
+      }));
+      return;
+    }
+
+    if (name === 'country_code') {
+      setFormData((prev) => ({
+        ...prev,
+        country_code: value,
+        whatsapp_country_code: whatsappSameAsPhone ? value : prev.whatsapp_country_code,
+      }));
+      return;
+    }
+
+    if (whatsappSameAsPhone && (name === 'contact_number' || name === 'country_code')) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+        whatsapp_number: name === 'contact_number' ? value : prev.whatsapp_number,
+        whatsapp_country_code: name === 'country_code' ? value : prev.whatsapp_country_code,
       }));
       return;
     }
@@ -312,6 +369,11 @@ const PostBike = () => {
         area: formData.area.trim(),
         emirate: formData.emirate,
         description: formData.description.trim(),
+        contact_number: formData.contact_number.trim(),
+        country_code: formData.country_code,
+        whatsapp_number: formData.whatsapp_number
+          ? `${formData.whatsapp_country_code}${formData.whatsapp_number.trim()}`
+          : '',
         whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
         features: formData.features,
         condition: formData.condition,
@@ -590,6 +652,49 @@ const PostBike = () => {
                     <label htmlFor="location">Location Details</label>
                     <input id="location" name="location" value={formData.location} onChange={handleChange} placeholder="Building / Landmark (optional)" />
                   </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="description">Description</label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    rows="6"
+                    value={formData.description}
+                    onChange={handleChange}
+                    required
+                    placeholder="Summarize condition, ownership history, maintenance, upgrades, and why this bike stands out."
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="contact_number">Phone Number</label>
+                    <div className="phone-input-group">
+                      <SearchableSelect
+                        id="country_code"
+                        name="country_code"
+                        className="form-control country-code-select"
+                        value={formData.country_code}
+                        onChange={handleChange}
+                      >
+                        {countryCodes.map((country) => (
+                          <option key={country.code} value={country.code}>
+                            {country.flag} {country.code}
+                          </option>
+                        ))}
+                      </SearchableSelect>
+                      <input
+                        id="contact_number"
+                        name="contact_number"
+                        value={formData.contact_number}
+                        onChange={handleChange}
+                        required
+                        placeholder="501234567"
+                        className="phone-number-input"
+                      />
+                    </div>
+                  </div>
                   <div className="form-group">
                     <label htmlFor="is_dealer">Dealer listing</label>
                     <SearchableSelect
@@ -609,17 +714,52 @@ const PostBike = () => {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="description">Description</label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    rows="6"
-                    value={formData.description}
-                    onChange={handleChange}
-                    required
-                    placeholder="Summarize condition, ownership history, maintenance, upgrades, and why this bike stands out."
-                  />
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="whatsapp_number">WhatsApp Number</label>
+                    <div className="phone-input-group">
+                      <SearchableSelect
+                        id="whatsapp_country_code"
+                        name="whatsapp_country_code"
+                        className="form-control country-code-select"
+                        value={formData.whatsapp_country_code}
+                        onChange={handleChange}
+                        disabled={whatsappSameAsPhone}
+                      >
+                        {countryCodes.map((country) => (
+                          <option key={country.code} value={country.code}>
+                            {country.flag} {country.code}
+                          </option>
+                        ))}
+                      </SearchableSelect>
+                      <input
+                        id="whatsapp_number"
+                        name="whatsapp_number"
+                        value={formData.whatsapp_number}
+                        onChange={handleChange}
+                        placeholder="501234567"
+                        className="phone-number-input"
+                        disabled={whatsappSameAsPhone}
+                      />
+                    </div>
+                    <label className="checkbox-label" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                      <input
+                        type="checkbox"
+                        checked={whatsappSameAsPhone}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setWhatsappSameAsPhone(checked);
+                          setFormData((prev) => ({
+                            ...prev,
+                            whatsapp_country_code: checked ? prev.country_code : prev.whatsapp_country_code,
+                            whatsapp_number: checked ? prev.contact_number : prev.whatsapp_number,
+                          }));
+                        }}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      Same as phone number
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

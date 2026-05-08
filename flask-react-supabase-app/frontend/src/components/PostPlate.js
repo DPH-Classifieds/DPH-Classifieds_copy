@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
+import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
@@ -14,6 +15,21 @@ import UAELicensePlate from './UAELicensePlate';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('plate');
+const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
+
+const splitPhoneNumber = (value, fallbackCountryCode = defaultCountryCode) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { countryCode: fallbackCountryCode, localNumber: '' };
+  }
+
+  const match = raw.match(PHONE_SPLIT_RE);
+  if (match) {
+    return { countryCode: match[1], localNumber: match[2] };
+  }
+
+  return { countryCode: fallbackCountryCode, localNumber: raw.replace(/^\+/, '') };
+};
 
 const PLATE_FORMAT_OPTIONS = [
   'Any format',
@@ -71,6 +87,7 @@ const PostPlate = () => {
   const [isLoadingListing, setIsLoadingListing] = useState(isEdit);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [formData, setFormData] = useState({
     city: '',
     code: '',
@@ -80,6 +97,9 @@ const PostPlate = () => {
     plate_format: 'Any format',
     contact_name: '',
     contact_phone: '',
+    country_code: defaultCountryCode,
+    whatsapp_country_code: defaultCountryCode,
+    whatsapp_number: '',
     whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
     area: '',
     emirate: '',
@@ -125,12 +145,22 @@ const PostPlate = () => {
           plate_format: data.plate_format || 'Any format',
           contact_name: data.contact_name || '',
           contact_phone: data.contact_phone || '',
+          country_code: data.country_code || defaultCountryCode,
+          whatsapp_country_code: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).countryCode,
+          whatsapp_number: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).localNumber,
           whatsapp_prefill_text: data.whatsapp_prefill_text || DEFAULT_WHATSAPP_PREFILL,
           area: data.area || '',
           emirate: data.emirate || data.city || '',
           description: data.description || '',
           is_dealer: Boolean(data.is_dealer),
         }));
+        const normalizedContact = splitPhoneNumber(data.contact_phone || '', data.country_code || defaultCountryCode);
+        const normalizedWhatsapp = splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode);
+        setWhatsappSameAsPhone(
+          Boolean(data.whatsapp_number) &&
+            normalizedWhatsapp.countryCode === normalizedContact.countryCode &&
+            normalizedWhatsapp.localNumber === normalizedContact.localNumber
+        );
       } catch (fetchError) {
         setError(fetchError.message || 'Failed to load plate listing');
       } finally {
@@ -196,6 +226,25 @@ const PostPlate = () => {
       nextValue = value === '' ? '' : String(Math.max(0, Number(value)));
     }
 
+    if (name === 'country_code') {
+      setFormData((prev) => ({
+        ...prev,
+        country_code: value,
+        whatsapp_country_code: whatsappSameAsPhone ? value : prev.whatsapp_country_code,
+      }));
+      return;
+    }
+
+    if (whatsappSameAsPhone && (name === 'contact_phone' || name === 'country_code')) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: nextValue,
+        whatsapp_country_code: name === 'country_code' ? value : prev.whatsapp_country_code,
+        whatsapp_number: name === 'contact_phone' ? value : prev.whatsapp_number,
+      }));
+      return;
+    }
+
     setFormData((prev) => {
       const updated = {
         ...prev,
@@ -235,6 +284,10 @@ const PostPlate = () => {
         plate_format: formData.plate_format,
         contact_name: formData.contact_name.trim(),
         contact_phone: formData.contact_phone.trim(),
+        country_code: formData.country_code,
+        whatsapp_number: formData.whatsapp_number
+          ? `${formData.whatsapp_country_code}${formData.whatsapp_number.trim()}`
+          : '',
         whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
         area: formData.area.trim(),
         emirate: formData.emirate || formData.city,
@@ -451,9 +504,68 @@ const PostPlate = () => {
                     <label htmlFor="contact_name">Contact name</label>
                     <input id="contact_name" name="contact_name" value={formData.contact_name} onChange={handleChange} required placeholder="Full name" />
                   </div>
+                </div>
+
+                <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="contact_phone">Contact phone</label>
-                    <input id="contact_phone" name="contact_phone" value={formData.contact_phone} onChange={handleChange} required placeholder="+971501234567" />
+                    <div className="phone-input-group">
+                      <SearchableSelect id="country_code" name="country_code" value={formData.country_code} onChange={handleChange}>
+                        {countryCodes.map((country) => (
+                          <option key={country.code} value={country.code}>
+                            {country.flag} {country.code}
+                          </option>
+                        ))}
+                      </SearchableSelect>
+                      <input id="contact_phone" name="contact_phone" value={formData.contact_phone} onChange={handleChange} required placeholder="501234567" className="phone-number-input" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="whatsapp_number">WhatsApp Number</label>
+                    <div className="phone-input-group">
+                      <SearchableSelect
+                        id="whatsapp_country_code"
+                        name="whatsapp_country_code"
+                        value={formData.whatsapp_country_code}
+                        onChange={handleChange}
+                        disabled={whatsappSameAsPhone}
+                      >
+                        {countryCodes.map((country) => (
+                          <option key={country.code} value={country.code}>
+                            {country.flag} {country.code}
+                          </option>
+                        ))}
+                      </SearchableSelect>
+                      <input
+                        id="whatsapp_number"
+                        name="whatsapp_number"
+                        value={formData.whatsapp_number}
+                        onChange={handleChange}
+                        placeholder="501234567"
+                        className="phone-number-input"
+                        disabled={whatsappSameAsPhone}
+                      />
+                    </div>
+                    <label className="checkbox-label" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                      <input
+                        type="checkbox"
+                        checked={whatsappSameAsPhone}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setWhatsappSameAsPhone(checked);
+                          setFormData((prev) => ({
+                            ...prev,
+                            whatsapp_country_code: checked ? prev.country_code : prev.whatsapp_country_code,
+                            whatsapp_number: checked ? prev.contact_phone : prev.whatsapp_number,
+                          }));
+                        }}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      Same as phone number
+                    </label>
                   </div>
                 </div>
 

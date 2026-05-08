@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
+import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { UAE_EMIRATES, getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
@@ -15,6 +16,7 @@ const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/we
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
 const COUNTRY_CODES = ['+971', '+973', '+965', '+968', '+974', '+966'];
 const PART_TYPES = [
   'Engine',
@@ -32,6 +34,20 @@ const PART_TYPES = [
 ];
 const COMPATIBLE_YEAR_OPTIONS = ['Any', '2000-2005', '2006-2010', '2011-2015', '2016-2020', '2021-2026'];
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('part');
+
+const splitPhoneNumber = (value, fallbackCountryCode = defaultCountryCode) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { countryCode: fallbackCountryCode, localNumber: '' };
+  }
+
+  const match = raw.match(PHONE_SPLIT_RE);
+  if (match) {
+    return { countryCode: match[1], localNumber: match[2] };
+  }
+
+  return { countryCode: fallbackCountryCode, localNumber: raw.replace(/^\+/, '') };
+};
 const PostCarParts = () => {
   const { id: listingId } = useParams();
   const isEdit = Boolean(listingId);
@@ -47,6 +63,7 @@ const PostCarParts = () => {
   const [previewImages, setPreviewImages] = useState([]);
   const [existingImageUrls, setExistingImageUrls] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     part_type: '',
@@ -59,7 +76,9 @@ const PostCarParts = () => {
     area: '',
     emirate: 'Dubai',
     contact_number: '',
-    country_code: '+971',
+    country_code: defaultCountryCode,
+    whatsapp_country_code: defaultCountryCode,
+    whatsapp_number: '',
     whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
     description: '',
     is_negotiable: false,
@@ -107,12 +126,21 @@ const PostCarParts = () => {
           area: data.area || '',
           emirate: data.emirate || 'Dubai',
           contact_number: data.contact_number || '',
-          country_code: data.country_code || '+971',
+          country_code: data.country_code || defaultCountryCode,
+          whatsapp_country_code: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).countryCode,
+          whatsapp_number: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).localNumber,
           whatsapp_prefill_text: data.whatsapp_prefill_text || DEFAULT_WHATSAPP_PREFILL,
           description: data.description || '',
           is_negotiable: Boolean(data.is_negotiable),
           is_dealer: Boolean(data.is_dealer),
         }));
+        const normalizedContact = splitPhoneNumber(data.contact_number || data.contact_phone || '', data.country_code || defaultCountryCode);
+        const normalizedWhatsapp = splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode);
+        setWhatsappSameAsPhone(
+          Boolean(data.whatsapp_number) &&
+            normalizedWhatsapp.countryCode === normalizedContact.countryCode &&
+            normalizedWhatsapp.localNumber === normalizedContact.localNumber
+        );
 
         const urls = Array.isArray(data.images)
           ? data.images
@@ -190,6 +218,25 @@ const PostCarParts = () => {
         ...prev,
         emirate: value,
         area: nextAreas.includes(prev.area) ? prev.area : '',
+      }));
+      return;
+    }
+
+    if (name === 'country_code') {
+      setFormData((prev) => ({
+        ...prev,
+        country_code: value,
+        whatsapp_country_code: whatsappSameAsPhone ? value : prev.whatsapp_country_code,
+      }));
+      return;
+    }
+
+    if (whatsappSameAsPhone && (name === 'contact_number' || name === 'country_code')) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+        whatsapp_country_code: name === 'country_code' ? value : prev.whatsapp_country_code,
+        whatsapp_number: name === 'contact_number' ? value : prev.whatsapp_number,
       }));
       return;
     }
@@ -283,6 +330,9 @@ const PostCarParts = () => {
         country_code: formData.country_code,
         whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,
         description: formData.description.trim(),
+        whatsapp_number: formData.whatsapp_number
+          ? `${formData.whatsapp_country_code}${formData.whatsapp_number.trim()}`
+          : '',
         is_negotiable: formData.is_negotiable,
         is_dealer: formData.is_dealer,
         images: mergedImageUrls,
@@ -550,6 +600,54 @@ const PostCarParts = () => {
                   <div className="form-group">
                     <label htmlFor="contact_number">Phone number</label>
                     <input id="contact_number" name="contact_number" value={formData.contact_number} onChange={handleChange} required placeholder="501234567" />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="whatsapp_number">WhatsApp Number</label>
+                    <div className="phone-input-group">
+                      <SearchableSelect
+                        id="whatsapp_country_code"
+                        name="whatsapp_country_code"
+                        className="form-control country-code-select"
+                        value={formData.whatsapp_country_code}
+                        onChange={handleChange}
+                        disabled={whatsappSameAsPhone}
+                      >
+                        {countryCodes.map((country) => (
+                          <option key={country.code} value={country.code}>
+                            {country.flag} {country.code}
+                          </option>
+                        ))}
+                      </SearchableSelect>
+                      <input
+                        id="whatsapp_number"
+                        name="whatsapp_number"
+                        value={formData.whatsapp_number}
+                        onChange={handleChange}
+                        placeholder="501234567"
+                        className="phone-number-input"
+                        disabled={whatsappSameAsPhone}
+                      />
+                    </div>
+                    <label className="checkbox-label" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                      <input
+                        type="checkbox"
+                        checked={whatsappSameAsPhone}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setWhatsappSameAsPhone(checked);
+                          setFormData((prev) => ({
+                            ...prev,
+                            whatsapp_country_code: checked ? prev.country_code : prev.whatsapp_country_code,
+                            whatsapp_number: checked ? prev.contact_number : prev.whatsapp_number,
+                          }));
+                        }}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      Same as phone number
+                    </label>
                   </div>
                 </div>
 

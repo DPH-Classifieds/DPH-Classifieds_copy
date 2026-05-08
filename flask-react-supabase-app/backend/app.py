@@ -1354,7 +1354,10 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
             raise ValueError("A valid contact phone number is required")
         payload["car_owner_phone_number"] = normalized
         payload["contact_phone"] = normalized
-        payload["whatsapp_number"] = normalized
+        payload["whatsapp_number"] = _normalize_phone_number(
+            payload.get("whatsapp_number") or normalized,
+            payload.get("country_code"),
+        )
     elif listing_type == "bikes":
         contact_phone = payload.get("contact_phone") or payload.get("contact_number")
         normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
@@ -1362,12 +1365,20 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
             raise ValueError("A valid contact phone number is required")
         payload["contact_phone"] = normalized
         payload["contact_number"] = normalized
+        if payload.get("whatsapp_number"):
+            payload["whatsapp_number"] = _normalize_phone_number(
+                payload.get("whatsapp_number"), payload.get("country_code")
+            )
     elif listing_type == "plates":
         contact_phone = payload.get("contact_phone")
         normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
         if not normalized:
             raise ValueError("A valid contact phone number is required")
         payload["contact_phone"] = normalized
+        if payload.get("whatsapp_number"):
+            payload["whatsapp_number"] = _normalize_phone_number(
+                payload.get("whatsapp_number"), payload.get("country_code")
+            )
     elif listing_type == "parts":
         contact_phone = payload.get("contact_phone") or payload.get("contact_number")
         normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
@@ -1375,6 +1386,10 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
             raise ValueError("A valid contact phone number is required")
         payload["contact_phone"] = normalized
         payload["contact_number"] = normalized
+        if payload.get("whatsapp_number"):
+            payload["whatsapp_number"] = _normalize_phone_number(
+                payload.get("whatsapp_number"), payload.get("country_code")
+            )
 
 
 def _mask_phone_number(phone):
@@ -7672,6 +7687,7 @@ def create_bike(current_user):
             "contact_number",
             "contact_phone",
             "vin_number",
+            "whatsapp_number",
             "whatsapp_prefill_text",
             "description",
             "transmission",
@@ -7826,6 +7842,7 @@ def update_bike(current_user, bike_id):
             "contact_number",
             "contact_phone",
             "vin_number",
+            "whatsapp_number",
             "whatsapp_prefill_text",
             "description",
             "transmission",
@@ -8134,6 +8151,8 @@ def update_plate(current_user, plate_id):
             "plate_format",
             "contact_name",
             "contact_phone",
+            "country_code",
+            "whatsapp_number",
             "whatsapp_prefill_text",
             "description",
             "area",
@@ -8426,6 +8445,8 @@ def create_part(current_user):
             "area",
             "emirate",
             "contact_number",
+            "country_code",
+            "whatsapp_number",
             "whatsapp_prefill_text",
             "description",
             "is_negotiable",
@@ -8612,9 +8633,10 @@ def update_part(current_user, part_id):
             "emirate",
             "contact_number",
             "whatsapp_prefill_text",
+            "country_code",
+            "whatsapp_number",
             "description",
             "is_negotiable",
-            "country_code",
             "is_dealer",
         }
         update_data = {k: v for k, v in update_data.items() if k in part_allowed_fields}
@@ -9276,6 +9298,8 @@ def _create_plate_with_image_impl(current_user):
         plate_format = payload.get("plate_format")
         contact_name = payload.get("contact_name")
         contact_phone = payload.get("contact_phone")
+        country_code = payload.get("country_code")
+        whatsapp_number = payload.get("whatsapp_number")
         whatsapp_prefill_text = payload.get("whatsapp_prefill_text")
         description = payload.get("description")
         area = payload.get("area")
@@ -9315,6 +9339,8 @@ def _create_plate_with_image_impl(current_user):
             "plate_format": plate_format,
             "contact_name": contact_name,
             "contact_phone": contact_phone,
+            "country_code": country_code,
+            "whatsapp_number": whatsapp_number,
             "whatsapp_prefill_text": whatsapp_prefill_text,
             "description": description,
             "area": area,
