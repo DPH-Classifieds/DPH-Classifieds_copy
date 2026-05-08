@@ -31,7 +31,7 @@ const AdminRoute = ({ children }) => {
         const response = await apiClient.get('/api/auth/admin-check');
         console.log('AdminRoute: Admin check response:', response);
         
-        if (response && response.is_admin === true) {
+        if (response && (response.is_admin === true || response.is_super_admin === true)) {
           console.log('AdminRoute: User is admin, granting access');
           setIsAdmin(true);
         } else {

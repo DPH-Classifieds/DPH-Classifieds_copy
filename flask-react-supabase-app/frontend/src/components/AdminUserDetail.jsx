@@ -7,6 +7,17 @@ import '../styles/AdminOps.css';
 
 const defaultActionState = { status: 'active', reason: '' };
 
+const PRIMARY_SUPER_ADMIN_EMAIL = 'admin@dphclassifieds.com';
+const PRIMARY_SUPER_ADMIN_USERNAME = 'dphclassifieds';
+
+const normalizeIdentity = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+const isProtectedSuperAdmin = (userRecord) => Boolean(
+  userRecord?.is_super_admin
+  || normalizeIdentity(userRecord?.email) === normalizeIdentity(PRIMARY_SUPER_ADMIN_EMAIL)
+  || normalizeIdentity(userRecord?.username) === normalizeIdentity(PRIMARY_SUPER_ADMIN_USERNAME)
+);
+
 const AdminUserDetail = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -63,11 +74,16 @@ const AdminUserDetail = () => {
   const recentListings = data?.recent_listings || [];
   const recentEvents = data?.recent_events || [];
   const recentReports = data?.recent_reports || [];
+  const isSuperAdmin = isProtectedSuperAdmin(user);
 
   const statusTone = getStatusTone(user.account_status);
   const verifiedTone = user.email_verified && user.phone_verified ? 'success' : 'warning';
 
   const handleProfileSave = async () => {
+    if (isSuperAdmin) {
+      setMessage('This protected super admin account cannot be modified here.');
+      return;
+    }
     try {
       setActionLoading(true);
       setMessage('');
@@ -157,6 +173,7 @@ const AdminUserDetail = () => {
           <span className={`admin-status-pill ${user.phone_verified ? 'tone-success' : 'tone-warning'}`}>
             {user.phone_verified ? 'Phone verified' : 'Phone unverified'}
           </span>
+          {isSuperAdmin ? <span className="admin-status-pill tone-success">Super Admin</span> : null}
         </div>
       </div>
 
@@ -194,11 +211,12 @@ const AdminUserDetail = () => {
               <div className="admin-muted">{user.email || 'No email available'}</div>
             </div>
             <div className="admin-actions">
-              <span className="admin-chip">{user.is_admin ? 'Admin' : 'User'}</span>
-              <span className="admin-chip">{user.is_dealer ? 'Dealer' : 'Personal account'}</span>
-              <span className="admin-chip">{user.profile_completion_percentage ?? 0}% profile</span>
-            </div>
+            <span className="admin-chip">{user.is_admin ? 'Admin' : 'User'}</span>
+            {isSuperAdmin ? <span className="admin-chip">Super Admin</span> : null}
+            <span className="admin-chip">{user.is_dealer ? 'Dealer' : 'Personal account'}</span>
+            <span className="admin-chip">{user.profile_completion_percentage ?? 0}% profile</span>
           </div>
+        </div>
 
           <div className="admin-divider" />
 
@@ -226,12 +244,18 @@ const AdminUserDetail = () => {
         <div className="admin-surface">
           <div className="admin-label">Moderation</div>
           <h3>Account status and access</h3>
+          {isSuperAdmin ? (
+            <div className="admin-card" style={{ marginBottom: '12px' }}>
+              This account is the protected main super admin. Role, status, and suspension controls are locked.
+            </div>
+          ) : null}
           <div className="admin-field">
             <label htmlFor="user-status">Status</label>
             <select
               id="user-status"
               className="admin-select"
               value={profileState.account_status}
+              disabled={isSuperAdmin}
               onChange={(event) => setProfileState((current) => ({ ...current, account_status: event.target.value }))}
             >
               <option value="active">Active</option>
@@ -245,6 +269,7 @@ const AdminUserDetail = () => {
               id="user-role"
               className="admin-select"
               value={profileState.is_admin ? 'admin' : 'user'}
+              disabled={isSuperAdmin}
               onChange={(event) => setProfileState((current) => ({ ...current, is_admin: event.target.value === 'admin' }))}
             >
               <option value="user">User</option>
@@ -257,6 +282,7 @@ const AdminUserDetail = () => {
               id="user-account-type"
               className="admin-select"
               value={profileState.is_dealer ? 'dealer' : 'private'}
+              disabled={isSuperAdmin}
               onChange={(event) =>
                 setProfileState((current) => ({
                   ...current,
@@ -276,6 +302,7 @@ const AdminUserDetail = () => {
                 id="dealer-verified"
                 className="admin-select"
                 value={profileState.dealer_verified ? 'verified' : 'pending'}
+                disabled={isSuperAdmin}
                 onChange={(event) => setProfileState((current) => ({ ...current, dealer_verified: event.target.value === 'verified' }))}
               >
                 <option value="pending">Pending</option>
@@ -289,6 +316,7 @@ const AdminUserDetail = () => {
               id="email-verified"
               className="admin-select"
               value={profileState.email_verified ? 'verified' : 'unverified'}
+              disabled={isSuperAdmin}
               onChange={(event) => setProfileState((current) => ({ ...current, email_verified: event.target.value === 'verified' }))}
             >
               <option value="unverified">Unverified</option>
@@ -301,6 +329,7 @@ const AdminUserDetail = () => {
               id="phone-verified"
               className="admin-select"
               value={profileState.phone_verified ? 'verified' : 'unverified'}
+              disabled={isSuperAdmin}
               onChange={(event) => setProfileState((current) => ({ ...current, phone_verified: event.target.value === 'verified' }))}
             >
               <option value="unverified">Unverified</option>
@@ -313,12 +342,13 @@ const AdminUserDetail = () => {
               id="user-reason"
               className="admin-textarea"
               value={actionState.reason}
+              disabled={isSuperAdmin}
               onChange={(event) => setActionState((current) => ({ ...current, reason: event.target.value }))}
               placeholder="Add the reason for this action..."
             />
           </div>
           <div className="admin-actions" style={{ marginTop: '16px' }}>
-            <button className="admin-button admin-button-primary" type="button" disabled={actionLoading} onClick={handleProfileSave}>
+            <button className="admin-button admin-button-primary" type="button" disabled={actionLoading || isSuperAdmin} onClick={handleProfileSave}>
               {actionLoading ? 'Saving...' : 'Save changes'}
             </button>
             <button className="admin-button admin-button-secondary" type="button" onClick={() => navigate('/admin/listings')}>

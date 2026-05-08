@@ -1,8 +1,9 @@
 [phases.setup]
+cmds = ["python -m venv .venv"]
 nixPkgs = ["python311", "gcc"]
 
 [phases.install]
-cmds = ["if [ -f requirements.txt ]; then pip install -r requirements.txt; elif [ -f flask-react-supabase-app/backend/requirements.txt ]; then pip install -r flask-react-supabase-app/backend/requirements.txt; else echo 'requirements.txt not found' && exit 1; fi"]
+cmds = [". .venv/bin/activate && pip install -r flask-react-supabase-app/backend/requirements.txt"]
 
 [start]
-cmd = "if [ -f app.py ]; then gunicorn -c gunicorn.conf.py app:app; elif [ -f flask-react-supabase-app/backend/app.py ]; then gunicorn -c flask-react-supabase-app/backend/gunicorn.conf.py --chdir flask-react-supabase-app/backend app:app; else echo 'app.py not found' && exit 1; fi"
+cmd = "export PATH=\"$(pwd)/.venv/bin:$PATH\"; if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then python flask-react-supabase-app/backend/worker.py; else gunicorn -c flask-react-supabase-app/backend/gunicorn.conf.py --chdir flask-react-supabase-app/backend app:app; fi"

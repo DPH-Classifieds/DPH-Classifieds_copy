@@ -212,6 +212,8 @@ const MyListings = () => {
     }, {});
   }, [listings]);
 
+  const hasUnlimitedListings = listingLimit.unlimited || listingLimit.max == null;
+
   const handleDeleteListing = async (listing) => {
     const typeConfig = TYPE_CONFIG[listing.listing_type];
     if (!typeConfig) return;
@@ -369,27 +371,38 @@ const MyListings = () => {
             <span>VIN opens: {leadTotals.vin_open || 0}</span>
           </div>
           <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {Array.from({ length: listingLimit.max }, (_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 28,
-                    height: 6,
-                    borderRadius: 3,
-                    background: i < listingLimit.current ? '#8bd6b4' : 'rgba(255,255,255,0.1)',
-                    transition: 'background 0.2s',
-                  }}
-                />
-              ))}
-            </div>
+            {!hasUnlimitedListings ? (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {Array.from({ length: listingLimit.max }, (_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 28,
+                      height: 6,
+                      borderRadius: 3,
+                      background: i < listingLimit.current ? '#8bd6b4' : 'rgba(255,255,255,0.1)',
+                      transition: 'background 0.2s',
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
-              {listingLimit.current} of {listingLimit.max} listings used
-              {listingLimit.remaining > 0 && (
-                <span style={{ color: '#8bd6b4', marginLeft: 4 }}>({listingLimit.remaining} left)</span>
-              )}
-              {listingLimit.remaining === 0 && (
-                <span style={{ color: '#ef4444', marginLeft: 4 }}>(limit reached)</span>
+              {hasUnlimitedListings ? (
+                <>
+                  {listingLimit.current} listings used
+                  <span style={{ color: '#8bd6b4', marginLeft: 4 }}>(unlimited for your account)</span>
+                </>
+              ) : (
+                <>
+                  {listingLimit.current} of {listingLimit.max} listings used
+                  {listingLimit.remaining > 0 && (
+                    <span style={{ color: '#8bd6b4', marginLeft: 4 }}>({listingLimit.remaining} left)</span>
+                  )}
+                  {listingLimit.remaining === 0 && (
+                    <span style={{ color: '#ef4444', marginLeft: 4 }}>(limit reached)</span>
+                  )}
+                </>
               )}
             </span>
           </div>

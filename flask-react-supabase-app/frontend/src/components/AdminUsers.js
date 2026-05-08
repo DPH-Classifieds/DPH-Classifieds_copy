@@ -5,6 +5,19 @@ import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/AdminOps.css';
 
+const PRIMARY_SUPER_ADMIN_EMAIL = 'admin@dphclassifieds.com';
+const PRIMARY_SUPER_ADMIN_USERNAME = 'dphclassifieds';
+
+const normalizeIdentity = (value) =>
+  String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+const isProtectedSuperAdmin = (userRecord) =>
+  Boolean(
+    userRecord?.is_super_admin
+    || normalizeIdentity(userRecord?.email) === normalizeIdentity(PRIMARY_SUPER_ADMIN_EMAIL)
+    || normalizeIdentity(userRecord?.username) === normalizeIdentity(PRIMARY_SUPER_ADMIN_USERNAME)
+  );
+
 const AdminUsers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -202,6 +215,9 @@ const AdminUsers = () => {
                 {u.is_admin && (
                   <span className="status-badge status-admin">Admin</span>
                 )}
+                {isProtectedSuperAdmin(u) && (
+                  <span className="status-badge status-admin">Super Admin</span>
+                )}
               </div>
 
               <div className="user-actions">
@@ -215,8 +231,12 @@ const AdminUsers = () => {
                   <button
                     className="action-button secondary"
                     onClick={() => handleRemoveAdmin(u.id)}
-                    disabled={u.id === user?.id}
-                    title={u.id === user?.id ? "Cannot remove your own admin status" : ""}
+                    disabled={u.id === user?.id || isProtectedSuperAdmin(u)}
+                    title={u.id === user?.id
+                      ? "Cannot remove your own admin status"
+                      : isProtectedSuperAdmin(u)
+                        ? "Super admin access is protected"
+                        : ""}
                   >
                     Remove Admin
                   </button>
@@ -224,6 +244,7 @@ const AdminUsers = () => {
                   <button
                     className="action-button approve-btn"
                     onClick={() => handleMakeAdmin(u.id)}
+                    disabled={isProtectedSuperAdmin(u)}
                   >
                     Make Admin
                   </button>
@@ -231,8 +252,12 @@ const AdminUsers = () => {
                 <button
                   className={`action-button ${(u.account_status || 'active') === 'suspended' ? 'approve-btn' : 'reject-btn'}`}
                   onClick={() => handleStatusChange(u.id, (u.account_status || 'active') === 'suspended' ? 'active' : 'suspended')}
-                  disabled={u.id === user?.id}
-                  title={u.id === user?.id ? "Cannot suspend your own account" : ""}
+                  disabled={u.id === user?.id || isProtectedSuperAdmin(u)}
+                  title={u.id === user?.id
+                    ? "Cannot suspend your own account"
+                    : isProtectedSuperAdmin(u)
+                      ? "Super admin access is protected"
+                      : ""}
                 >
                   {(u.account_status || 'active') === 'suspended' ? 'Activate' : 'Suspend'}
                 </button>

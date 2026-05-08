@@ -94,6 +94,7 @@ const AdminMetrics = () => {
   const [error, setError] = useState('');
   const [days, setDays] = useState(30);
   const [metrics, setMetrics] = useState(null);
+  const [health, setHealth] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -122,10 +123,39 @@ const AdminMetrics = () => {
     };
   }, [days]);
 
+  useEffect(() => {
+    let active = true;
+
+    const fetchHealth = async () => {
+      try {
+        const response = await apiClient.get('/api/admin/health');
+        if (!active) return;
+        setHealth(response || null);
+      } catch (fetchError) {
+        if (!active) return;
+        console.error('Failed to load health status:', fetchError);
+        setHealth({ error: fetchError.message || 'Failed to load health status' });
+      }
+    };
+
+    fetchHealth();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const userMetrics = metrics?.user_metrics || {};
   const financialMetrics = metrics?.financial_metrics || {};
   const carMetrics = metrics?.car_metrics || {};
   const plateMetrics = metrics?.plate_metrics || {};
+  const healthCurrent = health?.current || null;
+  const healthLatest = health?.latest || null;
+  const healthSnapshot = healthCurrent || healthLatest || null;
+  const healthComponents = healthSnapshot?.details || {};
+  const healthLabel = (component) => {
+    if (!component) return 'Unknown';
+    return component.ok ? 'Healthy' : (component.status || 'Degraded').toUpperCase();
+  };
 
   const summaryCards = [
     { label: 'Sessions', value: formatNumber(userMetrics.sessions), note: 'Tracked page journeys in the window.' },
@@ -407,6 +437,75 @@ const AdminMetrics = () => {
                 value: `${formatNumber(item.views)} views`,
                 note: item.price ? formatMoney(item.price) : '',
               }))}
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section
+        label="Health"
+        title="Frontend, backend, Redis, and worker status"
+        subtitle="This view is fed by the live health snapshot that the worker stores every 30 minutes."
+      >
+        {health?.error ? (
+          <div className="admin-card">
+            <h3>Health unavailable</h3>
+            <p className="admin-muted">{health.error}</p>
+          </div>
+        ) : null}
+        <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <StatCard
+            label="Overall"
+            value={(healthSnapshot?.overall_status || 'unknown').toUpperCase()}
+            note={healthSnapshot?.checked_at ? `Checked ${new Date(healthSnapshot.checked_at).toLocaleString()}` : 'No snapshot yet'}
+            tone={healthSnapshot?.overall_status === 'healthy' ? 'success' : 'warning'}
+          />
+          <StatCard
+            label="Frontend"
+            value={healthLabel(healthComponents.frontend)}
+            note={healthComponents.frontend?.message || 'Waiting for snapshot'}
+            tone={healthComponents.frontend?.ok ? 'success' : 'warning'}
+          />
+          <StatCard
+            label="Backend"
+            value={healthLabel(healthComponents.backend)}
+            note={healthComponents.backend?.message || 'Waiting for snapshot'}
+            tone={healthComponents.backend?.ok ? 'success' : 'warning'}
+          />
+          <StatCard
+            label="Redis"
+            value={healthLabel(healthComponents.redis)}
+            note={healthComponents.redis?.message || 'Waiting for snapshot'}
+            tone={healthComponents.redis?.ok ? 'success' : 'warning'}
+          />
+          <StatCard
+            label="Worker"
+            value={healthLabel(healthComponents.worker)}
+            note={healthComponents.worker?.message || 'Waiting for snapshot'}
+            tone={healthComponents.worker?.ok ? 'success' : 'warning'}
+          />
+        </div>
+        <div className="admin-divider" />
+        <div className="admin-grid-2">
+          <div>
+            <h3 style={{ marginTop: 0 }}>Latest snapshot</h3>
+            <KeyValueList
+              items={[
+                { label: 'Status', value: healthSnapshot?.overall_status || 'unknown' },
+                { label: 'Checked at', value: healthSnapshot?.checked_at ? new Date(healthSnapshot.checked_at).toLocaleString() : 'Not yet checked' },
+                { label: 'Source', value: healthSnapshot?.source || 'worker' },
+              ]}
+            />
+          </div>
+          <div>
+            <h3 style={{ marginTop: 0 }}>Component notes</h3>
+            <KeyValueList
+              items={[
+                { label: 'Frontend', value: healthComponents.frontend?.status || 'unknown', note: healthComponents.frontend?.checked_url || '' },
+                { label: 'Backend', value: healthComponents.backend?.status || 'unknown', note: healthComponents.backend?.checked_url || '' },
+                { label: 'Redis', value: healthComponents.redis?.status || 'unknown', note: healthComponents.redis?.message || '' },
+                { label: 'Worker', value: healthComponents.worker?.status || 'unknown', note: healthComponents.worker?.last_seen_at || '' },
+              ]}
             />
           </div>
         </div>

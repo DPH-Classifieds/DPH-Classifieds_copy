@@ -44,6 +44,19 @@ except ImportError:
 
 load_dotenv()
 
+from health_monitoring import (  # noqa: E402
+    HEALTH_TABLE,
+    build_health_snapshot,
+    check_backend_health,
+    check_frontend_health,
+    check_redis_health,
+    fetch_latest_health_snapshot,
+    get_worker_heartbeat,
+    record_worker_heartbeat,
+    send_health_alert,
+    store_health_snapshot,
+)
+
 app = Flask(__name__, static_folder="static")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -102,6 +115,17 @@ USERNAME_AVAILABILITY_CACHE_TTL_SECONDS = int(
     os.getenv("USERNAME_AVAILABILITY_CACHE_TTL_SECONDS", "30")
 )
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
+PRIMARY_SUPER_ADMIN_EMAIL = (
+    os.getenv("PRIMARY_SUPER_ADMIN_EMAIL", "admin@dphclassifieds.com")
+    .strip()
+    .lower()
+)
+PRIMARY_SUPER_ADMIN_USERNAME = (
+    os.getenv("PRIMARY_SUPER_ADMIN_USERNAME", "DPHClassifieds")
+    .strip()
+    .lower()
+)
+PRIMARY_SUPER_ADMIN_USER_ID = os.getenv("PRIMARY_SUPER_ADMIN_USER_ID", "").strip()
 
 
 def _normalize_base_url(value, default_scheme="https"):
@@ -1887,6 +1911,9 @@ def _get_user_listing_count(user_id):
 
 
 def _enforce_listing_limit(user_id):
+    if _is_super_admin_user(user_id):
+        return None
+
     total, error = _get_user_listing_count(user_id)
     if error is not None:
         return jsonify({"error": "Failed to verify listing limit"}), 500
@@ -2436,6 +2463,68 @@ def _resolve_listing_table(item_type):
     )
 
 
+def _normalize_identity(value):
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+
+def _is_super_admin_record(user_data=None, user_id=None):
+    if not user_data and not user_id:
+        return False
+
+    if PRIMARY_SUPER_ADMIN_USER_ID and str(user_id or "") == PRIMARY_SUPER_ADMIN_USER_ID:
+        return True
+
+    if bool((user_data or {}).get("is_super_admin")):
+        return True
+
+    email = _normalize_identity((user_data or {}).get("email"))
+    username = _normalize_identity((user_data or {}).get("username"))
+    return email == _normalize_identity(PRIMARY_SUPER_ADMIN_EMAIL) or username == _normalize_identity(
+        PRIMARY_SUPER_ADMIN_USERNAME
+    )
+
+
+def _is_super_admin_user(user_id):
+    user_data, status_code = supabase_request(
+        "get",
+        f"/rest/v1/users?id=eq.{user_id}",
+        params={"select": "id,email,username,is_admin,account_status"},
+        user_id=user_id,
+        use_service_role=True,
+    )
+    if status_code >= 400 or not user_data:
+        return False
+    return _is_super_admin_record(user_data[0], user_id=user_id)
+
+
+def _user_listing_limit_info(user_id, listing_count=None):
+    if _is_super_admin_user(user_id):
+        return {
+            "current": int(listing_count or 0),
+            "max": None,
+            "remaining": None,
+            "unlimited": True,
+        }
+    current = int(listing_count or 0)
+    return {
+        "current": current,
+        "max": MAX_LISTINGS_PER_USER,
+        "remaining": max(0, MAX_LISTINGS_PER_USER - current),
+        "unlimited": False,
+    }
+
+
+def _protect_super_admin_target(user_id, action_label="perform this action on"):
+    if _is_super_admin_user(user_id):
+        return jsonify(
+            {
+                "error": f"The main super admin account cannot be used to {action_label}.",
+                "code": "super_admin_protected",
+            }
+        ), 403
+    return None
+
+
 @app.route("/api/auth/admin-check", methods=["GET"])
 @token_required
 def admin_check(current_user):
@@ -2449,7 +2538,7 @@ def admin_check(current_user):
         }
 
         response = requests.get(
-            f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=is_admin",
+            f"{app.config['SUPABASE_URL']}/rest/v1/users?id=eq.{current_user}&select=id,email,username,is_admin",
             headers=headers,
             timeout=10,
         )
@@ -2462,11 +2551,26 @@ def admin_check(current_user):
             users = response.json()
             logger.info(f"[admin-check] Users data: {users}")
             if users and len(users) > 0:
-                is_admin = users[0].get("is_admin", False)
-                # Ensure boolean type
-                is_admin = bool(is_admin)
-                logger.info(f"[admin-check] User {current_user} - is_admin: {is_admin}")
-                return jsonify({"is_admin": is_admin}), 200
+                user_data = users[0]
+                is_admin = bool(
+                    user_data.get("is_admin", False)
+                    or _is_super_admin_record(user_data, user_id=current_user)
+                )
+                logger.info(
+                    f"[admin-check] User {current_user} - is_admin: {is_admin}, super_admin: {bool(user_data.get('is_super_admin'))}"
+                )
+                return (
+                    jsonify(
+                        {
+                            "is_admin": is_admin,
+                            "is_super_admin": bool(
+                                user_data.get("is_super_admin")
+                                or _is_super_admin_record(user_data, user_id=current_user)
+                            ),
+                        }
+                    ),
+                    200,
+                )
 
         logger.warning(f"[admin-check] User {current_user} not found in users table")
         return jsonify({"is_admin": False}), 200
@@ -6518,13 +6622,20 @@ def get_user_admin_status(user_id):
     try:
         # Get user data from Supabase
         user_data, status_code = supabase_request(
-            "get", f"/rest/v1/users?id=eq.{user_id}", user_id=user_id
+            "get",
+            f"/rest/v1/users?id=eq.{user_id}",
+            params={"select": "id,email,username,is_admin"},
+            user_id=user_id,
+            use_service_role=True,
         )
 
         if status_code >= 400 or not user_data:
             return False
 
-        return user_data[0].get("is_admin", False)
+        return bool(
+            user_data[0].get("is_admin", False)
+            or _is_super_admin_record(user_data[0], user_id=user_id)
+        )
     except Exception as e:
         logger.error(f"Error getting user admin status: {str(e)}")
         return False
@@ -6610,6 +6721,9 @@ def _get_user_details_with_admin_status(user_id_from_token):
         ):  # Check parsed_json directly
             db_user_data = parsed_json[0]  # Assumes non-empty list
             is_admin_in_db = db_user_data.get("is_admin", False)
+            is_superadmin = is_superadmin or _is_super_admin_record(
+                db_user_data, user_id=user_id_from_token
+            )
             # Prefer email from users table if exists and auth_email was not retrieved
             if not auth_email and db_user_data.get("email"):
                 auth_email = db_user_data.get("email")
@@ -6644,6 +6758,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
                 "id": user_id_from_token,
                 "email": auth_email,
                 "is_admin": is_superadmin,
+                "is_super_admin": is_superadmin,
             }
             logger.info(
                 f"[_get_user_details_with_admin_status] Create payload for public.users: {create_payload}"
@@ -6691,9 +6806,11 @@ def _get_user_details_with_admin_status(user_id_from_token):
 
     # Determine final is_admin status - consider both db flag and superadmin role
     final_is_admin = False
+    final_is_superadmin = is_superadmin
     if db_user_data:
         final_is_admin = db_user_data.get("is_admin", False)
-    final_is_admin = final_is_admin or is_superadmin
+        final_is_superadmin = final_is_superadmin or bool(db_user_data.get("is_super_admin", False))
+    final_is_admin = final_is_admin or final_is_superadmin
 
     final_created_at = None
     if db_user_data and db_user_data.get("created_at"):
@@ -6729,6 +6846,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
             "id": user_id_from_token,
             "email": final_email_to_use,
             "is_admin": final_is_admin,
+            "is_super_admin": final_is_superadmin,
             "created_at": final_created_at,
             "is_dealer": bool(db_user_data.get("is_dealer", False))
             if db_user_data
@@ -7294,11 +7412,7 @@ def get_all_user_listings(current_user):
         {
             "listings": flattened,
             **categories,
-            "listing_limit": {
-                "current": listing_count,
-                "max": MAX_LISTINGS_PER_USER,
-                "remaining": max(0, MAX_LISTINGS_PER_USER - listing_count),
-            },
+            "listing_limit": _user_listing_limit_info(current_user, listing_count),
         }
     ), 200
 
@@ -8686,7 +8800,10 @@ def get_users(current_user):
             "get", f"/rest/v1/users?id=eq.{current_user}", user_id=current_user
         )
 
-        if status_code >= 400 or not user_data or not user_data[0].get("is_admin"):
+        if status_code >= 400 or not user_data or not (
+            user_data[0].get("is_admin")
+            or _is_super_admin_record(user_data[0], user_id=current_user)
+        ):
             return jsonify({"error": "Unauthorized. Only admins can view users."}), 403
 
         # Get all users with the service role key to bypass RLS
@@ -8769,6 +8886,10 @@ def update_admin_user_status(current_user, user_id):
         if user_id == current_user:
             return jsonify({"error": "You cannot change your own account status"}), 400
 
+        protected = _protect_super_admin_target(user_id, "change its status")
+        if protected:
+            return protected
+
         data = request.get_json(silent=True) or {}
         next_status = (data.get("status") or "").strip().lower()
         if next_status not in {"active", "suspended", "banned"}:
@@ -8809,6 +8930,10 @@ def make_admin_user(current_user, user_id):
         if not _require_admin_api_user(current_user):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
+        protected = _protect_super_admin_target(user_id, "modify admin access for")
+        if protected:
+            return protected
+
         response, status_code = supabase_request(
             "patch",
             f"/rest/v1/users?id=eq.{user_id}",
@@ -8837,6 +8962,10 @@ def update_admin_user_profile(current_user, user_id):
             return jsonify(
                 {"error": "You cannot modify your own admin profile from this panel"}
             ), 400
+
+        protected = _protect_super_admin_target(user_id, "modify the main admin account")
+        if protected:
+            return protected
 
         data = request.get_json(silent=True) or {}
         allowed_fields = {
@@ -9011,6 +9140,10 @@ def delete_admin_user(current_user, user_id):
 
         if user_id == current_user:
             return jsonify({"error": "You cannot delete your own account"}), 400
+
+        protected = _protect_super_admin_target(user_id, "delete")
+        if protected:
+            return protected
 
         headers = _get_service_role_headers()
 
@@ -9915,7 +10048,7 @@ def admin_required(f):
             }
 
             response = requests.get(
-                f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=is_admin",
+                f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=id,email,username,is_admin",
                 headers=service_headers,
                 timeout=5,
             )
@@ -9927,7 +10060,12 @@ def admin_required(f):
             if response.status_code == 200:
                 users = response.json()
                 is_db_admin = bool(
-                    users and len(users) > 0 and users[0].get("is_admin")
+                    users
+                    and len(users) > 0
+                    and (
+                        users[0].get("is_admin")
+                        or _is_super_admin_record(users[0], user_id=user_id)
+                    )
                 )
 
             if is_supabase_superadmin or is_db_admin:
@@ -10448,6 +10586,10 @@ def list_users_api():
 def make_user_admin_api(user_id):
     """API endpoint to make a user an admin"""
     try:
+        protected = _protect_super_admin_target(user_id, "modify admin access for")
+        if protected:
+            return protected
+
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
             "apikey": service_role_key,
@@ -10477,6 +10619,10 @@ def make_user_admin_api(user_id):
 def remove_user_admin_api(user_id):
     """API endpoint to remove admin privileges from a user"""
     try:
+        protected = _protect_super_admin_target(user_id, "modify admin access for")
+        if protected:
+            return protected
+
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
             "apikey": service_role_key,
@@ -10508,6 +10654,10 @@ def remove_user_admin_api(user_id):
 def update_user_status_api(user_id):
     """API endpoint to update user account status"""
     try:
+        protected = _protect_super_admin_target(user_id, "change its status")
+        if protected:
+            return protected
+
         data = request.get_json() or {}
         new_status = data.get("status", "active")
 
@@ -10767,6 +10917,87 @@ def get_admin_metrics_overview(current_user):
     except Exception as e:
         logger.error(f"Error fetching admin metrics overview: {str(e)}")
         return jsonify({"error": "Failed to fetch admin metrics"}), 500
+
+
+@app.route("/api/health", methods=["GET"])
+@app.route("/healthz", methods=["GET"])
+def api_health():
+    try:
+        redis_health = check_redis_health()
+        worker_health = get_worker_heartbeat()
+        backend_health = {
+            "ok": True,
+            "status": "healthy",
+            "message": "Backend API responding",
+            "latency_ms": None,
+            "checked_url": request.base_url,
+        }
+        snapshot = {
+            "id": str(uuid.uuid4()),
+            "checked_at": _isoformat_utc(_utc_now()),
+            "source": "backend",
+            "overall_status": "healthy"
+            if redis_health.get("ok") and worker_health.get("ok")
+            else "degraded",
+            "frontend_status": "skipped",
+            "backend_status": backend_health["status"],
+            "redis_status": redis_health["status"],
+            "worker_status": worker_health["status"],
+            "frontend_latency_ms": None,
+            "backend_latency_ms": None,
+            "redis_latency_ms": redis_health.get("latency_ms"),
+            "worker_latency_ms": None,
+            "details": {
+                "frontend": None,
+                "backend": backend_health,
+                "redis": redis_health,
+                "worker": worker_health,
+            },
+        }
+        return jsonify(snapshot), 200 if snapshot["overall_status"] == "healthy" else 503
+    except Exception as exc:
+        logger.error(f"Health check failed: {exc}")
+        return jsonify({"status": "down", "error": str(exc)}), 503
+
+
+@app.route("/api/health/live", methods=["GET"])
+@app.route("/healthz/live", methods=["GET"])
+def api_health_live():
+    try:
+        return jsonify(
+            {
+                "status": "healthy",
+                "service": "backend",
+                "timestamp": _isoformat_utc(_utc_now()),
+            }
+        ), 200
+    except Exception as exc:
+        logger.error(f"Live health check failed: {exc}")
+        return jsonify({"status": "down", "error": str(exc)}), 503
+
+
+@app.route("/api/admin/health", methods=["GET"])
+@token_required
+def admin_health(current_user):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        live_snapshot = build_health_snapshot(include_frontend=True)
+        latest_snapshot, snapshot_error = fetch_latest_health_snapshot()
+        response_payload = {
+            "current": live_snapshot,
+            "latest": latest_snapshot,
+            "latest_error": snapshot_error,
+        }
+
+        if live_snapshot.get("overall_status") != "healthy":
+            send_health_alert(live_snapshot)
+
+        return jsonify(response_payload), 200
+    except Exception as exc:
+        logger.error(f"Failed to build admin health payload: {exc}")
+        return jsonify({"error": "Failed to fetch health status", "details": str(exc)}), 500
 
 
 @app.route("/api/listings/<item_type>/<item_id>/lead-events", methods=["POST"])
