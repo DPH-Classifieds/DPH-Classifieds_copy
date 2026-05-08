@@ -58,6 +58,7 @@ const AdminListings = () => {
   const filter = searchParams.get('filter') || 'cars';
   const statusFilter = searchParams.get('status') || 'pending';
   const [listings, setListings] = useState([]);
+  const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedListing] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -75,11 +76,16 @@ const AdminListings = () => {
   const fetchListings = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(`/api/admin/approve/${filter}?status=${statusFilter}`);
+      const [response, statsResponse] = await Promise.all([
+        apiClient.get(`/api/admin/approve/${filter}?status=${statusFilter}`),
+        apiClient.get('/api/admin/stats').catch(() => ({})),
+      ]);
       setListings(Array.isArray(response) ? response : []);
+      setStats(statsResponse || {});
     } catch (error) {
       console.error('Failed to fetch listings:', error);
       setListings([]);
+      setStats({});
     } finally {
       setLoading(false);
     }
@@ -287,14 +293,20 @@ const AdminListings = () => {
 
   const listingSummary = useMemo(() => {
     const visible = listings.length;
-    const pending = listings.filter((listing) => (listing.status || statusFilter) === 'pending').length;
+    const statsKey = filter === 'plates' ? 'plates' : filter;
+    const pendingOfType = Number(stats[`${statsKey}_pending`] || 0);
     const views = listings.reduce((sum, listing) => sum + Number(listing.view_count || 0), 0);
     const leads = listings.reduce((sum, listing) => {
       const metrics = getLeadMetrics(listing);
       return sum + metrics.qualifiedLeads;
     }, 0);
-    return { visible, pending, views, leads };
-  }, [listings, statusFilter]);
+    return {
+      visible,
+      pendingOfType,
+      views,
+      leads,
+    };
+  }, [filter, listings, stats]);
 
   const ListingCard = ({ listing }) => (
     <div className="listing-card">
@@ -373,12 +385,12 @@ const AdminListings = () => {
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Visible listings</div>
           <div className="admin-kpi-value">{listingSummary.visible}</div>
-          <div className="admin-kpi-note">Listings in the current queue.</div>
+          <div className="admin-kpi-note">Listings currently shown for this status filter.</div>
         </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Pending</div>
-          <div className="admin-kpi-value">{listingSummary.pending}</div>
-          <div className="admin-kpi-note">Listings still awaiting action.</div>
+          <div className="admin-kpi-value">{listingSummary.pendingOfType}</div>
+          <div className="admin-kpi-note">Pending items across the selected listing type.</div>
         </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Views</div>

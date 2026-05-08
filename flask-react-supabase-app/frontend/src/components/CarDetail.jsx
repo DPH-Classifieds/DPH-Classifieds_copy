@@ -844,7 +844,7 @@ const CarDetail = () => {
               }));
               // Refresh global user state so phone_verified is up-to-date
               try {
-                const { user: refreshedUser } = await getCurrentUser();
+                const { user: refreshedUser } = await getCurrentUser(true);
                 if (refreshedUser && refreshedUser.id) {
                   updateUser(refreshedUser);
                 }

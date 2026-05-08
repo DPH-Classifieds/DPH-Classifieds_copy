@@ -505,7 +505,7 @@ const AccountSettings = () => {
 
   const handlePhoneVerificationSuccess = async () => {
     try {
-      const { user: refreshedUser } = await getCurrentUser();
+      const { user: refreshedUser } = await getCurrentUser(true);
       if (refreshedUser && refreshedUser.id) {
         updateUser(refreshedUser);
       }

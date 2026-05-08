@@ -2,6 +2,42 @@ import axios from 'axios';
 import logger from './logger';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const CURRENT_USER_CACHE_KEY = 'dph_current_user_cache_v1';
+const CURRENT_USER_CACHE_TTL_MS = 2 * 60 * 1000;
+
+let currentUserRequestPromise = null;
+
+const readCurrentUserCache = () => {
+  try {
+    const raw = sessionStorage.getItem(CURRENT_USER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.timestamp || !parsed.user) return null;
+    if (Date.now() - parsed.timestamp > CURRENT_USER_CACHE_TTL_MS) {
+      sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
+      return null;
+    }
+    return parsed.user;
+  } catch (error) {
+    logger.debug('Failed to read current user cache:', error);
+    return null;
+  }
+};
+
+const writeCurrentUserCache = (user) => {
+  try {
+    if (!user) {
+      sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
+      return;
+    }
+    sessionStorage.setItem(
+      CURRENT_USER_CACHE_KEY,
+      JSON.stringify({ user, timestamp: Date.now() })
+    );
+  } catch (error) {
+    logger.debug('Failed to write current user cache:', error);
+  }
+};
 
 // Add axios debug interceptors
 axios.interceptors.request.use(request => {
@@ -52,6 +88,11 @@ export const getAuthData = () => {
 export const clearAuthData = () => {
   logger.debug('Clearing auth data from localStorage');
   localStorage.removeItem('authData');
+  try {
+    sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
+  } catch (error) {
+    logger.debug('Failed to clear current user cache:', error);
+  }
 };
 
 // Helper function to get the access token
@@ -194,22 +235,44 @@ export const signOut = async () => {
 };
 
 // Get current user information
-export const getCurrentUser = async () => {
+export const getCurrentUser = async (forceRefresh = false) => {
   logger.debug('Getting current user information');
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      logger.debug('No access token available, user not logged in');
-      return { user: null, error: null };
-    }
+  const token = getAccessToken();
+  if (!token) {
+    logger.debug('No access token available, user not logged in');
+    return { user: null, error: null };
+  }
 
+  if (!forceRefresh) {
+    const cachedUser = readCurrentUserCache();
+    if (cachedUser) {
+      logger.debug('Returning cached current user');
+      return { user: cachedUser, error: null, cached: true };
+    }
+  }
+
+  if (!forceRefresh && currentUserRequestPromise) {
+    logger.debug('Reusing in-flight current user request');
+    return currentUserRequestPromise;
+  }
+
+  const request = (async () => {
     logger.debug(`Sending request to ${API_URL}/api/auth/me with token`);
     const response = await axios.get(`${API_URL}/api/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
     logger.info('User info retrieved successfully:', response.data);
+    writeCurrentUserCache(response.data);
     return { user: response.data, error: null };
+  })();
+
+  if (!forceRefresh) {
+    currentUserRequestPromise = request;
+  }
+
+  try {
+    return await request;
   } catch (error) {
     logger.error('Get user error:', error);
 
@@ -230,8 +293,14 @@ export const getCurrentUser = async () => {
       user: null,
       error: error.response?.data?.message || error.message || 'Failed to get user information'
     };
+  } finally {
+    if (!forceRefresh) {
+      currentUserRequestPromise = null;
+    }
   }
 };
+
+export const getCurrentUserCached = getCurrentUser;
 
 // Refresh the authentication token
 export const refreshToken = async () => {

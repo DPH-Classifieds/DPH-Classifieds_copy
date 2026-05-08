@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as authService from '../utils/authService';
 import { supabase, getSession } from '../utils/supabaseClient';
 
@@ -12,16 +12,16 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   // Flag to prevent concurrent auth checks
-  let isAuthChecking = false;
+  const isAuthCheckingRef = useRef(false);
 
   // Function to sync with Supabase's session
-  const syncWithSupabase = async () => {
-    if (isAuthChecking) {
+  const syncWithSupabase = async ({ forceBackendCheck = false } = {}) => {
+    if (isAuthCheckingRef.current) {
       console.log('Auth check already in progress, skipping');
       return false;
     }
 
-    isAuthChecking = true;
+    isAuthCheckingRef.current = true;
     console.log('Syncing auth state with Supabase');
 
     try {
@@ -33,9 +33,9 @@ export const AuthProvider = ({ children }) => {
         authService.setAuthHeader(refreshedSession.access_token);
       }
 
-      // Always check with our backend first for admin status
+      // Prefer cached backend user data unless the caller forces a fresh read.
       try {
-        const { user: backendUser, error: userError } = await authService.getCurrentUser();
+        const { user: backendUser, error: userError } = await authService.getCurrentUser(forceBackendCheck);
 
         if (backendUser) {
           console.log('Backend user found:', backendUser.email, 'Admin:', backendUser.is_admin);
@@ -46,7 +46,6 @@ export const AuthProvider = ({ children }) => {
             // Keep the access_token if it exists in the current user object
             access_token: prevUser?.access_token || backendUser.access_token
           }));
-          isAuthChecking = false;
           return true;
         } else if (userError) {
           console.error('Error checking backend user:', userError);
@@ -199,7 +198,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Error syncing with Supabase:', err);
       return false;
     } finally {
-      isAuthChecking = false;
+      isAuthCheckingRef.current = false;
     }
   };
 
@@ -267,21 +266,8 @@ export const AuthProvider = ({ children }) => {
       }
     );
     
-    // Setup refresh token interval
-    const refreshInterval = setInterval(async () => {
-      const token = authService.getAccessToken();
-      if (token) {
-        try {
-          await authService.refreshToken();
-        } catch (err) {
-          console.error('Token refresh failed:', err);
-        }
-      }
-    }, 30 * 60 * 1000); // Refresh every 30 minutes
-    
     return () => {
       subscription?.unsubscribe();
-      clearInterval(refreshInterval);
     };
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   // We can't add syncWithSupabase to the deps array as it would cause infinite loops
@@ -297,7 +283,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       // Also sync with Supabase after signup
-      await syncWithSupabase();
+      await syncWithSupabase({ forceBackendCheck: true });
       
       return { data, error: null };
     } catch (err) {
@@ -323,7 +309,7 @@ export const AuthProvider = ({ children }) => {
         setUser(data.user);
         
         // Also sync with Supabase after login
-        await syncWithSupabase();
+        await syncWithSupabase({ forceBackendCheck: true });
         
         return data;
       }
@@ -331,7 +317,7 @@ export const AuthProvider = ({ children }) => {
       // If the login response doesn't include user data, try to fetch it
       console.log("Login successful, fetching user data");
       try {
-        const { user, error: userError } = await authService.getCurrentUser();
+        const { user, error: userError } = await authService.getCurrentUser(true);
         
         if (userError) {
           console.error("Error fetching user after login:", userError);
@@ -343,7 +329,7 @@ export const AuthProvider = ({ children }) => {
           setUser(user);
           
           // Also sync with Supabase after login
-          await syncWithSupabase();
+          await syncWithSupabase({ forceBackendCheck: true });
         } else {
           console.error("No user data returned after login");
           throw new Error("Failed to get user data after login");
@@ -360,7 +346,7 @@ export const AuthProvider = ({ children }) => {
         setUser(minimalUser);
         
         // Also sync with Supabase after login
-        await syncWithSupabase();
+        await syncWithSupabase({ forceBackendCheck: true });
       }
       
       return data;

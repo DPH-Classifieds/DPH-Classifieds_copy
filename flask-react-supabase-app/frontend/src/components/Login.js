@@ -56,7 +56,7 @@ const Login = () => {
         setAuthHeader(data.access_token);
       }
 
-      await syncWithSupabase();
+      await syncWithSupabase({ forceBackendCheck: true });
       const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
       navigate(safeRedirect, { replace: true });
     } catch (err) {

@@ -27,7 +27,7 @@ const AdminTools = () => {
         setMessage(response.message || 'You are now an admin. Please refresh the page.');
         
         // Force a sync with Supabase to update the user object
-        await syncWithSupabase();
+        await syncWithSupabase({ forceBackendCheck: true });
         
         // Reload the page after a short delay
         setTimeout(() => {
@@ -73,7 +73,7 @@ const AdminTools = () => {
     
     try {
       // Force a sync with Supabase to update the user object
-      const success = await syncWithSupabase();
+      const success = await syncWithSupabase({ forceBackendCheck: true });
       
       if (success) {
         setMessage('User data refreshed successfully!');

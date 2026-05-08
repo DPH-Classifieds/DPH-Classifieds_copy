@@ -315,7 +315,7 @@ const PostCar = () => {
   // Check if user is logged in when component loads
   useEffect(() => {
     const checkAuth = async () => {
-      await syncWithSupabase();
+      await syncWithSupabase({ forceBackendCheck: true });
     };
     
     checkAuth();

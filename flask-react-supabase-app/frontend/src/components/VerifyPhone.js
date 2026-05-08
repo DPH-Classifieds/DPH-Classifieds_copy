@@ -23,7 +23,7 @@ const VerifyPhone = () => {
   const handleVerified = async () => {
     // Refresh user data so phone_verified is up-to-date before navigating
     try {
-      const { user: refreshedUser } = await getCurrentUser();
+      const { user: refreshedUser } = await getCurrentUser(true);
       if (refreshedUser && refreshedUser.id) {
         updateUser(refreshedUser);
       }
