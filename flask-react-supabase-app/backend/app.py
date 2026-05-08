@@ -5092,6 +5092,69 @@ def _send_new_listing_user_confirmation(user_email, item_type, listing):
     return _send_resend_email(payload)
 
 
+def _send_listing_deleted_email(
+    user_email, item_type, listing_title, listing_id, reason
+):
+    """Send email to user when their listing is removed by admin."""
+    from_email = os.getenv("RESEND_FROM_EMAIL", "noreply@dphclassifieds.com")
+    type_label = {
+        "car": "Car",
+        "bike": "Bike",
+        "part": "Car Part",
+        "plate": "Plate",
+    }.get(item_type, "Listing")
+    subject = f"Your {type_label} listing has been removed — DPH Classifieds"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin:0;padding:0;background-color:#041008;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      <div style="max-width:560px;margin:40px auto;padding:0 20px;">
+        <div style="text-align:center;margin-bottom:32px;">
+          <span style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:#ffffff;">DPH</span>
+          <span style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:#8bd6b4;">Classifieds</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(139,214,180,0.12);border-radius:20px;padding:36px 32px;">
+          <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#ffffff;">Listing Removed</h1>
+          <p style="margin:0 0 24px;font-size:14px;color:rgba(255,255,255,0.55);">Your {type_label.lower()} listing has been removed by our moderation team.</p>
+          <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:16px;margin-bottom:20px;">
+            <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.12em;">Listing</p>
+            <p style="margin:0;font-size:15px;font-weight:600;color:#ffffff;">{listing_title}</p>
+          </div>
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px;margin-bottom:20px;">
+            <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.12em;">Reason</p>
+            <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.8);">{reason}</p>
+          </div>
+          <p style="margin:0 0 24px;font-size:13px;color:rgba(255,255,255,0.4);line-height:1.6;">
+            If you believe this was removed in error, please reply to this email or contact us at support@dphclassifieds.com.
+          </p>
+          <a href="https://dphclassifieds.com/my-listings" style="display:inline-block;background:linear-gradient(135deg,#8bd6b4,#004e37);color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;">Manage Listings</a>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#64748b;margin-top:32px;">&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    result, error = _send_resend_email(payload)
+    if error:
+        logger.error(f"Failed to send deletion email to {user_email}: {error}")
+    else:
+        logger.info(f"Deletion email sent to {user_email} for {item_type} {listing_id}")
+    return result, error
+
+
 @app.route("/api/contact", methods=["POST"])
 def send_contact_message():
     try:
@@ -12406,6 +12469,42 @@ def delete_listing(current_user, item_type, item_id):
             "Content-Type": "application/json",
         }
 
+        # Fetch listing data BEFORE deletion for email notification
+        owner_email = None
+        listing_title = f"{item_type.title()} listing"
+        try:
+            fetch_url = f"{app.config['SUPABASE_URL']}/rest/v1/{table_name}?id=eq.{item_id}&select=user_id,user_email,contact_email,car_manufacturer,car_model,car_trim,bike_brand,bike_model,part_name,title,plate_code,plate_number"
+            fetch_resp = requests.get(fetch_url, headers=headers)
+            if fetch_resp.status_code == 200:
+                fetch_data = fetch_resp.json()
+                if isinstance(fetch_data, list) and fetch_data:
+                    ld = fetch_data[0]
+                    owner_email = ld.get("user_email") or ld.get("contact_email")
+                    if not owner_email and ld.get("user_id"):
+                        owner_email = get_user_email(ld["user_id"])
+                    # Build human-readable title
+                    if item_type in ("car", "car-part", "part"):
+                        mfr = ld.get("car_manufacturer", "")
+                        model = ld.get("car_model", "")
+                        trim = ld.get("car_trim", "")
+                        pn = ld.get("part_name") or ld.get("title", "")
+                        if mfr or model:
+                            listing_title = f"{mfr} {model} {trim}".strip()
+                        elif pn:
+                            listing_title = pn
+                    elif item_type == "bike":
+                        brand = ld.get("bike_brand", "")
+                        model = ld.get("bike_model", "")
+                        if brand or model:
+                            listing_title = f"{brand} {model}".strip()
+                    elif item_type == "plate":
+                        code = ld.get("plate_code", "")
+                        num = ld.get("plate_number", "")
+                        if code or num:
+                            listing_title = f"{code} {num}".strip()
+        except Exception as fetch_err:
+            logger.warning(f"Could not fetch listing data before delete: {fetch_err}")
+
         # First, delete associated images if image table exists
         if image_table_name:
             try:
@@ -12434,6 +12533,22 @@ def delete_listing(current_user, item_type, item_id):
                 deleted_by=current_user,
                 metadata={"endpoint": "admin_delete"},
             )
+
+            # Send email notification to listing owner
+            if owner_email and owner_email != "unknown@example.com":
+                try:
+                    _send_listing_deleted_email(
+                        user_email=owner_email,
+                        item_type=normalized_type,
+                        listing_title=listing_title,
+                        listing_id=item_id,
+                        reason=delete_reason,
+                    )
+                except Exception as email_err:
+                    logger.warning(
+                        f"Failed to send deletion email for {item_id}: {email_err}"
+                    )
+
             logger.info(f"Admin {current_user} deleted {item_type} {item_id}")
             return jsonify(
                 {"message": f"{item_type.title()} deleted successfully"}
@@ -12447,6 +12562,49 @@ def delete_listing(current_user, item_type, item_id):
     except Exception as e:
         logger.error(f"Error deleting {item_type} {item_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/deleted-listings", methods=["GET"])
+@token_required
+def get_deleted_listings(current_user):
+    """Return deleted listings from deletion events table with filtering."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Admin access required"}), 403
+
+        listing_type = request.args.get("type", "").strip()
+        limit = max(min(int(request.args.get("limit", 100)), 500), 1)
+        offset = max(int(request.args.get("offset", 0)), 0)
+
+        params = {
+            "select": "*",
+            "order": "created_at.desc",
+            "limit": str(limit),
+            "offset": str(offset),
+        }
+
+        if listing_type and listing_type in ("car", "bike", "part", "plate"):
+            params["listing_type"] = f"eq.{listing_type}"
+
+        response, status_code = supabase_request(
+            "get",
+            "/rest/v1/listing_deletion_events",
+            params=params,
+            use_service_role=True,
+        )
+
+        if status_code not in (200, 201):
+            logger.error(f"Failed to fetch deleted listings: {response}")
+            return jsonify({"events": [], "total": 0}), 500
+
+        events = response if isinstance(response, list) else []
+
+        return jsonify({"events": events, "total": len(events)})
+
+    except Exception as e:
+        logger.error(f"Error fetching deleted listings: {e}")
+        return jsonify({"events": [], "total": 0, "error": str(e)}), 500
 
 
 @app.route("/api/recommendations", methods=["POST"])
