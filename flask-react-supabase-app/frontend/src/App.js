@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, usePa
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import DealerPendingBanner from './components/DealerPendingBanner';
-import BetaGate from './components/BetaGate';
 import Footer from './components/ui/hover-footer';
 import CookieBanner from './components/CookieBanner';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -16,8 +15,6 @@ import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import './App.css';
 import './styles/UAELicensePlate.css';
-
-const BETA_GATE_STORAGE_KEY = 'dph_beta_gate_unlocked_v1';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -179,8 +176,6 @@ const EditTypeRedirect = () => {
 
 function App() {
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [betaUnlocked, setBetaUnlocked] = useState(() => localStorage.getItem(BETA_GATE_STORAGE_KEY) === '1');
-  const betaGateEnabled = process.env.REACT_APP_ENABLE_BETA_GATE !== 'false';
   const telemetryEnabled = process.env.REACT_APP_ENABLE_VERCEL_TELEMETRY === 'true';
 
   useEffect(() => {
@@ -204,11 +199,6 @@ function App() {
     };
   }, [showAnalytics, telemetryEnabled]);
 
-  const handleBetaUnlock = () => {
-    localStorage.setItem(BETA_GATE_STORAGE_KEY, '1');
-    setBetaUnlocked(true);
-  };
-
   return (
     <AuthProvider>
       <Router>
@@ -216,90 +206,86 @@ function App() {
         <ScrollToTop />
         <PlatformAnalyticsTracker />
         <UserBehaviorTracker />
-        {betaGateEnabled && !betaUnlocked ? (
-          <BetaGate onUnlock={handleBetaUnlock} />
-        ) : (
-          <div className="app">
-            <Header />
-            <DealerPendingBanner />
-            <main className="app-content">
-              <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
-                <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<HomePage />} />
-                <Route path="/cars" element={<CarList />} />
-                <Route path="/cars/:id" element={<CarDetail />} />
-                <Route path="/car-parts" element={<CarParts />} />
-                <Route path="/car-parts/:id" element={<PartDetail />} />
-                <Route path="/plates" element={<Plates />} />
-                <Route path="/plates/:id" element={<PlateDetail />} />
-                <Route path="/bikes" element={<Bikes />} />
-                <Route path="/bikes/:id" element={<BikeDetail />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/check-email" element={<CheckEmail />} />
-                <Route path="/verify-phone" element={<VerifyPhone />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/terms-of-use" element={<TermsOfUse />} />
-                <Route path="/explore" element={<ExplorePage />} />
-                
-                {/* Protected routes */}
-                <Route element={<ProtectedRoute />}>
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/settings" element={<AccountSettings />} />
-                  <Route path="/account-settings" element={<AccountSettings />} />
-                  <Route path="/my-listings" element={<MyListings />} />
-                  <Route path="/create-listing" element={<Navigate to="/post-car" replace />} />
-                  <Route path="/edit-listing/:id" element={<Navigate to="/my-listings" replace />} />
-                  <Route path="/edit/car/:id" element={<PostCar />} />
-                  <Route path="/edit/bike/:id" element={<PostBike />} />
-                  <Route path="/edit/plate/:id" element={<PostPlate />} />
-                  <Route path="/edit/part/:id" element={<PostCarParts />} />
-                  <Route path="/edit/:type/:id" element={<EditTypeRedirect />} />
-                  <Route element={<PhoneVerifiedRoute />}>
-                    <Route path="/post-car" element={<PostCar />} />
-                    <Route path="/post-bike" element={<PostBike />} />
-                    <Route path="/post-plate" element={<PostPlate />} />
-                    <Route path="/post-car-parts" element={<PostCarParts />} />
-                    <Route path="/post/:type" element={<PostTypeRedirect />} />
-                  </Route>
+        <div className="app">
+          <Header />
+          <DealerPendingBanner />
+          <main className="app-content">
+            <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
+              <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/cars" element={<CarList />} />
+              <Route path="/cars/:id" element={<CarDetail />} />
+              <Route path="/car-parts" element={<CarParts />} />
+              <Route path="/car-parts/:id" element={<PartDetail />} />
+              <Route path="/plates" element={<Plates />} />
+              <Route path="/plates/:id" element={<PlateDetail />} />
+              <Route path="/bikes" element={<Bikes />} />
+              <Route path="/bikes/:id" element={<BikeDetail />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/check-email" element={<CheckEmail />} />
+              <Route path="/verify-phone" element={<VerifyPhone />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-use" element={<TermsOfUse />} />
+              <Route path="/explore" element={<ExplorePage />} />
+
+              {/* Protected routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<AccountSettings />} />
+                <Route path="/account-settings" element={<AccountSettings />} />
+                <Route path="/my-listings" element={<MyListings />} />
+                <Route path="/create-listing" element={<Navigate to="/post-car" replace />} />
+                <Route path="/edit-listing/:id" element={<Navigate to="/my-listings" replace />} />
+                <Route path="/edit/car/:id" element={<PostCar />} />
+                <Route path="/edit/bike/:id" element={<PostBike />} />
+                <Route path="/edit/plate/:id" element={<PostPlate />} />
+                <Route path="/edit/part/:id" element={<PostCarParts />} />
+                <Route path="/edit/:type/:id" element={<EditTypeRedirect />} />
+                <Route element={<PhoneVerifiedRoute />}>
+                  <Route path="/post-car" element={<PostCar />} />
+                  <Route path="/post-bike" element={<PostBike />} />
+                  <Route path="/post-plate" element={<PostPlate />} />
+                  <Route path="/post-car-parts" element={<PostCarParts />} />
+                  <Route path="/post/:type" element={<PostTypeRedirect />} />
                 </Route>
-                
-                {/* Admin routes */}
-                <Route
-                  path="/admin/*"
-                  element={
-                    <AdminRoute>
-                      <AdminLayout />
-                    </AdminRoute>
-                  }
-                >
-                  <Route path="" element={<AdminDashboard />} />
-                  <Route path="users" element={<AdminUsers />} />
-                  <Route path="users/:userId" element={<AdminUserDetail />} />
-                  <Route path="listings" element={<AdminListings />} />
-                  <Route path="listings/:itemType/:itemId" element={<AdminListingDetail />} />
-                  <Route path="dealers" element={<AdminDealers />} />
-                  <Route path="dealers/:dealerId" element={<AdminDealerDetail />} />
-                  <Route path="reports" element={<AdminReports />} />
-                  <Route path="metrics" element={<AdminMetrics />} />
-                </Route>
-                
-                {/* 404 route */}
-                <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </main>
-            <Footer />
-          </div>
-        )}
-        {(!betaGateEnabled || betaUnlocked) && <CookieBanner />}
-        {(!betaGateEnabled || betaUnlocked) && <BackToTop />}
+              </Route>
+
+              {/* Admin routes */}
+              <Route
+                path="/admin/*"
+                element={
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                }
+              >
+                <Route path="" element={<AdminDashboard />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="users/:userId" element={<AdminUserDetail />} />
+                <Route path="listings" element={<AdminListings />} />
+                <Route path="listings/:itemType/:itemId" element={<AdminListingDetail />} />
+                <Route path="dealers" element={<AdminDealers />} />
+                <Route path="dealers/:dealerId" element={<AdminDealerDetail />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="metrics" element={<AdminMetrics />} />
+              </Route>
+
+              {/* 404 route */}
+              <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </main>
+          <Footer />
+        </div>
+        <CookieBanner />
+        <BackToTop />
         {telemetryEnabled && showAnalytics && (
           <Suspense fallback={null}>
             <Analytics />
