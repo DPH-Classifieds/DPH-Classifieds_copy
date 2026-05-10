@@ -3,7 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { DUBAI_AREAS, UAE_EMIRATES } from '../utils/listingConstants';
 import { saveAuthData, setAuthHeader } from '../utils/authService';
-import { checkUsernameAvailability, sanitizeUsernameInput, isUsernameFormatValid } from '../utils/usernameAvailability';
+import { checkUsernameAvailability, sanitizeUsernameInput, getUsernameValidationError } from '../utils/usernameAvailability';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -133,8 +133,8 @@ const Signup = () => {
       if (!value) return 'Please confirm your password';
       if (value !== data.password) return 'Passwords do not match';
     }
-    if (name === 'username' && value && !/^[a-zA-Z0-9_]+$/.test(value)) {
-      return 'Username can only contain letters, numbers, and underscores';
+    if (name === 'username') {
+      return getUsernameValidationError(value);
     }
     if (name === 'phone' && !value) {
       return 'Phone number is required';
@@ -157,7 +157,8 @@ const Signup = () => {
   useEffect(() => {
     const username = sanitizeUsernameInput(formData.username);
 
-    if (!username || !isUsernameFormatValid(username) || username.length < 3) {
+    const usernameError = getUsernameValidationError(username);
+    if (usernameError) {
       setUsernameAvailability({
         status: 'idle',
         message: '',
@@ -361,6 +362,16 @@ const Signup = () => {
       return;
     }
 
+    const usernameError = getUsernameValidationError(formData.username);
+    if (usernameError) {
+      setFieldErrors(prev => ({
+        ...prev,
+        username: usernameError,
+      }));
+      setError(usernameError);
+      return;
+    }
+
     if (usernameAvailability.available === false) {
       setError(usernameAvailability.message || 'This username is taken. Please try something else.');
       return;
@@ -375,7 +386,7 @@ const Signup = () => {
         redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        username: formData.username,
+        username: sanitizeUsernameInput(formData.username),
         phone: formData.phone,
         countryCode: formData.countryCode,
         area: formData.area,

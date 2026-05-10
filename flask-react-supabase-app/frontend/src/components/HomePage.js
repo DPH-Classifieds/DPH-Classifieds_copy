@@ -194,33 +194,17 @@ const HomePage = () => {
       setError(null);
 
       try {
-        const results = await Promise.allSettled([
-          axios.get(`${API_URL}/api/cars?limit=4&order=created_at.desc`),
-          axios.get(`${API_URL}/api/bikes?limit=3&order=created_at.desc`),
-          axios.get(`${API_URL}/api/parts?limit=3&order=created_at.desc`),
-          axios.get(`${API_URL}/api/plates?limit=3&order=created_at.desc`),
-        ]);
-
         const nextItems = [];
+        const response = await axios.get(`${API_URL}/api/homepage/preview`);
+        const payload = response.data || {};
         const categoryMap = [
-          { key: 'cars', result: results[0] },
-          { key: 'bikes', result: results[1] },
-          { key: 'parts', result: results[2] },
-          { key: 'plates', result: results[3] },
+          { key: 'cars', items: Array.isArray(payload.cars) ? payload.cars : [] },
+          { key: 'bikes', items: Array.isArray(payload.bikes) ? payload.bikes : [] },
+          { key: 'parts', items: Array.isArray(payload.parts) ? payload.parts : [] },
+          { key: 'plates', items: Array.isArray(payload.plates) ? payload.plates : [] },
         ];
 
-        categoryMap.forEach(({ key, result }) => {
-          if (result.status !== 'fulfilled') {
-            return;
-          }
-
-          const payload = result.value.data;
-          const items = Array.isArray(payload)
-            ? payload
-            : Array.isArray(payload?.cars)
-              ? payload.cars
-              : [];
-
+        categoryMap.forEach(({ key, items }) => {
           items.forEach((item) => {
             nextItems.push(normalizeMarketplaceItem(key, item));
           });
@@ -230,7 +214,7 @@ const HomePage = () => {
         setMarketplaceItems(nextItems.slice(0, 8));
       } catch (requestError) {
         console.error('Error fetching marketplace preview:', requestError);
-        setError('Failed to load marketplace preview');
+        setError('We could not load the marketplace preview right now. Please refresh or contact support.');
         setMarketplaceItems([]);
       } finally {
         setLoading(false);

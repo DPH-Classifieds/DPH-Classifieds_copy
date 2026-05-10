@@ -24,6 +24,7 @@ import re
 import requests
 import secrets
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import ContextVar
 from collections import defaultdict, deque
 from functools import wraps
@@ -115,6 +116,25 @@ USERNAME_AVAILABILITY_CACHE_TTL_SECONDS = int(
     os.getenv("USERNAME_AVAILABILITY_CACHE_TTL_SECONDS", "30")
 )
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
+USERNAME_BLOCKLIST = {
+    "fuck",
+    "shit",
+    "bitch",
+    "asshole",
+    "bastard",
+    "cunt",
+    "dick",
+    "pussy",
+    "slut",
+    "whore",
+    "porn",
+    "rape",
+    "nigger",
+    "faggot",
+    "cock",
+    "cum",
+    "nazi",
+}
 PRIMARY_SUPER_ADMIN_EMAIL = (
     os.getenv("PRIMARY_SUPER_ADMIN_EMAIL", "admin@dphclassifieds.com").strip().lower()
 )
@@ -912,6 +932,172 @@ def _filter_public_listing_records(table_name, records):
             continue
         filtered.append(synced)
     return filtered
+
+
+def _normalize_preview_images(record, relation_key):
+    relation_images = record.pop(relation_key, []) if isinstance(record, dict) else []
+    normalized_images = []
+    for image in relation_images or []:
+        image_url = image.get("display_url") or image.get("image_url") or image.get("url")
+        if image_url:
+            normalized_images.append(
+                {
+                    "id": image.get("id"),
+                    "url": image_url,
+                    "image_url": image_url,
+                }
+            )
+
+    if not normalized_images and isinstance(record, dict):
+        main_url = record.get("display_url") or record.get("image_url") or record.get("url")
+        if main_url:
+            normalized_images.append({"id": "main", "url": main_url, "image_url": main_url})
+
+    if isinstance(record, dict):
+        record["images"] = normalized_images
+    return record
+
+
+def _fetch_public_preview_records(table_name, params, relation_key, normalize=None):
+    response, status = supabase_request(
+        "get",
+        f"/rest/v1/{table_name}",
+        params=params,
+        use_service_role=True,
+    )
+
+    if status >= 400:
+        logger.warning(f"Failed to fetch {table_name} preview records: {status}")
+        return []
+
+    records = response or []
+    if not isinstance(records, list):
+        return []
+
+    records = _filter_public_listing_records(table_name, records)
+    seller_map = _batch_fetch_seller_map(
+        [record.get("user_id") for record in records]
+    )
+
+    for record in records:
+        if callable(normalize):
+            normalize(record)
+        _normalize_preview_images(record, relation_key)
+        _apply_seller_to_listing(record, seller_map.get(record.get("user_id")))
+
+    return records
+
+
+def _fetch_homepage_preview_payload():
+    car_params = {
+        "select": (
+            "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
+            "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
+            "status,is_approved,view_count,lady_driven,"
+            "whatsapp_number,whatsapp_prefill_text,vin_number,car_images("
+            + LISTING_IMAGE_SELECTS["cars"]
+            + ")"
+        ),
+        "limit": "4",
+        "order": "created_at.desc",
+        "status": "eq.approved",
+        "is_approved": "eq.true",
+    }
+
+    bike_params = {
+        "select": (
+            "id,user_id,bike_brand,bike_model,make_year,bike_category,engine_capacity,"
+            "expected_selling_price,kilometer_driven,description,created_at,updated_at,image_url,url,"
+            "display_url,status,is_approved,featured,views,bike_images("
+            + LISTING_IMAGE_SELECTS["bikes"]
+            + ")"
+        ),
+        "limit": "3",
+        "order": "created_at.desc",
+        "status": "eq.approved",
+        "is_approved": "eq.true",
+    }
+
+    part_params = {
+        "select": (
+            "id,user_id,category,part_type,brand,model,condition,price,description,city,"
+            "created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+            "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
+        ),
+        "limit": "3",
+        "order": "created_at.desc",
+        "status": "eq.approved",
+        "is_approved": "eq.true",
+    }
+
+    plate_params = {
+        "select": (
+            "id,user_id,city,code,digits,price,number,plate_format,"
+            "description,created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+            "plate_images(" + LISTING_IMAGE_SELECTS["license_plates"] + ")"
+        ),
+        "limit": "3",
+        "order": "created_at.desc",
+        "status": "eq.approved",
+        "is_approved": "eq.true",
+    }
+
+    categories = [
+        ("cars", "cars", car_params, "car_images", None),
+        ("bikes", "bikes", bike_params, "bike_images", _normalize_bike_record),
+        ("parts", "car_parts", part_params, "part_images", None),
+        ("plates", "license_plates", plate_params, "plate_images", None),
+    ]
+
+    preview_payload = {}
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        future_map = {}
+        for category, table_name, params, relation_key, normalize in categories:
+            future_map[
+                executor.submit(
+                    _fetch_public_preview_records,
+                    table_name,
+                    params,
+                    relation_key,
+                    normalize,
+                )
+            ] = category
+
+        for future in as_completed(future_map):
+            category = future_map[future]
+            try:
+                preview_payload[category] = future.result()
+            except Exception as preview_err:
+                logger.warning(
+                    f"Failed to build {category} homepage preview: {preview_err}"
+                )
+                preview_payload[category] = []
+
+    return preview_payload
+
+
+@app.route("/api/homepage/preview", methods=["GET"])
+def get_homepage_preview():
+    try:
+        cache_key = _build_api_cache_key()
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return _cached_json_response(cached_payload)
+
+        payload = _fetch_homepage_preview_payload()
+        _api_cache_set(cache_key, payload, ttl_seconds=90)
+        return _cached_json_response(payload, ttl_seconds=90)
+    except Exception as e:
+        logger.error(f"Error building homepage preview: {e}")
+        return jsonify(
+            {
+                "error": "Unable to load homepage preview right now",
+                "cars": [],
+                "bikes": [],
+                "parts": [],
+                "plates": [],
+            }
+        ), 500
 
 
 def _record_is_active_public_listing(record):
@@ -5472,6 +5658,14 @@ def update_user_profile(current_user):
         requested_username = _normalize_username_value(update_payload.get("username"))
         existing_username = _normalize_username_value(existing_user.get("username"))
         if requested_username and requested_username != existing_username:
+            if _is_username_blocked(requested_username):
+                return jsonify(
+                    {
+                        "message": _username_blocked_message(),
+                        "code": "username_blocked",
+                        "field": "username",
+                    }
+                ), 409
             username_check = _check_username_availability(
                 requested_username,
                 current_user,
@@ -6020,6 +6214,7 @@ def get_user_statistics(current_user):
 def find_user_email_by_username(username):
     """Find user's email by username for login"""
     try:
+        normalized_username = _normalize_username_value(username)
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
             "apikey": service_role_key,
@@ -6028,7 +6223,7 @@ def find_user_email_by_username(username):
         }
 
         # Search for user by username
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=eq.{username}&select=email"
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=ilike.{normalized_username}&select=email"
         response = requests.get(url, headers=headers)
 
         if response.status_code == 200:
@@ -6071,13 +6266,14 @@ def user_exists_by_email(email):
 def find_user_email_by_username(username):
     """Look up a user's email address by their username."""
     try:
+        normalized_username = _normalize_username_value(username)
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
             "apikey": service_role_key,
             "Authorization": f"Bearer {service_role_key}",
             "Content-Type": "application/json",
         }
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=eq.{username}&select=email&limit=1"
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/users?username=ilike.{normalized_username}&select=email&limit=1"
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code != 200:
             logger.warning(
@@ -6255,6 +6451,21 @@ def _normalize_username_value(username):
     return str(username or "").strip()
 
 
+def _compact_username_value(username):
+    return re.sub(r"[^a-z0-9]", "", _normalize_username_value(username).lower())
+
+
+def _username_blocked_message():
+    return "That username is not allowed. Please choose a different one."
+
+
+def _is_username_blocked(username):
+    compact = _compact_username_value(username)
+    if not compact:
+        return True
+    return any(term in compact for term in USERNAME_BLOCKLIST)
+
+
 def _username_availability_cache_key(username, exclude_user_id=None):
     normalized = _normalize_username_value(username)
     exclude = str(exclude_user_id or "").strip()
@@ -6279,6 +6490,13 @@ def _check_username_availability(username, exclude_user_id=None):
             "message": "Username can only contain letters, numbers, and underscores",
             "username": normalized_username,
         }
+    if _is_username_blocked(normalized_username):
+        return {
+            "available": False,
+            "message": _username_blocked_message(),
+            "username": normalized_username,
+            "code": "username_blocked",
+        }
 
     cache_key = _username_availability_cache_key(username, exclude_user_id)
     cached = _api_cache_get(cache_key)
@@ -6287,7 +6505,7 @@ def _check_username_availability(username, exclude_user_id=None):
 
     params = {
         "select": "id,username",
-        "username": f"eq.{normalized_username}",
+        "username": f"ilike.{normalized_username}",
         "limit": "1",
     }
     if exclude_user_id:
@@ -6428,6 +6646,14 @@ def signup():
 
     requested_username = _normalize_username_value(cleaned_metadata.get("username"))
     if requested_username:
+        if _is_username_blocked(requested_username):
+            return jsonify(
+                {
+                    "message": _username_blocked_message(),
+                    "code": "username_blocked",
+                    "field": "username",
+                }
+            ), 409
         username_check = _check_username_availability(requested_username)
         if not username_check.get("available", False):
             return jsonify(
@@ -8004,6 +8230,11 @@ def delete_bike(current_user, bike_id):
 @app.route("/api/plates", methods=["GET"])
 def get_plates():
     try:
+        cache_key = _build_api_cache_key()
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return _cached_json_response(cached_payload)
+
         # Get query parameters
         limit, offset = _parse_pagination_args()
 
@@ -8059,17 +8290,21 @@ def get_plates():
 
                 _apply_seller_to_listing(plate, seller_map.get(plate.get("user_id")))
 
-            return jsonify(plates), 200
+            _api_cache_set(cache_key, plates)
+            return _cached_json_response(plates)
         else:
             logger.error(
                 f"Failed to fetch plates: {response.status_code} - {response.text}"
             )
-            return jsonify([]), 200  # Return empty array instead of error
+            empty_payload = []
+            _api_cache_set(cache_key, empty_payload)
+            return _cached_json_response(empty_payload)
     except Exception as e:
         logger.error(f"Error fetching plates: {str(e)}", exc_info=True)
-        return jsonify(
-            []
-        ), 200  # Return empty array instead of error to prevent frontend crash
+        empty_payload = []
+        if "cache_key" in locals():
+            _api_cache_set(cache_key, empty_payload)
+        return _cached_json_response(empty_payload)
 
 
 @app.route("/api/plates/<plate_id>", methods=["GET", "PUT", "PATCH", "POST"])

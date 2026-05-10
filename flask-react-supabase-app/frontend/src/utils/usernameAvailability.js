@@ -1,6 +1,25 @@
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const inflightChecks = new Map();
+const USERNAME_BLOCKLIST = [
+  'fuck',
+  'shit',
+  'bitch',
+  'asshole',
+  'bastard',
+  'cunt',
+  'dick',
+  'pussy',
+  'slut',
+  'whore',
+  'porn',
+  'rape',
+  'nigger',
+  'faggot',
+  'cock',
+  'cum',
+  'nazi',
+];
 
 const getStorage = () => {
   try {
@@ -53,12 +72,43 @@ export const sanitizeUsernameInput = (value) => String(value || '').trim();
 
 export const isUsernameFormatValid = (value) => /^[A-Za-z0-9_]+$/.test(sanitizeUsernameInput(value));
 
+const normalizeUsernameForReview = (value) =>
+  sanitizeUsernameInput(value).toLowerCase();
+
+const compactUsername = (value) =>
+  normalizeUsernameForReview(value).replace(/[^a-z0-9]/g, '');
+
+export const getUsernameValidationError = (value) => {
+  const normalized = normalizeUsernameForReview(value);
+  if (!normalized) {
+    return 'Username is required';
+  }
+  if (normalized.length < 3) {
+    return 'Username must be at least 3 characters';
+  }
+  if (!isUsernameFormatValid(normalized)) {
+    return 'Username can only contain letters, numbers, and underscores';
+  }
+
+  const compact = compactUsername(normalized);
+  if (!compact) {
+    return 'Username can only contain letters, numbers, and underscores';
+  }
+
+  if (USERNAME_BLOCKLIST.some((term) => compact.includes(term))) {
+    return 'That username is not allowed. Please choose a different one.';
+  }
+
+  return null;
+};
+
 export const checkUsernameAvailability = async ({ username, excludeUserId = '' } = {}) => {
   const normalizedUsername = sanitizeUsernameInput(username);
-  if (!normalizedUsername) {
+  const validationError = getUsernameValidationError(normalizedUsername);
+  if (validationError) {
     return {
       available: false,
-      message: 'Username is required',
+      message: validationError,
       username: normalizedUsername,
     };
   }

@@ -5,7 +5,7 @@ import { getAccessToken, getCurrentUser } from '../utils/authService';
 import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/profileCompletion';
 import { resolveMediaUrl } from '../utils/media';
 import { splitPhoneNumberForInput } from '../utils/countryCodes';
-import { checkUsernameAvailability, sanitizeUsernameInput, isUsernameFormatValid } from '../utils/usernameAvailability';
+import { checkUsernameAvailability, sanitizeUsernameInput, getUsernameValidationError } from '../utils/usernameAvailability';
 import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect } from '../utils/directUpload';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import '../styles/AccountSettings.css';
@@ -187,7 +187,8 @@ const AccountSettings = () => {
   useEffect(() => {
     const username = sanitizeUsernameInput(profileData.username);
 
-    if (!username || !isUsernameFormatValid(username) || username.length < 3) {
+    const usernameError = getUsernameValidationError(username);
+    if (usernameError) {
       setUsernameAvailability({
         status: 'idle',
         message: '',
@@ -387,6 +388,13 @@ const AccountSettings = () => {
     setMessage(null);
     setError(null);
 
+    const usernameError = getUsernameValidationError(profileData.username);
+    if (usernameError) {
+      setError(usernameError);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     if (usernameAvailability.available === false) {
       setError(usernameAvailability.message || 'This username is taken. Please try something else.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -414,6 +422,7 @@ const AccountSettings = () => {
 
       const updateData = {
         ...profileData,
+        username: sanitizeUsernameInput(profileData.username),
         phone: phoneParts.phoneNumber,
         countryCode: phoneParts.countryCode,
         profilePhotoUrl,
