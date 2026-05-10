@@ -623,6 +623,14 @@ const PostPlate = () => {
             </div>
 
             <div className="form-actions-section">
+              {isSubmitting ? (
+                <div className="submit-loading-state" aria-live="polite" aria-atomic="true">
+                  <div className="submit-loading-text">Submitting...</div>
+                  <div className="submit-loading-bar" role="progressbar" aria-valuetext="Submitting your listing">
+                    <span className="submit-loading-bar-fill" />
+                  </div>
+                </div>
+              ) : null}
               <button type="submit" className="submit-btn" disabled={isSubmitting}>
                 {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Plate Listing' : 'Submit Plate Listing')}
               </button>

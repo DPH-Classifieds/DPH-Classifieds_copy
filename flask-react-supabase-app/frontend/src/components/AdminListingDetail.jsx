@@ -158,13 +158,7 @@ const AdminListingDetail = () => {
         headers: { 'Content-Type': 'application/json' },
         body: payload,
       });
-      const response = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
-      setData(response || null);
-      if (action === 'reject') {
-        setShowRejectModal(false);
-        setRejectReasonIndex('');
-        setModerationNote('');
-      }
+      navigate(`/admin/listings?filter=${approvalRouteType}&status=pending`);
     } catch (saveError) {
       setError(saveError.message || `Failed to ${action} listing`);
     } finally {

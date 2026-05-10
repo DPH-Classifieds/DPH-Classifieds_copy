@@ -864,14 +864,22 @@ const PostBike = () => {
                   </div>
                 )}
               </div>
-            </div>
+          </div>
 
-            <div className="form-actions-section">
-              <button type="submit" className="submit-btn" disabled={isSubmitting}>
-                {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Bike Listing' : 'Submit Bike Listing')}
-              </button>
-              <p>Your listing will be reviewed before it goes live. We keep the data and media pipeline aligned with the backend bike schema.</p>
-            </div>
+          <div className="form-actions-section">
+            {isSubmitting ? (
+              <div className="submit-loading-state" aria-live="polite" aria-atomic="true">
+                <div className="submit-loading-text">Submitting...</div>
+                <div className="submit-loading-bar" role="progressbar" aria-valuetext="Submitting your listing">
+                  <span className="submit-loading-bar-fill" />
+                </div>
+              </div>
+            ) : null}
+            <button type="submit" className="submit-btn" disabled={isSubmitting}>
+              {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Bike Listing' : 'Submit Bike Listing')}
+            </button>
+            <p>Your listing will be reviewed before it goes live. We keep the data and media pipeline aligned with the backend bike schema.</p>
+          </div>
           </form>
         </div>
       </section>

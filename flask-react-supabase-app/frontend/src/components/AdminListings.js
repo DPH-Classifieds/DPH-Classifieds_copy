@@ -22,7 +22,7 @@ const AdminListings = () => {
   const [listings, setListings] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
-  const [selectedListing] = useState(null);
+  const [selectedListing, setSelectedListing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -141,6 +141,7 @@ const AdminListings = () => {
       setShowRejectConfirm(false);
       setRejectionNote('');
       setSelectedRejectIndex('');
+      setSelectedListing(null);
     } catch (error) {
       console.error('Failed to reject listing:', error);
       showToast('Failed to reject listing. Please try again.', 'error');
@@ -181,6 +182,7 @@ const AdminListings = () => {
       setShowDeleteConfirm(false);
       setDeleteReason('');
       setDeleteReasonDetails('');
+      setSelectedListing(null);
     } catch (error) {
       console.error('Failed to delete listing:', error);
       showToast('Failed to delete listing. Please try again.', 'error');
@@ -283,13 +285,41 @@ const AdminListings = () => {
           View Details
         </button>
         {(statusFilter === 'pending') && (
-          <button
-            onClick={() => handleApprove(listing.id)}
-            className="action-button approve-btn"
-            disabled={actionLoading}
-          >
-            Approve
-          </button>
+          <>
+            <button
+              onClick={() => handleApprove(listing.id)}
+              className="action-button approve-btn"
+              disabled={actionLoading}
+            >
+              Approve
+            </button>
+            <button
+              onClick={() => {
+                setSelectedListing(listing);
+                setRejectionNote('');
+                setSelectedRejectIndex('');
+                setShowRejectConfirm(false);
+                setShowRejectModal(true);
+              }}
+              className="action-button reject-btn"
+              disabled={actionLoading}
+            >
+              Reject
+            </button>
+            <button
+              onClick={() => {
+                setSelectedListing(listing);
+                setDeleteReason('');
+                setDeleteReasonDetails('');
+                setShowDeleteConfirm(false);
+                setShowDeleteModal(true);
+              }}
+              className="action-button reject-btn"
+              disabled={actionLoading}
+            >
+              Delete
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -502,7 +532,7 @@ const AdminListings = () => {
               <>
                 <div className="modal-header">
                   <h2>Reject Listing</h2>
-                  <button onClick={() => { setShowRejectModal(false); setShowRejectConfirm(false); }} className="close-modal" type="button">
+                  <button onClick={() => { setShowRejectModal(false); setShowRejectConfirm(false); setSelectedListing(null); }} className="close-modal" type="button">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
@@ -537,7 +567,7 @@ const AdminListings = () => {
                 </div>
                 <div className="modal-footer">
                   <button
-                    onClick={() => { setShowRejectModal(false); setShowRejectConfirm(false); }}
+                    onClick={() => { setShowRejectModal(false); setShowRejectConfirm(false); setSelectedListing(null); }}
                     className="action-button secondary"
                   >
                     Cancel
@@ -612,7 +642,7 @@ const AdminListings = () => {
               <>
                 <div className="modal-header">
                   <h2>Remove Listing</h2>
-                  <button onClick={() => { setShowDeleteModal(false); setShowDeleteConfirm(false); }} className="close-modal" type="button">
+                  <button onClick={() => { setShowDeleteModal(false); setShowDeleteConfirm(false); setSelectedListing(null); }} className="close-modal" type="button">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
@@ -658,7 +688,7 @@ const AdminListings = () => {
                 </div>
                 <div className="modal-footer">
                   <button
-                    onClick={() => { setShowDeleteModal(false); setShowDeleteConfirm(false); }}
+                    onClick={() => { setShowDeleteModal(false); setShowDeleteConfirm(false); setSelectedListing(null); }}
                     className="action-button secondary"
                   >
                     Cancel

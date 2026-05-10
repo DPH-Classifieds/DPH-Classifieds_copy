@@ -758,6 +758,14 @@ const PostCarParts = () => {
             </div>
 
             <div className="form-actions-section">
+              {isSubmitting ? (
+                <div className="submit-loading-state" aria-live="polite" aria-atomic="true">
+                  <div className="submit-loading-text">Submitting...</div>
+                  <div className="submit-loading-bar" role="progressbar" aria-valuetext="Submitting your listing">
+                    <span className="submit-loading-bar-fill" />
+                  </div>
+                </div>
+              ) : null}
               <button type="submit" className="submit-btn" disabled={isSubmitting}>
                 {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Part Listing' : 'Submit Part Listing')}
               </button>
