@@ -920,6 +920,34 @@
     padding: 18px 16px 36px;
   }
 
+  .admin-ops .admin-page-header {
+    margin-bottom: 18px;
+  }
+
+  .admin-ops .admin-page-title {
+    font-size: 1.75rem;
+  }
+
+  .admin-ops .admin-page-subtitle {
+    margin-top: 8px;
+    font-size: 0.95rem;
+  }
+
+  .admin-ops .admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .admin-ops .admin-kpi-card {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .admin-ops .admin-kpi-value {
+    margin-top: 8px;
+    font-size: 1.3rem;
+  }
+
   .admin-ops .users-grid,
   .admin-ops .listings-grid {
     grid-template-columns: 1fr;
@@ -944,6 +972,14 @@
     width: 100%;
   }
 
+  .admin-ops .listing-card {
+    padding: 16px;
+  }
+
+  .admin-ops .listing-info h3 {
+    font-size: 16px;
+  }
+
   .admin-ops .admin-chart-row {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -951,5 +987,20 @@
 
   .admin-ops .admin-chart-value {
     text-align: left;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-ops .admin-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-ops .filter-tabs {
+    gap: 8px;
+  }
+
+  .admin-ops .filter-tab {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
   }
 }
