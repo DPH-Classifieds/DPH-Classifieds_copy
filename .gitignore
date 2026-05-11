@@ -41,6 +41,7 @@ id_dsa
 *_ecdsa
 
 # Local tooling and generated artifacts
+.worktrees/
 .playwright-mcp/
 .ruff_cache/
 **/.DS_Store
