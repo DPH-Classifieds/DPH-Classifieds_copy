@@ -23,9 +23,20 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
       ? '/cars'
       : item.categoryKey === 'car-parts'
         ? '/car-parts'
-        : item.categoryKey === 'plates'
+      : item.categoryKey === 'plates'
           ? '/plates'
           : '/bikes');
+
+  const isCarListing = item?.categoryKey === 'cars';
+  const carMetaParts = isCarListing
+    ? [
+        item?.year ? String(item.year) : null,
+        item?.kilometers || item?.kilometers === 0
+          ? `${Number(item.kilometers).toLocaleString()} km`
+          : null,
+        item?.location || null,
+      ].filter(Boolean)
+    : [];
 
   return (
     <article
@@ -74,14 +85,13 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           </div>
         </div>
 
-        <p className="explore-v2-card-meta">{item.subtitle}</p>
-        {item.categoryKey !== 'cars' && item.description ? (
+        <p className="explore-v2-card-meta">
+          {isCarListing ? carMetaParts.join(' • ') : item.subtitle}
+        </p>
+
+        {!isCarListing && item.description ? (
           <p className="explore-v2-card-description">{item.description}</p>
         ) : null}
-
-        <div className="explore-v2-card-location">
-          <span>{item.location || 'UAE'}</span>
-        </div>
 
         <div className="explore-v2-card-actions">
           <Link to={item.route} className="explore-v2-button explore-v2-button-primary">

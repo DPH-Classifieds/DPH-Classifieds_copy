@@ -193,7 +193,11 @@ const normalizeCar = (car) => {
   const make = car.car_manufacturer || car.make;
   const model = car.car_model || car.model;
   const trim = car.car_trim || car.trim;
-  const title = [year, make, model, trim].filter(Boolean).join(' ').trim() || car.listing_title || car.title || 'Untitled car';
+  const title =
+    [make, model, trim].filter(Boolean).join(' ').trim() ||
+    car.listing_title ||
+    car.title ||
+    'Untitled car';
   const mileage = car.kilometer_driven || car.kilometer || car.mileage;
   const location = car.car_city || car.city || car.location || 'UAE';
   const price = car.expected_selling_price || car.price;
@@ -203,10 +207,12 @@ const normalizeCar = (car) => {
     categoryKey: 'cars',
     categoryLabel: 'Car',
     title,
-    subtitle: [year || 'Year pending', mileage ? `${Number(mileage).toLocaleString()} km` : 'Mileage pending', location]
+    year,
+    kilometers: mileage,
+    subtitle: [year, mileage ? `${Number(mileage).toLocaleString()} km` : null, location]
       .filter(Boolean)
       .join(' • '),
-    description: normalizeText(car.description || car.price_insight || ''),
+    description: normalizeText(car.description || car.price_insight || 'Vehicle listing in the UAE marketplace.'),
     location,
     priceLabel: formatPrice(price),
     numericPrice: toNumeric(price),
@@ -215,6 +221,7 @@ const normalizeCar = (car) => {
     createdAt: car.created_at,
     searchableText: buildSearchableText([
       title,
+      year,
       make,
       model,
       trim,

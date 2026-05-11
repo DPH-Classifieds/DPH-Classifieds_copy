@@ -13,7 +13,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [resetStatus, setResetStatus] = useState(null);
   const [resetLoading, setResetLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const { syncWithSupabase } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

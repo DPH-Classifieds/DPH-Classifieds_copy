@@ -29,6 +29,7 @@ const AdminDashboard = () => {
   const [history, setHistory] = useState([]);
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
+  const [liveUsers, setLiveUsers] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -67,6 +68,28 @@ const AdminDashboard = () => {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId = null;
+
+    const loadLiveUsers = async () => {
+      try {
+        const res = await apiClient.request('/api/admin/live-users?window_seconds=300').catch(() => null);
+        if (!cancelled) setLiveUsers(res);
+      } catch (liveError) {
+        if (!cancelled) setLiveUsers(null);
+      }
+    };
+
+    loadLiveUsers();
+    intervalId = window.setInterval(loadLiveUsers, 15000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, []);
+
   const totals = leadMetrics?.totals || {};
   const recentEvents = leadMetrics?.recent_events ?? EMPTY_ARRAY;
   const recentReports = leadMetrics?.recent_reports ?? EMPTY_ARRAY;
@@ -98,6 +121,7 @@ const AdminDashboard = () => {
   const verifiedDealers = dealers.filter((dealer) => dealer.dealer_verified).length;
   const pendingDealers = dealers.filter((dealer) => !dealer.dealer_verified).length;
   const pendingReports = reports.filter((report) => (report.status || 'pending') === 'pending').length;
+  const liveVisitorsCount = clampNumber(liveUsers?.live_visitors);
   const pendingByType = [
     { label: 'Cars', value: clampNumber(stats.cars_pending) },
     { label: 'Bikes', value: clampNumber(stats.bikes_pending) },
@@ -254,6 +278,11 @@ const AdminDashboard = () => {
           <div className="admin-kpi-label">Users</div>
           <div className="admin-kpi-value">{formatCompact(totalUsers)}</div>
           <div className="admin-kpi-note">Active accounts in the platform database.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Live users</div>
+          <div className="admin-kpi-value">{formatCompact(liveVisitorsCount)}</div>
+          <div className="admin-kpi-note">Distinct visitors active in the last 5 minutes.</div>
         </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Dealer health</div>

@@ -72,6 +72,7 @@ export const DUBAI_AREAS = [
   "Motor City",
   "Mudon",
   "Nad Al Sheba",
+  "Nad Al Hamar",
   "Al Kifaf",
   "Palm Jumeirah",
   "Palm Jebel Ali",
@@ -289,4 +290,13 @@ export const FUEL_EFFICIENCY_OPTIONS = [
   "30+",
 ];
 
-export const TAG_OPTIONS = [];
+export const TAG_OPTIONS = [
+  // Note: these are allowed as selectable "extras" in the post form for now,
+  // but the app deliberately does not display them on cards or listings.
+  "Lady Driven",
+  "Doctor Driven",
+  "Expat Owned",
+  "Executive Driven",
+  "Mallu Owned",
+  "British Owned",
+];

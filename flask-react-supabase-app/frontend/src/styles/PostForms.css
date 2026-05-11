@@ -362,8 +362,8 @@
 
 .feature-item:has(input:checked),
 .form-check:has(.form-check-input:checked) {
-  background: var(--pf-input);
-  border-color: var(--pf-border);
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .extras-toggle {

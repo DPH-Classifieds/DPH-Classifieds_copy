@@ -937,8 +937,9 @@ const PostCar = () => {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    e.target.value = '';
     processFiles(files);
+    // Allow selecting the same file again in a later pick.
+    e.target.value = '';
   };
 
   const handleBrowseClick = () => {
@@ -1136,7 +1137,9 @@ const PostCar = () => {
         setDraftNotice('Draft saved.');
       } catch (draftError) {
         console.error('Failed to save car draft:', draftError);
-        setError('Could not sync your draft right now. It was saved in this browser, but please contact support if the issue continues.');
+        setError(
+          'Could not sync your draft right now. It was saved in this browser, but please contact support if the issue continues.'
+        );
       } finally {
         setIsDraftSaving(false);
         window.setTimeout(() => {
@@ -1184,6 +1187,10 @@ const PostCar = () => {
       // Prepare submission data
       const submissionData = {
         ...formData,
+        // "Seller tags" are selectable in the UI for now, but should not persist or display anywhere.
+        extras: Array.isArray(formData.extras)
+          ? formData.extras.filter((extra) => !TAG_OPTIONS.includes(extra))
+          : [],
         fuel_type:
           formData.fuel_type === 'Other' ? `Other - ${otherFuelType.trim()}` : formData.fuel_type,
         whatsapp_prefill_text: DEFAULT_WHATSAPP_PREFILL,

@@ -381,16 +381,18 @@ const CarDetail = () => {
   const canViewVin = isOwner || isPhoneVerified;
   const visibleVin = vinVisible ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
 
-  const handleCallClick = () => {
+  const handleCallClick = (event) => {
     if (!ensureContactAccess({ user, navigate, nextRoute: `${location.pathname}${location.search}` })) {
+      event?.preventDefault?.();
       return false;
     }
     trackLeadEvent('call_click', { listing_id: id });
     return true;
   };
 
-  const handleWhatsappClick = () => {
+  const handleWhatsappClick = (event) => {
     if (!ensureContactAccess({ user, navigate, nextRoute: `${location.pathname}${location.search}` })) {
+      event?.preventDefault?.();
       return false;
     }
     trackLeadEvent('whatsapp_click', { listing_id: id });
@@ -558,34 +560,26 @@ const CarDetail = () => {
 
               <div className="cd-divider"></div>
 
-              <div className="cd-cta-buttons">
-                <a 
-                  href={`tel:${car?.country_code || ''}${car?.car_owner_phone_number || car?.contact_phone}`} 
-                  className="cd-button cd-button-primary"
-                  onClick={(event) => {
-                    if (!handleCallClick()) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  Call Seller
-                </a>
-                <a 
-                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="cd-button cd-button-secondary"
-                  onClick={(event) => {
-                    if (!handleWhatsappClick()) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  WhatsApp
-                </a>
-                <SavedListingToggleButton
-                  listingType="car"
-                  listingId={id}
+	              <div className="cd-cta-buttons">
+	                <a 
+	                  href={`tel:${car?.country_code || ''}${car?.car_owner_phone_number || car?.contact_phone}`}
+	                  className="cd-button cd-button-primary"
+	                  onClick={handleCallClick}
+	                >
+	                  Call Seller
+	                </a>
+	                <a 
+	                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
+	                  target="_blank" 
+	                  rel="noopener noreferrer"
+	                  className="cd-button cd-button-secondary"
+	                  onClick={handleWhatsappClick}
+	                >
+	                  WhatsApp
+	                </a>
+	                <SavedListingToggleButton
+	                  listingType="car"
+	                  listingId={id}
                   listingData={car}
                   className="saved-listing-button-detail"
                   label="Save listing"
@@ -608,10 +602,7 @@ const CarDetail = () => {
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {car?.dealer_name || car?.contact_name || 'Private Seller'}
-                  {car?.dealer_verified && (
-                    <span className="cd-verified-badge">✓</span>
-                  )}
+                  Seller
                 </div>
               </div>
               <div className="cd-divider"></div>
@@ -842,43 +833,43 @@ const CarDetail = () => {
 
         <ReportButton listingId={id} listingType="car" />
 
-        {showPhoneVerifyModal && (
-          <PhoneVerificationFlow
-            mode="modal"
-            open={showPhoneVerifyModal}
-            title="Phone verification required"
-            description="Verify your phone to reveal the VIN for this listing."
-            phone={verificationPhone || viewerProfile?.phone || user?.phone || ''}
-            countryCode={viewerProfile?.country_code || user?.country_code || '+971'}
-            purpose="vin_reveal"
-            listingId={id}
-            verificationId={phoneVerificationSession?.verificationId || null}
-            onClose={() => {
-              setShowPhoneVerifyModal(false);
-              setPhoneVerificationSession(null);
-            }}
-            onVerified={async (result) => {
-              setPhoneVerificationSession(null);
-              setShowPhoneVerifyModal(false);
-              setVinVisible(true);
-              setViewerProfile((prev) => ({
-                ...(prev || {}),
-                phone_verified: true,
-              }));
-              // Refresh global user state so phone_verified is up-to-date
-              try {
-                const { user: refreshedUser } = await getCurrentUser(true);
-                if (refreshedUser && refreshedUser.id) {
-                  updateUser(refreshedUser);
-                }
-              } catch (err) {
-                console.error('Failed to refresh user after phone verification:', err);
-              }
-              await trackLeadEvent('vin_reveal', { listing_id: id, verification: result?.verification });
-            }}
-            autoStart
-          />
-        )}
+	        {showPhoneVerifyModal && (
+	          <PhoneVerificationFlow
+	            mode="modal"
+	            open={showPhoneVerifyModal}
+	            title="Phone verification required"
+	            description="Verify your phone to reveal contact details (and VIN where applicable)."
+	            phone={verificationPhone || viewerProfile?.phone || user?.phone || ''}
+	            countryCode={viewerProfile?.country_code || user?.country_code || '+971'}
+	            purpose="vin_reveal"
+	            listingId={id}
+	            verificationId={phoneVerificationSession?.verificationId || null}
+	            onClose={() => {
+	              setShowPhoneVerifyModal(false);
+	              setPhoneVerificationSession(null);
+	            }}
+	            onVerified={async (result) => {
+	              setPhoneVerificationSession(null);
+	              setShowPhoneVerifyModal(false);
+	              setVinVisible(true);
+	              setViewerProfile((prev) => ({
+	                ...(prev || {}),
+	                phone_verified: true,
+	              }));
+	              // Refresh global user state so phone_verified is up-to-date
+	              try {
+	                const { user: refreshedUser } = await getCurrentUser(true);
+	                if (refreshedUser && refreshedUser.id) {
+	                  updateUser(refreshedUser);
+	                }
+	              } catch (err) {
+	                console.error('Failed to refresh user after phone verification:', err);
+	              }
+	              await trackLeadEvent('vin_reveal', { listing_id: id, verification: result?.verification });
+	            }}
+	            autoStart
+	          />
+	        )}
       </div>
     </div>
   );

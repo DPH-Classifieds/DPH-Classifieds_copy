@@ -55,7 +55,9 @@ const PartDetailRedesigned = () => {
       setError(null);
 
       try {
-        const response = await axios.get(`${API_URL}/api/parts/${id}`);
+        const token = await getAccessToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(`${API_URL}/api/parts/${id}`, { headers });
 
         setPart(response.data);
 
@@ -325,7 +327,7 @@ const PartDetailRedesigned = () => {
 
               <div className="cd-cta-buttons">
                 <a 
-                  href={`tel:${part?.country_code || ''}${part?.contact_number}`} 
+                  href={`tel:${part?.country_code || ''}${part?.contact_number}`}
                   className="cd-button cd-button-primary"
                   onClick={(event) => {
                     if (!handleCallClick()) {
@@ -338,7 +340,7 @@ const PartDetailRedesigned = () => {
                   Call Seller
                 </a>
                 <a 
-                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`} 
+                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"

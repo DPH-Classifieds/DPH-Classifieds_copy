@@ -1698,6 +1698,189 @@ def _load_saved_listing_card(current_user, listing_type, listing_id, saved_row=N
     return _build_saved_listing_card(normalized_type, listing, saved_row), None, 200
 
 
+def token_required(f):
+    """Validate Supabase JWT (header/cookie) and inject `current_user` (user id).
+
+    This decorator must be defined before any `@token_required` usage. It reads
+    env vars at request-time so import order cannot break Gunicorn deploys.
+    """
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+
+        if not auth_header:
+            cookie_token = request.cookies.get("access_token")
+            if cookie_token:
+                auth_header = f"Bearer {cookie_token}"
+
+        if not auth_header:
+            return jsonify({"message": "Authorization header is required"}), 401
+
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return (
+                jsonify({"message": "Invalid Authorization format. Use: Bearer <token>"}),
+                401,
+            )
+
+        token = parts[1]
+
+        # 1) Try local JWT validation when secret is available.
+        jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+        if jwt_secret:
+            try:
+                import base64
+                import jwt as pyjwt
+
+                secret = jwt_secret
+                try:
+                    secret = base64.b64decode(secret + "==")
+                except Exception:
+                    pass
+
+                payload = pyjwt.decode(
+                    token, secret, algorithms=["HS256"], options={"verify_aud": False}
+                )
+                current_user = payload.get("sub")
+                if not current_user:
+                    return jsonify({"message": "Invalid token: missing user ID"}), 401
+
+                request.user_id = current_user
+                request.user_data = {
+                    "id": current_user,
+                    "email": payload.get("email", ""),
+                    "role": payload.get("role", "authenticated"),
+                }
+                request.supabase_token = token
+                return f(current_user, *args, **kwargs)
+            except Exception as local_error:
+                logger.info(
+                    f"Local JWT validation skipped/failed, falling back to Supabase auth: {local_error}"
+                )
+
+        # 2) Fallback: validate token via Supabase Auth API.
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+
+        if not supabase_url or not supabase_key:
+            logger.error("Missing SUPABASE_URL or SUPABASE_*_KEY for auth fallback.")
+            return jsonify({"message": "Server misconfigured for authentication"}), 500
+
+        try:
+            auth_headers = {
+                "apikey": supabase_key,
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            auth_response = requests.get(
+                f"{supabase_url}/auth/v1/user", headers=auth_headers, timeout=10
+            )
+            if auth_response.status_code != 200:
+                return jsonify({"message": "Token has expired or is invalid"}), 401
+
+            supabase_user = auth_response.json()
+            current_user = supabase_user.get("id")
+            if not current_user:
+                return jsonify({"message": "Invalid token"}), 401
+
+            request.user_id = current_user
+            request.user_data = {
+                "id": current_user,
+                "email": supabase_user.get("email", ""),
+                "role": supabase_user.get("role", "authenticated"),
+            }
+            request.supabase_token = token
+            return f(current_user, *args, **kwargs)
+        except Exception as fallback_error:
+            logger.error(f"Fallback token validation error: {fallback_error}")
+            return jsonify({"message": "Token has expired or is invalid"}), 401
+
+    return decorated
+
+
+def token_required_optional(f):
+    """Like `token_required` but injects `None` when missing/invalid."""
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            cookie_token = request.cookies.get("access_token")
+            if cookie_token:
+                auth_header = f"Bearer {cookie_token}"
+
+        if not auth_header:
+            return f(None, *args, **kwargs)
+
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return f(None, *args, **kwargs)
+
+        token = parts[1]
+
+        jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+        if jwt_secret:
+            try:
+                import base64
+                import jwt as pyjwt
+
+                secret = jwt_secret
+                try:
+                    secret = base64.b64decode(secret + "==")
+                except Exception:
+                    pass
+
+                payload = pyjwt.decode(
+                    token, secret, algorithms=["HS256"], options={"verify_aud": False}
+                )
+                current_user = payload.get("sub")
+                if current_user:
+                    request.user_id = current_user
+                    request.user_data = {
+                        "id": current_user,
+                        "email": payload.get("email", ""),
+                        "role": payload.get("role", "authenticated"),
+                    }
+                    request.supabase_token = token
+                    return f(current_user, *args, **kwargs)
+            except Exception as local_error:
+                logger.info(f"Optional local token validation skipped: {local_error}")
+
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        if not supabase_url or not supabase_key:
+            return f(None, *args, **kwargs)
+
+        try:
+            auth_headers = {
+                "apikey": supabase_key,
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            auth_response = requests.get(
+                f"{supabase_url}/auth/v1/user", headers=auth_headers, timeout=10
+            )
+            if auth_response.status_code == 200:
+                supabase_user = auth_response.json()
+                current_user = supabase_user.get("id")
+                if current_user:
+                    request.user_id = current_user
+                    request.user_data = {
+                        "id": current_user,
+                        "email": supabase_user.get("email", ""),
+                        "role": supabase_user.get("role", "authenticated"),
+                    }
+                    request.supabase_token = token
+                    return f(current_user, *args, **kwargs)
+        except Exception as fallback_error:
+            logger.info(f"Optional Supabase token validation skipped: {fallback_error}")
+
+        return f(None, *args, **kwargs)
+
+    return decorated
+
+
 @app.route("/api/user/saved-listings", methods=["GET"])
 @token_required
 def get_user_saved_listings(current_user):
@@ -2883,193 +3066,7 @@ def get_db_connection():
         raise e
 
 
-# Authentication middleware
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-
-        # First try Authorization header
-        auth_header = request.headers.get("Authorization")
-
-        # Fallback to cookie
-        if not auth_header:
-            token = request.cookies.get("access_token")
-            if token:
-                auth_header = f"Bearer {token}"
-
-        if not auth_header:
-            logger.error("No Authorization header present")
-            return jsonify({"message": "Authorization header is required"}), 401
-
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            logger.error("Invalid Authorization header format")
-            return jsonify(
-                {"message": "Invalid Authorization format. Use: Bearer <token>"}
-            ), 401
-
-        token = parts[1]
-
-        try:
-            import base64
-            import jwt as pyjwt
-
-            # Supabase JWT secret is base64-encoded — decode it first
-            secret = SUPABASE_JWT_SECRET
-            try:
-                secret = base64.b64decode(secret + "==")
-            except Exception:
-                pass  # use as-is if not base64
-
-            payload = pyjwt.decode(
-                token, secret, algorithms=["HS256"], options={"verify_aud": False}
-            )
-
-            current_user = payload.get("sub")
-            if not current_user:
-                logger.error("No sub claim in token")
-                return jsonify({"message": "Invalid token: missing user ID"}), 401
-
-            logger.info(f"Token validated locally for user: {current_user}")
-
-            # Build minimal user_data from token claims
-            user_data = {
-                "id": current_user,
-                "email": payload.get("email", ""),
-                "role": payload.get("role", "authenticated"),
-            }
-
-            request.user_id = current_user
-            request.user_data = user_data
-            request.supabase_token = token
-
-            return f(current_user, *args, **kwargs)
-
-        except pyjwt.ExpiredSignatureError:
-            logger.warning("Token has expired locally, trying Supabase validation")
-        except pyjwt.InvalidTokenError as e:
-            logger.warning(
-                f"Token invalid locally, trying Supabase validation: {str(e)}"
-            )
-
-        try:
-            auth_headers = {
-                "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            }
-            auth_response = requests.get(
-                f"{SUPABASE_URL}/auth/v1/user",
-                headers=auth_headers,
-                timeout=10,
-            )
-            if auth_response.status_code == 200:
-                supabase_user = auth_response.json()
-                current_user = supabase_user.get("id")
-                if not current_user:
-                    logger.error("No user ID in Supabase response")
-                    return jsonify({"message": "Invalid token"}), 401
-                logger.info(
-                    f"Token validated via Supabase API for user: {current_user}"
-                )
-                user_data = {
-                    "id": current_user,
-                    "email": supabase_user.get("email", ""),
-                    "role": supabase_user.get("role", "authenticated"),
-                }
-                request.user_id = current_user
-                request.user_data = user_data
-                request.supabase_token = token
-                return f(current_user, *args, **kwargs)
-            else:
-                logger.error(
-                    f"Supabase token validation failed: {auth_response.status_code}"
-                )
-                return jsonify({"message": "Token has expired or is invalid"}), 401
-        except Exception as e_fallback:
-            logger.error(f"Fallback token validation error: {str(e_fallback)}")
-            return jsonify({"message": "Token has expired or is invalid"}), 401
-
-    return decorated
-
-
-def token_required_optional(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            token = request.cookies.get("access_token")
-            if token:
-                auth_header = f"Bearer {token}"
-
-        if not auth_header:
-            return f(None, *args, **kwargs)
-
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return f(None, *args, **kwargs)
-
-        token = parts[1]
-
-        try:
-            import base64
-            import jwt as pyjwt
-
-            secret = SUPABASE_JWT_SECRET
-            try:
-                secret = base64.b64decode(secret + "==")
-            except Exception:
-                pass
-
-            payload = pyjwt.decode(
-                token, secret, algorithms=["HS256"], options={"verify_aud": False}
-            )
-
-            current_user = payload.get("sub")
-            if current_user:
-                request.user_id = current_user
-                request.user_data = {
-                    "id": current_user,
-                    "email": payload.get("email", ""),
-                    "role": payload.get("role", "authenticated"),
-                }
-                request.supabase_token = token
-                return f(current_user, *args, **kwargs)
-        except Exception as local_error:
-            logger.info(f"Optional local token validation skipped: {local_error}")
-
-        try:
-            auth_headers = {
-                "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            }
-            auth_response = requests.get(
-                f"{SUPABASE_URL}/auth/v1/user",
-                headers=auth_headers,
-                timeout=10,
-            )
-            if auth_response.status_code == 200:
-                supabase_user = auth_response.json()
-                current_user = supabase_user.get("id")
-                if current_user:
-                    request.user_id = current_user
-                    request.user_data = {
-                        "id": current_user,
-                        "email": supabase_user.get("email", ""),
-                        "role": supabase_user.get("role", "authenticated"),
-                    }
-                    request.supabase_token = token
-                    return f(current_user, *args, **kwargs)
-        except Exception as fallback_error:
-            logger.info(f"Optional Supabase token validation skipped: {fallback_error}")
-
-        return f(None, *args, **kwargs)
-
-    return decorated
-
-
+ 
 def _get_optional_user_id_from_auth_header():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
@@ -6774,6 +6771,7 @@ def login():
     # No need to verify Turnstile token here
 
     password = data.get("password")
+    remember_me = bool(data.get("remember_me", True))
 
     # Determine if the identifier is an email or username
     email = identifier
@@ -6846,15 +6844,15 @@ def login():
             # Set HttpOnly cookies for token storage
             response = make_response(jsonify(resp_data), 200)
             secure = os.getenv("FLASK_ENV") == "production"
-            access_token_max_age = 3600 * 24 * 30 if remember_me else None
-            refresh_token_max_age = 3600 * 24 * 30 if remember_me else None
+            access_max_age = 3600 * 24 * 7 if remember_me else None
+            refresh_max_age = 3600 * 24 * 30 if remember_me else None
             response.set_cookie(
                 "access_token",
                 token,
                 httponly=True,
                 secure=secure,
                 samesite="Lax",
-                max_age=access_token_max_age,
+                max_age=access_max_age,
             )
             refresh_token = resp_data.get("refresh_token")
             if refresh_token:
@@ -6864,7 +6862,7 @@ def login():
                     httponly=True,
                     secure=secure,
                     samesite="Lax",
-                    max_age=refresh_token_max_age,
+                    max_age=refresh_max_age,
                 )
             return response
         else:
@@ -11746,6 +11744,7 @@ def get_admin_metrics_overview(current_user):
         if plate_status >= 400:
             plate_rows_resp = []
 
+
         bike_rows_resp, bike_status = supabase_request(
             "get",
             "/rest/v1/bikes",
@@ -11820,6 +11819,56 @@ def get_admin_metrics_overview(current_user):
     except Exception as e:
         logger.error(f"Error fetching admin metrics overview: {str(e)}")
         return jsonify({"error": "Failed to fetch admin metrics"}), 500
+
+
+@app.route("/api/admin/live-users", methods=["GET"])
+@token_required
+def get_admin_live_users(current_user):
+    """Return an approximate count of currently live visitors.
+
+    Uses distinct `visitor_id` values seen in `platform_events` within the lookback window.
+    """
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        lookback_seconds = int(request.args.get("window_seconds", 300))
+        lookback_seconds = max(min(lookback_seconds, 1800), 30)
+        cutoff = (_utc_now() - datetime.timedelta(seconds=lookback_seconds)).isoformat()
+
+        events_resp, status_code = supabase_request(
+            "get",
+            "/rest/v1/platform_events",
+            params={
+                "select": "visitor_id,created_at",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "5000",
+            },
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            return jsonify({"error": "Failed to fetch live visitors"}), status_code
+
+        visitors = {
+            str(row.get("visitor_id")).strip()
+            for row in (events_resp or [])
+            if row and str(row.get("visitor_id") or "").strip()
+        }
+
+        return (
+            jsonify(
+                {
+                    "window_seconds": lookback_seconds,
+                    "live_visitors": len(visitors),
+                    "timestamp": _isoformat_utc(_utc_now()),
+                }
+            ),
+            200,
+        )
+    except Exception as exc:
+        logger.error(f"Failed to compute live visitors: {exc}")
+        return jsonify({"error": "Failed to compute live visitors"}), 500
 
 
 @app.route("/api/health", methods=["GET"])

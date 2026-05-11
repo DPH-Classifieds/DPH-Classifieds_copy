@@ -55,7 +55,9 @@ const PlateDetailRedesigned = () => {
       setError(null);
 
       try {
-        const response = await axios.get(`${API_URL}/api/plates/${id}`);
+        const token = await getAccessToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(`${API_URL}/api/plates/${id}`, { headers });
 
         setPlate(response.data);
 
@@ -326,7 +328,7 @@ const PlateDetailRedesigned = () => {
 
               <div className="cd-cta-buttons">
                 <a 
-                  href={`tel:${plate?.country_code || ''}${plate?.contact_phone}`} 
+                  href={`tel:${plate?.country_code || ''}${plate?.contact_phone}`}
                   className="cd-button cd-button-primary"
                   onClick={(event) => {
                     if (!handleCallClick()) {
@@ -339,7 +341,7 @@ const PlateDetailRedesigned = () => {
                   Call Seller
                 </a>
                 <a 
-                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`} 
+                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"

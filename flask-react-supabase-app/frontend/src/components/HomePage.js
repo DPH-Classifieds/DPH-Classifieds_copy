@@ -64,7 +64,7 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
     const mileage = item.kilometer_driven || item.kilometer || item.mileage;
     const location = item.area || item.car_location || item.car_city || item.city || 'UAE';
     const title =
-      `${year} ${make} ${model} ${trim}`.replace(/\s+/g, ' ').trim() ||
+      `${make} ${model} ${trim}`.replace(/\s+/g, ' ').trim() ||
       item.listing_title ||
       item.title ||
       'Untitled car';
@@ -75,13 +75,19 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       categoryLabel: 'Car',
       route: `/cars/${item.id}`,
       title,
+      year,
+      kilometers: item.kilometer_driven || item.kilometer || item.mileage,
       priceLabel: formatPrice(item.expected_selling_price || item.price),
-      subtitle: [year || 'Year pending', mileage ? `${Number(mileage).toLocaleString()} km` : 'Mileage pending', location]
+      subtitle: [
+        year || null,
+        mileage ? `${Number(mileage).toLocaleString()} km` : null,
+        location,
+      ]
         .filter(Boolean)
         .join(' • '),
       image,
       createdAt: item.created_at,
-      description: item.description || item.price_insight || '',
+      description: item.description || item.price_insight || 'Vehicle listing in the UAE marketplace.',
       location,
     };
   }
