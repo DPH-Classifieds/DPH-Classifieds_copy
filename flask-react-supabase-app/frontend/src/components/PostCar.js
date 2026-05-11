@@ -19,7 +19,6 @@ import {
   EXTERIOR_COLOR_OPTIONS,
   INTERIOR_COLOR_OPTIONS,
   FUEL_EFFICIENCY_OPTIONS,
-  TAG_OPTIONS
 } from '../utils/listingConstants';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -80,6 +79,7 @@ const PostCar = () => {
   const [marker, setMarker] = useState(DEFAULT_MAP_POSITION);
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [draftNotice, setDraftNotice] = useState(null);
+  const [isDraftSaving, setIsDraftSaving] = useState(false);
   const locationSearchTimeoutRef = useRef(null);
   const locationSearchAbortRef = useRef(null);
   const skipNextLocationSearchRef = useRef(false);
@@ -315,7 +315,6 @@ const PostCar = () => {
       'All-Terrain Drive Modes (Sand, Rock, Mud, Snow)',
       'Tow Hook / Recovery Package'
     ],
-    'Tags': TAG_OPTIONS
   };
 
   // Note: carExtras is now organized by categories above
@@ -341,34 +340,74 @@ const PostCar = () => {
     }
   }, [user, isLoading]);
 
-  useEffect(() => {
-    if (isEdit) return;
-    try {
-      const rawDraft = localStorage.getItem(CAR_DRAFT_STORAGE_KEY);
-      if (!rawDraft) return;
-      const draft = JSON.parse(rawDraft);
-      if (!draft || typeof draft !== 'object') return;
+  const applyDraftPayload = useCallback((draft) => {
+    if (!draft || typeof draft !== 'object') {
+      return false;
+    }
 
-      if (draft.formData && typeof draft.formData === 'object') {
-        setFormData((prev) => ({ ...prev, ...draft.formData }));
-      }
-      if (typeof draft.otherFuelType === 'string') {
-        setOtherFuelType(draft.otherFuelType);
-      }
-      if (typeof draft.whatsappSameAsPhone === 'boolean') {
-        setWhatsappSameAsPhone(draft.whatsappSameAsPhone);
-      }
-      if (Array.isArray(draft.marker) && draft.marker.length === 2) {
-        setMarker(draft.marker);
-        setMapPosition(draft.marker);
-      }
-      if (draft.formData?.listing_title) {
+    if (draft.formData && typeof draft.formData === 'object') {
+      setFormData((prev) => ({ ...prev, ...draft.formData }));
+      if (draft.formData.listing_title) {
         setTitleManuallyEdited(true);
       }
-    } catch (draftError) {
-      console.warn('Failed to load car draft:', draftError);
     }
-  }, [isEdit]);
+    if (typeof draft.otherFuelType === 'string') {
+      setOtherFuelType(draft.otherFuelType);
+    }
+    if (typeof draft.whatsappSameAsPhone === 'boolean') {
+      setWhatsappSameAsPhone(draft.whatsappSameAsPhone);
+    }
+    if (Array.isArray(draft.marker) && draft.marker.length === 2) {
+      setMarker(draft.marker);
+      setMapPosition(draft.marker);
+    }
+    if (Array.isArray(draft.existingImages)) {
+      setExistingImages(draft.existingImages);
+    }
+    if (Array.isArray(draft.imageCropSettings)) {
+      setImageCropSettings(draft.imageCropSettings);
+    }
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (isEdit) return;
+
+    let isMounted = true;
+
+    const loadDraft = async () => {
+      try {
+        const response = await apiClient.request('/api/user/drafts/car');
+        const remoteDraft = response?.draft?.payload || response?.draft?.draft_payload || null;
+        if (isMounted && applyDraftPayload(remoteDraft)) {
+          setDraftNotice('Draft restored from your saved drafts.');
+          return;
+        }
+      } catch (remoteError) {
+        console.warn('Failed to load remote car draft:', remoteError);
+      }
+
+      try {
+        const rawDraft = localStorage.getItem(CAR_DRAFT_STORAGE_KEY);
+        if (!rawDraft || !isMounted) return;
+        const localDraft = JSON.parse(rawDraft);
+        if (applyDraftPayload(localDraft)) {
+          setDraftNotice('Draft restored from this browser.');
+        }
+      } catch (draftError) {
+        console.warn('Failed to load car draft:', draftError);
+        if (isMounted) {
+          setError('Could not load your saved draft. Please contact support if this continues.');
+        }
+      }
+    };
+
+    loadDraft();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [applyDraftPayload, isEdit]);
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -898,6 +937,7 @@ const PostCar = () => {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
+    e.target.value = '';
     processFiles(files);
   };
 
@@ -914,32 +954,45 @@ const PostCar = () => {
   };
 
   const processFiles = (files) => {
-    // Limit to 10 images
-    if (files.length > 10) {
+    const nextFiles = files.filter((file) => file && file.type?.startsWith('image/'));
+    if (nextFiles.length === 0) {
+      setError('Please select image files only.');
+      return;
+    }
+
+    const dedupedNewFiles = nextFiles.filter((file) => {
+      const signature = `${file.name}-${file.size}-${file.lastModified}`;
+      return !selectedFiles.some(
+        (existingFile) => `${existingFile.name}-${existingFile.size}-${existingFile.lastModified}` === signature
+      );
+    });
+
+    const totalFiles = existingImages.length + selectedFiles.length + dedupedNewFiles.length;
+    if (totalFiles > 10) {
       setError("You can only upload up to 10 images.");
       return;
     }
 
-    const invalidTypeFile = files.find((file) => !SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase()));
+    const invalidTypeFile = dedupedNewFiles.find((file) => !SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase()));
     if (invalidTypeFile) {
       setError('Only JPG, PNG, WEBP, and GIF images are supported.');
       return;
     }
 
-    const oversizedFile = files.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    const oversizedFile = dedupedNewFiles.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
     if (oversizedFile) {
       setError('Each image must be 20MB or smaller.');
       return;
     }
     
     setError(null);
-    setSelectedFiles(files);
+    setSelectedFiles((current) => [...current, ...dedupedNewFiles]);
     
     // Create preview URLs
-    const previews = files.map(file => URL.createObjectURL(file));
-    setPreviewImages(previews);
-    setImageCropSettings(files.map(() => ({ ...DEFAULT_IMAGE_CROP })));
-    setActiveFramingIndex(0);
+    const previews = dedupedNewFiles.map((file) => URL.createObjectURL(file));
+    setPreviewImages((current) => [...current, ...previews]);
+    setImageCropSettings((current) => [...current, ...dedupedNewFiles.map(() => ({ ...DEFAULT_IMAGE_CROP }))]);
+    setActiveFramingIndex((current) => current || 0);
     setShowFramingModal(true);
   };
 
@@ -1056,24 +1109,43 @@ const PostCar = () => {
 
   const handleSaveDraft = () => {
     if (isEdit) return;
-    try {
-      const draftPayload = {
-        formData,
-        otherFuelType,
-        marker,
-        whatsappSameAsPhone,
-        savedAt: new Date().toISOString(),
-      };
-      localStorage.setItem(CAR_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
-      setDraftNotice('Draft saved locally.');
+    const draftPayload = {
+      formData,
+      otherFuelType,
+      marker,
+      whatsappSameAsPhone,
+      existingImages,
+      imageCropSettings,
+      savedAt: new Date().toISOString(),
+    };
+
+    const persistDraft = async () => {
+      setIsDraftSaving(true);
       setError(null);
-      window.setTimeout(() => {
-        setDraftNotice((current) => (current === 'Draft saved locally.' ? null : current));
-      }, 2500);
-    } catch (draftError) {
-      console.error('Failed to save car draft:', draftError);
-      setError('Could not save draft. Please try again or contact support at support@dphclassifieds.com.');
-    }
+      setDraftNotice('Saving draft...');
+      try {
+        localStorage.setItem(CAR_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+        await apiClient.request('/api/user/drafts/car', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            draft_key: 'car',
+            payload: draftPayload,
+          },
+        });
+        setDraftNotice('Draft saved.');
+      } catch (draftError) {
+        console.error('Failed to save car draft:', draftError);
+        setError('Could not sync your draft right now. It was saved in this browser, but please contact support if the issue continues.');
+      } finally {
+        setIsDraftSaving(false);
+        window.setTimeout(() => {
+          setDraftNotice((current) => (current && current !== 'Saving draft...' ? null : current));
+        }, 2500);
+      }
+    };
+
+    persistDraft();
   };
 
   const handleSubmit = async (e) => {
@@ -1201,6 +1273,11 @@ const PostCar = () => {
         const response = await apiClient.post('/api/cars', submissionData);
         console.log('Car listing created:', response);
         localStorage.removeItem(CAR_DRAFT_STORAGE_KEY);
+        try {
+          await apiClient.request('/api/user/drafts/car', { method: 'DELETE' });
+        } catch (clearDraftError) {
+          console.warn('Failed to clear remote draft after submit:', clearDraftError);
+        }
       }
 
       setSuccess(true);
@@ -2380,10 +2457,10 @@ const PostCar = () => {
           <button
             type="button"
             className="btn btn-secondary"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDraftSaving}
             onClick={handleSaveDraft}
           >
-            Save Draft
+            {isDraftSaving ? 'Saving Draft...' : 'Save Draft'}
           </button>
           <button
             type="submit"

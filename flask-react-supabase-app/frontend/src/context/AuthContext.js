@@ -29,7 +29,6 @@ export const AuthProvider = ({ children }) => {
       const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
       if (refreshedSession?.access_token) {
         console.log('Session refreshed, storing new token');
-        localStorage.setItem('supabase_access_token', refreshedSession.access_token);
         authService.setAuthHeader(refreshedSession.access_token);
       }
 
@@ -78,9 +77,6 @@ export const AuthProvider = ({ children }) => {
         console.log('Setting enhanced user object with access_token');
         setUser(enhancedUser);
         
-        // Store token in localStorage as a backup
-        localStorage.setItem('supabase_access_token', session.access_token);
-        
         // Force update the authService's headers with new token
         authService.setAuthHeader(session.access_token);
         
@@ -88,10 +84,10 @@ export const AuthProvider = ({ children }) => {
       } else if (user) {
         console.log('Supabase session not found, but AuthContext has user:', user.email);
         
-        // Try to recover token from localStorage if it exists
-        const storedToken = localStorage.getItem('supabase_access_token');
+        // Try to recover token from storage if it exists
+        const storedToken = authService.getAccessToken();
         if (storedToken && !user.access_token) {
-          console.log('Recovering access token from localStorage');
+          console.log('Recovering access token from storage');
           
           // Let's validate the token before using it
           try {
@@ -118,7 +114,7 @@ export const AuthProvider = ({ children }) => {
             } else {
               console.warn('Recovered token is invalid, status:', response.status);
               // Token is invalid, remove it from storage
-              localStorage.removeItem('supabase_access_token');
+              authService.clearAuthData();
               
               // Let's try to refresh the session
               console.log('Attempting to refresh the session...');
@@ -131,9 +127,6 @@ export const AuthProvider = ({ children }) => {
                   access_token: data.session.access_token
                 };
                 setUser(refreshedUser);
-                
-                // Store the new token
-                localStorage.setItem('supabase_access_token', data.session.access_token);
                 
                 // Update authService headers with new token
                 authService.setAuthHeader(data.session.access_token);
@@ -151,10 +144,10 @@ export const AuthProvider = ({ children }) => {
       } else {
         console.log('No session or user found in context');
         
-        // Try to recover token from localStorage if it exists
-        const storedToken = localStorage.getItem('supabase_access_token');
+        // Try to recover token from storage if it exists
+        const storedToken = authService.getAccessToken();
         if (storedToken) {
-          console.log('Found token in localStorage, but no user - attempting to validate token');
+          console.log('Found token in storage, but no user - attempting to validate token');
           
           try {
             // Attempt a simple validation request to Supabase
@@ -183,12 +176,12 @@ export const AuthProvider = ({ children }) => {
                 return true;
               }
             } else {
-              console.warn('Token in localStorage is invalid, removing');
-              localStorage.removeItem('supabase_access_token');
+              console.warn('Token in storage is invalid, removing');
+              authService.clearAuthData();
             }
           } catch (error) {
-            console.error('Error validating localStorage token:', error);
-            localStorage.removeItem('supabase_access_token');
+            console.error('Error validating stored token:', error);
+            authService.clearAuthData();
           }
         }
 
@@ -241,7 +234,6 @@ export const AuthProvider = ({ children }) => {
       async (event, session) => {
         console.log('Supabase auth state changed:', event);
         if (session && session.user) {
-          localStorage.setItem('supabase_access_token', session.access_token);
           authService.setAuthHeader(session.access_token);
 
           // Only check backend if we have a valid token

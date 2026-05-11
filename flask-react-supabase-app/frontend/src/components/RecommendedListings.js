@@ -48,8 +48,6 @@ const normalizeRecommendedCar = (item) => {
     image,
     createdAt: item.created_at,
     description: item.description || 'Fresh inventory from the UAE marketplace.',
-    sellerName: item.seller_name || item.user_name || item.username || 'Marketplace Seller',
-    sellerPhoto: resolveMediaUrl(item.seller_photo_url || item.profile_photo_url || item.profilePhotoUrl),
     location: item.car_city || item.city || 'UAE',
   };
 };

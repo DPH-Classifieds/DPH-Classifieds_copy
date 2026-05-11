@@ -1028,6 +1028,10 @@
     padding: 44px 20px 84px;
   }
 
+  .car-grid {
+    grid-template-columns: 1fr;
+  }
+
   .car-grid,
   .car-filters,
   .car-list-container h1,

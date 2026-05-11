@@ -785,22 +785,7 @@ const CarList = () => {
                         <p className="car-year">{car.make_year}</p>
                         <div className="car-specs">
                           <span>{car.kilometer_driven?.toLocaleString() || 'N/A'} KM</span>
-                          <span>•</span>
-                          <span>{car.transmission_type || 'N/A'}</span>
-                          <span>•</span>
-                          <span>{car.fuel_type || 'N/A'}</span>
                         </div>
-                        {car.vin_number && (
-                          <div className="car-vin">
-                            <span className="vin-label">VIN:</span>
-                            <span className="vin-value">{car.vin_number.replace(/.(?=.{4})/g, '•')}</span>
-                          </div>
-                        )}
-                        {(car.lady_driven) && (
-                          <div className="car-tags">
-                            {car.lady_driven && <span className="car-tag tag-lady-driven">Lady Driven</span>}
-                          </div>
-                        )}
                         <p className="car-location">{car.car_city || 'Location not specified'}</p>
                       </div>
                       <div className="view-details-btn">

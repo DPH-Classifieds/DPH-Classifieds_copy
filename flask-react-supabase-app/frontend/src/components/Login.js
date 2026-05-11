@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { setAuthHeader } from '../utils/authService';
+import { saveAuthData, setAuthHeader, setTokenStorageMode, storeAccessToken } from '../utils/authService';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -13,6 +13,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [resetStatus, setResetStatus] = useState(null);
   const [resetLoading, setResetLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { syncWithSupabase } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,7 +40,7 @@ const Login = () => {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailOrUsername, password }),
+        body: JSON.stringify({ email: emailOrUsername, password, remember_me: rememberMe }),
         credentials: 'include'
       });
 
@@ -51,8 +52,9 @@ const Login = () => {
 
       // Save token so syncWithSupabase can find the authenticated user
       if (data.access_token) {
-        localStorage.setItem('supabase_access_token', data.access_token);
-        localStorage.setItem('authData', JSON.stringify(data));
+        setTokenStorageMode(rememberMe ? 'local' : 'session');
+        saveAuthData(data);
+        storeAccessToken(data.access_token);
         setAuthHeader(data.access_token);
       }
 
@@ -135,6 +137,15 @@ const Login = () => {
               autoComplete="current-password"
             />
           </div>
+
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            <span>Keep me logged in</span>
+          </label>
           
           <button 
             type="submit" 

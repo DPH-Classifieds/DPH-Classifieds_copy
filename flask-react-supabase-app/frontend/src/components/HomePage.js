@@ -61,6 +61,8 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
     const make = item.car_manufacturer || item.make || '';
     const model = item.car_model || item.model || '';
     const trim = item.car_trim || item.trim || '';
+    const mileage = item.kilometer_driven || item.kilometer || item.mileage;
+    const location = item.area || item.car_location || item.car_city || item.city || 'UAE';
     const title =
       `${year} ${make} ${model} ${trim}`.replace(/\s+/g, ' ').trim() ||
       item.listing_title ||
@@ -74,19 +76,13 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       route: `/cars/${item.id}`,
       title,
       priceLabel: formatPrice(item.expected_selling_price || item.price),
-      subtitle: [
-        item.kilometer_driven || item.kilometer || item.mileage ? `${Number(item.kilometer_driven || item.kilometer || item.mileage).toLocaleString()} km` : null,
-        item.fuel_type || item.fuel || 'Specs pending',
-        item.car_city || item.city || 'UAE',
-      ]
+      subtitle: [year || 'Year pending', mileage ? `${Number(mileage).toLocaleString()} km` : 'Mileage pending', location]
         .filter(Boolean)
         .join(' • '),
       image,
       createdAt: item.created_at,
-      description: item.description || item.price_insight || 'Freshly listed vehicle in the UAE marketplace.',
-      sellerName: getSellerName(item),
-      sellerPhoto: getSellerPhoto(item),
-      location: item.car_city || item.city || 'UAE',
+      description: item.description || item.price_insight || '',
+      location,
     };
   }
 
@@ -109,8 +105,6 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       image,
       createdAt: item.created_at,
       description: item.description || 'Motorcycle listing ready to view.',
-      sellerName: getSellerName(item),
-      sellerPhoto: getSellerPhoto(item),
       location: item.location || 'UAE',
     };
   }
@@ -129,8 +123,6 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       image,
       createdAt: item.created_at,
       description: item.description || 'Part listing ready to compare.',
-      sellerName: getSellerName(item),
-      sellerPhoto: getSellerPhoto(item),
       location: item.location || item.emirate || 'UAE',
     };
   }
@@ -148,8 +140,6 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
     image,
     createdAt: item.created_at,
     description: item.description || 'Premium plate listing ready to view.',
-    sellerName: getSellerName(item),
-    sellerPhoto: getSellerPhoto(item),
     location: item.city || 'UAE',
   };
 };
@@ -161,14 +151,6 @@ const formatPrice = (price) => {
   }
   return `AED ${numericPrice.toLocaleString()}`;
 };
-
-const getSellerName = (item) =>
-  [item.seller_name, item.display_name, item.user_name, item.username, item.dealer_name, item.email]
-    .map((value) => (value ? String(value).trim() : ''))
-    .find(Boolean) || 'Marketplace Seller';
-
-const getSellerPhoto = (item) =>
-  resolveMediaUrl(item.seller_profile_photo || item.profile_photo_url || item.user_profile_photo);
 
 const HomePage = () => {
   const [marketplaceItems, setMarketplaceItems] = useState([]);

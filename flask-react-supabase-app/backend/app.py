@@ -6763,6 +6763,7 @@ def login():
 
     data = request.get_json(silent=True) or {}
     identifier = str(data.get("email", "")).strip()  # email or username
+    remember_me = bool(data.get("remember_me", False))
     logger.info(f"[Login] Attempt for identifier: {identifier}")
 
     if not data or not identifier or not data.get("password"):
@@ -6845,13 +6846,15 @@ def login():
             # Set HttpOnly cookies for token storage
             response = make_response(jsonify(resp_data), 200)
             secure = os.getenv("FLASK_ENV") == "production"
+            access_token_max_age = 3600 * 24 * 30 if remember_me else None
+            refresh_token_max_age = 3600 * 24 * 30 if remember_me else None
             response.set_cookie(
                 "access_token",
                 token,
                 httponly=True,
                 secure=secure,
                 samesite="Lax",
-                max_age=3600 * 24 * 7,  # 7 days
+                max_age=access_token_max_age,
             )
             refresh_token = resp_data.get("refresh_token")
             if refresh_token:
@@ -6861,7 +6864,7 @@ def login():
                     httponly=True,
                     secure=secure,
                     samesite="Lax",
-                    max_age=3600 * 24 * 30,  # 30 days
+                    max_age=refresh_token_max_age,
                 )
             return response
         else:
@@ -7387,6 +7390,86 @@ def logout(current_user):
     response.set_cookie("access_token", "", expires=0)
     response.set_cookie("refresh_token", "", expires=0)
     return response
+
+
+@app.route("/api/user/drafts/<draft_key>", methods=["GET", "POST", "DELETE"])
+@token_required
+def manage_user_draft(current_user, draft_key):
+    """Persist a user's in-progress listing draft."""
+    normalized_key = str(draft_key or "").strip().lower()
+    if not normalized_key or not re.match(r"^[a-z0-9_-]+$", normalized_key):
+        return jsonify({"error": "Invalid draft key"}), 400
+
+    draft_table = "listing_drafts"
+    service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+    headers = {
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        if request.method == "GET":
+            response = requests.get(
+                f"{SUPABASE_URL}/rest/v1/{draft_table}",
+                headers=headers,
+                params={
+                    "user_id": f"eq.{current_user}",
+                    "draft_key": f"eq.{normalized_key}",
+                    "select": "*",
+                    "order": "updated_at.desc",
+                    "limit": "1",
+                },
+                timeout=10,
+            )
+            if response.status_code >= 400:
+                return jsonify({"error": "Failed to load draft"}), response.status_code
+            drafts = response.json() or []
+            return jsonify({"draft": drafts[0] if drafts else None}), 200
+
+        if request.method == "DELETE":
+            response, status_code = supabase_request(
+                "delete",
+                f"/rest/v1/{draft_table}?user_id=eq.{current_user}&draft_key=eq.{normalized_key}",
+                use_service_role=True,
+            )
+            if status_code >= 400:
+                logger.warning(
+                    "Failed to delete draft %s for user %s: %s", normalized_key, current_user, response
+                )
+            return jsonify({"success": True}), 200
+
+        payload = request.get_json(silent=True) or {}
+        draft_payload = payload.get("payload", payload)
+        record = {
+            "user_id": current_user,
+            "draft_key": normalized_key,
+            "payload": draft_payload,
+            "updated_at": _isoformat_utc(_utc_now()),
+        }
+        # Replace any existing draft for this user/key pair so the latest edit wins.
+        supabase_request(
+            "delete",
+            f"/rest/v1/{draft_table}?user_id=eq.{current_user}&draft_key=eq.{normalized_key}",
+            use_service_role=True,
+        )
+        insert_response, insert_status = supabase_request(
+            "post",
+            f"/rest/v1/{draft_table}",
+            data=record,
+            use_service_role=True,
+        )
+        if insert_status >= 400:
+            logger.error(
+                "Failed to save draft %s for user %s: %s", normalized_key, current_user, insert_response
+            )
+            return jsonify({"error": "Failed to save draft"}), 500
+
+        saved_record = insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response
+        return jsonify({"success": True, "draft": saved_record}), 200
+    except Exception as exc:
+        logger.error("Draft storage failed for %s/%s: %s", current_user, normalized_key, exc)
+        return jsonify({"error": "Failed to save draft"}), 500
 
 
 def get_user_admin_status(user_id):
@@ -11711,6 +11794,27 @@ def get_admin_metrics_overview(current_user):
             part_rows=part_rows_resp or [],
             days=days,
         )
+
+        live_cutoff = _utc_now() - datetime.timedelta(minutes=5)
+        live_visitor_ids = set()
+        for event in events_resp or []:
+            try:
+                event_time = _parse_datetime(event.get("created_at"))
+                if not event_time or event_time < live_cutoff:
+                    continue
+                live_visitor_ids.add(
+                    str(
+                        event.get("visitor_id")
+                        or event.get("user_id")
+                        or event.get("session_id")
+                        or "anonymous"
+                    )
+                )
+            except Exception:
+                continue
+
+        metrics["live_users"] = len(live_visitor_ids)
+        metrics.setdefault("user_metrics", {})["live_users"] = len(live_visitor_ids)
 
         return jsonify(metrics), 200
     except Exception as e:

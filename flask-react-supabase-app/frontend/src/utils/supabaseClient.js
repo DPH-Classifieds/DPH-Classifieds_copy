@@ -20,19 +20,26 @@ const syncStoredAccessToken = (token) => {
   if (!token) return;
 
   try {
-    localStorage.setItem('supabase_access_token', token);
+    const sessionToken = window.sessionStorage.getItem('supabase_access_token');
+    if (sessionToken || window.sessionStorage.getItem('authData')) {
+      window.sessionStorage.setItem('supabase_access_token', token);
+      window.localStorage.removeItem('supabase_access_token');
+    } else {
+      window.localStorage.setItem('supabase_access_token', token);
+    }
   } catch (error) {
     console.error('Failed to sync supabase_access_token:', error);
   }
 
   try {
-    const authData = localStorage.getItem('authData');
+    const storage = window.sessionStorage.getItem('authData') ? window.sessionStorage : window.localStorage;
+    const authData = storage.getItem('authData');
     if (!authData) return;
 
     const parsed = JSON.parse(authData);
     if (!parsed || parsed.access_token === token) return;
 
-    localStorage.setItem(
+    storage.setItem(
       'authData',
       JSON.stringify({
         ...parsed,
@@ -54,12 +61,33 @@ export const getBestAccessToken = async () => {
       return session.access_token;
     }
 
+    const sessionToken = window.sessionStorage.getItem('supabase_access_token');
+    if (sessionToken) {
+      console.log('Got token from sessionStorage supabase_access_token');
+      syncStoredAccessToken(sessionToken);
+      return sessionToken;
+    }
+
     // Fallback to supabase_access_token
     const storedToken = localStorage.getItem('supabase_access_token');
     if (storedToken) {
       console.log('Got token from supabase_access_token');
       syncStoredAccessToken(storedToken);
       return storedToken;
+    }
+
+    const sessionAuthData = window.sessionStorage.getItem('authData');
+    if (sessionAuthData) {
+      try {
+        const parsed = JSON.parse(sessionAuthData);
+        if (parsed.access_token) {
+          console.log('Got token from authData sessionStorage');
+          syncStoredAccessToken(parsed.access_token);
+          return parsed.access_token;
+        }
+      } catch (e) {
+        console.error('Error parsing session authData:', e);
+      }
     }
 
     // Last resort: legacy authData storage

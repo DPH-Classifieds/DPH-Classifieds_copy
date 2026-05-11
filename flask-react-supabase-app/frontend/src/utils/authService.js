@@ -4,8 +4,72 @@ import logger from './logger';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const CURRENT_USER_CACHE_KEY = 'dph_current_user_cache_v1';
 const CURRENT_USER_CACHE_TTL_MS = 2 * 60 * 1000;
+const ACCESS_TOKEN_KEY = 'supabase_access_token';
+const AUTH_DATA_KEY = 'authData';
 
 let currentUserRequestPromise = null;
+let tokenStorageMode = 'local';
+
+const getWindowStorage = (preferredMode = tokenStorageMode) => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (preferredMode === 'session') {
+    return window.sessionStorage;
+  }
+
+  return window.localStorage;
+};
+
+export const setTokenStorageMode = (mode) => {
+  tokenStorageMode = mode === 'session' ? 'session' : 'local';
+};
+
+export const getTokenStorageMode = () => tokenStorageMode;
+
+const readStoredValue = (key) => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const sessionValue = window.sessionStorage.getItem(key);
+    if (sessionValue) {
+      return sessionValue;
+    }
+  } catch (error) {
+    logger.debug(`Failed to read ${key} from sessionStorage:`, error);
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch (error) {
+    logger.debug(`Failed to read ${key} from localStorage:`, error);
+    return null;
+  }
+};
+
+export const storeAccessToken = (token) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const activeStorage = getWindowStorage();
+  const inactiveStorage = activeStorage === window.sessionStorage ? window.localStorage : window.sessionStorage;
+
+  try {
+    if (token) {
+      activeStorage?.setItem(ACCESS_TOKEN_KEY, token);
+      inactiveStorage?.removeItem(ACCESS_TOKEN_KEY);
+    } else {
+      activeStorage?.removeItem(ACCESS_TOKEN_KEY);
+      inactiveStorage?.removeItem(ACCESS_TOKEN_KEY);
+    }
+  } catch (error) {
+    logger.debug('Failed to store access token:', error);
+  }
+};
 
 const readCurrentUserCache = () => {
   try {
@@ -71,23 +135,41 @@ axios.interceptors.response.use(
 
 // Save auth data to local storage
 export const saveAuthData = (authData) => {
-  logger.debug('Saving auth data to localStorage', { ...authData, access_token: '[REDACTED]' });
-  localStorage.setItem('authData', JSON.stringify(authData));
+  logger.debug('Saving auth data to storage', { ...authData, access_token: '[REDACTED]' });
+  if (typeof window === 'undefined') return;
+
+  const activeStorage = getWindowStorage();
+  const inactiveStorage = activeStorage === window.sessionStorage ? window.localStorage : window.sessionStorage;
+  try {
+    activeStorage?.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
+    inactiveStorage?.removeItem(AUTH_DATA_KEY);
+  } catch (error) {
+    logger.debug('Failed to save auth data:', error);
+  }
 };
 
 // Get auth data from local storage
 export const getAuthData = () => {
-  const authData = localStorage.getItem('authData');
+  const authData = readStoredValue(AUTH_DATA_KEY);
   const parsedData = authData ? JSON.parse(authData) : null;
-  logger.debug('Retrieved auth data from localStorage', parsedData ?
+  logger.debug('Retrieved auth data from storage', parsedData ?
     { ...parsedData, access_token: parsedData.access_token ? '[REDACTED]' : null } : null);
   return parsedData;
 };
 
 // Clear auth data from local storage
 export const clearAuthData = () => {
-  logger.debug('Clearing auth data from localStorage');
-  localStorage.removeItem('authData');
+  logger.debug('Clearing auth data from storage');
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.removeItem(AUTH_DATA_KEY);
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    window.sessionStorage.removeItem(AUTH_DATA_KEY);
+    window.sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+  } catch (error) {
+    logger.debug('Failed to clear auth data:', error);
+  }
   try {
     sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
   } catch (error) {
@@ -98,12 +180,38 @@ export const clearAuthData = () => {
 // Helper function to get the access token
 export const getAccessToken = () => {
   // Try multiple sources for the token
-  let token = localStorage.getItem('supabase_access_token');
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  let token = null;
+  try {
+    token = window.sessionStorage.getItem(ACCESS_TOKEN_KEY);
+    if (token) {
+      setTokenStorageMode('session');
+    }
+  } catch (error) {
+    logger.debug('Failed to read access token from sessionStorage:', error);
+  }
+
+  if (!token) {
+    try {
+      token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+      if (token) {
+        setTokenStorageMode('local');
+      }
+    } catch (error) {
+      logger.debug('Failed to read access token from localStorage:', error);
+    }
+  }
 
   // Legacy fallback to authData if the newer token slot is missing
   if (!token) {
     const authData = getAuthData();
     token = authData?.access_token || null;
+    if (token) {
+      setTokenStorageMode('local');
+    }
   }
   
   logger.debug('Access token retrieved:', token ? '[REDACTED TOKEN PRESENT]' : 'No token found');
@@ -116,15 +224,15 @@ export const setAuthHeader = (token) => {
     logger.debug('Setting Authorization header with token');
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     
-    // Also update localStorage with the latest token
+    // Also update the active storage with the latest token
     const currentData = getAuthData() || {};
     saveAuthData({
       ...currentData,
       access_token: token
     });
     
-    // Add to supabase_access_token as well for the apiClient usage
-    localStorage.setItem('supabase_access_token', token);
+    // Add to the active token storage as well for the apiClient usage
+    storeAccessToken(token);
   } else {
     logger.debug('Removing Authorization header');
     delete axios.defaults.headers.common['Authorization'];
@@ -172,8 +280,7 @@ export const signIn = async (email, password) => {
       logger.info('Login successful, received token');
       saveAuthData(response.data);
       setAuthHeader(response.data.access_token);
-      // Also store in supabase_access_token for apiClient
-      localStorage.setItem('supabase_access_token', response.data.access_token);
+      storeAccessToken(response.data.access_token);
       return { data: response.data, error: null };
     } else {
       logger.error('Invalid response format from server:', response.data);

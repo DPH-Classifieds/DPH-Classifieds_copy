@@ -34,10 +34,6 @@ const listingExtrasFromRecord = (listing) => {
     leather_seats: 'Leather Seats',
     parking_sensors: 'Parking Sensors',
     rear_view_camera: 'Rear View Camera',
-    lady_driven: 'Lady Driven',
-    doctor_driven: 'Doctor Driven',
-    expat_owned: 'Expat Owned',
-    executive_driven: 'Executive Driven',
   };
 
   return Object.entries(extraMap)

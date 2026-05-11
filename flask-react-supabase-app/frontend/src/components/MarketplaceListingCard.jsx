@@ -15,8 +15,6 @@ const resolveListingType = (item) => {
 };
 
 const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
-  const sellerName = item.sellerName || 'Marketplace Seller';
-  const sellerInitial = sellerName.charAt(0).toUpperCase();
   const listingType = resolveListingType(item);
   const listingId = item.id;
   const moreRoute =
@@ -77,36 +75,12 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
         </div>
 
         <p className="explore-v2-card-meta">{item.subtitle}</p>
-        <p className="explore-v2-card-description">{item.description}</p>
-
-        {Array.isArray(item.tags) && item.tags.length > 0 ? (
-          <div className="explore-v2-card-tags" aria-label="Listing tags">
-            {item.tags.map((tag) => (
-              <span key={tag} className="explore-v2-card-tag">
-                {tag}
-              </span>
-            ))}
-          </div>
+        {item.categoryKey !== 'cars' && item.description ? (
+          <p className="explore-v2-card-description">{item.description}</p>
         ) : null}
 
-        <div className="explore-v2-seller-row">
-          <div className="explore-v2-seller">
-            {item.sellerPhoto ? (
-              <span className="explore-v2-seller-avatar">
-                <img
-                  src={item.sellerPhoto}
-                  alt={`${sellerName} profile`}
-                  className="explore-v2-seller-avatar-image"
-                />
-              </span>
-            ) : (
-              <span className="explore-v2-seller-avatar">{sellerInitial}</span>
-            )}
-            <div>
-              <strong>{sellerName}</strong>
-              <span>{item.location || 'UAE'}</span>
-            </div>
-          </div>
+        <div className="explore-v2-card-location">
+          <span>{item.location || 'UAE'}</span>
         </div>
 
         <div className="explore-v2-card-actions">

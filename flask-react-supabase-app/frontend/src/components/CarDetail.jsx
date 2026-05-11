@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
@@ -19,6 +19,7 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
+import { ensureContactAccess } from '../utils/contactAccess';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -53,15 +54,12 @@ const EXTRA_BOOLEAN_LABELS = {
   leather_seats: 'Leather Seats',
   parking_sensors: 'Parking Sensors',
   rear_view_camera: 'Rear View Camera',
-  lady_driven: 'Lady Driven',
-  doctor_driven: 'Doctor Driven',
-  expat_owned: 'Expat Owned',
-  executive_driven: 'Executive Driven',
 };
 
 const CarDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, updateUser } = useAuth();
   const [car, setCar] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -384,11 +382,19 @@ const CarDetail = () => {
   const visibleVin = vinVisible ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
 
   const handleCallClick = () => {
+    if (!ensureContactAccess({ user, navigate, nextRoute: `${location.pathname}${location.search}` })) {
+      return false;
+    }
     trackLeadEvent('call_click', { listing_id: id });
+    return true;
   };
 
   const handleWhatsappClick = () => {
+    if (!ensureContactAccess({ user, navigate, nextRoute: `${location.pathname}${location.search}` })) {
+      return false;
+    }
     trackLeadEvent('whatsapp_click', { listing_id: id });
+    return true;
   };
 
   const handleVinReveal = async () => {
@@ -556,7 +562,11 @@ const CarDetail = () => {
                 <a 
                   href={`tel:${car?.country_code || ''}${car?.car_owner_phone_number || car?.contact_phone}`} 
                   className="cd-button cd-button-primary"
-                  onClick={handleCallClick}
+                  onClick={(event) => {
+                    if (!handleCallClick()) {
+                      event.preventDefault();
+                    }
+                  }}
                 >
                   Call Seller
                 </a>
@@ -565,7 +575,11 @@ const CarDetail = () => {
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"
-                  onClick={handleWhatsappClick}
+                  onClick={(event) => {
+                    if (!handleWhatsappClick()) {
+                      event.preventDefault();
+                    }
+                  }}
                 >
                   WhatsApp
                 </a>

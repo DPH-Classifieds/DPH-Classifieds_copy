@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
@@ -10,6 +11,7 @@ import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
+import { ensureContactAccess } from '../utils/contactAccess';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
@@ -18,6 +20,8 @@ const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 const PartDetailRedesigned = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const location = useLocation();
   const [part, setPart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -107,6 +111,18 @@ const PartDetailRedesigned = () => {
       [field]: value
     }));
   };
+
+  const handleCallClick = () => ensureContactAccess({
+    user,
+    navigate,
+    nextRoute: `${location.pathname}${location.search}`,
+  });
+
+  const handleWhatsappClick = () => ensureContactAccess({
+    user,
+    navigate,
+    nextRoute: `${location.pathname}${location.search}`,
+  });
 
   const formatPrice = (price) => {
     if (!price) return 'Price on request';
@@ -311,7 +327,13 @@ const PartDetailRedesigned = () => {
                 <a 
                   href={`tel:${part?.country_code || ''}${part?.contact_number}`} 
                   className="cd-button cd-button-primary"
-                  onClick={() => trackLeadEvent('call_click')}
+                  onClick={(event) => {
+                    if (!handleCallClick()) {
+                      event.preventDefault();
+                      return;
+                    }
+                    trackLeadEvent('call_click');
+                  }}
                 >
                   Call Seller
                 </a>
@@ -320,7 +342,13 @@ const PartDetailRedesigned = () => {
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"
-                  onClick={() => trackLeadEvent('whatsapp_click')}
+                  onClick={(event) => {
+                    if (!handleWhatsappClick()) {
+                      event.preventDefault();
+                      return;
+                    }
+                    trackLeadEvent('whatsapp_click');
+                  }}
                 >
                   WhatsApp
                 </a>

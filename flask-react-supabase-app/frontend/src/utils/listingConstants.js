@@ -13,6 +13,7 @@ export const DUBAI_AREAS = [
   "Al Barsha",
   "Al Furjan",
   "Al Garhoud",
+  "Nad Al Hamar",
   "Al Jaddaf",
   "Al Karama",
   "Al Khawaneej",
@@ -288,11 +289,4 @@ export const FUEL_EFFICIENCY_OPTIONS = [
   "30+",
 ];
 
-export const TAG_OPTIONS = [
-  "Lady Driven",
-  "Doctor Driven",
-  "Expat Owned",
-  "Executive Driven",
-  "Mallu Owned",
-  "British Owned",
-];
+export const TAG_OPTIONS = [];

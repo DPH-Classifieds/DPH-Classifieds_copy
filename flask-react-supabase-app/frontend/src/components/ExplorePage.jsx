@@ -4,7 +4,6 @@ import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import SeoMeta from './SeoMeta';
 import SearchBar from './ui/search-bar';
-import { TAG_OPTIONS } from '../utils/listingConstants';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
 import './ExplorePage.css';
@@ -142,19 +141,6 @@ const getPrimaryImage = (item) => {
   return resolveMediaUrl(candidate);
 };
 
-const getSellerName = (item) =>
-  normalizeText(
-    item.seller_name ||
-      item.display_name ||
-      item.user_name ||
-      item.username ||
-      item.dealer_name ||
-      item.email
-  ) || 'Marketplace Seller';
-
-const getSellerPhoto = (item) =>
-  resolveMediaUrl(item.seller_profile_photo || item.profile_photo_url || item.user_profile_photo);
-
 const toNumeric = (value) => {
   if (value === '' || value === null || value === undefined) {
     return null;
@@ -202,41 +188,6 @@ const buildSearchableText = (parts) =>
     .join(' ')
     .toLowerCase();
 
-const extractCarTags = (car) => {
-  const rawTags = Array.isArray(car?.tags) ? car.tags : [];
-  const normalizedTags = new Set(
-    rawTags
-      .map((tag) => normalizeText(tag))
-      .filter(Boolean)
-      .filter((tag) => TAG_OPTIONS.includes(tag))
-  );
-
-  const booleanTagMap = {
-    lady_driven: 'Lady Driven',
-    doctor_driven: 'Doctor Driven',
-    expat_owned: 'Expat Owned',
-    executive_driven: 'Executive Driven',
-    mallu_owned: 'Mallu Owned',
-    british_owned: 'British Owned',
-  };
-
-  Object.entries(booleanTagMap).forEach(([key, label]) => {
-    if (car?.[key]) {
-      normalizedTags.add(label);
-    }
-  });
-
-  const descriptionText = String(car?.description || car?.car_description || '').toLowerCase();
-  if (descriptionText.includes('mallu owned')) {
-    normalizedTags.add('Mallu Owned');
-  }
-  if (descriptionText.includes('british owned')) {
-    normalizedTags.add('British Owned');
-  }
-
-  return TAG_OPTIONS.filter((tag) => normalizedTags.has(tag));
-};
-
 const normalizeCar = (car) => {
   const year = car.make_year || car.car_year;
   const make = car.car_manufacturer || car.make;
@@ -244,7 +195,6 @@ const normalizeCar = (car) => {
   const trim = car.car_trim || car.trim;
   const title = [year, make, model, trim].filter(Boolean).join(' ').trim() || car.listing_title || car.title || 'Untitled car';
   const mileage = car.kilometer_driven || car.kilometer || car.mileage;
-  const fuelType = car.fuel_type || car.fuel;
   const location = car.car_city || car.city || car.location || 'UAE';
   const price = car.expected_selling_price || car.price;
 
@@ -253,19 +203,16 @@ const normalizeCar = (car) => {
     categoryKey: 'cars',
     categoryLabel: 'Car',
     title,
-    subtitle: [mileage ? `${Number(mileage).toLocaleString()} km` : null, fuelType, location]
+    subtitle: [year || 'Year pending', mileage ? `${Number(mileage).toLocaleString()} km` : 'Mileage pending', location]
       .filter(Boolean)
       .join(' • '),
-    description: normalizeText(car.description || car.price_insight || 'Freshly listed vehicle in the UAE marketplace.'),
+    description: normalizeText(car.description || car.price_insight || ''),
     location,
     priceLabel: formatPrice(price),
     numericPrice: toNumeric(price),
     route: `/cars/${car.id}`,
     image: getPrimaryImage(car),
-    sellerName: getSellerName(car),
-    sellerPhoto: getSellerPhoto(car),
     createdAt: car.created_at,
-    tags: extractCarTags(car),
     searchableText: buildSearchableText([
       title,
       make,
@@ -273,7 +220,6 @@ const normalizeCar = (car) => {
       trim,
       car.description,
       location,
-      car.seller_name,
     ]),
     raw: car,
   };
@@ -302,8 +248,6 @@ const normalizeBike = (bike) => {
     numericPrice: toNumeric(price),
     route: `/bikes/${bike.id}`,
     image: getPrimaryImage(bike),
-    sellerName: getSellerName(bike),
-    sellerPhoto: getSellerPhoto(bike),
     createdAt: bike.created_at,
     searchableText: buildSearchableText([
       title,
@@ -335,8 +279,6 @@ const normalizePart = (part) => {
     numericPrice: toNumeric(price),
     route: `/car-parts/${part.id}`,
     image: getPrimaryImage(part),
-    sellerName: getSellerName(part),
-    sellerPhoto: getSellerPhoto(part),
     createdAt: part.created_at,
     searchableText: buildSearchableText([
       title,
@@ -370,8 +312,6 @@ const normalizePlate = (plate) => {
     numericPrice: toNumeric(price),
     route: `/plates/${plate.id}`,
     image: getPrimaryImage(plate),
-    sellerName: getSellerName(plate),
-    sellerPhoto: getSellerPhoto(plate),
     createdAt: plate.created_at,
     searchableText: buildSearchableText([
       title,
