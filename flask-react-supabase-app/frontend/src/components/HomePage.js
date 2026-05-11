@@ -189,39 +189,32 @@ const HomePage = () => {
   });
 
   useEffect(() => {
-    const fetchMarketplacePreview = async () => {
+    const fetchLatestCars = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const nextItems = [];
-        const response = await axios.get(`${API_URL}/api/homepage/preview`);
-        const payload = response.data || {};
-        const categoryMap = [
-          { key: 'cars', items: Array.isArray(payload.cars) ? payload.cars : [] },
-          { key: 'bikes', items: Array.isArray(payload.bikes) ? payload.bikes : [] },
-          { key: 'parts', items: Array.isArray(payload.parts) ? payload.parts : [] },
-          { key: 'plates', items: Array.isArray(payload.plates) ? payload.plates : [] },
-        ];
+        const response = await axios.get(`${API_URL}/api/cars?limit=4&order=created_at.desc`);
+        const payload = response.data || [];
+        const cars = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.cars)
+            ? payload.cars
+            : [];
 
-        categoryMap.forEach(({ key, items }) => {
-          items.forEach((item) => {
-            nextItems.push(normalizeMarketplaceItem(key, item));
-          });
-        });
-
-        nextItems.sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
-        setMarketplaceItems(nextItems.slice(0, 8));
+        setMarketplaceItems(
+          cars.slice(0, 4).map((item) => normalizeMarketplaceItem('cars', item))
+        );
       } catch (requestError) {
-        console.error('Error fetching marketplace preview:', requestError);
-        setError('We could not load the marketplace preview right now. Please refresh or contact support.');
+        console.error('Error fetching latest cars:', requestError);
+        setError('We could not load the latest cars right now. Please refresh or contact support.');
         setMarketplaceItems([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMarketplacePreview();
+    fetchLatestCars();
   }, []);
 
   return (
@@ -282,17 +275,17 @@ const HomePage = () => {
         <div className="cn-shell">
           <div className="cn-section-heading cn-section-heading-dark">
             <div>
-              <span className="cn-kicker">Explore Marketplace</span>
-              <h2>Live inventory across cars, bikes, parts, and plates.</h2>
+              <span className="cn-kicker">Latest Cars</span>
+              <h2>4 most recent cars added to the marketplace.</h2>
             </div>
-            <Link to="/explore" className="cn-button cn-button-primary-dark">
-              View all
+            <Link to="/cars" className="cn-button cn-button-primary-dark">
+              View more
             </Link>
           </div>
 
           {loading ? (
             <div className="cn-state-card cn-state-card-light">
-              <LoadingSpinner message="Loading marketplace preview..." compact />
+              <LoadingSpinner message="Loading latest cars..." compact />
             </div>
           ) : error ? (
             <div className="cn-state-card cn-state-card-light cn-state-card-error-light">
