@@ -491,6 +491,9 @@ const Profile = () => {
               <button onClick={() => navigate('/post-car')} className="btn btn-success">
                 Create Listing
               </button>
+              <button onClick={() => navigate('/settings?tab=favourites')} className="btn btn-secondary">
+                Favourites
+              </button>
               <button onClick={() => navigate('/settings')} className="btn btn-secondary">
                 Account Settings
               </button>

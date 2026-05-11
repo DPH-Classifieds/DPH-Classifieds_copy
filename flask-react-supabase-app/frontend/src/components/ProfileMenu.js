@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Settings, SquareUserRound, Shield } from 'lucide-react';
+import { LogOut, Settings, SquareUserRound, Shield, Heart } from 'lucide-react';
 import { resolveMediaUrl } from '../utils/media';
 import apiClient from '../utils/apiClient';
 import '../styles/ProfileMenu.css';
@@ -147,6 +147,14 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
             >
               <Settings className="profile-icon" aria-hidden="true" />
               Settings
+            </Link>
+            <Link
+              to="/settings?tab=favourites"
+              className="profile-menu-item"
+              onClick={handleLinkClick}
+            >
+              <Heart className="profile-icon" aria-hidden="true" />
+              Favourites
             </Link>
             
             {isAdmin && (

@@ -1318,6 +1318,468 @@ def _delete_user_owned_listing(current_user, item_type, item_id):
     return delete_response, delete_status
 
 
+SAVED_LISTING_TYPE_CONFIG = {
+    "car": {
+        "table": "cars",
+        "images_table": "car_images",
+        "fk": "car_id",
+        "route_prefix": "cars",
+        "category_label": "Car",
+    },
+    "bike": {
+        "table": "bikes",
+        "images_table": "bike_images",
+        "fk": "bike_id",
+        "route_prefix": "bikes",
+        "category_label": "Bike",
+    },
+    "part": {
+        "table": "car_parts",
+        "images_table": "part_images",
+        "fk": "part_id",
+        "route_prefix": "car-parts",
+        "category_label": "Car Part",
+    },
+    "plate": {
+        "table": "license_plates",
+        "images_table": "plate_images",
+        "fk": "plate_id",
+        "route_prefix": "plates",
+        "category_label": "Plate",
+    },
+}
+
+
+def _normalize_saved_listing_type(value):
+    normalized = str(value or "").strip().lower()
+    mapping = {
+        "car": "car",
+        "cars": "car",
+        "bike": "bike",
+        "bikes": "bike",
+        "part": "part",
+        "parts": "part",
+        "car-part": "part",
+        "car-parts": "part",
+        "plate": "plate",
+        "plates": "plate",
+        "license_plate": "plate",
+        "license_plates": "plate",
+    }
+    return mapping.get(normalized)
+
+
+def _saved_listing_config(listing_type):
+    normalized = _normalize_saved_listing_type(listing_type)
+    if not normalized:
+        return None, None
+    return normalized, SAVED_LISTING_TYPE_CONFIG.get(normalized)
+
+
+def _format_saved_listing_price(value):
+    if value in (None, ""):
+        return "Price on request"
+    try:
+        return f"AED {int(float(value)):,}"
+    except (TypeError, ValueError):
+        return f"AED {value}"
+
+
+def _saved_listing_route_prefix(listing_type):
+    normalized, config = _saved_listing_config(listing_type)
+    if not normalized or not config:
+        return None
+    return config["route_prefix"]
+
+
+def _saved_listing_route(listing_type, listing_id):
+    prefix = _saved_listing_route_prefix(listing_type)
+    if not prefix or not listing_id:
+        return "/"
+    return f"/{prefix}/{listing_id}"
+
+
+def _saved_listing_title(listing_type, listing):
+    listing = listing or {}
+    if listing_type == "car":
+        parts = [
+            listing.get("make_year") or listing.get("year"),
+            listing.get("car_manufacturer") or listing.get("make"),
+            listing.get("car_model") or listing.get("model"),
+            listing.get("trim") or listing.get("car_trim"),
+        ]
+        title = " ".join(str(part).strip() for part in parts if part)
+        return title or listing.get("listing_title") or listing.get("title") or "Untitled car"
+
+    if listing_type == "bike":
+        parts = [
+            listing.get("year") or listing.get("make_year"),
+            listing.get("make") or listing.get("bike_brand"),
+            listing.get("model") or listing.get("bike_model"),
+        ]
+        title = " ".join(str(part).strip() for part in parts if part)
+        return title or listing.get("listing_title") or listing.get("title") or "Untitled bike"
+
+    if listing_type == "part":
+        return listing.get("name") or listing.get("part_name") or listing.get("listing_title") or "Untitled part"
+
+    if listing_type == "plate":
+        parts = [listing.get("city"), listing.get("code"), listing.get("number")]
+        title = " ".join(str(part).strip() for part in parts if part)
+        return title or listing.get("listing_title") or "Premium plate"
+
+    return listing.get("listing_title") or listing.get("title") or "Saved listing"
+
+
+def _saved_listing_location(listing_type, listing):
+    listing = listing or {}
+    if listing_type == "car":
+        return (
+            listing.get("car_city")
+            or listing.get("city")
+            or listing.get("location")
+            or listing.get("emirate")
+            or "UAE"
+        )
+    if listing_type == "bike":
+        return listing.get("location") or listing.get("city") or "UAE"
+    if listing_type == "part":
+        return listing.get("location") or listing.get("city") or listing.get("emirate") or "UAE"
+    if listing_type == "plate":
+        return listing.get("city") or "UAE"
+    return listing.get("location") or "UAE"
+
+
+def _saved_listing_subtitle(listing_type, listing):
+    listing = listing or {}
+    if listing_type == "car":
+        mileage = listing.get("kilometer_driven") or listing.get("kilometer") or listing.get("mileage")
+        parts = []
+        if mileage not in (None, ""):
+            try:
+                parts.append(f"{int(float(mileage)):,} km")
+            except (TypeError, ValueError):
+                parts.append(f"{mileage} km")
+        parts.append(listing.get("fuel_type") or listing.get("fuel") or "Specs pending")
+        parts.append(_saved_listing_location(listing_type, listing))
+        return " • ".join(part for part in parts if part)
+
+    if listing_type == "bike":
+        parts = [
+            listing.get("bike_type") or listing.get("type") or listing.get("bike_category") or "Bike",
+            listing.get("engine_size") or listing.get("engine_capacity"),
+            _saved_listing_location(listing_type, listing),
+        ]
+        return " • ".join(str(part).strip() for part in parts if part)
+
+    if listing_type == "part":
+        parts = [
+            listing.get("category") or listing.get("part_type") or "Parts",
+            _saved_listing_location(listing_type, listing),
+        ]
+        return " • ".join(str(part).strip() for part in parts if part)
+
+    if listing_type == "plate":
+        digits = listing.get("digits")
+        if digits in (None, ""):
+            number = str(listing.get("number") or "")
+            digits = len(number) if number else "N/A"
+        parts = [f"{digits} digits", _saved_listing_location(listing_type, listing)]
+        return " • ".join(str(part).strip() for part in parts if part)
+
+    return _saved_listing_location(listing_type, listing)
+
+
+def _saved_listing_description(listing_type, listing):
+    listing = listing or {}
+    defaults = {
+        "car": listing.get("car_description") or listing.get("description") or "Freshly listed vehicle in the UAE marketplace.",
+        "bike": listing.get("description") or "Motorcycle listing ready to view.",
+        "part": listing.get("description") or "Part listing ready to compare.",
+        "plate": listing.get("description") or "Premium plate listing ready to view.",
+    }
+    return defaults.get(listing_type, listing.get("description") or "Saved listing")
+
+
+def _saved_listing_price(listing_type, listing):
+    listing = listing or {}
+    if listing_type == "car":
+        return listing.get("expected_selling_price") or listing.get("price")
+    if listing_type in {"bike", "part", "plate"}:
+        return listing.get("price") or listing.get("expected_selling_price")
+    return listing.get("price") or listing.get("expected_selling_price")
+
+
+def _saved_listing_seller_name(listing):
+    listing = listing or {}
+    return (
+        listing.get("seller_name")
+        or listing.get("display_name")
+        or listing.get("user_name")
+        or listing.get("username")
+        or listing.get("dealer_name")
+        or listing.get("email")
+        or "Marketplace Seller"
+    )
+
+
+def _saved_listing_seller_photo(listing):
+    listing = listing or {}
+    return resolve_media_url(
+        listing.get("seller_profile_photo")
+        or listing.get("profile_photo_url")
+        or listing.get("user_profile_photo")
+    )
+
+
+def _saved_listing_image(listing):
+    listing = listing or {}
+    images = listing.get("images") or []
+    if images and isinstance(images, list):
+        first = images[0] or {}
+        return resolve_media_url(
+            first.get("display_url") or first.get("image_url") or first.get("url")
+        )
+    return resolve_media_url(
+        listing.get("display_url") or listing.get("image_url") or listing.get("url")
+    )
+
+
+def _build_saved_listing_card(listing_type, listing, saved_row=None):
+    normalized_type = _normalize_saved_listing_type(listing_type)
+    if not normalized_type:
+        return None
+
+    _, config = _saved_listing_config(normalized_type)
+    listing = listing or {}
+    listing_id = listing.get("id") or (saved_row or {}).get("listing_id")
+    card = {
+        "id": listing_id,
+        "categoryKey": config["route_prefix"] if config else "cars",
+        "categoryLabel": config["category_label"] if config else "Listing",
+        "listingType": normalized_type,
+        "route": _saved_listing_route(normalized_type, listing_id),
+        "title": _saved_listing_title(normalized_type, listing),
+        "priceLabel": _format_saved_listing_price(_saved_listing_price(normalized_type, listing)),
+        "subtitle": _saved_listing_subtitle(normalized_type, listing),
+        "image": _saved_listing_image(listing),
+        "createdAt": listing.get("created_at") or (saved_row or {}).get("created_at"),
+        "description": _saved_listing_description(normalized_type, listing),
+        "sellerName": _saved_listing_seller_name(listing),
+        "sellerPhoto": _saved_listing_seller_photo(listing),
+        "location": _saved_listing_location(normalized_type, listing),
+        "savedAt": (saved_row or {}).get("created_at"),
+        "isSaved": True,
+        "isUnavailable": not bool(listing),
+    }
+    return card
+
+
+def _fetch_saved_listing_cards(current_user):
+    saved_rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/saved_listings",
+        params={
+            "select": "id,user_id,listing_id,listing_type,created_at",
+            "user_id": f"eq.{current_user}",
+            "order": "created_at.desc",
+        },
+        user_id=current_user,
+    )
+
+    if status_code >= 400:
+        return saved_rows, status_code
+
+    saved_rows = saved_rows or []
+    grouped = defaultdict(list)
+    for row in saved_rows:
+        listing_type = _normalize_saved_listing_type(row.get("listing_type"))
+        if listing_type:
+            grouped[listing_type].append(row)
+
+    records_by_type = {}
+    for listing_type, rows in grouped.items():
+        config = SAVED_LISTING_TYPE_CONFIG.get(listing_type)
+        if not config:
+            continue
+
+        listing_ids = [row.get("listing_id") for row in rows if row.get("listing_id")]
+        if not listing_ids:
+            continue
+
+        listing_id_query = ",".join(str(listing_id) for listing_id in listing_ids)
+        records, records_status = supabase_request(
+            "get",
+            f"/rest/v1/{config['table']}",
+            params={"select": "*", "id": f"in.({listing_id_query})"},
+            use_service_role=True,
+        )
+        if records_status >= 400:
+            records_by_type[listing_type] = {}
+            continue
+
+        records = records or []
+        record_map = {record.get("id"): record for record in records if isinstance(record, dict)}
+
+        image_rows, image_status = supabase_request(
+            "get",
+            f"/rest/v1/{config['images_table']}",
+            params={"select": "*", config["fk"]: f"in.({listing_id_query})"},
+            use_service_role=True,
+        )
+        images_by_listing = defaultdict(list)
+        if image_status < 400:
+            for image in image_rows or []:
+                images_by_listing[image.get(config["fk"])].append(image)
+
+        if listing_type == "bike":
+            for record in record_map.values():
+                _normalize_bike_record(record)
+
+        for record_id, record in record_map.items():
+            record["images"] = images_by_listing.get(record_id, [])
+            _sync_listing_lifecycle(config["table"], record, hard_delete_archived=False)
+
+        records_by_type[listing_type] = record_map
+
+    cards = []
+    saved_ids = []
+    counts = {key: 0 for key in SAVED_LISTING_TYPE_CONFIG.keys()}
+
+    for row in saved_rows:
+        listing_type = _normalize_saved_listing_type(row.get("listing_type"))
+        if not listing_type:
+            continue
+        saved_ids.append(f"{listing_type}:{row.get('listing_id')}")
+        counts[listing_type] = counts.get(listing_type, 0) + 1
+        record = records_by_type.get(listing_type, {}).get(row.get("listing_id"))
+        cards.append(_build_saved_listing_card(listing_type, record, row))
+
+    cards = [card for card in cards if card]
+    return {
+        "items": cards,
+        "saved_ids": saved_ids,
+        "counts": counts,
+        "total": len(cards),
+    }, 200
+
+
+def _load_saved_listing_card(current_user, listing_type, listing_id, saved_row=None):
+    normalized_type = _normalize_saved_listing_type(listing_type)
+    if not normalized_type:
+        return None, {"error": "Invalid listing type"}, 400
+
+    config = SAVED_LISTING_TYPE_CONFIG.get(normalized_type)
+    if not config:
+        return None, {"error": "Invalid listing type"}, 400
+
+    record, record_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={"select": "*", "id": f"eq.{listing_id}", "limit": 1},
+        use_service_role=True,
+    )
+    listing = record[0] if record and isinstance(record, list) else {}
+    if listing and normalized_type == "bike":
+        _normalize_bike_record(listing)
+
+    if listing:
+        images, image_status = supabase_request(
+            "get",
+            f"/rest/v1/{config['images_table']}",
+            params={"select": "*", config["fk"]: f"eq.{listing_id}"},
+            use_service_role=True,
+        )
+        listing["images"] = images if image_status < 400 else []
+    else:
+        listing = {}
+
+    _sync_listing_lifecycle(config["table"], listing, hard_delete_archived=False)
+    return _build_saved_listing_card(normalized_type, listing, saved_row), None, 200
+
+
+@app.route("/api/user/saved-listings", methods=["GET"])
+@token_required
+def get_user_saved_listings(current_user):
+    payload, status_code = _fetch_saved_listing_cards(current_user)
+    return jsonify(payload), status_code
+
+
+@app.route("/api/user/saved-listings", methods=["POST"])
+@token_required
+def create_user_saved_listing(current_user):
+    data = request.json or {}
+    listing_type = _normalize_saved_listing_type(data.get("listing_type"))
+    listing_id = str(data.get("listing_id") or "").strip()
+
+    if not listing_type or not listing_id:
+        return jsonify({"error": "listing_type and listing_id are required"}), 400
+
+    saved_rows, existing_status = supabase_request(
+        "get",
+        "/rest/v1/saved_listings",
+        params={
+            "select": "id,user_id,listing_id,listing_type,created_at",
+            "user_id": f"eq.{current_user}",
+            "listing_id": f"eq.{listing_id}",
+            "listing_type": f"eq.{listing_type}",
+            "limit": 1,
+        },
+        user_id=current_user,
+    )
+    if existing_status < 400 and saved_rows:
+        card, _, _ = _load_saved_listing_card(current_user, listing_type, listing_id, saved_rows[0])
+        return jsonify({"saved": True, "listing": card}), 200
+
+    card, error_payload, error_status = _load_saved_listing_card(current_user, listing_type, listing_id)
+    if error_payload:
+        return jsonify(error_payload), error_status
+    if not card or card.get("isUnavailable"):
+        return jsonify({"error": "Listing not found"}), 404
+
+    insert_payload = {
+        "user_id": current_user,
+        "listing_id": listing_id,
+        "listing_type": listing_type,
+    }
+    insert_response, insert_status = supabase_request(
+        "post",
+        "/rest/v1/saved_listings",
+        data=insert_payload,
+        user_id=current_user,
+    )
+    if insert_status >= 400:
+        if insert_status == 409:
+            return jsonify({"saved": True, "listing": card}), 200
+        return jsonify(insert_response), insert_status
+
+    return jsonify({"saved": True, "listing": card, "saved_listing": insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response}), 200
+
+
+@app.route("/api/user/saved-listings/<string:listing_type>/<string:listing_id>", methods=["DELETE"])
+@token_required
+def delete_user_saved_listing(current_user, listing_type, listing_id):
+    normalized_type = _normalize_saved_listing_type(listing_type)
+    if not normalized_type:
+        return jsonify({"error": "Invalid listing type"}), 400
+
+    delete_response, delete_status = supabase_request(
+        "delete",
+        "/rest/v1/saved_listings",
+        params={
+            "user_id": f"eq.{current_user}",
+            "listing_type": f"eq.{normalized_type}",
+            "listing_id": f"eq.{listing_id}",
+        },
+        user_id=current_user,
+    )
+
+    if delete_status >= 400:
+        return jsonify(delete_response), delete_status
+
+    return jsonify({"saved": False, "listing_type": normalized_type, "listing_id": listing_id}), 200
+
+
 def _to_int(value, field_name, *, minimum=None, maximum=None, allow_empty=True):
     if value is None:
         return None

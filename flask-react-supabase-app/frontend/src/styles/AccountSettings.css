@@ -94,6 +94,64 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.favourites-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.favourites-header h2 {
+  margin: 0 0 6px;
+}
+
+.favourites-subtitle {
+  margin: 0;
+  color: #8a8a8a;
+  font-size: 14px;
+}
+
+.favourites-stats {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(1, 53, 28, 0.08);
+  color: #01351c;
+  font-weight: 700;
+}
+
+.favourites-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.favourites-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 240px;
+  padding: 32px;
+  border-radius: 16px;
+  border: 1px dashed rgba(1, 53, 28, 0.25);
+  background: rgba(1, 53, 28, 0.04);
+  text-align: center;
+}
+
+.favourites-empty p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #01351c;
+}
+
+.favourites-empty span {
+  color: #666;
+  font-size: 14px;
+}
+
 .tab-content h2 {
   color: #01351c;
   margin-bottom: 25px;
@@ -1016,7 +1074,28 @@
     grid-template-columns: 1fr;
   }
 
+  .account-settings-container .settings-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .account-settings-container .settings-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
   .account-settings-container .tab-button {
-    width: 100%;
+    width: auto;
+    min-width: 150px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .favourites-header {
+    flex-direction: column;
+  }
+
+  .favourites-grid {
+    grid-template-columns: 1fr;
   }
 }

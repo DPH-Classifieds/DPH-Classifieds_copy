@@ -5,6 +5,7 @@ import axios from 'axios';
 import { getAccessToken } from '../utils/supabaseClient';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
+import SavedListingToggleButton from './SavedListingToggleButton';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
@@ -324,6 +325,14 @@ const PlateDetailRedesigned = () => {
                 >
                   WhatsApp
                 </a>
+                <SavedListingToggleButton
+                  listingType="plate"
+                  listingId={id}
+                  listingData={plate}
+                  className="saved-listing-button-detail"
+                  label="Save listing"
+                  showLabel
+                />
               </div>
             </div>
 

@@ -1,0 +1,112 @@
+.saved-listing-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 214, 180, 0.18);
+  background: rgba(4, 16, 8, 0.72);
+  color: #edf6ee;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.saved-listing-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 214, 180, 0.35);
+  background: rgba(7, 21, 13, 0.88);
+}
+
+.saved-listing-button.is-saved {
+  background: linear-gradient(135deg, rgba(139, 214, 180, 0.2) 0%, rgba(0, 78, 55, 0.34) 100%);
+  color: #f4fff8;
+  border-color: rgba(139, 214, 180, 0.45);
+}
+
+.saved-listing-button.is-saving {
+  cursor: progress;
+  opacity: 0.82;
+}
+
+.saved-listing-button-detail {
+  min-width: 170px;
+}
+
+.saved-listing-button.saved-listing-button-card {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  backdrop-filter: blur(14px);
+}
+
+.saved-listing-button.saved-listing-button-card span {
+  display: none;
+}
+
+.saved-listing-spinner {
+  animation: saved-spin 1s linear infinite;
+}
+
+@keyframes saved-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.saved-listings-notice {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(139, 214, 180, 0.22);
+  background: rgba(4, 16, 8, 0.96);
+  color: #eef8f1;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+}
+
+.saved-listings-notice.is-error {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.saved-listings-notice.is-success {
+  border-color: rgba(139, 214, 180, 0.3);
+}
+
+.saved-listings-notice-close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 4px;
+}
+
+@media (max-width: 640px) {
+  .saved-listings-notice {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+  }
+}

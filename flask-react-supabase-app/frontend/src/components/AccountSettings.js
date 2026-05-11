@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SearchableSelect from './ui/searchable-select';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken, getCurrentUser } from '../utils/authService';
@@ -8,6 +9,9 @@ import { splitPhoneNumberForInput } from '../utils/countryCodes';
 import { checkUsernameAvailability, sanitizeUsernameInput, getUsernameValidationError } from '../utils/usernameAvailability';
 import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect } from '../utils/directUpload';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
+import MarketplaceListingCard from './MarketplaceListingCard';
+import LoadingSpinner from './LoadingSpinner';
+import { useSavedListings } from '../context/SavedListingsContext';
 import '../styles/AccountSettings.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -75,6 +79,12 @@ const buildProfileDataFromUser = (user = {}) => {
 
 const AccountSettings = () => {
   const { user, updateUser, signOut } = useAuth();
+  const savedListingsContext = useSavedListings();
+  const savedListings = savedListingsContext?.savedListings || [];
+  const savedCounts = savedListingsContext?.savedCounts || { total: 0, cars: 0, bikes: 0, parts: 0, plates: 0 };
+  const savedLoading = savedListingsContext?.loading || false;
+  const refreshSavedListings = savedListingsContext?.refreshSavedListings;
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -152,6 +162,21 @@ const AccountSettings = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
 
+  useEffect(() => {
+    const requestedTab = String(searchParams.get('tab') || '').toLowerCase();
+    const allowedTabs = new Set(['profile', 'business', 'preferences', 'security', 'account', 'favourites']);
+    if (requestedTab && allowedTabs.has(requestedTab) && requestedTab !== activeTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [activeTab, searchParams]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('tab', tab);
+    setSearchParams(nextParams, { replace: true });
+  };
+
   // Calculate profile completion whenever user data changes
   useEffect(() => {
     if (user) {
@@ -183,6 +208,12 @@ const AccountSettings = () => {
       fetchDealerDocuments();
     }
   }, [user, fetchDealerDocuments]);
+
+  useEffect(() => {
+    if (activeTab === 'favourites' && typeof refreshSavedListings === 'function') {
+      refreshSavedListings();
+    }
+  }, [activeTab, refreshSavedListings]);
 
   useEffect(() => {
     const username = sanitizeUsernameInput(profileData.username);
@@ -672,34 +703,40 @@ const AccountSettings = () => {
       <div className="settings-tabs">
         <button
           className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
+          onClick={() => handleTabChange('profile')}
         >
           Profile Information
         </button>
         <button
           className={`tab-button ${activeTab === 'business' ? 'active' : ''}`}
-          onClick={() => setActiveTab('business')}
+          onClick={() => handleTabChange('business')}
           style={{ display: profileData.isDealer ? 'block' : 'none' }}
         >
           Business Details
         </button>
         <button
           className={`tab-button ${activeTab === 'preferences' ? 'active' : ''}`}
-          onClick={() => setActiveTab('preferences')}
+          onClick={() => handleTabChange('preferences')}
         >
           Preferences
         </button>
         <button
           className={`tab-button ${activeTab === 'security' ? 'active' : ''}`}
-          onClick={() => setActiveTab('security')}
+          onClick={() => handleTabChange('security')}
         >
           Security
         </button>
         <button
           className={`tab-button ${activeTab === 'account' ? 'active' : ''}`}
-          onClick={() => setActiveTab('account')}
+          onClick={() => handleTabChange('account')}
         >
           Account
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'favourites' ? 'active' : ''}`}
+          onClick={() => handleTabChange('favourites')}
+        >
+          Favourites
         </button>
       </div>
 
@@ -1431,6 +1468,39 @@ const AccountSettings = () => {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'favourites' && (
+          <div className="tab-content">
+            <div className="favourites-header">
+              <div>
+                <h2>Favourites</h2>
+                <p className="favourites-subtitle">Saved listings from across the marketplace.</p>
+              </div>
+              <div className="favourites-stats">
+                <span>{savedCounts.total || 0} saved</span>
+              </div>
+            </div>
+
+            {savedLoading ? (
+              <LoadingSpinner message="Loading favourites..." compact />
+            ) : savedListings.length > 0 ? (
+              <div className="favourites-grid">
+                {savedListings.map((listing) => (
+                  <MarketplaceListingCard
+                    key={`saved-${listing.listingType || listing.listing_type || 'listing'}-${listing.id}`}
+                    item={listing}
+                    showMoreLink={false}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="favourites-empty">
+                <p>No favourites yet.</p>
+                <span>Tap the heart on any listing to save it here.</span>
+              </div>
+            )}
           </div>
         )}
 

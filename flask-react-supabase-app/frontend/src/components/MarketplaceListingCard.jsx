@@ -1,11 +1,24 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import SavedListingToggleButton from './SavedListingToggleButton';
 
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
+
+const resolveListingType = (item) => {
+  if (item.listingType) return item.listingType;
+  const key = String(item.categoryKey || '').toLowerCase();
+  if (key === 'cars') return 'car';
+  if (key === 'bikes') return 'bike';
+  if (key === 'car-parts') return 'part';
+  if (key === 'plates') return 'plate';
+  return null;
+};
 
 const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
   const sellerName = item.sellerName || 'Marketplace Seller';
   const sellerInitial = sellerName.charAt(0).toUpperCase();
+  const listingType = resolveListingType(item);
+  const listingId = item.id;
   const moreRoute =
     item.moreRoute ||
     (item.categoryKey === 'cars'
@@ -23,6 +36,15 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
       data-listing-id={item.id}
       data-analytics-event="listing_click"
     >
+      {listingType && listingId ? (
+        <SavedListingToggleButton
+          listingType={listingType}
+          listingId={listingId}
+          listingData={item}
+          className="saved-listing-button-card"
+          label="Save listing"
+        />
+      ) : null}
       <Link to={item.route} className="explore-v2-card-media">
         {item.image ? (
           <img

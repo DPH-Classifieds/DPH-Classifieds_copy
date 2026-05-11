@@ -1,6 +1,7 @@
 import React, { useEffect, Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SavedListingsProvider } from './context/SavedListingsContext';
 import Header from './components/Header';
 import DealerPendingBanner from './components/DealerPendingBanner';
 import Footer from './components/ui/hover-footer';
@@ -13,6 +14,7 @@ import AdminRoute from './components/AdminRoute';
 import AdminLayout from './components/AdminLayout';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
+import SavedListingsNotice from './components/SavedListingsNotice';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -201,17 +203,19 @@ function App() {
 
   return (
     <AuthProvider>
-      <Router>
-        <AuthHashHandler />
-        <ScrollToTop />
-        <PlatformAnalyticsTracker />
-        <UserBehaviorTracker />
-        <div className="app">
-          <Header />
-          <DealerPendingBanner />
-          <main className="app-content">
-            <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
-              <Routes>
+      <SavedListingsProvider>
+        <Router>
+          <AuthHashHandler />
+          <ScrollToTop />
+          <PlatformAnalyticsTracker />
+          <UserBehaviorTracker />
+          <div className="app">
+            <Header />
+            <DealerPendingBanner />
+            <SavedListingsNotice />
+            <main className="app-content">
+              <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
+                <Routes>
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/cars" element={<CarList />} />
@@ -279,20 +283,21 @@ function App() {
 
               {/* 404 route */}
               <Route path="*" element={<NotFound />} />
-              </Routes>
+                </Routes>
+              </Suspense>
+            </main>
+            <Footer />
+          </div>
+          <CookieBanner />
+          <BackToTop />
+          {telemetryEnabled && showAnalytics && (
+            <Suspense fallback={null}>
+              <Analytics />
+              <SpeedInsights />
             </Suspense>
-          </main>
-          <Footer />
-        </div>
-        <CookieBanner />
-        <BackToTop />
-        {telemetryEnabled && showAnalytics && (
-          <Suspense fallback={null}>
-            <Analytics />
-            <SpeedInsights />
-          </Suspense>
-        )}
-      </Router>
+          )}
+        </Router>
+      </SavedListingsProvider>
     </AuthProvider>
   );
 }

@@ -9,6 +9,7 @@ import { resolveMediaUrl } from '../utils/media';
 import LoadingSpinner from './LoadingSpinner';
 import ReportButton from './ReportButton';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
+import SavedListingToggleButton from './SavedListingToggleButton';
 import SeoMeta from './SeoMeta';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
@@ -568,6 +569,14 @@ const CarDetail = () => {
                 >
                   WhatsApp
                 </a>
+                <SavedListingToggleButton
+                  listingType="car"
+                  listingId={id}
+                  listingData={car}
+                  className="saved-listing-button-detail"
+                  label="Save listing"
+                  showLabel
+                />
               </div>
             </div>
 
