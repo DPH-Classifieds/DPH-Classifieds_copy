@@ -1760,52 +1760,41 @@ def _load_saved_listing_card(current_user, listing_type, listing_id, saved_row=N
 
 
 def _decode_supabase_jwt_secret(raw_secret):
-    """Decode a Supabase JWT secret from its base64-encoded form.
+    """Return the HMAC key bytes for verifying a Supabase JWT.
 
-    Tries several approaches:
-      1. Base64-decode the raw string (the secret may or may not be padded).
-      2. If the raw string already decodes cleanly, use those bytes.
-      3. As a last resort, use the raw string itself as the HMAC key.
+    Supabase JWT secrets are sometimes base64-encoded raw keys, and sometimes
+    they are the raw key string itself.  This function tries the raw string
+    **first** (the more common case for newer Supabase projects), then falls
+    back to base64-decoded variants.
     """
     import base64 as _b64
 
     if not raw_secret:
         return None
 
-    # Attempt 1: direct decode (works when padding is already correct)
-    try:
-        decoded = _b64.b64decode(raw_secret, validate=True)
-        if len(decoded) >= 16:
-            return decoded
-    except Exception:
-        pass
+    # Attempt 1: use the raw string bytes directly (works for many Supabase projects)
+    raw_bytes = raw_secret.encode("utf-8")
+    if len(raw_bytes) >= 16:
+        yield raw_bytes, "raw string"
 
-    # Attempt 2: add padding if missing
+    # Attempt 2: base64-decode with correct padding
     padded = raw_secret + "=" * (-len(raw_secret) % 4)
     try:
         decoded = _b64.b64decode(padded, validate=True)
-        if len(decoded) >= 16:
-            return decoded
+        if len(decoded) >= 16 and decoded != raw_bytes:
+            yield decoded, "base64-decoded"
     except Exception:
         pass
 
-    # Attempt 3: lenient decode (ignore non-base64 chars, handle extra padding)
+    # Attempt 3: lenient decode (handles whitespace / extra padding)
     try:
-        # Remove any whitespace / newlines that might sneak in
         cleaned = "".join(raw_secret.split())
-        # Ensure padding is a multiple of 4
         cleaned += "=" * (-len(cleaned) % 4)
         decoded = _b64.b64decode(cleaned)
-        if len(decoded) >= 16:
-            return decoded
+        if len(decoded) >= 16 and decoded != raw_bytes:
+            yield decoded, "base64-lenient"
     except Exception:
         pass
-
-    # Attempt 4: fall back to using the raw string bytes
-    logger.warning(
-        "Could not base64-decode SUPABASE_JWT_SECRET; using raw string as key"
-    )
-    return raw_secret.encode("utf-8")
 
 
 def token_required(f):
@@ -1845,26 +1834,34 @@ def token_required(f):
             try:
                 import jwt as pyjwt
 
-                secret_bytes = _decode_supabase_jwt_secret(jwt_secret)
+                for secret_bytes, _method in _decode_supabase_jwt_secret(jwt_secret):
+                    try:
+                        payload = pyjwt.decode(
+                            token,
+                            secret_bytes,
+                            algorithms=["HS256"],
+                            options={"verify_aud": False},
+                        )
+                        current_user = payload.get("sub")
+                        if not current_user:
+                            return jsonify(
+                                {"message": "Invalid token: missing user ID"}
+                            ), 401
 
-                payload = pyjwt.decode(
-                    token,
-                    secret_bytes,
-                    algorithms=["HS256"],
-                    options={"verify_aud": False},
+                        request.user_id = current_user
+                        request.user_data = {
+                            "id": current_user,
+                            "email": payload.get("email", ""),
+                            "role": payload.get("role", "authenticated"),
+                        }
+                        request.supabase_token = token
+                        return f(current_user, *args, **kwargs)
+                    except Exception:
+                        continue
+
+                logger.warning(
+                    f"[auth] All local JWT key attempts failed for token {token_preview}"
                 )
-                current_user = payload.get("sub")
-                if not current_user:
-                    return jsonify({"message": "Invalid token: missing user ID"}), 401
-
-                request.user_id = current_user
-                request.user_data = {
-                    "id": current_user,
-                    "email": payload.get("email", ""),
-                    "role": payload.get("role", "authenticated"),
-                }
-                request.supabase_token = token
-                return f(current_user, *args, **kwargs)
             except Exception as local_error:
                 logger.warning(
                     f"[auth] Local JWT validation failed for token {token_preview}: {local_error}"
@@ -1957,24 +1954,26 @@ def token_required_optional(f):
             try:
                 import jwt as pyjwt
 
-                secret_bytes = _decode_supabase_jwt_secret(jwt_secret)
-
-                payload = pyjwt.decode(
-                    token,
-                    secret_bytes,
-                    algorithms=["HS256"],
-                    options={"verify_aud": False},
-                )
-                current_user = payload.get("sub")
-                if current_user:
-                    request.user_id = current_user
-                    request.user_data = {
-                        "id": current_user,
-                        "email": payload.get("email", ""),
-                        "role": payload.get("role", "authenticated"),
-                    }
-                    request.supabase_token = token
-                    return f(current_user, *args, **kwargs)
+                for secret_bytes, _method in _decode_supabase_jwt_secret(jwt_secret):
+                    try:
+                        payload = pyjwt.decode(
+                            token,
+                            secret_bytes,
+                            algorithms=["HS256"],
+                            options={"verify_aud": False},
+                        )
+                        current_user = payload.get("sub")
+                        if current_user:
+                            request.user_id = current_user
+                            request.user_data = {
+                                "id": current_user,
+                                "email": payload.get("email", ""),
+                                "role": payload.get("role", "authenticated"),
+                            }
+                            request.supabase_token = token
+                            return f(current_user, *args, **kwargs)
+                    except Exception:
+                        continue
             except Exception as local_error:
                 logger.info(f"Optional local token validation skipped: {local_error}")
 
@@ -3254,11 +3253,19 @@ def _get_optional_user_id_from_auth_header():
     try:
         import jwt as pyjwt
 
-        secret_bytes = _decode_supabase_jwt_secret(SUPABASE_JWT_SECRET)
-        payload = pyjwt.decode(
-            token, secret_bytes, algorithms=["HS256"], options={"verify_aud": False}
-        )
-        return payload.get("sub")
+        for secret_bytes, _method in _decode_supabase_jwt_secret(SUPABASE_JWT_SECRET):
+            try:
+                payload = pyjwt.decode(
+                    token,
+                    secret_bytes,
+                    algorithms=["HS256"],
+                    options={"verify_aud": False},
+                )
+                uid = payload.get("sub")
+                if uid:
+                    return uid
+            except Exception:
+                continue
     except Exception:
         pass
 
@@ -3760,14 +3767,20 @@ def _optional_user_id():
     try:
         import jwt as pyjwt
 
-        secret_bytes = _decode_supabase_jwt_secret(SUPABASE_JWT_SECRET)
-        payload = pyjwt.decode(
-            token, secret_bytes, algorithms=["HS256"], options={"verify_aud": False}
-        )
-        uid = payload.get("sub")
-        if uid:
-            request.supabase_token = token
-            return uid
+        for secret_bytes, _method in _decode_supabase_jwt_secret(SUPABASE_JWT_SECRET):
+            try:
+                payload = pyjwt.decode(
+                    token,
+                    secret_bytes,
+                    algorithms=["HS256"],
+                    options={"verify_aud": False},
+                )
+                uid = payload.get("sub")
+                if uid:
+                    request.supabase_token = token
+                    return uid
+            except Exception:
+                continue
     except Exception:
         pass
 
