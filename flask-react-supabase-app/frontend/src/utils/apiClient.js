@@ -183,6 +183,7 @@ export const apiClient = {
           const refreshedToken = refreshResult?.data?.access_token;
           if (refreshedToken) {
             token = refreshedToken;
+            options.__retriedAfterRefresh = true;
             response = await executeRequest(url, token);
           }
         }

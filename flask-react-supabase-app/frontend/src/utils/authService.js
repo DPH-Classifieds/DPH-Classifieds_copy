@@ -1,7 +1,14 @@
 import axios from 'axios';
 import logger from './logger';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const DEFAULT_PROD_API_URL = 'https://api.dphclassifieds.com';
+
+// Keep this base URL logic aligned with `utils/apiClient.js` so auth refresh calls
+// hit the correct backend in production.
+const API_URL = process.env.REACT_APP_API_URL
+  || (typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : DEFAULT_PROD_API_URL);
 const CURRENT_USER_CACHE_KEY = 'dph_current_user_cache_v1';
 const CURRENT_USER_CACHE_TTL_MS = 2 * 60 * 1000;
 const ACCESS_TOKEN_KEY = 'supabase_access_token';
@@ -423,6 +430,7 @@ export const refreshToken = async () => {
     
     if (response.data && response.data.access_token) {
       saveAuthData(response.data);
+      storeAccessToken(response.data.access_token);
       setAuthHeader(response.data.access_token);
       return { data: response.data, error: null };
     } else {
