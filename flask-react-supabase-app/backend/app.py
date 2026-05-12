@@ -1572,6 +1572,26 @@ def _saved_listing_seller_name(listing):
     )
 
 
+def resolve_media_url(url):
+    """Resolve a media URL/path to a full accessible URL.
+
+    Handles Supabase storage paths, relative paths, and passthrough for
+    URLs that are already absolute.
+    """
+    if not url:
+        return ""
+    url = str(url).strip()
+    if not url:
+        return ""
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    if url.startswith("/storage/v1/"):
+        return f"{SUPABASE_URL}{url}"
+    if url.startswith("object/public/"):
+        return f"{SUPABASE_URL}/storage/v1/{url}"
+    return url
+
+
 def _saved_listing_seller_photo(listing):
     listing = listing or {}
     return resolve_media_url(
@@ -1916,7 +1936,6 @@ def token_required(f):
                 "role": supabase_user.get("role", "authenticated"),
             }
             request.supabase_token = token
-            return f(current_user, *args, **kwargs)
         except requests.Timeout:
             logger.error(f"[auth] Supabase auth API timeout for token {token_preview}")
             return jsonify({"message": "Authentication service timeout"}), 503
@@ -1925,6 +1944,8 @@ def token_required(f):
                 f"[auth] Fallback token validation error for token {token_preview}: {fallback_error}"
             )
             return jsonify({"message": "Token has expired or is invalid"}), 401
+
+        return f(current_user, *args, **kwargs)
 
     return decorated
 
