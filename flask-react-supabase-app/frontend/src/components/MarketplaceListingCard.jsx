@@ -17,15 +17,6 @@ const resolveListingType = (item) => {
 const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
   const listingType = resolveListingType(item);
   const listingId = item.id;
-  const moreRoute =
-    item.moreRoute ||
-    (item.categoryKey === 'cars'
-      ? '/cars'
-      : item.categoryKey === 'car-parts'
-        ? '/car-parts'
-      : item.categoryKey === 'plates'
-          ? '/plates'
-          : '/bikes');
 
   const isCarListing = item?.categoryKey === 'cars';
   const carMetaParts = isCarListing
@@ -97,11 +88,6 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           <Link to={item.route} className="explore-v2-button explore-v2-button-primary">
             View Listing
           </Link>
-          {showMoreLink ? (
-            <Link to={moreRoute} className="explore-v2-card-link">
-              More {item.categoryLabel}s
-            </Link>
-          ) : null}
         </div>
       </div>
     </article>

@@ -345,7 +345,7 @@
 .feature-item label,
 .form-check-label {
   margin: 0;
-  color: var(--pf-label);
+  color: var(--pf-text);
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.2;
@@ -358,6 +358,18 @@
   height: 14px;
   margin: 0;
   accent-color: var(--pf-accent);
+  outline: none;
+  box-shadow: none;
+}
+
+.feature-item input[type="checkbox"]:focus,
+.feature-item input[type="checkbox"]:focus-visible,
+.form-check-input:focus,
+.form-check-input:focus-visible,
+.form-group input[type="checkbox"]:focus,
+.form-group input[type="checkbox"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .feature-item:has(input:checked),

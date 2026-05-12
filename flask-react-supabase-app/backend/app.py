@@ -1379,6 +1379,22 @@ def _saved_listing_config(listing_type):
 def _format_saved_listing_price(value):
     if value in (None, ""):
         return "Price on request"
+
+
+def _looks_like_missing_table(response_payload):
+    """Best-effort detect PostgREST missing-table errors (HTTP 404/400 with 42P01)."""
+    if not isinstance(response_payload, dict):
+        return False
+    message = str(response_payload.get("message") or "").lower()
+    code = str(response_payload.get("code") or "")
+    details = str(response_payload.get("details") or "").lower()
+    hint = str(response_payload.get("hint") or "").lower()
+    return (
+        code == "42P01"
+        or "does not exist" in message
+        or "does not exist" in details
+        or "does not exist" in hint
+    )
     try:
         return f"AED {int(float(value)):,}"
     except (TypeError, ValueError):
@@ -1588,6 +1604,14 @@ def _fetch_saved_listing_cards(current_user):
     )
 
     if status_code >= 400:
+        if _looks_like_missing_table(saved_rows):
+            return {
+                "items": [],
+                "saved_ids": [],
+                "counts": {key: 0 for key in SAVED_LISTING_TYPE_CONFIG.keys()},
+                "total": 0,
+                "error": "Supabase table saved_listings is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_ecosystem_tables.sql",
+            }, 501
         return saved_rows, status_code
 
     saved_rows = saved_rows or []
@@ -1910,6 +1934,15 @@ def create_user_saved_listing(current_user):
         },
         user_id=current_user,
     )
+    if existing_status >= 400 and _looks_like_missing_table(saved_rows):
+        return (
+            jsonify(
+                {
+                    "error": "Supabase table saved_listings is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_ecosystem_tables.sql"
+                }
+            ),
+            501,
+        )
     if existing_status < 400 and saved_rows:
         card, _, _ = _load_saved_listing_card(current_user, listing_type, listing_id, saved_rows[0])
         return jsonify({"saved": True, "listing": card}), 200
@@ -1934,6 +1967,15 @@ def create_user_saved_listing(current_user):
     if insert_status >= 400:
         if insert_status == 409:
             return jsonify({"saved": True, "listing": card}), 200
+        if _looks_like_missing_table(insert_response):
+            return (
+                jsonify(
+                    {
+                        "error": "Supabase table saved_listings is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_ecosystem_tables.sql"
+                    }
+                ),
+                501,
+            )
         return jsonify(insert_response), insert_status
 
     return jsonify({"saved": True, "listing": card, "saved_listing": insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response}), 200
@@ -1958,6 +2000,15 @@ def delete_user_saved_listing(current_user, listing_type, listing_id):
     )
 
     if delete_status >= 400:
+        if _looks_like_missing_table(delete_response):
+            return (
+                jsonify(
+                    {
+                        "error": "Supabase table saved_listings is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_ecosystem_tables.sql"
+                    }
+                ),
+                501,
+            )
         return jsonify(delete_response), delete_status
 
     return jsonify({"saved": False, "listing_type": normalized_type, "listing_id": listing_id}), 200
@@ -7421,6 +7472,19 @@ def manage_user_draft(current_user, draft_key):
                 timeout=10,
             )
             if response.status_code >= 400:
+                try:
+                    error_payload = response.json()
+                except Exception:
+                    error_payload = None
+                if _looks_like_missing_table(error_payload):
+                    return (
+                        jsonify(
+                            {
+                                "error": "Supabase table listing_drafts is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_listing_drafts.sql"
+                            }
+                        ),
+                        501,
+                    )
                 return jsonify({"error": "Failed to load draft"}), response.status_code
             drafts = response.json() or []
             return jsonify({"draft": drafts[0] if drafts else None}), 200
@@ -7461,6 +7525,15 @@ def manage_user_draft(current_user, draft_key):
             logger.error(
                 "Failed to save draft %s for user %s: %s", normalized_key, current_user, insert_response
             )
+            if _looks_like_missing_table(insert_response):
+                return (
+                    jsonify(
+                        {
+                            "error": "Supabase table listing_drafts is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_listing_drafts.sql"
+                        }
+                    ),
+                    501,
+                )
             return jsonify({"error": "Failed to save draft"}), 500
 
         saved_record = insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response
@@ -12861,7 +12934,7 @@ def get_admin_listing_overview(current_user, item_type, item_id):
                 "owner": owner_row,
                 "images": images_rows or [],
                 "summary": {
-                    "view_count": int(listing.get("view_count") or 0),
+                    "view_count": int(listing.get("view_count") or listing.get("views") or 0),
                     "call_clicks": int(lead_totals.get("call_click", 0)),
                     "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
                     "vin_opens": int(lead_totals.get("vin_open", 0)),

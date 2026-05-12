@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import SeoMeta from './SeoMeta';
+import MarketplaceListingCard from './MarketplaceListingCard';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
 import './CarList.css';
+import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const CarList = () => {
   const [cars, setCarsState] = useState([]);
@@ -143,6 +143,27 @@ const CarList = () => {
     // Try all possible image URL fields
     const imageUrl = image.display_url || image.image_url || image.url || image;
     return resolveMediaUrl(imageUrl);
+  };
+
+  const normalizeMarketplaceItem = (car) => {
+    const title =
+      car.listing_title ||
+      [car.car_manufacturer, car.car_model].filter(Boolean).join(' ').trim() ||
+      'Car listing';
+
+    return {
+      id: car.id,
+      categoryKey: 'cars',
+      categoryLabel: 'Car',
+      listingType: 'car',
+      route: `/cars/${car.id}`,
+      title,
+      priceLabel: formatPrice(car.expected_selling_price),
+      image: car.images && car.images.length > 0 ? getImageUrl(car.images[0]) : null,
+      year: car.make_year,
+      kilometers: car.kilometer_driven,
+      location: car.car_city,
+    };
   };
 
   const fetchCars = useCallback(async (filterParams = {}) => {
@@ -753,49 +774,18 @@ const CarList = () => {
       {loading ? (
         <LoadingSpinner message="Loading cars..." size="large" />
       ) : (
-        <>
-          {/* Car Listings */}
-          <div className="car-grid">
-            {cars.length > 0 ? (
-              cars.map(car => (
-                <Link key={car.id} to={`/cars/${car.id}`} className="car-card-link">
-                  <div className="car-card">
-                    <div className="car-image">
-                      {car.images && car.images.length > 0 ? (
-                        <img 
-                          src={getImageUrl(car.images[0])} 
-                          alt={car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}
-                          loading="lazy"
-                          decoding="async"
-                          width="400"
-                          height="300"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = LISTING_PLACEHOLDER_IMAGE;
-                          }}
-                        />
-                      ) : (
-                        <div className="image-placeholder">No Image Available</div>
-                      )}
-                      <div className="car-price">{formatPrice(car.expected_selling_price)}</div>
-                    </div>
-                    <div className="car-content">
-                      <h3 className="car-title">{car.listing_title || `${car.make_year} ${car.car_manufacturer} ${car.car_model}`}</h3>
-                      <div className="car-details">
-                        <p className="car-year">{car.make_year}</p>
-                        <div className="car-specs">
-                          <span>{car.kilometer_driven?.toLocaleString() || 'N/A'} KM</span>
-                        </div>
-                        <p className="car-location">{car.car_city || 'Location not specified'}</p>
-                      </div>
-                      <div className="view-details-btn">
-                        View Details
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            ) : (
+	        <>
+	          {/* Car Listings */}
+	          <div className="explore-v2-grid">
+	            {cars.length > 0 ? (
+	              cars.map(car => (
+	                <MarketplaceListingCard
+	                  key={car.id}
+	                  item={normalizeMarketplaceItem(car)}
+	                  showMoreLink={false}
+	                />
+	              ))
+	            ) : (
               <div className="no-cars-message">
                 <p>No cars found matching your criteria.</p>
                 <button type="button" onClick={resetFilters}>Reset Filters</button>

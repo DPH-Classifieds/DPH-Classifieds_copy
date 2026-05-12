@@ -241,7 +241,7 @@ const AdminListings = () => {
     const visible = listings.length;
     const statsKey = filter === 'plates' ? 'plates' : filter;
     const pendingOfType = Number(stats[`${statsKey}_pending`] || 0);
-    const views = listings.reduce((sum, listing) => sum + Number(listing.view_count || 0), 0);
+    const views = listings.reduce((sum, listing) => sum + Number(listing.view_count ?? listing.views ?? 0), 0);
     const leads = listings.reduce((sum, listing) => {
       const metrics = getLeadMetrics(listing);
       return sum + metrics.qualifiedLeads;
@@ -269,7 +269,7 @@ const AdminListings = () => {
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>
         <p><strong>Seller:</strong> {listing.user_email || listing.seller_email || 'N/A'}</p>
         <p><strong>VIN:</strong> {getListingVin(listing) || 'N/A'}</p>
-        <p><strong>Views:</strong> {Number(listing.view_count || 0)}</p>
+        <p><strong>Views:</strong> {Number(listing.view_count ?? listing.views ?? 0)}</p>
         <p><strong>Leads:</strong> {getLeadMetrics(listing).qualifiedLeads}</p>
         <p><strong>Calls:</strong> {getLeadMetrics(listing).callClick} · <strong>WhatsApp:</strong> {getLeadMetrics(listing).whatsappClick}</p>
         <p><strong>VIN Opens:</strong> {getLeadMetrics(listing).vinOpen}</p>

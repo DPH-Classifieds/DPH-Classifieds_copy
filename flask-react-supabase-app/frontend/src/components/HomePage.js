@@ -263,8 +263,8 @@ const HomePage = () => {
         <div className="cn-shell">
           <div className="cn-section-heading cn-section-heading-dark">
             <div>
-              <span className="cn-kicker">Latest Cars</span>
-              <h2>4 most recent cars added to the marketplace.</h2>
+              <span className="cn-kicker">Marketplace</span>
+              <h2>Marketplace - 4 most recent cars added to the marketplace.</h2>
             </div>
             <Link to="/cars" className="cn-button cn-button-primary-dark">
               View more
