@@ -134,7 +134,7 @@ const carModels = {
   'Tank': ['300', '500', '700'],
   'Tata': ['Nexon', 'Punch', 'Harrier', 'Safari', 'Altroz', 'Tiago', 'Tiago EV', 'Punch EV', 'Nexon EV', 'Indica', 'Indigo', 'Sumo', 'Xenon'],
   'Tesla': ['Model S', 'Model 3', 'Model X', 'Model Y', 'Cybertruck', 'Roadster', 'Semi'],
-  'Toyota': ['Camry', 'Corolla', 'RAV4', 'Highlander', 'Land Cruiser', '4Runner', 'Tacoma', 'Tundra', 'Sequoia', 'Prius', 'Supra', '86', 'GR86', 'GR Corolla', 'GR Yaris', 'C-HR', 'Corolla Cross', 'Corolla Hatchback', 'Yaris', 'Yaris Sedan', 'Venza', 'Sienna', 'Avalon', 'Crown', 'bZ4X', 'Mirai', 'Hilux', 'Fortuner', 'Innova', 'Urban Cruiser', 'Raize', 'Rush', 'Avanza', 'Hiace', 'Granvia', 'Previa', 'Celica', 'MR2', 'Echo', 'Prius C', 'Prius V'],
+  'Toyota': ['Camry', 'Corolla', 'RAV4', 'Highlander', 'Land Cruiser', '4Runner', 'Tacoma', 'Tundra', 'Sequoia', 'Prius', 'Supra', '86', 'GR86', 'GR Corolla', 'GR Yaris', 'C-HR', 'Corolla Cross', 'Corolla Hatchback', 'Yaris', 'Yaris Sedan', 'Venza', 'Sienna', 'Avalon', 'Crown', 'bZ4X', 'Mirai', 'Hilux', 'Fortuner', 'Innova', 'Urban Cruiser', 'Raize', 'Rush', 'Avanza', 'Hiace', 'Granvia', 'Previa', 'Celica', 'MR2', 'Echo', 'Prius C', 'Prius V', 'Prado'],
   'VinFast': ['VF 8', 'VF 9', 'VF 6', 'VF 7', 'VF 5', 'VF e34'],
   'Volkswagen': ['Golf', 'Passat', 'Tiguan', 'Touareg', 'Polo', 'Jetta', 'Arteon', 'Taos', 'T-Roc', 'Teramont', 'Atlas', 'ID.4', 'ID.5', 'ID.6', 'ID.Buzz', 'Beetle', 'Scirocco', 'Sharan', 'Touran', 'Multivan', 'Caddy', 'Transporter', 'Amarok'],
   'Volvo': ['XC90', 'XC60', 'XC40', 'S90', 'S60', 'V90', 'V60', 'XC70', 'S40', 'S80', 'C30', 'C70', 'EX30', 'EX90', 'EM90'],
@@ -155,6 +155,7 @@ const carTrims = {
     'Land Cruiser': ['EXR', 'GXR', 'VXR', 'GR Sport'],
     'Tacoma': ['SR', 'SR5', 'TRD Sport', 'TRD Off-Road', 'Limited', 'TRD Pro'],
     'Tundra': ['SR', 'SR5', 'Limited', 'Platinum', '1794 Edition', 'TRD Pro'],
+    'Prado':['TXR','GXR','VXR','Adventure']
   },
   'Nissan': {
     'Altima': ['S', 'SR', 'SV', 'Platinum'],

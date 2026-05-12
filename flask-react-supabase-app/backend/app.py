@@ -938,7 +938,9 @@ def _normalize_preview_images(record, relation_key):
     relation_images = record.pop(relation_key, []) if isinstance(record, dict) else []
     normalized_images = []
     for image in relation_images or []:
-        image_url = image.get("display_url") or image.get("image_url") or image.get("url")
+        image_url = (
+            image.get("display_url") or image.get("image_url") or image.get("url")
+        )
         if image_url:
             normalized_images.append(
                 {
@@ -949,9 +951,13 @@ def _normalize_preview_images(record, relation_key):
             )
 
     if not normalized_images and isinstance(record, dict):
-        main_url = record.get("display_url") or record.get("image_url") or record.get("url")
+        main_url = (
+            record.get("display_url") or record.get("image_url") or record.get("url")
+        )
         if main_url:
-            normalized_images.append({"id": "main", "url": main_url, "image_url": main_url})
+            normalized_images.append(
+                {"id": "main", "url": main_url, "image_url": main_url}
+            )
 
     if isinstance(record, dict):
         record["images"] = normalized_images
@@ -975,9 +981,7 @@ def _fetch_public_preview_records(table_name, params, relation_key, normalize=No
         return []
 
     records = _filter_public_listing_records(table_name, records)
-    seller_map = _batch_fetch_seller_map(
-        [record.get("user_id") for record in records]
-    )
+    seller_map = _batch_fetch_seller_map([record.get("user_id") for record in records])
 
     for record in records:
         if callable(normalize):
@@ -1425,7 +1429,12 @@ def _saved_listing_title(listing_type, listing):
             listing.get("trim") or listing.get("car_trim"),
         ]
         title = " ".join(str(part).strip() for part in parts if part)
-        return title or listing.get("listing_title") or listing.get("title") or "Untitled car"
+        return (
+            title
+            or listing.get("listing_title")
+            or listing.get("title")
+            or "Untitled car"
+        )
 
     if listing_type == "bike":
         parts = [
@@ -1434,10 +1443,20 @@ def _saved_listing_title(listing_type, listing):
             listing.get("model") or listing.get("bike_model"),
         ]
         title = " ".join(str(part).strip() for part in parts if part)
-        return title or listing.get("listing_title") or listing.get("title") or "Untitled bike"
+        return (
+            title
+            or listing.get("listing_title")
+            or listing.get("title")
+            or "Untitled bike"
+        )
 
     if listing_type == "part":
-        return listing.get("name") or listing.get("part_name") or listing.get("listing_title") or "Untitled part"
+        return (
+            listing.get("name")
+            or listing.get("part_name")
+            or listing.get("listing_title")
+            or "Untitled part"
+        )
 
     if listing_type == "plate":
         parts = [listing.get("city"), listing.get("code"), listing.get("number")]
@@ -1460,7 +1479,12 @@ def _saved_listing_location(listing_type, listing):
     if listing_type == "bike":
         return listing.get("location") or listing.get("city") or "UAE"
     if listing_type == "part":
-        return listing.get("location") or listing.get("city") or listing.get("emirate") or "UAE"
+        return (
+            listing.get("location")
+            or listing.get("city")
+            or listing.get("emirate")
+            or "UAE"
+        )
     if listing_type == "plate":
         return listing.get("city") or "UAE"
     return listing.get("location") or "UAE"
@@ -1469,7 +1493,11 @@ def _saved_listing_location(listing_type, listing):
 def _saved_listing_subtitle(listing_type, listing):
     listing = listing or {}
     if listing_type == "car":
-        mileage = listing.get("kilometer_driven") or listing.get("kilometer") or listing.get("mileage")
+        mileage = (
+            listing.get("kilometer_driven")
+            or listing.get("kilometer")
+            or listing.get("mileage")
+        )
         parts = []
         if mileage not in (None, ""):
             try:
@@ -1482,7 +1510,10 @@ def _saved_listing_subtitle(listing_type, listing):
 
     if listing_type == "bike":
         parts = [
-            listing.get("bike_type") or listing.get("type") or listing.get("bike_category") or "Bike",
+            listing.get("bike_type")
+            or listing.get("type")
+            or listing.get("bike_category")
+            or "Bike",
             listing.get("engine_size") or listing.get("engine_capacity"),
             _saved_listing_location(listing_type, listing),
         ]
@@ -1509,7 +1540,9 @@ def _saved_listing_subtitle(listing_type, listing):
 def _saved_listing_description(listing_type, listing):
     listing = listing or {}
     defaults = {
-        "car": listing.get("car_description") or listing.get("description") or "Freshly listed vehicle in the UAE marketplace.",
+        "car": listing.get("car_description")
+        or listing.get("description")
+        or "Freshly listed vehicle in the UAE marketplace.",
         "bike": listing.get("description") or "Motorcycle listing ready to view.",
         "part": listing.get("description") or "Part listing ready to compare.",
         "plate": listing.get("description") or "Premium plate listing ready to view.",
@@ -1576,7 +1609,9 @@ def _build_saved_listing_card(listing_type, listing, saved_row=None):
         "listingType": normalized_type,
         "route": _saved_listing_route(normalized_type, listing_id),
         "title": _saved_listing_title(normalized_type, listing),
-        "priceLabel": _format_saved_listing_price(_saved_listing_price(normalized_type, listing)),
+        "priceLabel": _format_saved_listing_price(
+            _saved_listing_price(normalized_type, listing)
+        ),
         "subtitle": _saved_listing_subtitle(normalized_type, listing),
         "image": _saved_listing_image(listing),
         "createdAt": listing.get("created_at") or (saved_row or {}).get("created_at"),
@@ -1643,7 +1678,9 @@ def _fetch_saved_listing_cards(current_user):
             continue
 
         records = records or []
-        record_map = {record.get("id"): record for record in records if isinstance(record, dict)}
+        record_map = {
+            record.get("id"): record for record in records if isinstance(record, dict)
+        }
 
         image_rows, image_status = supabase_request(
             "get",
@@ -1722,10 +1759,59 @@ def _load_saved_listing_card(current_user, listing_type, listing_id, saved_row=N
     return _build_saved_listing_card(normalized_type, listing, saved_row), None, 200
 
 
+def _decode_supabase_jwt_secret(raw_secret):
+    """Decode a Supabase JWT secret from its base64-encoded form.
+
+    Tries several approaches:
+      1. Base64-decode the raw string (the secret may or may not be padded).
+      2. If the raw string already decodes cleanly, use those bytes.
+      3. As a last resort, use the raw string itself as the HMAC key.
+    """
+    import base64 as _b64
+
+    if not raw_secret:
+        return None
+
+    # Attempt 1: direct decode (works when padding is already correct)
+    try:
+        decoded = _b64.b64decode(raw_secret, validate=True)
+        if len(decoded) >= 16:
+            return decoded
+    except Exception:
+        pass
+
+    # Attempt 2: add padding if missing
+    padded = raw_secret + "=" * (-len(raw_secret) % 4)
+    try:
+        decoded = _b64.b64decode(padded, validate=True)
+        if len(decoded) >= 16:
+            return decoded
+    except Exception:
+        pass
+
+    # Attempt 3: lenient decode (ignore non-base64 chars, handle extra padding)
+    try:
+        # Remove any whitespace / newlines that might sneak in
+        cleaned = "".join(raw_secret.split())
+        # Ensure padding is a multiple of 4
+        cleaned += "=" * (-len(cleaned) % 4)
+        decoded = _b64.b64decode(cleaned)
+        if len(decoded) >= 16:
+            return decoded
+    except Exception:
+        pass
+
+    # Attempt 4: fall back to using the raw string bytes
+    logger.warning(
+        "Could not base64-decode SUPABASE_JWT_SECRET; using raw string as key"
+    )
+    return raw_secret.encode("utf-8")
+
+
 def token_required(f):
     """Validate Supabase JWT (header/cookie) and inject `current_user` (user id).
 
-    This decorator must be defined before any `@token_required` usage. It reads
+    This decorator must be defined before any ``@token_required`` usage.  It reads
     env vars at request-time so import order cannot break Gunicorn deploys.
     """
 
@@ -1744,27 +1830,28 @@ def token_required(f):
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
             return (
-                jsonify({"message": "Invalid Authorization format. Use: Bearer <token>"}),
+                jsonify(
+                    {"message": "Invalid Authorization format. Use: Bearer <token>"}
+                ),
                 401,
             )
 
         token = parts[1]
+        token_preview = token[:20] + "..." if len(token) > 20 else token
 
-        # 1) Try local JWT validation when secret is available.
+        # ── 1) Try local JWT validation when secret is available. ──────────
         jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
         if jwt_secret:
             try:
-                import base64
                 import jwt as pyjwt
 
-                secret = jwt_secret
-                try:
-                    secret = base64.b64decode(secret + "==")
-                except Exception:
-                    pass
+                secret_bytes = _decode_supabase_jwt_secret(jwt_secret)
 
                 payload = pyjwt.decode(
-                    token, secret, algorithms=["HS256"], options={"verify_aud": False}
+                    token,
+                    secret_bytes,
+                    algorithms=["HS256"],
+                    options={"verify_aud": False},
                 )
                 current_user = payload.get("sub")
                 if not current_user:
@@ -1779,16 +1866,26 @@ def token_required(f):
                 request.supabase_token = token
                 return f(current_user, *args, **kwargs)
             except Exception as local_error:
-                logger.info(
-                    f"Local JWT validation skipped/failed, falling back to Supabase auth: {local_error}"
+                logger.warning(
+                    f"[auth] Local JWT validation failed for token {token_preview}: {local_error}"
                 )
+        else:
+            logger.warning(
+                "[auth] No SUPABASE_JWT_SECRET configured – skipping local JWT validation"
+            )
 
-        # 2) Fallback: validate token via Supabase Auth API.
+        # ── 2) Fallback: validate token via Supabase Auth API. ─────────────
         supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        # Prefer the anon key for auth API calls (service_role key may not work here)
+        supabase_anon_key = os.getenv("SUPABASE_KEY")
+        supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        supabase_key = supabase_anon_key or supabase_service_key
 
         if not supabase_url or not supabase_key:
-            logger.error("Missing SUPABASE_URL or SUPABASE_*_KEY for auth fallback.")
+            logger.error(
+                f"[auth] Missing SUPABASE_URL ({bool(supabase_url)}) or "
+                f"SUPABASE_KEY ({bool(supabase_key)}) for auth fallback."
+            )
             return jsonify({"message": "Server misconfigured for authentication"}), 500
 
         try:
@@ -1797,15 +1894,22 @@ def token_required(f):
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             }
-            auth_response = requests.get(
-                f"{supabase_url}/auth/v1/user", headers=auth_headers, timeout=10
-            )
+            auth_url = f"{supabase_url}/auth/v1/user"
+            auth_response = requests.get(auth_url, headers=auth_headers, timeout=10)
+
             if auth_response.status_code != 200:
+                logger.warning(
+                    f"[auth] Supabase auth API returned {auth_response.status_code} "
+                    f"for token {token_preview}: {auth_response.text[:200]}"
+                )
                 return jsonify({"message": "Token has expired or is invalid"}), 401
 
             supabase_user = auth_response.json()
             current_user = supabase_user.get("id")
             if not current_user:
+                logger.warning(
+                    f"[auth] Supabase returned 200 but no user ID: {supabase_user}"
+                )
                 return jsonify({"message": "Invalid token"}), 401
 
             request.user_id = current_user
@@ -1816,8 +1920,13 @@ def token_required(f):
             }
             request.supabase_token = token
             return f(current_user, *args, **kwargs)
+        except requests.Timeout:
+            logger.error(f"[auth] Supabase auth API timeout for token {token_preview}")
+            return jsonify({"message": "Authentication service timeout"}), 503
         except Exception as fallback_error:
-            logger.error(f"Fallback token validation error: {fallback_error}")
+            logger.error(
+                f"[auth] Fallback token validation error for token {token_preview}: {fallback_error}"
+            )
             return jsonify({"message": "Token has expired or is invalid"}), 401
 
     return decorated
@@ -1846,17 +1955,15 @@ def token_required_optional(f):
         jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
         if jwt_secret:
             try:
-                import base64
                 import jwt as pyjwt
 
-                secret = jwt_secret
-                try:
-                    secret = base64.b64decode(secret + "==")
-                except Exception:
-                    pass
+                secret_bytes = _decode_supabase_jwt_secret(jwt_secret)
 
                 payload = pyjwt.decode(
-                    token, secret, algorithms=["HS256"], options={"verify_aud": False}
+                    token,
+                    secret_bytes,
+                    algorithms=["HS256"],
+                    options={"verify_aud": False},
                 )
                 current_user = payload.get("sub")
                 if current_user:
@@ -1872,7 +1979,9 @@ def token_required_optional(f):
                 logger.info(f"Optional local token validation skipped: {local_error}")
 
         supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        supabase_key = os.getenv("SUPABASE_KEY") or os.getenv(
+            "SUPABASE_SERVICE_ROLE_KEY"
+        )
         if not supabase_url or not supabase_key:
             return f(None, *args, **kwargs)
 
@@ -1944,10 +2053,14 @@ def create_user_saved_listing(current_user):
             501,
         )
     if existing_status < 400 and saved_rows:
-        card, _, _ = _load_saved_listing_card(current_user, listing_type, listing_id, saved_rows[0])
+        card, _, _ = _load_saved_listing_card(
+            current_user, listing_type, listing_id, saved_rows[0]
+        )
         return jsonify({"saved": True, "listing": card}), 200
 
-    card, error_payload, error_status = _load_saved_listing_card(current_user, listing_type, listing_id)
+    card, error_payload, error_status = _load_saved_listing_card(
+        current_user, listing_type, listing_id
+    )
     if error_payload:
         return jsonify(error_payload), error_status
     if not card or card.get("isUnavailable"):
@@ -1978,10 +2091,21 @@ def create_user_saved_listing(current_user):
             )
         return jsonify(insert_response), insert_status
 
-    return jsonify({"saved": True, "listing": card, "saved_listing": insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response}), 200
+    return jsonify(
+        {
+            "saved": True,
+            "listing": card,
+            "saved_listing": insert_response[0]
+            if isinstance(insert_response, list) and insert_response
+            else insert_response,
+        }
+    ), 200
 
 
-@app.route("/api/user/saved-listings/<string:listing_type>/<string:listing_id>", methods=["DELETE"])
+@app.route(
+    "/api/user/saved-listings/<string:listing_type>/<string:listing_id>",
+    methods=["DELETE"],
+)
 @token_required
 def delete_user_saved_listing(current_user, listing_type, listing_id):
     normalized_type = _normalize_saved_listing_type(listing_type)
@@ -2011,7 +2135,9 @@ def delete_user_saved_listing(current_user, listing_type, listing_id):
             )
         return jsonify(delete_response), delete_status
 
-    return jsonify({"saved": False, "listing_type": normalized_type, "listing_id": listing_id}), 200
+    return jsonify(
+        {"saved": False, "listing_type": normalized_type, "listing_id": listing_id}
+    ), 200
 
 
 def _to_int(value, field_name, *, minimum=None, maximum=None, allow_empty=True):
@@ -3117,7 +3243,6 @@ def get_db_connection():
         raise e
 
 
- 
 def _get_optional_user_id_from_auth_header():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
@@ -3127,16 +3252,11 @@ def _get_optional_user_id_from_auth_header():
         return None
     token = parts[1]
     try:
-        import base64
         import jwt as pyjwt
 
-        secret = SUPABASE_JWT_SECRET
-        try:
-            secret = base64.b64decode(secret + "==")
-        except Exception:
-            pass
+        secret_bytes = _decode_supabase_jwt_secret(SUPABASE_JWT_SECRET)
         payload = pyjwt.decode(
-            token, secret, algorithms=["HS256"], options={"verify_aud": False}
+            token, secret_bytes, algorithms=["HS256"], options={"verify_aud": False}
         )
         return payload.get("sub")
     except Exception:
@@ -3144,7 +3264,7 @@ def _get_optional_user_id_from_auth_header():
 
     try:
         auth_headers = {
-            "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+            "apikey": SUPABASE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""),
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
@@ -3638,16 +3758,11 @@ def _optional_user_id():
     token = parts[1]
 
     try:
-        import base64
         import jwt as pyjwt
 
-        secret = SUPABASE_JWT_SECRET
-        try:
-            secret = base64.b64decode(secret + "==")
-        except Exception:
-            pass
+        secret_bytes = _decode_supabase_jwt_secret(SUPABASE_JWT_SECRET)
         payload = pyjwt.decode(
-            token, secret, algorithms=["HS256"], options={"verify_aud": False}
+            token, secret_bytes, algorithms=["HS256"], options={"verify_aud": False}
         )
         uid = payload.get("sub")
         if uid:
@@ -3658,7 +3773,7 @@ def _optional_user_id():
 
     try:
         auth_headers = {
-            "apikey": os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+            "apikey": SUPABASE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""),
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
@@ -7497,7 +7612,10 @@ def manage_user_draft(current_user, draft_key):
             )
             if status_code >= 400:
                 logger.warning(
-                    "Failed to delete draft %s for user %s: %s", normalized_key, current_user, response
+                    "Failed to delete draft %s for user %s: %s",
+                    normalized_key,
+                    current_user,
+                    response,
                 )
             return jsonify({"success": True}), 200
 
@@ -7523,7 +7641,10 @@ def manage_user_draft(current_user, draft_key):
         )
         if insert_status >= 400:
             logger.error(
-                "Failed to save draft %s for user %s: %s", normalized_key, current_user, insert_response
+                "Failed to save draft %s for user %s: %s",
+                normalized_key,
+                current_user,
+                insert_response,
             )
             if _looks_like_missing_table(insert_response):
                 return (
@@ -7536,10 +7657,16 @@ def manage_user_draft(current_user, draft_key):
                 )
             return jsonify({"error": "Failed to save draft"}), 500
 
-        saved_record = insert_response[0] if isinstance(insert_response, list) and insert_response else insert_response
+        saved_record = (
+            insert_response[0]
+            if isinstance(insert_response, list) and insert_response
+            else insert_response
+        )
         return jsonify({"success": True, "draft": saved_record}), 200
     except Exception as exc:
-        logger.error("Draft storage failed for %s/%s: %s", current_user, normalized_key, exc)
+        logger.error(
+            "Draft storage failed for %s/%s: %s", current_user, normalized_key, exc
+        )
         return jsonify({"error": "Failed to save draft"}), 500
 
 
@@ -11817,7 +11944,6 @@ def get_admin_metrics_overview(current_user):
         if plate_status >= 400:
             plate_rows_resp = []
 
-
         bike_rows_resp, bike_status = supabase_request(
             "get",
             "/rest/v1/bikes",
@@ -12934,7 +13060,9 @@ def get_admin_listing_overview(current_user, item_type, item_id):
                 "owner": owner_row,
                 "images": images_rows or [],
                 "summary": {
-                    "view_count": int(listing.get("view_count") or listing.get("views") or 0),
+                    "view_count": int(
+                        listing.get("view_count") or listing.get("views") or 0
+                    ),
                     "call_clicks": int(lead_totals.get("call_click", 0)),
                     "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
                     "vin_opens": int(lead_totals.get("vin_open", 0)),

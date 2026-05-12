@@ -51,27 +51,52 @@ const syncStoredAccessToken = (token) => {
   }
 };
 
+const isTokenExpired = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Expire 30 seconds early to avoid edge-case races
+    return !payload.exp || (payload.exp * 1000) < (Date.now() + 30000);
+  } catch {
+    return true;
+  }
+};
+
 export const getBestAccessToken = async () => {
   try {
     // Prefer the live Supabase session first because it auto-refreshes.
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      console.log('Got token from Supabase session');
+    let { data: { session } } = await supabase.auth.getSession();
+
+    // If we have a session but the access token is expired, try to refresh.
+    if (session?.access_token && isTokenExpired(session.access_token)) {
+      console.log('Supabase access token expired, attempting refresh...');
+      const { data: { session: refreshed }, error } = await supabase.auth.refreshSession();
+      if (!error && refreshed?.access_token) {
+        console.log('Supabase session refreshed successfully');
+        session = refreshed;
+      } else {
+        console.warn('Supabase session refresh failed:', error?.message);
+        session = null;
+      }
+    }
+
+    if (session?.access_token && !isTokenExpired(session.access_token)) {
+      console.log('Got valid token from Supabase session');
       syncStoredAccessToken(session.access_token);
       return session.access_token;
     }
 
+    // Supabase session unavailable/expired — try stored tokens.
+    // If they're also expired, clear them so we don't keep sending stale tokens.
     const sessionToken = window.sessionStorage.getItem('supabase_access_token');
-    if (sessionToken) {
-      console.log('Got token from sessionStorage supabase_access_token');
+    if (sessionToken && !isTokenExpired(sessionToken)) {
+      console.log('Got valid token from sessionStorage supabase_access_token');
       syncStoredAccessToken(sessionToken);
       return sessionToken;
     }
 
-    // Fallback to supabase_access_token
     const storedToken = localStorage.getItem('supabase_access_token');
-    if (storedToken) {
-      console.log('Got token from supabase_access_token');
+    if (storedToken && !isTokenExpired(storedToken)) {
+      console.log('Got valid token from localStorage supabase_access_token');
       syncStoredAccessToken(storedToken);
       return storedToken;
     }
@@ -80,8 +105,8 @@ export const getBestAccessToken = async () => {
     if (sessionAuthData) {
       try {
         const parsed = JSON.parse(sessionAuthData);
-        if (parsed.access_token) {
-          console.log('Got token from authData sessionStorage');
+        if (parsed.access_token && !isTokenExpired(parsed.access_token)) {
+          console.log('Got valid token from authData sessionStorage');
           syncStoredAccessToken(parsed.access_token);
           return parsed.access_token;
         }
@@ -90,13 +115,12 @@ export const getBestAccessToken = async () => {
       }
     }
 
-    // Last resort: legacy authData storage
     const authData = localStorage.getItem('authData');
     if (authData) {
       try {
         const parsed = JSON.parse(authData);
-        if (parsed.access_token) {
-          console.log('Got token from authData localStorage');
+        if (parsed.access_token && !isTokenExpired(parsed.access_token)) {
+          console.log('Got valid token from authData localStorage');
           syncStoredAccessToken(parsed.access_token);
           return parsed.access_token;
         }
@@ -105,7 +129,7 @@ export const getBestAccessToken = async () => {
       }
     }
 
-    console.log('No valid token found');
+    console.log('No valid token found — all sources expired or missing');
     return null;
   } catch (error) {
     console.error('getBestAccessToken error:', error);
