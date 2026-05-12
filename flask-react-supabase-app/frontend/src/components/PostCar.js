@@ -16,10 +16,11 @@ import {
   WARRANTY_OPTIONS,
   getAreasForEmirate,
   getYearOptions,
-  EXTERIOR_COLOR_OPTIONS,
-  INTERIOR_COLOR_OPTIONS,
-  FUEL_EFFICIENCY_OPTIONS,
-} from '../utils/listingConstants';
+	  EXTERIOR_COLOR_OPTIONS,
+	  INTERIOR_COLOR_OPTIONS,
+	  FUEL_EFFICIENCY_OPTIONS,
+	  TAG_OPTIONS,
+	} from '../utils/listingConstants';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
