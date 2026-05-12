@@ -1,4 +1,4 @@
-import { getBestAccessToken, supabase } from './supabaseClient';
+import { getBestAccessToken } from './supabaseClient';
 // eslint-disable-next-line no-unused-vars
 import * as authService from './authService';
 
