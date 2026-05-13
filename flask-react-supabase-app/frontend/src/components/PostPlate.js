@@ -16,6 +16,7 @@ import UAELicensePlate from './UAELicensePlate';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('plate');
 const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
+const MAX_DESCRIPTION_WORDS = 300;
 
 const splitPhoneNumber = (value, fallbackCountryCode = defaultCountryCode) => {
   const raw = String(value || '').trim();
@@ -229,6 +230,19 @@ const PostPlate = () => {
     }));
   }, [codeOptions, formData.city]);
 
+  const countWords = (text) => (String(text || '').trim().match(/\S+/g) || []).length;
+
+  const limitWords = (text, maxWords) => {
+    if (!text) return text;
+    const matches = Array.from(String(text).matchAll(/\S+/g));
+    if (matches.length <= maxWords) return text;
+    const cutoff = matches[maxWords]?.index ?? String(text).length;
+    return String(text).slice(0, cutoff).trimEnd();
+  };
+
+  const descriptionWordCount = countWords(formData.description || '');
+  const descriptionCharacterCount = (formData.description || '').length;
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
     let nextValue = type === 'checkbox' ? checked : value;
@@ -239,6 +253,10 @@ const PostPlate = () => {
 
     if (name === 'price') {
       nextValue = value === '' ? '' : String(Math.max(0, Number(value)));
+    }
+
+    if (name === 'description') {
+      nextValue = limitWords(value, MAX_DESCRIPTION_WORDS);
     }
 
     if (name === 'country_code') {
@@ -667,6 +685,9 @@ const PostPlate = () => {
                       onChange={handleChange}
                       placeholder="Share any provenance, rarity, transfer notes, or negotiation context."
                     />
+                    <div className="form-text description-word-counter">
+                      {descriptionWordCount}/{MAX_DESCRIPTION_WORDS} words • {descriptionCharacterCount} characters
+                    </div>
                   </div>
                 </div>
               </div>

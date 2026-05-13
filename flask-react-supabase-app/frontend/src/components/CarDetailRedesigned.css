@@ -561,6 +561,8 @@
   font-size: 14px;
   line-height: 1.7;
   color: var(--cd-color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .cd-extras-grid {

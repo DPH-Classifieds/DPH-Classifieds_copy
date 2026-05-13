@@ -612,11 +612,13 @@ const PostCar = () => {
   const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
   const limitWords = (text, maxWords) => {
-    const words = text.trim().match(/\S+/g) || [];
-    if (words.length <= maxWords) {
+    if (!text) return text;
+    const matches = Array.from(String(text).matchAll(/\S+/g));
+    if (matches.length <= maxWords) {
       return text;
     }
-    return words.slice(0, maxWords).join(' ');
+    const cutoff = matches[maxWords]?.index ?? String(text).length;
+    return String(text).slice(0, cutoff).trimEnd();
   };
 
   const clearFieldHighlights = () => {

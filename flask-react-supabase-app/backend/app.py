@@ -21,6 +21,7 @@ import json
 import uuid
 import os
 import re
+import unicodedata
 import requests
 import secrets
 import time
@@ -170,6 +171,48 @@ INFOBIP_SENDER = os.getenv("INFOBIP_SENDER", "ServiceSMS")
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
+
+# Simple profanity filter: server-side source of truth.
+# Notes:
+# - We avoid short substrings (e.g. "ass") to reduce false positives.
+# - We normalize common leetspeak and punctuation so "f.u.c.k" or "f u c k" is caught.
+PROFANITY_BLOCKLIST_TOKENS = {
+    "fuck",
+    "fucking",
+    "fucked",
+    "shit",
+    "shitty",
+    "bitch",
+    "bastard",
+    "asshole",
+    "cunt",
+    "dick",
+    "cock",
+    "pussy",
+    "whore",
+    "slut",
+    "porn",
+    "nigger",
+    "faggot",
+    "retard",
+}
+
+PROFANITY_BLOCKLIST_PHRASES = {
+    "motherfucker",
+    "son of a bitch",
+}
+
+# For spaced-out / punctuated variants ("f u c k", "f.u.c.k")
+PROFANITY_BLOCKLIST_COLLAPSED = {
+    "fuck",
+    "shit",
+    "bitch",
+    "asshole",
+    "cunt",
+    "nigger",
+    "faggot",
+    "motherfucker",
+}
 LISTING_EXPIRY_DAYS = 15
 LISTING_RETENTION_DAYS = 30
 LISTING_SOLD_RESPONSE_WINDOW_HOURS = int(
@@ -2217,6 +2260,57 @@ def _validate_description_word_count(description, *, field_name="description"):
         raise ValueError(f"{field_name} must be {MAX_DESCRIPTION_WORDS} words or fewer")
 
 
+def _normalize_for_profanity(value: str) -> str:
+    if value is None:
+        return ""
+    text = unicodedata.normalize("NFKD", str(value))
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    text = text.translate(
+        str.maketrans(
+            {
+                "@": "a",
+                "$": "s",
+                "0": "o",
+                "1": "i",
+                "3": "e",
+                "4": "a",
+                "5": "s",
+                "7": "t",
+                "!": "i",
+            }
+        )
+    )
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _validate_no_profanity(value, *, field_name="text"):
+    if not isinstance(value, str) or not value.strip():
+        return
+
+    normalized = _normalize_for_profanity(value)
+    if not normalized:
+        return
+
+    tokens = normalized.split()
+    token_set = set(tokens)
+
+    for blocked in PROFANITY_BLOCKLIST_TOKENS:
+        if blocked in token_set:
+            raise ValueError(f"{field_name} contains blocked language")
+
+    for phrase in PROFANITY_BLOCKLIST_PHRASES:
+        if phrase in normalized:
+            raise ValueError(f"{field_name} contains blocked language")
+
+    collapsed = normalized.replace(" ", "")
+    for blocked in PROFANITY_BLOCKLIST_COLLAPSED:
+        if blocked in collapsed:
+            raise ValueError(f"{field_name} contains blocked language")
+
+
 def _is_valid_car_fuel_type(value):
     if value in CAR_FUEL_OPTIONS:
         return True
@@ -4161,6 +4255,12 @@ def create_car(current_user):
             _validate_description_word_count(
                 car_data.get("car_description"), field_name="car_description"
             )
+            _validate_no_profanity(
+                car_data.get("listing_title"), field_name="listing_title"
+            )
+            _validate_no_profanity(
+                car_data.get("car_description"), field_name="car_description"
+            )
             logger.info("All validations passed")
         except ValueError as validation_error:
             logger.error(f"Validation error: {validation_error}")
@@ -4598,11 +4698,21 @@ def update_car(current_user, car_id):
                 _validate_description_word_count(
                     update_data.get("car_description"), field_name="car_description"
                 )
+                _validate_no_profanity(
+                    update_data.get("car_description"), field_name="car_description"
+                )
             if "description" in update_data and "car_description" not in update_data:
                 _validate_description_word_count(
                     update_data.get("description"), field_name="car_description"
                 )
+                _validate_no_profanity(
+                    update_data.get("description"), field_name="car_description"
+                )
                 update_data["car_description"] = update_data.pop("description")
+            if "listing_title" in update_data:
+                _validate_no_profanity(
+                    update_data.get("listing_title"), field_name="listing_title"
+                )
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
 
@@ -8729,6 +8839,9 @@ def create_bike(current_user):
             _validate_description_word_count(
                 bike_data.get("description"), field_name="description"
             )
+            _validate_no_profanity(bike_data.get("description"), field_name="description")
+            _validate_no_profanity(bike_data.get("bike_brand"), field_name="bike_brand")
+            _validate_no_profanity(bike_data.get("bike_model"), field_name="bike_model")
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
 
@@ -8890,6 +9003,17 @@ def update_bike(current_user, bike_id):
             if "description" in update_data:
                 _validate_description_word_count(
                     update_data.get("description"), field_name="description"
+                )
+                _validate_no_profanity(
+                    update_data.get("description"), field_name="description"
+                )
+            if "bike_brand" in update_data:
+                _validate_no_profanity(
+                    update_data.get("bike_brand"), field_name="bike_brand"
+                )
+            if "bike_model" in update_data:
+                _validate_no_profanity(
+                    update_data.get("bike_model"), field_name="bike_model"
                 )
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
@@ -9247,6 +9371,21 @@ def update_plate(current_user, plate_id):
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
 
+        try:
+            if "description" in update_data:
+                _validate_description_word_count(
+                    update_data.get("description"), field_name="description"
+                )
+                _validate_no_profanity(
+                    update_data.get("description"), field_name="description"
+                )
+            if "contact_name" in update_data:
+                _validate_no_profanity(
+                    update_data.get("contact_name"), field_name="contact_name"
+                )
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
+
         # Sanitize
         update_data.pop("id", None)
 
@@ -9548,6 +9687,15 @@ def create_part(current_user):
             if not part_data.get(field):
                 return jsonify({"error": f"Missing required field: {field}"}), 400
 
+        try:
+            _validate_description_word_count(
+                part_data.get("description"), field_name="description"
+            )
+            _validate_no_profanity(part_data.get("description"), field_name="description")
+            _validate_no_profanity(part_data.get("name"), field_name="name")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
+
         # Create the part entry
         logger.info(f"Creating part with data: {part_data}")
         data, status_code = _create_listing_with_lifecycle_fallback(
@@ -9721,6 +9869,19 @@ def update_part(current_user, part_id):
         update_data = {k: v for k, v in update_data.items() if k in part_allowed_fields}
         try:
             _require_whatsapp_prefill_and_phone_alignment(update_data, "parts")
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
+
+        try:
+            if "description" in update_data:
+                _validate_description_word_count(
+                    update_data.get("description"), field_name="description"
+                )
+                _validate_no_profanity(
+                    update_data.get("description"), field_name="description"
+                )
+            if "name" in update_data:
+                _validate_no_profanity(update_data.get("name"), field_name="name")
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
 
@@ -10425,6 +10586,8 @@ def _create_plate_with_image_impl(current_user):
                         {"error": "Plate number must contain digits only"}
                     ), 400
             _validate_description_word_count(description, field_name="description")
+            _validate_no_profanity(description, field_name="description")
+            _validate_no_profanity(contact_name, field_name="contact_name")
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
 

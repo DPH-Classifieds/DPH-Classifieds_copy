@@ -19,6 +19,7 @@ import '../styles/PostForms.css';
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
+const MAX_DESCRIPTION_WORDS = 300;
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('bike');
 const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
@@ -240,6 +241,19 @@ const PostBike = () => {
   );
   const errorActions = errorNotice?.code === 'listing_limit' ? listingLimitActions : [];
 
+  const countWords = (text) => (String(text || '').trim().match(/\S+/g) || []).length;
+
+  const limitWords = (text, maxWords) => {
+    if (!text) return text;
+    const matches = Array.from(String(text).matchAll(/\S+/g));
+    if (matches.length <= maxWords) return text;
+    const cutoff = matches[maxWords]?.index ?? String(text).length;
+    return String(text).slice(0, cutoff).trimEnd();
+  };
+
+  const descriptionWordCount = countWords(formData.description || '');
+  const descriptionCharacterCount = (formData.description || '').length;
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
 
@@ -278,6 +292,14 @@ const PostBike = () => {
         features: checked
           ? [...prev.features, value]
           : prev.features.filter((feature) => feature !== value),
+      }));
+      return;
+    }
+
+    if (name === 'description') {
+      setFormData((prev) => ({
+        ...prev,
+        description: limitWords(value, MAX_DESCRIPTION_WORDS),
       }));
       return;
     }
@@ -665,6 +687,9 @@ const PostBike = () => {
                     required
                     placeholder="Summarize condition, ownership history, maintenance, upgrades, and why this bike stands out."
                   />
+                  <div className="form-text description-word-counter">
+                    {descriptionWordCount}/{MAX_DESCRIPTION_WORDS} words • {descriptionCharacterCount} characters
+                  </div>
                 </div>
 
                 <div className="form-row">
