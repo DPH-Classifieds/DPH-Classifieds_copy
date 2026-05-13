@@ -1,5 +1,6 @@
 .searchable-select-wrapper {
   width: 100%;
+  position: relative;
 }
 
 .searchable-select-proxy {
@@ -8,6 +9,15 @@
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+.searchable-select-wrapper.form-select,
+.searchable-select-wrapper.sort-select {
+  background-image: none !important;
+  background-repeat: initial !important;
+  background-position: initial !important;
+  background-size: initial !important;
+  padding-right: 0 !important;
 }
 
 .searchable-select__menu-notice {

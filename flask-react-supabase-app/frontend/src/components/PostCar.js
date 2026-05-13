@@ -1179,12 +1179,86 @@ const PostCar = () => {
     );
   };
 
-  const applyCurrentCropToAll = (sourceIndex) => {
-    setImageCropSettings((prev) => {
-      const sourceSetting = prev[sourceIndex] || DEFAULT_IMAGE_CROP;
-      return prev.map(() => ({ ...sourceSetting }));
-    });
-  };
+	  const existingCount = Array.isArray(existingImages) ? existingImages.length : 0;
+	  const framingImages = useMemo(() => {
+	    const existing = (existingImages || []).map((image, index) => ({
+	      name: `Existing ${index + 1}`,
+	      previewUrl: image?.display_url || image?.image_url || image?.url || '',
+	    }));
+	    const fresh = (previewImages || []).map((previewUrl, index) => ({
+	      name: `New ${index + 1}`,
+	      previewUrl,
+	    }));
+	    return [...existing, ...fresh].filter((entry) => entry.previewUrl);
+	  }, [existingImages, previewImages]);
+
+	  const framingCropSettings = useMemo(() => {
+	    const existing = (existingImages || []).map((image) => {
+	      const zoom =
+	        typeof image?.crop_meta?.zoom === 'number'
+	          ? image.crop_meta.zoom
+	          : 1;
+	      return {
+	        focalX: Number.isFinite(Number(image?.focal_x)) ? Number(image.focal_x) : 50,
+	        focalY: Number.isFinite(Number(image?.focal_y)) ? Number(image.focal_y) : 50,
+	        zoom: Number.isFinite(Number(zoom)) ? Number(zoom) : 1,
+	      };
+	    });
+	    const fresh = (imageCropSettings || []).map((setting) => ({
+	      focalX: Number.isFinite(Number(setting?.focalX)) ? Number(setting.focalX) : 50,
+	      focalY: Number.isFinite(Number(setting?.focalY)) ? Number(setting.focalY) : 50,
+	      zoom: Number.isFinite(Number(setting?.zoom)) ? Number(setting.zoom) : 1,
+	    }));
+	    return [...existing, ...fresh];
+	  }, [existingImages, imageCropSettings]);
+
+	  const updateFramingCropSetting = (index, partialUpdate) => {
+	    if (index < existingCount) {
+	      setExistingImages((prev) =>
+	        prev.map((image, currentIndex) => {
+	          if (currentIndex !== index) return image;
+	          const focalX = partialUpdate.focalX ?? partialUpdate.focal_x;
+	          const focalY = partialUpdate.focalY ?? partialUpdate.focal_y;
+	          const zoom = partialUpdate.zoom;
+	          return {
+	            ...image,
+	            focal_x: Number.isFinite(Number(focalX)) ? Number(focalX) : image.focal_x,
+	            focal_y: Number.isFinite(Number(focalY)) ? Number(focalY) : image.focal_y,
+	            crop_meta: {
+	              ...(image.crop_meta || {}),
+	              ...(Number.isFinite(Number(zoom)) ? { zoom: Number(zoom) } : {}),
+	            },
+	          };
+	        })
+	      );
+	      return;
+	    }
+
+	    updateImageCropSetting(index - existingCount, partialUpdate);
+	  };
+
+	  const applyFramingToAll = (sourceIndex) => {
+	    const source = framingCropSettings[sourceIndex] || DEFAULT_IMAGE_CROP;
+	    setExistingImages((prev) =>
+	      prev.map((image) => ({
+	        ...image,
+	        focal_x: Number.isFinite(Number(source.focalX)) ? Number(source.focalX) : 50,
+	        focal_y: Number.isFinite(Number(source.focalY)) ? Number(source.focalY) : 50,
+	        crop_meta: {
+	          ...(image.crop_meta || {}),
+	          zoom: Number.isFinite(Number(source.zoom)) ? Number(source.zoom) : 1,
+	        },
+	      }))
+	    );
+
+	    setImageCropSettings((prev) =>
+	      prev.map(() => ({
+	        focalX: Number.isFinite(Number(source.focalX)) ? Number(source.focalX) : 50,
+	        focalY: Number.isFinite(Number(source.focalY)) ? Number(source.focalY) : 50,
+	        zoom: Number.isFinite(Number(source.zoom)) ? Number(source.zoom) : 1,
+	      }))
+	    );
+	  };
 
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -1204,7 +1278,14 @@ const PostCar = () => {
 
   const handleContainerClick = (e) => {
     // Only trigger file dialog if clicking on the upload area itself, not on buttons or images
-    if (e.target.closest('.browse-btn') || e.target.closest('.remove-image') || e.target.closest('.preview-thumbnail')) {
+    if (
+      e.target.closest('.browse-btn') ||
+      e.target.closest('.remove-image') ||
+      e.target.closest('.preview-thumbnail') ||
+      e.target.closest('.preview-item') ||
+      e.target.closest('.frame-btn') ||
+      e.target.closest('.drag-handle')
+    ) {
       return;
     }
     fileInputRef.current?.click();
@@ -2729,16 +2810,29 @@ const PostCar = () => {
               
               {previewImages.length > 0 && (
                 <div className="image-previews-grid car-framing-grid">
-                  {previewImages.map((preview, index) => (
-                    <div 
-                      className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
-                      key={index}
-                      draggable
-                      onDragStart={(e) => handleImageDragStart(e, index)}
-                      onDragOver={(e) => handleImageDragOver(e, index)}
-                      onDragLeave={handleImageDragLeave}
-                      onDrop={(e) => handleImageDrop(e, index)}
-                      onDragEnd={handleImageDragEnd}
+	                  {previewImages.map((preview, index) => (
+	                    <div 
+	                      className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+	                      key={index}
+	                      draggable
+	                      role="button"
+	                      tabIndex={0}
+	                      onClick={() => {
+	                        if (draggedIndex !== null) return;
+	                        setActiveFramingIndex(existingCount + index);
+	                        setShowFramingModal(true);
+	                      }}
+	                      onKeyDown={(event) => {
+	                        if (event.key === 'Enter') {
+	                          setActiveFramingIndex(existingCount + index);
+	                          setShowFramingModal(true);
+	                        }
+	                      }}
+	                      onDragStart={(e) => handleImageDragStart(e, index)}
+	                      onDragOver={(e) => handleImageDragOver(e, index)}
+	                      onDragLeave={handleImageDragLeave}
+	                      onDrop={(e) => handleImageDrop(e, index)}
+	                      onDragEnd={handleImageDragEnd}
                     >
                       <div className="preview-order">{index + 1}</div>
                       <img
@@ -2772,17 +2866,17 @@ const PostCar = () => {
                       >
                         ×
                       </button>
-                      <button
-                        type="button"
-                        className="frame-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setActiveFramingIndex(index);
-                          setShowFramingModal(true);
-                        }}
-                      >
-                        Frame
-                      </button>
+	                      <button
+	                        type="button"
+	                        className="frame-btn"
+	                        onClick={(event) => {
+	                          event.stopPropagation();
+	                          setActiveFramingIndex(existingCount + index);
+	                          setShowFramingModal(true);
+	                        }}
+	                      >
+	                        Frame
+	                      </button>
                       <div className="drag-handle">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                           <circle cx="9" cy="6" r="1.5"/>
@@ -2799,42 +2893,60 @@ const PostCar = () => {
               )}
               {existingImages.length > 0 && (
                 <div className="image-previews-grid car-framing-grid">
-                  {existingImages.map((image, index) => (
-                    <div className="preview-item car-framing-preview" key={image.id || `${image.url}-${index}`}>
-                      <div className="preview-order">{index + 1}</div>
-                      <img
-                        src={image.display_url || image.image_url || image.url}
-                        alt={`Existing ${index + 1}`}
+	                  {existingImages.map((image, index) => (
+	                    <div
+	                      className="preview-item car-framing-preview"
+	                      key={image.id || `${image.url}-${index}`}
+	                      role="button"
+	                      tabIndex={0}
+	                      onClick={() => {
+	                        setActiveFramingIndex(index);
+	                        setShowFramingModal(true);
+	                      }}
+	                      onKeyDown={(event) => {
+	                        if (event.key === 'Enter') {
+	                          setActiveFramingIndex(index);
+	                          setShowFramingModal(true);
+	                        }
+	                      }}
+	                    >
+	                      <div className="preview-order">{index + 1}</div>
+	                      <img
+	                        src={image.display_url || image.image_url || image.url}
+	                        alt={`Existing ${index + 1}`}
                         style={{
                           objectPosition: `${Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50}% ${Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50}%`,
                         }}
                       />
-                      <button
-                        type="button"
-                        className="remove-btn"
-                        onClick={() => setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index))}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+	                      <button
+	                        type="button"
+	                        className="remove-btn"
+	                        onClick={(event) => {
+	                          event.stopPropagation();
+	                          setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+	                        }}
+	                      >
+	                        ×
+	                      </button>
+	                    </div>
+	                  ))}
+	                </div>
+	              )}
               {previewImages.length > 1 && (
                 <p className="reorder-hint">Drag images to reorder. First image will be the main photo.</p>
               )}
-              {previewImages.length > 0 && (
-                <button
-                  type="button"
-                  className="frame-all-btn"
-                  onClick={() => {
-                    setActiveFramingIndex(0);
-                    setShowFramingModal(true);
-                  }}
-                >
-                  Adjust Photo Framing
-                </button>
-              )}
+	              {previewImages.length > 0 && (
+	                <button
+	                  type="button"
+	                  className="frame-all-btn"
+	                  onClick={() => {
+	                    setActiveFramingIndex(0);
+	                    setShowFramingModal(true);
+	                  }}
+	                >
+	                  Adjust Photo Framing
+	                </button>
+	              )}
             </div>
           </div>
         </div>
@@ -2872,15 +2984,12 @@ const PostCar = () => {
 
       <ImageFramingModal
         isOpen={showFramingModal}
-        images={previewImages.map((previewUrl, index) => ({
-          previewUrl,
-          name: selectedFiles[index]?.name || `Photo ${index + 1}`
-        }))}
-        cropSettings={imageCropSettings}
+        images={framingImages}
+        cropSettings={framingCropSettings}
         activeIndex={activeFramingIndex}
         onActiveIndexChange={setActiveFramingIndex}
-        onUpdateCrop={updateImageCropSetting}
-        onApplyCurrentToAll={applyCurrentCropToAll}
+        onUpdateCrop={updateFramingCropSetting}
+        onApplyCurrentToAll={applyFramingToAll}
         onClose={() => setShowFramingModal(false)}
       />
     </div>
