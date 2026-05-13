@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { SavedListingsProvider } from './context/SavedListingsContext';
 import Header from './components/Header';
 import DealerPendingBanner from './components/DealerPendingBanner';
+import UsernameRequiredBanner from './components/UsernameRequiredBanner';
 import Footer from './components/ui/hover-footer';
 import CookieBanner from './components/CookieBanner';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -212,6 +213,7 @@ function App() {
           <div className="app">
             <Header />
             <DealerPendingBanner />
+            <UsernameRequiredBanner />
             <SavedListingsNotice />
             <main className="app-content">
               <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>

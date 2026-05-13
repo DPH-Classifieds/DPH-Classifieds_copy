@@ -8,6 +8,7 @@ FRONTEND_DIR="$APP_DIR/frontend"
 
 PORT="${PORT:-8000}"
 API_URL="http://localhost:${PORT}"
+FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 
 echo ""
 echo "=== DPH Classifieds: local startup ==="
@@ -58,15 +59,24 @@ echo ""
 echo "-> Starting frontend..."
 cd "$FRONTEND_DIR"
 
+NEEDS_FRONTEND_INSTALL="false"
 if [[ ! -d "node_modules" ]]; then
+  NEEDS_FRONTEND_INSTALL="true"
+else
+  if ! node -e "require('tesseract.js'); require('pdfjs-dist')" >/dev/null 2>&1; then
+    NEEDS_FRONTEND_INSTALL="true"
+  fi
+fi
+
+if [[ "$NEEDS_FRONTEND_INSTALL" == "true" ]]; then
   echo "   Installing frontend deps..."
   npm install
 fi
 
 export REACT_APP_API_URL="$API_URL"
+export PORT="$FRONTEND_PORT"
 
 echo ""
 echo "Frontend will open in your browser. Press Ctrl+C to stop."
 echo ""
 npm start
-

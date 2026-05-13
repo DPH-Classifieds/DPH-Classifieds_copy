@@ -382,7 +382,7 @@ def _batch_fetch_seller_map(user_ids, headers=None):
     if not unique_ids:
         return {}
 
-    user_fields = "id,first_name,last_name,email,username,show_username_on_listings,profile_photo_url,is_dealer"
+    user_fields = "id,first_name,last_name,email,username,profile_photo_url,is_dealer"
     id_filter = ",".join(unique_ids)
     seller_map = {}
     try:
@@ -417,11 +417,8 @@ def _apply_seller_to_listing(item, seller):
         return item
     full_name = f"{seller.get('first_name', '')} {seller.get('last_name', '')}".strip()
     username = str(seller.get("username") or "").strip()
-    prefer_username = bool(seller.get("show_username_on_listings"))
-    if prefer_username and username:
-        seller_name = username
-    else:
-        seller_name = full_name or username or seller.get("email", "Marketplace Seller")
+    # Public listings should prefer username over real names.
+    seller_name = username or full_name or seller.get("email", "Marketplace Seller")
     item["seller_name"] = seller_name
     item["seller_id"] = seller.get("id")
     item["seller_profile_photo"] = seller.get("profile_photo_url")

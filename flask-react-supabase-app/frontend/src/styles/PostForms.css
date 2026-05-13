@@ -354,12 +354,14 @@
 .feature-item input[type="checkbox"],
 .form-check-input,
 .form-group input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   accent-color: var(--pf-accent);
   outline: none;
   box-shadow: none;
+  appearance: auto;
+  -webkit-appearance: auto;
 }
 
 .feature-item input[type="checkbox"]:focus,

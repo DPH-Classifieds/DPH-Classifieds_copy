@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Tesseract from 'tesseract.js';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -81,6 +83,14 @@ const PostCar = () => {
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [draftNotice, setDraftNotice] = useState(null);
   const [isDraftSaving, setIsDraftSaving] = useState(false);
+  const [registrationOcrFile, setRegistrationOcrFile] = useState(null);
+  const [registrationOcrPreparedImage, setRegistrationOcrPreparedImage] = useState(null);
+  const [registrationOcrProgress, setRegistrationOcrProgress] = useState(0);
+  const [registrationOcrStatus, setRegistrationOcrStatus] = useState(null);
+  const [registrationOcrSuggestions, setRegistrationOcrSuggestions] = useState(null);
+  const [registrationOcrError, setRegistrationOcrError] = useState(null);
+  const [registrationOcrTruth, setRegistrationOcrTruth] = useState(null);
+  const [useUsernameAsSellerName, setUseUsernameAsSellerName] = useState(false);
   const locationSearchTimeoutRef = useRef(null);
   const locationSearchAbortRef = useRef(null);
   const skipNextLocationSearchRef = useRef(false);
@@ -156,6 +166,223 @@ const PostCar = () => {
   const horsepowerRanges = ['>100', '100-199', '200-299', '300-399', '400-499', '500-599', '600-699', '700-799', '800-899', '900-999', '1000+'];
   const engineCapacities = ['0-999cc', '1000cc-1499cc', '1500cc-1999cc', '2000cc-2999cc', '3000cc-3999cc', '4000cc-4999cc', '5000cc-5999cc', '6000cc-6999cc', '7000cc-7999cc', '8000cc+'];
   const yearOptions = getYearOptions();
+
+  useEffect(() => {
+    const username = String(user?.username || '').trim();
+    if (!username) {
+      setUseUsernameAsSellerName(false);
+      return;
+    }
+
+    setUseUsernameAsSellerName(true);
+    setFormData((prev) => ({
+      ...prev,
+      seller_name: username,
+    }));
+  }, [user?.username]);
+
+  const normalizeOcrToken = useCallback((value) => {
+    return String(value || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '');
+  }, []);
+
+  const resetRegistrationOcrState = useCallback(() => {
+    setRegistrationOcrError(null);
+    setRegistrationOcrStatus(null);
+    setRegistrationOcrProgress(0);
+    setRegistrationOcrSuggestions(null);
+    setRegistrationOcrPreparedImage(null);
+    setRegistrationOcrTruth(null);
+  }, []);
+
+  const prepareRegistrationOcrInput = useCallback(async (file) => {
+    if (!file) {
+      return null;
+    }
+
+    const fileType = String(file.type || '').toLowerCase();
+    const name = String(file.name || '').toLowerCase();
+    const isPdf =
+      fileType === 'application/pdf' || name.endsWith('.pdf');
+
+    if (!isPdf) {
+      return { image: file, source: 'image' };
+    }
+
+    const data = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data, disableWorker: true }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas context not available');
+    }
+
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (value) => (value ? resolve(value) : reject(new Error('Failed to render PDF'))),
+        'image/png',
+        1
+      );
+    });
+
+    const prepared = new File([blob], 'registration-page-1.png', { type: 'image/png' });
+    return { image: prepared, source: 'pdf' };
+  }, []);
+
+  const parseRegistrationOcr = useCallback(
+    (text) => {
+      const rawText = String(text || '');
+      const normalizedText = normalizeOcrToken(rawText);
+      const maxYear = new Date().getFullYear() + 1;
+      const minYear = 1980;
+
+      const yearPatterns = [
+        /(MODEL\s*YEAR|YEAR)\s*[:-]?\s*(\d{4})/i,
+        /\b(19\d{2}|20\d{2})\b/,
+      ];
+
+      let detectedYear = null;
+      for (const pattern of yearPatterns) {
+        const match = rawText.match(pattern);
+        if (match) {
+          const candidate = parseInt(match[2] || match[1], 10);
+          if (!Number.isNaN(candidate) && candidate >= minYear && candidate <= maxYear) {
+            detectedYear = candidate;
+            break;
+          }
+        }
+      }
+
+      if (!detectedYear) {
+        const yearMatches = rawText.match(/\b(19\d{2}|20\d{2})\b/g) || [];
+        const candidates = yearMatches
+          .map((y) => parseInt(y, 10))
+          .filter((y) => y >= minYear && y <= maxYear);
+        if (candidates.length) {
+          detectedYear = candidates.sort((a, b) => b - a)[0];
+        }
+      }
+
+      let detectedMake = null;
+      let detectedMakeScore = 0;
+      for (const make of carMakes) {
+        const needle = normalizeOcrToken(make);
+        if (!needle) continue;
+        if (normalizedText.includes(needle) && needle.length > detectedMakeScore) {
+          detectedMake = make;
+          detectedMakeScore = needle.length;
+        }
+      }
+
+      let detectedModel = null;
+      let detectedModelScore = 0;
+      const modelCandidates = detectedMake ? (carModels[detectedMake] || []) : [];
+      for (const model of modelCandidates) {
+        const needle = normalizeOcrToken(model);
+        if (!needle) continue;
+        if (normalizedText.includes(needle) && needle.length > detectedModelScore) {
+          detectedModel = model;
+          detectedModelScore = needle.length;
+        }
+      }
+
+      const verifiedYear = detectedYear ? yearOptions.includes(String(detectedYear)) || yearOptions.includes(detectedYear) : false;
+      const verifiedMake = Boolean(detectedMake && carMakes.includes(detectedMake));
+      const verifiedModel = Boolean(detectedMake && detectedModel && modelCandidates.includes(detectedModel));
+
+      let detectedVin = null;
+      const vinMatch = normalizedText.match(/[A-HJ-NPR-Z0-9]{17}/);
+      if (vinMatch?.[0]) {
+        detectedVin = vinMatch[0];
+      } else {
+        const rawVinMatch = rawText.toUpperCase().replace(/[^A-Z0-9]/g, '').match(/[A-HJ-NPR-Z0-9]{17}/);
+        if (rawVinMatch?.[0]) {
+          detectedVin = rawVinMatch[0];
+        }
+      }
+      const verifiedVin = Boolean(detectedVin && /^[A-HJ-NPR-Z0-9]{17}$/.test(detectedVin));
+
+      return {
+        make: detectedMake,
+        model: detectedModel,
+        year: detectedYear ? String(detectedYear) : null,
+        vin: detectedVin,
+        verifiedMake,
+        verifiedModel,
+        verifiedYear,
+        verifiedVin,
+      };
+    },
+    [normalizeOcrToken, yearOptions]
+  );
+
+  const runRegistrationOcr = useCallback(async () => {
+    if (!registrationOcrFile) {
+      setRegistrationOcrError('Please choose a clear photo of your car registration first.');
+      return;
+    }
+
+    resetRegistrationOcrState();
+    setRegistrationOcrStatus('Preparing…');
+
+    try {
+      const prepared = await prepareRegistrationOcrInput(registrationOcrFile);
+      if (!prepared?.image) {
+        throw new Error('No OCR input prepared');
+      }
+
+      setRegistrationOcrPreparedImage(prepared);
+      setRegistrationOcrStatus('Scanning…');
+
+      const result = await Tesseract.recognize(prepared.image, 'eng', {
+        logger: (m) => {
+          if (m?.status === 'recognizing text' && typeof m.progress === 'number') {
+            setRegistrationOcrProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+
+      const parsed = parseRegistrationOcr(result?.data?.text || '');
+      setRegistrationOcrSuggestions(parsed);
+      setRegistrationOcrTruth({
+        make: parsed.verifiedMake ? parsed.make : null,
+        model: parsed.verifiedModel ? parsed.model : null,
+        year: parsed.verifiedYear ? parsed.year : null,
+        vin: parsed.verifiedVin ? parsed.vin : null,
+      });
+
+      setFormData((prev) => {
+        const next = { ...prev };
+        if (parsed.verifiedMake && parsed.make) {
+          next.car_manufacturer = parsed.make;
+        }
+        if (parsed.verifiedModel && parsed.model) {
+          next.car_model = parsed.model;
+        }
+        if (parsed.verifiedYear && parsed.year) {
+          next.make_year = parsed.year;
+        }
+        if (parsed.verifiedVin && parsed.vin) {
+          next.vin_number = String(parsed.vin).toUpperCase();
+        }
+        return next;
+      });
+
+      setRegistrationOcrStatus('Done');
+    } catch (err) {
+      console.error('Registration OCR failed:', err);
+      setRegistrationOcrStatus(null);
+      setRegistrationOcrError('OCR failed. Please try a clearer photo (good lighting, minimal glare).');
+    }
+  }, [parseRegistrationOcr, prepareRegistrationOcrInput, registrationOcrFile, resetRegistrationOcrState]);
 
   const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
@@ -841,6 +1068,34 @@ const PostCar = () => {
     const { name, value, type, checked } = e.target;
     clearFieldHighlights();
 
+    if (
+      registrationOcrTruth &&
+      ['car_manufacturer', 'car_model', 'make_year', 'vin_number'].includes(name)
+    ) {
+      const lockedValue =
+        name === 'car_manufacturer'
+          ? registrationOcrTruth.make
+          : name === 'car_model'
+            ? registrationOcrTruth.model
+            : name === 'make_year'
+              ? registrationOcrTruth.year
+              : registrationOcrTruth.vin;
+
+      if (lockedValue) {
+        const nextValue =
+          name === 'vin_number'
+            ? String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 17)
+            : String(value ?? '');
+        if (String(lockedValue) !== String(nextValue)) {
+          setError(
+            'Registration scan is set as the source of truth for Make/Model/Year/VIN. Clear the registration scan to change these fields.'
+          );
+          setFormData((prev) => ({ ...prev, [name]: lockedValue }));
+          return;
+        }
+      }
+    }
+
     if (name === 'car_city') {
       const nextAreas = getAreasForEmirate(value);
       setFormData((prev) => ({
@@ -1413,12 +1668,119 @@ const PostCar = () => {
                 />
               )}
             </div>
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="car_manufacturer">Make <RequiredMark /></label>
-              <SearchableSelect
+	          </div>
+	          
+	          <div className="form-row">
+	            <div className="form-group full-width">
+	              <label htmlFor="registration_ocr_file">Scan Car Registration (OCR)</label>
+	              <div className="form-text">
+	                Upload a clear photo of your car registration (Mulkiya). We’ll try to detect and verify the <strong>make</strong>, <strong>model</strong>, and <strong>year</strong>.
+	              </div>
+	              <div
+	                className="upload-area"
+	                role="button"
+	                tabIndex={0}
+	                onKeyDown={(e) => {
+	                  if (e.key === 'Enter' || e.key === ' ') {
+	                    e.preventDefault();
+	                    document.getElementById('registration_ocr_file')?.click();
+	                  }
+	                }}
+	                onClick={() => document.getElementById('registration_ocr_file')?.click()}
+	                style={{ marginTop: 10 }}
+	              >
+	                <div className="upload-icon" aria-hidden="true" />
+	                <h4>{registrationOcrFile ? registrationOcrFile.name : 'Upload registration document'}</h4>
+	                <p>PNG, JPG, WEBP, or PDF (page 1)</p>
+	                <input
+	                  id="registration_ocr_file"
+	                  type="file"
+	                  accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+	                  className="file-input"
+	                  onChange={(e) => {
+	                    const file = e.target.files?.[0] || null;
+	                    setRegistrationOcrFile(file);
+	                    resetRegistrationOcrState();
+	                  }}
+	                />
+	                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+	                  <button
+	                    type="button"
+	                    className="browse-btn"
+	                    onClick={(e) => {
+	                      e.stopPropagation();
+	                      document.getElementById('registration_ocr_file')?.click();
+	                    }}
+	                  >
+	                    Browse
+	                  </button>
+	                  <button
+	                    type="button"
+	                    className="browse-btn"
+	                    disabled={!registrationOcrFile || registrationOcrStatus === 'Scanning…' || registrationOcrStatus === 'Preparing…'}
+	                    onClick={(e) => {
+	                      e.stopPropagation();
+	                      runRegistrationOcr();
+	                    }}
+	                  >
+	                    {registrationOcrStatus === 'Preparing…'
+	                      ? 'Preparing…'
+	                      : registrationOcrStatus === 'Scanning…'
+	                        ? `Scanning… ${registrationOcrProgress}%`
+	                        : 'Scan'}
+	                  </button>
+	                  {registrationOcrFile && (
+	                    <button
+	                      type="button"
+	                      className="browse-btn"
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        setRegistrationOcrFile(null);
+	                        resetRegistrationOcrState();
+	                      }}
+	                    >
+	                      Clear
+	                    </button>
+	                  )}
+	                </div>
+	              </div>
+	              {registrationOcrError && (
+	                <div className="alert alert-danger mt-3" role="alert">
+	                  {registrationOcrError}
+	                </div>
+	              )}
+	              {registrationOcrSuggestions && (
+	                <div className="alert alert-success mt-3" role="status">
+	                  <div style={{ fontWeight: 700, marginBottom: '6px' }}>Detected</div>
+	                  <div>
+	                    Make: {registrationOcrSuggestions.make || '—'} {registrationOcrSuggestions.verifiedMake ? '(verified)' : '(not verified)'}
+	                  </div>
+	                  <div>
+	                    Model: {registrationOcrSuggestions.model || '—'} {registrationOcrSuggestions.verifiedModel ? '(verified)' : '(not verified)'}
+	                  </div>
+	                  <div>
+	                    Year: {registrationOcrSuggestions.year || '—'} {registrationOcrSuggestions.verifiedYear ? '(verified)' : '(not verified)'}
+	                  </div>
+	                  <div>
+	                    VIN: {registrationOcrSuggestions.vin || '—'} {registrationOcrSuggestions.verifiedVin ? '(verified)' : '(not verified)'}
+	                  </div>
+	                  <div style={{ marginTop: '8px', opacity: 0.9 }}>
+	                    Verified fields are auto-filled and locked. Use Clear if you need to change them manually.
+	                  </div>
+	                  {registrationOcrPreparedImage?.source === 'pdf' && (
+	                    <div style={{ marginTop: '8px', opacity: 0.85 }}>
+	                      PDF note: scanned from page 1 only.
+	                    </div>
+	                  )}
+	                </div>
+	              )}
+	            </div>
+	          </div>
+
+	          <div className="form-row">
+	            <div className="form-group">
+	              <label htmlFor="car_manufacturer">Make <RequiredMark /></label>
+	              <SearchableSelect
                 id="car_manufacturer"
                 name="car_manufacturer"
                 value={formData.car_manufacturer}
@@ -2103,9 +2465,9 @@ const PostCar = () => {
           <div className="form-subsection-title">Contact and Location</div>
           <p className="form-subsection-desc">Enter trusted contact details and pin the exact vehicle location.</p>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="contact_preference">Contact Preference</label>
+	          <div className="form-row">
+	            <div className="form-group">
+	              <label htmlFor="contact_preference">Contact Preference</label>
               <SearchableSelect
                 id="contact_preference"
                 name="contact_preference"
@@ -2118,19 +2480,44 @@ const PostCar = () => {
                 <option value="email">Email</option>
                 <option value="any">Any</option>
               </SearchableSelect>
-            </div>
-            <div className="form-group">
-              <label htmlFor="seller_name">Seller Name</label>
-              <input
-                type="text"
-                id="seller_name"
-                name="seller_name"
-                value={formData.seller_name}
-                onChange={handleChange}
-                placeholder="Your full name"
-                className="form-control"
-              />
-            </div>
+	            </div>
+	            <div className="form-group">
+	              <label htmlFor="seller_name">Seller Name</label>
+	              <input
+	                type="text"
+	                id="seller_name"
+	                name="seller_name"
+	                value={formData.seller_name}
+	                onChange={handleChange}
+	                placeholder="Your full name"
+	                className="form-control"
+	                disabled={useUsernameAsSellerName && Boolean(String(user?.username || '').trim())}
+	              />
+	              <label className="checkbox-label" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+	                <input
+	                  type="checkbox"
+	                  checked={useUsernameAsSellerName}
+	                  disabled={!String(user?.username || '').trim()}
+	                  onChange={(e) => {
+	                    const nextChecked = e.target.checked;
+	                    setUseUsernameAsSellerName(nextChecked);
+	                    if (nextChecked) {
+	                      const username = String(user?.username || '').trim();
+	                      if (username) {
+	                        setFormData((prev) => ({ ...prev, seller_name: username }));
+	                      }
+	                    }
+	                  }}
+	                  style={{ width: 16, height: 16 }}
+	                />
+	                Use my username as seller name
+	              </label>
+	              {!String(user?.username || '').trim() && (
+	                <div className="form-text" style={{ color: '#fecaca' }}>
+	                  You don’t have a username yet. Set one in <a href="/settings">Account Settings</a> to use it on your listings.
+	                </div>
+	              )}
+	            </div>
             <div className="form-group">
               <label htmlFor="whatsapp_number">WhatsApp Number <RequiredMark /></label>
               <div className="phone-input-group">

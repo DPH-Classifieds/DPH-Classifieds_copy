@@ -597,12 +597,12 @@ const CarDetail = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (car?.dealer_name || car?.contact_name || '').charAt(0).toUpperCase()
+                  (car?.seller_name || car?.dealer_name || car?.contact_name || car?.user_email || '').charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  Seller
+                  {car?.seller_name || car?.dealer_name || car?.contact_name || 'Private Seller'}
                 </div>
               </div>
               <div className="cd-divider"></div>

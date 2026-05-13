@@ -88,6 +88,7 @@ const PostPlate = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
+  const [useUsernameAsContactName, setUseUsernameAsContactName] = useState(false);
   const [formData, setFormData] = useState({
     city: '',
     code: '',
@@ -110,6 +111,20 @@ const PostPlate = () => {
   useEffect(() => {
     syncWithSupabase();
   }, [syncWithSupabase]);
+
+  useEffect(() => {
+    const username = String(user?.username || '').trim();
+    if (!username) {
+      setUseUsernameAsContactName(false);
+      return;
+    }
+
+    setUseUsernameAsContactName(true);
+    setFormData((prev) => ({
+      ...prev,
+      contact_name: username,
+    }));
+  }, [user?.username]);
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -499,12 +514,47 @@ const PostPlate = () => {
                 </p>
               </div>
               <div className="form-section-content">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="contact_name">Contact name</label>
-                    <input id="contact_name" name="contact_name" value={formData.contact_name} onChange={handleChange} required placeholder="Full name" />
-                  </div>
-                </div>
+	                <div className="form-row">
+	                  <div className="form-group">
+	                    <label htmlFor="contact_name">Contact name</label>
+	                    <input
+	                      id="contact_name"
+	                      name="contact_name"
+	                      value={formData.contact_name}
+	                      onChange={handleChange}
+	                      required
+	                      placeholder="Full name"
+	                      disabled={useUsernameAsContactName && Boolean(String(user?.username || '').trim())}
+	                    />
+	                    <label
+	                      className="checkbox-label"
+	                      style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.7)' }}
+	                    >
+	                      <input
+	                        type="checkbox"
+	                        checked={useUsernameAsContactName}
+	                        disabled={!String(user?.username || '').trim()}
+	                        onChange={(event) => {
+	                          const nextChecked = event.target.checked;
+	                          setUseUsernameAsContactName(nextChecked);
+	                          if (nextChecked) {
+	                            const username = String(user?.username || '').trim();
+	                            if (username) {
+	                              setFormData((prev) => ({ ...prev, contact_name: username }));
+	                            }
+	                          }
+	                        }}
+	                        style={{ width: 16, height: 16 }}
+	                      />
+	                      Use my username as seller name
+	                    </label>
+	                    {!String(user?.username || '').trim() && (
+	                      <div className="form-text" style={{ color: '#fecaca' }}>
+	                        You don’t have a username yet. Set one in <a href="/settings">Account Settings</a> to use it on your listings.
+	                      </div>
+	                    )}
+	                  </div>
+	                </div>
 
                 <div className="form-row">
                   <div className="form-group">
