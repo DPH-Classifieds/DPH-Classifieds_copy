@@ -56,6 +56,7 @@ const CarList = () => {
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [sortOption, setSortOption] = useState('created_at.desc');
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
 
   // Keep a full year range so filtering is not limited by currently loaded listings
   const currentYear = new Date().getFullYear();
@@ -258,6 +259,13 @@ const CarList = () => {
   const handleSortChange = (e) => {
     setSortOption(e.target.value);
   };
+
+  const activeFilterCount = Object.entries(filters).reduce((count, [key, value]) => {
+    if (key === 'extras') {
+      return count + (Array.isArray(value) && value.length ? 1 : 0);
+    }
+    return count + (value ? 1 : 0);
+  }, 0);
   
   const applyFilters = (e) => {
     e.preventDefault();
@@ -321,20 +329,28 @@ const CarList = () => {
     }).format(price);
   };
   
-  return (
-    <>
-      <SeoMeta {...seoData} />
-    <div className="car-list-container">
+	  return (
+	    <>
+	      <SeoMeta {...seoData} />
+	    <div className="car-list-container">
       <h1>Car Listings</h1>
       
       {/* Filter Section */}
-      <div className="car-filters">
-        <div className="filter-header">
-          <h2>Filter Listings</h2>
-          <div className="sort-by">
-            <label htmlFor="sortOption">Sort by:</label>
-            <SearchableSelect 
-              id="sortOption" 
+	      <div className="car-filters">
+	        <div className="filter-header">
+	          <h2>Filter Listings</h2>
+	          <button
+	            type="button"
+	            className="filters-toggle-mobile"
+	            aria-expanded={filtersOpenMobile}
+	            onClick={() => setFiltersOpenMobile((prev) => !prev)}
+	          >
+	            Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+	          </button>
+	          <div className="sort-by">
+	            <label htmlFor="sortOption">Sort by:</label>
+	            <SearchableSelect 
+	              id="sortOption" 
               value={sortOption} 
               onChange={handleSortChange}
               className="sort-select"
@@ -349,11 +365,11 @@ const CarList = () => {
               <option value="kilometer_driven.desc">Mileage: High to Low</option>
             </SearchableSelect>
           </div>
-        </div>
-        
-        <form onSubmit={applyFilters}>
-          {/* Basic Filters */}
-          <div className="filter-row">
+	        </div>
+	        
+	        <form onSubmit={applyFilters} className={filtersOpenMobile ? 'filters-open' : ''}>
+	          {/* Basic Filters */}
+	          <div className="filter-row">
             <div className="filter-group">
               <label htmlFor="car_manufacturer">Make</label>
               <SearchableSelect 

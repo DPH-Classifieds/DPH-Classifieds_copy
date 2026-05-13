@@ -547,6 +547,25 @@
   .car-filters {
     padding: 16px;
   }
+
+  .car-filters .filters-toggle-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .car-filters form {
+    display: none;
+  }
+
+  .car-filters form.filters-open {
+    display: block;
+  }
+
+  .car-filters .sort-by {
+    width: 100%;
+    justify-content: space-between;
+  }
   
   .filter-header {
     flex-direction: column;
@@ -618,6 +637,28 @@
   border-bottom: 1px solid rgba(148, 218, 153, 0.12);
   padding-bottom: 18px;
   margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.car-filters .filters-toggle-mobile {
+  display: none;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.12);
+  color: #eafff0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.car-filters .filters-toggle-mobile:hover {
+  border-color: rgba(74, 222, 128, 0.55);
+  background: rgba(74, 222, 128, 0.16);
 }
 
 .car-filters .filter-header h2,
