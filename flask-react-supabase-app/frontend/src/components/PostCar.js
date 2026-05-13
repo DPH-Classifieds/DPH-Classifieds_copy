@@ -90,6 +90,7 @@ const PostCar = () => {
   const [registrationOcrSuggestions, setRegistrationOcrSuggestions] = useState(null);
   const [registrationOcrError, setRegistrationOcrError] = useState(null);
   const [registrationOcrTruth, setRegistrationOcrTruth] = useState(null);
+  const [registrationOcrDebugInfo, setRegistrationOcrDebugInfo] = useState(null);
   const [useUsernameAsSellerName, setUseUsernameAsSellerName] = useState(false);
   const locationSearchTimeoutRef = useRef(null);
   const locationSearchAbortRef = useRef(null);
@@ -194,6 +195,153 @@ const PostCar = () => {
     setRegistrationOcrSuggestions(null);
     setRegistrationOcrPreparedImage(null);
     setRegistrationOcrTruth(null);
+    setRegistrationOcrDebugInfo(null);
+  }, []);
+
+  const levenshteinDistance = useCallback((aRaw, bRaw) => {
+    const a = String(aRaw || '');
+    const b = String(bRaw || '');
+    if (a === b) return 0;
+    if (!a) return b.length;
+    if (!b) return a.length;
+
+    const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i += 1) dp[i][0] = i;
+    for (let j = 0; j <= b.length; j += 1) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i += 1) {
+      for (let j = 1; j <= b.length; j += 1) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return dp[a.length][b.length];
+  }, []);
+
+  const similarityScore = useCallback(
+    (aRaw, bRaw) => {
+      const a = normalizeOcrToken(aRaw);
+      const b = normalizeOcrToken(bRaw);
+      if (!a || !b) return 0;
+      if (a === b) return 1;
+      const distance = levenshteinDistance(a, b);
+      const maxLen = Math.max(a.length, b.length);
+      return maxLen ? Math.max(0, 1 - distance / maxLen) : 0;
+    },
+    [levenshteinDistance, normalizeOcrToken]
+  );
+
+  const computeVinCheckDigit = useCallback((vinRaw) => {
+    const vin = String(vinRaw || '').toUpperCase();
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return null;
+    const map = {
+      A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8,
+      J: 1, K: 2, L: 3, M: 4, N: 5, P: 7, R: 9,
+      S: 2, T: 3, U: 4, V: 5, W: 6, X: 7, Y: 8, Z: 9,
+      0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9,
+    };
+    const weights = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
+    let sum = 0;
+    for (let i = 0; i < 17; i += 1) {
+      const ch = vin[i];
+      const value = map[ch];
+      if (typeof value !== 'number') return null;
+      sum += value * weights[i];
+    }
+    const remainder = sum % 11;
+    return remainder === 10 ? 'X' : String(remainder);
+  }, []);
+
+  const isVinValid = useCallback(
+    (vinRaw) => {
+      const vin = String(vinRaw || '').toUpperCase();
+      if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return false;
+      const expected = computeVinCheckDigit(vin);
+      if (!expected) return false;
+      return vin[8] === expected;
+    },
+    [computeVinCheckDigit]
+  );
+
+  const tryFixVinOcr = useCallback(
+    (vinRaw) => {
+      const vin = String(vinRaw || '').toUpperCase();
+      if (!/^[A-Z0-9]{17}$/.test(vin)) return null;
+      const candidates = new Set([
+        vin,
+        vin.replace(/O/g, '0'),
+        vin.replace(/I/g, '1'),
+        vin.replace(/Q/g, '0'),
+        vin.replace(/S/g, '5'),
+        vin.replace(/Z/g, '2'),
+        vin.replace(/B/g, '8'),
+      ]);
+      for (const candidate of candidates) {
+        if (isVinValid(candidate)) return candidate;
+      }
+      return null;
+    },
+    [isVinValid]
+  );
+
+  const preprocessImageToPngFile = useCallback(async (blobOrFile, { threshold = 180, contrast = 1.25 } = {}) => {
+    const blob = blobOrFile instanceof Blob ? blobOrFile : null;
+    if (!blob) return null;
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    ctx.drawImage(bitmap, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    // grayscale + contrast + threshold
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      gray = (gray - 128) * contrast + 128;
+      const out = gray >= threshold ? 255 : 0;
+      data[i] = out;
+      data[i + 1] = out;
+      data[i + 2] = out;
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    const outBlob = await new Promise((resolve, reject) => {
+      canvas.toBlob((value) => (value ? resolve(value) : reject(new Error('Failed to preprocess image'))), 'image/png', 1);
+    });
+    return new File([outBlob], 'registration-preprocessed.png', { type: 'image/png' });
+  }, []);
+
+  const renderPdfPageToPngFile = useCallback(async ({ file, pageNumber = 1, scale = 3 } = {}) => {
+    const data = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data, disableWorker: true }).promise;
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas context not available');
+    }
+
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((value) => (value ? resolve(value) : reject(new Error('Failed to render PDF'))), 'image/png', 1);
+    });
+
+    return new File([blob], `registration-page-${pageNumber}.png`, { type: 'image/png' });
   }, []);
 
   const prepareRegistrationOcrInput = useCallback(async (file) => {
@@ -207,38 +355,29 @@ const PostCar = () => {
       fileType === 'application/pdf' || name.endsWith('.pdf');
 
     if (!isPdf) {
-      return { image: file, source: 'image' };
+      // For images, run multiple preprocess passes (and original) to reduce OCR mismatch.
+      const passes = [
+        { image: file, pass: 'original' },
+        { image: await preprocessImageToPngFile(file, { threshold: 170, contrast: 1.2 }), pass: 'prep170' },
+        { image: await preprocessImageToPngFile(file, { threshold: 190, contrast: 1.3 }), pass: 'prep190' },
+      ].filter((entry) => entry.image);
+      return { attempts: passes.map((entry) => ({ ...entry, source: 'image' })) };
     }
 
-    const data = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data, disableWorker: true }).promise;
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2 });
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) {
-      throw new Error('Canvas context not available');
-    }
-
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-
-    await page.render({ canvasContext: context, viewport }).promise;
-
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (value) => (value ? resolve(value) : reject(new Error('Failed to render PDF'))),
-        'image/png',
-        1
-      );
-    });
-
-    const prepared = new File([blob], 'registration-page-1.png', { type: 'image/png' });
-    return { image: prepared, source: 'pdf' };
-  }, []);
+    // PDFs: render page 1 at two scales, then preprocess each render.
+    const rendered3 = await renderPdfPageToPngFile({ file, pageNumber: 1, scale: 3 });
+    const rendered4 = await renderPdfPageToPngFile({ file, pageNumber: 1, scale: 4 });
+    const passes = [
+      { image: rendered3, pass: 'pdf-scale3' },
+      { image: await preprocessImageToPngFile(rendered3, { threshold: 175, contrast: 1.25 }), pass: 'pdf-scale3-prep' },
+      { image: rendered4, pass: 'pdf-scale4' },
+      { image: await preprocessImageToPngFile(rendered4, { threshold: 175, contrast: 1.25 }), pass: 'pdf-scale4-prep' },
+    ].filter((entry) => entry.image);
+    return { attempts: passes.map((entry) => ({ ...entry, source: 'pdf' })) };
+  }, [preprocessImageToPngFile, renderPdfPageToPngFile]);
 
   const parseRegistrationOcr = useCallback(
-    (text) => {
+    (text, { words = [] } = {}) => {
       const rawText = String(text || '');
       const normalizedText = normalizeOcrToken(rawText);
       const maxYear = new Date().getFullYear() + 1;
@@ -282,6 +421,22 @@ const PostCar = () => {
         }
       }
 
+      if (!detectedMake) {
+        let bestMake = null;
+        let bestScore = 0;
+        for (const make of carMakes) {
+          const score = similarityScore(make, rawText);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMake = make;
+          }
+        }
+        if (bestScore >= 0.92) {
+          detectedMake = bestMake;
+          detectedMakeScore = Math.round(bestScore * 100);
+        }
+      }
+
       let detectedModel = null;
       let detectedModelScore = 0;
       const modelCandidates = detectedMake ? (carModels[detectedMake] || []) : [];
@@ -291,6 +446,22 @@ const PostCar = () => {
         if (normalizedText.includes(needle) && needle.length > detectedModelScore) {
           detectedModel = model;
           detectedModelScore = needle.length;
+        }
+      }
+
+      if (!detectedModel && modelCandidates.length) {
+        let bestModel = null;
+        let bestScore = 0;
+        for (const model of modelCandidates) {
+          const score = similarityScore(model, rawText);
+          if (score > bestScore) {
+            bestScore = score;
+            bestModel = model;
+          }
+        }
+        if (bestScore >= 0.9) {
+          detectedModel = bestModel;
+          detectedModelScore = Math.round(bestScore * 100);
         }
       }
 
@@ -308,7 +479,28 @@ const PostCar = () => {
           detectedVin = rawVinMatch[0];
         }
       }
-      const verifiedVin = Boolean(detectedVin && /^[A-HJ-NPR-Z0-9]{17}$/.test(detectedVin));
+      const fixedVin = detectedVin ? tryFixVinOcr(detectedVin) : null;
+      if (fixedVin) {
+        detectedVin = fixedVin;
+      }
+      const verifiedVin = Boolean(detectedVin && isVinValid(detectedVin));
+
+      const wordConfidence = Array.isArray(words) && words.length
+        ? Math.round(
+            words
+              .map((w) => Number(w?.confidence))
+              .filter((n) => Number.isFinite(n))
+              .reduce((a, b) => a + b, 0) / words.length
+          )
+        : null;
+
+      const confidence = {
+        make: verifiedMake ? 0.98 : detectedMake ? 0.7 : 0,
+        model: verifiedModel ? 0.98 : detectedModel ? 0.65 : 0,
+        year: verifiedYear ? 0.98 : detectedYear ? 0.6 : 0,
+        vin: verifiedVin ? 0.99 : detectedVin ? 0.5 : 0,
+        ocr: wordConfidence ? Math.max(0, Math.min(1, wordConfidence / 100)) : null,
+      };
 
       return {
         make: detectedMake,
@@ -319,9 +511,10 @@ const PostCar = () => {
         verifiedModel,
         verifiedYear,
         verifiedVin,
+        confidence,
       };
     },
-    [normalizeOcrToken, yearOptions]
+    [isVinValid, normalizeOcrToken, similarityScore, tryFixVinOcr, yearOptions]
   );
 
   const runRegistrationOcr = useCallback(async () => {
@@ -335,43 +528,75 @@ const PostCar = () => {
 
     try {
       const prepared = await prepareRegistrationOcrInput(registrationOcrFile);
-      if (!prepared?.image) {
+      const attempts = prepared?.attempts || [];
+      if (!attempts.length) {
         throw new Error('No OCR input prepared');
       }
 
-      setRegistrationOcrPreparedImage(prepared);
-      setRegistrationOcrStatus('Scanning…');
+      let best = null;
+      let bestScore = -1;
+      let bestAttempt = null;
 
-      const result = await Tesseract.recognize(prepared.image, 'eng', {
-        logger: (m) => {
-          if (m?.status === 'recognizing text' && typeof m.progress === 'number') {
-            setRegistrationOcrProgress(Math.round(m.progress * 100));
-          }
-        },
-      });
+      for (let idx = 0; idx < attempts.length; idx += 1) {
+        const attempt = attempts[idx];
+        if (!attempt?.image) continue;
+        setRegistrationOcrPreparedImage(attempt);
+        setRegistrationOcrStatus(`Scanning… (${idx + 1}/${attempts.length})`);
+        setRegistrationOcrProgress(0);
 
-      const parsed = parseRegistrationOcr(result?.data?.text || '');
-      setRegistrationOcrSuggestions(parsed);
+        const result = await Tesseract.recognize(attempt.image, 'eng', {
+          logger: (m) => {
+            if (m?.status === 'recognizing text' && typeof m.progress === 'number') {
+              setRegistrationOcrProgress(Math.round(m.progress * 100));
+            }
+          },
+        });
+
+        const parsed = parseRegistrationOcr(result?.data?.text || '', { words: result?.data?.words || [] });
+        const score =
+          (parsed.verifiedVin ? 3 : 0) +
+          (parsed.verifiedMake ? 2 : 0) +
+          (parsed.verifiedModel ? 2 : 0) +
+          (parsed.verifiedYear ? 2 : 0) +
+          (parsed.confidence?.ocr ? parsed.confidence.ocr : 0);
+
+        if (score > bestScore) {
+          best = parsed;
+          bestScore = score;
+          bestAttempt = attempt;
+        }
+
+        if (parsed.verifiedVin && parsed.verifiedMake && parsed.verifiedYear) {
+          break;
+        }
+      }
+
+      if (!best) {
+        throw new Error('OCR failed to produce results');
+      }
+
+      setRegistrationOcrSuggestions(best);
+      setRegistrationOcrDebugInfo(bestAttempt ? { source: bestAttempt.source, pass: bestAttempt.pass } : null);
       setRegistrationOcrTruth({
-        make: parsed.verifiedMake ? parsed.make : null,
-        model: parsed.verifiedModel ? parsed.model : null,
-        year: parsed.verifiedYear ? parsed.year : null,
-        vin: parsed.verifiedVin ? parsed.vin : null,
+        make: best.verifiedMake ? best.make : null,
+        model: best.verifiedModel ? best.model : null,
+        year: best.verifiedYear ? best.year : null,
+        vin: best.verifiedVin ? best.vin : null,
       });
 
       setFormData((prev) => {
         const next = { ...prev };
-        if (parsed.verifiedMake && parsed.make) {
-          next.car_manufacturer = parsed.make;
+        if (best.verifiedMake && best.make) {
+          next.car_manufacturer = best.make;
         }
-        if (parsed.verifiedModel && parsed.model) {
-          next.car_model = parsed.model;
+        if (best.verifiedModel && best.model) {
+          next.car_model = best.model;
         }
-        if (parsed.verifiedYear && parsed.year) {
-          next.make_year = parsed.year;
+        if (best.verifiedYear && best.year) {
+          next.make_year = best.year;
         }
-        if (parsed.verifiedVin && parsed.vin) {
-          next.vin_number = String(parsed.vin).toUpperCase();
+        if (best.verifiedVin && best.vin) {
+          next.vin_number = String(best.vin).toUpperCase();
         }
         return next;
       });
@@ -1845,6 +2070,11 @@ const PostCar = () => {
 	                  <div>
 	                    VIN: {registrationOcrSuggestions.vin || '—'} {registrationOcrSuggestions.verifiedVin ? '(verified)' : '(not verified)'}
 	                  </div>
+	                  {registrationOcrDebugInfo && (
+	                    <div style={{ marginTop: '8px', opacity: 0.75, fontSize: 12 }}>
+	                      Best pass: {registrationOcrDebugInfo.source}/{registrationOcrDebugInfo.pass}
+	                    </div>
+	                  )}
 	                  <div style={{ marginTop: '8px', opacity: 0.9 }}>
 	                    Verified fields are auto-filled and locked. Use Clear if you need to change them manually.
 	                  </div>
