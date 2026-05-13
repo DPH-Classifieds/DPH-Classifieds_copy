@@ -546,13 +546,14 @@ const Signup = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="username">Username (Optional)</label>
+              <label htmlFor="username">Username <span className="required">*</span></label>
               <input
                 type="text"
                 id="username"
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
+                required
                 placeholder="Choose a unique username"
                 pattern="[a-zA-Z0-9_]+"
                 title="Username can only contain letters, numbers, and underscores"
@@ -568,7 +569,7 @@ const Signup = () => {
                   {usernameAvailability.message}
                 </small>
               )}
-              <small className="form-hint">Used for login and public profile</small>
+              <small className="form-hint">Used for your public seller identity and account URL</small>
             </div>
           </div>
 

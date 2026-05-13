@@ -410,12 +410,12 @@ const BikeDetailRedesigned = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (bike?.contact_name || bike?.user_email || '').charAt(0).toUpperCase()
+                  (bike?.seller_name || bike?.contact_name || bike?.user_email || '').charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {bike?.contact_name || 'Private Seller'}
+                  {bike?.seller_name || bike?.contact_name || 'Private Seller'}
                 </div>
               </div>
               <div className="cd-divider"></div>

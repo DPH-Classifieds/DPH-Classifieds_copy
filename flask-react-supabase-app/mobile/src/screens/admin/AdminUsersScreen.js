@@ -1,0 +1,330 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import apiClient from '../../utils/apiClient';
+import { formatDate } from '../../utils/formatters';
+import SearchBar from '../../components/ui/SearchBar';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import EmptyState from '../../components/ui/EmptyState';
+import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+
+export default function AdminUsersScreen() {
+  const [users, setUsers] = useState([]);
+  const [searchText, setSearchText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  useEffect(() => {
+    fetchUsers(true);
+  }, [searchText]);
+
+  const fetchUsers = async (reset = false) => {
+    try {
+      setLoading(true);
+      const currentPage = reset ? 1 : page;
+      const params = new URLSearchParams({ page: currentPage, limit: 20 });
+      if (searchText.trim()) params.append('search', searchText.trim());
+      const data = await apiClient.get(`/api/admin/users?${params.toString()}`);
+      const list = Array.isArray(data) ? data : data?.users || [];
+      setUsers(reset ? list : [...users, ...list]);
+      setHasMore(list.length >= 20);
+      if (reset) setPage(1);
+    } catch (err) {
+      if (reset) setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchUsers(true);
+    setRefreshing(false);
+  }, [searchText]);
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      setPage((prev) => prev + 1);
+      fetchUsers(false);
+    }
+  };
+
+  const showUserActions = (user) => {
+    const isBanned = user.status === 'banned';
+    const actions = [];
+
+    if (user.is_admin) {
+      actions.push({ text: 'Remove Admin', onPress: () => toggleAdmin(user) });
+    } else {
+      actions.push({ text: 'Make Admin', onPress: () => makeAdmin(user) });
+    }
+
+    if (isBanned) {
+      actions.push({ text: 'Unban User', onPress: () => toggleBan(user, false) });
+    } else {
+      actions.push({ text: 'Ban User', style: 'destructive', onPress: () => toggleBan(user, true) });
+    }
+
+    actions.push({ text: 'Delete User', style: 'destructive', onPress: () => deleteUser(user) });
+    actions.push({ text: 'Cancel', style: 'cancel' });
+
+    Alert.alert(user.first_name || user.email, 'Select an action', actions);
+  };
+
+  const makeAdmin = async (user) => {
+    try {
+      await apiClient.post(`/api/admin/users/${user.id}/make-admin`);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, is_admin: true } : u))
+      );
+    } catch (err) {
+      Alert.alert('Error', 'Failed to make user admin.');
+    }
+  };
+
+  const toggleAdmin = async (user) => {
+    try {
+      await apiClient.patch(`/api/admin/users/${user.id}/status`, {
+        is_admin: !user.is_admin,
+      });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, is_admin: !u.is_admin } : u))
+      );
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update user role.');
+    }
+  };
+
+  const toggleBan = async (user, ban) => {
+    const action = ban ? 'ban' : 'unban';
+    Alert.alert(`Confirm ${action}`, `Are you sure you want to ${action} this user?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        style: ban ? 'destructive' : 'default',
+        onPress: async () => {
+          try {
+            await apiClient.patch(`/api/admin/users/${user.id}/status`, {
+              status: ban ? 'banned' : 'active',
+            });
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.id === user.id ? { ...u, status: ban ? 'banned' : 'active' } : u
+              )
+            );
+          } catch (err) {
+            Alert.alert('Error', `Failed to ${action} user.`);
+          }
+        },
+      },
+    ]);
+  };
+
+  const deleteUser = (user) => {
+    Alert.alert('Delete User', `Permanently delete "${user.first_name || user.email}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/api/admin/users/${user.id}`);
+            setUsers((prev) => prev.filter((u) => u.id !== user.id));
+          } catch (err) {
+            Alert.alert('Error', 'Failed to delete user.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const getInitials = (user) => {
+    const first = user.first_name?.[0] || '';
+    const last = user.last_name?.[0] || '';
+    return (first + last).toUpperCase() || user.email?.[0]?.toUpperCase() || '?';
+  };
+
+  const renderUser = ({ item }) => (
+    <TouchableOpacity
+      style={styles.userCard}
+      onPress={() => showUserActions(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{getInitials(item)}</Text>
+      </View>
+      <View style={styles.userInfo}>
+        <View style={styles.userRow}>
+          <Text style={styles.userName} numberOfLines={1}>
+            {item.first_name} {item.last_name}
+          </Text>
+          <View style={styles.badges}>
+            {item.is_admin && (
+              <View style={[styles.badge, styles.adminBadge]}>
+                <Text style={styles.badgeText}>Admin</Text>
+              </View>
+            )}
+            {item.is_dealer && (
+              <View style={[styles.badge, styles.dealerBadge]}>
+                <Text style={styles.badgeText}>Dealer</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.userMeta}>
+            Joined {formatDate(item.created_at)}
+          </Text>
+          {item.status === 'banned' && (
+            <View style={[styles.badge, styles.bannedBadge]}>
+              <Text style={styles.badgeText}>Banned</Text>
+            </View>
+          )}
+          {item.last_login && (
+            <Text style={styles.lastLogin}>Last login {formatDate(item.last_login)}</Text>
+          )}
+        </View>
+      </View>
+      <Ionicons name="ellipsis-vertical" size={18} color={COLORS.textMuted} />
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.searchSection}>
+        <SearchBar
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search users..."
+        />
+      </View>
+
+      {loading && users.length === 0 ? (
+        <LoadingSpinner message="Loading users..." />
+      ) : (
+        <FlatList
+          data={users}
+          renderItem={renderUser}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListEmptyComponent={
+            <EmptyState icon="people-outline" title="No users found" message="No users match your search." />
+          }
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+  },
+  searchSection: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  listContent: {
+    padding: SPACING.md,
+    paddingBottom: 40,
+  },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '700',
+    color: COLORS.accent,
+  },
+  userInfo: {
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  userName: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+    marginRight: 8,
+  },
+  badges: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  adminBadge: {
+    backgroundColor: COLORS.primary,
+  },
+  dealerBadge: {
+    backgroundColor: COLORS.info,
+  },
+  bannedBadge: {
+    backgroundColor: COLORS.error,
+  },
+  badgeText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  userEmail: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  userMeta: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textMuted,
+  },
+  lastLogin: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textMuted,
+  },
+});

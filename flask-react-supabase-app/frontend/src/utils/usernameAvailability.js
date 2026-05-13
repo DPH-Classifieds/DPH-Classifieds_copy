@@ -13,12 +13,21 @@ const USERNAME_BLOCKLIST = [
   'slut',
   'whore',
   'porn',
+  'pornhub',
   'rape',
   'nigger',
   'faggot',
   'cock',
   'cum',
   'nazi',
+  'blowjob',
+  'handjob',
+  'hentai',
+  'onlyfans',
+  'xnxx',
+  'xvideos',
+  'redtube',
+  '4chan',
 ];
 
 const getStorage = () => {
@@ -78,6 +87,34 @@ const normalizeUsernameForReview = (value) =>
 const compactUsername = (value) =>
   normalizeUsernameForReview(value).replace(/[^a-z0-9]/g, '');
 
+const translateLeet = (value) => {
+  const map = {
+    '0': 'o',
+    '1': 'i',
+    '2': 'z',
+    '3': 'e',
+    '4': 'a',
+    '5': 's',
+    '6': 'g',
+    '7': 't',
+    '8': 'b',
+    '9': 'g',
+  };
+
+  return String(value || '').replace(/[0-9]/g, (digit) => map[digit] || digit);
+};
+
+const collapseRepeats = (value) =>
+  String(value || '').replace(/(.)\1{1,}/g, '$1');
+
+const buildBlocklistCandidates = (value) => {
+  const compact = compactUsername(value);
+  if (!compact) return [];
+  const normalized = translateLeet(compact);
+  const collapsed = collapseRepeats(normalized);
+  return Array.from(new Set([compact, normalized, collapsed])).filter(Boolean);
+};
+
 export const getUsernameValidationError = (value) => {
   const normalized = normalizeUsernameForReview(value);
   if (!normalized) {
@@ -95,7 +132,8 @@ export const getUsernameValidationError = (value) => {
     return 'Username can only contain letters, numbers, and underscores';
   }
 
-  if (USERNAME_BLOCKLIST.some((term) => compact.includes(term))) {
+  const candidates = buildBlocklistCandidates(normalized);
+  if (candidates.some((candidate) => USERNAME_BLOCKLIST.some((term) => candidate.includes(term)))) {
     return 'That username is not allowed. Please choose a different one.';
   }
 

@@ -46,6 +46,7 @@ const buildProfileDataFromUser = (user = {}) => {
     username: user.username || '',
     displayName: user.display_name || user.displayName || '',
     bio: user.bio || '',
+    showUsernameOnListings: Boolean(user.show_username_on_listings),
 
     phone: phoneParts.phoneNumber,
     countryCode: phoneParts.countryCode,
@@ -144,6 +145,7 @@ const AccountSettings = () => {
     emailNotifications: true,
     smsNotifications: true,
     marketingEmails: false,
+    showUsernameOnListings: false,
     
     // Photo
     profilePhotoUrl: ''
@@ -1320,6 +1322,24 @@ const AccountSettings = () => {
                     <span>
                       <strong>Marketing Emails</strong>
                       <small>Receive promotional emails and newsletters</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h3>Public Listings</h3>
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="showUsernameOnListings"
+                      checked={profileData.showUsernameOnListings}
+                      onChange={handleProfileInputChange}
+                    />
+                    <span>
+                      <strong>Show username instead of full name</strong>
+                      <small>When enabled, your listings show only your username as the seller name.</small>
                     </span>
                   </label>
                 </div>

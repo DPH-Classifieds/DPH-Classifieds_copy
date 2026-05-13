@@ -139,6 +139,7 @@ const SearchableSelect = ({
   value,
   onChange,
   placeholder,
+  isSearchable = true,
   isDisabled,
   disabled,
   required,
@@ -189,7 +190,7 @@ const SearchableSelect = ({
         options={options}
         value={selectedOption}
         isDisabled={isDisabled ?? disabled}
-        isSearchable
+        isSearchable={Boolean(isSearchable)}
         placeholder={derivedPlaceholder}
         styles={sharedStyles}
         menuPortalTarget={typeof document !== 'undefined' ? document.body : null}

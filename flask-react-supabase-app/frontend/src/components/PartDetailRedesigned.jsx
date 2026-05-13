@@ -374,12 +374,12 @@ const PartDetailRedesigned = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (part?.contact_name || part?.user_email || '').charAt(0).toUpperCase()
+                  (part?.seller_name || part?.contact_name || part?.user_email || '').charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {part?.contact_name || 'Private Seller'}
+                  {part?.seller_name || part?.contact_name || 'Private Seller'}
                 </div>
               </div>
               <div className="cd-divider"></div>

@@ -1,0 +1,153 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+
+import LoginScreen from '../screens/auth/LoginScreen';
+import SignupScreen from '../screens/auth/SignupScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+
+import ExploreScreen from '../screens/explore/ExploreScreen';
+import CarDetailScreen from '../screens/listing/CarDetailScreen';
+import BikeDetailScreen from '../screens/listing/BikeDetailScreen';
+import PlateDetailScreen from '../screens/listing/PlateDetailScreen';
+import PartDetailScreen from '../screens/listing/PartDetailScreen';
+import PostListingScreen from '../screens/listing/PostListingScreen';
+import SavedScreen from '../screens/profile/SavedScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
+import SettingsScreen from '../screens/profile/SettingsScreen';
+import MyListingsScreen from '../screens/profile/MyListingsScreen';
+import PrivacyPolicyScreen from '../screens/profile/PrivacyPolicyScreen';
+import TermsOfServiceScreen from '../screens/profile/TermsOfServiceScreen';
+
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
+import AdminListingsScreen from '../screens/admin/AdminListingsScreen';
+import AdminDealersScreen from '../screens/admin/AdminDealersScreen';
+import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
+
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+const screenOptions = {
+  headerStyle: { backgroundColor: '#000000' },
+  headerTintColor: '#ffffff',
+  headerTitleStyle: { fontWeight: '600', fontSize: 17 },
+  contentStyle: { backgroundColor: '#000000' },
+  animation: 'slide_from_right',
+};
+
+function AuthStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password' }} />
+    </Stack.Navigator>
+  );
+}
+
+function ExploreStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="ExploreMain" component={ExploreScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing' }} />
+      <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing' }} />
+      <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing' }} />
+      <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing' }} />
+    </Stack.Navigator>
+  );
+}
+
+function PostStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="PostListing" component={PostListingScreen} options={{ headerShown: false }} />
+    </Stack.Navigator>
+  );
+}
+
+function SavedStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="SavedMain" component={SavedScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing' }} />
+      <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing' }} />
+      <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing' }} />
+      <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing' }} />
+    </Stack.Navigator>
+  );
+}
+
+function ProfileStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ title: 'My Listings' }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+      <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ title: 'Terms of Service' }} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin' }} />
+      <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: 'Users' }} />
+      <Stack.Screen name="AdminListings" component={AdminListingsScreen} options={{ title: 'Listings' }} />
+      <Stack.Screen name="AdminDealers" component={AdminDealersScreen} options={{ title: 'Dealers' }} />
+      <Stack.Screen name="AdminReports" component={AdminReportsScreen} options={{ title: 'Reports' }} />
+    </Stack.Navigator>
+  );
+}
+
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: '#000000',
+          borderTopColor: 'rgba(255,255,255,0.15)',
+          borderTopWidth: 0.5,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 60,
+        },
+        tabBarActiveTintColor: '#4CAF50',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.4)',
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Explore') iconName = focused ? 'compass' : 'compass-outline';
+          else if (route.name === 'Post') iconName = focused ? 'add-circle' : 'add-circle-outline';
+          else if (route.name === 'Saved') iconName = focused ? 'heart' : 'heart-outline';
+          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
+          return <Ionicons name={iconName} size={24} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Explore" component={ExploreStack} options={{ tabBarLabel: 'Explore' }} />
+      <Tab.Screen name="Post" component={PostStack} options={{ tabBarLabel: 'Sell' }} />
+      <Tab.Screen name="Saved" component={SavedStack} options={{ tabBarLabel: 'Saved' }} />
+      <Tab.Screen name="Profile" component={ProfileStack} options={{ tabBarLabel: 'Profile' }} />
+    </Tab.Navigator>
+  );
+}
+
+export default function AppNavigator() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user ? (
+          <Stack.Screen name="Main" component={MainTabs} />
+        ) : (
+          <Stack.Screen name="Auth" component={AuthStack} />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}

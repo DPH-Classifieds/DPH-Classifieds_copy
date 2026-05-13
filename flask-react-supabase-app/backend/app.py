@@ -128,12 +128,21 @@ USERNAME_BLOCKLIST = {
     "slut",
     "whore",
     "porn",
+    "pornhub",
     "rape",
     "nigger",
     "faggot",
     "cock",
     "cum",
     "nazi",
+    "blowjob",
+    "handjob",
+    "hentai",
+    "onlyfans",
+    "xnxx",
+    "xvideos",
+    "redtube",
+    "4chan",
 }
 PRIMARY_SUPER_ADMIN_EMAIL = (
     os.getenv("PRIMARY_SUPER_ADMIN_EMAIL", "admin@dphclassifieds.com").strip().lower()
@@ -373,7 +382,7 @@ def _batch_fetch_seller_map(user_ids, headers=None):
     if not unique_ids:
         return {}
 
-    user_fields = "id,first_name,last_name,email,profile_photo_url,is_dealer"
+    user_fields = "id,first_name,last_name,email,username,show_username_on_listings,profile_photo_url,is_dealer"
     id_filter = ",".join(unique_ids)
     seller_map = {}
     try:
@@ -407,7 +416,13 @@ def _apply_seller_to_listing(item, seller):
     if not isinstance(item, dict) or not isinstance(seller, dict):
         return item
     full_name = f"{seller.get('first_name', '')} {seller.get('last_name', '')}".strip()
-    item["seller_name"] = full_name or seller.get("email", "Marketplace Seller")
+    username = str(seller.get("username") or "").strip()
+    prefer_username = bool(seller.get("show_username_on_listings"))
+    if prefer_username and username:
+        seller_name = username
+    else:
+        seller_name = full_name or username or seller.get("email", "Marketplace Seller")
+    item["seller_name"] = seller_name
     item["seller_id"] = seller.get("id")
     item["seller_profile_photo"] = seller.get("profile_photo_url")
     item["seller_verified"] = bool(seller.get("is_dealer", False))
@@ -6209,6 +6224,15 @@ def update_user_profile(current_user):
         if not data:
             return jsonify({"message": "No data provided"}), 400
 
+        if "username" in data and not _normalize_username_value(data.get("username")):
+            return jsonify(
+                {
+                    "message": "Username is required",
+                    "code": "username_required",
+                    "field": "username",
+                }
+            ), 400
+
         # Map frontend field names to database field names
         field_mapping = {
             "email": "email",
@@ -6238,6 +6262,7 @@ def update_user_profile(current_user):
             "smsNotifications": "sms_notifications",
             "marketingEmails": "marketing_emails",
             "profilePhotoUrl": "profile_photo_url",
+            "showUsernameOnListings": "show_username_on_listings",
         }
 
         # Prepare update data - only include fields that are provided and not empty
@@ -6316,6 +6341,16 @@ def update_user_profile(current_user):
         existing_user = existing_rows[0]
         requested_username = _normalize_username_value(update_payload.get("username"))
         existing_username = _normalize_username_value(existing_user.get("username"))
+
+        if not existing_username and not requested_username:
+            return jsonify(
+                {
+                    "message": "Username is required",
+                    "code": "username_required",
+                    "field": "username",
+                }
+            ), 400
+
         if requested_username and requested_username != existing_username:
             if _is_username_blocked(requested_username):
                 return jsonify(
@@ -7118,15 +7153,43 @@ def _compact_username_value(username):
     return re.sub(r"[^a-z0-9]", "", _normalize_username_value(username).lower())
 
 
+_LEET_USERNAME_TRANSLATION = str.maketrans(
+    {
+        "0": "o",
+        "1": "i",
+        "2": "z",
+        "3": "e",
+        "4": "a",
+        "5": "s",
+        "6": "g",
+        "7": "t",
+        "8": "b",
+        "9": "g",
+    }
+)
+
+
+def _username_blocklist_candidates(username):
+    compact = _compact_username_value(username)
+    if not compact:
+        return []
+    normalized = compact.translate(_LEET_USERNAME_TRANSLATION)
+    collapsed = re.sub(r"(.)\\1{1,}", r"\\1", normalized)
+    candidates = {compact, normalized, collapsed}
+    return [value for value in candidates if value]
+
+
 def _username_blocked_message():
     return "That username is not allowed. Please choose a different one."
 
 
 def _is_username_blocked(username):
-    compact = _compact_username_value(username)
-    if not compact:
+    candidates = _username_blocklist_candidates(username)
+    if not candidates:
         return True
-    return any(term in compact for term in USERNAME_BLOCKLIST)
+    return any(
+        term in candidate for candidate in candidates for term in USERNAME_BLOCKLIST
+    )
 
 
 def _username_availability_cache_key(username, exclude_user_id=None):
@@ -7308,25 +7371,28 @@ def signup():
         cleaned_metadata[key] = value
 
     requested_username = _normalize_username_value(cleaned_metadata.get("username"))
-    if requested_username:
-        if _is_username_blocked(requested_username):
-            return jsonify(
-                {
-                    "message": _username_blocked_message(),
-                    "code": "username_blocked",
-                    "field": "username",
-                }
-            ), 409
-        username_check = _check_username_availability(requested_username)
-        if not username_check.get("available", False):
-            return jsonify(
-                {
-                    "message": username_check.get("message")
-                    or _username_conflict_message(),
-                    "code": "username_taken",
-                    "field": "username",
-                }
-            ), 409
+    if not requested_username:
+        return jsonify(
+            {"message": "Username is required", "code": "username_required", "field": "username"}
+        ), 400
+
+    if _is_username_blocked(requested_username):
+        return jsonify(
+            {
+                "message": _username_blocked_message(),
+                "code": "username_blocked",
+                "field": "username",
+            }
+        ), 409
+    username_check = _check_username_availability(requested_username)
+    if not username_check.get("available", False):
+        return jsonify(
+            {
+                "message": username_check.get("message") or _username_conflict_message(),
+                "code": "username_taken",
+                "field": "username",
+            }
+        ), 409
 
     # Sign up with Supabase
     redirect_to = _get_safe_redirect_url(
@@ -10287,6 +10353,31 @@ def delete_admin_user(current_user, user_id):
     except Exception as e:
         logger.error(f"Error deleting admin user: {str(e)}")
         return jsonify({"error": "An error occurred while deleting the user"}), 500
+
+
+@app.route("/api/admin/cleanup-unverified-accounts", methods=["POST"])
+@token_required
+def admin_cleanup_unverified_accounts(current_user):
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        data = request.get_json(silent=True) or {}
+        dry_run = bool(data.get("dryRun", False))
+        limit = int(data.get("limit", 500))
+        max_age_hours = float(data.get("maxAgeHours", 48))
+
+        from auth_cleanup import cleanup_unverified_accounts
+
+        result = cleanup_unverified_accounts(
+            max_age_hours=max_age_hours,
+            limit=limit,
+            dry_run=dry_run,
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        logger.error(f"Error running unverified cleanup: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to run cleanup"}), 500
 
 
 def _create_plate_with_image_impl(current_user):

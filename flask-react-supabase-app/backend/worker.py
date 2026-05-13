@@ -88,6 +88,25 @@ def health_loop(build_fn, store_fn, alert_fn, interval):
         stop_event.wait(interval)
 
 
+def cleanup_loop(cleanup_fn, interval, max_age_hours, dry_run):
+    while not stop_event.is_set():
+        try:
+            result = cleanup_fn(
+                max_age_hours=max_age_hours,
+                dry_run=dry_run,
+            )
+            logger.info(
+                "Unverified cleanup complete (dry_run=%s): candidates=%d deleted_auth=%s deleted_user_rows=%s",
+                bool(result.get("dry_run")),
+                len(result.get("candidates") or []),
+                result.get("deleted_auth"),
+                result.get("deleted_user_rows"),
+            )
+        except Exception as exc:
+            logger.exception("Unverified cleanup loop failed: %s", exc)
+        stop_event.wait(interval)
+
+
 def main():
     logger.info("Worker starting")
 
@@ -106,6 +125,23 @@ def main():
         logger.error("Failed to import health_monitoring: %s", exc)
         logger.error(traceback.format_exc())
         return
+
+    cleanup_enabled = str(os.getenv("UNVERIFIED_CLEANUP_ENABLED", "true")).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    cleanup_interval_seconds = int(
+        os.getenv("UNVERIFIED_CLEANUP_INTERVAL_SECONDS", str(60 * 60))
+    )
+    cleanup_max_age_hours = float(os.getenv("UNVERIFIED_CLEANUP_MAX_AGE_HOURS", "48"))
+    cleanup_dry_run = str(os.getenv("UNVERIFIED_CLEANUP_DRY_RUN", "false")).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
     health_server_thread = threading.Thread(
         target=start_health_server, name="health-server", daemon=True
@@ -143,6 +179,32 @@ def main():
     monitor_thread.start()
     logger.info("Worker threads started (heartbeat + health monitor)")
 
+    cleanup_thread = None
+    if cleanup_enabled:
+        try:
+            from auth_cleanup import cleanup_unverified_accounts
+
+            cleanup_thread = threading.Thread(
+                target=cleanup_loop,
+                args=(
+                    cleanup_unverified_accounts,
+                    cleanup_interval_seconds,
+                    cleanup_max_age_hours,
+                    cleanup_dry_run,
+                ),
+                name="unverified-cleanup",
+                daemon=True,
+            )
+            cleanup_thread.start()
+            logger.info(
+                "Unverified cleanup enabled (interval=%ss max_age=%sh dry_run=%s)",
+                cleanup_interval_seconds,
+                cleanup_max_age_hours,
+                cleanup_dry_run,
+            )
+        except Exception as exc:
+            logger.error("Failed to start unverified cleanup thread: %s", exc)
+
     try:
         while True:
             time.sleep(60)
@@ -152,6 +214,8 @@ def main():
         stop_event.set()
         heartbeat_thread.join(timeout=5)
         monitor_thread.join(timeout=5)
+        if cleanup_thread is not None:
+            cleanup_thread.join(timeout=5)
 
 
 if __name__ == "__main__":

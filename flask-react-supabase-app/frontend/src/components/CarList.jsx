@@ -465,6 +465,7 @@ const CarList = () => {
                 name="make_year_from" 
                 value={filters.make_year_from} 
                 onChange={handleFilterChange}
+                isSearchable={false}
                 className="form-select"
               >
                 <option value="">Min Year (1886)</option>
@@ -481,6 +482,7 @@ const CarList = () => {
                 name="make_year_to" 
                 value={filters.make_year_to} 
                 onChange={handleFilterChange}
+                isSearchable={false}
                 className="form-select"
               >
                 <option value="">Max Year</option>

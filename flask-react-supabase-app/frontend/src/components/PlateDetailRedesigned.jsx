@@ -375,12 +375,12 @@ const PlateDetailRedesigned = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (plate?.contact_name || plate?.user_email || '').charAt(0).toUpperCase()
+                  (plate?.seller_name || plate?.contact_name || plate?.user_email || '').charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {plate?.contact_name || 'Private Seller'}
+                  {plate?.seller_name || plate?.contact_name || 'Private Seller'}
                 </div>
               </div>
               <div className="cd-divider"></div>
