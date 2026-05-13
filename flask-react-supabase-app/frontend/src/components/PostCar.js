@@ -1638,6 +1638,51 @@ const PostCar = () => {
     setDragOverIndex(null);
   };
 
+  const [draggedExistingIndex, setDraggedExistingIndex] = useState(null);
+  const [dragOverExistingIndex, setDragOverExistingIndex] = useState(null);
+
+  const handleExistingDragStart = (event, index) => {
+    setDraggedExistingIndex(index);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', `existing:${index}`);
+  };
+
+  const handleExistingDragOver = (event, index) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverExistingIndex(index);
+  };
+
+  const handleExistingDragLeave = () => {
+    setDragOverExistingIndex(null);
+  };
+
+  const handleExistingDrop = (event, dropIndex) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (draggedExistingIndex === null || draggedExistingIndex === dropIndex) {
+      setDraggedExistingIndex(null);
+      setDragOverExistingIndex(null);
+      return;
+    }
+
+    setExistingImages((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(draggedExistingIndex, 1);
+      next.splice(dropIndex, 0, moved);
+      return next;
+    });
+
+    setDraggedExistingIndex(null);
+    setDragOverExistingIndex(null);
+  };
+
+  const handleExistingDragEnd = () => {
+    setDraggedExistingIndex(null);
+    setDragOverExistingIndex(null);
+  };
+
   const uploadImages = async () => {
     try {
       if (!user?.id) {
@@ -3121,47 +3166,63 @@ const PostCar = () => {
                   ))}
                 </div>
               )}
-              {existingImages.length > 0 && (
-                <div className="image-previews-grid car-framing-grid">
-	                  {existingImages.map((image, index) => (
-	                    <div
-	                      className="preview-item car-framing-preview"
-	                      key={image.id || `${image.url}-${index}`}
-	                      role="button"
-	                      tabIndex={0}
-	                      onClick={() => {
-	                        setActiveFramingIndex(index);
-	                        setShowFramingModal(true);
-	                      }}
-	                      onKeyDown={(event) => {
-	                        if (event.key === 'Enter') {
-	                          setActiveFramingIndex(index);
-	                          setShowFramingModal(true);
-	                        }
-	                      }}
-	                    >
-	                      <div className="preview-order">{index + 1}</div>
-	                      <img
-	                        src={image.display_url || image.image_url || image.url}
-	                        alt={`Existing ${index + 1}`}
+	              {existingImages.length > 0 && (
+	                <div className="image-previews-grid car-framing-grid">
+		                  {existingImages.map((image, index) => (
+		                    <div
+		                      className={`preview-item car-framing-preview ${draggedExistingIndex === index ? 'dragging' : ''} ${dragOverExistingIndex === index ? 'drag-over' : ''}`}
+		                      key={image.id || `${image.url}-${index}`}
+		                      draggable
+		                      role="button"
+		                      tabIndex={0}
+		                      onClick={() => {
+		                        setActiveFramingIndex(index);
+		                        setShowFramingModal(true);
+		                      }}
+		                      onKeyDown={(event) => {
+		                        if (event.key === 'Enter') {
+		                          setActiveFramingIndex(index);
+		                          setShowFramingModal(true);
+		                        }
+		                      }}
+		                      onDragStart={(event) => handleExistingDragStart(event, index)}
+		                      onDragOver={(event) => handleExistingDragOver(event, index)}
+		                      onDragLeave={handleExistingDragLeave}
+		                      onDrop={(event) => handleExistingDrop(event, index)}
+		                      onDragEnd={handleExistingDragEnd}
+		                    >
+		                      <div className="preview-order">{index + 1}</div>
+		                      <img
+		                        src={image.display_url || image.image_url || image.url}
+		                        alt={`Existing ${index + 1}`}
                         style={{
                           objectPosition: `${Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50}% ${Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50}%`,
                         }}
                       />
-	                      <button
-	                        type="button"
-	                        className="remove-btn"
-	                        onClick={(event) => {
-	                          event.stopPropagation();
-	                          setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
-	                        }}
-	                      >
-	                        ×
-	                      </button>
-	                    </div>
-	                  ))}
-	                </div>
-	              )}
+		                      <button
+		                        type="button"
+		                        className="remove-btn"
+		                        onClick={(event) => {
+		                          event.stopPropagation();
+		                          setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+		                        }}
+		                      >
+		                        ×
+		                      </button>
+		                      <div className="drag-handle">
+		                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+		                          <circle cx="9" cy="6" r="1.5"/>
+		                          <circle cx="15" cy="6" r="1.5"/>
+		                          <circle cx="9" cy="12" r="1.5"/>
+		                          <circle cx="15" cy="12" r="1.5"/>
+		                          <circle cx="9" cy="18" r="1.5"/>
+		                          <circle cx="15" cy="18" r="1.5"/>
+		                        </svg>
+		                      </div>
+		                    </div>
+		                  ))}
+		                </div>
+		              )}
               {previewImages.length > 1 && (
                 <p className="reorder-hint">Drag images to reorder. First image will be the main photo.</p>
               )}

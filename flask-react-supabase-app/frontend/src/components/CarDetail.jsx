@@ -65,6 +65,7 @@ const CarDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [viewerProfile, setViewerProfile] = useState(null);
   const [showPhoneVerifyModal, setShowPhoneVerifyModal] = useState(false);
   const [vinVisible, setVinVisible] = useState(false);
@@ -376,6 +377,27 @@ const CarDetail = () => {
     navigate(-1);
   };
 
+  const openLightboxAt = (index) => {
+    const images = getGalleryImages();
+    if (!images.length) return;
+    const safe = Math.max(0, Math.min(index, images.length - 1));
+    setActiveImageIndex(safe);
+    setLightboxOpen(true);
+  };
+
+  const closeLightbox = () => setLightboxOpen(false);
+
+  const stepLightbox = (direction) => {
+    const images = getGalleryImages();
+    if (!images.length) return;
+    setActiveImageIndex((current) => {
+      const next = current + direction;
+      if (next < 0) return images.length - 1;
+      if (next >= images.length) return 0;
+      return next;
+    });
+  };
+
   const isOwner = Boolean(user?.id && car?.user_id && user.id === car.user_id);
   const isPhoneVerified = Boolean(viewerProfile?.phone_verified || user?.phone_verified);
   const canViewVin = isOwner || isPhoneVerified;
@@ -485,22 +507,23 @@ const CarDetail = () => {
 
         <div className="cd-hero-grid">
           <div className="cd-hero-left">
-            <div className="cd-main-image">
-              {getMainImageUrl() ? (
-                <img
-                  src={getMainImageUrl()}
-                  alt={getDisplayTitle()}
-                  loading="lazy"
-                  decoding="async"
-                  width="800"
-                  height="500"
-                  style={{ objectPosition: getMainImageObjectPosition() }}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = PLACEHOLDER_IMAGE;
-                  }}
-                />
-              ) : (
+      <div className="cd-main-image">
+        {getMainImageUrl() ? (
+          <img
+            src={getMainImageUrl()}
+            alt={getDisplayTitle()}
+            loading="lazy"
+            decoding="async"
+            width="800"
+            height="500"
+            style={{ objectPosition: getMainImageObjectPosition() }}
+            onClick={() => openLightboxAt(activeImageIndex)}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = PLACEHOLDER_IMAGE;
+            }}
+          />
+        ) : (
                 <div className="cd-image-placeholder">
                   <svg className="cd-car-silhouette" viewBox="0 0 120 50" fill="currentColor">
                     <path d="M10,35 L15,25 L25,25 L30,15 L90,15 L95,25 L105,25 L110,35 L10,35 Z" opacity="0.18"/>
@@ -521,6 +544,7 @@ const CarDetail = () => {
                     key={`${image.id}-${index}`}
                     className={`cd-thumbnail ${index === activeImageIndex ? 'cd-thumbnail-active' : ''}`}
                     onClick={() => setActiveImageIndex(index)}
+                    onDoubleClick={() => openLightboxAt(index)}
                   >
                     <img src={getThumbnailUrl(image)} alt={`Thumbnail ${index + 1}`} />
                   </div>
@@ -616,6 +640,112 @@ const CarDetail = () => {
             </div>
           </aside>
         </div>
+
+        {lightboxOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Image viewer"
+            onClick={closeLightbox}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 99999,
+              background: 'rgba(0,0,0,0.86)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 18,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'relative',
+                width: 'min(1100px, 96vw)',
+                maxHeight: '90vh',
+              }}
+            >
+              <button
+                type="button"
+                onClick={closeLightbox}
+                aria-label="Close image viewer"
+                style={{
+                  position: 'absolute',
+                  top: -6,
+                  right: -6,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  background: 'rgba(10,10,10,0.7)',
+                  color: '#fff',
+                  fontSize: 22,
+                  cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+
+              <button
+                type="button"
+                onClick={() => stepLightbox(-1)}
+                aria-label="Previous image"
+                style={{
+                  position: 'absolute',
+                  left: -10,
+                  top: '50%',
+                  transform: 'translate(-100%, -50%)',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  background: 'rgba(10,10,10,0.7)',
+                  color: '#fff',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                }}
+              >
+                ‹
+              </button>
+
+              <button
+                type="button"
+                onClick={() => stepLightbox(1)}
+                aria-label="Next image"
+                style={{
+                  position: 'absolute',
+                  right: -10,
+                  top: '50%',
+                  transform: 'translate(100%, -50%)',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  background: 'rgba(10,10,10,0.7)',
+                  color: '#fff',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                }}
+              >
+                ›
+              </button>
+
+              <img
+                src={getMainImage()?.originalUrl || getMainImageUrl()}
+                alt={getDisplayTitle()}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  maxHeight: '90vh',
+                  objectFit: 'contain',
+                  borderRadius: 14,
+                  border: '1px solid rgba(255,255,255,0.14)',
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="cd-content-grid">
           <div className="cd-content-left">

@@ -1291,6 +1291,10 @@ def _collect_user_listing_records(current_user, item_type):
         )
         record["images"] = images_data if images_status < 400 else []
         record["listing_type"] = item_type
+        if record.get("status") == "rejected":
+            # Keep rejected listings editable in the user's account view.
+            record["moderation_status"] = "rejected"
+            record["status"] = "draft"
         synced = _sync_listing_lifecycle(
             config["table"], record, hard_delete_archived=True
         )

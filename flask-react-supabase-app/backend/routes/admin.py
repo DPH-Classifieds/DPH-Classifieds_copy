@@ -462,12 +462,14 @@ def reject_listing(listing_id):
             "Prefer": "return=representation",
         }
 
+        # Keep the listing editable for the user by moving it back to draft-like state
+        # while retaining the rejection note for visibility.
         update_data = {
-            "status": "rejected",
+            "status": "draft",
             "is_approved": False,
             "rejected_at": "now()",
             "rejected_by": request.user_id,
-            "rejection_reason": reason,
+            "rejection_note": reason,
         }
 
         response = requests.patch(
@@ -500,6 +502,41 @@ def reject_listing(listing_id):
 
             return jsonify({"message": "Listing rejected successfully"}), 200
         else:
+            # Fallback: some older schemas may enforce status to {pending, approved, rejected}.
+            # If so, store the rejection note and mark as rejected.
+            fallback_data = {
+                "status": "rejected",
+                "is_approved": False,
+                "rejected_at": "now()",
+                "rejected_by": request.user_id,
+                "rejection_note": reason,
+            }
+            fallback_resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{listing_id}",
+                headers=headers,
+                json=fallback_data,
+                timeout=5,
+            )
+            if fallback_resp.status_code in [200, 204]:
+                try:
+                    from app import _get_user_email_by_id, _send_listing_status_email
+                    updated_listings = fallback_resp.json()
+                    if updated_listings and len(updated_listings) > 0:
+                        listing = updated_listings[0]
+                        user_id = listing.get("user_id")
+                        if user_id:
+                            user_info = _get_user_email_by_id(user_id)
+                            if user_info and user_info.get("email"):
+                                _send_listing_status_email(
+                                    user_info["email"],
+                                    listing_type,
+                                    listing,
+                                    "rejected",
+                                )
+                except Exception as email_err:
+                    logger.error(f"Failed to send rejection email: {email_err}")
+                return jsonify({"message": "Listing rejected successfully"}), 200
+
             return jsonify({"error": "Failed to reject listing"}), response.status_code
 
     except Exception as e:
