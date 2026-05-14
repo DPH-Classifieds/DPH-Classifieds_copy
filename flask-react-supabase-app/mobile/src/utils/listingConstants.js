@@ -31,42 +31,40 @@ export const DUBAI_AREAS = [
 ];
 
 export const ABU_DHABI_AREAS = [
-  "Al Reef", "Al Raha Beach", "Al Reem Island", "Bloom Gardens",
-  "Corniche", "Khalifa City", "Masdar City", "Saadiyat Island",
-  "Yas Island", " Mohammed Bin Zayed City", "Al Mushrif",
-  "Al Nahyan", "Tourist Club Area", "Al Maryah Island",
-  "Al Bateen", "Hudayriyat Island", "Zayed Sports City",
-  "Al Shamkha", "Al Falah", "Al Wathba", "Zayed City",
+  "Abu Dhabi Island", "Al Reem Island", "Al Raha Beach", "Al Raha Gardens",
+  "Yas Island", "Saadiyat Island", "Al Maryah Island", "Hudayriyat Island",
+  "Khalifa City", "Mohammed Bin Zayed City", "Shakhbout City", "Al Shamkha",
+  "Al Reef", "Masdar City", "Mussafah", "Baniyas", "Al Wathba", "Zayed City",
+  "Al Falah", "Corniche Area", "Al Khalidiyah", "Al Zahiyah",
 ];
 
 export const SHARJAH_AREAS = [
-  "Al Nahda", "Al Qasimia", "Al Majaz", "Al Khan", "Al Taawun",
-  "Bu Tina", "Al Mamzar", "Al Jazzat", "Al Riqqa",
-  "Al Farjan", "Al Ramtha", "University City",
-  "Tilal City", "Aljada", "Masaar", "Al Mamsha",
-  "Hayat Al Sham", "Nasma Residences",
+  "Al Nahda", "Al Majaz", "Al Qasimia", "Al Khan", "Muwaileh",
+  "Al Taawun", "Aljada", "University City", "Muweilah Commercial",
+  "Al Mamzar", "Rolla", "Al Nabba", "Tilal City",
+  "Sharjah Sustainable City", "Al Suyoh", "Al Rahmaniya",
 ];
 
 export const AJMAN_AREAS = [
-  "Al Rashidiya", "Al Nuaimiya", "Al Jurf", "Emirates City",
-  "Al Rawda", "Al Zahya", "Al Hamidiyah", "Al Mowaihat",
-  "City Centre", "Al Bustan", "Al Ittihad", "Corniche Ajman",
+  "Al Nuaimiya", "Al Rashidiya", "Al Jurf", "Al Mowaihat", "Al Rawda",
+  "Ajman Downtown", "Ajman Corniche", "Al Rumaila", "Al Zahya",
+  "Al Helio", "Al Yasmeen", "Emirates City",
 ];
 
 export const UAQ_AREAS = [
-  "Al Salamaah", "Al Abar", "Al Butain", "Emirates City",
-  "Al Rafaah", "Al Shuhooh",
+  "UAQ Marina", "Al Salamah", "Al Raas", "Falaj Al Mualla",
+  "Al Dar Al Baida", "Al Abraq",
 ];
 
 export const RAK_AREAS = [
-  "Al Nakheel", "Al Hamra Village", "Mina Al Arab", "Al Marjan Island",
-  "Khuzam", "Al Dhait", "Julphar", "Al Qusaidat",
-  "Al Jufl", "Digdaga", "Sham",
+  "Al Nakheel", "Al Hamra", "Al Hamra Village", "Al Marjan Island",
+  "Khuzam", "Mina Al Arab", "Julphar", "Al Dhait", "Dafan Al Khor",
+  "RAK City", "Al Jazirah Al Hamra",
 ];
 
 export const FUJAIRAH_AREAS = [
-  "Fujairah City", "Dibba", "Khor Fakkan", "Al Faseel",
-  "Al Gurayyah", "Mirbah", "Qidfa", "Wadi Shawka",
+  "Fujairah City", "Al Faseel", "Sakamkam", "Dibba", "Mirbah",
+  "Qidfa", "Masafi", "Al Badiyah",
 ];
 
 export const EMIRATE_AREAS = {
