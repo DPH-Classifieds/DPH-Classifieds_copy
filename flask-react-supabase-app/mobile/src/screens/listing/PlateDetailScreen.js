@@ -20,6 +20,7 @@ import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
 import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
+import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
@@ -75,6 +76,8 @@ export default function PlateDetailScreen({ route, navigation }) {
     };
     if (listingId) fetchPlate();
   }, [listingId]);
+
+  const { requireAuth, AuthPromptModal } = useAuthPrompt(navigation);
 
   const handleSave = useCallback(async () => {
     if (!plate) return;
@@ -153,7 +156,7 @@ export default function PlateDetailScreen({ route, navigation }) {
               ))}
             </View>
           )}
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.saveButton} onPress={() => requireAuth(() => handleSave())} activeOpacity={0.7}>
             <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
           </TouchableOpacity>
           <View style={styles.reportButtonWrap}>
@@ -214,11 +217,11 @@ export default function PlateDetailScreen({ route, navigation }) {
               </View>
             </View>
             <View style={styles.sellerActions}>
-              <TouchableOpacity style={styles.callButton} onPress={handleCall} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.callButton} onPress={() => requireAuth(handleCall)} activeOpacity={0.8}>
                 <Ionicons name="call" size={18} color={COLORS.white} />
                 <Text style={styles.callButtonText}>Call Now</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsApp} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.whatsappButton} onPress={() => requireAuth(handleWhatsApp)} activeOpacity={0.8}>
                 <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
                 <Text style={styles.whatsappButtonText}>WhatsApp</Text>
               </TouchableOpacity>
@@ -251,6 +254,7 @@ export default function PlateDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+      <AuthPromptModal />
     </SafeAreaView>
   );
 }

@@ -1,10 +1,12 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { View } from 'react-native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import RequireAuth from '../components/ui/RequireAuth';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
@@ -69,10 +71,10 @@ function ExploreStack() {
       <Stack.Screen name="BikeList" component={BikeListScreen} options={{ title: 'Bikes' }} />
       <Stack.Screen name="PlateList" component={PlateListScreen} options={{ title: 'Plates' }} />
       <Stack.Screen name="PartList" component={PartListScreen} options={{ title: 'Car Parts' }} />
-      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing' }} />
-      <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing' }} />
-      <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing' }} />
-      <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing' }} />
+      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing', headerBackTitle: 'Explore' }} />
+      <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing', headerBackTitle: 'Explore' }} />
+      <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing', headerBackTitle: 'Explore' }} />
+      <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing', headerBackTitle: 'Explore' }} />
       <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
     </Stack.Navigator>
   );
@@ -94,10 +96,10 @@ function SavedStack() {
       <Stack.Screen name="BikeList" component={BikeListScreen} options={{ title: 'Bikes' }} />
       <Stack.Screen name="PlateList" component={PlateListScreen} options={{ title: 'Plates' }} />
       <Stack.Screen name="PartList" component={PartListScreen} options={{ title: 'Car Parts' }} />
-      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing' }} />
-      <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing' }} />
-      <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing' }} />
-      <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing' }} />
+      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing', headerBackTitle: 'Saved' }} />
+      <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing', headerBackTitle: 'Saved' }} />
+      <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing', headerBackTitle: 'Saved' }} />
+      <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing', headerBackTitle: 'Saved' }} />
     </Stack.Navigator>
   );
 }
@@ -122,6 +124,33 @@ function ProfileStack() {
       <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
       <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
     </Stack.Navigator>
+  );
+}
+
+function AuthGatePostStack() {
+  const navigation = useNavigation();
+  return (
+    <RequireAuth navigation={navigation} redirectRoute="Post">
+      <PostStack />
+    </RequireAuth>
+  );
+}
+
+function AuthGateSavedStack() {
+  const navigation = useNavigation();
+  return (
+    <RequireAuth navigation={navigation} redirectRoute="Saved">
+      <SavedStack />
+    </RequireAuth>
+  );
+}
+
+function AuthGateProfileStack() {
+  const navigation = useNavigation();
+  return (
+    <RequireAuth navigation={navigation} redirectRoute="Profile">
+      <ProfileStack />
+    </RequireAuth>
   );
 }
 
@@ -151,15 +180,15 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Explore" component={ExploreStack} options={{ tabBarLabel: 'Explore' }} />
-      <Tab.Screen name="Post" component={PostStack} options={{ tabBarLabel: 'Sell' }} />
-      <Tab.Screen name="Saved" component={SavedStack} options={{ tabBarLabel: 'Saved' }} />
-      <Tab.Screen name="Profile" component={ProfileStack} options={{ tabBarLabel: 'Profile' }} />
+      <Tab.Screen name="Post" component={AuthGatePostStack} options={{ tabBarLabel: 'Sell' }} />
+      <Tab.Screen name="Saved" component={AuthGateSavedStack} options={{ tabBarLabel: 'Saved' }} />
+      <Tab.Screen name="Profile" component={AuthGateProfileStack} options={{ tabBarLabel: 'Profile' }} />
     </Tab.Navigator>
   );
 }
 
 export default function AppNavigator() {
-  const { user, isLoading } = useAuth();
+  const { isLoading } = useAuth();
 
   if (isLoading) {
     return <LoadingSpinner message="Loading..." />;
@@ -168,11 +197,12 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
-          <Stack.Screen name="Main" component={MainTabs} />
-        ) : (
-          <Stack.Screen name="Auth" component={AuthStack} />
-        )}
+        <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen
+          name="Auth"
+          component={AuthStack}
+          options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

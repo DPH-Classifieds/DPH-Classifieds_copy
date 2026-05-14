@@ -17,7 +17,15 @@ export default function LoanCalculator({ price }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Loan Calculator</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Loan Calculator</Text>
+        <View style={styles.resultInline}>
+          <Text style={styles.resultLabel}>Est. Monthly</Text>
+          <Text style={styles.resultValue}>
+            AED {monthlyPayment > 0 ? Math.ceil(monthlyPayment).toLocaleString() : '0'}
+          </Text>
+        </View>
+      </View>
       <View style={styles.row}>
         <View style={styles.field}>
           <Text style={styles.label}>Down Payment (AED)</Text>
@@ -53,12 +61,6 @@ export default function LoanCalculator({ price }) {
           />
         </View>
       </View>
-      <View style={styles.result}>
-        <Text style={styles.resultLabel}>Estimated Monthly</Text>
-        <Text style={styles.resultValue}>
-          AED {monthlyPayment > 0 ? Math.ceil(monthlyPayment).toLocaleString() : '0'}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -68,7 +70,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md, marginTop: SPACING.md,
   },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
+  headerRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700' },
+  resultInline: { alignItems: 'flex-end' },
   row: { flexDirection: 'row', gap: 8 },
   field: { flex: 1 },
   label: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
@@ -77,10 +84,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border, color: COLORS.white,
     fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingVertical: 8,
   },
-  result: {
-    marginTop: SPACING.md, alignItems: 'center', paddingTop: SPACING.sm,
-    borderTopWidth: 0.5, borderTopColor: COLORS.border,
-  },
-  resultLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  resultValue: { color: COLORS.accent, fontSize: FONT_SIZES.xl, fontWeight: '700', marginTop: 4 },
+  resultLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs },
+  resultValue: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginTop: 2 },
 });

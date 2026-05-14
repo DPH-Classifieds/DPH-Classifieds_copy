@@ -15,8 +15,9 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
   const { signIn } = useAuth();
+  const redirect = route?.params?.redirect;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +44,9 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
+      if (navigation.getParent()) {
+        navigation.getParent().goBack();
+      }
     } catch (err) {
       Alert.alert('Sign In Failed', err.message || 'Invalid email or password. Please try again.');
     } finally {
