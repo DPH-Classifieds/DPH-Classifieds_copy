@@ -439,8 +439,8 @@ export default function PostListingScreen({ navigation, route }) {
     top_speed: '',
     zero_to_hundred: '',
     torque: '',
-    seller_name: '',
-    seller_email: '',
+    seller_name: user?.display_name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '') || '',
+    seller_email: user?.email || '',
     contact_preference: 'phone',
     tour_url: '',
     whatsapp_number: '',
@@ -1174,11 +1174,10 @@ export default function PostListingScreen({ navigation, route }) {
           />
         </View>
 
-        <Text style={styles.fieldLabel}>Dealer Listing</Text>
-        <Picker
-          value={carForm.is_dealer ? 'Dealer' : 'Private Seller'}
-          options={['Private Seller', 'Dealer']}
-          onSelect={(v) => updateCarForm('is_dealer', v === 'Dealer')}
+        <ToggleRow
+          label="Dealer Listing"
+          value={carForm.is_dealer}
+          onValueChange={(v) => updateCarForm('is_dealer', v)}
         />
 
         <Input
@@ -1513,11 +1512,10 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
-        <Text style={styles.fieldLabel}>Seller Type</Text>
-        <Picker
-          value={bikeForm.is_dealer ? 'Dealer' : 'Private Seller'}
-          options={['Private Seller', 'Dealer']}
-          onSelect={(v) => updateBikeForm('is_dealer', v === 'Dealer')}
+        <ToggleRow
+          label="Dealer Listing"
+          value={bikeForm.is_dealer}
+          onValueChange={(v) => updateBikeForm('is_dealer', v)}
         />
 
         <ToggleRow
@@ -1641,11 +1639,10 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
-        <Text style={styles.fieldLabel}>Seller Type</Text>
-        <Picker
-          value={plateForm.is_dealer ? 'Dealer' : 'Private Seller'}
-          options={['Private Seller', 'Dealer']}
-          onSelect={(v) => updatePlateForm('is_dealer', v === 'Dealer')}
+        <ToggleRow
+          label="Dealer Listing"
+          value={plateForm.is_dealer}
+          onValueChange={(v) => updatePlateForm('is_dealer', v)}
         />
 
         <ToggleRow
@@ -1786,11 +1783,10 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
-        <Text style={styles.fieldLabel}>Seller Type</Text>
-        <Picker
-          value={partsForm.is_dealer ? 'Dealer' : 'Private Seller'}
-          options={['Private Seller', 'Dealer']}
-          onSelect={(v) => updatePartsForm('is_dealer', v === 'Dealer')}
+        <ToggleRow
+          label="Dealer Listing"
+          value={partsForm.is_dealer}
+          onValueChange={(v) => updatePartsForm('is_dealer', v)}
         />
 
         <ToggleRow
