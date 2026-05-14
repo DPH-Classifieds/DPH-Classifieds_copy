@@ -187,7 +187,14 @@ export const PLATE_CITIES = [
   { code: "ف", name: "Fujairah" },
 ];
 
-export const PLATE_FORMATS = ["Standard", "Premium", "Special", "Motorcycle"];
+export const PLATE_FORMATS = [
+  "Standard", "Premium", "Special", "Motorcycle",
+  "Temporary", "Diplomatic", "Military", "Government",
+  "Classic", "Electric Vehicle", "Commercial", "Taxi",
+  "Limousine", "Rental", "Tourism", "Transit",
+  "Export", "Dealer", "Custom", "Rare Number",
+  "Double Number", "Repeated Number", "Single Digit", "Golden Number", "Silver Number",
+];
 
 export const CAR_EXTRAS = {
   "Comfort & Convenience": [

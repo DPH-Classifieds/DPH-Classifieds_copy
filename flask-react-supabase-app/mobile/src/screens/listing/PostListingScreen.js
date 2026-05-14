@@ -415,6 +415,9 @@ export default function PostListingScreen({ navigation, route }) {
     description: '',
     contact_phone: '',
     country_code: '+971',
+    is_dealer: false,
+    whatsapp_number: '',
+    same_as_phone: true,
   });
 
   const [partsEmirate, setPartsEmirate] = useState('Dubai');
@@ -426,11 +429,15 @@ export default function PostListingScreen({ navigation, route }) {
     condition: 'New',
     compatible_makes: '',
     compatible_models: '',
+    compatible_years: '',
     price: '',
     description: '',
     contact_number: '',
     country_code: '+971',
     is_negotiable: false,
+    is_dealer: false,
+    whatsapp_number: '',
+    same_as_phone: true,
   });
 
   const [expandedSections, setExpandedSections] = useState({
@@ -649,6 +656,9 @@ export default function PostListingScreen({ navigation, route }) {
           description: data.description || '',
           contact_phone: data.contact_phone || '',
           country_code: data.country_code || '+971',
+          is_dealer: data.is_dealer || false,
+          whatsapp_number: data.whatsapp_number || '',
+          same_as_phone: true,
         });
         setPlateCity(data.city || data.emirate || null);
         setPlateArea(data.area || '');
@@ -661,11 +671,15 @@ export default function PostListingScreen({ navigation, route }) {
           condition: data.condition || 'New',
           compatible_makes: Array.isArray(data.compatible_makes) ? data.compatible_makes.join(', ') : (data.compatible_makes || ''),
           compatible_models: Array.isArray(data.compatible_models) ? data.compatible_models.join(', ') : (data.compatible_models || ''),
+          compatible_years: data.compatible_years || '',
           price: String(data.price || ''),
           description: data.description || '',
           contact_number: data.contact_number || '',
           country_code: data.country_code || '+971',
           is_negotiable: data.is_negotiable || false,
+          is_dealer: data.is_dealer || false,
+          whatsapp_number: data.whatsapp_number || '',
+          same_as_phone: true,
         });
         setPartsEmirate(data.emirate || 'Dubai');
         setPartsArea(data.area || data.location || '');
@@ -789,7 +803,9 @@ export default function PostListingScreen({ navigation, route }) {
           emirate: plateCityName,
           area: plateArea,
           contact_phone: phone,
-          whatsapp_number: phone,
+          whatsapp_number: plateForm.same_as_phone
+            ? phone
+            : `${plateForm.country_code || '+971'}${plateForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
           whatsapp_prefill_text: `Hi, I'm interested in your ${plateCityName} plate "${plateForm.code} ${plateForm.number}" listed on DPH Classifieds for AED ${plateForm.price}. Is it still available?`,
         };
         fd = buildFormData(payload, images);
@@ -807,7 +823,9 @@ export default function PostListingScreen({ navigation, route }) {
           area: partsArea,
           location: partsArea,
           contact_number: phone,
-          whatsapp_number: phone,
+          whatsapp_number: partsForm.same_as_phone
+            ? phone
+            : `${partsForm.country_code || '+971'}${partsForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
           whatsapp_prefill_text: `Hi, I'm interested in your "${partsForm.name}" listed on DPH Classifieds for AED ${partsForm.price}. Is it still available?`,
           compatible_makes: partsForm.compatible_makes
             ? partsForm.compatible_makes.split(',').map(s => s.trim()).filter(Boolean)
@@ -1506,6 +1524,31 @@ export default function PostListingScreen({ navigation, route }) {
           onPhoneChange={(v) => updatePlateForm('contact_phone', v)}
           required
         />
+
+        <Text style={styles.fieldLabel}>Seller Type</Text>
+        <Picker
+          value={plateForm.is_dealer ? 'Dealer' : 'Private Seller'}
+          options={['Private Seller', 'Dealer']}
+          onSelect={(v) => updatePlateForm('is_dealer', v === 'Dealer')}
+        />
+
+        <ToggleRow
+          label="WhatsApp same as phone"
+          value={plateForm.same_as_phone}
+          onValueChange={(v) => {
+            updatePlateForm('same_as_phone', v);
+            if (v) updatePlateForm('whatsapp_number', '');
+          }}
+        />
+        {!plateForm.same_as_phone && (
+          <PhoneInput
+            countryCodeLabel="WhatsApp Code"
+            countryCode={plateForm.country_code}
+            onCountryCodeChange={(v) => updatePlateForm('country_code', v)}
+            phoneValue={plateForm.whatsapp_number}
+            onPhoneChange={(v) => updatePlateForm('whatsapp_number', v)}
+          />
+        )}
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.plate_images} onToggle={() => toggleSection('plate_images')}>
@@ -1582,6 +1625,14 @@ export default function PostListingScreen({ navigation, route }) {
           onChangeText={(v) => updatePartsForm('compatible_models', v)}
           placeholder="X5, Camry, Cayenne (comma-separated)"
         />
+
+        <Text style={styles.fieldLabel}>Compatible Years</Text>
+        <Picker
+          value={partsForm.compatible_years}
+          options={['', ...years.slice(0, 20)]}
+          onSelect={(v) => updatePartsForm('compatible_years', v)}
+          placeholder="Select Year"
+        />
       </CollapsibleSection>
 
       <CollapsibleSection title="Contact & Location" expanded={expandedSections.parts_contact} onToggle={() => toggleSection('parts_contact')}>
@@ -1618,6 +1669,31 @@ export default function PostListingScreen({ navigation, route }) {
           onPhoneChange={(v) => updatePartsForm('contact_number', v)}
           required
         />
+
+        <Text style={styles.fieldLabel}>Seller Type</Text>
+        <Picker
+          value={partsForm.is_dealer ? 'Dealer' : 'Private Seller'}
+          options={['Private Seller', 'Dealer']}
+          onSelect={(v) => updatePartsForm('is_dealer', v === 'Dealer')}
+        />
+
+        <ToggleRow
+          label="WhatsApp same as phone"
+          value={partsForm.same_as_phone}
+          onValueChange={(v) => {
+            updatePartsForm('same_as_phone', v);
+            if (v) updatePartsForm('whatsapp_number', '');
+          }}
+        />
+        {!partsForm.same_as_phone && (
+          <PhoneInput
+            countryCodeLabel="WhatsApp Code"
+            countryCode={partsForm.country_code}
+            onCountryCodeChange={(v) => updatePartsForm('country_code', v)}
+            phoneValue={partsForm.whatsapp_number}
+            onPhoneChange={(v) => updatePartsForm('whatsapp_number', v)}
+          />
+        )}
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.parts_images} onToggle={() => toggleSection('parts_images')}>
