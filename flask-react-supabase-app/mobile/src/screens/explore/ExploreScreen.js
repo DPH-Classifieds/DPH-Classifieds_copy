@@ -96,6 +96,7 @@ const normalizeItem = (category, item) => {
 };
 
 const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
+const LIST_SCREENS = { cars: 'CarList', bikes: 'BikeList', plates: 'PlateList', parts: 'PartList' };
 const CATEGORY_ICONS = { cars: 'car', bikes: 'bicycle', plates: 'key', parts: 'construct' };
 
 export default function ExploreScreen({ navigation }) {
@@ -277,7 +278,13 @@ export default function ExploreScreen({ navigation }) {
             return (
               <TouchableOpacity
                 style={[styles.tab, isActive && styles.tabActive]}
-                onPress={() => setActiveTab(item.key)}
+                onPress={() => {
+                  if (item.key === 'all') {
+                    setActiveTab('all');
+                  } else {
+                    navigation.navigate(LIST_SCREENS[item.key]);
+                  }
+                }}
                 activeOpacity={0.7}
               >
                 <Ionicons name={item.icon} size={15} color={isActive ? COLORS.accent : COLORS.textSecondary} />

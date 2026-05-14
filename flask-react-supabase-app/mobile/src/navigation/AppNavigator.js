@@ -16,6 +16,10 @@ import BikeDetailScreen from '../screens/listing/BikeDetailScreen';
 import PlateDetailScreen from '../screens/listing/PlateDetailScreen';
 import PartDetailScreen from '../screens/listing/PartDetailScreen';
 import PostListingScreen from '../screens/listing/PostListingScreen';
+import CarListScreen from '../screens/listing/CarListScreen';
+import BikeListScreen from '../screens/listing/BikeListScreen';
+import PlateListScreen from '../screens/listing/PlateListScreen';
+import PartListScreen from '../screens/listing/PartListScreen';
 import SavedScreen from '../screens/profile/SavedScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
@@ -54,6 +58,10 @@ function ExploreStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="ExploreMain" component={ExploreScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CarList" component={CarListScreen} options={{ title: 'Cars' }} />
+      <Stack.Screen name="BikeList" component={BikeListScreen} options={{ title: 'Bikes' }} />
+      <Stack.Screen name="PlateList" component={PlateListScreen} options={{ title: 'Plates' }} />
+      <Stack.Screen name="PartList" component={PartListScreen} options={{ title: 'Car Parts' }} />
       <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing' }} />
       <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing' }} />
       <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing' }} />
@@ -74,6 +82,10 @@ function SavedStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="SavedMain" component={SavedScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CarList" component={CarListScreen} options={{ title: 'Cars' }} />
+      <Stack.Screen name="BikeList" component={BikeListScreen} options={{ title: 'Bikes' }} />
+      <Stack.Screen name="PlateList" component={PlateListScreen} options={{ title: 'Plates' }} />
+      <Stack.Screen name="PartList" component={PartListScreen} options={{ title: 'Car Parts' }} />
       <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car Listing' }} />
       <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing' }} />
       <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing' }} />
