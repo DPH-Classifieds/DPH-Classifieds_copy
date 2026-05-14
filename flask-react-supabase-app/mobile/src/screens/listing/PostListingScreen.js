@@ -361,6 +361,17 @@ export default function PostListingScreen({ navigation, route }) {
     doors: '',
     warranty: '',
     service_history: '',
+    drivetrain: '',
+    fuel_efficiency: '',
+    top_speed: '',
+    zero_to_hundred: '',
+    torque: '',
+    seller_name: '',
+    seller_email: '',
+    contact_preference: 'phone',
+    tour_url: '',
+    whatsapp_number: '',
+    same_as_phone: true,
     vin_number: '',
     car_location: '',
     extras: [],
@@ -574,6 +585,17 @@ export default function PostListingScreen({ navigation, route }) {
           doors: String(data.doors || ''),
           warranty: data.warranty || '',
           service_history: data.service_history || '',
+          drivetrain: data.drivetrain || '',
+          fuel_efficiency: String(data.fuel_efficiency || ''),
+          top_speed: String(data.top_speed || ''),
+          zero_to_hundred: String(data.zero_to_hundred || ''),
+          torque: String(data.torque || ''),
+          seller_name: data.seller_name || '',
+          seller_email: data.seller_email || '',
+          contact_preference: data.contact_preference || 'phone',
+          tour_url: data.tour_url || '',
+          whatsapp_number: data.whatsapp_number || '',
+          same_as_phone: true,
           vin_number: data.vin_number || '',
           car_location: data.car_location || '',
           extras: data.extras || [],
@@ -712,7 +734,9 @@ export default function PostListingScreen({ navigation, route }) {
           car_city: carEmirate,
           latitude: 25.276987,
           longitude: 55.296249,
-          whatsapp_number: phone,
+          whatsapp_number: carForm.same_as_phone
+            ? phone
+            : `${carForm.country_code || '+971'}${carForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
           whatsapp_prefill_text: `Hi, I'm interested in your ${carForm.car_manufacturer} ${carForm.car_model} listed on DPH Classifieds for AED ${carForm.expected_selling_price}. Is it still available?`,
         };
         fd = buildFormData(payload, images);
@@ -953,6 +977,32 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
+        <ToggleRow
+          label="WhatsApp same as phone"
+          value={carForm.same_as_phone}
+          onValueChange={(v) => {
+            updateCarForm('same_as_phone', v);
+            if (v) updateCarForm('whatsapp_number', '');
+          }}
+        />
+        {!carForm.same_as_phone && (
+          <PhoneInput
+            countryCodeLabel="WhatsApp Code"
+            countryCode={carForm.country_code}
+            onCountryCodeChange={(v) => updateCarForm('country_code', v)}
+            phoneValue={carForm.whatsapp_number}
+            onPhoneChange={(v) => updateCarForm('whatsapp_number', v)}
+          />
+        )}
+
+        <Input
+          label="Tour URL"
+          value={carForm.tour_url}
+          onChangeText={(v) => updateCarForm('tour_url', v)}
+          placeholder="https://virtual-tour-link.com"
+          keyboardType="url"
+        />
+
         <Input
           label="Listing Title *"
           value={carForm.listing_title}
@@ -979,6 +1029,28 @@ export default function PostListingScreen({ navigation, route }) {
           value={carForm.is_dealer ? 'Dealer' : 'Private Seller'}
           options={['Private Seller', 'Dealer']}
           onSelect={(v) => updateCarForm('is_dealer', v === 'Dealer')}
+        />
+
+        <Input
+          label="Seller Name"
+          value={carForm.seller_name}
+          onChangeText={(v) => updateCarForm('seller_name', v)}
+          placeholder="Your name or business name"
+        />
+
+        <Input
+          label="Seller Email"
+          value={carForm.seller_email}
+          onChangeText={(v) => updateCarForm('seller_email', v)}
+          placeholder="contact@example.com"
+          keyboardType="email-address"
+        />
+
+        <Text style={styles.fieldLabel}>Contact Preference</Text>
+        <Picker
+          value={carForm.contact_preference}
+          options={['phone', 'email', 'whatsapp']}
+          onSelect={(v) => updateCarForm('contact_preference', v)}
         />
       </CollapsibleSection>
 
@@ -1085,6 +1157,46 @@ export default function PostListingScreen({ navigation, route }) {
           onChangeText={(v) => updateCarForm('vin_number', v.toUpperCase().slice(0, 17))}
           placeholder="e.g. 1HGCM82633A123456"
           style={{ textTransform: 'uppercase' }}
+        />
+
+        <Text style={styles.fieldLabel}>Drivetrain</Text>
+        <Picker
+          value={carForm.drivetrain}
+          options={['', 'FWD', 'RWD', 'AWD', '4WD']}
+          onSelect={(v) => updateCarForm('drivetrain', v)}
+          placeholder="Select Drivetrain"
+        />
+
+        <Input
+          label="Fuel Efficiency (km/l)"
+          value={carForm.fuel_efficiency}
+          onChangeText={(v) => updateCarForm('fuel_efficiency', v)}
+          placeholder="e.g. 15"
+          keyboardType="numeric"
+        />
+
+        <Input
+          label="Top Speed (km/h)"
+          value={carForm.top_speed}
+          onChangeText={(v) => updateCarForm('top_speed', v)}
+          placeholder="e.g. 250"
+          keyboardType="numeric"
+        />
+
+        <Input
+          label="0-100 km/h (seconds)"
+          value={carForm.zero_to_hundred}
+          onChangeText={(v) => updateCarForm('zero_to_hundred', v)}
+          placeholder="e.g. 5.5"
+          keyboardType="numeric"
+        />
+
+        <Input
+          label="Torque (Nm)"
+          value={carForm.torque}
+          onChangeText={(v) => updateCarForm('torque', v)}
+          placeholder="e.g. 500"
+          keyboardType="numeric"
         />
       </CollapsibleSection>
 
