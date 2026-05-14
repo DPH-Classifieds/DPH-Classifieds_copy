@@ -320,7 +320,9 @@ function ImageSection({ images, onPickImages, onRemoveImage }) {
   );
 }
 
-export default function PostListingScreen({ navigation }) {
+export default function PostListingScreen({ navigation, route }) {
+  const { editMode, listingType, listingId } = route.params || {};
+  const isEditMode = !!editMode;
   const { user } = useAuth();
   const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -528,6 +530,122 @@ export default function PostListingScreen({ navigation }) {
     }
   }, [partsEmirate]);
 
+  useEffect(() => {
+    if (isEditMode && listingId && listingType) {
+      loadListingForEdit();
+    }
+  }, [isEditMode, listingId, listingType]);
+
+  const loadListingForEdit = async () => {
+    try {
+      setLoading(true);
+      const endpointMap = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
+      const data = await apiClient.get(`/api/${endpointMap[listingType]}/${listingId}`);
+
+      setCategory(listingType);
+
+      if (listingType === 'car') {
+        setCarForm({
+          car_manufacturer: data.car_manufacturer || '',
+          car_model: data.car_model || '',
+          trim: data.trim || '',
+          regional_spec: data.regional_spec || 'GCC',
+          make_year: String(data.make_year || ''),
+          kilometer_driven: String(data.kilometer_driven || ''),
+          body_type: data.body_type || '',
+          is_insured: data.is_insured || false,
+          vehicle_type: data.vehicle_type || 'Used',
+          ownership_status: data.ownership_status || '',
+          expected_selling_price: String(data.expected_selling_price || ''),
+          car_owner_phone_number: data.car_owner_phone_number || '',
+          country_code: data.country_code || '+971',
+          listing_title: data.listing_title || '',
+          car_description: data.car_description || '',
+          is_dealer: data.is_dealer || false,
+          fuel_type: data.fuel_type || '',
+          transmission_type: data.transmission_type || '',
+          seating_capacity: String(data.seating_capacity || ''),
+          horsepower: data.horsepower || '',
+          engine_capacity: data.engine_capacity || '',
+          steering_side: data.steering_side || '',
+          color: data.color || data.exterior_color || '',
+          interior_color: data.interior_color || '',
+          cylinders: String(data.cylinders || ''),
+          doors: String(data.doors || ''),
+          warranty: data.warranty || '',
+          service_history: data.service_history || '',
+          vin_number: data.vin_number || '',
+          car_location: data.car_location || '',
+          extras: data.extras || [],
+        });
+        setCarEmirate(data.emirate || data.car_city || 'Dubai');
+        setCarArea(data.area || '');
+        setTitleManuallyEdited(true);
+      }
+
+      if (listingType === 'bike') {
+        setBikeForm({
+          bike_brand: data.bike_brand || data.bike_manufacturer || '',
+          bike_model: data.bike_model || '',
+          bike_category: data.bike_category || data.bike_type || '',
+          engine_capacity: String(data.engine_capacity || data.engine_size || ''),
+          year: String(data.year || ''),
+          mileage: String(data.mileage || ''),
+          color: data.color || '',
+          condition: data.condition || 'Good',
+          price: String(data.price || ''),
+          contact_number: data.contact_number || '',
+          country_code: data.country_code || '+971',
+          description: data.description || '',
+          vin_number: data.vin_number || '',
+        });
+        setBikeEmirate(data.emirate || 'Dubai');
+        setBikeArea(data.area || data.location || '');
+      }
+
+      if (listingType === 'plate') {
+        setPlateForm({
+          code: data.code || '',
+          digits: String(data.digits || ''),
+          number: String(data.number || ''),
+          plate_format: data.plate_format || 'Standard',
+          price: String(data.price || ''),
+          description: data.description || '',
+          contact_phone: data.contact_phone || '',
+          country_code: data.country_code || '+971',
+        });
+        setPlateCity(data.city || data.emirate || null);
+        setPlateArea(data.area || '');
+      }
+
+      if (listingType === 'parts') {
+        setPartsForm({
+          name: data.name || '',
+          part_type: data.part_type || '',
+          condition: data.condition || 'New',
+          compatible_makes: Array.isArray(data.compatible_makes) ? data.compatible_makes.join(', ') : (data.compatible_makes || ''),
+          compatible_models: Array.isArray(data.compatible_models) ? data.compatible_models.join(', ') : (data.compatible_models || ''),
+          price: String(data.price || ''),
+          description: data.description || '',
+          contact_number: data.contact_number || '',
+          country_code: data.country_code || '+971',
+          is_negotiable: data.is_negotiable || false,
+        });
+        setPartsEmirate(data.emirate || 'Dubai');
+        setPartsArea(data.area || data.location || '');
+      }
+
+      if (data.images && Array.isArray(data.images)) {
+        setImages(data.images.map(img => typeof img === 'string' ? img : img.url || img.uri));
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to load listing for editing.');
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const carAreaOptions = getAreasForEmirate(carEmirate);
   const bikeAreaOptions = getAreasForEmirate(bikeEmirate);
   const plateAreaOptions = getAreasForEmirate(plateCityName);
@@ -575,6 +693,11 @@ export default function PostListingScreen({ navigation }) {
       let fd;
       let endpoint;
 
+      if (isEditMode) {
+        const endpointMap = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
+        endpoint = `/api/${endpointMap[listingType]}/${listingId}`;
+      }
+
       if (category === 'car') {
         if (!carForm.car_manufacturer || !carForm.car_model || !carForm.make_year || !carForm.expected_selling_price) {
           Alert.alert('Required', 'Make, Model, Year, and Price are required.');
@@ -593,7 +716,7 @@ export default function PostListingScreen({ navigation }) {
           whatsapp_prefill_text: `Hi, I'm interested in your ${carForm.car_manufacturer} ${carForm.car_model} listed on DPH Classifieds for AED ${carForm.expected_selling_price}. Is it still available?`,
         };
         fd = buildFormData(payload, images);
-        endpoint = '/api/cars';
+        if (!isEditMode) endpoint = '/api/cars';
       } else if (category === 'bike') {
         if (!bikeForm.bike_brand || !bikeForm.bike_model || !bikeForm.price) {
           Alert.alert('Required', 'Brand, Model, and Price are required.');
@@ -612,7 +735,7 @@ export default function PostListingScreen({ navigation }) {
           whatsapp_prefill_text: `Hi, I'm interested in your ${bikeForm.bike_brand} ${bikeForm.bike_model} listed on DPH Classifieds for AED ${bikeForm.price}. Is it still available?`,
         };
         fd = buildFormData(payload, images);
-        endpoint = '/api/bikes';
+        if (!isEditMode) endpoint = '/api/bikes';
       } else if (category === 'plate') {
         if (!plateCityName || !plateForm.price) {
           Alert.alert('Required', 'City and Price are required.');
@@ -630,7 +753,7 @@ export default function PostListingScreen({ navigation }) {
           whatsapp_prefill_text: `Hi, I'm interested in your ${plateCityName} plate "${plateForm.code} ${plateForm.number}" listed on DPH Classifieds for AED ${plateForm.price}. Is it still available?`,
         };
         fd = buildFormData(payload, images);
-        endpoint = '/api/plates';
+        if (!isEditMode) endpoint = '/api/plates';
       } else if (category === 'parts') {
         if (!partsForm.name || !partsForm.price) {
           Alert.alert('Required', 'Part Name and Price are required.');
@@ -654,11 +777,15 @@ export default function PostListingScreen({ navigation }) {
             : [],
         };
         fd = buildFormData(payload, images);
-        endpoint = '/api/parts';
+        if (!isEditMode) endpoint = '/api/parts';
       }
 
-      await apiClient.post(endpoint, fd);
-      Alert.alert('Success', 'Your listing has been posted!', [
+      if (isEditMode) {
+        await apiClient.put(endpoint, fd);
+      } else {
+        await apiClient.post(endpoint, fd);
+      }
+      Alert.alert('Success', isEditMode ? 'Your listing has been updated!' : 'Your listing has been posted!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
@@ -669,8 +796,12 @@ export default function PostListingScreen({ navigation }) {
   }, [category, carForm, bikeForm, plateForm, partsForm, images, navigation, carEmirate, carArea, bikeEmirate, bikeArea, plateCityName, plateArea, partsEmirate, partsArea]);
 
   const resetAndGoBack = () => {
-    setCategory(null);
-    setImages([]);
+    if (isEditMode) {
+      navigation.goBack();
+    } else {
+      setCategory(null);
+      setImages([]);
+    }
   };
 
   // ==================== CATEGORY SELECTION ====================
@@ -1338,7 +1469,7 @@ export default function PostListingScreen({ navigation }) {
             <Ionicons name="arrow-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
           <Text style={styles.formHeaderTitle}>
-            Post {CATEGORIES.find(c => c.key === category)?.label}
+            {isEditMode ? 'Edit' : 'Post'} {CATEGORIES.find(c => c.key === category)?.label}
           </Text>
           <View style={{ width: 24 }} />
         </View>
@@ -1353,7 +1484,7 @@ export default function PostListingScreen({ navigation }) {
           {category === 'parts' && renderPartsForm()}
 
           <Button
-            title="Post Listing"
+            title={isEditMode ? 'Update Listing' : 'Post Listing'}
             onPress={handleSubmit}
             loading={loading}
             style={styles.submitBtn}

@@ -69,6 +69,7 @@ function ExploreStack() {
       <Stack.Screen name="BikeDetail" component={BikeDetailScreen} options={{ title: 'Bike Listing' }} />
       <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing' }} />
       <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing' }} />
+      <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
     </Stack.Navigator>
   );
 }
@@ -111,6 +112,7 @@ function ProfileStack() {
       <Stack.Screen name="AdminDealers" component={AdminDealersScreen} options={{ title: 'Dealers' }} />
       <Stack.Screen name="AdminReports" component={AdminReportsScreen} options={{ title: 'Reports' }} />
       <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
+      <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
     </Stack.Navigator>
   );
 }
