@@ -1,0 +1,86 @@
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+
+export default function LoanCalculator({ price }) {
+  const [downPayment, setDownPayment] = useState('');
+  const [termYears, setTermYears] = useState('5');
+  const [interestRate, setInterestRate] = useState('4.5');
+
+  const monthlyPayment = useMemo(() => {
+    const p = parseFloat(price) - (parseFloat(downPayment) || 0);
+    const r = (parseFloat(interestRate) || 0) / 100 / 12;
+    const n = (parseInt(termYears) || 5) * 12;
+    if (p <= 0 || r <= 0) return p / n;
+    return (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  }, [price, downPayment, termYears, interestRate]);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Loan Calculator</Text>
+      <View style={styles.row}>
+        <View style={styles.field}>
+          <Text style={styles.label}>Down Payment (AED)</Text>
+          <TextInput
+            style={styles.input}
+            value={downPayment}
+            onChangeText={setDownPayment}
+            placeholder="0"
+            keyboardType="numeric"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+          />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Term (years)</Text>
+          <TextInput
+            style={styles.input}
+            value={termYears}
+            onChangeText={setTermYears}
+            placeholder="5"
+            keyboardType="numeric"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+          />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Rate (%)</Text>
+          <TextInput
+            style={styles.input}
+            value={interestRate}
+            onChangeText={setInterestRate}
+            placeholder="4.5"
+            keyboardType="numeric"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+          />
+        </View>
+      </View>
+      <View style={styles.result}>
+        <Text style={styles.resultLabel}>Estimated Monthly</Text>
+        <Text style={styles.resultValue}>
+          AED {monthlyPayment > 0 ? Math.ceil(monthlyPayment).toLocaleString() : '0'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md, marginTop: SPACING.md,
+  },
+  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
+  row: { flexDirection: 'row', gap: 8 },
+  field: { flex: 1 },
+  label: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
+  input: {
+    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1, borderColor: COLORS.border, color: COLORS.white,
+    fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingVertical: 8,
+  },
+  result: {
+    marginTop: SPACING.md, alignItems: 'center', paddingTop: SPACING.sm,
+    borderTopWidth: 0.5, borderTopColor: COLORS.border,
+  },
+  resultLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
+  resultValue: { color: COLORS.accent, fontSize: FONT_SIZES.xl, fontWeight: '700', marginTop: 4 },
+});

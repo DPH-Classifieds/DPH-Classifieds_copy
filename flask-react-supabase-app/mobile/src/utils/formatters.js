@@ -23,6 +23,16 @@ export const formatNumber = (num) => {
   return n.toLocaleString('en-US');
 };
 
+const AED_TO_USD_RATE = 0.2723;
+
+export const formatPriceUSD = (price) => {
+  if (price === null || price === undefined) return '';
+  const num = typeof price === 'string' ? parseFloat(price) : price;
+  if (isNaN(num)) return '';
+  const usd = num * AED_TO_USD_RATE;
+  return `~$${usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+};
+
 export const timeAgo = (date) => {
   if (!date) return '';
   const now = new Date();

@@ -13,10 +13,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatPriceUSD } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { trackLeadEvent } from '../../utils/leadTracking';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LoanCalculator from '../../components/ui/LoanCalculator';
+import ReportButton from '../../components/ui/ReportButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -71,12 +74,16 @@ export default function PlateDetailScreen({ route }) {
 
   const handleCall = useCallback(() => {
     const phone = plate?.phone || plate?.seller_phone;
-    if (phone) Linking.openURL(`tel:${phone}`);
+    if (phone) {
+      trackLeadEvent('plate', plate.id, 'call_click');
+      Linking.openURL(`tel:${phone}`);
+    }
   }, [plate]);
 
   const handleWhatsApp = useCallback(() => {
     const phone = plate?.phone || plate?.seller_phone;
     if (phone) {
+      trackLeadEvent('plate', plate.id, 'whatsapp_click');
       const cleaned = phone.replace(/[^0-9]/g, '');
       Linking.openURL(`whatsapp://send?phone=${cleaned}`);
     }
@@ -139,6 +146,9 @@ export default function PlateDetailScreen({ route }) {
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.7}>
             <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
           </TouchableOpacity>
+          <View style={styles.reportButtonWrap}>
+            <ReportButton listingType="plate" listingId={plateId} />
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -154,6 +164,7 @@ export default function PlateDetailScreen({ route }) {
           </View>
 
           <Text style={styles.price}>{formatPrice(plate.price)}</Text>
+          <Text style={styles.usdPrice}>{formatPriceUSD(plate.price)}</Text>
           <Text style={styles.cityLabel}>{plate.city || 'Unknown City'}</Text>
 
           {plate.description ? (
@@ -162,6 +173,8 @@ export default function PlateDetailScreen({ route }) {
               <Text style={styles.description}>{plate.description}</Text>
             </View>
           ) : null}
+
+          <LoanCalculator price={plate.price} />
 
           <View style={styles.sellerCard}>
             <View style={styles.sellerInfo}>
@@ -206,6 +219,9 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
   },
+  reportButtonWrap: {
+    position: 'absolute', top: 12, right: 60,
+  },
   content: { padding: SPACING.md },
   plateDisplay: { alignItems: 'center', marginBottom: SPACING.md },
   plateBox: {
@@ -231,6 +247,7 @@ const styles = StyleSheet.create({
   plateCodeDetail: { color: '#1a1a1a', fontSize: 28, fontWeight: '700', marginRight: 4 },
   plateDigitsDetail: { color: '#1a1a1a', fontSize: 28, fontWeight: '700', letterSpacing: 3 },
   price: { color: COLORS.white, fontSize: 24, fontWeight: '700', marginBottom: 4 },
+  usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
   cityLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 16 },
   section: { marginBottom: 16 },
   sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },

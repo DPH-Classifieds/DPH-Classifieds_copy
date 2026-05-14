@@ -13,10 +13,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatPriceUSD } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { trackLeadEvent } from '../../utils/leadTracking';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LoanCalculator from '../../components/ui/LoanCalculator';
+import ReportButton from '../../components/ui/ReportButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -59,12 +62,16 @@ export default function BikeDetailScreen({ route }) {
 
   const handleCall = useCallback(() => {
     const phone = bike?.car_owner_phone_number || bike?.whatsapp_number;
-    if (phone) Linking.openURL(`tel:${phone}`);
+    if (phone) {
+      trackLeadEvent('bike', bike.id, 'call_click');
+      Linking.openURL(`tel:${phone}`);
+    }
   }, [bike]);
 
   const handleWhatsApp = useCallback(() => {
     const phone = bike?.whatsapp_number || bike?.car_owner_phone_number;
     if (phone) {
+      trackLeadEvent('bike', bike.id, 'whatsapp_click');
       const cleaned = phone.replace(/[^0-9]/g, '');
       Linking.openURL(`whatsapp://send?phone=${cleaned}`);
     }
@@ -119,10 +126,14 @@ export default function BikeDetailScreen({ route }) {
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.7}>
             <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
           </TouchableOpacity>
+          <View style={styles.reportButtonWrap}>
+            <ReportButton listingType="bike" listingId={bikeId} />
+          </View>
         </View>
 
         <View style={styles.content}>
           <Text style={styles.price}>{formatPrice(bike.expected_selling_price)}</Text>
+          <Text style={styles.usdPrice}>{formatPriceUSD(bike.expected_selling_price || bike.price)}</Text>
           <Text style={styles.title}>
             {bike.make_year} {bike.bike_brand} {bike.bike_model}
           </Text>
@@ -182,6 +193,8 @@ export default function BikeDetailScreen({ route }) {
             </View>
           ) : null}
 
+          <LoanCalculator price={bike.expected_selling_price || bike.price} />
+
           <View style={styles.sellerCard}>
             <View style={styles.sellerInfo}>
               <View style={styles.sellerAvatar}>
@@ -224,8 +237,12 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
   },
+  reportButtonWrap: {
+    position: 'absolute', top: 12, right: 60,
+  },
   content: { padding: SPACING.md },
   price: { color: COLORS.white, fontSize: 24, fontWeight: '700', marginBottom: 8 },
+  usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
   title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 16 },
   specsGrid: {
     flexDirection: 'row', flexWrap: 'wrap', backgroundColor: COLORS.surface,

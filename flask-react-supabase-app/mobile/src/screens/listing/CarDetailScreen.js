@@ -13,11 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
-import { formatPrice, formatNumber, formatDate } from '../../utils/formatters';
+import { formatPrice, formatPriceUSD, formatNumber, formatDate } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { trackLeadEvent } from '../../utils/leadTracking';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LoanCalculator from '../../components/ui/LoanCalculator';
+import ReportButton from '../../components/ui/ReportButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -82,12 +85,16 @@ export default function CarDetailScreen({ route, navigation }) {
 
   const handleCall = useCallback(() => {
     const phone = car?.car_owner_phone_number || car?.whatsapp_number || car?.seller?.phone || car?.phone;
-    if (phone) Linking.openURL(`tel:${phone}`);
+    if (phone) {
+      trackLeadEvent('car', car.id, 'call_click');
+      Linking.openURL(`tel:${phone}`);
+    }
   }, [car]);
 
   const handleWhatsApp = useCallback(() => {
     const phone = car?.whatsapp_number || car?.car_owner_phone_number || car?.seller?.phone || car?.phone;
     if (phone) {
+      trackLeadEvent('car', car.id, 'whatsapp_click');
       const cleaned = phone.replace(/[^0-9]/g, '');
       Linking.openURL(`whatsapp://send?phone=${cleaned}`);
     }
@@ -169,10 +176,14 @@ export default function CarDetailScreen({ route, navigation }) {
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.7}>
             <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
           </TouchableOpacity>
+          <View style={styles.reportButtonWrap}>
+            <ReportButton listingType="car" listingId={carId} />
+          </View>
         </View>
 
         <View style={styles.content}>
           <Text style={styles.price}>{formatPrice(car.expected_selling_price)}</Text>
+          <Text style={styles.usdPrice}>{formatPriceUSD(car.expected_selling_price || car.price)}</Text>
           {badges.length > 0 && (
             <View style={styles.badgesRow}>
               {badges.map((b, i) => <Badge key={i} label={b.label} variant={b.variant} size="sm" />)}
@@ -220,6 +231,8 @@ export default function CarDetailScreen({ route, navigation }) {
             </View>
           )}
 
+          <LoanCalculator price={car.expected_selling_price || car.price} />
+
           <View style={styles.sellerCard}>
             <View style={styles.sellerInfo}>
               <View style={styles.sellerAvatar}>
@@ -265,8 +278,12 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
   },
+  reportButtonWrap: {
+    position: 'absolute', top: 12, right: 60,
+  },
   content: { padding: SPACING.md },
   price: { color: COLORS.white, fontSize: 24, fontWeight: '700', marginBottom: 8 },
+  usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
   title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 16 },
   specsGrid: {

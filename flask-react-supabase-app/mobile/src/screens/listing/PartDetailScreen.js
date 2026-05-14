@@ -13,11 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatPriceUSD } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { trackLeadEvent } from '../../utils/leadTracking';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LoanCalculator from '../../components/ui/LoanCalculator';
+import ReportButton from '../../components/ui/ReportButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -62,12 +65,16 @@ export default function PartDetailScreen({ route }) {
 
   const handleCall = useCallback(() => {
     const phone = part?.phone || part?.seller_phone;
-    if (phone) Linking.openURL(`tel:${phone}`);
+    if (phone) {
+      trackLeadEvent('parts', part.id, 'call_click');
+      Linking.openURL(`tel:${phone}`);
+    }
   }, [part]);
 
   const handleWhatsApp = useCallback(() => {
     const phone = part?.phone || part?.seller_phone;
     if (phone) {
+      trackLeadEvent('parts', part.id, 'whatsapp_click');
       const cleaned = phone.replace(/[^0-9]/g, '');
       Linking.openURL(`whatsapp://send?phone=${cleaned}`);
     }
@@ -123,6 +130,9 @@ export default function PartDetailScreen({ route }) {
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.7}>
             <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
           </TouchableOpacity>
+          <View style={styles.reportButtonWrap}>
+            <ReportButton listingType="parts" listingId={partId} />
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -138,6 +148,7 @@ export default function PartDetailScreen({ route }) {
           ) : null}
 
           <Text style={styles.price}>{formatPrice(part.price)}</Text>
+          <Text style={styles.usdPrice}>{formatPriceUSD(part.price)}</Text>
 
           {compatibleVehicles.length > 0 ? (
             <View style={styles.section}>
@@ -167,6 +178,8 @@ export default function PartDetailScreen({ route }) {
               </View>
             </View>
           ) : null}
+
+          <LoanCalculator price={part.price} />
 
           <View style={styles.sellerCard}>
             <View style={styles.sellerInfo}>
@@ -210,11 +223,15 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
   },
+  reportButtonWrap: {
+    position: 'absolute', top: 12, right: 60,
+  },
   content: { padding: SPACING.md },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
   partName: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '700', flex: 1, marginRight: 10 },
   brandText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 8 },
   price: { color: COLORS.accent, fontSize: 24, fontWeight: '700', marginBottom: 16 },
+  usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginTop: -12, marginBottom: 16 },
   section: { marginTop: 16, marginBottom: 8 },
   sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
   compatRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
