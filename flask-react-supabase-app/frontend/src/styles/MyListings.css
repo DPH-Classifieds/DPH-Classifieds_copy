@@ -415,3 +415,75 @@
   color: #fff !important;
   text-decoration: underline !important;
 }
+
+/* Tabs */
+.my-listings-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 28px;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(8, 18, 12, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.my-listings-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: rgba(225, 238, 230, 0.6);
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.my-listings-tab:hover {
+  color: rgba(225, 238, 230, 0.9);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.my-listings-tab.is-active {
+  background: rgba(1, 53, 28, 0.5);
+  color: #c5f0d1;
+  box-shadow: 0 2px 8px rgba(1, 53, 28, 0.2);
+}
+
+.my-listings-tab .tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.my-listings-tab.is-active .tab-count {
+  background: rgba(197, 240, 209, 0.2);
+  color: #c5f0d1;
+}
+
+.my-listings-tab-content {
+  min-height: 200px;
+}
+
+@media (max-width: 640px) {
+  .my-listings-tabs {
+    gap: 4px;
+  }
+
+  .my-listings-tab {
+    padding: 10px 12px;
+    font-size: 0.84rem;
+  }
+}

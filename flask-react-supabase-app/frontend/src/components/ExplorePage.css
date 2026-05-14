@@ -613,9 +613,12 @@
   }
 
   .explore-v2-mode-switch,
-  .explore-v2-filter-grid,
+  .explore-v2-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .explore-v2-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .explore-v2-hero-stats {
@@ -713,6 +716,12 @@
   .explore-v2-filter-section,
   .explore-v2-results-section {
     margin-top: 16px;
+  }
+
+  .explore-v2-mode-switch,
+  .explore-v2-filter-grid,
+  .explore-v2-grid {
+    grid-template-columns: 1fr;
   }
 
   .explore-v2-filter-panel,

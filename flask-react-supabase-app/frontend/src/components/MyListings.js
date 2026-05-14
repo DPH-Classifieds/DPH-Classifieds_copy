@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
 import { resolveMediaUrl } from '../utils/media';
+import { useSavedListings } from '../context/SavedListingsContext';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/MyListings.css';
 
@@ -51,6 +52,12 @@ const SELL_ACTIONS = [
   { label: 'Post Bike', href: '/post-bike' },
   { label: 'Post Part', href: '/post-car-parts' },
   { label: 'Post Plate', href: '/post-plate' },
+];
+
+const TABS = [
+  { key: 'active', label: 'Active' },
+  { key: 'drafts', label: 'Drafts' },
+  { key: 'saved', label: 'Saved' },
 ];
 
 const formatMoney = (value) => {
@@ -116,6 +123,12 @@ const getPrimaryImage = (listing) => {
   return getImageUrl(listing.images[0]);
 };
 
+const isDraftListing = (listing) => {
+  const status = String(listing.status || '').toLowerCase();
+  const state = String(listing.listing_state || '').toLowerCase();
+  return status === 'draft' || state === 'draft' || listing.moderation_status === 'rejected';
+};
+
 const MyListings = () => {
   const [listings, setListings] = useState([]);
   const [listingLimit, setListingLimit] = useState({ current: 0, max: 4, remaining: 4 });
@@ -129,13 +142,16 @@ const MyListings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actioningId, setActioningId] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { listing }
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [outcomePromptListing, setOutcomePromptListing] = useState(null);
+  const [activeTab, setActiveTab] = useState('active');
   const navigate = useNavigate();
+  const { savedListings, loading: savedLoading, refreshSavedListings } = useSavedListings() || {};
 
   useEffect(() => {
     fetchUserListings();
     fetchLeadTotals();
+    if (refreshSavedListings) refreshSavedListings();
   }, []);
 
   const fetchLeadTotals = async () => {
@@ -203,22 +219,37 @@ const MyListings = () => {
     }
   };
 
-  const listingsByType = useMemo(() => {
-    return listings.reduce((acc, listing) => {
+  const activeListings = useMemo(
+    () => listings.filter((l) => !isDraftListing(l)),
+    [listings]
+  );
+
+  const draftListings = useMemo(
+    () => listings.filter((l) => isDraftListing(l)),
+    [listings]
+  );
+
+  const activeListingsByType = useMemo(() => {
+    return activeListings.reduce((acc, listing) => {
       const key = listing.listing_type || 'car';
       if (!acc[key]) acc[key] = [];
       acc[key].push(listing);
       return acc;
     }, {});
-  }, [listings]);
+  }, [activeListings]);
+
+  const draftListingsByType = useMemo(() => {
+    return draftListings.reduce((acc, listing) => {
+      const key = listing.listing_type || 'car';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(listing);
+      return acc;
+    }, {});
+  }, [draftListings]);
 
   const hasUnlimitedListings = listingLimit.unlimited || listingLimit.max == null;
 
   const handleDeleteListing = async (listing) => {
-    const typeConfig = TYPE_CONFIG[listing.listing_type];
-    if (!typeConfig) return;
-
-    // Show inline confirmation instead of window.confirm
     setDeleteConfirm(listing);
   };
 
@@ -292,6 +323,169 @@ const MyListings = () => {
     } finally {
       setActioningId(null);
     }
+  };
+
+  const renderListingCard = (listing, config) => {
+    const imageUrl = getPrimaryImage(listing);
+    const canEdit = Boolean(config.editPath);
+    const isBusy = actioningId === listing.id;
+
+    return (
+      <div key={`${listing.listing_type}-${listing.id}`} className={`my-listing-card ${listing.listing_state === 'expired' ? 'is-expired' : ''}`}>
+        <div className="my-listing-image">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={buildListingTitle(listing)}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+              }}
+            />
+          ) : (
+            <div className="no-image">No Image</div>
+          )}
+
+          <div className="my-listing-top-tags">
+            <span className="listing-type-tag">{config.label}</span>
+            <span className={`listing-state-tag state-${listing.listing_state}`}>
+              {listing.listing_state === 'expired' ? 'Expired' : listing.status || 'Live'}
+            </span>
+          </div>
+        </div>
+
+        <div className="my-listing-details">
+          <h3>{buildListingTitle(listing)}</h3>
+          <p className="my-listing-subtitle-card">{buildListingSubtitle(listing)}</p>
+          <p className="my-listing-price">{formatMoney(getListingPrice(listing))}</p>
+          <p className="my-listing-date">Posted on {formatDate(listing.created_at)}</p>
+          <p className="my-listing-lifecycle">{getLifecycleCopy(listing)}</p>
+          {listing.rejection_note && (
+            <p className="my-listing-lifecycle">Rejection reason: {listing.rejection_note}</p>
+          )}
+          {listing.view_count !== undefined && listing.view_count !== null && (
+            <p className="my-listing-views">
+              {listing.view_count} view{listing.view_count === 1 ? '' : 's'}
+            </p>
+          )}
+        </div>
+
+        <div className="my-listing-actions">
+          <button
+            onClick={() => navigate(config.detailPath(listing.id))}
+            className="btn btn-secondary"
+            aria-label={`View ${config.label.toLowerCase()} listing`}
+          >
+            View
+          </button>
+
+          {canEdit && (
+            <button
+              onClick={() => navigate(config.editPath(listing.id))}
+              className="btn btn-secondary"
+              aria-label="Edit listing"
+            >
+              Edit
+            </button>
+          )}
+
+          {listing.can_extend && (
+            <button
+              onClick={() => setOutcomePromptListing(listing)}
+              className="btn btn-primary"
+              disabled={isBusy}
+            >
+              {isBusy ? 'Updating...' : 'Renew / Sold'}
+            </button>
+          )}
+
+          <button
+            onClick={() => handleDeleteListing(listing)}
+            className="btn btn-danger"
+            disabled={isBusy}
+            aria-label="Delete listing"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSavedCard = (item) => {
+    const type = String(item?.listingType || item?.listing_type || '').toLowerCase();
+    const config = TYPE_CONFIG[type];
+    if (!config) return null;
+
+    const imageUrl = getImageUrl(item?.image || item?.images?.[0]);
+
+    return (
+      <div key={`saved-${type}-${item.id}`} className="my-listing-card">
+        <div className="my-listing-image">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={item.title || buildListingTitle(item)}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+              }}
+            />
+          ) : (
+            <div className="no-image">No Image</div>
+          )}
+          <div className="my-listing-top-tags">
+            <span className="listing-type-tag">{config.label}</span>
+          </div>
+        </div>
+
+        <div className="my-listing-details">
+          <h3>{item.title || buildListingTitle(item)}</h3>
+          <p className="my-listing-subtitle-card">{item.subtitle || buildListingSubtitle(item)}</p>
+          {item.priceLabel && (
+            <p className="my-listing-price">{item.priceLabel}</p>
+          )}
+        </div>
+
+        <div className="my-listing-actions">
+          <button
+            onClick={() => navigate(config.detailPath(item.id))}
+            className="btn btn-secondary"
+          >
+            View
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderListingSection = (typeListingsByType, emptyMessage) => {
+    const hasAny = Object.values(typeListingsByType).some((list) => list.length > 0);
+    if (!hasAny) {
+      return (
+        <div className="empty-state">
+          <p>{emptyMessage}</p>
+        </div>
+      );
+    }
+
+    return Object.entries(TYPE_CONFIG).map(([type, config]) => {
+      const typeListings = typeListingsByType[type] || [];
+      if (typeListings.length === 0) return null;
+
+      return (
+        <div className="listing-section" key={type}>
+          <div className="listing-section-head">
+            <h2>{config.label} Listings</h2>
+            <span>{typeListings.length}</span>
+          </div>
+
+          <div className="my-listings-grid">
+            {typeListings.map((listing) => renderListingCard(listing, config))}
+          </div>
+        </div>
+      );
+    });
   };
 
   if (loading) {
@@ -418,122 +612,82 @@ const MyListings = () => {
 
       {error && <div className="alert alert-danger">{error}</div>}
 
-      {listings.length === 0 ? (
-        <div className="empty-state">
-          <h3>No Listings Yet</h3>
-          <p>Your active, pending, and recently expired listings will appear here.</p>
-          <div className="empty-state-actions">
-            {SELL_ACTIONS.map((action) => (
-              <Link key={action.href} to={action.href} className="btn btn-primary">
-                {action.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : (
-        Object.entries(TYPE_CONFIG).map(([type, config]) => {
-          const typeListings = listingsByType[type] || [];
-          if (typeListings.length === 0) return null;
+      <div className="my-listings-tabs">
+        {TABS.map((tab) => {
+          const count = tab.key === 'active'
+            ? activeListings.length
+            : tab.key === 'drafts'
+              ? draftListings.length
+              : (savedListings || []).length;
 
           return (
-            <div className="listing-section" key={type}>
-              <div className="listing-section-head">
-                <h2>{config.label} Listings</h2>
-                <span>{typeListings.length}</span>
-              </div>
+            <button
+              key={tab.key}
+              className={`my-listings-tab ${activeTab === tab.key ? 'is-active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+              {count > 0 && <span className="tab-count">{count}</span>}
+            </button>
+          );
+        })}
+      </div>
 
-              <div className="my-listings-grid">
-                {typeListings.map((listing) => {
-                  const imageUrl = getPrimaryImage(listing);
-                  const canEdit = Boolean(config.editPath);
-                  const isBusy = actioningId === listing.id;
-
-                  return (
-                    <div key={`${listing.listing_type}-${listing.id}`} className={`my-listing-card ${listing.listing_state === 'expired' ? 'is-expired' : ''}`}>
-                      <div className="my-listing-image">
-                        {imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt={buildListingTitle(listing)}
-                            onError={(event) => {
-                              event.currentTarget.onerror = null;
-                              event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
-                            }}
-                          />
-                        ) : (
-                          <div className="no-image">No Image</div>
-                        )}
-
-                        <div className="my-listing-top-tags">
-                          <span className="listing-type-tag">{config.label}</span>
-                          <span className={`listing-state-tag state-${listing.listing_state}`}>
-                            {listing.listing_state === 'expired' ? 'Expired' : listing.status || 'Live'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="my-listing-details">
-                        <h3>{buildListingTitle(listing)}</h3>
-                        <p className="my-listing-subtitle-card">{buildListingSubtitle(listing)}</p>
-                        <p className="my-listing-price">{formatMoney(getListingPrice(listing))}</p>
-                        <p className="my-listing-date">Posted on {formatDate(listing.created_at)}</p>
-                        <p className="my-listing-lifecycle">{getLifecycleCopy(listing)}</p>
-                        {listing.rejection_note && (
-                          <p className="my-listing-lifecycle">Rejection reason: {listing.rejection_note}</p>
-                        )}
-                        {listing.view_count !== undefined && listing.view_count !== null && (
-                          <p className="my-listing-views">
-                            {listing.view_count} view{listing.view_count === 1 ? '' : 's'}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="my-listing-actions">
-                        <button
-                          onClick={() => navigate(config.detailPath(listing.id))}
-                          className="btn btn-secondary"
-                          aria-label={`View ${config.label.toLowerCase()} listing`}
-                        >
-                          View
-                        </button>
-
-                        {canEdit && (
-                          <button
-                            onClick={() => navigate(config.editPath(listing.id))}
-                            className="btn btn-secondary"
-                            aria-label="Edit listing"
-                          >
-                            Edit
-                          </button>
-                        )}
-
-                        {listing.can_extend && (
-                          <button
-                            onClick={() => setOutcomePromptListing(listing)}
-                            className="btn btn-primary"
-                            disabled={isBusy}
-                          >
-                            {isBusy ? 'Updating...' : 'Renew / Sold'}
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => handleDeleteListing(listing)}
-                          className="btn btn-danger"
-                          disabled={isBusy}
-                          aria-label="Delete listing"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+      <div className="my-listings-tab-content">
+        {activeTab === 'active' && (
+          activeListings.length === 0 ? (
+            <div className="empty-state">
+              <h3>No Active Listings</h3>
+              <p>Your published listings will appear here.</p>
+              <div className="empty-state-actions">
+                {SELL_ACTIONS.map((action) => (
+                  <Link key={action.href} to={action.href} className="btn btn-primary">
+                    {action.label}
+                  </Link>
+                ))}
               </div>
             </div>
-          );
-        })
-      )}
+          ) : (
+            renderListingSection(activeListingsByType, 'No active listings.')
+          )
+        )}
+
+        {activeTab === 'drafts' && (
+          draftListings.length === 0 ? (
+            <div className="empty-state">
+              <h3>No Drafts</h3>
+              <p>Drafts from rejected or incomplete listings will appear here.</p>
+              <div className="empty-state-actions">
+                {SELL_ACTIONS.map((action) => (
+                  <Link key={action.href} to={action.href} className="btn btn-primary">
+                    {action.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : (
+            renderListingSection(draftListingsByType, 'No draft listings.')
+          )
+        )}
+
+        {activeTab === 'saved' && (
+          savedLoading ? (
+            <LoadingSpinner message="Loading saved listings..." size="small" />
+          ) : (savedListings || []).length === 0 ? (
+            <div className="empty-state">
+              <h3>No Saved Listings</h3>
+              <p>Browse the marketplace and save listings you like. They'll appear here.</p>
+              <div className="empty-state-actions">
+                <Link to="/explore" className="btn btn-primary">Browse Marketplace</Link>
+              </div>
+            </div>
+          ) : (
+            <div className="my-listings-grid">
+              {(savedListings || []).map((item) => renderSavedCard(item))}
+            </div>
+          )
+        )}
+      </div>
     </div>
   );
 };
