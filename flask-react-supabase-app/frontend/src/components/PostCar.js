@@ -9,7 +9,7 @@ import { getAccessToken } from '../utils/supabaseClient';
 import '../styles/PostForms.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import LoadingSpinner from './LoadingSpinner';
-import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
+import { countryCodes, defaultCountryCode, splitPhoneNumberForInput } from '../utils/countryCodes';
 import {
   CYLINDER_OPTIONS,
   DOOR_OPTIONS,
@@ -919,7 +919,10 @@ const PostCar = () => {
           is_insured: Boolean(data.is_insured),
           expected_selling_price: data.expected_selling_price || 0,
           country_code: data.country_code || defaultCountryCode,
-          car_owner_phone_number: data.car_owner_phone_number || data.contact_phone || '',
+          car_owner_phone_number: splitPhoneNumberForInput(
+            data.car_owner_phone_number || data.contact_phone || '',
+            data.country_code || defaultCountryCode
+          ).phoneNumber,
           car_city: data.car_city || data.emirate || 'Dubai',
           emirate: data.emirate || data.car_city || 'Dubai',
           area: data.area || '',

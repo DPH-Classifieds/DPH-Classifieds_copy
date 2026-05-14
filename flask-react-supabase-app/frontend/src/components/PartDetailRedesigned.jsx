@@ -136,9 +136,8 @@ const PartDetailRedesigned = () => {
   };
 
   const formatWhatsappNumber = () => {
-    const countryCode = (part?.country_code || '+971').replace('+', '');
     const phone = (part?.contact_number || '').replace(/\D/g, '').replace(/^0+/, '');
-    return `${countryCode}${phone}`;
+    return phone;
   };
 
   const getWhatsappPrefillText = () =>
@@ -327,7 +326,7 @@ const PartDetailRedesigned = () => {
 
               <div className="cd-cta-buttons">
                 <a 
-                  href={`tel:${part?.country_code || ''}${part?.contact_number}`}
+                  href={`tel:${part?.contact_number || ''}`}
                   className="cd-button cd-button-primary"
                   onClick={(event) => {
                     if (!handleCallClick()) {

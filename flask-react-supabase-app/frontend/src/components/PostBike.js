@@ -151,7 +151,7 @@ const PostBike = () => {
           emirate: data.emirate || 'Dubai',
           description: data.description || '',
           vin_number: data.vin_number || '',
-          contact_number: data.contact_number || data.contact_phone || '',
+          contact_number: splitPhoneNumber(data.contact_number || data.contact_phone || '', data.country_code || defaultCountryCode).localNumber,
           country_code: data.country_code || defaultCountryCode,
           whatsapp_country_code: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).countryCode,
           whatsapp_number: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).localNumber,

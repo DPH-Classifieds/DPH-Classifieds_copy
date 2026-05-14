@@ -147,9 +147,8 @@ const BikeDetailRedesigned = () => {
   };
 
   const formatWhatsappNumber = () => {
-    const countryCode = (bike?.country_code || '+971').replace('+', '');
     const phone = (bike?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
-    return `${countryCode}${phone}`;
+    return phone;
   };
 
   const getWhatsappPrefillText = () =>
@@ -363,7 +362,7 @@ const BikeDetailRedesigned = () => {
 
               <div className="cd-cta-buttons">
                 <a 
-                  href={`tel:${bike?.country_code || ''}${bike?.contact_phone}`}
+                  href={`tel:${bike?.contact_phone || ''}`}
                   className="cd-button cd-button-primary"
                   onClick={(event) => {
                     if (!handleCallClick()) {

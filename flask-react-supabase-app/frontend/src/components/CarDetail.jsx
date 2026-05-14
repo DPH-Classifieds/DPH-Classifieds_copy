@@ -216,9 +216,8 @@ const CarDetail = () => {
   };
 
   const formatWhatsappNumber = () => {
-    const countryCode = (car?.country_code || '+971').replace('+', '');
     const phone = (car?.car_owner_phone_number || car?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
-    return `${countryCode}${phone}`;
+    return phone;
   };
 
   const getWhatsappPrefillText = () =>
@@ -586,7 +585,7 @@ const CarDetail = () => {
 
 	              <div className="cd-cta-buttons">
 	                <a 
-	                  href={`tel:${car?.country_code || ''}${car?.car_owner_phone_number || car?.contact_phone}`}
+	                  href={`tel:${car?.car_owner_phone_number || car?.contact_phone || ''}`}
 	                  className="cd-button cd-button-primary"
 	                  onClick={handleCallClick}
 	                >

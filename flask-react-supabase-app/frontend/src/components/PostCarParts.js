@@ -126,7 +126,7 @@ const PostCarParts = () => {
           location: data.location || '',
           area: data.area || '',
           emirate: data.emirate || 'Dubai',
-          contact_number: data.contact_number || '',
+          contact_number: splitPhoneNumber(data.contact_number || '', data.country_code || defaultCountryCode).localNumber,
           country_code: data.country_code || defaultCountryCode,
           whatsapp_country_code: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).countryCode,
           whatsapp_number: splitPhoneNumber(data.whatsapp_number || '', data.country_code || defaultCountryCode).localNumber,
