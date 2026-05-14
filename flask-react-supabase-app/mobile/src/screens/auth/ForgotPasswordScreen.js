@@ -42,7 +42,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         redirectTo: 'dphclassifieds://reset-password',
       });
       if (resetError) throw resetError;
-      setSent(true);
+      navigation.navigate('ResetPassword', { email: email.trim() });
     } catch (err) {
       setError(err.message || 'Failed to send reset link. Please try again.');
     } finally {

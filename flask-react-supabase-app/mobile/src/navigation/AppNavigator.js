@@ -9,6 +9,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import VerifyPhoneScreen from '../screens/auth/VerifyPhoneScreen';
 
 import ExploreScreen from '../screens/explore/ExploreScreen';
@@ -51,6 +52,7 @@ function AuthStack() {
       <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password' }} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />
     </Stack.Navigator>
   );
 }

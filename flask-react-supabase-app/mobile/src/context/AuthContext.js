@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as authService from '../utils/authService';
 import { supabase, getSession } from '../utils/supabaseClient';
+import { API_BASE_URL } from '../constants/config';
 
 const AuthContext = createContext();
 
@@ -127,6 +128,40 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const resetPassword = async (email) => {
+    try {
+      setError(null);
+      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to send reset email');
+      return { error: null };
+    } catch (err) {
+      setError(err.message);
+      return { error: err.message };
+    }
+  };
+
+  const updatePassword = async (password) => {
+    try {
+      setError(null);
+      const response = await fetch(`${API_BASE_URL}/api/auth/update-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update password');
+      return { error: null };
+    } catch (err) {
+      setError(err.message);
+      return { error: err.message };
+    }
+  };
+
   const updateUser = (userData) => {
     setUser(prev => {
       const updated = { ...(prev || {}), ...userData };
@@ -139,7 +174,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, error, signIn, signUp, signOut, updateUser, syncWithSupabase }}>
+    <AuthContext.Provider value={{ user, isLoading, error, signIn, signUp, signOut, updateUser, syncWithSupabase, resetPassword, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );
