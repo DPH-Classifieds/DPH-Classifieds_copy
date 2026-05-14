@@ -25,6 +25,7 @@ import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
+import ListingMap from '../../components/ui/ListingMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -183,8 +184,16 @@ export default function PartDetailScreen({ route, navigation }) {
             <View style={styles.section}>
               <View style={styles.locationRow}>
                 <Ionicons name="location" size={16} color={COLORS.textSecondary} />
-                <Text style={styles.locationText}>{part.city}</Text>
+                <Text style={styles.locationText}>{part.city || part.area || part.emirate}</Text>
               </View>
+              <ListingMap
+                latitude={part.latitude}
+                longitude={part.longitude}
+                title={part.name}
+                city={part.city}
+                emirate={part.emirate}
+                area={part.area}
+              />
             </View>
           ) : null}
 

@@ -24,6 +24,7 @@ import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
+import ListingMap from '../../components/ui/ListingMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -183,6 +184,22 @@ export default function PlateDetailScreen({ route, navigation }) {
             </View>
           ) : null}
 
+          {(plate.city || plate.emirate || plate.latitude || plate.longitude) && (
+            <View style={styles.section}>
+              <View style={styles.locationRow}>
+                <Ionicons name="location" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.locationText}>{plate.city || plate.emirate || 'UAE'}</Text>
+              </View>
+              <ListingMap
+                latitude={plate.latitude}
+                longitude={plate.longitude}
+                title={`${plate.code || ''} ${plate.number || ''}`.trim()}
+                city={plate.city}
+                emirate={plate.emirate}
+              />
+            </View>
+          )}
+
           <LoanCalculator price={plate.price} />
 
           <View style={styles.sellerCard}>
@@ -286,6 +303,8 @@ const styles = StyleSheet.create({
   section: { marginBottom: 16 },
   sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
   description: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 22 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  locationText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
   sellerCard: {
     backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: 8,
   },

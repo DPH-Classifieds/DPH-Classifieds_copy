@@ -25,6 +25,7 @@ import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
+import ListingMap from '../../components/ui/ListingMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -233,12 +234,20 @@ export default function CarDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {(car.city || car.location || car.emirate || car.area) && (
+          {(car.city || car.location || car.emirate || car.area || car.latitude || car.longitude) && (
             <View style={styles.section}>
               <View style={styles.locationRow}>
                 <Ionicons name="location" size={16} color={COLORS.textSecondary} />
                 <Text style={styles.locationText}>{car.city || car.location || car.emirate || car.area}</Text>
               </View>
+              <ListingMap
+                latitude={car.latitude}
+                longitude={car.longitude}
+                title={title}
+                city={car.city}
+                emirate={car.emirate}
+                area={car.area}
+              />
             </View>
           )}
 

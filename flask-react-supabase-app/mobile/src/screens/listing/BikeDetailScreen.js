@@ -24,6 +24,7 @@ import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
+import ListingMap from '../../components/ui/ListingMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -197,8 +198,16 @@ export default function BikeDetailScreen({ route, navigation }) {
             <View style={styles.section}>
               <View style={styles.locationRow}>
                 <Ionicons name="location" size={16} color={COLORS.textSecondary} />
-                <Text style={styles.locationText}>{bike.city}</Text>
+                <Text style={styles.locationText}>{bike.city || bike.area || bike.emirate}</Text>
               </View>
+              <ListingMap
+                latitude={bike.latitude}
+                longitude={bike.longitude}
+                title={`${bike.bike_brand || ''} ${bike.bike_model || ''}`.trim()}
+                city={bike.city}
+                emirate={bike.emirate}
+                area={bike.area}
+              />
             </View>
           ) : null}
 
