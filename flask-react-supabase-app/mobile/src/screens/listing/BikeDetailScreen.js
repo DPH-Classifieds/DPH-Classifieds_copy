@@ -186,10 +186,10 @@ export default function BikeDetailScreen({ route, navigation }) {
             ) : null}
           </View>
 
-          {bike.description ? (
+          {(bike.description || bike.bike_description) ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{bike.description}</Text>
+              <Text style={styles.description}>{bike.description || bike.bike_description}</Text>
             </View>
           ) : null}
 
@@ -227,7 +227,7 @@ export default function BikeDetailScreen({ route, navigation }) {
             </View>
             {isOwner && (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <Button title="Edit" onPress={() => navigation.navigate('PostListing', { editMode: true, listingType: 'bike', listingId: bike.id })} variant="secondary" size="sm" />
+                <Button title="Edit" onPress={() => navigation.navigate('EditListing', { editMode: true, listingType: 'bike', listingId: bike.id })} variant="secondary" size="sm" />
                 <Button title="Delete" onPress={() => {
                   Alert.alert('Delete', 'Are you sure?', [
                     { text: 'Cancel', style: 'cancel' },

@@ -172,10 +172,10 @@ export default function PartDetailScreen({ route, navigation }) {
             </View>
           ) : null}
 
-          {part.description ? (
+          {(part.description || part.part_description) ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{part.description}</Text>
+              <Text style={styles.description}>{part.description || part.part_description}</Text>
             </View>
           ) : null}
 
@@ -213,7 +213,7 @@ export default function PartDetailScreen({ route, navigation }) {
             </View>
             {isOwner && (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <Button title="Edit" onPress={() => navigation.navigate('PostListing', { editMode: true, listingType: 'parts', listingId: part.id })} variant="secondary" size="sm" />
+                <Button title="Edit" onPress={() => navigation.navigate('EditListing', { editMode: true, listingType: 'parts', listingId: part.id })} variant="secondary" size="sm" />
                 <Button title="Delete" onPress={() => {
                   Alert.alert('Delete', 'Are you sure?', [
                     { text: 'Cancel', style: 'cancel' },

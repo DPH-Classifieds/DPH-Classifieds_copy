@@ -176,10 +176,10 @@ export default function PlateDetailScreen({ route, navigation }) {
           <Text style={styles.usdPrice}>{formatPriceUSD(plate.price)}</Text>
           <Text style={styles.cityLabel}>{plate.city || 'Unknown City'}</Text>
 
-          {plate.description ? (
+          {(plate.description || plate.plate_description) ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{plate.description}</Text>
+              <Text style={styles.description}>{plate.description || plate.plate_description}</Text>
             </View>
           ) : null}
 
@@ -208,7 +208,7 @@ export default function PlateDetailScreen({ route, navigation }) {
             </View>
             {isOwner && (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <Button title="Edit" onPress={() => navigation.navigate('PostListing', { editMode: true, listingType: 'plate', listingId: plate.id })} variant="secondary" size="sm" />
+                <Button title="Edit" onPress={() => navigation.navigate('EditListing', { editMode: true, listingType: 'plate', listingId: plate.id })} variant="secondary" size="sm" />
                 <Button title="Delete" onPress={() => {
                   Alert.alert('Delete', 'Are you sure?', [
                     { text: 'Cancel', style: 'cancel' },

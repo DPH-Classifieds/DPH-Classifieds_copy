@@ -223,10 +223,10 @@ export default function CarDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {car.description && (
+          {(car.car_description || car.description) && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{car.description}</Text>
+              <Text style={styles.description}>{car.car_description || car.description}</Text>
             </View>
           )}
 
@@ -267,7 +267,7 @@ export default function CarDetailScreen({ route, navigation }) {
             </View>
             {isOwner && (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <Button title="Edit" onPress={() => navigation.navigate('PostListing', { editMode: true, listingType: 'car', listingId: car.id })} variant="secondary" size="sm" />
+                <Button title="Edit" onPress={() => navigation.navigate('EditListing', { editMode: true, listingType: 'car', listingId: car.id })} variant="secondary" size="sm" />
                 <Button title="Delete" onPress={() => {
                   Alert.alert('Delete', 'Are you sure?', [
                     { text: 'Cancel', style: 'cancel' },
