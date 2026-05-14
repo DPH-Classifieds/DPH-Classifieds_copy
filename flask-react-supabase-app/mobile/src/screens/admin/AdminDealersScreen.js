@@ -18,7 +18,7 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 
 const FILTER_TABS = ['All', 'Pending', 'Verified'];
 
-export default function AdminDealersScreen() {
+export default function AdminDealersScreen({ navigation }) {
   const [dealers, setDealers] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -100,6 +100,11 @@ export default function AdminDealersScreen() {
 
   const renderDealer = ({ item }) => (
     <View style={styles.dealerCard}>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('AdminDealerDetail', { dealerId: item.id })}
+        activeOpacity={0.8}
+        style={styles.dealerTouchable}
+      >
       <View style={styles.dealerHeader}>
         <View style={styles.dealerInfo}>
           <Text style={styles.companyName} numberOfLines={1}>
@@ -122,6 +127,7 @@ export default function AdminDealersScreen() {
           </Text>
         </View>
       </View>
+      </TouchableOpacity>
 
       <View style={styles.actions}>
         {!item.dealer_verified && (
@@ -224,6 +230,9 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
+  },
+  dealerTouchable: {
+    flex: 1,
   },
   dealerHeader: {
     flexDirection: 'row',

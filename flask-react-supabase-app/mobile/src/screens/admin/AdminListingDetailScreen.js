@@ -1,0 +1,144 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Image, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import apiClient from '../../utils/apiClient';
+import { formatPrice, formatDate } from '../../utils/formatters';
+import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+
+const REJECTION_REASONS = [
+  'Inappropriate content', 'Wrong category', 'Spam',
+  'Duplicate listing', 'Incomplete information', 'Other',
+];
+
+export default function AdminListingDetailScreen({ route, navigation }) {
+  const { itemType, itemId } = route.params;
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { loadListing(); }, []);
+
+  const loadListing = async () => {
+    try {
+      const data = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
+      setListing(data);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to load listing.');
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    try {
+      await apiClient.post(`/api/admin/approve/${itemType}/${itemId}/approve`);
+      Alert.alert('Approved', 'Listing has been approved.');
+      navigation.goBack();
+    } catch (err) { Alert.alert('Error', err.message); }
+  };
+
+  const handleReject = async () => {
+    Alert.alert('Reject Listing', 'Select a reason:', [
+      ...REJECTION_REASONS.map(reason => ({
+        text: reason,
+        onPress: async () => {
+          try {
+            await apiClient.post(`/api/admin/approve/${itemType}/${itemId}/reject`, { reason });
+            Alert.alert('Rejected', 'Listing has been rejected.');
+            navigation.goBack();
+          } catch (err) { Alert.alert('Error', err.message); }
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleDelete = async () => {
+    Alert.alert('Delete', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try { await apiClient.delete(`/${itemType}/${itemId}/delete`); navigation.goBack(); }
+        catch (err) { Alert.alert('Error', err.message); }
+      }},
+    ]);
+  };
+
+  const getImageUri = () => {
+    if (!listing?.images?.[0]) return null;
+    const img = listing.images[0];
+    return typeof img === 'string' ? img : img.url || img.image_url;
+  };
+
+  const getTitle = () => {
+    if (!listing) return 'Listing';
+    return listing.listing_title || listing.car_manufacturer
+      ? `${listing.car_manufacturer || ''} ${listing.car_model || ''}`.trim()
+      : listing.name || 'Listing';
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingWrap}>
+          <Text style={styles.loadingText}>Loading listing...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const imageUri = getImageUri();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
+        {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
+        <Text style={styles.title}>{getTitle()}</Text>
+        <Text style={styles.price}>{formatPrice(listing?.expected_selling_price || listing?.price)}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: listing?.status === 'active' ? COLORS.success : COLORS.warning }]}>
+          <Text style={styles.statusBadgeText}>{listing?.status || 'pending'}</Text>
+        </View>
+        <Text style={styles.detail}>Seller: {listing?.seller_name || 'N/A'}</Text>
+        <Text style={styles.detail}>Type: {itemType}</Text>
+        {listing?.created_at && (
+          <Text style={styles.detail}>Posted: {formatDate(listing.created_at)}</Text>
+        )}
+
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.7}>
+            <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
+            <Text style={styles.approveBtnText}>Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={18} color={COLORS.error} />
+            <Text style={styles.rejectBtnText}>Reject</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+            <Text style={styles.deleteBtnText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.black },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
+  content: { padding: SPACING.md },
+  image: { width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md },
+  title: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.xs },
+  price: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
+  statusBadgeText: { color: COLORS.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
+  detail: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
+  actions: { gap: SPACING.sm, marginTop: SPACING.lg },
+  approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, paddingHorizontal: SPACING.md, justifyContent: 'center' },
+  approveBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+  rejectBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+  deleteBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
+});

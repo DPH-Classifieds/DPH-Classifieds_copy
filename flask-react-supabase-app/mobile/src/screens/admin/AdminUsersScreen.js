@@ -17,7 +17,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
-export default function AdminUsersScreen() {
+export default function AdminUsersScreen({ navigation }) {
   const [users, setUsers] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -158,7 +158,7 @@ export default function AdminUsersScreen() {
   const renderUser = ({ item }) => (
     <TouchableOpacity
       style={styles.userCard}
-      onPress={() => showUserActions(item)}
+      onPress={() => navigation.navigate('AdminUserDetail', { userId: item.id })}
       activeOpacity={0.7}
     >
       <View style={styles.avatar}>

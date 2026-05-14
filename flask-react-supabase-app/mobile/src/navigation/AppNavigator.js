@@ -34,6 +34,10 @@ import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
 import AdminListingsScreen from '../screens/admin/AdminListingsScreen';
 import AdminDealersScreen from '../screens/admin/AdminDealersScreen';
 import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
+import AdminUserDetailScreen from '../screens/admin/AdminUserDetailScreen';
+import AdminListingDetailScreen from '../screens/admin/AdminListingDetailScreen';
+import AdminDealerDetailScreen from '../screens/admin/AdminDealerDetailScreen';
+import AdminMetricsScreen from '../screens/admin/AdminMetricsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -111,6 +115,10 @@ function ProfileStack() {
       <Stack.Screen name="AdminListings" component={AdminListingsScreen} options={{ title: 'Listings' }} />
       <Stack.Screen name="AdminDealers" component={AdminDealersScreen} options={{ title: 'Dealers' }} />
       <Stack.Screen name="AdminReports" component={AdminReportsScreen} options={{ title: 'Reports' }} />
+      <Stack.Screen name="AdminUserDetail" component={AdminUserDetailScreen} options={{ title: 'User Detail' }} />
+      <Stack.Screen name="AdminListingDetail" component={AdminListingDetailScreen} options={{ title: 'Listing Detail' }} />
+      <Stack.Screen name="AdminDealerDetail" component={AdminDealerDetailScreen} options={{ title: 'Dealer Detail' }} />
+      <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Metrics' }} />
       <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
       <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
     </Stack.Navigator>

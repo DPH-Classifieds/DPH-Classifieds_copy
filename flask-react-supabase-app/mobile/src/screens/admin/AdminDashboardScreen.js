@@ -31,6 +31,7 @@ const QUICK_ACTIONS = [
   { label: 'Review Listings', icon: 'list-outline', route: 'AdminListings' },
   { label: 'Review Dealers', icon: 'business-outline', route: 'AdminDealers' },
   { label: 'Open Reports', icon: 'flag-outline', route: 'AdminReports' },
+  { label: 'View Metrics', icon: 'stats-chart-outline', route: 'AdminMetrics' },
 ];
 
 export default function AdminDashboardScreen({ navigation }) {

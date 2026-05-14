@@ -36,7 +36,7 @@ const getTitle = (item, typeKey) => {
   return item.title || 'Untitled';
 };
 
-export default function AdminListingsScreen() {
+export default function AdminListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [activeType, setActiveType] = useState('Cars');
   const [activeStatus, setActiveStatus] = useState('Pending');
@@ -113,6 +113,10 @@ export default function AdminListingsScreen() {
     const title = getTitle(item, typeKey);
 
     return (
+      <TouchableOpacity
+        onPress={() => navigation.navigate('AdminListingDetail', { itemType: typeKey, itemId: item.id })}
+        activeOpacity={0.8}
+      >
       <View style={styles.card}>
         <View style={styles.cardContent}>
           {imageUri ? (
@@ -160,6 +164,7 @@ export default function AdminListingsScreen() {
           </View>
         )}
       </View>
+      </TouchableOpacity>
     );
   };
 
