@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../utils/apiClient';
+import { scanCarRegistration } from '../../utils/ocrScanner';
 import { useAuth } from '../../context/AuthContext';
 import {
   CAR_MAKES,
@@ -1040,6 +1041,27 @@ export default function PostListingScreen({ navigation, route }) {
           placeholder="Select Make"
         />
 
+        <TouchableOpacity
+          style={styles.scanButton}
+          onPress={async () => {
+            try {
+              const data = await scanCarRegistration();
+              if (data) {
+                if (data.make) updateCarForm('car_manufacturer', data.make);
+                if (data.model) updateCarForm('car_model', data.model);
+                if (data.year) updateCarForm('make_year', String(data.year));
+                if (data.vin) updateCarForm('vin_number', data.vin);
+                Alert.alert('Success', 'Registration details scanned and filled in.');
+              }
+            } catch (err) {
+              Alert.alert('Scan Failed', err.message || 'Could not read registration.');
+            }
+          }}
+        >
+          <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
+          <Text style={styles.scanButtonText}>Scan Registration</Text>
+        </TouchableOpacity>
+
         <Text style={styles.fieldLabel}>Model *</Text>
         <Picker
           value={carForm.car_model}
@@ -1939,4 +1961,22 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   addImageText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginTop: 4 },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderStyle: 'dashed',
+    paddingVertical: 12,
+    marginBottom: SPACING.md,
+  },
+  scanButtonText: {
+    color: COLORS.accent,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
 });
