@@ -63,6 +63,7 @@ export default function CarDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(!routeListing);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
+  const [showFullDescription, setShowFullDescription] = useState(false);
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
   const isOwner = user && (user.id === car?.user_id || user.id === car?.seller_id);
@@ -203,6 +204,25 @@ export default function CarDetailScreen({ route, navigation }) {
           )}
           <Text style={styles.title}>{title}</Text>
 
+          {(car.car_description || car.description) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Description</Text>
+              <Text
+                style={styles.description}
+                numberOfLines={showFullDescription ? undefined : 4}
+              >
+                {car.car_description || car.description}
+              </Text>
+              {(car.car_description || car.description || '').length > 150 && (
+                <TouchableOpacity onPress={() => setShowFullDescription(!showFullDescription)}>
+                  <Text style={styles.viewMore}>
+                    {showFullDescription ? 'View Less' : 'View More'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           {specs.length > 0 && (
             <View style={styles.specsGrid}>
               {specs.map((s) => (
@@ -224,13 +244,6 @@ export default function CarDetailScreen({ route, navigation }) {
                   </View>
                 ))}
               </View>
-            </View>
-          )}
-
-          {(car.car_description || car.description) && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{car.car_description || car.description}</Text>
             </View>
           )}
 
@@ -347,6 +360,7 @@ const styles = StyleSheet.create({
   },
   extraPillText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
   description: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 22 },
+  viewMore: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600', marginTop: 6 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   locationText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
   sellerCard: {
