@@ -74,7 +74,7 @@ export default function ProfileScreen({ navigation }) {
     {
       icon: 'heart-outline',
       label: 'Saved Listings',
-      onPress: () => navigation.navigate('Saved', { screen: 'SavedMain' }),
+      onPress: () => navigation.getParent()?.navigate('Saved'),
     },
     {
       icon: 'settings-outline',

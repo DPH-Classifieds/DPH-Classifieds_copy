@@ -127,10 +127,13 @@ export default function CarDetailScreen({ route, navigation }) {
     { key: 'specs_type', value: car.specs_type || (car.gcc_specs ? 'GCC Specs' : null) },
   ].filter(s => s.value);
 
-  const extras = car.extras || CAR_EXTRAS.filter(e => {
-    const key = e.toLowerCase().replace(/ /g, '_');
-    return car[key] === true || car[key] === 'Yes';
-  });
+  const extras = (() => {
+    if (Array.isArray(car.extras)) return car.extras;
+    if (typeof car.extras === 'string') {
+      try { return JSON.parse(car.extras); } catch { return []; }
+    }
+    return [];
+  })();
 
   const badges = [];
   if (car.is_featured) badges.push({ label: 'Featured', variant: 'success' });
