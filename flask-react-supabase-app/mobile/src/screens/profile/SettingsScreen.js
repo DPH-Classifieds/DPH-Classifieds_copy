@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Alert,
   StyleSheet,
   Image,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,8 +25,38 @@ export default function SettingsScreen({ navigation }) {
   const [email] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [username, setUsername] = useState(user?.username || '');
+  const [displayName, setDisplayName] = useState(user?.display_name || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [whatsappNumber, setWhatsappNumber] = useState(user?.whatsapp_number || '');
+  const [location, setLocation] = useState(user?.location || '');
   const [profilePhoto, setProfilePhoto] = useState(user?.profile_photo || user?.avatar_url || null);
   const [saving, setSaving] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState(null);
+  const [usernameChecking, setUsernameChecking] = useState(false);
+
+  const checkUsernameAvailability = async () => {
+    if (!username.trim() || username === user?.username) {
+      setUsernameStatus(null);
+      return;
+    }
+    try {
+      setUsernameChecking(true);
+      const data = await apiClient.get(`/api/auth/check-username?username=${encodeURIComponent(username.trim())}`, { requiresAuth: false });
+      setUsernameStatus(data?.available ? 'available' : 'taken');
+    } catch {
+      setUsernameStatus(null);
+    } finally {
+      setUsernameChecking(false);
+    }
+  };
+
+  const getProfileCompletion = () => {
+    const fields = [firstName, lastName, email, phone, username, displayName, bio, whatsappNumber, location, profilePhoto];
+    const filled = fields.filter(f => f && String(f).trim().length > 0).length;
+    return Math.round((filled / fields.length) * 100);
+  };
+
+  const completionPercent = getProfileCompletion();
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -81,6 +112,10 @@ export default function SettingsScreen({ navigation }) {
         last_name: lastName.trim(),
         phone: phone.trim(),
         username: username.trim(),
+        display_name: displayName.trim(),
+        bio: bio.trim(),
+        whatsapp_number: whatsappNumber.trim(),
+        location: location.trim(),
       });
       updateUser(data);
       Alert.alert('Success', 'Profile updated successfully.', [
@@ -113,6 +148,24 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         <View style={styles.form}>
+          <View style={styles.completionBar}>
+            <View style={styles.completionHeader}>
+              <Text style={styles.completionLabel}>Profile Completion</Text>
+              <Text style={styles.completionPercent}>{completionPercent}%</Text>
+            </View>
+            <View style={styles.completionTrack}>
+              <View style={[styles.completionFill, { width: `${completionPercent}%` }]} />
+            </View>
+          </View>
+
+          <Input
+            label="Display Name"
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="How others see you"
+            icon="person-outline"
+          />
+
           <Input
             label="First Name"
             value={firstName}
@@ -146,13 +199,49 @@ export default function SettingsScreen({ navigation }) {
             icon="call-outline"
           />
 
+          <View>
+            <Input
+              label="Username"
+              value={username}
+              onChangeText={(v) => { setUsername(v); setUsernameStatus(null); }}
+              onBlur={checkUsernameAvailability}
+              placeholder="Enter username"
+              icon="at-outline"
+            />
+            {usernameChecking && <Text style={styles.usernameHint}>Checking availability...</Text>}
+            {usernameStatus === 'available' && <Text style={[styles.usernameHint, { color: COLORS.success }]}>Username available</Text>}
+            {usernameStatus === 'taken' && <Text style={[styles.usernameHint, { color: COLORS.error }]}>Username already taken</Text>}
+          </View>
+
           <Input
-            label="Username"
-            value={username}
-            onChangeText={setUsername}
-            placeholder="Enter username"
-            icon="at-outline"
+            label="WhatsApp Number"
+            value={whatsappNumber}
+            onChangeText={setWhatsappNumber}
+            placeholder="Enter WhatsApp number"
+            keyboardType="phone-pad"
+            icon="logo-whatsapp"
           />
+
+          <Input
+            label="Location"
+            value={location}
+            onChangeText={setLocation}
+            placeholder="e.g. Dubai, UAE"
+            icon="location-outline"
+          />
+
+          <View>
+            <Text style={{ color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 6, fontWeight: '500' }}>Bio</Text>
+            <TextInput
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Tell others about yourself..."
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+              numberOfLines={3}
+              style={styles.bioInput}
+            />
+          </View>
 
           <Button
             title="Save Changes"
@@ -225,5 +314,57 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: SPACING.sm,
+  },
+  completionBar: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  completionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  completionLabel: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  completionPercent: {
+    color: COLORS.accent,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '700',
+  },
+  completionTrack: {
+    height: 6,
+    backgroundColor: COLORS.surfaceHigher,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  completionFill: {
+    height: '100%',
+    backgroundColor: COLORS.accent,
+    borderRadius: 3,
+  },
+  usernameHint: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.xs,
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  bioInput: {
+    backgroundColor: COLORS.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
   },
 });

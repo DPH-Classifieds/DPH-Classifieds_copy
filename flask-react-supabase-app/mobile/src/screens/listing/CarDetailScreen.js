@@ -9,6 +9,7 @@ import {
   Dimensions,
   Linking,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,11 +17,14 @@ import apiClient from '../../utils/apiClient';
 import { formatPrice, formatPriceUSD, formatNumber, formatDate } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
+import Button from '../../components/ui/Button';
+import RecommendedListings from '../../components/RecommendedListings';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -57,7 +61,10 @@ export default function CarDetailScreen({ route, navigation }) {
   const [car, setCar] = useState(routeListing || null);
   const [loading, setLoading] = useState(!routeListing);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [previewImage, setPreviewImage] = useState(null);
   const { toggleSaveListing, isSaved } = useSavedListings();
+  const { user } = useAuth();
+  const isOwner = user && (user.id === car?.user_id || user.id === car?.seller_id);
 
   const carId = car?.id || car?.listing_id || listingId;
   const saved = isSaved('car', carId);
@@ -144,21 +151,22 @@ export default function CarDetailScreen({ route, navigation }) {
               setActiveImageIndex(index);
             }}
           >
-            {images.length > 0 ? images.map((img, i) => (
-              <View key={i} style={styles.imageSlide}>
-                {(img.url || img.image_url || img.display_url) ? (
-                  <Image
-                    source={{ uri: img.url || img.image_url || img.display_url }}
-                    style={styles.image}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.imagePlaceholder}>
-                    <Ionicons name="car" size={60} color="rgba(255,255,255,0.2)" />
-                  </View>
-                )}
-              </View>
-            )) : (
+            {images.length > 0 ? images.map((img, i) => {
+              const uri = img.url || img.image_url || img.display_url;
+              return (
+                <View key={i} style={styles.imageSlide}>
+                  {uri ? (
+                    <TouchableOpacity onPress={() => setPreviewImage(uri)} activeOpacity={0.9}>
+                      <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <Ionicons name="car" size={60} color="rgba(255,255,255,0.2)" />
+                    </View>
+                  )}
+                </View>
+              );
+            }) : (
               <View style={styles.imageSlide}>
                 <View style={styles.imagePlaceholder}>
                   <Ionicons name="car" size={60} color="rgba(255,255,255,0.2)" />
@@ -257,9 +265,34 @@ export default function CarDetailScreen({ route, navigation }) {
                 <Text style={styles.whatsappButtonText}>WhatsApp</Text>
               </TouchableOpacity>
             </View>
+            {isOwner && (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <Button title="Edit" onPress={() => navigation.navigate('PostListing', { editMode: true, listingType: 'car', listingId: car.id })} variant="secondary" size="sm" />
+                <Button title="Delete" onPress={() => {
+                  Alert.alert('Delete', 'Are you sure?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: async () => {
+                      await apiClient.delete(`/api/cars/${car.id}`);
+                      navigation.goBack();
+                    }},
+                  ]);
+                }} variant="ghost" size="sm" />
+              </View>
+            )}
           </View>
         </View>
+
+        <RecommendedListings listingType="car" listingId={car.id} navigation={navigation} />
       </ScrollView>
+
+      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setPreviewImage(null)} activeOpacity={1}>
+          <Image source={{ uri: previewImage }} style={{ width: '90%', height: '80%' }} resizeMode="contain" />
+          <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, padding: 8 }} onPress={() => setPreviewImage(null)}>
+            <Ionicons name="close" size={28} color={COLORS.white} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }

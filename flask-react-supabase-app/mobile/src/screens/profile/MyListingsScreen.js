@@ -68,7 +68,7 @@ export default function MyListingsScreen({ navigation }) {
   }, [activeTab]);
 
   const handleDelete = (item) => {
-    Alert.alert('Delete Listing', `Are you sure you want to delete "${item.title}"?`, [
+    Alert.alert('Delete Listing', `Are you sure you want to delete "${getListingTitle(item)}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -98,14 +98,14 @@ export default function MyListingsScreen({ navigation }) {
   };
 
   const handleMarkSold = async (item) => {
-    Alert.alert('Mark as Sold', `Mark "${item.title}" as sold?`, [
+    Alert.alert('Mark as Sold', `Mark "${getListingTitle(item)}" as sold?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Confirm',
         onPress: async () => {
           try {
             const type = item.listing_type || 'cars';
-            await apiClient.put(`/api/user/listings/${type}/${item.id}`, { status: 'sold' });
+            await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, { outcome: 'sold' });
             fetchListings();
           } catch (err) {
             Alert.alert('Error', 'Failed to mark as sold.');

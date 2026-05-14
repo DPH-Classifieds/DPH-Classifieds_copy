@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../utils/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -69,6 +70,8 @@ const years = getYearOptions();
 const PHONE_CODES = ['+971', '+966', '+973', '+974', '+965', '+968', '+92', '+91', '+1', '+44'];
 
 const MAX_DESCRIPTION_WORDS = 300;
+
+const DRAFT_KEY = 'listing_draft';
 
 const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
@@ -295,7 +298,7 @@ function CollapsibleSection({ title, expanded, onToggle, children }) {
   );
 }
 
-function ImageSection({ images, onPickImages, onRemoveImage }) {
+function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Photos ({images.length}/10)</Text>
@@ -308,6 +311,16 @@ function ImageSection({ images, onPickImages, onRemoveImage }) {
             <TouchableOpacity style={styles.imageRemove} onPress={() => onRemoveImage(i)}>
               <Ionicons name="close-circle" size={20} color={COLORS.error} />
             </TouchableOpacity>
+            {i > 0 && (
+              <TouchableOpacity style={styles.imageReorderLeft} onPress={() => onReorderImages(i, i - 1)}>
+                <Ionicons name="chevron-back" size={14} color={COLORS.white} />
+              </TouchableOpacity>
+            )}
+            {i < images.length - 1 && (
+              <TouchableOpacity style={styles.imageReorderRight} onPress={() => onReorderImages(i, i + 1)}>
+                <Ionicons name="chevron-forward" size={14} color={COLORS.white} />
+              </TouchableOpacity>
+            )}
           </View>
         ))}
         {images.length < 10 && (
@@ -480,6 +493,49 @@ export default function PostListingScreen({ navigation, route }) {
   const removeImage = (index) => {
     setImages(prev => prev.filter((_, i) => i !== index));
   };
+
+  const reorderImages = (fromIndex, toIndex) => {
+    setImages(prev => {
+      const newImages = [...prev];
+      const [removed] = newImages.splice(fromIndex, 1);
+      newImages.splice(toIndex, 0, removed);
+      return newImages;
+    });
+  };
+
+  // Draft auto-save
+  useEffect(() => {
+    if (category && !isEditMode) {
+      const timer = setTimeout(() => {
+        AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ category, carForm, bikeForm, plateForm, partsForm, images, savedAt: Date.now() }));
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [category, carForm, bikeForm, plateForm, partsForm, images]);
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (!isEditMode) {
+      AsyncStorage.getItem(DRAFT_KEY).then(raw => {
+        if (raw) {
+          const draft = JSON.parse(raw);
+          if (draft.savedAt > Date.now() - 86400000) {
+            Alert.alert('Restore Draft', 'You have an unsaved listing. Restore it?', [
+              { text: 'No', onPress: () => AsyncStorage.removeItem(DRAFT_KEY) },
+              { text: 'Yes', onPress: () => {
+                setCategory(draft.category);
+                if (draft.category === 'car' && draft.carForm) setCarForm(draft.carForm);
+                if (draft.category === 'bike' && draft.bikeForm) setBikeForm(draft.bikeForm);
+                if (draft.category === 'plate' && draft.plateForm) setPlateForm(draft.plateForm);
+                if (draft.category === 'parts' && draft.partsForm) setPartsForm(draft.partsForm);
+                if (draft.images) setImages(draft.images);
+              }},
+            ]);
+          }
+        }
+      });
+    }
+  }, []);
 
   const updateCarForm = (key, value) => setCarForm(prev => ({ ...prev, [key]: value }));
   const updateBikeForm = (key, value) => setBikeForm(prev => ({ ...prev, [key]: value }));
@@ -843,6 +899,7 @@ export default function PostListingScreen({ navigation, route }) {
       } else {
         await apiClient.post(endpoint, fd);
       }
+      await AsyncStorage.removeItem(DRAFT_KEY);
       Alert.alert('Success', isEditMode ? 'Your listing has been updated!' : 'Your listing has been posted!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -1260,7 +1317,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.car_images} onToggle={() => toggleSection('car_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
   );
@@ -1432,7 +1489,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.bike_images} onToggle={() => toggleSection('bike_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
   );
@@ -1552,7 +1609,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.plate_images} onToggle={() => toggleSection('plate_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
   );
@@ -1697,7 +1754,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.parts_images} onToggle={() => toggleSection('parts_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
   );
@@ -1819,6 +1876,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   imageRemove: { position: 'absolute', top: -4, right: -4 },
+  imageReorderLeft: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  imageReorderRight: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   addImageBtn: {
     width: 80, height: 80, borderRadius: BORDER_RADIUS.md,
     borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed',

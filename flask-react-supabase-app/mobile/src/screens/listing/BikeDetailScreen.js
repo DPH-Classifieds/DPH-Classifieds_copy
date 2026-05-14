@@ -9,6 +9,7 @@ import {
   Dimensions,
   Linking,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,10 +17,13 @@ import apiClient from '../../utils/apiClient';
 import { formatPrice, formatPriceUSD } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
+import Button from '../../components/ui/Button';
+import RecommendedListings from '../../components/RecommendedListings';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,12 +34,15 @@ const getImageUri = (item) => {
   return item.image_url || item.display_url || null;
 };
 
-export default function BikeDetailScreen({ route }) {
+export default function BikeDetailScreen({ route, navigation }) {
   const { listingId } = route.params || {};
   const [bike, setBike] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [previewImage, setPreviewImage] = useState(null);
   const { toggleSaveListing, isSaved } = useSavedListings();
+  const { user } = useAuth();
+  const isOwner = user && (user.id === bike?.user_id || user.id === bike?.seller_id);
 
   const bikeId = bike?.id || listingId;
   const saved = isSaved('bike', bikeId);
@@ -100,7 +107,9 @@ export default function BikeDetailScreen({ route }) {
               return (
                 <View key={i} style={styles.imageSlide}>
                   {uri ? (
-                    <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                    <TouchableOpacity onPress={() => setPreviewImage(uri)} activeOpacity={0.9}>
+                      <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                    </TouchableOpacity>
                   ) : (
                     <View style={styles.imagePlaceholder}>
                       <Ionicons name="bicycle" size={60} color="rgba(255,255,255,0.2)" />
@@ -216,9 +225,34 @@ export default function BikeDetailScreen({ route }) {
                 <Text style={styles.whatsappButtonText}>WhatsApp</Text>
               </TouchableOpacity>
             </View>
+            {isOwner && (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <Button title="Edit" onPress={() => navigation.navigate('PostListing', { editMode: true, listingType: 'bike', listingId: bike.id })} variant="secondary" size="sm" />
+                <Button title="Delete" onPress={() => {
+                  Alert.alert('Delete', 'Are you sure?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: async () => {
+                      await apiClient.delete(`/api/bikes/${bike.id}`);
+                      navigation.goBack();
+                    }},
+                  ]);
+                }} variant="ghost" size="sm" />
+              </View>
+            )}
           </View>
         </View>
+
+        <RecommendedListings listingType="bike" listingId={bike.id} navigation={navigation} />
       </ScrollView>
+
+      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setPreviewImage(null)} activeOpacity={1}>
+          <Image source={{ uri: previewImage }} style={{ width: '90%', height: '80%' }} resizeMode="contain" />
+          <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, padding: 8 }} onPress={() => setPreviewImage(null)}>
+            <Ionicons name="close" size={28} color={COLORS.white} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
