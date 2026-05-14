@@ -183,6 +183,7 @@ const carTrims = {
     'Sunny': ['S', 'SV', 'SR'],
     'Micra': ['S', 'SV', 'SR'],
     'Tiida': ['S', 'SV', 'SR'],
+    'Y61 Patrol': ['GL','GU', 'Safari', 'Super-Safari', 'Falcon', 'Gazelle', 'Gazelle X']
   },
   'Honda': {
     'Civic': ['LX', 'Sport', 'EX', 'Touring', 'Si', 'Type R'],

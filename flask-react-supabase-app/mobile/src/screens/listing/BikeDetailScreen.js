@@ -19,6 +19,7 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
+import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
@@ -69,7 +70,7 @@ export default function BikeDetailScreen({ route, navigation }) {
   }, [bike, toggleSaveListing]);
 
   const handleCall = useCallback(() => {
-    const phone = bike?.car_owner_phone_number || bike?.whatsapp_number;
+    const phone = bike?.contact_phone || bike?.car_owner_phone_number;
     if (phone) {
       trackLeadEvent('bike', bike.id, 'call_click');
       Linking.openURL(`tel:${phone}`);
@@ -77,11 +78,10 @@ export default function BikeDetailScreen({ route, navigation }) {
   }, [bike]);
 
   const handleWhatsApp = useCallback(() => {
-    const phone = bike?.whatsapp_number || bike?.car_owner_phone_number;
-    if (phone) {
+    const url = openWhatsapp(bike, 'bike');
+    if (url) {
       trackLeadEvent('bike', bike.id, 'whatsapp_click');
-      const cleaned = phone.replace(/[^0-9]/g, '');
-      Linking.openURL(`whatsapp://send?phone=${cleaned}`);
+      Linking.openURL(url);
     }
   }, [bike]);
 

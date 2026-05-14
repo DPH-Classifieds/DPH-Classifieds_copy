@@ -19,6 +19,7 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
+import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LoanCalculator from '../../components/ui/LoanCalculator';
@@ -93,7 +94,7 @@ export default function CarDetailScreen({ route, navigation }) {
   }, [car, toggleSaveListing]);
 
   const handleCall = useCallback(() => {
-    const phone = car?.car_owner_phone_number || car?.whatsapp_number || car?.seller?.phone || car?.phone;
+    const phone = car?.car_owner_phone_number || car?.contact_phone;
     if (phone) {
       trackLeadEvent('car', car.id, 'call_click');
       Linking.openURL(`tel:${phone}`);
@@ -101,11 +102,10 @@ export default function CarDetailScreen({ route, navigation }) {
   }, [car]);
 
   const handleWhatsApp = useCallback(() => {
-    const phone = car?.whatsapp_number || car?.car_owner_phone_number || car?.seller?.phone || car?.phone;
-    if (phone) {
+    const url = openWhatsapp(car, 'car');
+    if (url) {
       trackLeadEvent('car', car.id, 'whatsapp_click');
-      const cleaned = phone.replace(/[^0-9]/g, '');
-      Linking.openURL(`whatsapp://send?phone=${cleaned}`);
+      Linking.openURL(url);
     }
   }, [car]);
 

@@ -1,9 +1,11 @@
 import apiClient from './apiClient';
 
-export const trackLeadEvent = async (listingType, listingId, eventType) => {
+export const trackLeadEvent = async (listingType, listingId, action, source = 'detail') => {
   try {
     await apiClient.post(`/api/listings/${listingType}/${listingId}/lead-events`, {
-      event_type: eventType,
+      action,
+      source: `${listingType}_${source}`,
+      payload: { listing_id: listingId },
     });
   } catch (err) {
     // Silent fail

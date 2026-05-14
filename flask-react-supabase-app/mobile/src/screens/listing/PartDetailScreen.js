@@ -19,6 +19,7 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
+import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LoanCalculator from '../../components/ui/LoanCalculator';
@@ -72,7 +73,7 @@ export default function PartDetailScreen({ route, navigation }) {
   }, [part, toggleSaveListing]);
 
   const handleCall = useCallback(() => {
-    const phone = part?.phone || part?.seller_phone;
+    const phone = part?.contact_number || part?.contact_phone;
     if (phone) {
       trackLeadEvent('parts', part.id, 'call_click');
       Linking.openURL(`tel:${phone}`);
@@ -80,11 +81,10 @@ export default function PartDetailScreen({ route, navigation }) {
   }, [part]);
 
   const handleWhatsApp = useCallback(() => {
-    const phone = part?.phone || part?.seller_phone;
-    if (phone) {
+    const url = openWhatsapp(part, 'part');
+    if (url) {
       trackLeadEvent('parts', part.id, 'whatsapp_click');
-      const cleaned = phone.replace(/[^0-9]/g, '');
-      Linking.openURL(`whatsapp://send?phone=${cleaned}`);
+      Linking.openURL(url);
     }
   }, [part]);
 

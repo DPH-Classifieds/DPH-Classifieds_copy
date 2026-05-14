@@ -19,6 +19,7 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
+import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
@@ -81,7 +82,7 @@ export default function PlateDetailScreen({ route, navigation }) {
   }, [plate, toggleSaveListing]);
 
   const handleCall = useCallback(() => {
-    const phone = plate?.phone || plate?.seller_phone;
+    const phone = plate?.contact_phone || plate?.phone;
     if (phone) {
       trackLeadEvent('plate', plate.id, 'call_click');
       Linking.openURL(`tel:${phone}`);
@@ -89,11 +90,10 @@ export default function PlateDetailScreen({ route, navigation }) {
   }, [plate]);
 
   const handleWhatsApp = useCallback(() => {
-    const phone = plate?.phone || plate?.seller_phone;
-    if (phone) {
+    const url = openWhatsapp(plate, 'plate');
+    if (url) {
       trackLeadEvent('plate', plate.id, 'whatsapp_click');
-      const cleaned = phone.replace(/[^0-9]/g, '');
-      Linking.openURL(`whatsapp://send?phone=${cleaned}`);
+      Linking.openURL(url);
     }
   }, [plate]);
 
