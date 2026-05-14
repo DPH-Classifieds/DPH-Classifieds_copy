@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import apiClient from '../../utils/apiClient';
+import { useAuth } from '../../context/AuthContext';
 import {
   CAR_MAKES,
   CAR_MODELS,
@@ -320,6 +321,7 @@ function ImageSection({ images, onPickImages, onRemoveImage }) {
 }
 
 export default function PostListingScreen({ navigation }) {
+  const { user } = useAuth();
   const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
@@ -557,6 +559,17 @@ export default function PostListingScreen({ navigation }) {
   };
 
   const handleSubmit = useCallback(async () => {
+    if (!user?.phone_verified) {
+      Alert.alert(
+        'Phone Verification Required',
+        'Please verify your phone number before posting a listing.',
+        [
+          { text: 'Verify Now', onPress: () => navigation.navigate('Profile', { screen: 'ProfileMain' }) },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
     try {
       setLoading(true);
       let fd;
