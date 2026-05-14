@@ -236,3 +236,9 @@ export const BIKE_TYPES = [
   "Sport", "Cruiser", "Adventure", "Touring", "Naked", "Enduro",
   "Scooter", "Chopper", "Dirt Bike", "Other",
 ];
+
+export const BIKE_FEATURES = [
+  'ABS', 'Traction Control', 'Ride Modes', 'Quick Shifter',
+  'Cruise Control', 'Heated Grips', 'TPMS', 'Cornering Lights',
+  'Launch Control', 'Wheelie Control', 'Slipper Clutch',
+];

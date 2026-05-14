@@ -45,6 +45,7 @@ import {
   PART_CONDITIONS,
   BIKE_BRANDS,
   BIKE_TYPES,
+  BIKE_FEATURES,
   CAR_EXTRAS,
   getYearOptions,
   UAE_EMIRATES,
@@ -394,6 +395,12 @@ export default function PostListingScreen({ navigation, route }) {
     country_code: '+971',
     description: '',
     vin_number: '',
+    cylinders: '',
+    wheels: '',
+    features: [],
+    is_dealer: false,
+    whatsapp_number: '',
+    same_as_phone: true,
   });
 
   const [plateCity, setPlateCity] = useState(null);
@@ -434,6 +441,7 @@ export default function PostListingScreen({ navigation, route }) {
     car_images: false,
     bike_details: true,
     bike_specs: false,
+    bike_features: false,
     bike_contact: false,
     bike_images: false,
     plate_details: true,
@@ -620,6 +628,12 @@ export default function PostListingScreen({ navigation, route }) {
           country_code: data.country_code || '+971',
           description: data.description || '',
           vin_number: data.vin_number || '',
+          cylinders: String(data.cylinders || ''),
+          wheels: String(data.wheels || ''),
+          features: data.features || [],
+          is_dealer: data.is_dealer || false,
+          whatsapp_number: data.whatsapp_number || '',
+          same_as_phone: true,
         });
         setBikeEmirate(data.emirate || 'Dubai');
         setBikeArea(data.area || data.location || '');
@@ -755,7 +769,9 @@ export default function PostListingScreen({ navigation, route }) {
           emirate: bikeEmirate,
           area: bikeArea,
           location: bikeArea,
-          whatsapp_number: phone,
+          whatsapp_number: bikeForm.same_as_phone
+            ? phone
+            : `${bikeForm.country_code || '+971'}${bikeForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
           whatsapp_prefill_text: `Hi, I'm interested in your ${bikeForm.bike_brand} ${bikeForm.bike_model} listed on DPH Classifieds for AED ${bikeForm.price}. Is it still available?`,
         };
         fd = buildFormData(payload, images);
@@ -1310,6 +1326,22 @@ export default function PostListingScreen({ navigation, route }) {
           onChangeText={(v) => updateBikeForm('vin_number', v.toUpperCase().slice(0, 17))}
           placeholder="17-character VIN"
         />
+
+        <Text style={styles.fieldLabel}>Cylinders</Text>
+        <Picker
+          value={bikeForm.cylinders}
+          options={['', ...CYLINDER_OPTIONS]}
+          onSelect={(v) => updateBikeForm('cylinders', v)}
+          placeholder="Select Cylinders"
+        />
+
+        <Text style={styles.fieldLabel}>Wheels</Text>
+        <Picker
+          value={bikeForm.wheels}
+          options={['', '2', '3']}
+          onSelect={(v) => updateBikeForm('wheels', v)}
+          placeholder="Select Wheels"
+        />
       </CollapsibleSection>
 
       <CollapsibleSection title="Contact & Location" expanded={expandedSections.bike_contact} onToggle={() => toggleSection('bike_contact')}>
@@ -1346,6 +1378,31 @@ export default function PostListingScreen({ navigation, route }) {
           onPhoneChange={(v) => updateBikeForm('contact_number', v)}
           required
         />
+
+        <Text style={styles.fieldLabel}>Seller Type</Text>
+        <Picker
+          value={bikeForm.is_dealer ? 'Dealer' : 'Private Seller'}
+          options={['Private Seller', 'Dealer']}
+          onSelect={(v) => updateBikeForm('is_dealer', v === 'Dealer')}
+        />
+
+        <ToggleRow
+          label="WhatsApp same as phone"
+          value={bikeForm.same_as_phone}
+          onValueChange={(v) => {
+            updateBikeForm('same_as_phone', v);
+            if (v) updateBikeForm('whatsapp_number', '');
+          }}
+        />
+        {!bikeForm.same_as_phone && (
+          <PhoneInput
+            countryCodeLabel="WhatsApp Code"
+            countryCode={bikeForm.country_code}
+            onCountryCodeChange={(v) => updateBikeForm('country_code', v)}
+            phoneValue={bikeForm.whatsapp_number}
+            onPhoneChange={(v) => updateBikeForm('whatsapp_number', v)}
+          />
+        )}
 
         <Input
           label="Description *"
