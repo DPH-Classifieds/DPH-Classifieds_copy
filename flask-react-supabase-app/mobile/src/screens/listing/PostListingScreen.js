@@ -564,7 +564,7 @@ export default function PostListingScreen({ navigation }) {
         'Phone Verification Required',
         'Please verify your phone number before posting a listing.',
         [
-          { text: 'Verify Now', onPress: () => navigation.navigate('Profile', { screen: 'ProfileMain' }) },
+          { text: 'Verify Now', onPress: () => navigation.navigate('Profile', { screen: 'VerifyPhone' }) },
           { text: 'Cancel', style: 'cancel' },
         ]
       );

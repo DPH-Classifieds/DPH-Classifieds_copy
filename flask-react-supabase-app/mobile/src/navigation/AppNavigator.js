@@ -51,7 +51,6 @@ function AuthStack() {
       <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password' }} />
-      <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
     </Stack.Navigator>
   );
 }
@@ -109,6 +108,7 @@ function ProfileStack() {
       <Stack.Screen name="AdminListings" component={AdminListingsScreen} options={{ title: 'Listings' }} />
       <Stack.Screen name="AdminDealers" component={AdminDealersScreen} options={{ title: 'Dealers' }} />
       <Stack.Screen name="AdminReports" component={AdminReportsScreen} options={{ title: 'Reports' }} />
+      <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
     </Stack.Navigator>
   );
 }
