@@ -53,7 +53,7 @@ export default function ProfileScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await apiClient.delete('/api/user/delete-account');
+              await apiClient.post('/api/user/delete-account');
               await signOut();
               Alert.alert('Account Deleted', 'Your account has been deleted.');
             } catch (err) {
