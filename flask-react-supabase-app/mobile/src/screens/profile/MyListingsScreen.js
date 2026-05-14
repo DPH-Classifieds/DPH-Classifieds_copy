@@ -163,7 +163,7 @@ export default function MyListingsScreen({ navigation }) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => navigation.navigate('PostListing', { listingId: item.id, listingType: item.listing_type || 'cars', editMode: true })}
+          onPress={() => navigation.navigate('EditListing', { listingId: item.id, listingType: item.listing_type || 'cars', editMode: true })}
           activeOpacity={0.7}
         >
           <Ionicons name="create-outline" size={18} color={COLORS.accent} />

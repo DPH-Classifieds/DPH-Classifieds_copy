@@ -27,7 +27,7 @@ export default function ProfileScreen({ navigation }) {
         const data = await apiClient.get('/api/user/statistics');
         setStats(data);
       } catch (err) {
-        // Stats endpoint may not exist
+        setStats({ total_listings: 0, saved_count: 0, total_views: 0 });
       } finally {
         setLoading(false);
       }
@@ -74,19 +74,19 @@ export default function ProfileScreen({ navigation }) {
     {
       icon: 'heart-outline',
       label: 'Saved Listings',
-      onPress: () => navigation.navigate('Saved'),
+      onPress: () => navigation.navigate('Saved', { screen: 'SavedMain' }),
     },
     {
       icon: 'settings-outline',
       label: 'Account Settings',
       onPress: () => navigation.navigate('Settings'),
     },
-    {
+    ...(user?.is_admin ? [{
       icon: 'shield-checkmark-outline',
       label: 'Admin Panel',
       onPress: () => navigation.navigate('AdminDashboard'),
       accent: true,
-    },
+    }] : []),
     { divider: true },
     {
       icon: 'document-text-outline',
@@ -133,7 +133,9 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.userCard}>
           <Avatar uri={user?.profile_photo || user?.avatar_url} name={user?.first_name || user?.email} size={72} />
           <Text style={styles.userName}>
-            {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : user?.display_name || 'User'}
+            {user?.first_name
+              ? `${user.first_name} ${user.last_name || ''}`.trim()
+              : user?.display_name || user?.full_name || user?.email?.split('@')[0] || 'User'}
           </Text>
           {user?.username && <Text style={styles.userUsername}>@{user.username}</Text>}
           <View style={styles.badgesRow}>

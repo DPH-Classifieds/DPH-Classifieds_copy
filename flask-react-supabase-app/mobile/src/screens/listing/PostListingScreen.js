@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -103,6 +103,21 @@ const getCodeOptions = (city) => {
 const COUNTRY_CODES = PHONE_CODES;
 
 function PickerModal({ visible, onClose, title, options, onSelect, selectedValue }) {
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (!visible) setSearch('');
+  }, [visible]);
+
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase();
+    return options.filter((item) => {
+      const label = typeof item === 'object' ? item.name || item.label : item;
+      return String(label).toLowerCase().includes(q);
+    });
+  }, [options, search]);
+
   const renderItem = useCallback(({ item }) => {
     const label = typeof item === 'object' ? item.name || item.label : item;
     const value = typeof item === 'object' ? item.name || item.label : item;
@@ -127,8 +142,25 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
         <TouchableOpacity activeOpacity={1} style={pickerStyles.sheet}>
           <View style={pickerStyles.handle} />
           <Text style={pickerStyles.title}>{title}</Text>
+          <View style={pickerStyles.searchContainer}>
+            <Ionicons name="search" size={16} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+            <TextInput
+              style={pickerStyles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Type to search..."
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
           <FlatList
-            data={options}
+            data={filteredOptions}
             renderItem={renderItem}
             keyExtractor={(item, i) => {
               const label = typeof item === 'object' ? item.name || item.label : item;
@@ -137,6 +169,9 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
             ItemSeparatorComponent={() => <View style={pickerStyles.separator} />}
             contentContainerStyle={pickerStyles.listContent}
             keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <Text style={pickerStyles.emptyText}>No results found</Text>
+            }
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -199,6 +234,30 @@ const pickerStyles = StyleSheet.create({
   separator: {
     height: 0.5,
     backgroundColor: COLORS.borderLight,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    padding: 0,
+  },
+  emptyText: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.sm,
+    textAlign: 'center',
+    paddingVertical: SPACING.lg,
   },
 });
 
