@@ -35,7 +35,7 @@ export default function BikeDetailScreen({ route }) {
   const { toggleSaveListing, isSaved } = useSavedListings();
 
   const bikeId = bike?.id || listingId;
-  const saved = isSaved('bikes', bikeId);
+  const saved = isSaved('bike', bikeId);
 
   useEffect(() => {
     const fetchBike = async () => {

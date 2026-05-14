@@ -38,7 +38,7 @@ export default function PartDetailScreen({ route }) {
   const { toggleSaveListing, isSaved } = useSavedListings();
 
   const partId = part?.id || listingId;
-  const saved = isSaved('parts', partId);
+  const saved = isSaved('part', partId);
 
   useEffect(() => {
     const fetchPart = async () => {

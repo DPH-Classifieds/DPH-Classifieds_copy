@@ -57,7 +57,7 @@ export default function CarDetailScreen({ route, navigation }) {
   const { toggleSaveListing, isSaved } = useSavedListings();
 
   const carId = car?.id || car?.listing_id || listingId;
-  const saved = isSaved('cars', carId);
+  const saved = isSaved('car', carId);
 
   useEffect(() => {
     if (routeListing) return;

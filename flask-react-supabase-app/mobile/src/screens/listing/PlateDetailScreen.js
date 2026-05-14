@@ -47,7 +47,7 @@ export default function PlateDetailScreen({ route }) {
   const { toggleSaveListing, isSaved } = useSavedListings();
 
   const plateId = plate?.id || listingId;
-  const saved = isSaved('plates', plateId);
+  const saved = isSaved('plate', plateId);
 
   useEffect(() => {
     const fetchPlate = async () => {

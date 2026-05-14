@@ -38,7 +38,7 @@ const getItemPrice = (item) => item.expected_selling_price || item.price || 0;
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
 export default function SavedScreen({ navigation }) {
-  const { savedListings, loading, toggleSaveListing } = useSavedListings();
+  const { savedListings, loading, toggleSaveListing, savedCounts } = useSavedListings();
   const [activeTab, setActiveTab] = useState('Cars');
 
   const activeKey = TAB_KEYS[TABS.indexOf(activeTab)];
@@ -93,18 +93,22 @@ export default function SavedScreen({ navigation }) {
       </View>
 
       <View style={styles.tabBar}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {TABS.map((tab, index) => {
+          const key = TAB_KEYS[index];
+          const count = savedCounts[key] || 0;
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.activeTab]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                {tab}{count > 0 ? ` (${count})` : ''}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <FlatList
