@@ -2025,9 +2025,9 @@ const PostCar = () => {
 	          
 	          <div className="form-row">
 	            <div className="form-group full-width">
-	              <label htmlFor="registration_ocr_file">Scan Car Registration (OCR)</label>
+	              <label htmlFor="registration_ocr_file">Scan Car Registration (OCR) <span style={{ fontSize: '0.75em', color: '#f59e0b', fontWeight: 400 }}>(beta — still in testing)</span></label>
 	              <div className="form-text">
-	                Upload a clear photo of your car registration (Mulkiya). We’ll try to detect and verify the <strong>make</strong>, <strong>model</strong>, and <strong>year</strong>.
+	                Upload a clear photo of your car registration (Mulkiya). We'll try to detect and verify the <strong>make</strong>, <strong>model</strong>, and <strong>year</strong>.
 	              </div>
 	              <div
 	                className="upload-area"
