@@ -341,11 +341,15 @@ const CarList = () => {
 	          <h2>Filter Listings</h2>
 	          <button
 	            type="button"
-	            className="filters-toggle-mobile"
+	            className={`filters-toggle-mobile ${filtersOpenMobile ? 'is-open' : ''}`}
 	            aria-expanded={filtersOpenMobile}
 	            onClick={() => setFiltersOpenMobile((prev) => !prev)}
 	          >
-	            Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+	            <span className="filter-toggle-label">
+	              {filtersOpenMobile ? 'Hide Filters' : 'Show Filters'}
+	              {activeFilterCount ? ` (${activeFilterCount})` : ''}
+	            </span>
+	            <span className="filter-toggle-chevron" aria-hidden="true">{filtersOpenMobile ? '▲' : '▼'}</span>
 	          </button>
 	          <div className="sort-by">
 	            <label htmlFor="sortOption">Sort by:</label>
