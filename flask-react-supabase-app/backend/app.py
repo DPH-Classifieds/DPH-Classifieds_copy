@@ -7489,7 +7489,11 @@ def signup():
     requested_username = _normalize_username_value(cleaned_metadata.get("username"))
     if not requested_username:
         return jsonify(
-            {"message": "Username is required", "code": "username_required", "field": "username"}
+            {
+                "message": "Username is required",
+                "code": "username_required",
+                "field": "username",
+            }
         ), 400
 
     if _is_username_blocked(requested_username):
@@ -7504,7 +7508,8 @@ def signup():
     if not username_check.get("available", False):
         return jsonify(
             {
-                "message": username_check.get("message") or _username_conflict_message(),
+                "message": username_check.get("message")
+                or _username_conflict_message(),
                 "code": "username_taken",
                 "field": "username",
             }
@@ -8277,6 +8282,102 @@ def resend_confirmation():
         ), 500
 
 
+@app.route("/api/auth/update-email", methods=["POST"])
+def update_user_email():
+    """Update email before verification - for users who entered wrong email during signup"""
+    data = request.json
+    if not data:
+        return jsonify({"error": "Missing request body"}), 400
+
+    current_email = (data.get("current_email") or "").strip().lower()
+    new_email = (data.get("new_email") or "").strip().lower()
+    redirect_to = _get_safe_redirect_url(
+        request.headers.get("Origin"),
+        data.get("redirect_to"),
+        fallback_path="/auth/callback",
+    )
+
+    if not current_email or not new_email:
+        return jsonify({"error": "Both current_email and new_email are required"}), 400
+
+    if current_email == new_email:
+        return jsonify({"error": "New email is the same as the current email"}), 400
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        # Find the user in Supabase Auth by current email
+        list_url = f"{SUPABASE_URL}/auth/v1/admin/users"
+        list_resp = requests.get(list_url, headers=headers, timeout=10)
+
+        target_user = None
+        if list_resp.status_code == 200:
+            for u in list_resp.json().get("users", []):
+                if (u.get("email") or "").lower() == current_email:
+                    target_user = u
+                    break
+
+        if not target_user:
+            return jsonify({"error": "No account found with that email address"}), 404
+
+        user_id = target_user["id"]
+
+        # Update email in Supabase Auth
+        update_url = f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}"
+        update_payload = {"email": new_email}
+        update_resp = requests.put(
+            update_url, headers=headers, json=update_payload, timeout=10
+        )
+
+        if update_resp.status_code not in (200, 204):
+            error_msg = "Failed to update email in auth system"
+            try:
+                err = update_resp.json()
+                error_msg = err.get("msg") or err.get("message") or error_msg
+            except Exception:
+                pass
+            return jsonify({"error": error_msg}), 500
+
+        # Update email in local users table
+        db_headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        }
+        db_resp = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers=db_headers,
+            json={"email": new_email, "email_verified": False},
+            timeout=10,
+        )
+
+        # Resend confirmation to new email
+        resend_url = f"{SUPABASE_URL}/auth/v1/resend"
+        resend_payload = {
+            "type": "signup",
+            "email": new_email,
+            "redirect_to": redirect_to,
+        }
+        requests.post(
+            resend_url,
+            headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+            json=resend_payload,
+            timeout=10,
+        )
+
+        return jsonify(
+            {"message": "Email updated successfully. Confirmation sent to new address."}
+        ), 200
+
+    except Exception as e:
+        logger.error(f"Update email error: {str(e)}")
+        return jsonify({"error": "Failed to update email. Please try again."}), 500
+
+
 @app.route("/api/auth/update-password", methods=["POST"])
 def update_password():
     data = request.json
@@ -8844,7 +8945,9 @@ def create_bike(current_user):
             _validate_description_word_count(
                 bike_data.get("description"), field_name="description"
             )
-            _validate_no_profanity(bike_data.get("description"), field_name="description")
+            _validate_no_profanity(
+                bike_data.get("description"), field_name="description"
+            )
             _validate_no_profanity(bike_data.get("bike_brand"), field_name="bike_brand")
             _validate_no_profanity(bike_data.get("bike_model"), field_name="bike_model")
         except ValueError as validation_error:
@@ -9696,7 +9799,9 @@ def create_part(current_user):
             _validate_description_word_count(
                 part_data.get("description"), field_name="description"
             )
-            _validate_no_profanity(part_data.get("description"), field_name="description")
+            _validate_no_profanity(
+                part_data.get("description"), field_name="description"
+            )
             _validate_no_profanity(part_data.get("name"), field_name="name")
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400

@@ -6,11 +6,14 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const CheckEmail = () => {
   const location = useLocation();
-  const email = location.state?.email;
+  const [email, setEmail] = useState(location.state?.email || '');
   const redirectTarget = location.state?.redirect;
-  const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
+  const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/';
   const [resendStatus, setResendStatus] = useState(null);
   const [resending, setResending] = useState(false);
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [updatingEmail, setUpdatingEmail] = useState(false);
 
   const handleResend = async () => {
     if (!email) {
@@ -55,6 +58,57 @@ const CheckEmail = () => {
       });
     } finally {
       setResending(false);
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!newEmail.trim()) {
+      setResendStatus({ type: 'error', message: 'Please enter a new email address.' });
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(newEmail)) {
+      setResendStatus({ type: 'error', message: 'Please enter a valid email address.' });
+      return;
+    }
+
+    setUpdatingEmail(true);
+    setResendStatus(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/update-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          current_email: email,
+          new_email: newEmail.trim(),
+          redirect_to: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(safeRedirect)}`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmail(newEmail.trim());
+        setNewEmail('');
+        setShowChangeEmail(false);
+        setResendStatus({
+          type: 'success',
+          message: 'Email updated! A new confirmation has been sent to your updated address.',
+        });
+      } else {
+        setResendStatus({
+          type: 'error',
+          message: data?.error || data?.message || 'Failed to update email. Please try again.',
+        });
+      }
+    } catch (err) {
+      setResendStatus({
+        type: 'error',
+        message: 'Failed to update email. Please try again.',
+      });
+    } finally {
+      setUpdatingEmail(false);
     }
   };
 
@@ -108,10 +162,41 @@ const CheckEmail = () => {
           >
             {resending ? 'Resending...' : 'Resend confirmation email'}
           </button>
+          <button
+            type="button"
+            className="auth-button auth-button-secondary"
+            onClick={() => setShowChangeEmail(!showChangeEmail)}
+          >
+            Wrong email? Change it
+          </button>
           <Link to={`/login?redirect=${encodeURIComponent(safeRedirect)}`} className="auth-inline-action">
             Back to login
           </Link>
         </div>
+
+        {showChangeEmail && (
+          <div className="check-email-change-form">
+            <p>Enter your correct email address below. We'll send a new confirmation there.</p>
+            <div className="check-email-change-row">
+              <input
+                type="email"
+                placeholder="New email address"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                disabled={updatingEmail}
+                className="auth-input"
+              />
+              <button
+                type="button"
+                className="auth-button"
+                onClick={handleUpdateEmail}
+                disabled={updatingEmail || !newEmail.trim()}
+              >
+                {updatingEmail ? 'Updating...' : 'Update & Resend'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

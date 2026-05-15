@@ -91,7 +91,8 @@ const AdminUsers = () => {
       u.first_name?.toLowerCase().includes(searchLower) ||
       u.last_name?.toLowerCase().includes(searchLower) ||
       u.username?.toLowerCase().includes(searchLower) ||
-      u.display_name?.toLowerCase().includes(searchLower)
+      u.display_name?.toLowerCase().includes(searchLower) ||
+      u.phone?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -175,7 +176,7 @@ const AdminUsers = () => {
         <div className="search-section" style={{ marginTop: '16px' }}>
         <input
           type="text"
-          placeholder="Search users by name, email, or username..."
+          placeholder="Search users by name, email, phone, or username..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
@@ -204,6 +205,7 @@ const AdminUsers = () => {
                 <div className="user-info">
                   <h3>{getDisplayName(u)}</h3>
                   <p>{u.email}</p>
+                  {u.phone && <p className="user-phone">{u.phone}</p>}
                   <p className="user-joined">Joined: {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </div>
@@ -212,6 +214,12 @@ const AdminUsers = () => {
                 <span className={`status-badge status-${u.account_status || 'active'}`}>
                   {u.account_status || 'active'}
                 </span>
+                {u.email_verified && (
+                  <span className="status-badge status-verified">Email Verified</span>
+                )}
+                {u.phone_verified && (
+                  <span className="status-badge status-verified">Phone Verified</span>
+                )}
                 {u.is_admin && (
                   <span className="status-badge status-admin">Admin</span>
                 )}
