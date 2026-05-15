@@ -625,7 +625,59 @@ def list_pending_items(item_type):
 
         img_table, img_fk = image_tables.get(item_type, (None, None))
 
+        # Batch-fetch lead metrics for all listings
+        listing_type_singular = item_type.rstrip("s")
+        listing_ids = [str(l["id"]) for l in listings if l.get("id")]
+        lead_metrics_map = {}
+        if listing_ids:
+            try:
+                # Supabase supports `in` filter for up to ~100 values at a time
+                for chunk_start in range(0, len(listing_ids), 50):
+                    chunk = listing_ids[chunk_start : chunk_start + 50]
+                    ids_filter = ",".join(chunk)
+                    lead_resp = requests.get(
+                        f"{SUPABASE_URL}/rest/v1/lead_events",
+                        headers=headers,
+                        params={
+                            "select": "listing_id,action",
+                            "listing_id": f"in.({ids_filter})",
+                            "listing_type": f"eq.{listing_type_singular}",
+                        },
+                        timeout=10,
+                    )
+                    if lead_resp.status_code == 200:
+                        for event in lead_resp.json() or []:
+                            lid = event.get("listing_id")
+                            action = event.get("action", "unknown")
+                            if lid not in lead_metrics_map:
+                                lead_metrics_map[lid] = {
+                                    "call_click": 0,
+                                    "whatsapp_click": 0,
+                                    "vin_open": 0,
+                                    "vin_reveal": 0,
+                                    "qualified_leads": 0,
+                                }
+                            if action in lead_metrics_map[lid]:
+                                lead_metrics_map[lid][action] += 1
+            except Exception as lead_err:
+                logger.warning(f"Failed to batch-fetch lead metrics: {lead_err}")
+
         for listing in listings:
+            lid = listing.get("id")
+            listing["lead_metrics"] = lead_metrics_map.get(
+                lid,
+                {
+                    "call_click": 0,
+                    "whatsapp_click": 0,
+                    "vin_open": 0,
+                    "vin_reveal": 0,
+                    "qualified_leads": 0,
+                },
+            )
+            # Compute qualified_leads as sum of calls + whatsapp
+            lm = listing["lead_metrics"]
+            lm["qualified_leads"] = lm["call_click"] + lm["whatsapp_click"]
+
             user_id = listing.get("user_id")
             if user_id:
                 user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,username,phone"
