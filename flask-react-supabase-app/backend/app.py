@@ -4355,6 +4355,7 @@ def create_car(current_user):
             "last_extended_at",
             "extension_count",
             "is_archived",
+            "registration_document_url",
         }
         car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
 
@@ -5019,7 +5020,12 @@ def create_storage_signed_upload_url(current_user):
         object_path = str(payload.get("object_path") or "").strip().lstrip("/")
         upsert = bool(payload.get("upsert"))
 
-        if bucket_name not in {"listing-images", "profile-photos", "dealer-documents"}:
+        if bucket_name not in {
+            "listing-images",
+            "profile-photos",
+            "dealer-documents",
+            "registration-documents",
+        }:
             return jsonify({"error": "Unsupported bucket"}), 400
 
         if not object_path:
@@ -5186,6 +5192,14 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                     "file_size_limit": DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES,
                     "allowed_mime_types": DEALER_DOCUMENT_ALLOWED_MIME_TYPES,
                 }
+            elif bucket_name == "registration-documents":
+                desired_config = {
+                    "id": bucket_name,
+                    "name": bucket_name,
+                    "public": False,
+                    "file_size_limit": PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES,
+                    "allowed_mime_types": LISTING_IMAGE_ALLOWED_MIME_TYPES,
+                }
 
             if desired_config and (
                 bucket_data.get("public") != desired_config["public"]
@@ -5226,6 +5240,10 @@ def ensure_storage_bucket(bucket_name="listing-images"):
             elif bucket_name == "dealer-documents":
                 create_data["file_size_limit"] = DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES
                 create_data["allowed_mime_types"] = DEALER_DOCUMENT_ALLOWED_MIME_TYPES
+            elif bucket_name == "registration-documents":
+                create_data["public"] = False
+                create_data["file_size_limit"] = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES
+                create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
             create_response = requests.post(
                 create_url,
                 headers={**headers, "Content-Type": "application/json"},

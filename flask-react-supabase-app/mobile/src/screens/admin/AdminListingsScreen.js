@@ -18,8 +18,23 @@ import EmptyState from '../../components/ui/EmptyState';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
 const TYPE_TABS = ['Cars', 'Bikes', 'Plates', 'Parts'];
-const STATUS_TABS = ['Pending', 'Active', 'All'];
+const STATUS_TABS = ['Pending', 'Active', 'Approved', 'Rejected', 'Deleted'];
 const TYPE_KEYS = ['cars', 'bikes', 'plates', 'parts'];
+
+const typeKeyMap = {
+  Cars: 'cars',
+  Bikes: 'bikes',
+  Plates: 'plates',
+  Parts: 'parts',
+};
+
+const statusKeyMap = {
+  Pending: 'pending',
+  Active: 'active',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  Deleted: 'deleted',
+};
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
@@ -28,35 +43,54 @@ const getImageUri = (item) => {
   return item.image_url || null;
 };
 
-const getTitle = (item, typeKey) => {
-  if (typeKey === 'cars') return `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Untitled Car';
-  if (typeKey === 'bikes') return `${item.bike_manufacturer || ''} ${item.bike_model || ''}`.trim() || 'Untitled Bike';
-  if (typeKey === 'plates') return item.plate_number || 'Untitled Plate';
-  if (typeKey === 'parts') return item.part_name || 'Untitled Part';
-  return item.title || 'Untitled';
+const getTitle = (item) => {
+  if (item.car_manufacturer) return `${item.car_manufacturer} ${item.car_model || ''}`.trim() || 'Car';
+  if (item.bike_brand) return `${item.bike_brand} ${item.bike_model || ''}`.trim() || 'Bike';
+  if (item.city) return [item.city, item.code, item.digits || item.number].filter(Boolean).join(' ') || 'Plate';
+  return item.part_type || item.part_name || 'Part';
 };
 
 export default function AdminListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);
-  const [activeType, setActiveType] = useState('Cars');
-  const [activeStatus, setActiveStatus] = useState('Pending');
+  const [selectedTypes, setSelectedTypes] = useState(['Cars']);
+  const [selectedStatuses, setSelectedStatuses] = useState(['Pending']);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [kpi, setKpi] = useState({ total: 0, pending: 0, active: 0 });
 
   useEffect(() => {
     fetchListings();
-  }, [activeType, activeStatus]);
+  }, [selectedTypes, selectedStatuses]);
 
   const fetchListings = async () => {
     try {
       setLoading(true);
-      const typeKey = TYPE_KEYS[TYPE_TABS.indexOf(activeType)];
-      const status = activeStatus.toLowerCase();
-      const params = status === 'all' ? '' : `?status=${status}`;
-      const data = await apiClient.get(`/api/admin/${typeKey}${params}`);
-      setListings(Array.isArray(data) ? data : data?.listings || []);
+      const types = selectedTypes.map((t) => typeKeyMap[t]).join(',');
+      const statuses = selectedStatuses.map((s) => statusKeyMap[s]).join(',');
+      const params = [];
+      if (types) params.push(`types=${types}`);
+      if (statuses) params.push(`statuses=${statuses}`);
+      const query = params.length ? `?${params.join('&')}` : '';
+      const data = await apiClient.get(`/api/admin/listings-search${query}`);
+      const list = Array.isArray(data) ? data : data?.listings || [];
+      setListings(list);
+
+      if (data && data.metadata) {
+        setKpi({
+          total: data.metadata.total ?? list.length,
+          pending: data.metadata.pending ?? 0,
+          active: data.metadata.active ?? 0,
+        });
+      } else {
+        setKpi({
+          total: list.length,
+          pending: list.filter((l) => l.status === 'pending').length,
+          active: list.filter((l) => l.status === 'active').length,
+        });
+      }
     } catch (err) {
       setListings([]);
+      setKpi({ total: 0, pending: 0, active: 0 });
     } finally {
       setLoading(false);
     }
@@ -66,12 +100,32 @@ export default function AdminListingsScreen({ navigation }) {
     setRefreshing(true);
     await fetchListings();
     setRefreshing(false);
-  }, [activeType, activeStatus]);
+  }, [selectedTypes, selectedStatuses]);
+
+  const toggleType = (tab) => {
+    setSelectedTypes((prev) => {
+      if (prev.includes(tab)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((t) => t !== tab);
+      }
+      return [...prev, tab];
+    });
+  };
+
+  const toggleStatus = (tab) => {
+    setSelectedStatuses((prev) => {
+      if (prev.includes(tab)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((s) => s !== tab);
+      }
+      return [...prev, tab];
+    });
+  };
 
   const handleApprove = async (item) => {
     try {
-      const typeKey = TYPE_KEYS[TYPE_TABS.indexOf(activeType)];
-      await apiClient.post(`/api/${typeKey}/${item.id}/approve`);
+      const typeKey = item.listing_type || 'cars';
+      await apiClient.post(`/${typeKey}/${item.id}/approve`);
       setListings((prev) => prev.filter((l) => l.id !== item.id));
     } catch (err) {
       Alert.alert('Error', 'Failed to approve listing.');
@@ -79,15 +133,15 @@ export default function AdminListingsScreen({ navigation }) {
   };
 
   const handleReject = async (item) => {
-    Alert.alert('Reject Listing', `Reject this listing?`, [
+    Alert.alert('Reject Listing', 'Reject this listing?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Reject',
         style: 'destructive',
         onPress: async () => {
           try {
-            const typeKey = TYPE_KEYS[TYPE_TABS.indexOf(activeType)];
-            await apiClient.post(`/api/${typeKey}/${item.id}/reject`);
+            const typeKey = item.listing_type || 'cars';
+            await apiClient.post(`/${typeKey}/${item.id}/reject`);
             setListings((prev) => prev.filter((l) => l.id !== item.id));
           } catch (err) {
             Alert.alert('Error', 'Failed to reject listing.');
@@ -108,13 +162,12 @@ export default function AdminListingsScreen({ navigation }) {
   };
 
   const renderListing = ({ item }) => {
-    const typeKey = TYPE_KEYS[TYPE_TABS.indexOf(activeType)];
     const imageUri = getImageUri(item);
-    const title = getTitle(item, typeKey);
+    const title = getTitle(item);
 
     return (
       <TouchableOpacity
-        onPress={() => navigation.navigate('AdminListingDetail', { itemType: typeKey, itemId: item.id })}
+        onPress={() => navigation.navigate('AdminListingDetail', { itemType: item.listing_type || 'cars', itemId: item.id })}
         activeOpacity={0.8}
       >
       <View style={styles.card}>
@@ -143,7 +196,7 @@ export default function AdminListingsScreen({ navigation }) {
           </View>
         </View>
 
-        {activeStatus === 'Pending' && (
+        {item.status === 'pending' && (
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.actionBtn, styles.approveBtn]}
@@ -171,34 +224,71 @@ export default function AdminListingsScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.typeTabBar}>
-        {TYPE_TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.typeTab, activeType === tab && styles.activeTypeTab]}
-            onPress={() => setActiveType(tab)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.typeTabText, activeType === tab && styles.activeTypeTabText]}>
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {TYPE_TABS.map((tab) => {
+          const active = selectedTypes.includes(tab);
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.typeTab, active && styles.activeTypeTab]}
+              onPress={() => toggleType(tab)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
+                size={14}
+                color={active ? COLORS.white : COLORS.textSecondary}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.typeTabText, active && styles.activeTypeTabText]}>
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.statusTabBar}>
-        {STATUS_TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.statusTab, activeStatus === tab && styles.activeStatusTab]}
-            onPress={() => setActiveStatus(tab)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.statusTabText, activeStatus === tab && styles.activeStatusTabText]}>
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {STATUS_TABS.map((tab) => {
+          const active = selectedStatuses.includes(tab);
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.statusTab, active && styles.activeStatusTab]}
+              onPress={() => toggleStatus(tab)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
+                size={14}
+                color={active ? COLORS.white : COLORS.textSecondary}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.statusTabText, active && styles.activeStatusTabText]}>
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
+
+      {!loading && (
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiItem}>
+            <Text style={styles.kpiValue}>{kpi.total}</Text>
+            <Text style={styles.kpiLabel}>Total</Text>
+          </View>
+          <View style={styles.kpiDivider} />
+          <View style={styles.kpiItem}>
+            <Text style={[styles.kpiValue, { color: COLORS.warning }]}>{kpi.pending}</Text>
+            <Text style={styles.kpiLabel}>Pending</Text>
+          </View>
+          <View style={styles.kpiDivider} />
+          <View style={styles.kpiItem}>
+            <Text style={[styles.kpiValue, { color: COLORS.success }]}>{kpi.active}</Text>
+            <Text style={styles.kpiLabel}>Active</Text>
+          </View>
+        </View>
+      )}
 
       {loading && listings.length === 0 ? (
         <LoadingSpinner message="Loading listings..." />
@@ -215,8 +305,8 @@ export default function AdminListingsScreen({ navigation }) {
           ListEmptyComponent={
             <EmptyState
               icon="list-outline"
-              title={`No ${activeStatus.toLowerCase()} ${activeType.toLowerCase()}`}
-              message="No listings found."
+              title="No listings found"
+              message="Try adjusting your filters."
             />
           }
         />
@@ -248,13 +338,15 @@ const styles = StyleSheet.create({
   },
   typeTab: {
     flex: 1,
+    flexDirection: 'row',
     paddingVertical: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: BORDER_RADIUS.pill,
     backgroundColor: COLORS.surface,
   },
   activeTypeTab: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.accent,
   },
   typeTabText: {
     fontSize: FONT_SIZES.xs,
@@ -262,20 +354,22 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   activeTypeTabText: {
-    color: COLORS.accent,
+    color: COLORS.white,
   },
   statusTabBar: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    gap: 8,
+    gap: 6,
   },
   statusTab: {
     flex: 1,
+    flexDirection: 'row',
     paddingVertical: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surfaceHigher,
+    backgroundColor: COLORS.surface,
   },
   activeStatusTab: {
     backgroundColor: COLORS.accent,
@@ -287,6 +381,35 @@ const styles = StyleSheet.create({
   },
   activeStatusTabText: {
     color: COLORS.white,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kpiItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  kpiValue: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  kpiLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  kpiDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: COLORS.borderLight,
   },
   listContent: {
     padding: SPACING.md,

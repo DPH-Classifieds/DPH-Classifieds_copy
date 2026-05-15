@@ -30,7 +30,7 @@ import ImageFramingModal from './ImageFramingModal';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -91,6 +91,9 @@ const PostCar = () => {
   const [registrationOcrError, setRegistrationOcrError] = useState(null);
   const [registrationOcrTruth, setRegistrationOcrTruth] = useState(null);
   const [registrationOcrDebugInfo, setRegistrationOcrDebugInfo] = useState(null);
+  const [registrationDocumentUrl, setRegistrationDocumentUrl] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [uploadingRegistrationDoc, setUploadingRegistrationDoc] = useState(false);
   const [useUsernameAsSellerName, setUseUsernameAsSellerName] = useState(false);
   const locationSearchTimeoutRef = useRef(null);
   const locationSearchAbortRef = useRef(null);
@@ -526,6 +529,20 @@ const PostCar = () => {
     resetRegistrationOcrState();
     setRegistrationOcrStatus('Preparing…');
 
+    // Upload the registration document to storage in parallel with OCR
+    if (registrationOcrFile && user?.id) {
+      setUploadingRegistrationDoc(true);
+      uploadRegistrationDocument(registrationOcrFile, { userId: user.id })
+        .then((url) => {
+          setRegistrationDocumentUrl(url);
+          setUploadingRegistrationDoc(false);
+        })
+        .catch((err) => {
+          console.warn('Failed to upload registration document:', err);
+          setUploadingRegistrationDoc(false);
+        });
+    }
+
     try {
       const prepared = await prepareRegistrationOcrInput(registrationOcrFile);
       const attempts = prepared?.attempts || [];
@@ -607,6 +624,7 @@ const PostCar = () => {
       setRegistrationOcrStatus(null);
       setRegistrationOcrError('OCR failed. Please try a clearer photo (good lighting, minimal glare).');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parseRegistrationOcr, prepareRegistrationOcrInput, registrationOcrFile, resetRegistrationOcrState]);
 
   const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
@@ -1799,7 +1817,6 @@ const PostCar = () => {
       // Prepare submission data
       const submissionData = {
         ...formData,
-        // "Seller tags" are selectable in the UI for now, but should not persist or display anywhere.
         extras: Array.isArray(formData.extras)
           ? formData.extras.filter((extra) => !TAG_OPTIONS.includes(extra))
           : [],
@@ -1810,7 +1827,8 @@ const PostCar = () => {
         longitude: marker[1],
         whatsapp_number: formData.whatsapp_number
           ? `${formData.whatsapp_country_code}${formData.whatsapp_number}`
-          : ''
+          : '',
+        registration_document_url: registrationDocumentUrl || null,
       };
 
       if (isEdit) {

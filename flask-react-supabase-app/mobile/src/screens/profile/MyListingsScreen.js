@@ -17,8 +17,9 @@ import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useSavedListings } from '../../context/SavedListingsContext';
 
-const TABS = ['Active', 'Expired', 'Sold'];
+const TABS = ['Active', 'Drafts', 'Saved', 'Expired', 'Sold'];
 
 const getListingImage = (item) => {
   if (item.images && item.images.length > 0) {
@@ -45,18 +46,26 @@ export default function MyListingsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const { savedListings } = useSavedListings();
+
   useEffect(() => {
     fetchListings();
   }, [activeTab]);
 
   const fetchListings = async () => {
+    if (activeTab === 'Saved') {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const data = await apiClient.get(`/api/user/listings?status=${activeTab.toLowerCase()}`);
+      const statusMap = { Active: 'active', Drafts: 'draft', Expired: 'expired', Sold: 'sold' };
+      const status = statusMap[activeTab] || activeTab.toLowerCase();
+      const data = await apiClient.get(`/api/user/listings?status=${status}`);
       setListings(Array.isArray(data) ? data : data?.listings || []);
-      } catch (err) {
-        // Failed to fetch
-      } finally {
+    } catch (err) {
+      // Failed to fetch
+    } finally {
       setLoading(false);
     }
   };
@@ -130,8 +139,18 @@ export default function MyListingsScreen({ navigation }) {
     }
   };
 
+  const displayListings = activeTab === 'Saved'
+    ? [
+        ...(savedListings?.cars || []).map(l => ({ ...l, listing_type: 'cars' })),
+        ...(savedListings?.bikes || []).map(l => ({ ...l, listing_type: 'bikes' })),
+        ...(savedListings?.plates || []).map(l => ({ ...l, listing_type: 'plates' })),
+        ...(savedListings?.parts || []).map(l => ({ ...l, listing_type: 'parts' })),
+      ]
+    : listings;
+
   const renderListing = ({ item }) => {
     const type = item.listing_type || 'cars';
+    const isSaved = activeTab === 'Saved';
     return (
     <View style={styles.card}>
       <TouchableOpacity
@@ -160,6 +179,7 @@ export default function MyListingsScreen({ navigation }) {
         </View>
       </TouchableOpacity>
 
+      {!isSaved && (
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.actionBtn}
@@ -192,6 +212,7 @@ export default function MyListingsScreen({ navigation }) {
           <Ionicons name="trash-outline" size={18} color={COLORS.error} />
         </TouchableOpacity>
       </View>
+      )}
     </View>
     );
   };
@@ -217,7 +238,7 @@ export default function MyListingsScreen({ navigation }) {
         <LoadingSpinner message="Loading listings..." />
       ) : (
         <FlatList
-          data={listings}
+          data={displayListings}
           renderItem={renderListing}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
@@ -247,7 +268,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    gap: 8,
+    gap: 6,
   },
   tab: {
     flex: 1,
@@ -260,7 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   tabText: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.xs,
     fontWeight: '600',
     color: COLORS.textSecondary,
   },

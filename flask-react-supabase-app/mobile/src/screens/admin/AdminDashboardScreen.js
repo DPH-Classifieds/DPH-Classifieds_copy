@@ -23,6 +23,16 @@ const QUICK_ACTIONS = [
   { label: 'View Metrics', icon: 'stats-chart-outline', route: 'AdminMetrics' },
 ];
 
+const TIME_RANGE_OPTIONS = [
+  { label: '24h', days: 1 },
+  { label: '7d', days: 7 },
+  { label: '30d', days: 30 },
+  { label: '90d', days: 90 },
+  { label: 'All', days: null },
+];
+
+const LAUNCH_DATE = new Date('2026-05-09');
+
 const clamp = (value) => {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? n : 0;
@@ -38,6 +48,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [days, setDays] = useState(30);
 
   if (!user?.is_admin && !user?.is_super_admin) {
     return (
@@ -49,7 +60,30 @@ export default function AdminDashboardScreen({ navigation }) {
     );
   }
 
-  useEffect(() => { loadDashboard(); }, []);
+  const loadDashboard = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const statsQuery = days ? `/api/admin/stats?days=${days}` : '/api/admin/stats';
+      const leadQuery = days ? `/api/admin/lead-metrics?days=${days}` : '/api/admin/lead-metrics';
+      const [statsRes, leadRes, dealersRes, reportsRes] = await Promise.all([
+        apiClient.get(statsQuery).catch(() => ({})),
+        apiClient.get(leadQuery).catch(() => null),
+        apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
+        apiClient.get('/api/admin/reports').catch(() => []),
+      ]);
+      setStats(statsRes || {});
+      setLeadMetrics(leadRes || null);
+      setDealers(Array.isArray(dealersRes) ? dealersRes : []);
+      setReports(Array.isArray(reportsRes) ? reportsRes : []);
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, [days]);
+
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,32 +98,18 @@ export default function AdminDashboardScreen({ navigation }) {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const [statsRes, leadRes, dealersRes, reportsRes] = await Promise.all([
-        apiClient.get('/api/admin/stats').catch(() => ({})),
-        apiClient.get('/api/admin/lead-metrics?days=30').catch(() => null),
-        apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
-        apiClient.get('/api/admin/reports').catch(() => []),
-      ]);
-      setStats(statsRes || {});
-      setLeadMetrics(leadRes || null);
-      setDealers(Array.isArray(dealersRes) ? dealersRes : []);
-      setReports(Array.isArray(reportsRes) ? reportsRes : []);
-    } catch (err) {
-      setError(err.message || 'Failed to load dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadDashboard();
     setRefreshing(false);
-  }, []);
+  }, [loadDashboard]);
+
+  const daysSinceLaunch = Math.floor((Date.now() - LAUNCH_DATE.getTime()) / 86400000);
+
+  const selectedRangeLabel = useMemo(() => {
+    const option = TIME_RANGE_OPTIONS.find((o) => o.days === days);
+    return option ? option.label : `${days}d`;
+  }, [days]);
 
   const totals = leadMetrics?.totals || {};
   const recentEvents = leadMetrics?.recent_events || [];
@@ -181,7 +201,26 @@ export default function AdminDashboardScreen({ navigation }) {
           <Text style={styles.title}>Operator Console</Text>
         </View>
 
+        <View style={styles.timeRangeRow}>
+          {TIME_RANGE_OPTIONS.map((option) => {
+            const isActive = days === option.days;
+            return (
+              <TouchableOpacity
+                key={option.label}
+                style={[styles.timeRangePill, isActive && styles.timeRangePillActive]}
+                onPress={() => setDays(option.days)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.timeRangeText, isActive && styles.timeRangeTextActive]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <View style={styles.kpiGrid}>
+          <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" />
           <KpiCard icon="people" label="Total Users" value={formatNumber(totalUsers)} color={COLORS.accent} />
           <KpiCard icon="car" label="Total Cars" value={formatNumber(clamp(stats.cars_total))} color={COLORS.accent} />
           <KpiCard icon="bicycle" label="Total Bikes" value={formatNumber(clamp(stats.bikes_total))} color={COLORS.accent} />
@@ -198,7 +237,7 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Lead Mix (30 days)</Text>
+          <Text style={styles.sectionTitle}>Lead Mix ({selectedRangeLabel})</Text>
           <View style={styles.surface}>
             {leadMix.map((item) => (
               <View key={item.label} style={styles.barRow}>
@@ -323,6 +362,11 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 40 },
   header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: COLORS.white },
+  timeRangeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
+  timeRangePill: { flex: 1, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: COLORS.surface },
+  timeRangePillActive: { backgroundColor: COLORS.accent },
+  timeRangeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.textSecondary },
+  timeRangeTextActive: { color: COLORS.white },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
   kpiCard: { width: '48%', backgroundColor: '#272729', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
   kpiIcon: { marginBottom: SPACING.sm },

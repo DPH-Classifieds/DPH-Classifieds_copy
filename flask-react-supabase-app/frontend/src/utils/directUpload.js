@@ -366,3 +366,20 @@ export const uploadProfilePhotoDirect = async (file, { userId } = {}) => {
 
   return upload.public_url;
 };
+
+export const uploadRegistrationDocument = async (file, { userId } = {}) => {
+  const objectPath = buildStorageObjectPath({
+    userId,
+    fileName: file.name,
+    extension: getFileExtension(file.name, 'jpg'),
+  });
+
+  const upload = await uploadSignedAsset({
+    bucketName: 'registration-documents',
+    fileBody: file,
+    objectPath,
+    contentType: file.type || 'application/octet-stream',
+  });
+
+  return upload.public_url;
+};

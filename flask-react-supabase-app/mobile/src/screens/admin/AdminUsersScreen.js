@@ -180,9 +180,24 @@ export default function AdminUsersScreen({ navigation }) {
                 <Text style={styles.badgeText}>Dealer</Text>
               </View>
             )}
+            {item.email_verified && (
+              <View style={[styles.badge, styles.verifiedBadge]}>
+                <Ionicons name="mail-open" size={10} color="#fff" />
+                <Text style={styles.badgeText}>Email</Text>
+              </View>
+            )}
+            {item.phone_verified && (
+              <View style={[styles.badge, styles.phoneVerifiedBadge]}>
+                <Ionicons name="call" size={10} color="#fff" />
+                <Text style={styles.badgeText}>Phone</Text>
+              </View>
+            )}
           </View>
         </View>
         <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
+        {item.phone && (
+          <Text style={styles.userPhone} numberOfLines={1}>{item.phone}</Text>
+        )}
         <View style={styles.metaRow}>
           <Text style={styles.userMeta}>
             Joined {formatDate(item.created_at)}
@@ -303,12 +318,29 @@ const styles = StyleSheet.create({
   bannedBadge: {
     backgroundColor: COLORS.error,
   },
+  verifiedBadge: {
+    backgroundColor: COLORS.success || '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  phoneVerifiedBadge: {
+    backgroundColor: COLORS.info || '#2196F3',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
   badgeText: {
     fontSize: FONT_SIZES.xs,
     fontWeight: '600',
     color: COLORS.white,
   },
   userEmail: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  userPhone: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginBottom: 2,

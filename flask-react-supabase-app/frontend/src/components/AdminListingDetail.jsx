@@ -499,6 +499,49 @@ const AdminListingDetail = () => {
           </div>
         </div>
 
+        {listing.registration_document_url && (
+          <div className="admin-surface">
+            <div className="admin-label">Registration Document (Mulkiya)</div>
+            <h3>Uploaded for VIN and ownership verification</h3>
+            <p className="admin-muted" style={{ marginBottom: '12px' }}>
+              Compare the VIN on the Mulkiya with the listing VIN: <strong>{listing.vin_number || listing.vin || 'N/A'}</strong>
+            </p>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <a
+                href={listing.registration_document_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ flexShrink: 0 }}
+              >
+                <img
+                  src={listing.registration_document_url}
+                  alt="Car Registration (Mulkiya)"
+                  style={{
+                    maxWidth: '400px',
+                    width: '100%',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(148, 218, 153, 0.2)',
+                    cursor: 'zoom-in',
+                  }}
+                  onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                />
+              </a>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <p className="admin-muted"><strong>Verification checklist:</strong></p>
+                <ul style={{ margin: '8px 0', paddingLeft: '20px', color: 'rgba(255,255,255,0.6)', fontSize: '13px', lineHeight: '1.8' }}>
+                  <li>VIN on Mulkiya matches listing VIN</li>
+                  <li>Car make and model match</li>
+                  <li>Registration is current (not expired)</li>
+                  <li>Owner name matches (if visible)</li>
+                </ul>
+                <p className="admin-muted" style={{ marginTop: '12px', fontSize: '12px', color: '#f59e0b' }}>
+                  This image will be automatically deleted after the listing is approved.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="admin-surface">
           <div className="admin-label">Moderation</div>
           <h3>Approve, reject, or remove</h3>
