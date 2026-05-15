@@ -15,12 +15,26 @@ const ADMIN_DELETE_REASONS = [
   'Price manipulation',
 ];
 
+const ALL_TYPES = ['cars', 'bikes', 'parts', 'plates'];
+const ALL_STATUSES = ['pending', 'approved', 'rejected'];
+const STATUS_OPTIONS = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'deleted', label: 'Deleted' },
+];
+
+const parseParamList = (val, allowed) => {
+  if (!val) return [];
+  return val.split(',').map(s => s.trim()).filter(s => allowed.includes(s));
+};
+
 const AdminListings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const filter = searchParams.get('filter') || 'cars';
-  const statusFilter = searchParams.get('status') || 'pending';
+  const selectedTypes = parseParamList(searchParams.get('types'), ALL_TYPES);
+  const selectedStatuses = parseParamList(searchParams.get('statuses'), ALL_STATUSES);
+  const hasDeleted = searchParams.get('statuses')?.includes('deleted');
   const [listings, setListings] = useState([]);
-  const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -51,48 +65,69 @@ const AdminListings = () => {
     try {
       setLoading(true);
 
-      if (statusFilter === 'deleted') {
-        const params = new URLSearchParams({ limit: '100' });
-        if (filter === 'cars') params.set('type', 'car');
-        else if (filter === 'bikes') params.set('type', 'bike');
-        else if (filter === 'parts') params.set('type', 'part');
-        else if (filter === 'plates') params.set('type', 'plate');
+      const typesToFetch = selectedTypes.length > 0 ? selectedTypes : ['cars'];
+      const statusesToFetch = hasDeleted
+        ? (selectedStatuses.length > 0 ? selectedStatuses : ['pending'])
+        : (selectedStatuses.length > 0 ? selectedStatuses : ['pending']);
 
-        const response = await apiClient.get(`/api/admin/deleted-listings?${params}`);
-        const events = Array.isArray(response?.events) ? response.events
-          : Array.isArray(response) ? response : [];
+      const promises = [];
 
-        const mappedListings = events.map((evt) => ({
-          id: evt.listing_id,
-          listing_type: evt.listing_type,
-          title: `${evt.listing_type} ${evt.listing_id ? evt.listing_id.slice(0, 8) : ''}`,
-          status: 'deleted',
-          deleted_reason: evt.reason,
-          deleted_by_role: evt.deleted_by_role,
-          deleted_at: evt.created_at,
-          created_at: evt.created_at,
-          user_email: evt.deleted_by || 'N/A',
-        }));
-
-        setListings(mappedListings);
-        setStats({});
-        return;
+      // Always fetch from unified endpoint for non-deleted statuses
+      const nonDeletedStatuses = statusesToFetch.filter(s => s !== 'deleted');
+      if (nonDeletedStatuses.length > 0) {
+        promises.push(
+          apiClient.get(`/api/admin/listings?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`).catch(() => [])
+        );
+      } else {
+        promises.push(Promise.resolve([]));
       }
 
-      const [response, statsResponse] = await Promise.all([
-        apiClient.get(`/api/admin/approve/${filter}?status=${statusFilter}`),
-        apiClient.get('/api/admin/stats').catch(() => ({})),
-      ]);
-      setListings(Array.isArray(response) ? response : []);
-      setStats(statsResponse || {});
+      // Fetch deleted listings separately if selected
+      if (hasDeleted || statusesToFetch.includes('deleted')) {
+        const deletedPromises = typesToFetch.map(type => {
+          const typeSingular = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate' }[type] || 'car';
+          return apiClient.get(`/api/admin/deleted-listings?type=${typeSingular}&limit=100`).catch(() => ({ events: [] }));
+        });
+        promises.push(Promise.all(deletedPromises));
+      } else {
+        promises.push(Promise.resolve([]));
+      }
+
+      promises.push(Promise.resolve([]));
+
+      const [mainResponse, deletedResponses] = await Promise.all(promises);
+
+      let allListings = Array.isArray(mainResponse) ? mainResponse : [];
+
+      // Process deleted listings
+      const deletedArrays = Array.isArray(deletedResponses) ? deletedResponses : [deletedResponses];
+      for (const resp of deletedArrays) {
+        const events = Array.isArray(resp?.events) ? resp.events
+          : Array.isArray(resp) ? resp : [];
+        for (const evt of events) {
+          allListings.push({
+            id: evt.listing_id,
+            listing_type: evt.listing_type,
+            title: `${evt.listing_type} ${evt.listing_id ? evt.listing_id.slice(0, 8) : ''}`,
+            status: 'deleted',
+            deleted_reason: evt.reason,
+            deleted_by_role: evt.deleted_by_role,
+            deleted_at: evt.created_at,
+            created_at: evt.created_at,
+            user_email: evt.deleted_by || 'N/A',
+          });
+        }
+      }
+
+      setListings(allListings);
     } catch (error) {
       console.error('Failed to fetch listings:', error);
       setListings([]);
-      setStats({});
     } finally {
       setLoading(false);
     }
-  }, [filter, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTypes.join(','), selectedStatuses.join(','), hasDeleted]);
 
   useEffect(() => {
     fetchListings();
@@ -104,16 +139,24 @@ const AdminListings = () => {
     return () => window.removeEventListener('focus', onFocus);
   }, [fetchListings]);
 
-  const updateParams = (key, value) => {
+  const toggleParam = (key, value, allowed) => {
+    const current = parseParamList(searchParams.get(key), allowed);
+    const next = current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value];
     const params = new URLSearchParams(searchParams);
-    params.set(key, value);
+    if (next.length > 0) {
+      params.set(key, next.join(','));
+    } else {
+      params.delete(key);
+    }
     setSearchParams(params);
   };
 
-  const handleApprove = async (listingId) => {
+  const handleApprove = async (listingId, listingType) => {
     try {
       setActionLoading(true);
-      await apiClient.post(`/api/admin/approve/${filter}/${listingId}/approve`);
+      await apiClient.post(`/api/admin/approve/${listingType}/${listingId}/approve`);
       setListings(listings.filter(l => l.id !== listingId));
       showToast('Listing approved successfully', 'success');
     } catch (error) {
@@ -127,8 +170,9 @@ const AdminListings = () => {
   const handleReject = async () => {
     try {
       setActionLoading(true);
+      const listingType = selectedListing?.listing_type || 'cars';
       const selected = selectedRejectIndex !== '' ? LISTING_REJECTION_REASONS[Number(selectedRejectIndex)] : null;
-      await apiClient.post(`/api/admin/approve/${filter}/${selectedListing.id}/reject`, {
+      await apiClient.post(`/api/admin/approve/${listingType}/${selectedListing.id}/reject`, {
         rejection_note: selected
           ? `${selected.reason}${rejectionNote.trim() && rejectionNote.trim() !== selected.reason ? ` - ${rejectionNote.trim()}` : ''}`
           : rejectionNote,
@@ -150,14 +194,9 @@ const AdminListings = () => {
     }
   };
 
-  const getDeleteType = (value) => {
-    const map = {
-      cars: 'car',
-      bikes: 'bike',
-      parts: 'part',
-      plates: 'plate',
-    };
-    return map[value] || 'car';
+  const getDeleteType = (listingType) => {
+    const map = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate' };
+    return map[listingType] || 'car';
   };
 
   const handleDeleteListing = async () => {
@@ -168,10 +207,11 @@ const AdminListings = () => {
     }
     try {
       setActionLoading(true);
+      const listingType = selectedListing?.listing_type || 'cars';
       const finalReason = deleteReasonDetails.trim()
         ? `${deleteReason}: ${deleteReasonDetails.trim()}`
         : deleteReason;
-      await apiClient.request(`/api/${getDeleteType(filter)}/${selectedListing.id}/delete`, {
+      await apiClient.request(`/api/${getDeleteType(listingType)}/${selectedListing.id}/delete`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: { reason: finalReason },
@@ -239,22 +279,19 @@ const AdminListings = () => {
 
   const listingSummary = useMemo(() => {
     const visible = listings.length;
-    const statsKey = filter === 'plates' ? 'plates' : filter;
-    const pendingOfType = Number(stats[`${statsKey}_pending`] || 0);
+    const pendingCount = listings.filter(l => l.status === 'pending' || l._table_status === 'pending').length;
     const views = listings.reduce((sum, listing) => sum + Number(listing.view_count ?? listing.views ?? 0), 0);
     const leads = listings.reduce((sum, listing) => {
       const metrics = getLeadMetrics(listing);
       return sum + metrics.qualifiedLeads;
     }, 0);
-    return {
-      visible,
-      pendingOfType,
-      views,
-      leads,
-    };
-  }, [filter, listings, stats]);
+    return { visible, pendingCount, views, leads };
+  }, [listings]);
 
-  const ListingCard = ({ listing }) => (
+  const ListingCard = ({ listing }) => {
+    const lt = listing.listing_type || 'cars';
+    const isPending = listing.status === 'pending' || listing._table_status === 'pending';
+    return (
     <div className="listing-card">
       <div className="listing-info">
         {getListingImage(listing) && (
@@ -265,6 +302,10 @@ const AdminListings = () => {
             onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
           />
         )}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+          <span className="status-badge status-admin" style={{ margin: 0 }}>{lt}</span>
+          {getStatusBadge(listing.status || listing._table_status || 'pending')}
+        </div>
         <h3>{getListingTitle(listing)}</h3>
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>
         <p><strong>Seller:</strong> {listing.user_email || listing.seller_email || 'N/A'}</p>
@@ -273,22 +314,19 @@ const AdminListings = () => {
         <p><strong>Leads:</strong> {getLeadMetrics(listing).qualifiedLeads}</p>
         <p><strong>Calls:</strong> {getLeadMetrics(listing).callClick} · <strong>WhatsApp:</strong> {getLeadMetrics(listing).whatsappClick}</p>
         <p><strong>VIN Opens:</strong> {getLeadMetrics(listing).vinOpen}</p>
-        <p><strong>Status:</strong> {getStatusBadge(listing.status || statusFilter)}</p>
         <p><strong>Created:</strong> {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : 'N/A'}</p>
       </div>
       <div className="listing-actions">
         <button
-          onClick={() => {
-            navigate(`/admin/listings/${filter}/${listing.id}`);
-          }}
+          onClick={() => navigate(`/admin/listings/${lt}/${listing.id}`)}
           className="action-button view-btn"
         >
           View Details
         </button>
-        {(statusFilter === 'pending') && (
+        {isPending && (
           <>
             <button
-              onClick={() => handleApprove(listing.id)}
+              onClick={() => handleApprove(listing.id, lt)}
               className="action-button approve-btn"
               disabled={actionLoading}
             >
@@ -324,7 +362,8 @@ const AdminListings = () => {
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   const DeletedListingCard = ({ listing }) => (
     <div className="listing-card">
@@ -333,7 +372,7 @@ const AdminListings = () => {
           <span className="status-badge status-suspended" style={{ margin: 0 }}>
             Deleted
           </span>
-          <span className="status-badge status-pending" style={{ margin: 0 }}>
+          <span className="status-badge status-admin" style={{ margin: 0 }}>
             {listing.listing_type}
           </span>
         </div>
@@ -345,7 +384,7 @@ const AdminListings = () => {
       </div>
       <div className="listing-actions">
         <button
-          onClick={() => navigate(`/admin/listings/${filter}/${listing.id}`)}
+          onClick={() => navigate(`/admin/listings/${listing.listing_type || 'cars'}/${listing.id}`)}
           className="action-button view-btn"
         >
           View Details
@@ -358,18 +397,10 @@ const AdminListings = () => {
     return (
       <div className="admin-loading">
         <LoadingSpinner />
-        <p>Loading {statusFilter} {filter}...</p>
+        <p>Loading listings...</p>
       </div>
     );
   }
-
-  const filterOptions = ['cars', 'parts', 'plates', 'bikes'];
-  const statusOptions = [
-    { key: 'pending', label: 'Pending' },
-    { key: 'approved', label: 'Approved' },
-    { key: 'rejected', label: 'Rejected' },
-    { key: 'deleted', label: 'Deleted' },
-  ];
 
   return (
     <div className="admin-ops admin-page admin-listings">
@@ -430,97 +461,79 @@ const AdminListings = () => {
       <div className="admin-page-header">
         <div>
           <div className="admin-label">Listings</div>
-          <h1 className="admin-page-title">{statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} {filter.charAt(0).toUpperCase() + filter.slice(1)}</h1>
-          <p className="admin-page-subtitle">Review and manage listing approvals, drill into a listing record, and move into the specific detail page when you need the full history.</p>
+          <h1 className="admin-page-title">Listing management</h1>
+          <p className="admin-page-subtitle">Filter by multiple statuses and listing types. Approve, reject, or remove listings from the marketplace.</p>
         </div>
         <div className="admin-actions">
-          <span className="admin-status-pill tone-warning">{listingSummary.visible} shown</span>
-          <span className="admin-status-pill">{statusFilter}</span>
+          <span className="admin-status-pill tone-success">{listingSummary.visible} shown</span>
+          <span className="admin-status-pill tone-warning">{listingSummary.pendingCount} pending</span>
         </div>
       </div>
 
-      {statusFilter !== 'deleted' && (
-        <div className="admin-kpi-grid" style={{ marginBottom: '18px' }}>
-          <div className="admin-kpi-card">
-            <div className="admin-kpi-label">Visible listings</div>
-            <div className="admin-kpi-value">{listingSummary.visible}</div>
-            <div className="admin-kpi-note">Listings currently shown for this status filter.</div>
-          </div>
-          <div className="admin-kpi-card">
-            <div className="admin-kpi-label">Pending</div>
-            <div className="admin-kpi-value">{listingSummary.pendingOfType}</div>
-            <div className="admin-kpi-note">Pending items across the selected listing type.</div>
-          </div>
-          <div className="admin-kpi-card">
-            <div className="admin-kpi-label">Views</div>
-            <div className="admin-kpi-value">{listingSummary.views}</div>
-            <div className="admin-kpi-note">Combined views across visible items.</div>
-          </div>
-          <div className="admin-kpi-card">
-            <div className="admin-kpi-label">Leads</div>
-            <div className="admin-kpi-value">{listingSummary.leads}</div>
-            <div className="admin-kpi-note">Call and WhatsApp actions for the current queue.</div>
-          </div>
+      <div className="admin-kpi-grid" style={{ marginBottom: '18px' }}>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Visible listings</div>
+          <div className="admin-kpi-value">{listingSummary.visible}</div>
+          <div className="admin-kpi-note">Listings matching current filters.</div>
         </div>
-      )}
-
-      {statusFilter === 'deleted' && (
-        <div className="admin-kpi-grid" style={{ marginBottom: '18px' }}>
-          <div className="admin-kpi-card">
-            <div className="admin-kpi-label">Deleted listings</div>
-            <div className="admin-kpi-value">{listingSummary.visible}</div>
-            <div className="admin-kpi-note">Total deleted {filter} shown below.</div>
-          </div>
-          <div className="admin-kpi-card">
-            <div className="admin-kpi-label">Removal types</div>
-            <div className="admin-kpi-value">{new Set(listings.map(l => l.deleted_by_role)).size}</div>
-            <div className="admin-kpi-note">Different deletion sources (admin, system, user).</div>
-          </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Pending</div>
+          <div className="admin-kpi-value">{listingSummary.pendingCount}</div>
+          <div className="admin-kpi-note">Pending items in current selection.</div>
         </div>
-      )}
-
-      <div className="filter-tabs" style={{ marginBottom: '12px' }}>
-        {statusOptions.map(opt => (
-          <button
-            key={opt.key}
-            onClick={() => updateParams('status', opt.key)}
-            className={`filter-tab ${statusFilter === opt.key ? 'active' : ''}`}
-          >
-            {opt.label}
-            {opt.key === 'deleted' && (
-              <span style={{ marginLeft: '6px', opacity: 0.6, fontSize: '11px' }}>🗑</span>
-            )}
-          </button>
-        ))}
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Views</div>
+          <div className="admin-kpi-value">{listingSummary.views}</div>
+          <div className="admin-kpi-note">Combined views across visible items.</div>
+        </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-label">Leads</div>
+          <div className="admin-kpi-value">{listingSummary.leads}</div>
+          <div className="admin-kpi-note">Call and WhatsApp actions for the current queue.</div>
+        </div>
       </div>
 
-      <div className="filter-tabs">
-        {filterOptions.map(option => (
-          <button
-            key={option}
-            onClick={() => updateParams('filter', option)}
-            className={`filter-tab ${filter === option ? 'active' : ''}`}
-          >
-            {option.charAt(0).toUpperCase() + option.slice(1)}
-          </button>
-        ))}
+      <div style={{ marginBottom: '12px' }}>
+        <div className="admin-label" style={{ marginBottom: '8px' }}>Status</div>
+        <div className="filter-tabs">
+          {STATUS_OPTIONS.map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => toggleParam('statuses', opt.key, ALL_STATUSES.concat(['deleted']))}
+              className={`filter-tab ${selectedStatuses.includes(opt.key) || (opt.key === 'deleted' && hasDeleted) ? 'active' : ''}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '12px' }}>
+        <div className="admin-label" style={{ marginBottom: '8px' }}>Listing type</div>
+        <div className="filter-tabs">
+          {ALL_TYPES.map(type => (
+            <button
+              key={type}
+              onClick={() => toggleParam('types', type, ALL_TYPES)}
+              className={`filter-tab ${selectedTypes.includes(type) ? 'active' : ''}`}
+            >
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {listings.length === 0 ? (
         <div className="empty-state">
-          <h2>No {statusFilter} {filter}</h2>
-          <p>There are no {statusFilter} {filter} listings at this time.</p>
-        </div>
-      ) : statusFilter === 'deleted' ? (
-        <div className="listings-grid">
-          {listings.map(listing => (
-            <DeletedListingCard key={listing.id} listing={listing} />
-          ))}
+          <h2>No listings found</h2>
+          <p>No listings match the selected filters.</p>
         </div>
       ) : (
         <div className="listings-grid">
           {listings.map(listing => (
-            <ListingCard key={listing.id} listing={listing} />
+            listing.status === 'deleted'
+              ? <DeletedListingCard key={`deleted-${listing.id}`} listing={listing} />
+              : <ListingCard key={`${listing.listing_type}-${listing.id}`} listing={listing} />
           ))}
         </div>
       )}

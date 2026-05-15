@@ -583,6 +583,189 @@ def reject_listing(listing_id):
         return jsonify({"error": str(e)}), 500
 
 
+# Unified listings endpoint supporting multi-type and multi-status queries
+@admin_bp.route("/listings", methods=["GET"])
+@admin_required
+def get_listings_unified():
+    """Get listings across multiple types and statuses in one request.
+
+    Query params:
+        statuses: comma-separated (pending,approved,rejected)
+        types: comma-separated (cars,bikes,parts,plates)
+    """
+    valid_types = {
+        "cars": ("cars", "car_images", "car_id"),
+        "bikes": ("bikes", "bike_images", "bike_id"),
+        "parts": ("car_parts", "part_images", "part_id"),
+        "plates": ("license_plates", "plate_images", "plate_id"),
+    }
+    valid_statuses = {"pending", "approved", "rejected"}
+
+    raw_statuses = request.args.get("statuses", "pending")
+    raw_types = request.args.get("types", "cars")
+
+    requested_statuses = [
+        s.strip() for s in raw_statuses.split(",") if s.strip() in valid_statuses
+    ]
+    requested_types = [
+        t.strip() for t in raw_types.split(",") if t.strip() in valid_types
+    ]
+
+    if not requested_statuses:
+        requested_statuses = ["pending"]
+    if not requested_types:
+        requested_types = ["cars"]
+
+    headers = _admin_headers()
+    all_listings = []
+
+    try:
+        for listing_type in requested_types:
+            table_name, img_table, img_fk = valid_types[listing_type]
+            for status in requested_statuses:
+                try:
+                    query = f"{SUPABASE_URL}/rest/v1/{table_name}?status=eq.{status}&select=*&order=created_at.desc"
+                    response = requests.get(query, headers=headers, timeout=10)
+                    if response.status_code != 200:
+                        continue
+                    for listing in response.json() or []:
+                        listing["listing_type"] = listing_type
+                        listing["_table_status"] = status
+                        all_listings.append(listing)
+                except Exception as fetch_err:
+                    logger.warning(
+                        f"Error fetching {listing_type}/{status}: {fetch_err}"
+                    )
+
+        listing_ids = [str(l["id"]) for l in all_listings if l.get("id")]
+
+        # Batch fetch lead metrics
+        lead_metrics_map = {}
+        if listing_ids:
+            try:
+                for chunk_start in range(0, len(listing_ids), 50):
+                    chunk = listing_ids[chunk_start : chunk_start + 50]
+                    ids_filter = ",".join(chunk)
+                    lead_resp = requests.get(
+                        f"{SUPABASE_URL}/rest/v1/lead_events",
+                        headers=headers,
+                        params={
+                            "select": "listing_id,listing_type,action",
+                            "listing_id": f"in.({ids_filter})",
+                        },
+                        timeout=10,
+                    )
+                    if lead_resp.status_code == 200:
+                        for event in lead_resp.json() or []:
+                            lid = event.get("listing_id")
+                            action = event.get("action", "unknown")
+                            if lid not in lead_metrics_map:
+                                lead_metrics_map[lid] = {
+                                    "call_click": 0,
+                                    "whatsapp_click": 0,
+                                    "vin_open": 0,
+                                    "vin_reveal": 0,
+                                    "qualified_leads": 0,
+                                }
+                            if action in lead_metrics_map[lid]:
+                                lead_metrics_map[lid][action] += 1
+            except Exception as lead_err:
+                logger.warning(f"Batch lead metrics fetch failed: {lead_err}")
+
+        # Batch fetch images
+        image_map = {}
+        try:
+            for listing_type in requested_types:
+                table_name, img_table, img_fk = valid_types[listing_type]
+                type_ids = [
+                    str(l["id"])
+                    for l in all_listings
+                    if l.get("id") and l.get("listing_type") == listing_type
+                ]
+                if type_ids:
+                    for chunk_start in range(0, len(type_ids), 50):
+                        chunk = type_ids[chunk_start : chunk_start + 50]
+                        ids_filter = ",".join(chunk)
+                        img_resp = requests.get(
+                            f"{SUPABASE_URL}/rest/v1/{img_table}",
+                            headers=headers,
+                            params={
+                                "select": "*",
+                                f"{img_fk}": f"in.({ids_filter})",
+                            },
+                            timeout=10,
+                        )
+                        if img_resp.status_code == 200:
+                            for img in img_resp.json() or []:
+                                parent_id = img.get(img_fk)
+                                if parent_id not in image_map:
+                                    image_map[parent_id] = []
+                                if "url" in img and not img.get("image_url"):
+                                    img["image_url"] = img["url"]
+                                elif "image_url" in img and not img.get("url"):
+                                    img["url"] = img["image_url"]
+                                image_map[parent_id].append(img)
+        except Exception as img_err:
+            logger.warning(f"Batch image fetch failed: {img_err}")
+
+        # Batch fetch user info
+        user_ids = list(
+            {str(l.get("user_id")) for l in all_listings if l.get("user_id")}
+        )
+        user_map = _admin_fetch_user_display_map(user_ids)
+
+        # Enrich all listings
+        for listing in all_listings:
+            lid = listing.get("id")
+            listing["lead_metrics"] = lead_metrics_map.get(
+                lid,
+                {
+                    "call_click": 0,
+                    "whatsapp_click": 0,
+                    "vin_open": 0,
+                    "vin_reveal": 0,
+                    "qualified_leads": 0,
+                },
+            )
+            lm = listing["lead_metrics"]
+            lm["qualified_leads"] = lm["call_click"] + lm["whatsapp_click"]
+            listing["images"] = image_map.get(lid, [])
+
+            user_id = str(listing.get("user_id", ""))
+            user_info = user_map.get(user_id, {})
+            listing["user_email"] = user_info.get("email", "N/A")
+            listing["user_name"] = user_info.get("display_name", "Unknown")
+
+            lt = listing.get("listing_type")
+            if lt == "cars":
+                listing["display_title"] = (
+                    f"{listing.get('make_year', '')} {listing.get('car_manufacturer', '')} {listing.get('car_model', '')}"
+                ).strip()
+                listing["display_price"] = listing.get("expected_selling_price")
+            elif lt == "bikes":
+                listing["display_title"] = (
+                    f"{listing.get('make_year', '')} {listing.get('make', '') or listing.get('bike_brand', '')} {listing.get('model', '') or listing.get('bike_model', '')}"
+                ).strip()
+                listing["display_price"] = listing.get("price")
+            elif lt == "plates":
+                listing["display_title"] = (
+                    f"{listing.get('city', '')} {listing.get('code', '')} {listing.get('number', '')}"
+                ).strip()
+                listing["display_price"] = listing.get("price")
+            elif lt == "parts":
+                listing["display_title"] = listing.get("name", "Car Part")
+                listing["display_price"] = listing.get("price")
+
+        # Sort by created_at desc
+        all_listings.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return jsonify(all_listings), 200
+
+    except Exception as e:
+        logger.error(f"Error in unified listings endpoint: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # Approve routes matching frontend expectations: /api/admin/approve/<item_type>
 @admin_bp.route("/approve/<item_type>")
 @admin_required
