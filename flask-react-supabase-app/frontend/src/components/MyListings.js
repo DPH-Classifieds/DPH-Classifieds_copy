@@ -152,6 +152,7 @@ const MyListings = () => {
     fetchUserListings();
     fetchLeadTotals();
     if (refreshSavedListings) refreshSavedListings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchLeadTotals = async () => {
