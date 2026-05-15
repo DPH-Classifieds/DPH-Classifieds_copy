@@ -584,7 +584,7 @@ def reject_listing(listing_id):
 
 
 # Unified listings endpoint supporting multi-type and multi-status queries
-@admin_bp.route("/listings", methods=["GET"])
+@admin_bp.route("/listings-search", methods=["GET"])
 @admin_required
 def get_listings_unified():
     """Get listings across multiple types and statuses in one request.

@@ -75,8 +75,8 @@ const AdminListings = () => {
       // Always fetch from unified endpoint for non-deleted statuses
       const nonDeletedStatuses = statusesToFetch.filter(s => s !== 'deleted');
       if (nonDeletedStatuses.length > 0) {
-        promises.push(
-          apiClient.get(`/api/admin/listings?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`).catch(() => [])
+          promises.push(
+            apiClient.get(`/api/admin/listings-search?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`).catch(() => [])
         );
       } else {
         promises.push(Promise.resolve([]));
