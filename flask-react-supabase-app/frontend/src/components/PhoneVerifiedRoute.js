@@ -12,7 +12,8 @@ const PhoneVerifiedRoute = () => {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const returnTo = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?redirect=${encodeURIComponent(returnTo)}`} replace />;
   }
 
   if (!user.phone_verified) {

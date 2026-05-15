@@ -59,7 +59,7 @@ const Login = () => {
       }
 
       await syncWithSupabase({ forceBackendCheck: true });
-      const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
+      const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/';
       navigate(safeRedirect, { replace: true });
     } catch (err) {
       if (err.message && err.message.toLowerCase().includes('network')) {

@@ -44,7 +44,15 @@ export default function LoginScreen({ navigation, route }) {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
-      if (navigation.getParent()) {
+      if (redirect) {
+        const rootNav = navigation.getParent()?.getParent()?.getParent() || navigation.getParent();
+        if (rootNav) {
+          rootNav.navigate('Main');
+          rootNav.navigate(redirect);
+        } else {
+          navigation.goBack();
+        }
+      } else if (navigation.getParent()) {
         navigation.getParent().goBack();
       }
     } catch (err) {

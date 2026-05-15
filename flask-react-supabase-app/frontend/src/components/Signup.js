@@ -25,7 +25,7 @@ const COUNTRY_CODES = [
 const Signup = () => {
   const location = useLocation();
   const redirectTarget = new URLSearchParams(location.search).get('redirect');
-  const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/profile';
+  const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/';
 
   const [formData, setFormData] = useState({
     // Basic credentials

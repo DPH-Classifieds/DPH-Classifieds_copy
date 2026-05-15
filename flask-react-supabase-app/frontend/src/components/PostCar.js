@@ -1928,7 +1928,7 @@ const PostCar = () => {
         <h2>Authentication Required</h2>
         <p>You need to be logged in to post a car listing.</p>
         <div className="auth-buttons">
-          <button onClick={() => navigate('/login')}>Log In</button>
+          <button onClick={() => navigate('/login?redirect=/post-car')}>Log In</button>
           <button onClick={() => navigate('/signup')}>Sign Up</button>
         </div>
       </div>
