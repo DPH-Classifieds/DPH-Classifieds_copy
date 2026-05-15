@@ -11,6 +11,7 @@ import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect } from '../utils/dire
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import LoadingSpinner from './LoadingSpinner';
+import ImageCropModal from './ImageCropModal';
 import { useSavedListings } from '../context/SavedListingsContext';
 import '../styles/AccountSettings.css';
 
@@ -162,6 +163,8 @@ const AccountSettings = () => {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropModalImage, setCropModalImage] = useState(null);
+  const [showCropModal, setShowCropModal] = useState(false);
   const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
 
   useEffect(() => {
@@ -323,13 +326,26 @@ const AccountSettings = () => {
       }
 
       setError(null);
-      setProfilePhoto(file);
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setPhotoPreview(e.target.result);
+      reader.onload = (ev) => {
+        setCropModalImage(ev.target.result);
+        setShowCropModal(true);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCropComplete = (croppedFile, previewUrl) => {
+    setProfilePhoto(croppedFile);
+    setPhotoPreview(previewUrl);
+    setShowCropModal(false);
+    setCropModalImage(null);
+  };
+
+  const handleCropCancel = () => {
+    setShowCropModal(false);
+    setCropModalImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const uploadProfilePhoto = async () => {
@@ -667,6 +683,14 @@ const AccountSettings = () => {
 
   return (
     <div className="account-settings-container">
+      {showCropModal && (
+        <ImageCropModal
+          imageSrc={cropModalImage}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
+
       <div className="settings-header">
         <h1>Account Settings</h1>
         <p>Manage your profile information and account preferences</p>

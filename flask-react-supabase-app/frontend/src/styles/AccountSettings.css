@@ -1099,3 +1099,133 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Image Crop Modal */
+.crop-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(6px);
+  padding: 20px;
+}
+
+.crop-modal {
+  background: #111815;
+  border: 1px solid rgba(148, 218, 153, 0.2);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.crop-modal-header {
+  padding: 20px 24px 0;
+}
+
+.crop-modal-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  color: #f5fbf7;
+}
+
+.crop-modal-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(225, 238, 230, 0.6);
+}
+
+.crop-modal-body {
+  padding: 16px 24px;
+}
+
+.crop-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0c120f;
+}
+
+.crop-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 0 4px;
+}
+
+.crop-zoom-label {
+  font-size: 0.75rem;
+  color: rgba(225, 238, 230, 0.5);
+  white-space: nowrap;
+}
+
+.crop-zoom-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 218, 153, 0.2);
+  outline: none;
+}
+
+.crop-zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #8bd6b4;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.crop-zoom-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #8bd6b4;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.crop-modal-actions {
+  display: flex;
+  gap: 12px;
+  padding: 0 24px 20px;
+}
+
+.crop-modal-actions .btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.crop-modal-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5fbf7;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.crop-modal-actions .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.crop-modal-actions .btn-primary {
+  background: #01351c;
+  color: #fff;
+  border: 1px solid #01351c;
+}
+
+.crop-modal-actions .btn-primary:hover {
+  background: #02572f;
+}
