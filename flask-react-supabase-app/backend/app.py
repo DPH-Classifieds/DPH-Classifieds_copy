@@ -10316,7 +10316,35 @@ def get_admin_users(current_user):
             logger.error(f"Failed to fetch admin users: {response}")
             return jsonify({"error": "Failed to fetch users"}), status_code
 
-        return jsonify(response if isinstance(response, list) else []), 200
+        users_list = response if isinstance(response, list) else []
+
+        # Sync email_verified from Supabase Auth (users table may be stale)
+        try:
+            auth_headers = {
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            }
+            auth_resp = requests.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users",
+                headers=auth_headers,
+                params={"page": 1, "per_page": 1000},
+                timeout=15,
+            )
+            if auth_resp.status_code == 200:
+                auth_users = auth_resp.json().get("users", [])
+                auth_map = {u["id"]: u for u in auth_users}
+                for user in users_list:
+                    uid = user.get("id")
+                    if uid and uid in auth_map:
+                        auth_user = auth_map[uid]
+                        email_confirmed = bool(auth_user.get("email_confirmed_at"))
+                        user["email_verified"] = (
+                            user.get("email_verified") or email_confirmed
+                        )
+        except Exception as sync_err:
+            logger.warning(f"Could not sync email_verified from Auth: {sync_err}")
+
+        return jsonify(users_list), 200
     except Exception as e:
         logger.error(f"Error in get_admin_users: {str(e)}")
         return jsonify({"error": "An error occurred while fetching users"}), 500
