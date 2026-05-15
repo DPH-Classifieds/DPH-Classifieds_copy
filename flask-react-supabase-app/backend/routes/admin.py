@@ -147,7 +147,7 @@ def _admin_fetch_user_display_map(user_ids):
 
     user_map = {}
     for index in range(0, len(normalized_ids), 50):
-        chunk = normalized_ids[index:index + 50]
+        chunk = normalized_ids[index : index + 50]
         response = requests.get(
             f"{SUPABASE_URL}/rest/v1/users",
             headers=_admin_headers(),
@@ -185,10 +185,30 @@ def _admin_enrich_activity_rows(rows, user_field="user_id"):
 def _admin_listing_config(item_type):
     normalized = (item_type or "").strip().lower().rstrip("s")
     return {
-        "car": {"table": "cars", "image_table": "car_images", "fk": "car_id", "label": "cars"},
-        "bike": {"table": "bikes", "image_table": "bike_images", "fk": "bike_id", "label": "bikes"},
-        "part": {"table": "car_parts", "image_table": "part_images", "fk": "part_id", "label": "parts"},
-        "plate": {"table": "license_plates", "image_table": "plate_images", "fk": "plate_id", "label": "plates"},
+        "car": {
+            "table": "cars",
+            "image_table": "car_images",
+            "fk": "car_id",
+            "label": "cars",
+        },
+        "bike": {
+            "table": "bikes",
+            "image_table": "bike_images",
+            "fk": "bike_id",
+            "label": "bikes",
+        },
+        "part": {
+            "table": "car_parts",
+            "image_table": "part_images",
+            "fk": "part_id",
+            "label": "parts",
+        },
+        "plate": {
+            "table": "license_plates",
+            "image_table": "plate_images",
+            "fk": "plate_id",
+            "label": "plates",
+        },
     }.get(normalized)
 
 
@@ -204,7 +224,11 @@ def _admin_listing_brief(listing_type, row):
         or row.get("number")
         or "Untitled listing"
     )
-    price = row.get("display_price") or row.get("price") or row.get("expected_selling_price")
+    price = (
+        row.get("display_price")
+        or row.get("price")
+        or row.get("expected_selling_price")
+    )
     return {
         "id": row.get("id"),
         "type": listing_type,
@@ -237,7 +261,12 @@ def _admin_owned_listing_stats(user_id):
         response = requests.get(
             f"{SUPABASE_URL}/rest/v1/{cfg['table']}",
             headers=_admin_headers(),
-            params={"select": "*", "user_id": f"eq.{user_id}", "order": "created_at.desc", "limit": "50"},
+            params={
+                "select": "*",
+                "user_id": f"eq.{user_id}",
+                "order": "created_at.desc",
+                "limit": "50",
+            },
             timeout=15,
         )
         rows = response.json() if response.status_code == 200 else []
@@ -261,14 +290,24 @@ def _admin_user_activity(user_id, owned_listing_ids, days=90):
     lead_events_resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/lead_events",
         headers=_admin_headers(),
-        params={"select": "*", "created_at": f"gte.{cutoff}", "order": "created_at.desc", "limit": "2000"},
+        params={
+            "select": "*",
+            "created_at": f"gte.{cutoff}",
+            "order": "created_at.desc",
+            "limit": "2000",
+        },
         timeout=20,
     )
     lead_events = lead_events_resp.json() if lead_events_resp.status_code == 200 else []
     report_resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/reports",
         headers=_admin_headers(),
-        params={"select": "id,listing_id,listing_type,status,reason,details,created_at,reviewed_by,reviewed_at", "created_at": f"gte.{cutoff}", "order": "created_at.desc", "limit": "500"},
+        params={
+            "select": "id,listing_id,listing_type,status,reason,details,created_at,reviewed_by,reviewed_at",
+            "created_at": f"gte.{cutoff}",
+            "order": "created_at.desc",
+            "limit": "500",
+        },
         timeout=20,
     )
     reports = report_resp.json() if report_resp.status_code == 200 else []
@@ -284,10 +323,15 @@ def _admin_user_activity(user_id, owned_listing_ids, days=90):
 
     recent_events = _admin_enrich_activity_rows(recent_events, "user_id")
 
-    owned_listing_set = {listing_id for ids in owned_listing_ids.values() for listing_id in ids}
+    owned_listing_set = {
+        listing_id for ids in owned_listing_ids.values() for listing_id in ids
+    }
     user_reports = []
     for report in reports or []:
-        if report.get("reporter_id") == user_id or str(report.get("listing_id")) in owned_listing_set:
+        if (
+            report.get("reporter_id") == user_id
+            or str(report.get("listing_id")) in owned_listing_set
+        ):
             user_reports.append(report)
 
     return {
@@ -412,7 +456,7 @@ def approve_listing(listing_id):
             # Send email notification
             try:
                 from app import _get_user_email_by_id, _send_listing_status_email
-                
+
                 updated_listings = response.json()
                 if updated_listings and len(updated_listings) > 0:
                     listing = updated_listings[0]
@@ -421,10 +465,7 @@ def approve_listing(listing_id):
                         user_info = _get_user_email_by_id(user_id)
                         if user_info and user_info.get("email"):
                             _send_listing_status_email(
-                                user_info["email"], 
-                                listing_type, 
-                                listing, 
-                                "approved"
+                                user_info["email"], listing_type, listing, "approved"
                             )
             except Exception as email_err:
                 logger.error(f"Failed to send approval email: {email_err}")
@@ -483,7 +524,7 @@ def reject_listing(listing_id):
             # Send email notification
             try:
                 from app import _get_user_email_by_id, _send_listing_status_email
-                
+
                 updated_listings = response.json()
                 if updated_listings and len(updated_listings) > 0:
                     listing = updated_listings[0]
@@ -492,10 +533,7 @@ def reject_listing(listing_id):
                         user_info = _get_user_email_by_id(user_id)
                         if user_info and user_info.get("email"):
                             _send_listing_status_email(
-                                user_info["email"], 
-                                listing_type, 
-                                listing, 
-                                "rejected"
+                                user_info["email"], listing_type, listing, "rejected"
                             )
             except Exception as email_err:
                 logger.error(f"Failed to send rejection email: {email_err}")
@@ -520,6 +558,7 @@ def reject_listing(listing_id):
             if fallback_resp.status_code in [200, 204]:
                 try:
                     from app import _get_user_email_by_id, _send_listing_status_email
+
                     updated_listings = fallback_resp.json()
                     if updated_listings and len(updated_listings) > 0:
                         listing = updated_listings[0]
@@ -687,7 +726,7 @@ def approve_item(item_type, item_id):
             # Send email notification
             try:
                 from app import _get_user_email_by_id, _send_listing_status_email
-                
+
                 updated_listings = response.json()
                 if updated_listings and len(updated_listings) > 0:
                     listing = updated_listings[0]
@@ -696,10 +735,7 @@ def approve_item(item_type, item_id):
                         user_info = _get_user_email_by_id(user_id)
                         if user_info and user_info.get("email"):
                             _send_listing_status_email(
-                                user_info["email"], 
-                                item_type, 
-                                listing, 
-                                "approved"
+                                user_info["email"], item_type, listing, "approved"
                             )
             except Exception as email_err:
                 logger.error(f"Failed to send approval email: {email_err}")
@@ -758,7 +794,7 @@ def reject_item(item_type, item_id):
             # Send email notification
             try:
                 from app import _get_user_email_by_id, _send_listing_status_email
-                
+
                 updated_listings = response.json()
                 if updated_listings and len(updated_listings) > 0:
                     listing = updated_listings[0]
@@ -767,10 +803,7 @@ def reject_item(item_type, item_id):
                         user_info = _get_user_email_by_id(user_id)
                         if user_info and user_info.get("email"):
                             _send_listing_status_email(
-                                user_info["email"], 
-                                item_type, 
-                                listing, 
-                                "rejected"
+                                user_info["email"], item_type, listing, "rejected"
                             )
             except Exception as email_err:
                 logger.error(f"Failed to send rejection email: {email_err}")
@@ -1477,8 +1510,16 @@ def get_parts():
 @admin_bp.route("/stats", methods=["GET"])
 @admin_required
 def get_stats():
-    """Get overall statistics for admin dashboard"""
+    """Get overall statistics for admin dashboard, with optional time range filter"""
     try:
+        days_param = request.args.get("days")
+        since_filter = None
+        if days_param and days_param.isdigit():
+            from datetime import datetime, timedelta
+
+            since = datetime.utcnow() - timedelta(days=int(days_param))
+            since_filter = since.strftime("%Y-%m-%dT%H:%M:%S")
+
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -1486,14 +1527,27 @@ def get_stats():
         }
 
         stats = {
-            "cars_total": 0, "cars_pending": 0, "cars_views": 0,
-            "bikes_total": 0, "bikes_pending": 0, "bikes_views": 0,
-            "plates_total": 0, "plates_pending": 0, "plates_views": 0,
-            "parts_total": 0, "parts_pending": 0, "parts_views": 0,
-            "total_leads": 0, "total_calls": 0, "total_whatsapp": 0,
+            "cars_total": 0,
+            "cars_pending": 0,
+            "cars_views": 0,
+            "bikes_total": 0,
+            "bikes_pending": 0,
+            "bikes_views": 0,
+            "plates_total": 0,
+            "plates_pending": 0,
+            "plates_views": 0,
+            "parts_total": 0,
+            "parts_pending": 0,
+            "parts_views": 0,
+            "total_leads": 0,
+            "total_calls": 0,
+            "total_whatsapp": 0,
             "total_vin_reveals": 0,
-            "total_dealers": 0, "verified_dealers": 0,
-            "total_users": 0, "total_reports": 0, "pending_reports": 0
+            "total_dealers": 0,
+            "verified_dealers": 0,
+            "total_users": 0,
+            "total_reports": 0,
+            "pending_reports": 0,
         }
 
         # Get stats for each listing type
@@ -1503,46 +1557,74 @@ def get_stats():
             ("license_plates", "plates"),
             ("car_parts", "parts"),
         ]:
-            query = f"{SUPABASE_URL}/rest/v1/{table}?select=status,view_count"
+            params = "select=status,view_count"
+            if since_filter:
+                params += f"&created_at=gte.{since_filter}"
+            query = f"{SUPABASE_URL}/rest/v1/{table}?{params}"
             response = requests.get(query, headers=headers, timeout=5)
 
             if response.status_code == 200:
                 listings = response.json()
                 stats[f"{key_prefix}_total"] = len(listings)
-                stats[f"{key_prefix}_pending"] = sum(1 for l in listings if l.get("status") == "pending")
-                stats[f"{key_prefix}_views"] = sum(l.get("view_count", 0) or 0 for l in listings)
+                stats[f"{key_prefix}_pending"] = sum(
+                    1 for l in listings if l.get("status") == "pending"
+                )
+                stats[f"{key_prefix}_views"] = sum(
+                    l.get("view_count", 0) or 0 for l in listings
+                )
 
         # Get lead metrics from lead_events table
-        lead_query = f"{SUPABASE_URL}/rest/v1/lead_events?select=action"
+        lead_params = "select=action"
+        if since_filter:
+            lead_params += f"&created_at=gte.{since_filter}"
+        lead_query = f"{SUPABASE_URL}/rest/v1/lead_events?{lead_params}"
         lead_response = requests.get(lead_query, headers=headers, timeout=5)
         if lead_response.status_code == 200:
             events = lead_response.json()
             stats["total_leads"] = len(events)
-            stats["total_calls"] = sum(1 for e in events if e.get("action") == "call_click")
-            stats["total_whatsapp"] = sum(1 for e in events if e.get("action") == "whatsapp_click")
-            stats["total_vin_reveals"] = sum(1 for e in events if e.get("action") == "vin_reveal")
+            stats["total_calls"] = sum(
+                1 for e in events if e.get("action") == "call_click"
+            )
+            stats["total_whatsapp"] = sum(
+                1 for e in events if e.get("action") == "whatsapp_click"
+            )
+            stats["total_vin_reveals"] = sum(
+                1 for e in events if e.get("action") == "vin_reveal"
+            )
 
-        # Get dealer stats
-        dealer_query = f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=dealer_verified"
+        # Get dealer stats (not time-filtered — always all-time)
+        dealer_query = (
+            f"{SUPABASE_URL}/rest/v1/users?is_dealer=eq.true&select=dealer_verified"
+        )
         dealer_response = requests.get(dealer_query, headers=headers, timeout=5)
         if dealer_response.status_code == 200:
             dealers = dealer_response.json()
             stats["total_dealers"] = len(dealers)
-            stats["verified_dealers"] = sum(1 for d in dealers if d.get("dealer_verified"))
+            stats["verified_dealers"] = sum(
+                1 for d in dealers if d.get("dealer_verified")
+            )
 
-        # Get user count
-        user_query = f"{SUPABASE_URL}/rest/v1/users?select=id"
+        # Get user count (optionally time-filtered for "new users")
+        user_params = "select=id"
+        if since_filter:
+            user_params += f"&created_at=gte.{since_filter}"
+        user_query = f"{SUPABASE_URL}/rest/v1/users?{user_params}"
         user_response = requests.get(user_query, headers=headers, timeout=5)
         if user_response.status_code == 200:
             stats["total_users"] = len(user_response.json())
 
         # Get report stats
-        report_query = f"{SUPABASE_URL}/rest/v1/reports?select=status"
+        report_params = "select=status"
+        if since_filter:
+            report_params += f"&created_at=gte.{since_filter}"
+        report_query = f"{SUPABASE_URL}/rest/v1/reports?{report_params}"
         report_response = requests.get(report_query, headers=headers, timeout=5)
         if report_response.status_code == 200:
             reports = report_response.json()
             stats["total_reports"] = len(reports)
-            stats["pending_reports"] = sum(1 for r in reports if r.get("status") == "pending")
+            stats["pending_reports"] = sum(
+                1 for r in reports if r.get("status") == "pending"
+            )
 
         return jsonify(stats), 200
 
@@ -1564,7 +1646,9 @@ def get_listing_history():
             timeout=15,
         )
         if response.status_code != 200:
-            return jsonify({"error": "Failed to fetch listing history"}), response.status_code
+            return jsonify(
+                {"error": "Failed to fetch listing history"}
+            ), response.status_code
         return jsonify(response.json() or []), 200
     except Exception as e:
         logger.error(f"Error fetching listing history: {e}")
@@ -1590,7 +1674,12 @@ def get_lead_metrics():
         recent_resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/lead_events",
             headers=_admin_headers(),
-            params={"select": "*", "created_at": f"gte.{cutoff}", "order": "created_at.desc", "limit": "100"},
+            params={
+                "select": "*",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "100",
+            },
             timeout=20,
         )
         recent_rows = recent_resp.json() if recent_resp.status_code == 200 else []
@@ -1598,7 +1687,12 @@ def get_lead_metrics():
         reports_resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/reports",
             headers=_admin_headers(),
-            params={"select": "id,listing_id,listing_type,status,created_at", "created_at": f"gte.{cutoff}", "order": "created_at.desc", "limit": "100"},
+            params={
+                "select": "id,listing_id,listing_type,status,created_at",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "100",
+            },
             timeout=20,
         )
         report_rows = reports_resp.json() if reports_resp.status_code == 200 else []
@@ -1613,20 +1707,22 @@ def get_lead_metrics():
 
         recent_rows = _admin_enrich_activity_rows(recent_rows, "user_id")
 
-        return jsonify({
-            "window_days": days,
-            "totals": {
-                "call_click": totals["call_click"],
-                "whatsapp_click": totals["whatsapp_click"],
-                "vin_open": totals["vin_open"],
-                "vin_reveal": totals["vin_reveal"],
-                "qualified_leads": qualified,
-                "reports_created": report_count,
-                "report_conversion_percent": conversion_rate,
-            },
-            "recent_events": recent_rows or [],
-            "recent_reports": report_rows or [],
-        }), 200
+        return jsonify(
+            {
+                "window_days": days,
+                "totals": {
+                    "call_click": totals["call_click"],
+                    "whatsapp_click": totals["whatsapp_click"],
+                    "vin_open": totals["vin_open"],
+                    "vin_reveal": totals["vin_reveal"],
+                    "qualified_leads": qualified,
+                    "reports_created": report_count,
+                    "report_conversion_percent": conversion_rate,
+                },
+                "recent_events": recent_rows or [],
+                "recent_reports": report_rows or [],
+            }
+        ), 200
     except Exception as e:
         logger.error(f"Error fetching lead metrics: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1640,7 +1736,9 @@ def get_user_overview(user_id):
         if not user_row:
             return jsonify({"error": "User not found"}), 404
 
-        listing_summary, recent_listings, owned_listing_ids = _admin_owned_listing_stats(user_id)
+        listing_summary, recent_listings, owned_listing_ids = (
+            _admin_owned_listing_stats(user_id)
+        )
         activity = _admin_user_activity(user_id, owned_listing_ids)
 
         total_views = sum(bucket["views"] for bucket in listing_summary.values())
@@ -1648,24 +1746,29 @@ def get_user_overview(user_id):
         active_listings = sum(bucket["approved"] for bucket in listing_summary.values())
         pending_listings = sum(bucket["pending"] for bucket in listing_summary.values())
 
-        return jsonify({
-            "user": user_row,
-            "summary": {
-                "total_listings": total_listings,
-                "active_listings": active_listings,
-                "pending_listings": pending_listings,
-                "total_views": total_views,
-                "call_clicks": int(activity["lead_totals"].get("call_click", 0)),
-                "whatsapp_clicks": int(activity["lead_totals"].get("whatsapp_click", 0)),
-                "vin_opens": int(activity["lead_totals"].get("vin_open", 0)),
-                "qualified_leads": int(activity["lead_totals"].get("call_click", 0)) + int(activity["lead_totals"].get("whatsapp_click", 0)),
-                "report_count": len(activity["reports"]),
-            },
-            "listing_summary": listing_summary,
-            "recent_listings": recent_listings,
-            "recent_events": activity["recent_events"],
-            "recent_reports": activity["reports"],
-        }), 200
+        return jsonify(
+            {
+                "user": user_row,
+                "summary": {
+                    "total_listings": total_listings,
+                    "active_listings": active_listings,
+                    "pending_listings": pending_listings,
+                    "total_views": total_views,
+                    "call_clicks": int(activity["lead_totals"].get("call_click", 0)),
+                    "whatsapp_clicks": int(
+                        activity["lead_totals"].get("whatsapp_click", 0)
+                    ),
+                    "vin_opens": int(activity["lead_totals"].get("vin_open", 0)),
+                    "qualified_leads": int(activity["lead_totals"].get("call_click", 0))
+                    + int(activity["lead_totals"].get("whatsapp_click", 0)),
+                    "report_count": len(activity["reports"]),
+                },
+                "listing_summary": listing_summary,
+                "recent_listings": recent_listings,
+                "recent_events": activity["recent_events"],
+                "recent_reports": activity["reports"],
+            }
+        ), 200
     except Exception as e:
         logger.error(f"Error fetching user overview: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1679,25 +1782,36 @@ def get_dealer_overview(dealer_id):
         if not dealer_row:
             return jsonify({"error": "Dealer not found"}), 404
 
-        listing_summary, recent_listings, owned_listing_ids = _admin_owned_listing_stats(dealer_id)
+        listing_summary, recent_listings, owned_listing_ids = (
+            _admin_owned_listing_stats(dealer_id)
+        )
         activity = _admin_user_activity(dealer_id, owned_listing_ids)
 
-        return jsonify({
-            "dealer": dealer_row,
-            "summary": {
-                "total_listings": sum(bucket["count"] for bucket in listing_summary.values()),
-                "total_views": sum(bucket["views"] for bucket in listing_summary.values()),
-                "call_clicks": int(activity["lead_totals"].get("call_click", 0)),
-                "whatsapp_clicks": int(activity["lead_totals"].get("whatsapp_click", 0)),
-                "vin_opens": int(activity["lead_totals"].get("vin_open", 0)),
-                "qualified_leads": int(activity["lead_totals"].get("call_click", 0)) + int(activity["lead_totals"].get("whatsapp_click", 0)),
-                "recent_reports": len(activity["reports"]),
-            },
-            "listing_summary": listing_summary,
-            "recent_listings": recent_listings,
-            "recent_events": activity["recent_events"],
-            "reports": activity["reports"],
-        }), 200
+        return jsonify(
+            {
+                "dealer": dealer_row,
+                "summary": {
+                    "total_listings": sum(
+                        bucket["count"] for bucket in listing_summary.values()
+                    ),
+                    "total_views": sum(
+                        bucket["views"] for bucket in listing_summary.values()
+                    ),
+                    "call_clicks": int(activity["lead_totals"].get("call_click", 0)),
+                    "whatsapp_clicks": int(
+                        activity["lead_totals"].get("whatsapp_click", 0)
+                    ),
+                    "vin_opens": int(activity["lead_totals"].get("vin_open", 0)),
+                    "qualified_leads": int(activity["lead_totals"].get("call_click", 0))
+                    + int(activity["lead_totals"].get("whatsapp_click", 0)),
+                    "recent_reports": len(activity["reports"]),
+                },
+                "listing_summary": listing_summary,
+                "recent_listings": recent_listings,
+                "recent_events": activity["recent_events"],
+                "reports": activity["reports"],
+            }
+        ), 200
     except Exception as e:
         logger.error(f"Error fetching dealer overview: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1722,12 +1836,20 @@ def get_listing_overview(item_type, item_id):
             return jsonify({"error": "Listing not found"}), 404
         listing = listing_rows[0]
 
-        owner_row = _admin_fetch_user(listing.get("user_id")) if listing.get("user_id") else None
+        owner_row = (
+            _admin_fetch_user(listing.get("user_id"))
+            if listing.get("user_id")
+            else None
+        )
 
         images_resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/{config['image_table']}",
             headers=_admin_headers(),
-            params={"select": "*", config["fk"]: f"eq.{item_id}", "order": "uploaded_at.asc"},
+            params={
+                "select": "*",
+                config["fk"]: f"eq.{item_id}",
+                "order": "uploaded_at.asc",
+            },
             timeout=15,
         )
         images_rows = images_resp.json() if images_resp.status_code == 200 else []
@@ -1735,7 +1857,13 @@ def get_listing_overview(item_type, item_id):
         lead_resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/lead_events",
             headers=_admin_headers(),
-            params={"select": "*", "listing_id": f"eq.{item_id}", "listing_type": f"eq.{item_type.rstrip('s')}", "order": "created_at.desc", "limit": "100"},
+            params={
+                "select": "*",
+                "listing_id": f"eq.{item_id}",
+                "listing_type": f"eq.{item_type.rstrip('s')}",
+                "order": "created_at.desc",
+                "limit": "100",
+            },
             timeout=15,
         )
         lead_rows = lead_resp.json() if lead_resp.status_code == 200 else []
@@ -1743,7 +1871,13 @@ def get_listing_overview(item_type, item_id):
         report_resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/reports",
             headers=_admin_headers(),
-            params={"select": "*", "listing_id": f"eq.{item_id}", "listing_type": f"eq.{item_type.rstrip('s')}", "order": "created_at.desc", "limit": "100"},
+            params={
+                "select": "*",
+                "listing_id": f"eq.{item_id}",
+                "listing_type": f"eq.{item_type.rstrip('s')}",
+                "order": "created_at.desc",
+                "limit": "100",
+            },
             timeout=15,
         )
         report_rows = report_resp.json() if report_resp.status_code == 200 else []
@@ -1751,7 +1885,13 @@ def get_listing_overview(item_type, item_id):
         deletion_resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/listing_deletion_events",
             headers=_admin_headers(),
-            params={"select": "*", "listing_id": f"eq.{item_id}", "listing_type": f"eq.{item_type.rstrip('s')}", "order": "created_at.desc", "limit": "50"},
+            params={
+                "select": "*",
+                "listing_id": f"eq.{item_id}",
+                "listing_type": f"eq.{item_type.rstrip('s')}",
+                "order": "created_at.desc",
+                "limit": "50",
+            },
             timeout=15,
         )
         deletion_rows = deletion_resp.json() if deletion_resp.status_code == 200 else []
@@ -1762,23 +1902,26 @@ def get_listing_overview(item_type, item_id):
         for event in lead_rows or []:
             lead_totals[event.get("action") or "unknown"] += 1
 
-        return jsonify({
-            "listing": listing,
-            "owner": owner_row,
-            "images": images_rows or [],
-            "summary": {
-                "view_count": int(listing.get("view_count") or 0),
-                "call_clicks": int(lead_totals.get("call_click", 0)),
-                "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
-                "vin_opens": int(lead_totals.get("vin_open", 0)),
-                "qualified_leads": int(lead_totals.get("call_click", 0)) + int(lead_totals.get("whatsapp_click", 0)),
-                "report_count": len(report_rows or []),
-                "deletion_count": len(deletion_rows or []),
-            },
-            "lead_events": lead_rows or [],
-            "reports": report_rows or [],
-            "deletion_events": deletion_rows or [],
-        }), 200
+        return jsonify(
+            {
+                "listing": listing,
+                "owner": owner_row,
+                "images": images_rows or [],
+                "summary": {
+                    "view_count": int(listing.get("view_count") or 0),
+                    "call_clicks": int(lead_totals.get("call_click", 0)),
+                    "whatsapp_clicks": int(lead_totals.get("whatsapp_click", 0)),
+                    "vin_opens": int(lead_totals.get("vin_open", 0)),
+                    "qualified_leads": int(lead_totals.get("call_click", 0))
+                    + int(lead_totals.get("whatsapp_click", 0)),
+                    "report_count": len(report_rows or []),
+                    "deletion_count": len(deletion_rows or []),
+                },
+                "lead_events": lead_rows or [],
+                "reports": report_rows or [],
+                "deletion_events": deletion_rows or [],
+            }
+        ), 200
     except Exception as e:
         logger.error(f"Error fetching listing overview: {e}")
         return jsonify({"error": str(e)}), 500

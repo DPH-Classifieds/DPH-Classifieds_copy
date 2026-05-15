@@ -1004,3 +1004,70 @@
     min-width: 0;
   }
 }
+
+/* Time Range Selector */
+.admin-time-range-selector {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(148, 218, 153, 0.06);
+  border: 1px solid var(--admin-border);
+}
+
+.admin-time-range-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.admin-time-range-btn:hover {
+  color: var(--admin-text);
+  background: rgba(148, 218, 153, 0.08);
+}
+
+.admin-time-range-btn.is-active {
+  background: rgba(148, 218, 153, 0.18);
+  color: var(--admin-success);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 900px) {
+  .admin-ops .admin-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-ops .admin-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .admin-time-range-selector {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .admin-time-range-btn {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-time-range-selector {
+    flex-wrap: wrap;
+  }
+
+  .admin-time-range-btn {
+    flex: 1 1 calc(50% - 4px);
+  }
+}

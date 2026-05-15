@@ -19,6 +19,14 @@ const formatDateKey = (date) => date.toISOString().slice(0, 10);
 const labelForDay = (date) =>
   date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
+const TIME_RANGES = [
+  { key: '24h', label: '24 Hours', days: 1 },
+  { key: '7d', label: '7 Days', days: 7 },
+  { key: '30d', label: '30 Days', days: 30 },
+  { key: '90d', label: '90 Days', days: 90 },
+  { key: 'all', label: 'All Time', days: null },
+];
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -30,6 +38,7 @@ const AdminDashboard = () => {
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
   const [liveUsers, setLiveUsers] = useState(null);
+  const [timeRange, setTimeRange] = useState('30d');
 
   useEffect(() => {
     let active = true;
@@ -39,9 +48,12 @@ const AdminDashboard = () => {
         setLoading(true);
         setError('');
 
+        const selectedRange = TIME_RANGES.find((r) => r.key === timeRange);
+        const daysParam = selectedRange?.days ? `?days=${selectedRange.days}` : '';
+
         const [statsRes, leadRes, historyRes, dealersRes, reportsRes] = await Promise.all([
-          apiClient.get('/api/admin/stats').catch(() => ({})),
-          apiClient.get('/api/admin/lead-metrics?days=30').catch(() => null),
+          apiClient.get(`/api/admin/stats${daysParam}`).catch(() => ({})),
+          apiClient.get(`/api/admin/lead-metrics?days=${selectedRange?.days || 365}`).catch(() => null),
           apiClient.get('/api/admin/listing-history?limit=12').catch(() => []),
           apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
           apiClient.get('/api/admin/reports').catch(() => []),
@@ -66,7 +78,7 @@ const AdminDashboard = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [timeRange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,6 +246,18 @@ const AdminDashboard = () => {
           </p>
         </div>
         <div className="admin-actions">
+          <div className="admin-time-range-selector">
+            {TIME_RANGES.map((range) => (
+              <button
+                key={range.key}
+                type="button"
+                className={`admin-time-range-btn ${timeRange === range.key ? 'is-active' : ''}`}
+                onClick={() => setTimeRange(range.key)}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
           <span className="admin-status-pill tone-success">{formatCompact(totalLeads)} leads</span>
           <span className="admin-status-pill tone-warning">{formatCompact(pendingApprovals)} pending</span>
           <span className="admin-status-pill">{formatCompact(verifiedDealers)}/{formatCompact(totalDealers)} dealers verified</span>
