@@ -76,7 +76,19 @@ const AdminListings = () => {
       const nonDeletedStatuses = statusesToFetch.filter(s => s !== 'deleted');
       if (nonDeletedStatuses.length > 0) {
           promises.push(
-            apiClient.get(`/api/admin/listings-search?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`).catch(() => [])
+            apiClient.get(`/api/admin/listings-search?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`)
+              .catch(() => {
+                // Fallback: if the new endpoint doesn't exist yet, use old per-type endpoints
+                const fallbackPromises = [];
+                for (const type of typesToFetch) {
+                  for (const status of nonDeletedStatuses) {
+                    fallbackPromises.push(
+                      apiClient.get(`/api/admin/approve/${type}?status=${status}`).catch(() => [])
+                    );
+                  }
+                }
+                return Promise.all(fallbackPromises).then(results => results.flat());
+              })
         );
       } else {
         promises.push(Promise.resolve([]));
