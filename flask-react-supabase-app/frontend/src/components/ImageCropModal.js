@@ -41,13 +41,13 @@ const createCroppedImage = (imageSrc, pixelCrop) =>
     image.src = imageSrc;
   });
 
-const ImageCropModal = ({ imageSrc, onCropComplete, onCancel }) => {
+const ImageCropModal = ({ imageSrc, onCropComplete: onCropDone, onCancel }) => {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [cropping, setCropping] = useState(false);
   const croppedAreaPixelsRef = useRef(null);
 
-  const onCropComplete = useCallback((_croppedArea, croppedAreaPixels) => {
+  const handleCropChange = useCallback((_croppedArea, croppedAreaPixels) => {
     croppedAreaPixelsRef.current = croppedAreaPixels;
   }, []);
 
@@ -60,7 +60,7 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel }) => {
       const blob = await createCroppedImage(imageSrc, pixels);
       const file = new File([blob], 'profile-photo.jpg', { type: 'image/jpeg', lastModified: Date.now() });
       const previewUrl = URL.createObjectURL(blob);
-      onCropComplete(file, previewUrl);
+      onCropDone(file, previewUrl);
     } catch (err) {
       console.error('Crop failed:', err);
     } finally {
@@ -89,7 +89,7 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel }) => {
               showGrid={false}
               onCropChange={setCrop}
               onZoomChange={setZoom}
-              onCropComplete={onCropComplete}
+              onCropComplete={handleCropChange}
             />
           </div>
 
