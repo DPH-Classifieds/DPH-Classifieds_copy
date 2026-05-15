@@ -1005,6 +1005,16 @@
   }
 }
 
+.admin-kpi-card-launch {
+  background: linear-gradient(135deg, rgba(148, 218, 153, 0.08) 0%, rgba(74, 222, 128, 0.04) 100%);
+  border: 1px solid rgba(148, 218, 153, 0.2);
+}
+
+.admin-kpi-card-launch .admin-kpi-value {
+  color: var(--admin-success);
+  font-size: 3rem;
+}
+
 /* Time Range Selector */
 .admin-time-range-selector {
   display: flex;

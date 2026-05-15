@@ -19,6 +19,14 @@ const formatDateKey = (date) => date.toISOString().slice(0, 10);
 const labelForDay = (date) =>
   date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
+const LAUNCH_DATE = new Date('2026-05-09T00:00:00');
+
+const getDaysSinceLaunch = () => {
+  const now = new Date();
+  const diffMs = now.getTime() - LAUNCH_DATE.getTime();
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+};
+
 const TIME_RANGES = [
   { key: '24h', label: '24 Hours', days: 1 },
   { key: '7d', label: '7 Days', days: 7 },
@@ -268,6 +276,11 @@ const AdminDashboard = () => {
       </div>
 
       <div className="admin-kpi-grid">
+        <div className="admin-kpi-card admin-kpi-card-launch">
+          <div className="admin-kpi-label">Days since launch</div>
+          <div className="admin-kpi-value">{getDaysSinceLaunch()}</div>
+          <div className="admin-kpi-note">Launched 9 May 2026. The journey continues.</div>
+        </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Total leads</div>
           <div className="admin-kpi-value">{formatCompact(totalLeads)}</div>
