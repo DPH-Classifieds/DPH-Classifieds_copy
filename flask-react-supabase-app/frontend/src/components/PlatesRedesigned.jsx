@@ -76,8 +76,7 @@ const PlatesRedesigned = () => {
     const fetchPlates = async () => {
       try {
         setLoading(true);
-        const timestamp = Date.now();
-        const response = await fetch(`${API_URL}/api/plates?_t=${timestamp}`, {
+        const response = await fetch(`${API_URL}/api/plates`, {
           headers: {
             'Accept': 'application/json'
           }

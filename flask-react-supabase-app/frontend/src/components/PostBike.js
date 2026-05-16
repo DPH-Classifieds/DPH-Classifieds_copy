@@ -13,7 +13,7 @@ import {
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImageUrlsDirect } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -358,7 +358,7 @@ const PostBike = () => {
       throw new Error('Please upload at least one bike image.');
     }
 
-    return uploadListingImageUrlsDirect(selectedFiles, { userId: user.id });
+    return uploadListingImagesDirect(selectedFiles, { userId: user.id });
   };
 
   const removeExistingImage = (index) => {
@@ -376,8 +376,8 @@ const PostBike = () => {
     setIsSubmitting(true);
 
     try {
-      const uploadedImageUrls = selectedFiles.length > 0 ? await uploadImages() : [];
-      const mergedImageUrls = [...existingImageUrls, ...uploadedImageUrls];
+      const uploadedImages = selectedFiles.length > 0 ? await uploadImages() : [];
+      const mergedImages = [...existingImageUrls, ...uploadedImages];
       const payload = {
         bike_brand: formData.bike_brand.trim(),
         bike_model: formData.bike_model.trim(),
@@ -403,7 +403,7 @@ const PostBike = () => {
         cylinders: formData.cylinders ? Number(formData.cylinders) : null,
         wheels: formData.wheels ? Number(formData.wheels) : null,
         is_dealer: formData.is_dealer,
-        images: mergedImageUrls,
+        images: mergedImages,
       };
 
       if (isEdit) {
@@ -430,7 +430,7 @@ const PostBike = () => {
           throw lastError;
         }
       } else {
-        if (mergedImageUrls.length === 0) {
+        if (mergedImages.length === 0) {
           throw new Error('Please upload at least one bike image.');
         }
         await apiClient.post('/api/bikes', payload);

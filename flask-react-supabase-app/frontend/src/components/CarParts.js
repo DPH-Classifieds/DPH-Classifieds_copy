@@ -2,9 +2,23 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
+import { resolveMediaUrl } from '../utils/media';
 import '../styles/CarParts.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
+
+const getListingImageUrl = (part) => {
+  const candidate =
+    part?.image ||
+    part?.display_url ||
+    part?.image_url ||
+    part?.images?.[0]?.display_url ||
+    part?.images?.[0]?.image_url ||
+    part?.images?.[0]?.url ||
+    null;
+  return resolveMediaUrl(candidate);
+};
 
 const CarParts = () => {
   const [parts, setParts] = useState([]);
@@ -20,8 +34,7 @@ const CarParts = () => {
     const fetchCarParts = async () => {
       try {
         setLoading(true);
-        const timestamp = Date.now();
-        const response = await fetch(`${API_URL}/api/parts?_t=${timestamp}`, {
+        const response = await fetch(`${API_URL}/api/parts`, {
           headers: {
             'Accept': 'application/json'
           }
@@ -163,11 +176,16 @@ const CarParts = () => {
       
       <div className="car-parts-grid">
         {filteredParts.map(part => (
-          <div key={part.id} className="part-card">
+            <div key={part.id} className="part-card">
             <div className="part-image">
               <img
-                src={part.image || part.display_url || part.image_url || part.images?.[0]?.display_url || part.images?.[0]?.image_url || part.images?.[0]?.url}
+                src={getListingImageUrl(part) || LISTING_PLACEHOLDER_IMAGE}
                 alt={part.name || part.part_name}
+                loading="lazy"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+                }}
               />
             </div>
             <div className="part-details">

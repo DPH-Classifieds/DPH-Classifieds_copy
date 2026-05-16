@@ -41,8 +41,7 @@ const BikesRedesigned = () => {
     const fetchBikes = async () => {
       try {
         setLoading(true);
-        const timestamp = Date.now();
-        const response = await fetch(`${API_URL}/api/bikes?_t=${timestamp}`, {
+        const response = await fetch(`${API_URL}/api/bikes`, {
           headers: {
             'Accept': 'application/json'
           }

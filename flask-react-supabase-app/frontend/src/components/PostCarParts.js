@@ -9,7 +9,7 @@ import { UAE_EMIRATES, getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImageUrlsDirect } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -317,7 +317,7 @@ const PostCarParts = () => {
       throw new Error('Please upload at least one part image.');
     }
 
-    return uploadListingImageUrlsDirect(selectedFiles, { userId: user.id });
+    return uploadListingImagesDirect(selectedFiles, { userId: user.id });
   };
 
   const removeExistingImage = (index) => {
@@ -335,8 +335,8 @@ const PostCarParts = () => {
     setIsSubmitting(true);
 
     try {
-      const uploadedImageUrls = selectedFiles.length > 0 ? await uploadImages() : [];
-      const mergedImageUrls = [...existingImageUrls, ...uploadedImageUrls];
+      const uploadedImages = selectedFiles.length > 0 ? await uploadImages() : [];
+      const mergedImages = [...existingImageUrls, ...uploadedImages];
       const payload = {
         name: formData.name.trim(),
         part_type: formData.part_type,
@@ -357,7 +357,7 @@ const PostCarParts = () => {
           : '',
         is_negotiable: formData.is_negotiable,
         is_dealer: formData.is_dealer,
-        images: mergedImageUrls,
+        images: mergedImages,
       };
 
       if (isEdit) {
@@ -384,7 +384,7 @@ const PostCarParts = () => {
           throw lastError;
         }
       } else {
-        if (mergedImageUrls.length === 0) {
+        if (mergedImages.length === 0) {
           throw new Error('Please upload at least one part image.');
         }
         await apiClient.post('/api/parts', payload);

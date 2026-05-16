@@ -12,6 +12,7 @@ import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
+import { resolveMediaUrl } from '../utils/media';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
@@ -168,9 +169,12 @@ const PartDetailRedesigned = () => {
       return [];
     }
     return part.images
-      .map((image) => image?.image_url || image?.url || null)
+      .map((image) => {
+        if (typeof image === 'string') return image;
+        return image?.display_url || image?.image_url || image?.url || null;
+      })
       .filter(Boolean)
-      .map((imageUrl) => (imageUrl.startsWith('/') ? `${API_URL}${imageUrl}` : imageUrl));
+      .map((imageUrl) => resolveMediaUrl(imageUrl));
   };
 
   const getMainImageUrl = () => {

@@ -274,9 +274,9 @@ API_ITEM_TYPE_TO_TABLE = {
 }
 LISTING_IMAGE_SELECTS = {
     "cars": "id,car_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
-    "bikes": "id,bike_id,image_url,url,uploaded_at",
-    "car_parts": "id,part_id,image_url,uploaded_at",
-    "license_plates": "id,plate_id,image_url,created_at,updated_at",
+    "bikes": "id,bike_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
+    "car_parts": "id,part_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
+    "license_plates": "id,plate_id,image_url,url,display_url,focal_x,focal_y,crop_meta,created_at,updated_at,uploaded_at",
 }
 
 
@@ -8593,21 +8593,34 @@ def get_bikes():
                     normalized_images = []
                     for img in bike_images:
                         image_url = img.get("image_url") or img.get("url")
-                        if image_url:
-                            normalized_images.append(
-                                {
-                                    "id": img.get("id"),
-                                    "image_url": image_url,
-                                    "url": image_url,
-                                }
-                            )
+                        if not image_url:
+                            continue
+                        normalized_images.append(
+                            {
+                                "id": img.get("id"),
+                                "image_url": image_url,
+                                "url": image_url,
+                                "display_url": img.get("display_url"),
+                                "focal_x": img.get("focal_x"),
+                                "focal_y": img.get("focal_y"),
+                                "crop_meta": img.get("crop_meta"),
+                            }
+                        )
                     bike["images"] = normalized_images
                     # Fallback for main image
                     if not bike["images"]:
                         if bike.get("image_url") or bike.get("url"):
                             main_url = bike.get("image_url") or bike.get("url")
                             bike["images"] = [
-                                {"id": "main", "url": main_url, "image_url": main_url}
+                                {
+                                    "id": "main",
+                                    "url": main_url,
+                                    "image_url": main_url,
+                                    "display_url": bike.get("display_url"),
+                                    "focal_x": bike.get("focal_x"),
+                                    "focal_y": bike.get("focal_y"),
+                                    "crop_meta": bike.get("crop_meta"),
+                                }
                             ]
 
                     _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
@@ -9030,6 +9043,26 @@ def create_bike(current_user):
         if images:
             image_inserts = []
             for image_url in images:
+                if isinstance(image_url, dict):
+                    url_value = (
+                        image_url.get("image_url")
+                        or image_url.get("url")
+                        or image_url.get("display_url")
+                    )
+                    if not url_value:
+                        continue
+                    image_inserts.append(
+                        {
+                            "bike_id": bike_id,
+                            "url": image_url.get("url") or url_value,
+                            "image_url": image_url.get("image_url") or url_value,
+                            "display_url": image_url.get("display_url"),
+                            "focal_x": image_url.get("focal_x"),
+                            "focal_y": image_url.get("focal_y"),
+                            "crop_meta": image_url.get("crop_meta"),
+                        }
+                    )
+                    continue
                 image_inserts.append(
                     {
                         "bike_id": bike_id,
@@ -9205,6 +9238,26 @@ def update_bike(current_user, bike_id):
             if images:
                 image_inserts = []
                 for image_url in images:
+                    if isinstance(image_url, dict):
+                        url_value = (
+                            image_url.get("image_url")
+                            or image_url.get("url")
+                            or image_url.get("display_url")
+                        )
+                        if not url_value:
+                            continue
+                        image_inserts.append(
+                            {
+                                "bike_id": bike_id,
+                                "url": image_url.get("url") or url_value,
+                                "image_url": image_url.get("image_url") or url_value,
+                                "display_url": image_url.get("display_url"),
+                                "focal_x": image_url.get("focal_x"),
+                                "focal_y": image_url.get("focal_y"),
+                                "crop_meta": image_url.get("crop_meta"),
+                            }
+                        )
+                        continue
                     image_inserts.append(
                         {
                             "bike_id": bike_id,
@@ -9370,6 +9423,10 @@ def get_plates():
                         "id": img.get("id"),
                         "url": img.get("url") or img.get("image_url"),
                         "image_url": img.get("image_url") or img.get("url"),
+                        "display_url": img.get("display_url"),
+                        "focal_x": img.get("focal_x"),
+                        "focal_y": img.get("focal_y"),
+                        "crop_meta": img.get("crop_meta"),
                     }
                     for img in plate_images
                     if img.get("url") or img.get("image_url")
@@ -9379,7 +9436,15 @@ def get_plates():
                     if plate.get("image_url") or plate.get("url"):
                         main_url = plate.get("image_url") or plate.get("url")
                         plate["images"] = [
-                            {"id": "main", "url": main_url, "image_url": main_url}
+                            {
+                                "id": "main",
+                                "url": main_url,
+                                "image_url": main_url,
+                                "display_url": plate.get("display_url"),
+                                "focal_x": plate.get("focal_x"),
+                                "focal_y": plate.get("focal_y"),
+                                "crop_meta": plate.get("crop_meta"),
+                            }
                         ]
 
                 _apply_seller_to_listing(plate, seller_map.get(plate.get("user_id")))
@@ -9448,6 +9513,10 @@ def get_plate_details(plate_id):
                     "id": img.get("id"),
                     "url": img.get("url") or img.get("image_url"),
                     "image_url": img.get("image_url") or img.get("url"),
+                    "display_url": img.get("display_url"),
+                    "focal_x": img.get("focal_x"),
+                    "focal_y": img.get("focal_y"),
+                    "crop_meta": img.get("crop_meta"),
                 }
                 for img in plate_images
             ]
@@ -9649,6 +9718,10 @@ def get_parts():
                             "id": img.get("id"),
                             "url": img.get("url") or img.get("image_url"),
                             "image_url": img.get("image_url") or img.get("url"),
+                            "display_url": img.get("display_url"),
+                            "focal_x": img.get("focal_x"),
+                            "focal_y": img.get("focal_y"),
+                            "crop_meta": img.get("crop_meta"),
                         }
                         for img in part_images
                         if img.get("url") or img.get("image_url")
@@ -9658,7 +9731,15 @@ def get_parts():
                         if part.get("image_url") or part.get("url"):
                             main_url = part.get("image_url") or part.get("url")
                             part["images"] = [
-                                {"id": "main", "url": main_url, "image_url": main_url}
+                                {
+                                    "id": "main",
+                                    "url": main_url,
+                                    "image_url": main_url,
+                                    "display_url": part.get("display_url"),
+                                    "focal_x": part.get("focal_x"),
+                                    "focal_y": part.get("focal_y"),
+                                    "crop_meta": part.get("crop_meta"),
+                                }
                             ]
                     _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
 
@@ -9841,6 +9922,26 @@ def create_part(current_user):
         if uploaded_files:
             image_inserts = []
             for image_url in uploaded_files:
+                if isinstance(image_url, dict):
+                    url_value = (
+                        image_url.get("image_url")
+                        or image_url.get("url")
+                        or image_url.get("display_url")
+                    )
+                    if not url_value:
+                        continue
+                    image_inserts.append(
+                        {
+                            "part_id": part_id,
+                            "url": image_url.get("url") or url_value,
+                            "image_url": image_url.get("image_url") or url_value,
+                            "display_url": image_url.get("display_url"),
+                            "focal_x": image_url.get("focal_x"),
+                            "focal_y": image_url.get("focal_y"),
+                            "crop_meta": image_url.get("crop_meta"),
+                        }
+                    )
+                    continue
                 image_inserts.append(
                     {
                         "part_id": part_id,
@@ -9923,6 +10024,10 @@ def get_part_details(part_id):
                 "id": img.get("id"),
                 "url": img.get("url") or img.get("image_url"),
                 "image_url": img.get("image_url") or img.get("url"),
+                "display_url": img.get("display_url"),
+                "focal_x": img.get("focal_x"),
+                "focal_y": img.get("focal_y"),
+                "crop_meta": img.get("crop_meta"),
             }
             for img in part_images
             if img.get("url") or img.get("image_url")
@@ -9930,7 +10035,17 @@ def get_part_details(part_id):
 
         if not part["images"] and (part.get("image_url") or part.get("url")):
             main_url = part.get("image_url") or part.get("url")
-            part["images"] = [{"id": "main", "url": main_url, "image_url": main_url}]
+            part["images"] = [
+                {
+                    "id": "main",
+                    "url": main_url,
+                    "image_url": main_url,
+                    "display_url": part.get("display_url"),
+                    "focal_x": part.get("focal_x"),
+                    "focal_y": part.get("focal_y"),
+                    "crop_meta": part.get("crop_meta"),
+                }
+            ]
 
         _enrich_listing_seller(part, headers=headers)
         return jsonify(part), 200
@@ -10037,6 +10152,26 @@ def update_part(current_user, part_id):
             if images:
                 image_inserts = []
                 for image_url in images:
+                    if isinstance(image_url, dict):
+                        url_value = (
+                            image_url.get("image_url")
+                            or image_url.get("url")
+                            or image_url.get("display_url")
+                        )
+                        if not url_value:
+                            continue
+                        image_inserts.append(
+                            {
+                                "part_id": part_id,
+                                "url": image_url.get("url") or url_value,
+                                "image_url": image_url.get("image_url") or url_value,
+                                "display_url": image_url.get("display_url"),
+                                "focal_x": image_url.get("focal_x"),
+                                "focal_y": image_url.get("focal_y"),
+                                "crop_meta": image_url.get("crop_meta"),
+                            }
+                        )
+                        continue
                     image_inserts.append(
                         {
                             "part_id": part_id,
@@ -12907,7 +13042,9 @@ def get_admin_reports(current_user):
         if listing_type:
             query += f"&listing_type=eq.{listing_type}"
 
-        response, status_code = supabase_request("get", query, user_id=current_user)
+        response, status_code = supabase_request(
+            "get", query, user_id=current_user, use_service_role=True
+        )
 
         if status_code >= 400:
             logger.error(f"Failed to fetch admin reports: {response}")
