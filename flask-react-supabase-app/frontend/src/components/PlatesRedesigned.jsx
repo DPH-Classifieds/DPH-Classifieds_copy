@@ -5,6 +5,7 @@ import LoadingSpinner from './LoadingSpinner';
 import UAELicensePlate from './UAELicensePlate';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
+import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import './PlatesRedesigned.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -75,25 +76,28 @@ const PlatesRedesigned = () => {
   useEffect(() => {
     const fetchPlates = async () => {
       try {
-        setLoading(true);
-        const response = await fetch(`${API_URL}/api/plates`, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
+        const url = `${API_URL}/api/plates`;
+        const cached = readJsonSessionCache(url);
+        if (Array.isArray(cached)) {
+          const cachedApproved = cached.filter((plate) => plate.status === 'approved');
+          setPlates(cachedApproved);
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
 
+        const response = await fetchJsonWithCache(url);
         if (!response.ok) {
           throw new Error(`Failed to fetch plates: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = response.data;
 
         if (!Array.isArray(data)) {
           throw new Error('Unexpected response for plates list.');
         }
         
-        const approvedPlates = data.filter(plate => plate.status === 'approved');
-        console.log(`Found ${approvedPlates.length} approved plates out of ${data.length} total`);
+        const approvedPlates = data.filter((plate) => plate.status === 'approved');
         setPlates(approvedPlates);
         setError(null);
       } catch (err) {

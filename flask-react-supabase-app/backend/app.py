@@ -8736,34 +8736,64 @@ def get_bikes():
 
         except Exception as e:
             logger.error(f"Error in direct request: {str(e)}")
-            # Fallback to regular Supabase client
+            # Fallback to regular Supabase client (single joined query; no N+1 image fetch)
+            fallback_params = {
+                **params,
+                "select": (
+                    "id,user_id,bike_brand,bike_model,make_year,bike_category,engine_capacity,"
+                    "expected_selling_price,kilometer_driven,description,created_at,updated_at,image_url,url,"
+                    "display_url,status,is_approved,featured,views,bike_images("
+                    + LISTING_IMAGE_SELECTS["bikes"]
+                    + ")"
+                ),
+            }
             response, status_code = supabase_request(
-                "get", "/rest/v1/bikes", params=params
+                "get", "/rest/v1/bikes", params=fallback_params, use_service_role=True
             )
             if status_code < 400 and response:
-                response = _filter_public_listing_records("bikes", response)
-                # Fetch images for each bike in fallback
-                for bike in response:
-                    _normalize_bike_record(bike)
-                    bike_id = bike["id"]
-                    images_response, images_status = supabase_request(
-                        "get",
-                        "/rest/v1/bike_images",
-                        params={"select": "*", "bike_id": f"eq.{bike_id}"},
-                    )
-                    if images_status < 400 and images_response:
-                        for image in images_response:
-                            if "url" in image and not image.get("image_url"):
-                                image["image_url"] = image["url"]
-                            if "image_url" in image and not image.get("url"):
-                                image["url"] = image["image_url"]
-                        bike["images"] = images_response
-                    else:
-                        bike["images"] = []
+                bikes = _filter_public_listing_records("bikes", response)
 
-                    _enrich_listing_seller(bike)
-                _api_cache_set(cache_key, response)
-                return _cached_json_response(response)
+                seller_map = _batch_fetch_seller_map(
+                    [bike.get("user_id") for bike in bikes], headers=headers
+                )
+                for bike in bikes:
+                    _normalize_bike_record(bike)
+                    bike_images = bike.pop("bike_images", []) or []
+                    normalized_images = []
+                    for img in bike_images:
+                        image_url = img.get("image_url") or img.get("url")
+                        if not image_url:
+                            continue
+                        normalized_images.append(
+                            {
+                                "id": img.get("id"),
+                                "image_url": image_url,
+                                "url": image_url,
+                                "display_url": img.get("display_url"),
+                                "focal_x": img.get("focal_x"),
+                                "focal_y": img.get("focal_y"),
+                                "crop_meta": img.get("crop_meta"),
+                            }
+                        )
+                    bike["images"] = normalized_images
+                    if not bike["images"] and (bike.get("image_url") or bike.get("url")):
+                        main_url = bike.get("image_url") or bike.get("url")
+                        bike["images"] = [
+                            {
+                                "id": "main",
+                                "url": main_url,
+                                "image_url": main_url,
+                                "display_url": bike.get("display_url"),
+                                "focal_x": bike.get("focal_x"),
+                                "focal_y": bike.get("focal_y"),
+                                "crop_meta": bike.get("crop_meta"),
+                            }
+                        ]
+
+                    _apply_seller_to_listing(bike, seller_map.get(bike.get("user_id")))
+
+                _api_cache_set(cache_key, bikes)
+                return _cached_json_response(bikes)
             else:
                 empty_payload = []
                 _api_cache_set(cache_key, empty_payload)
@@ -9853,28 +9883,58 @@ def get_parts():
 
         except Exception as e:
             logger.error(f"Error in direct request: {str(e)}")
-            # Fallback to regular Supabase client
+            # Fallback to regular Supabase client (single joined query; no N+1 image fetch)
+            fallback_params = {
+                **params,
+                "select": (
+                    "id,user_id,category,part_type,brand,model,condition,price,description,city,"
+                    "created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+                    "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
+                ),
+            }
             response, status_code = supabase_request(
-                "get", "/rest/v1/car_parts", params=params
+                "get", "/rest/v1/car_parts", params=fallback_params, use_service_role=True
             )
             if status_code < 400 and response:
-                response = _filter_public_listing_records("car_parts", response)
-                # Fetch images for each part in fallback
-                for part in response:
-                    part_id = part["id"]
-                    images_response, images_status = supabase_request(
-                        "get",
-                        "/rest/v1/part_images",
-                        params={"select": "*", "part_id": f"eq.{part_id}"},
-                    )
-                    if images_status < 400 and images_response:
-                        part["images"] = images_response
-                    else:
-                        part["images"] = []
+                parts = _filter_public_listing_records("car_parts", response)
 
-                    _enrich_listing_seller(part)
-                _api_cache_set(cache_key, response)
-                return _cached_json_response(response)
+                seller_map = _batch_fetch_seller_map(
+                    [part.get("user_id") for part in parts], headers=headers
+                )
+                for part in parts:
+                    part_images = part.pop("part_images", []) or []
+                    part["images"] = [
+                        {
+                            "id": img.get("id"),
+                            "url": img.get("url") or img.get("image_url"),
+                            "image_url": img.get("image_url") or img.get("url"),
+                            "display_url": img.get("display_url"),
+                            "focal_x": img.get("focal_x"),
+                            "focal_y": img.get("focal_y"),
+                            "crop_meta": img.get("crop_meta"),
+                        }
+                        for img in part_images
+                        if img.get("url") or img.get("image_url")
+                    ]
+
+                    if not part["images"] and (part.get("image_url") or part.get("url")):
+                        main_url = part.get("image_url") or part.get("url")
+                        part["images"] = [
+                            {
+                                "id": "main",
+                                "url": main_url,
+                                "image_url": main_url,
+                                "display_url": part.get("display_url"),
+                                "focal_x": part.get("focal_x"),
+                                "focal_y": part.get("focal_y"),
+                                "crop_meta": part.get("crop_meta"),
+                            }
+                        ]
+
+                    _apply_seller_to_listing(part, seller_map.get(part.get("user_id")))
+
+                _api_cache_set(cache_key, parts)
+                return _cached_json_response(parts)
             else:
                 empty_payload = []
                 _api_cache_set(cache_key, empty_payload)

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import axios from 'axios';
 import LoadingSpinner from './LoadingSpinner';
 import SeoMeta from './SeoMeta';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
+import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import { buildStaticSeo } from '../utils/seo';
 import './CarList.css';
 import './ExplorePage.css';
@@ -185,40 +185,26 @@ const CarList = () => {
       });
       
       const queryString = params.toString() ? `?${params.toString()}` : '';
-      
-      console.log('Fetching from:', `${API_URL}/api/cars${queryString}`);
-      console.log('API_URL value:', API_URL);
-      
-      const response = await axios.get(`${API_URL}/api/cars${queryString}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        validateStatus: function (status) {
-          return status < 500; // Accept any status code less than 500
-        }
-      });
-      
-      console.log('API Response status:', response.status);
-      console.log('API Response data type:', typeof response.data);
-      console.log('API Response data:', response.data);
-      
-      // Check if response is HTML (error page)
-      if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
-        console.error('Received HTML instead of JSON. API might be down or URL is wrong.');
-        console.error('Current API_URL:', API_URL);
-        throw new Error('API returned HTML instead of JSON. Check if backend is running.');
+
+      const url = `${API_URL}/api/cars${queryString}`;
+      const cached = readJsonSessionCache(url);
+      if (Array.isArray(cached)) {
+        setCars(cached);
+        setLoading(false);
       }
-      
-      // Ensure we have an array
+
+      const response = await fetchJsonWithCache(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch cars: ${response.status}`);
+      }
+
       const carsData = Array.isArray(response.data) ? response.data : [];
-      console.log('Setting cars data, length:', carsData.length);
       setCars(carsData);
       
     } catch (err) {
       console.error('Error fetching cars:', err);
-      console.error('Error details:', err.response?.data || err.message);
-      setError('Failed to load cars. Please check if the API is running.');
+      setError('Failed to load cars. Please try again later.');
+      setCars([]);
     } finally {
       setLoading(false);
     }

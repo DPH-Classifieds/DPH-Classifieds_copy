@@ -3,6 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import { resolveMediaUrl } from '../utils/media';
+import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import './BikesRedesigned.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -40,23 +41,23 @@ const BikesRedesigned = () => {
   useEffect(() => {
     const fetchBikes = async () => {
       try {
-        setLoading(true);
-        const response = await fetch(`${API_URL}/api/bikes`, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
+        const url = `${API_URL}/api/bikes`;
+        const cached = readJsonSessionCache(url);
+        if (Array.isArray(cached)) {
+          setBikes(cached);
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
 
+        const response = await fetchJsonWithCache(url);
         if (!response.ok) {
           throw new Error(`Failed to fetch bikes: ${response.status}`);
         }
-
-        const data = await response.json();
-
-        if (!Array.isArray(data)) {
+        if (!Array.isArray(response.data)) {
           throw new Error('Unexpected response for bikes list.');
         }
-        setBikes(data);
+        setBikes(response.data);
         setError(null);
       } catch (err) {
         console.error('Error fetching bikes:', err);
