@@ -10,6 +10,7 @@ const AdminReports = () => {
   const [reports, setReports] = useState([]);
   const [leadMetrics, setLeadMetrics] = useState(null);
   const [history, setHistory] = useState([]);
+  const [busyReportId, setBusyReportId] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,6 +34,25 @@ const AdminReports = () => {
 
     fetchData();
   }, []);
+
+  const updateReportStatus = async (reportId, nextStatus) => {
+    setBusyReportId(reportId);
+    try {
+      const updated = await apiClient.request(`/api/admin/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: { status: nextStatus },
+      });
+      setReports((prev) =>
+        prev.map((report) => (report.id === reportId ? { ...report, ...updated } : report))
+      );
+    } catch (statusError) {
+      console.error('Failed to update report status:', statusError);
+      setError(statusError?.response?.data?.error || 'Failed to update report status');
+    } finally {
+      setBusyReportId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -134,7 +154,7 @@ const AdminReports = () => {
       </div>
 
       <div className="admin-columns admin-section">
-        <div className="admin-surface">
+          <div className="admin-surface">
           <div className="admin-label">Recent reports</div>
           <h2 style={{ margin: '8px 0 16px' }}>Open moderation items</h2>
           <div className="listings-grid">
@@ -146,6 +166,24 @@ const AdminReports = () => {
                 <p><strong>Status:</strong> {report.status || 'pending'}</p>
                 <p><strong>Details:</strong> {report.details || 'No details'}</p>
                 <p><strong>Date:</strong> {report.created_at ? new Date(report.created_at).toLocaleString() : 'N/A'}</p>
+                <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                  <button
+                    className="admin-button admin-button-secondary"
+                    type="button"
+                    disabled={busyReportId === report.id || (report.status || 'pending') === 'resolved'}
+                    onClick={() => updateReportStatus(report.id, 'resolved')}
+                  >
+                    {busyReportId === report.id ? 'Updating…' : 'Mark resolved'}
+                  </button>
+                  <button
+                    className="admin-button"
+                    type="button"
+                    disabled={busyReportId === report.id || (report.status || 'pending') === 'dismissed'}
+                    onClick={() => updateReportStatus(report.id, 'dismissed')}
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             </div>
             ))}

@@ -6096,6 +6096,106 @@ def _send_new_listing_user_confirmation(user_email, item_type, listing):
     return _send_resend_email(payload)
 
 
+def _build_public_listing_url(listing_type, listing_id):
+    if not listing_type or not listing_id:
+        return None
+    base = SITE_URL.rstrip("/")
+    listing_type = str(listing_type).lower().strip()
+    listing_id = str(listing_id).strip()
+    paths = {
+        "car": f"/cars/{listing_id}",
+        "bike": f"/bikes/{listing_id}",
+        "plate": f"/plates/{listing_id}",
+        "part": f"/car-parts/{listing_id}",
+    }
+    path = paths.get(listing_type)
+    if not path:
+        return None
+    return f"{base}{path}"
+
+
+def _send_report_admin_notification(report, reporter_email=None):
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    to_email = os.getenv("RESEND_TO_EMAIL")
+    if not from_email or not to_email:
+        return None, "Missing RESEND_FROM_EMAIL or RESEND_TO_EMAIL"
+
+    listing_type = (report.get("listing_type") or "").lower()
+    listing_id = report.get("listing_id")
+    reason = report.get("reason") or "unspecified"
+    details = report.get("details") or ""
+    status = report.get("status") or "pending"
+    created_at = report.get("created_at") or ""
+    report_id = report.get("id") or ""
+
+    public_url = _build_public_listing_url(listing_type, listing_id)
+    admin_url = f"{SITE_URL.rstrip('/')}/admin/reports"
+
+    subject_prefix = "[Bug Report]" if listing_type == "bug" else "[Listing Report]"
+    subject_target = f"{listing_type}:{str(listing_id)[:8]}" if listing_id else listing_type
+    subject = f"{subject_prefix} {subject_target} – {reason}"
+
+    safe_details = xml_escape(str(details)) if details else "No extra details provided."
+    safe_reporter = xml_escape(str(reporter_email)) if reporter_email else "Unknown"
+    safe_created = xml_escape(str(created_at)) if created_at else ""
+
+    listing_link_html = (
+        f'<a href="{public_url}" style="color:#8bd6b4; text-decoration:none;">Open listing</a>'
+        if public_url
+        else "<span style=\"color:#94a3b8;\">Listing link unavailable</span>"
+    )
+
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 28px; font-weight: 800; color: #8bd6b4;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+        <div style="font-size: 13px; color: #64748b; margin-top: 6px;">Admin Report Notification</div>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.03); border-radius: 20px; padding: 28px; border: 1px solid rgba(255,255,255,0.06);">
+        <h2 style="margin: 0 0 10px; color: #ffffff; font-size: 20px; font-weight: 800;">New report received</h2>
+        <p style="margin: 0 0 18px; color: #94a3b8; line-height: 1.6;">A user reported a listing. Review it in the admin panel and take action if needed.</p>
+
+        <table style="width: 100%; border-collapse: collapse; margin: 10px 0 18px;">
+          <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #64748b; width: 34%;">Report ID</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-family: monospace; color: #8bd6b4;">{xml_escape(str(report_id))}</td></tr>
+          <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #64748b;">Listing</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #f0fdf4;">{xml_escape(str(listing_type))} · {xml_escape(str(listing_id))}</td></tr>
+          <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #64748b;">Reason</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #f0fdf4; font-weight: 700;">{xml_escape(str(reason))}</td></tr>
+          <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #64748b;">Status</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #f0fdf4;">{xml_escape(str(status))}</td></tr>
+          <tr><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #64748b;">Reporter</td><td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #f0fdf4;">{safe_reporter}</td></tr>
+          <tr><td style="padding: 10px 0; color: #64748b;">Created</td><td style="padding: 10px 0; color: #f0fdf4;">{safe_created}</td></tr>
+        </table>
+
+        <div style="background: rgba(255,255,255,0.02); border-radius: 16px; padding: 16px 18px; border: 1px solid rgba(255,255,255,0.06);">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color:#64748b; margin-bottom: 8px;">Details</div>
+          <div style="white-space: pre-wrap; line-height: 1.6; color:#e2e8f0;">{safe_details}</div>
+        </div>
+
+        <div style="display:flex; gap: 12px; margin-top: 18px; flex-wrap: wrap;">
+          <a href="{admin_url}" style="display:inline-block; background-color:#8bd6b4; color:#041008; padding:12px 18px; border-radius: 12px; text-decoration:none; font-weight: 800;">Open admin reports</a>
+          {listing_link_html}
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top: 16px; color:#64748b; font-size: 12px;">
+        DPH Classifieds · Admin report notification
+      </div>
+    </div>
+    """
+
+    payload = {
+        "from": from_email,
+        "to": [to_email],
+        "subject": subject,
+        "html": html_content,
+    }
+
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    return _send_resend_email(payload)
+
+
 def _send_listing_deleted_email(
     user_email, item_type, listing_title, listing_id, reason
 ):
@@ -12975,6 +13075,14 @@ def create_report(current_user):
             logger.error(f"Failed to create report: {response}")
             return jsonify({"error": "Failed to submit report"}), status_code
 
+        try:
+            reporter_details = _get_user_email_by_id(current_user)
+            reporter_email = reporter_details.get("email") if reporter_details else None
+            inserted_report = response[0] if isinstance(response, list) and response else report_data
+            _send_report_admin_notification(inserted_report, reporter_email=reporter_email)
+        except Exception as email_err:
+            logger.warning(f"Report admin notification failed: {email_err}")
+
         logger.info(
             f"Report created successfully by user {current_user} for {listing_type} {listing_id}"
         )
@@ -13055,6 +13163,43 @@ def get_admin_reports(current_user):
     except Exception as e:
         logger.error(f"Error fetching admin reports: {str(e)}")
         return jsonify({"error": "An error occurred while fetching reports"}), 500
+
+
+@app.route("/api/admin/reports/<report_id>", methods=["PATCH"])
+@token_required
+def update_admin_report(current_user, report_id):
+    """Admin: update report status (e.g. resolved/dismissed)."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        payload = request.get_json(silent=True) or {}
+        status = payload.get("status")
+        allowed_statuses = {"pending", "resolved", "dismissed"}
+        if status not in allowed_statuses:
+            return jsonify(
+                {
+                    "error": f"Invalid status. Must be one of: {', '.join(sorted(allowed_statuses))}"
+                }
+            ), 400
+
+        update_data = {"status": status}
+        response, status_code = supabase_request(
+            "patch",
+            "/rest/v1/reports",
+            params={"id": f"eq.{report_id}"},
+            data=update_data,
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            logger.error(f"Failed to update report {report_id}: {response}")
+            return jsonify({"error": "Failed to update report"}), status_code
+
+        return jsonify(response[0] if isinstance(response, list) and response else response), 200
+    except Exception as e:
+        logger.error(f"Error updating report {report_id}: {str(e)}", exc_info=True)
+        return jsonify({"error": "An error occurred while updating the report"}), 500
 
 
 @app.route("/api/admin/lead-metrics", methods=["GET"])
