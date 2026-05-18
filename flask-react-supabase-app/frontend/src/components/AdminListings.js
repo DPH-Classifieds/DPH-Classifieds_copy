@@ -41,6 +41,7 @@ const AdminListings = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [rejectionNote, setRejectionNote] = useState('');
   const [selectedRejectIndex, setSelectedRejectIndex] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -338,7 +339,10 @@ const AdminListings = () => {
         {isPending && (
           <>
             <button
-              onClick={() => handleApprove(listing.id, lt)}
+              onClick={() => {
+                setSelectedListing(listing);
+                setShowApproveConfirm(true);
+              }}
               className="action-button approve-btn"
               disabled={actionLoading}
             >
@@ -375,6 +379,14 @@ const AdminListings = () => {
       </div>
     </div>
     );
+  };
+
+  const approveSelectedListing = async () => {
+    if (!selectedListing) return;
+    const lt = selectedListing.listing_type || 'cars';
+    await handleApprove(selectedListing.id, lt);
+    setShowApproveConfirm(false);
+    setSelectedListing(null);
   };
 
   const DeletedListingCard = ({ listing }) => (
@@ -547,6 +559,66 @@ const AdminListings = () => {
               ? <DeletedListingCard key={`deleted-${listing.id}`} listing={listing} />
               : <ListingCard key={`${listing.listing_type}-${listing.id}`} listing={listing} />
           ))}
+        </div>
+      )}
+
+      {/* Approve Modal */}
+      {showApproveConfirm && selectedListing && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid rgba(74,222,128,0.15)' }}>
+              <h2 style={{ color: '#4ade80' }}>Confirm Approval</h2>
+              <button
+                onClick={() => {
+                  setShowApproveConfirm(false);
+                  setSelectedListing(null);
+                }}
+                className="close-modal"
+                type="button"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center', padding: '32px' }}>
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%',
+                background: 'rgba(74,222,128,0.12)', border: '2px solid rgba(74,222,128,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 20px',
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </div>
+              <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.8)', marginBottom: '8px' }}>
+                Approve this listing and publish it live?
+              </p>
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>
+                <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{getListingTitle(selectedListing)}</strong>
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                onClick={() => {
+                  setShowApproveConfirm(false);
+                  setSelectedListing(null);
+                }}
+                className="action-button secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={approveSelectedListing}
+                className="action-button approve-btn"
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Approving...' : 'Yes, Approve'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

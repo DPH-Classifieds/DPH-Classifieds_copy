@@ -16,6 +16,7 @@ import AdminLayout from './components/AdminLayout';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
+import AnnouncementBanner from './components/AnnouncementBanner';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
@@ -212,6 +213,7 @@ function App() {
           <UserBehaviorTracker />
           <div className="app">
             <Header />
+            <AnnouncementBanner />
             <DealerPendingBanner />
             <UsernameRequiredBanner />
             <SavedListingsNotice />
