@@ -263,6 +263,12 @@ const HomePage = () => {
         <div className="cn-shell">
           <div className="cn-section-heading cn-section-heading-dark">
             <div>
+              <div className="cn-marketplace-cta-line">
+                <span>Want to list your car? Posting is free.</span>
+                <Link to="/post-car" className="cn-marketplace-cta-button">
+                  Click here
+                </Link>
+              </div>
               <span className="cn-kicker">Marketplace</span>
               <h2>Recent Listings</h2>
             </div>
