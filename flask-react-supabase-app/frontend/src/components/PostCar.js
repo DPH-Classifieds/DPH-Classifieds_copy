@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Tesseract from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import SearchableSelect from './ui/searchable-select';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
@@ -1834,7 +1834,7 @@ const PostCar = () => {
       if (isEdit) {
         const uploadedImages = selectedFiles.length > 0 ? await uploadImages() : [];
         const persistedImages = existingImages
-          .map((image) => {
+          .map((image, index) => {
             if (!image) {
               return null;
             }
@@ -1861,7 +1861,10 @@ const PostCar = () => {
               display_url: image.display_url || imageUrl,
               focal_x: Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50,
               focal_y: Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50,
-              crop_meta: image.crop_meta || null,
+              crop_meta: {
+                ...(image.crop_meta || {}),
+                sort_index: index,
+              },
             };
           })
           .filter(Boolean);
@@ -2190,6 +2193,15 @@ const PostCar = () => {
                   <option key={model} value={model}>{model}</option>
                 ))}
               </SearchableSelect>
+              <small className="form-hint">
+                Can&apos;t find the model?{' '}
+                <Link
+                  to={`/request-car-model?make=${encodeURIComponent(formData.car_manufacturer || '')}&source=post-car`}
+                  className="inline-help-link"
+                >
+                  Request it here
+                </Link>
+              </small>
             </div>
           </div>
           

@@ -315,7 +315,10 @@ export const uploadListingImagesDirect = async (files, { userId, cropSettings = 
       display_url: displayUrl,
       focal_x: displayVariant.normalizedCrop.focal_x,
       focal_y: displayVariant.normalizedCrop.focal_y,
-      crop_meta: displayVariant.crop_meta,
+      crop_meta: {
+        ...displayVariant.crop_meta,
+        sort_index: index,
+      },
     });
   }
 

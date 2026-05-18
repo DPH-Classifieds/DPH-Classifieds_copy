@@ -58,6 +58,24 @@
   margin-bottom: 24px;
 }
 
+.auth-inline-note {
+  text-align: center;
+  color: var(--auth-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  margin: -12px 0 20px;
+}
+
+.inline-help-link {
+  color: #8fe694;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.inline-help-link:hover {
+  text-decoration: underline;
+}
+
 .auth-error,
 .auth-success,
 .auth-note,

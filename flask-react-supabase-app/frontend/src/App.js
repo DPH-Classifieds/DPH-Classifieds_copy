@@ -97,6 +97,7 @@ const PostCar = lazy(() => import('./components/PostCar'));
 const PostBike = lazy(() => import('./components/PostBike'));
 const PostPlate = lazy(() => import('./components/PostPlate'));
 const PostCarParts = lazy(() => import('./components/PostCarParts'));
+const RequestCarModel = lazy(() => import('./components/RequestCarModel'));
 const About = lazy(() => import('./components/About'));
 const Contact = lazy(() => import('./components/Contact'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
@@ -234,6 +235,7 @@ function App() {
               <Route path="/signup" element={<Signup />} />
               <Route path="/check-email" element={<CheckEmail />} />
               <Route path="/verify-phone" element={<VerifyPhone />} />
+              <Route path="/request-car-model" element={<RequestCarModel />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
