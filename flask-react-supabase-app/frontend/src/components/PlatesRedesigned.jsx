@@ -3,15 +3,13 @@ import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import UAELicensePlate from './UAELicensePlate';
-import { useAuth } from '../context/AuthContext';
-import { ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
+import BrowseSellCta from './BrowseSellCta';
 import './PlatesRedesigned.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const PlatesRedesigned = () => {
-  const { user } = useAuth();
   const [plates, setPlates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -205,7 +203,6 @@ const PlatesRedesigned = () => {
   };
 
   const sortedPlates = applyFilters();
-  const postPlateHref = user ? '/post-plate' : '/login?redirect=/post-plate';
 
   if (loading) {
     return <LoadingSpinner message="Loading plates..." size="large" />;
@@ -438,38 +435,7 @@ const PlatesRedesigned = () => {
           )}
         </div>
 
-        <div className="platesd-cta">
-          <div className="platesd-cta-content">
-            <div className="platesd-cta-copy">
-              <span className="platesd-cta-kicker">Sell plates</span>
-              <h2>List your plate in the same premium DPH flow.</h2>
-              <p>
-                Post in minutes, keep the listing polished, and reach buyers already looking for UAE number plates.
-              </p>
-              <div className="platesd-cta-tags" aria-label="CTA highlights">
-                <span className="platesd-cta-tag">
-                  <Sparkles size={14} strokeWidth={2.2} aria-hidden="true" />
-                  Free to list
-                </span>
-                <span className="platesd-cta-tag">
-                  <ShieldCheck size={14} strokeWidth={2.2} aria-hidden="true" />
-                  Login required to post
-                </span>
-              </div>
-            </div>
-            <div className="platesd-cta-actions">
-              <Link to={postPlateHref} className="platesd-cta-button">
-                {user ? 'Post Your License Plate' : 'Log In to Post'}
-                <ArrowRight size={16} strokeWidth={2.4} aria-hidden="true" />
-              </Link>
-              {!user && (
-                <Link to="/signup" className="platesd-cta-secondary">
-                  Create an account
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
+        <BrowseSellCta category="plates" />
       </div>
     </div>
   );

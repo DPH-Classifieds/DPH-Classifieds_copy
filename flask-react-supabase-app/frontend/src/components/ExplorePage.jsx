@@ -6,6 +6,7 @@ import SeoMeta from './SeoMeta';
 import SearchBar from './ui/search-bar';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
+import BrowseSellCta from './BrowseSellCta';
 import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -109,6 +110,12 @@ const categoryMeta = {
   'car-parts': { heroTitle: 'Compare parts and accessories without losing the showroom feel.' },
   plates: { heroTitle: 'Surface premium UAE plates with focused city and code filters.' },
   bikes: { heroTitle: 'Explore motorcycles with the same premium rhythm as the car journey.' },
+};
+
+const mapExploreModeToSellCtaCategory = (modeKey) => {
+  if (modeKey === 'car-parts') return 'parts';
+  if (modeKey === 'all') return 'cars';
+  return modeKey;
 };
 
 const formatPrice = (value) => {
@@ -761,6 +768,8 @@ const ExplorePage = () => {
         )}
 
         {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}
+
+        <BrowseSellCta category={mapExploreModeToSellCtaCategory(activeMode)} />
       </section>
       </div>
     </>

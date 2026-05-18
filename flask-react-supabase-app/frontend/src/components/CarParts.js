@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
+import BrowseSellCta from './BrowseSellCta';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import '../styles/CarParts.css';
@@ -216,6 +217,8 @@ const CarParts = () => {
           <p>No car parts found. Please try a different search or check back later.</p>
         </div>
       )}
+
+      <BrowseSellCta category="parts" />
     </div>
   );
 };

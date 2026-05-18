@@ -203,9 +203,9 @@ const carTrims = {
     'IS': ['IS 300', 'IS 350', 'IS 500 F Sport'],
     'UX': ['UX 200', 'UX 250h', 'UX 300h'],
     'LC': ['LC 500', 'LC 500h', 'LC 500 Convertible', 'F Sport'],
-    'LS': ['LS 350', 'LS 500', 'LS 500h', 'F Sport'],
+    'LS': ['LS 350', 'LS 430', 'LS 460', 'LS 500', 'LS 500h', 'F Sport'],
     'RZ': ['RZ 300e', 'RZ 450e', 'RZ 450e F Sport'],
-    'LX': ['LX 570', 'LX 600', 'LX 600 Premium', 'LX 600 Luxury', 'LX 600 F Sport'],
+    'LX': ['LX 470','LX 570', 'LX 600', 'LX 600 Premium', 'LX 600 Luxury', 'LX 600 F Sport'],
     'GX': ['GX 460', 'GX 460 Premium', 'GX 460 Luxury', 'GX 460 F Sport', 'GX 550', 'GX 550 Overtrail', 'GX 550 Premium+'],
 
   },

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
+import BrowseSellCta from './BrowseSellCta';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import './BikesRedesigned.css';
@@ -421,6 +422,8 @@ const BikesRedesigned = () => {
             </div>
           )}
         </div>
+
+        <BrowseSellCta category="bikes" />
       </div>
     </div>
   );

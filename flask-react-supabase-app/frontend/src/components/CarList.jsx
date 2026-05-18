@@ -3,6 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import LoadingSpinner from './LoadingSpinner';
 import SeoMeta from './SeoMeta';
 import MarketplaceListingCard from './MarketplaceListingCard';
+import BrowseSellCta from './BrowseSellCta';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
@@ -800,6 +801,7 @@ const CarList = () => {
               </div>
             )}
           </div>
+          <BrowseSellCta category="cars" />
         </>
       )}
     </div>

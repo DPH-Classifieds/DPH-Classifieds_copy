@@ -263,12 +263,6 @@ const HomePage = () => {
         <div className="cn-shell">
           <div className="cn-section-heading cn-section-heading-dark">
             <div>
-              <div className="cn-marketplace-cta-line">
-                <span>Want to list your car? Posting is free.</span>
-                <Link to="/post-car" className="cn-marketplace-cta-button">
-                  Click here
-                </Link>
-              </div>
               <span className="cn-kicker">Marketplace</span>
               <h2>Recent Listings</h2>
             </div>
@@ -296,6 +290,14 @@ const HomePage = () => {
               ))}
             </div>
           )}
+        </div>
+        <div className="cn-marketplace-cta-bar" aria-label="List your car call to action">
+          <div className="cn-shell cn-marketplace-cta-bar-inner">
+            <span>Want to list your car? Posting is free.</span>
+            <Link to="/post-car" className="cn-marketplace-cta-button">
+              Click here
+            </Link>
+          </div>
         </div>
       </section>
 
