@@ -589,6 +589,15 @@
   .car-list-container .sort-select:focus {
     box-shadow: none !important;
   }
+
+  /* SearchableSelect (react-select) control also applies an inline focus ring. */
+  .car-list-container .sort-by .searchable-select__control {
+    box-shadow: none !important;
+  }
+
+  .car-list-container .sort-by .searchable-select__control--is-focused {
+    box-shadow: none !important;
+  }
 }
 
 @media (max-width: 480px) {
