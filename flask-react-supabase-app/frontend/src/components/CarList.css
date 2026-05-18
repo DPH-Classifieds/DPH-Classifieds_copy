@@ -580,6 +580,15 @@
   .reset-filters {
     width: 100%;
   }
+
+  /* Mobile: keep sort dropdown minimal (no shader/glow). */
+  .car-list-container .sort-select {
+    box-shadow: none !important;
+  }
+
+  .car-list-container .sort-select:focus {
+    box-shadow: none !important;
+  }
 }
 
 @media (max-width: 480px) {
