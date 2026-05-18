@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
-import LoadingSpinner from './LoadingSpinner';
+import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import SeoMeta from './SeoMeta';
@@ -192,7 +192,7 @@ const PartDetailRedesigned = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Loading part details..." size="large" />;
+    return <ListingSkeleton variant="detail" showHero />;
   }
 
   if (error) {

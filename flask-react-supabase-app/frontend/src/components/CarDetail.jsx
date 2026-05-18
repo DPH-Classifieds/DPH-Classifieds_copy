@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
 import { getCurrentUser } from '../utils/authService';
 import { resolveMediaUrl } from '../utils/media';
-import LoadingSpinner from './LoadingSpinner';
+import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import SavedListingToggleButton from './SavedListingToggleButton';
@@ -435,7 +435,7 @@ const CarDetail = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Loading car details..." size="large" />;
+    return <ListingSkeleton variant="detail" showHero />;
   }
 
   if (error) {

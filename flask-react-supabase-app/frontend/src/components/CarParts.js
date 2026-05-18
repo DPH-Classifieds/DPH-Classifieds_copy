@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
-import LoadingSpinner from './LoadingSpinner';
 import BrowseSellCta from './BrowseSellCta';
+import ListingSkeleton from './ListingSkeleton';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import '../styles/CarParts.css';
@@ -117,7 +117,7 @@ const CarParts = () => {
 
   if (loading) {
     return (
-      <LoadingSpinner message="Loading car parts..." size="large" />
+      <ListingSkeleton variant="grid" count={6} showHeader showFilters />
     );
   }
 
