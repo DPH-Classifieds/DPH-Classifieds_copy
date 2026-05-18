@@ -307,7 +307,7 @@ _request_supabase_durations_ms = ContextVar(
     "request_supabase_durations_ms", default=None
 )
 REDIS_URL = os.getenv("REDIS_URL")
-API_CACHE_TTL_SECONDS = int(os.getenv("API_CACHE_TTL_SECONDS", "45"))
+API_CACHE_TTL_SECONDS = int(os.getenv("API_CACHE_TTL_SECONDS", "300"))
 _MEMORY_API_CACHE = {}
 _MEMORY_API_CACHE_LOCK = threading.Lock()
 _REDIS_CACHE_CLIENT = None
@@ -351,13 +351,18 @@ def _api_cache_get(key):
         try:
             cached = redis_client.get(key)
             if cached:
+                logger.info("API_CACHE_HIT backend=redis key=%s", key)
                 return json.loads(cached)
+            logger.info("API_CACHE_MISS backend=redis key=%s", key)
         except Exception as cache_err:
             logger.warning(f"Redis cache read failed: {cache_err}")
+    else:
+        logger.info("API_CACHE_MISS backend=memory key=%s", key)
     now_ts = time.time()
     with _MEMORY_API_CACHE_LOCK:
         hit = _MEMORY_API_CACHE.get(key)
         if hit and hit.get("expires_at", 0) > now_ts:
+            logger.info("API_CACHE_HIT backend=memory key=%s", key)
             return hit.get("payload")
         if hit:
             _MEMORY_API_CACHE.pop(key, None)
@@ -373,6 +378,12 @@ def _api_cache_set(key, payload, ttl_seconds=API_CACHE_TTL_SECONDS):
             redis_client.setex(
                 key, ttl_seconds, json.dumps(payload, ensure_ascii=False)
             )
+            logger.info(
+                "API_CACHE_SET backend=redis key=%s ttl_seconds=%s payload_count=%s",
+                key,
+                ttl_seconds,
+                len(payload) if isinstance(payload, list) else 1,
+            )
         except Exception as cache_err:
             logger.warning(f"Redis cache write failed: {cache_err}")
     with _MEMORY_API_CACHE_LOCK:
@@ -380,6 +391,56 @@ def _api_cache_set(key, payload, ttl_seconds=API_CACHE_TTL_SECONDS):
             "payload": payload,
             "expires_at": time.time() + ttl_seconds,
         }
+    logger.info(
+        "API_CACHE_SET backend=memory key=%s ttl_seconds=%s payload_count=%s",
+        key,
+        ttl_seconds,
+        len(payload) if isinstance(payload, list) else 1,
+    )
+
+
+def _invalidate_api_cache_prefixes(prefixes):
+    normalized_prefixes = []
+    for prefix in prefixes or []:
+        normalized = str(prefix or "").strip()
+        if not normalized:
+            continue
+        normalized_prefixes.append(f"api-cache:{normalized}")
+
+    if not normalized_prefixes:
+        return
+
+    redis_client = _get_redis_cache_client()
+    if redis_client:
+        try:
+            keys_to_delete = []
+            for prefix in normalized_prefixes:
+                keys_to_delete.extend(list(redis_client.scan_iter(match=f"{prefix}*")))
+            if keys_to_delete:
+                redis_client.delete(*keys_to_delete)
+            logger.info(
+                "API_CACHE_INVALIDATE backend=redis prefixes=%s deleted=%s",
+                normalized_prefixes,
+                len(keys_to_delete),
+            )
+        except Exception as cache_err:
+            logger.warning(f"Redis cache invalidation failed: {cache_err}")
+
+    with _MEMORY_API_CACHE_LOCK:
+        for key in list(_MEMORY_API_CACHE.keys()):
+            if any(key.startswith(prefix) for prefix in normalized_prefixes):
+                _MEMORY_API_CACHE.pop(key, None)
+    logger.info("API_CACHE_INVALIDATE backend=memory prefixes=%s", normalized_prefixes)
+
+
+def _invalidate_public_inventory_cache(item_type):
+    public_prefixes = {
+        "cars": ["/api/cars", "/api/homepage/preview", "/api/recommendations"],
+        "bikes": ["/api/bikes"],
+        "parts": ["/api/parts"],
+        "plates": ["/api/plates"],
+    }
+    _invalidate_api_cache_prefixes(public_prefixes.get(item_type, [f"/api/{item_type}"]))
 
 
 def _cached_json_response(payload, status_code=200, ttl_seconds=API_CACHE_TTL_SECONDS):
@@ -4489,6 +4550,7 @@ def create_car(current_user):
         except Exception as email_err:
             logger.warning(f"Failed to send listing notification emails: {email_err}")
 
+        _invalidate_public_inventory_cache("cars")
         return jsonify(data[0]), 201
     except Exception as e:
         logger.error(f"Error creating car listing: {e}")
@@ -5029,6 +5091,7 @@ def update_car(current_user, car_id):
         except Exception as email_err:
             logger.error(f"Error sending edit email: {email_err}")
 
+        _invalidate_public_inventory_cache("cars")
         return jsonify(car), 200
     except Exception as e:
         logger.error(f"Error updating car: {e}")
@@ -5120,6 +5183,7 @@ def delete_car(current_user, car_id):
         if delete_car_status >= 400:
             return jsonify(delete_car), delete_car_status
 
+        _invalidate_public_inventory_cache("cars")
         return jsonify({"message": "Car deleted successfully"}), 200
     except Exception as e:
         logger.error(f"Error deleting car: {e}")
@@ -11626,6 +11690,7 @@ def api_approve_item(current_user, item_type, item_id):
                 )
 
             logger.info(f"Admin {current_user} approved {item_type} {item_id}")
+            _invalidate_public_inventory_cache(item_type)
             payload = {
                 "success": True,
                 "message": f"{item_type} approved successfully",
@@ -12199,6 +12264,7 @@ def approve_item_api(item_type, item_id):
             use_service_role=True,
         )
         if status_code >= 200 and status_code < 300:
+            _invalidate_public_inventory_cache(item_type)
             return jsonify(
                 {
                     "success": True,
@@ -12284,6 +12350,7 @@ def reject_item_api(item_type, item_id):
                     f"Error sending rejection email for {item_type} {item_id}: {email_exc}"
                 )
 
+            _invalidate_public_inventory_cache(item_type)
             return jsonify(
                 {
                     "success": True,
