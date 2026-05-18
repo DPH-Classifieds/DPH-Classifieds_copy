@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import LoadingSpinner from './LoadingSpinner';
 import MarketplaceListingCard from './MarketplaceListingCard';
+import ListingSkeleton from './ListingSkeleton';
 import SeoMeta from './SeoMeta';
 import SearchBar from './ui/search-bar';
 import { resolveMediaUrl } from '../utils/media';
@@ -748,7 +748,7 @@ const ExplorePage = () => {
 
         {loading ? (
           <div className="explore-v2-state-card">
-            <LoadingSpinner message="Loading marketplace inventory..." compact />
+            <ListingSkeleton variant="grid" count={8} />
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="explore-v2-state-card">

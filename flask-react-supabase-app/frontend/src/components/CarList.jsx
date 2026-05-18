@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import SearchableSelect from './ui/searchable-select';
-import LoadingSpinner from './LoadingSpinner';
 import SeoMeta from './SeoMeta';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import BrowseSellCta from './BrowseSellCta';
+import ListingSkeleton from './ListingSkeleton';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
@@ -781,7 +781,7 @@ const CarList = () => {
       
       {/* Loading State */}
       {loading ? (
-        <LoadingSpinner message="Loading cars..." size="large" />
+        <ListingSkeleton variant="grid" count={8} />
       ) : (
 	        <>
 	          {/* Car Listings */}

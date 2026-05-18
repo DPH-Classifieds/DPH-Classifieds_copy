@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
-import LoadingSpinner from './LoadingSpinner';
 import BrowseSellCta from './BrowseSellCta';
+import ListingSkeleton from './ListingSkeleton';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import './BikesRedesigned.css';
@@ -185,7 +185,7 @@ const BikesRedesigned = () => {
   }, [bikes]);
 
   if (loading) {
-    return <LoadingSpinner message="Loading bikes..." size="large" />;
+    return <ListingSkeleton variant="grid" count={6} showHeader showFilters />;
   }
 
   if (error) {

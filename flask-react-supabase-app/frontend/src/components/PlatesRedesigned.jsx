@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { Link } from 'react-router-dom';
-import LoadingSpinner from './LoadingSpinner';
 import UAELicensePlate from './UAELicensePlate';
+import ListingSkeleton from './ListingSkeleton';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import BrowseSellCta from './BrowseSellCta';
 import './PlatesRedesigned.css';
@@ -205,7 +205,7 @@ const PlatesRedesigned = () => {
   const sortedPlates = applyFilters();
 
   if (loading) {
-    return <LoadingSpinner message="Loading plates..." size="large" />;
+    return <ListingSkeleton variant="grid" count={6} showHeader showFilters />;
   }
 
   if (error) {
