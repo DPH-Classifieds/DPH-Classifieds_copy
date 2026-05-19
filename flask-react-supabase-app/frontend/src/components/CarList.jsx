@@ -342,6 +342,7 @@ const CarList = () => {
 	            <label htmlFor="sortOption">Sort by:</label>
 	            <SearchableSelect 
 	              id="sortOption" 
+              isSearchable={false}
               value={sortOption} 
               onChange={handleSortChange}
               className="sort-select"

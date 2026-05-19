@@ -4025,6 +4025,14 @@ def get_car_by_id(car_id):
         logger.info(f"Fetching car details for ID: {car_id}")
 
         requesting_user = _optional_user_id()
+        cache_key = None
+
+        if not requesting_user:
+            cache_key = f"api-cache:{request.path}"
+            cached_payload = _api_cache_get(cache_key)
+            if cached_payload is not None:
+                logger.info(f"Redis cache hit for car detail {car_id}")
+                return _cached_json_response(cached_payload)
 
         query = f"/rest/v1/cars?id=eq.{car_id}&select=*"
         car_response, car_status = supabase_request("get", query, use_service_role=True)
@@ -4071,6 +4079,7 @@ def get_car_by_id(car_id):
                     },
                     timeout=2,
                 )
+                car["view_count"] = current_view_count + 1
             except Exception as view_error:
                 logger.warning(f"Failed to increment view count: {view_error}")
 
@@ -4117,6 +4126,8 @@ def get_car_by_id(car_id):
         logger.info(
             f"Returning car with {len(car['images'])} images (Views: {car.get('view_count', 0)})"
         )
+        if cache_key:
+            _api_cache_set(cache_key, car)
         return jsonify(car), 200
     except Exception as e:
         logger.error(f"Error fetching car details: {e}", exc_info=True)
@@ -5092,6 +5103,7 @@ def update_car(current_user, car_id):
             logger.error(f"Error sending edit email: {email_err}")
 
         _invalidate_public_inventory_cache("cars")
+        _invalidate_api_cache_prefixes([f"/api/cars/{car_id}"])
         return jsonify(car), 200
     except Exception as e:
         logger.error(f"Error updating car: {e}")
@@ -5184,6 +5196,7 @@ def delete_car(current_user, car_id):
             return jsonify(delete_car), delete_car_status
 
         _invalidate_public_inventory_cache("cars")
+        _invalidate_api_cache_prefixes([f"/api/cars/{car_id}"])
         return jsonify({"message": "Car deleted successfully"}), 200
     except Exception as e:
         logger.error(f"Error deleting car: {e}")
@@ -8973,6 +8986,12 @@ def get_bike_by_id(bike_id):
     try:
         logger.info(f"Fetching bike details for ID: {bike_id}")
 
+        cache_key = f"api-cache:{request.path}"
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            logger.info(f"Redis cache hit for bike detail {bike_id}")
+            return _cached_json_response(cached_payload)
+
         # Get bike details
         query = f"/rest/v1/bikes?id=eq.{bike_id}&select=*"
         bike_response, bike_status = supabase_request("get", query)
@@ -9039,6 +9058,7 @@ def get_bike_by_id(bike_id):
                 logger.warning(f"Failed to fetch seller info: {user_err}")
 
         logger.info(f"Returning bike with {len(bike['images'])} images")
+        _api_cache_set(cache_key, bike)
         return jsonify(bike), 200
     except Exception as e:
         logger.error(f"Error fetching bike details: {e}")
@@ -9613,6 +9633,8 @@ def update_bike(current_user, bike_id):
         except Exception as email_err:
             logger.error(f"Error sending edit email: {email_err}")
 
+        _invalidate_public_inventory_cache("bikes")
+        _invalidate_api_cache_prefixes([f"/api/bikes/{bike_id}"])
         return jsonify(bike), 200
     except Exception as e:
         logger.error(f"Error updating bike: {e}")
@@ -9661,6 +9683,8 @@ def delete_bike(current_user, bike_id):
         if delete_status >= 400:
             return jsonify(delete_resp), delete_status
 
+        _invalidate_public_inventory_cache("bikes")
+        _invalidate_api_cache_prefixes([f"/api/bikes/{bike_id}"])
         return jsonify({"message": "Bike listing deleted successfully"}), 200
     except Exception as e:
         logger.error(f"Error deleting bike: {e}")
@@ -9778,6 +9802,12 @@ def get_plate_details(plate_id):
     try:
         logger.info(f"Fetching plate details for ID: {plate_id}")
 
+        cache_key = f"api-cache:{request.path}"
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            logger.info(f"Redis cache hit for plate detail {plate_id}")
+            return _cached_json_response(cached_payload)
+
         # Use service role for consistent data fetching
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
@@ -9816,6 +9846,7 @@ def get_plate_details(plate_id):
             ]
 
             _enrich_listing_seller(plate, headers=headers)
+            _api_cache_set(cache_key, plate)
             return jsonify(plate), 200
         else:
             return jsonify({"error": "Failed to fetch plate"}), response.status_code
@@ -9920,6 +9951,8 @@ def update_plate(current_user, plate_id):
             except Exception as email_err:
                 logger.error(f"Error sending edit email: {email_err}")
 
+        _invalidate_public_inventory_cache("plates")
+        _invalidate_api_cache_prefixes([f"/api/plates/{plate_id}"])
         return jsonify({"message": "Plate updated successfully"}), 200
 
     except Exception as e:
@@ -9936,6 +9969,8 @@ def delete_plate(current_user, plate_id):
         )
         if delete_status >= 400:
             return jsonify(delete_response), delete_status
+        _invalidate_public_inventory_cache("plates")
+        _invalidate_api_cache_prefixes([f"/api/plates/{plate_id}"])
         return jsonify({"message": "Plate listing deleted successfully"}), 200
     except Exception as e:
         logger.error(f"Error deleting plate {plate_id}: {e}")
@@ -10322,6 +10357,12 @@ def get_part_details(part_id):
     try:
         logger.info(f"Fetching part details for ID: {part_id}")
 
+        cache_key = f"api-cache:{request.path}"
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            logger.info(f"Redis cache hit for part detail {part_id}")
+            return _cached_json_response(cached_payload)
+
         service_role_key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
         headers = {
             "apikey": service_role_key,
@@ -10372,6 +10413,7 @@ def get_part_details(part_id):
             ]
 
         _enrich_listing_seller(part, headers=headers)
+        _api_cache_set(cache_key, part)
         return jsonify(part), 200
 
     except Exception as e:
@@ -10541,6 +10583,8 @@ def update_part(current_user, part_id):
             except Exception as email_err:
                 logger.error(f"Error sending edit email: {email_err}")
 
+        _invalidate_public_inventory_cache("parts")
+        _invalidate_api_cache_prefixes([f"/api/parts/{part_id}"])
         return jsonify({"message": "Part updated successfully"}), 200
 
     except Exception as e:
@@ -10557,6 +10601,8 @@ def delete_part(current_user, part_id):
         )
         if delete_status >= 400:
             return jsonify(delete_response), delete_status
+        _invalidate_public_inventory_cache("parts")
+        _invalidate_api_cache_prefixes([f"/api/parts/{part_id}"])
         return jsonify({"message": "Part listing deleted successfully"}), 200
     except Exception as e:
         logger.error(f"Error deleting part {part_id}: {e}")
