@@ -13,13 +13,19 @@
 
 .searchable-select-wrapper.form-select,
 .searchable-select-wrapper.sort-select {
-  width: fit-content;
-  min-width: 210px;
   background-image: none !important;
   background-repeat: initial !important;
   background-position: initial !important;
   background-size: initial !important;
   padding-right: 0 !important;
+}
+
+.searchable-select-wrapper.sort-select {
+  width: auto;
+  min-width: 0;
+  background: transparent !important;
+  border: 0;
+  box-shadow: none;
 }
 
 .searchable-select__menu-notice {
