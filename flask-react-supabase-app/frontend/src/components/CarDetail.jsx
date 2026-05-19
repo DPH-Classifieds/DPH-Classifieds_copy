@@ -61,8 +61,9 @@ const CarDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, updateUser } = useAuth();
-  const [car, setCar] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const preloadedCar = location.state?.listing ?? null;
+  const [car, setCar] = useState(() => preloadedCar);
+  const [loading, setLoading] = useState(() => !preloadedCar);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -73,11 +74,11 @@ const CarDetail = () => {
   const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
   const seoData = useMemo(
     () =>
-      buildListingSeo('car', car || {}, {
+      buildListingSeo('car', car || preloadedCar || {}, {
         canonicalPath: `/cars/${id}`,
-        location: car?.car_city || 'UAE',
+        location: (car || preloadedCar)?.car_city || 'UAE',
       }),
-    [car, id]
+    [car, id, preloadedCar]
   );
 
   const [loanCalculator, setLoanCalculator] = useState({
@@ -96,7 +97,9 @@ const CarDetail = () => {
 
   useEffect(() => {
     const fetchCarDetails = async () => {
-      setLoading(true);
+      if (!preloadedCar) {
+        setLoading(true);
+      }
       setError(null);
       
       try {
@@ -121,14 +124,18 @@ const CarDetail = () => {
         }));
       } catch (err) {
         console.error('Error fetching car details:', err);
-        setError('Failed to load car details. Please try again later.');
+        if (!preloadedCar) {
+          setError('Failed to load car details. Please try again later.');
+        }
       } finally {
-        setLoading(false);
+        if (!preloadedCar) {
+          setLoading(false);
+        }
       }
     };
     
     fetchCarDetails();
-  }, [id]);
+  }, [id, preloadedCar]);
 
   useEffect(() => {
     const fetchViewerProfile = async () => {

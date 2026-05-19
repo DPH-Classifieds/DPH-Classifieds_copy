@@ -7,6 +7,7 @@ import SeoMeta from './SeoMeta';
 import { carMakes } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
+import { buildListingRouteState } from '../utils/listingRouteState';
 import { Button } from './ui/button';
 import { ArrowRight } from 'lucide-react';
 import '../styles/HomePage.css';
@@ -74,6 +75,7 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       categoryKey: 'cars',
       categoryLabel: 'Car',
       route: `/cars/${item.id}`,
+      routeState: buildListingRouteState(item),
       title,
       year,
       kilometers: item.kilometer_driven || item.kilometer || item.mileage,
@@ -103,6 +105,7 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       categoryKey: 'bikes',
       categoryLabel: 'Bike',
       route: `/bikes/${item.id}`,
+      routeState: buildListingRouteState(item),
       title,
       priceLabel: formatPrice(item.price || item.expected_selling_price),
       subtitle: [item.location || 'UAE', item.bike_type || item.type || item.bike_category || 'Bike']
@@ -121,6 +124,7 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       categoryKey: 'car-parts',
       categoryLabel: 'Car Part',
       route: `/car-parts/${item.id}`,
+      routeState: buildListingRouteState(item),
       title: item.name || item.part_name || 'Untitled part',
       priceLabel: formatPrice(item.price),
       subtitle: [item.category || item.part_type || 'Parts', item.location || item.emirate || 'UAE']
@@ -133,12 +137,13 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
     };
   }
 
-  return {
-    id: item.id,
-    categoryKey: 'plates',
-    categoryLabel: 'Plate',
-    route: `/plates/${item.id}`,
-    title: `${item.city || 'UAE'} ${item.code || ''} ${item.number || ''}`.replace(/\s+/g, ' ').trim(),
+    return {
+      id: item.id,
+      categoryKey: 'plates',
+      categoryLabel: 'Plate',
+      route: `/plates/${item.id}`,
+      routeState: buildListingRouteState(item),
+      title: `${item.city || 'UAE'} ${item.code || ''} ${item.number || ''}`.replace(/\s+/g, ' ').trim(),
     priceLabel: formatPrice(item.price),
     subtitle: [`${item.digits || String(item.number || '').length || 'N/A'} digits`, item.city || 'UAE']
       .filter(Boolean)

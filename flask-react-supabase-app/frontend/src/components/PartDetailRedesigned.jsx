@@ -23,8 +23,9 @@ const PartDetailRedesigned = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
-  const [part, setPart] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const preloadedPart = location.state?.listing ?? null;
+  const [part, setPart] = useState(() => preloadedPart);
+  const [loading, setLoading] = useState(() => !preloadedPart);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -43,16 +44,18 @@ const PartDetailRedesigned = () => {
   });
   const seoData = useMemo(
     () =>
-      buildListingSeo('part', part || {}, {
+      buildListingSeo('part', part || preloadedPart || {}, {
         canonicalPath: `/car-parts/${id}`,
-        location: part?.location || part?.city || 'UAE',
+        location: (part || preloadedPart)?.location || (part || preloadedPart)?.city || 'UAE',
       }),
-    [part, id]
+    [part, id, preloadedPart]
   );
 
   useEffect(() => {
     const fetchPartDetails = async () => {
-      setLoading(true);
+      if (!preloadedPart) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -70,14 +73,18 @@ const PartDetailRedesigned = () => {
         }));
       } catch (err) {
         console.error('Error fetching part details:', err);
-        setError('Failed to load part details. Please try again later.');
+        if (!preloadedPart) {
+          setError('Failed to load part details. Please try again later.');
+        }
       } finally {
-        setLoading(false);
+        if (!preloadedPart) {
+          setLoading(false);
+        }
       }
     };
 
     fetchPartDetails();
-  }, [id]);
+  }, [id, preloadedPart]);
 
   useEffect(() => {
     const { partPrice, downPayment, loanTerm, interestRate } = loanCalculator;

@@ -5,6 +5,7 @@ import BrowseSellCta from './BrowseSellCta';
 import ListingSkeleton from './ListingSkeleton';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
+import { buildListingRouteState } from '../utils/listingRouteState';
 import './BikesRedesigned.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -409,7 +410,7 @@ const BikesRedesigned = () => {
                     <span className="biked-spec-engine">{bike.engine || bike.engine_size || bike.engine_capacity || 'N/A'}</span>
                   </div>
                   <p className="biked-card-location">{bike.location || 'Location N/A'}</p>
-                  <Link to={`/bikes/${bike.id}`} className="biked-view-button">
+                  <Link to={`/bikes/${bike.id}`} state={buildListingRouteState(bike)} className="biked-view-button">
                     View Details
                   </Link>
                 </div>

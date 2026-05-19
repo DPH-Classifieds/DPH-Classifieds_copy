@@ -23,8 +23,9 @@ const BikeDetailRedesigned = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
-  const [bike, setBike] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const preloadedBike = location.state?.listing ?? null;
+  const [bike, setBike] = useState(() => preloadedBike);
+  const [loading, setLoading] = useState(() => !preloadedBike);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -43,16 +44,18 @@ const BikeDetailRedesigned = () => {
   });
   const seoData = useMemo(
     () =>
-      buildListingSeo('bike', bike || {}, {
+      buildListingSeo('bike', bike || preloadedBike || {}, {
         canonicalPath: `/bikes/${id}`,
-        location: bike?.location || bike?.city || 'UAE',
+        location: (bike || preloadedBike)?.location || (bike || preloadedBike)?.city || 'UAE',
       }),
-    [bike, id]
+    [bike, id, preloadedBike]
   );
 
   useEffect(() => {
     const fetchBikeDetails = async () => {
-      setLoading(true);
+      if (!preloadedBike) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -70,14 +73,18 @@ const BikeDetailRedesigned = () => {
         }));
       } catch (err) {
         console.error('Error fetching bike details:', err);
-        setError('Failed to load bike details. Please try again later.');
+        if (!preloadedBike) {
+          setError('Failed to load bike details. Please try again later.');
+        }
       } finally {
-        setLoading(false);
+        if (!preloadedBike) {
+          setLoading(false);
+        }
       }
     };
 
     fetchBikeDetails();
-  }, [id]);
+  }, [id, preloadedBike]);
 
   useEffect(() => {
     const { bikePrice, downPayment, loanTerm, interestRate } = loanCalculator;

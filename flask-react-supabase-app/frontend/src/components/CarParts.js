@@ -5,6 +5,7 @@ import BrowseSellCta from './BrowseSellCta';
 import ListingSkeleton from './ListingSkeleton';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
+import { buildListingRouteState } from '../utils/listingRouteState';
 import '../styles/CarParts.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -183,15 +184,17 @@ const CarParts = () => {
         {filteredParts.map(part => (
             <div key={part.id} className="part-card">
             <div className="part-image">
-              <img
-                src={getListingImageUrl(part) || LISTING_PLACEHOLDER_IMAGE}
-                alt={part.name || part.part_name}
-                loading="lazy"
-                onError={(event) => {
-                  event.currentTarget.onerror = null;
-                  event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
-                }}
-              />
+              <Link to={`/car-parts/${part.id}`} state={buildListingRouteState(part)}>
+                <img
+                  src={getListingImageUrl(part) || LISTING_PLACEHOLDER_IMAGE}
+                  alt={part.name || part.part_name}
+                  loading="lazy"
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+                  }}
+                />
+              </Link>
             </div>
             <div className="part-details">
               <h3>{part.name || part.part_name}</h3>
@@ -202,7 +205,7 @@ const CarParts = () => {
                   <span className="part-price">AED {Number(part.price).toLocaleString()}</span>
                 )}
                 <div className="part-actions">
-                  <Link to={`/car-parts/${part.id}`} className="view-details-btn">
+                  <Link to={`/car-parts/${part.id}`} state={buildListingRouteState(part)} className="view-details-btn">
                     View Details
                   </Link>
                 </div>

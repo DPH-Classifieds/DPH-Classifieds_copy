@@ -23,8 +23,9 @@ const PlateDetailRedesigned = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
-  const [plate, setPlate] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const preloadedPlate = location.state?.listing ?? null;
+  const [plate, setPlate] = useState(() => preloadedPlate);
+  const [loading, setLoading] = useState(() => !preloadedPlate);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -43,16 +44,18 @@ const PlateDetailRedesigned = () => {
   });
   const seoData = useMemo(
     () =>
-      buildListingSeo('plate', plate || {}, {
+      buildListingSeo('plate', plate || preloadedPlate || {}, {
         canonicalPath: `/plates/${id}`,
-        location: plate?.city || 'UAE',
+        location: (plate || preloadedPlate)?.city || 'UAE',
       }),
-    [plate, id]
+    [plate, id, preloadedPlate]
   );
 
   useEffect(() => {
     const fetchPlateDetails = async () => {
-      setLoading(true);
+      if (!preloadedPlate) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -70,14 +73,18 @@ const PlateDetailRedesigned = () => {
         }));
       } catch (err) {
         console.error('Error fetching plate details:', err);
-        setError('Failed to load plate details. Please try again later.');
+        if (!preloadedPlate) {
+          setError('Failed to load plate details. Please try again later.');
+        }
       } finally {
-        setLoading(false);
+        if (!preloadedPlate) {
+          setLoading(false);
+        }
       }
     };
 
     fetchPlateDetails();
-  }, [id]);
+  }, [id, preloadedPlate]);
 
   useEffect(() => {
     const { platePrice, downPayment, loanTerm, interestRate } = loanCalculator;

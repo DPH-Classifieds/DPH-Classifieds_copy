@@ -6,6 +6,7 @@ import ListingSkeleton from './ListingSkeleton';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import BrowseSellCta from './BrowseSellCta';
 import './PlatesRedesigned.css';
+import { buildListingRouteState } from '../utils/listingRouteState';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -405,7 +406,12 @@ const PlatesRedesigned = () => {
         <div className="platesd-grid">
           {sortedPlates.length > 0 ? (
             sortedPlates.map(plate => (
-              <Link key={plate.id} to={`/plates/${plate.id}`} className="platesd-card-link">
+              <Link
+                key={plate.id}
+                to={`/plates/${plate.id}`}
+                state={buildListingRouteState(plate)}
+                className="platesd-card-link"
+              >
                 <div className="platesd-card">
                   <div className="platesd-card-plate">
                     <UAELicensePlate

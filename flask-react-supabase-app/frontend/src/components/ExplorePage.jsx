@@ -8,6 +8,7 @@ import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
 import BrowseSellCta from './BrowseSellCta';
 import './ExplorePage.css';
+import { buildListingRouteState } from '../utils/listingRouteState';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const INVENTORY_CACHE_TTL_MS = 60 * 1000;
@@ -224,6 +225,7 @@ const normalizeCar = (car) => {
     priceLabel: formatPrice(price),
     numericPrice: toNumeric(price),
     route: `/cars/${car.id}`,
+    routeState: buildListingRouteState(car),
     image: getPrimaryImage(car),
     createdAt: car.created_at,
     searchableText: buildSearchableText([
@@ -261,6 +263,7 @@ const normalizeBike = (bike) => {
     priceLabel: formatPrice(price),
     numericPrice: toNumeric(price),
     route: `/bikes/${bike.id}`,
+    routeState: buildListingRouteState(bike),
     image: getPrimaryImage(bike),
     createdAt: bike.created_at,
     searchableText: buildSearchableText([
@@ -292,6 +295,7 @@ const normalizePart = (part) => {
     priceLabel: formatPrice(price),
     numericPrice: toNumeric(price),
     route: `/car-parts/${part.id}`,
+    routeState: buildListingRouteState(part),
     image: getPrimaryImage(part),
     createdAt: part.created_at,
     searchableText: buildSearchableText([
@@ -325,6 +329,7 @@ const normalizePlate = (plate) => {
     priceLabel: formatPrice(price),
     numericPrice: toNumeric(price),
     route: `/plates/${plate.id}`,
+    routeState: buildListingRouteState(plate),
     image: getPrimaryImage(plate),
     createdAt: plate.created_at,
     searchableText: buildSearchableText([

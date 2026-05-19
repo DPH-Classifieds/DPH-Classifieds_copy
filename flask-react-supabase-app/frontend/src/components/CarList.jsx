@@ -7,6 +7,7 @@ import ListingSkeleton from './ListingSkeleton';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
+import { buildListingRouteState } from '../utils/listingRouteState';
 import { buildStaticSeo } from '../utils/seo';
 import './CarList.css';
 import './ExplorePage.css';
@@ -159,6 +160,7 @@ const CarList = () => {
       categoryLabel: 'Car',
       listingType: 'car',
       route: `/cars/${car.id}`,
+      routeState: buildListingRouteState(car),
       title,
       priceLabel: formatPrice(car.expected_selling_price),
       image: car.images && car.images.length > 0 ? getImageUrl(car.images[0]) : null,

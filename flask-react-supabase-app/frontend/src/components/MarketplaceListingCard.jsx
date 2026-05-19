@@ -45,7 +45,7 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           label="Save listing"
         />
       ) : null}
-      <Link to={item.route} className="explore-v2-card-media">
+      <Link to={item.route} state={item.routeState} className="explore-v2-card-media">
         {item.image ? (
           <img
             src={item.image}
@@ -64,14 +64,14 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           </div>
         )}
         <span className="explore-v2-card-badge">{item.categoryLabel}</span>
-      </Link>
+        </Link>
 
       <div className="explore-v2-card-copy">
         <div className="explore-v2-card-head">
           <div>
             <p className="explore-v2-card-price">{item.priceLabel}</p>
             <h3>
-              <Link to={item.route}>{item.title}</Link>
+              <Link to={item.route} state={item.routeState}>{item.title}</Link>
             </h3>
           </div>
         </div>
@@ -85,7 +85,7 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
         ) : null}
 
         <div className="explore-v2-card-actions">
-          <Link to={item.route} className="explore-v2-button explore-v2-button-primary">
+          <Link to={item.route} state={item.routeState} className="explore-v2-button explore-v2-button-primary">
             View Listing
           </Link>
         </div>

@@ -4128,6 +4128,7 @@ def get_car_by_id(car_id):
         )
         if cache_key:
             _api_cache_set(cache_key, car)
+            return _cached_json_response(car)
         return jsonify(car), 200
     except Exception as e:
         logger.error(f"Error fetching car details: {e}", exc_info=True)
@@ -9059,7 +9060,7 @@ def get_bike_by_id(bike_id):
 
         logger.info(f"Returning bike with {len(bike['images'])} images")
         _api_cache_set(cache_key, bike)
-        return jsonify(bike), 200
+        return _cached_json_response(bike)
     except Exception as e:
         logger.error(f"Error fetching bike details: {e}")
         return jsonify({"error": str(e)}), 500
@@ -9847,7 +9848,7 @@ def get_plate_details(plate_id):
 
             _enrich_listing_seller(plate, headers=headers)
             _api_cache_set(cache_key, plate)
-            return jsonify(plate), 200
+            return _cached_json_response(plate)
         else:
             return jsonify({"error": "Failed to fetch plate"}), response.status_code
 
@@ -10414,7 +10415,7 @@ def get_part_details(part_id):
 
         _enrich_listing_seller(part, headers=headers)
         _api_cache_set(cache_key, part)
-        return jsonify(part), 200
+        return _cached_json_response(part)
 
     except Exception as e:
         logger.error(f"Error getting part {part_id}: {e}")
