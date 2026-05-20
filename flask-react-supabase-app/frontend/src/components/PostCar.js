@@ -1941,7 +1941,13 @@ const PostCar = () => {
         details: err.details
       });
       setError({
-        message: SUBMISSION_ERROR_MESSAGE,
+        message:
+          err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.details?.error ||
+          err?.details?.message ||
+          err?.message ||
+          SUBMISSION_ERROR_MESSAGE,
         code: err?.code || err?.details?.code || err?.response?.data?.code || null,
         details: err?.details || err?.response?.data || null,
       });
@@ -2583,13 +2589,12 @@ const PostCar = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="horsepower">Horsepower <RequiredMark /></label>
+              <label htmlFor="horsepower">Horsepower <span className="text-muted">(Optional)</span></label>
               <SearchableSelect
                 id="horsepower"
                 name="horsepower"
                 value={formData.horsepower}
                 onChange={handleChange}
-                required
                 className="form-control form-select"
               >
                 <option value="">Select Horsepower</option>
@@ -2597,7 +2602,6 @@ const PostCar = () => {
                   <option key={range} value={range}>{range}</option>
                 ))}
               </SearchableSelect>
-              <div className="form-text text-danger">This field is required.</div>
             </div>
           </div>
           

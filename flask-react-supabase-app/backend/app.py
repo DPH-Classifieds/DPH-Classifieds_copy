@@ -4357,11 +4357,6 @@ def create_car(current_user):
                         {"error": "Steering side must be Left or Right"}
                     ), 400
 
-            # Validate horsepower is not empty
-            if not car_data.get("horsepower"):
-                logger.error("horsepower is required")
-                return jsonify({"error": "Horsepower is required"}), 400
-
             _validate_description_word_count(
                 car_data.get("car_description"), field_name="car_description"
             )
