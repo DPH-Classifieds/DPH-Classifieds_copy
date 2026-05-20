@@ -191,8 +191,8 @@
 .country-code-select:focus,
 .auth-container select:focus {
   outline: none;
-  border-color: rgba(143, 230, 148, 0.42);
-  box-shadow: 0 0 0 4px rgba(143, 230, 148, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
   background: rgba(255, 255, 255, 0.06);
 }
 

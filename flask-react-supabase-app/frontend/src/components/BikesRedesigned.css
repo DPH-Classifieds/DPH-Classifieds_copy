@@ -96,8 +96,8 @@
 .biked-filter-group select:focus,
 .biked-filter-group input:focus {
   outline: none;
-  border-color: var(--biked-accent-strong);
-  box-shadow: 0 0 0 4px rgba(143, 230, 148, 0.2);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
 }
 
 .biked-filter-group input::placeholder,

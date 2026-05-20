@@ -345,8 +345,8 @@
 .admin-ops .admin-textarea:focus,
 .admin-ops .search-input:focus {
   outline: none;
-  border-color: var(--admin-success);
-  box-shadow: 0 0 0 3px rgba(139, 214, 180, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
 }
 
 .admin-ops .admin-field {

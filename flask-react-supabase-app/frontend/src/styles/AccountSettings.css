@@ -851,7 +851,7 @@
   --pf-placeholder: #555555;
   --pf-accent: #4ade80;
   --pf-accent-hover: #22c55e;
-  --pf-focus: 0 0 0 3px rgba(74, 222, 128, 0.26);
+  --pf-focus: none;
   max-width: 1024px;
   margin: 0 auto;
   padding: 24px 16px 96px;
@@ -972,8 +972,8 @@
 .account-settings-container .form-group textarea:focus,
 .account-settings-container .country-code-select:focus,
 .account-settings-container .phone-number-input:focus {
-  border-color: var(--pf-accent);
-  box-shadow: var(--pf-focus);
+  border-color: var(--pf-border);
+  box-shadow: none;
 }
 
 .account-settings-container .phone-input-group {

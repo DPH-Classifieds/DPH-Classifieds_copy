@@ -15,7 +15,7 @@
   --pf-danger: #ef4444;
   --pf-radius: 12px;
   --pf-radius-sm: 10px;
-  --pf-focus: 0 0 0 3px rgba(74, 222, 128, 0.26);
+  --pf-focus: none;
 }
 
 * {
@@ -234,8 +234,8 @@
 .form-section-content .form-group select:focus,
 .form-section-content .form-group textarea:focus {
   outline: none;
-  border-color: var(--pf-accent);
-  box-shadow: var(--pf-focus);
+  border-color: var(--pf-border);
+  box-shadow: none;
 }
 
 .form-group input[readonly] {

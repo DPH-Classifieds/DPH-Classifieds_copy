@@ -285,8 +285,8 @@
 .explore-v2-field input:focus,
 .explore-v2-field select:focus {
   outline: none;
-  border-color: rgba(139, 214, 180, 0.28);
-  box-shadow: 0 0 0 4px rgba(139, 214, 180, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
 }
 
 .explore-v2-filter-actions {

@@ -52,11 +52,11 @@ const sharedStyles = {
     ...base,
     minHeight: 44,
     borderRadius: 10,
-    borderColor: state.isFocused ? '#4ade80' : '#2a2a2a',
+    borderColor: '#2a2a2a',
     background: '#1a1a1a',
-    boxShadow: state.isFocused ? '0 0 0 3px rgba(74, 222, 128, 0.26)' : 'none',
+    boxShadow: 'none',
     '&:hover': {
-      borderColor: state.isFocused ? '#4ade80' : 'rgba(74, 222, 128, 0.6)',
+      borderColor: '#3b3b3b',
     },
   }),
   valueContainer: (base) => ({
@@ -82,16 +82,16 @@ const sharedStyles = {
   }),
   dropdownIndicator: (base, state) => ({
     ...base,
-    color: state.isFocused ? '#4ade80' : '#8a8a8a',
+    color: state.isFocused ? '#b5b5b5' : '#8a8a8a',
     '&:hover': {
-      color: '#4ade80',
+      color: '#b5b5b5',
     },
   }),
   clearIndicator: (base) => ({
     ...base,
     color: '#8a8a8a',
     '&:hover': {
-      color: '#4ade80',
+      color: '#b5b5b5',
     },
   }),
   menuPortal: (base) => ({
@@ -115,11 +115,11 @@ const sharedStyles = {
     borderRadius: 8,
     cursor: state.isDisabled ? 'not-allowed' : 'pointer',
     backgroundColor: state.isSelected
-      ? 'rgba(74, 222, 128, 0.15)'
+      ? 'rgba(255, 255, 255, 0.08)'
       : state.isFocused
-        ? 'rgba(74, 222, 128, 0.08)'
+        ? 'rgba(255, 255, 255, 0.06)'
         : 'transparent',
-    color: state.isSelected ? '#4ade80' : state.isDisabled ? '#666666' : '#f0f0f0',
+    color: state.isSelected ? '#ffffff' : state.isDisabled ? '#666666' : '#f0f0f0',
     padding: '10px 12px',
   }),
   groupHeading: (base) => ({
