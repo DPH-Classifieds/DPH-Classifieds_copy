@@ -3732,8 +3732,24 @@ def supabase_request(
         _request_supabase_durations_ms.set(timings)
 
         if response.status_code >= 400:
-            logger.error(f"Error response: {response.text}")
-            return {"error": response.text}, response.status_code
+            # PostgREST errors are often JSON; return structured data when possible so
+            # callers/clients can surface the real message/code instead of a string blob.
+            raw_text = response.text or ""
+            logger.error(f"Error response: {raw_text[:2000]}")
+            parsed_error = None
+            try:
+                parsed_error = response.json()
+            except Exception:
+                parsed_error = None
+
+            if isinstance(parsed_error, dict):
+                if "status" not in parsed_error:
+                    parsed_error["status"] = response.status_code
+                return parsed_error, response.status_code
+            if parsed_error is not None:
+                return {"error": parsed_error, "status": response.status_code}, response.status_code
+
+            return {"error": raw_text, "status": response.status_code}, response.status_code
 
         return response.json(), response.status_code
 

@@ -1869,6 +1869,13 @@ const PostCar = () => {
           })
           .filter(Boolean);
 
+        if (persistedImages.length === 0 && selectedFiles.length > 0 && uploadedImages.length === 0) {
+          // uploadImages already sets a user-facing error; abort early so we don't send an empty
+          // image payload that forces a backend rollback.
+          focusAndHighlightField('images');
+          return;
+        }
+
         const updatePayload = {
           ...submissionData,
           images: [...persistedImages, ...uploadedImages],
@@ -1905,8 +1912,9 @@ const PostCar = () => {
       } else {
         const uploadedImages = await uploadImages();
         if (uploadedImages.length === 0) {
-          setError('Please upload at least one image of your car.');
-          setIsSubmitting(false);
+          // If we reached this point, the user selected files already; this indicates an upload failure.
+          // uploadImages sets a more specific error (auth/storage/etc), so just focus the field.
+          focusAndHighlightField('images');
           return;
         }
         submissionData.images = uploadedImages;
