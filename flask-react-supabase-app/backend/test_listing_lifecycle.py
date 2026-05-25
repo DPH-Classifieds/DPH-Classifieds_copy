@@ -235,5 +235,68 @@ class UserListingsFilterTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in payload["bikes"]], ["bike-1"])
 
 
+class ListingOutcomeTransitionTests(unittest.TestCase):
+    @patch.object(backend, "_sync_listing_lifecycle")
+    @patch.object(backend, "_send_listing_status_email")
+    @patch.object(backend, "supabase_request")
+    def test_move_to_draft_resets_expired_listing_into_pending_review(
+        self,
+        mock_supabase_request,
+        mock_send_listing_status_email,
+        mock_sync_listing_lifecycle,
+    ):
+        listing = {
+            "id": "listing-5",
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "user_email": "owner@example.com",
+            "listing_title": "Expired Listing",
+            "status": "approved",
+            "created_at": "2026-04-01T00:00:00+00:00",
+            "expires_at": "2026-04-02T00:00:00+00:00",
+            "expired_at": "2026-04-02T00:00:00+00:00",
+            "retention_expires_at": "2026-05-02T00:00:00+00:00",
+            "sold_response_deadline": "2026-04-04T00:00:00+00:00",
+            "is_archived": False,
+        }
+
+        captured = {}
+
+        def fake_supabase_request(method, path, params=None, data=None, use_service_role=False, user_id=None):
+            if method == "get" and path.startswith("/rest/v1/cars"):
+                return ([listing], 200)
+            if method == "patch" and path.startswith("/rest/v1/cars"):
+                captured["data"] = data
+                return ([listing], 200)
+            return ([], 200)
+
+        mock_supabase_request.side_effect = fake_supabase_request
+        mock_sync_listing_lifecycle.side_effect = lambda *args, **kwargs: listing
+
+        with patch.object(backend, "_utc_now") as mock_now:
+            mock_now.return_value = backend.datetime.datetime(2026, 4, 3, 10, 0, tzinfo=backend.datetime.timezone.utc)
+            with backend.app.test_request_context(
+                "/api/user/listings/car/listing-5/outcome",
+                method="POST",
+                json={"outcome": "move_to_draft"},
+                headers={"Origin": "https://example.com"},
+            ):
+                response, status_code = backend.set_listing_outcome.__wrapped__(
+                    "11111111-1111-1111-1111-111111111111",
+                    "car",
+                    "listing-5",
+                )
+
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response.get_json()["message"], "Listing outcome saved")
+        self.assertEqual(captured["data"]["status"], "pending")
+        self.assertEqual(captured["data"]["is_approved"], False)
+        self.assertIsNone(captured["data"]["expired_at"])
+        self.assertGreater(
+            backend._parse_datetime(captured["data"]["expires_at"]),
+            backend.datetime.datetime(2026, 4, 3, tzinfo=backend.datetime.timezone.utc),
+        )
+        mock_send_listing_status_email.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

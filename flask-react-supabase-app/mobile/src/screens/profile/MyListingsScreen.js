@@ -39,7 +39,11 @@ const getListingTitle = (item) => {
 };
 
 const getListingPrice = (item) => item.expected_selling_price || item.price || 0;
-const getDisplayStatus = (item, activeTabValue) => item.listing_state || item.status || activeTabValue.toLowerCase();
+const getDisplayStatus = (item, activeTabValue) => {
+  const status = String(item.status || '').toLowerCase();
+  if (['draft', 'pending', 'rejected'].includes(status)) return status;
+  return item.listing_state || item.status || activeTabValue.toLowerCase();
+};
 
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
@@ -109,6 +113,19 @@ export default function MyListingsScreen({ navigation }) {
     }
   };
 
+  const handleMoveToDraft = async (item) => {
+    try {
+      const type = item.listing_type || 'cars';
+      await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
+        outcome: 'move_to_draft',
+      });
+      Alert.alert('Success', 'Listing moved back to drafts for review.');
+      fetchListings();
+    } catch (err) {
+      Alert.alert('Error', 'Failed to move listing back to drafts.');
+    }
+  };
+
   const handleOutcome = (item) => {
     const type = item.listing_type || 'cars';
     const actions = [
@@ -149,6 +166,20 @@ export default function MyListingsScreen({ navigation }) {
             fetchListings();
           } catch (err) {
             Alert.alert('Error', 'Failed to renew listing.');
+          }
+        },
+      },
+      {
+        text: 'Move to Drafts',
+        onPress: async () => {
+          try {
+            await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
+              outcome: 'move_to_draft',
+            });
+            Alert.alert('Success', 'Listing moved back to drafts.');
+            fetchListings();
+          } catch (err) {
+            Alert.alert('Error', 'Failed to move listing back to drafts.');
           }
         },
       },
@@ -261,17 +292,24 @@ export default function MyListingsScreen({ navigation }) {
                 <>
                   <TouchableOpacity
                     style={styles.actionBtn}
+                    onPress={() => handleExtend(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="refresh-outline" size={18} color={COLORS.warning} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleMoveToDraft(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="folder-open-outline" size={18} color={COLORS.info} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
                     onPress={() => handleOutcome(item)}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="document-text-outline" size={18} color={COLORS.warning} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleExtend(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="time-outline" size={18} color={COLORS.info} />
                   </TouchableOpacity>
                 </>
               ) : (

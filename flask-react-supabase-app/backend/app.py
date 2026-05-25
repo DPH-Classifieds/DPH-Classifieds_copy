@@ -245,7 +245,12 @@ DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("DEALER_DOCUMENT_FILE_SIZE_LIMIT_MB", "10")) * 1024 * 1024
 )
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
-LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
+LISTING_OUTCOME_OPTIONS = {
+    "sold_on_dph",
+    "sold_elsewhere",
+    "not_sold_renew",
+    "move_to_draft",
+}
 LISTING_EXPIRY_NOTICE_REASON = "expiry_notice"
 LISTING_EXPIRY_EMAILS_ENABLED = os.getenv(
     "LISTING_EXPIRY_EMAILS_ENABLED", "true"
@@ -968,6 +973,25 @@ def _new_listing_lifecycle_fields():
         "sold_status_set_at": None,
         "sold_response_deadline": None,
         "auto_removed_at": None,
+    }
+
+
+def _resubmission_listing_lifecycle_fields():
+    """Return fresh lifecycle fields for listings being re-submitted."""
+    now = _utc_now()
+    expires_at = now + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
+    return {
+        "expires_at": _isoformat_utc(expires_at),
+        "expired_at": None,
+        "retention_expires_at": _isoformat_utc(
+            expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+        ),
+        "last_extended_at": _isoformat_utc(now),
+        "sold_status": None,
+        "sold_status_set_at": None,
+        "sold_response_deadline": None,
+        "auto_removed_at": None,
+        "is_archived": False,
     }
 
 
@@ -13429,26 +13453,54 @@ def set_listing_outcome(current_user, item_type, item_id):
         "sold_status_set_at": _isoformat_utc(now),
     }
 
-    if outcome == "not_sold_renew":
+    if outcome in {"not_sold_renew", "move_to_draft"}:
         expiry_anchor = _parse_datetime(listing.get("expires_at")) or now
         if expiry_anchor < now:
             expiry_anchor = now
         new_expires_at = expiry_anchor + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
-        updates.update(
-            {
-                "status": "approved",
-                "expires_at": _isoformat_utc(new_expires_at),
-                "expired_at": None,
-                "retention_expires_at": _isoformat_utc(
-                    new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
-                ),
-                "sold_response_deadline": None,
-                "auto_removed_at": None,
-                "last_extended_at": _isoformat_utc(now),
-                "extension_count": int(listing.get("extension_count") or 0) + 1,
-                "is_archived": False,
-            }
+        lifecycle_updates = _resubmission_listing_lifecycle_fields()
+        lifecycle_updates["expires_at"] = _isoformat_utc(new_expires_at)
+        lifecycle_updates["retention_expires_at"] = _isoformat_utc(
+            new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
         )
+
+        if outcome == "not_sold_renew":
+            updates.update(
+                {
+                    "status": "approved",
+                    "sold_status": "not_sold_renew",
+                    "sold_status_set_at": _isoformat_utc(now),
+                    "last_extended_at": _isoformat_utc(now),
+                    "extension_count": int(listing.get("extension_count") or 0) + 1,
+                }
+            )
+            updates.update(
+                {
+                    "expired_at": None,
+                    "retention_expires_at": lifecycle_updates["retention_expires_at"],
+                    "sold_response_deadline": None,
+                    "auto_removed_at": None,
+                    "is_archived": False,
+                    "expires_at": lifecycle_updates["expires_at"],
+                }
+            )
+        else:
+            updates.update(
+                {
+                    "status": "pending",
+                    "sold_status": None,
+                    "sold_status_set_at": None,
+                    "expired_at": None,
+                    "retention_expires_at": lifecycle_updates["retention_expires_at"],
+                    "sold_response_deadline": None,
+                    "auto_removed_at": None,
+                    "last_extended_at": lifecycle_updates["last_extended_at"],
+                    "is_archived": False,
+                    "expires_at": lifecycle_updates["expires_at"],
+                }
+            )
+            if config["table"] == "cars":
+                updates["is_approved"] = False
     else:
         updates.update(
             {

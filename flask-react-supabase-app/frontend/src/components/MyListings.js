@@ -326,6 +326,8 @@ const MyListings = () => {
     }
   };
 
+  const isExpiredListing = (listing) => listing?.listing_state === 'expired';
+
   const renderListingCard = (listing, config) => {
     const imageUrl = getPrimaryImage(listing);
     const canEdit = Boolean(config.editPath);
@@ -390,7 +392,31 @@ const MyListings = () => {
             </button>
           )}
 
-          {listing.can_extend && (
+          {isExpiredListing(listing) ? (
+            <>
+              <button
+                onClick={() => handleOutcomeAction(listing, 'not_sold_renew')}
+                className="btn btn-primary"
+                disabled={isBusy}
+              >
+                {isBusy ? 'Updating...' : 'Renew'}
+              </button>
+              <button
+                onClick={() => handleOutcomeAction(listing, 'move_to_draft')}
+                className="btn btn-secondary"
+                disabled={isBusy}
+              >
+                {isBusy ? 'Updating...' : 'Move to Drafts'}
+              </button>
+              <button
+                onClick={() => setOutcomePromptListing(listing)}
+                className="btn btn-secondary"
+                disabled={isBusy}
+              >
+                Sold Options
+              </button>
+            </>
+          ) : listing.can_extend && (
             <button
               onClick={() => setOutcomePromptListing(listing)}
               className="btn btn-primary"
@@ -517,7 +543,7 @@ const MyListings = () => {
             <p>
               Please let us know the status of <strong>{buildListingTitle(outcomePromptListing)}</strong>.
               {outcomePromptListing.listing_state === 'expired' 
-                ? ' It has expired. If no action is taken in 48 hours, it will be removed.'
+                ? ' It has expired. You can renew it, move it back to drafts for re-review, or mark it as sold.'
                 : ' You can extend it for another 15 days or mark it as sold.'}
             </p>
             <div className="delete-confirm-actions renewal-actions">
@@ -541,6 +567,13 @@ const MyListings = () => {
                 onClick={() => handleOutcomeAction(outcomePromptListing, 'not_sold_renew')}
               >
                 Renew Listing
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={actioningId === outcomePromptListing.id}
+                onClick={() => handleOutcomeAction(outcomePromptListing, 'move_to_draft')}
+              >
+                Move to Drafts
               </button>
               <button
                 className="btn btn-link"
