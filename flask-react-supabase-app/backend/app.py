@@ -245,6 +245,7 @@ DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
 )
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
+LISTING_EXPIRY_NOTICE_REASON = "expiry_notice"
 WHATSAPP_PREFILL_TEMPLATE = (
     "Hi, I saw your listing on DPHClassifieds and I am interested. "
     "Listing: {{LISTING_URL}}"
@@ -717,6 +718,41 @@ def _record_listing_deletion_event(
         logger.warning(
             f"Failed to record listing deletion event for {listing_type}/{listing_id}: {response}"
         )
+
+
+def _record_listing_expiry_notice_event(
+    *,
+    listing_id,
+    listing_type,
+    metadata=None,
+):
+    _record_listing_deletion_event(
+        listing_id=listing_id,
+        listing_type=listing_type,
+        reason=LISTING_EXPIRY_NOTICE_REASON,
+        deleted_by_role="system",
+        deleted_by=None,
+        metadata=metadata or {},
+    )
+
+
+def _get_recent_listing_expiry_notice_ids(listing_type, cutoff):
+    response, status_code = supabase_request(
+        "get",
+        "/rest/v1/listing_deletion_events",
+        params={
+            "select": "listing_id,created_at",
+            "listing_type": f"eq.{listing_type}",
+            "reason": f"eq.{LISTING_EXPIRY_NOTICE_REASON}",
+            "created_at": f"gte.{_isoformat_utc(cutoff)}",
+            "order": "created_at.desc",
+            "limit": "1000",
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400 or not response:
+        return set()
+    return {str(row.get("listing_id")) for row in response if row.get("listing_id")}
 
 
 def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
@@ -13743,7 +13779,12 @@ def get_admin_listing_history(current_user):
         response, status_code = supabase_request(
             "get",
             "/rest/v1/listing_deletion_events",
-            params={"select": "*", "order": "created_at.desc", "limit": str(limit)},
+            params={
+                "select": "*",
+                "order": "created_at.desc",
+                "limit": str(limit),
+                "reason": f"neq.{LISTING_EXPIRY_NOTICE_REASON}",
+            },
             use_service_role=True,
         )
         if status_code >= 400:
@@ -14246,6 +14287,12 @@ def get_admin_listing_overview(current_user, item_type, item_id):
         )
         if deletion_status >= 400:
             deletion_rows = []
+        else:
+            deletion_rows = [
+                row
+                for row in deletion_rows or []
+                if str(row.get("reason") or "") != LISTING_EXPIRY_NOTICE_REASON
+            ]
 
         lead_totals = defaultdict(int)
         for event in lead_events or []:
@@ -15054,7 +15101,7 @@ def sitemap_xml():
     return response
 
 
-def _run_listing_expiry_reminders_once(reminder_days_before=3):
+def _run_listing_expiry_reminders_once(reminder_days_before=2):
     processed = 0
     now = _utc_now()
     reminder_threshold = now + datetime.timedelta(days=reminder_days_before)
@@ -15065,9 +15112,8 @@ def _run_listing_expiry_reminders_once(reminder_days_before=3):
             "get",
             f"/rest/v1/{table}",
             params={
-                "select": "id,user_id,expires_at,status,is_archived",
+                "select": "id,user_id,expires_at,expired_at,retention_expires_at,status,is_archived",
                 "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
-                "expired_at": "is.null",
                 "status": "eq.approved",
                 "is_archived": "eq.false",
             },
@@ -15076,22 +15122,67 @@ def _run_listing_expiry_reminders_once(reminder_days_before=3):
         if status >= 400 or not records:
             continue
 
+        recent_notice_ids = _get_recent_listing_expiry_notice_ids(
+            item_type, now - datetime.timedelta(hours=24)
+        )
+
         for record in records:
-            expires_at = _parse_datetime(record.get("expires_at"))
-            if not expires_at or expires_at <= now:
+            if str(record.get("id")) in recent_notice_ids:
+                continue
+
+            lifecycle = _compute_listing_lifecycle(record)
+            if lifecycle["is_archived"]:
+                continue
+
+            expires_at = lifecycle["expires_at"]
+            if expires_at > reminder_threshold:
                 continue
 
             owner_email = _resolve_listing_owner_email(record, record.get("user_id"))
             if not owner_email:
                 continue
 
-            days_left = max((expires_at - now).days, 1)
-            _send_listing_expiry_reminder(
-                owner_email,
-                _listing_display_title(record),
-                table,
-                record.get("id"),
-                days_left,
+            listing_title = _listing_display_title(record)
+            listing_id = record.get("id")
+            if lifecycle["is_expired"]:
+                days_until_deletion = max((lifecycle["retention_expires_at"] - now).days, 1)
+                result, error = _send_listing_expired_email(
+                    owner_email,
+                    listing_title,
+                    table,
+                    listing_id,
+                    days_until_deletion,
+                )
+            else:
+                days_left = max((expires_at - now).days, 1)
+                result, error = _send_listing_expiry_reminder(
+                    owner_email,
+                    listing_title,
+                    table,
+                    listing_id,
+                    days_left,
+                )
+
+            if error or not result:
+                logger.warning(
+                    "Failed to send expiry notice for %s/%s: %s",
+                    table,
+                    listing_id,
+                    error or "unknown error",
+                )
+                continue
+
+            _record_listing_expiry_notice_event(
+                listing_id=listing_id,
+                listing_type=item_type,
+                metadata={
+                    "table": table,
+                    "state": lifecycle["state"],
+                    "expires_at": _isoformat_utc(lifecycle["expires_at"]),
+                    "retention_expires_at": _isoformat_utc(
+                        lifecycle["retention_expires_at"]
+                    ),
+                },
             )
             processed += 1
 

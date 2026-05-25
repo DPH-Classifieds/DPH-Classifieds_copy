@@ -49,6 +49,108 @@ class ListingLifecycleEmailTests(unittest.TestCase):
         mock_send_listing_expired_email.assert_called_once()
         self.assertEqual(mock_send_listing_expired_email.call_args.args[0], "fallback@example.com")
 
+    def test_expiry_reminders_are_limited_to_once_per_day(self):
+        listing = {
+            "id": "listing-2",
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "user_email": "owner@example.com",
+            "listing_title": "Test Listing",
+            "status": "approved",
+            "created_at": "2026-04-01T00:00:00+00:00",
+            "expires_at": "2026-04-03T00:00:00+00:00",
+            "expired_at": None,
+            "retention_expires_at": "2026-05-03T00:00:00+00:00",
+            "is_archived": False,
+        }
+
+        def fake_supabase_request(method, path, params=None, data=None, use_service_role=False, user_id=None):
+            if path == "/rest/v1/cars":
+                return ([listing], 200)
+            if path == "/rest/v1/listing_deletion_events":
+                return ([{"listing_id": "listing-2", "created_at": "2026-04-02T12:00:00+00:00"}], 200)
+            return ([], 200)
+
+        with patch.object(backend, "_utc_now") as mock_now, \
+            patch.object(backend, "supabase_request", side_effect=fake_supabase_request), \
+            patch.object(backend, "_send_listing_expiry_reminder", return_value=("ok", None)) as mock_send_reminder, \
+            patch.object(backend, "_send_listing_expired_email", return_value=("ok", None)) as mock_send_expired, \
+            patch.object(backend, "_record_listing_expiry_notice_event") as mock_record:
+            mock_now.return_value = backend.datetime.datetime(2026, 4, 3, 10, 0, tzinfo=backend.datetime.timezone.utc)
+            result = backend._run_listing_expiry_reminders_once(reminder_days_before=2)
+
+        self.assertEqual(result["reminders_sent"], 0)
+        mock_send_reminder.assert_not_called()
+        mock_send_expired.assert_not_called()
+        mock_record.assert_not_called()
+
+    def test_expiry_reminders_send_once_and_record_event(self):
+        listing = {
+            "id": "listing-3",
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "user_email": "owner@example.com",
+            "listing_title": "Expired Listing",
+            "status": "approved",
+            "created_at": "2026-04-01T00:00:00+00:00",
+            "expires_at": "2026-04-02T00:00:00+00:00",
+            "expired_at": None,
+            "retention_expires_at": "2026-05-02T00:00:00+00:00",
+            "is_archived": False,
+        }
+
+        def fake_supabase_request(method, path, params=None, data=None, use_service_role=False, user_id=None):
+            if path == "/rest/v1/cars":
+                return ([listing], 200)
+            if path == "/rest/v1/listing_deletion_events":
+                return ([], 200)
+            return ([], 200)
+
+        with patch.object(backend, "_utc_now") as mock_now, \
+            patch.object(backend, "supabase_request", side_effect=fake_supabase_request), \
+            patch.object(backend, "_send_listing_expiry_reminder", return_value=("ok", None)) as mock_send_reminder, \
+            patch.object(backend, "_send_listing_expired_email", return_value=("ok", None)) as mock_send_expired, \
+            patch.object(backend, "_record_listing_expiry_notice_event") as mock_record:
+            mock_now.return_value = backend.datetime.datetime(2026, 4, 3, 10, 0, tzinfo=backend.datetime.timezone.utc)
+            result = backend._run_listing_expiry_reminders_once(reminder_days_before=2)
+
+        self.assertEqual(result["reminders_sent"], 1)
+        mock_send_reminder.assert_not_called()
+        mock_send_expired.assert_called_once()
+        mock_record.assert_called_once()
+
+    def test_expiry_reminders_send_pre_expiry_notice(self):
+        listing = {
+            "id": "listing-4",
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "user_email": "owner@example.com",
+            "listing_title": "Expiring Soon",
+            "status": "approved",
+            "created_at": "2026-04-01T00:00:00+00:00",
+            "expires_at": "2026-04-04T10:00:00+00:00",
+            "expired_at": None,
+            "retention_expires_at": "2026-05-04T10:00:00+00:00",
+            "is_archived": False,
+        }
+
+        def fake_supabase_request(method, path, params=None, data=None, use_service_role=False, user_id=None):
+            if path == "/rest/v1/cars":
+                return ([listing], 200)
+            if path == "/rest/v1/listing_deletion_events":
+                return ([], 200)
+            return ([], 200)
+
+        with patch.object(backend, "_utc_now") as mock_now, \
+            patch.object(backend, "supabase_request", side_effect=fake_supabase_request), \
+            patch.object(backend, "_send_listing_expiry_reminder", return_value=("ok", None)) as mock_send_reminder, \
+            patch.object(backend, "_send_listing_expired_email", return_value=("ok", None)) as mock_send_expired, \
+            patch.object(backend, "_record_listing_expiry_notice_event") as mock_record:
+            mock_now.return_value = backend.datetime.datetime(2026, 4, 3, 10, 0, tzinfo=backend.datetime.timezone.utc)
+            result = backend._run_listing_expiry_reminders_once(reminder_days_before=2)
+
+        self.assertEqual(result["reminders_sent"], 1)
+        mock_send_reminder.assert_called_once()
+        mock_send_expired.assert_not_called()
+        mock_record.assert_called_once()
+
 
 class UserListingsFilterTests(unittest.TestCase):
     def test_user_listings_filters_by_expired_status(self):
