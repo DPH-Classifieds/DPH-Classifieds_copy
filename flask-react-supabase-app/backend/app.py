@@ -246,6 +246,9 @@ DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 LISTING_OUTCOME_OPTIONS = {"sold_on_dph", "sold_elsewhere", "not_sold_renew"}
 LISTING_EXPIRY_NOTICE_REASON = "expiry_notice"
+LISTING_EXPIRY_EMAILS_ENABLED = os.getenv(
+    "LISTING_EXPIRY_EMAILS_ENABLED", "true"
+).strip().lower() in {"1", "true", "yes", "on"}
 WHATSAPP_PREFILL_TEMPLATE = (
     "Hi, I saw your listing on DPHClassifieds and I am interested. "
     "Listing: {{LISTING_URL}}"
@@ -849,7 +852,19 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
 
     # Send expiry email on first detection of expiry
     owner_email = _resolve_listing_owner_email(record)
-    if just_expired and owner_email and record.get("status") not in {"deleted", "rejected"}:
+    last_extended_at = _parse_datetime(record.get("last_extended_at"))
+    renewed_recently = bool(
+        last_extended_at
+        and lifecycle["expired_at"]
+        and last_extended_at >= lifecycle["expired_at"]
+    )
+    if (
+        LISTING_EXPIRY_EMAILS_ENABLED
+        and just_expired
+        and owner_email
+        and not renewed_recently
+        and record.get("status") not in {"deleted", "rejected"}
+    ):
         try:
             _, expiry_email_error = _send_listing_expired_email(
                 owner_email,
@@ -15156,6 +15171,9 @@ def sitemap_xml():
 
 
 def _run_listing_expiry_reminders_once(reminder_days_before=2):
+    if not LISTING_EXPIRY_EMAILS_ENABLED:
+        logger.info("Listing expiry emails disabled via env; skipping reminder run")
+        return {"reminders_sent": 0}
     processed = 0
     now = _utc_now()
     reminder_threshold = now + datetime.timedelta(days=reminder_days_before)
@@ -15166,7 +15184,7 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
             "get",
             f"/rest/v1/{table}",
             params={
-                "select": "id,user_id,expires_at,expired_at,retention_expires_at,status,is_archived",
+                "select": "id,user_id,expires_at,expired_at,retention_expires_at,status,is_archived,last_extended_at,sold_status",
                 "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
                 "status": "eq.approved",
                 "is_archived": "eq.false",
@@ -15187,6 +15205,16 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
 
             expires_at = lifecycle["expires_at"]
             if expires_at > reminder_threshold:
+                continue
+
+            # Skip if the listing was renewed/extended after the expiry it appears to be in
+            last_extended_at = _parse_datetime(record.get("last_extended_at"))
+            if (
+                last_extended_at
+                and lifecycle["is_expired"]
+                and lifecycle["expired_at"]
+                and last_extended_at >= lifecycle["expired_at"]
+            ):
                 continue
 
             notice_state = "expired" if lifecycle["is_expired"] else "active"
