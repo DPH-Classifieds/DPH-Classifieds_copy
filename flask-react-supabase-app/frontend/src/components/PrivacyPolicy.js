@@ -20,7 +20,7 @@ const PrivacyPolicy = () => {
         <div className="about-v2-shell">
           <span className="about-v2-kicker">Legal</span>
           <h1>Privacy Policy – DPH Classifieds</h1>
-          <p>Effective Date: 8 September 2025</p>
+          <p>Effective Date: 25 May 2026</p>
         </div>
       </section>
 
@@ -156,8 +156,8 @@ const PrivacyPolicy = () => {
         </table>
 
         <h2>6. User Listings and Uploaded Images</h2>
-        <p>When you upload listing content, including car photos, videos, descriptions, and related media, we process that content so we can host it, display it on the Platform, moderate it, improve our services, and prevent abuse or fraud. Listing media and other listing content may be visible to other users and may be stored in our systems, caches, logs, backups, or archives for operational, legal, security, and evidentiary purposes.</p>
-        <p>Your rights and responsibilities for uploaded content are also described in our Terms of Use. If you submit a listing, you acknowledge that the listing content you provide may be used as part of operating, promoting, and improving the Platform, subject to those Terms and applicable law.</p>
+        <p>When you upload listing content, including car photos, videos, descriptions, and related media, we process that content so we can host it, display it on the Platform, moderate it, improve our services, advertise the Platform, train and test our systems, and prevent abuse or fraud. Listing media and other listing content may be visible to other users and may be stored in our systems, caches, logs, backups, or archives for operational, legal, security, evidentiary, product, analytics, or commercial purposes.</p>
+        <p>Your rights and responsibilities for uploaded content are also described in our Terms of Use. If you submit a listing, you acknowledge that the listing content you provide may be used, repurposed, and retained as part of operating, promoting, commercialising, and improving the Platform, subject to those Terms and applicable law.</p>
         
         <h2>7. Sharing Your Data</h2>
         <p>We only share your personal data with trusted parties when necessary:</p>

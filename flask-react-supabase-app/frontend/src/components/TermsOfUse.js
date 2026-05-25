@@ -20,7 +20,7 @@ const TermsOfUse = () => {
         <div className="about-v2-shell">
           <span className="about-v2-kicker">Legal</span>
           <h1>DPH Classifieds — Platform Terms of Use</h1>
-          <p>Effective date: 8 September 2025</p>
+          <p>Effective date: 25 May 2026</p>
         </div>
       </section>
 
@@ -117,9 +117,11 @@ const TermsOfUse = () => {
         <p>Views expressed in Reviews are those of the authors, not DPH. We may remove Reviews that breach these Terms or our policies.</p>
         
         <h2>11) Content you upload</h2>
-        <p>Anything you upload or submit (including Listing photos, videos, descriptions, messages, logos, and other media) is non-confidential and non-proprietary as to our use under this licence. You retain ownership of your content, but you grant DPH a perpetual, irrevocable, worldwide, non-exclusive, royalty-free, transferable, sublicensable, fully paid licence to use, host, store, cache, reproduce, crop, resize, edit, adapt, watermark, publish, translate, create derivative works of, distribute, perform, display, promote, and otherwise exploit that content, in any media now known or later developed, in connection with operating, improving, moderating, archiving, and promoting the Platform and our business.</p>
+        <p>Anything you upload or submit (including Listing photos, videos, descriptions, messages, logos, and other media) is non-confidential and non-proprietary as to our use under this licence. You retain ownership of your content, but you grant DPH a perpetual, irrevocable, worldwide, exclusive as to the rights you grant us, royalty-free, transferable, sublicensable, fully paid licence to use, host, store, cache, reproduce, crop, resize, edit, adapt, watermark, publish, translate, create derivative works of, distribute, perform, display, promote, advertise, and otherwise exploit that content, in any media now known or later developed, for any lawful business purpose in connection with operating, improving, moderating, archiving, commercialising, and promoting the Platform and our business.</p>
 
-        <p>This licence includes the right to use listing images and related media that you upload for marketing, editorial, product, archival, and moderation purposes, and to keep copies of that content in backups, caches, logs, or archives where reasonably necessary for the operation or protection of the Platform.</p>
+        <p>This licence includes the right to use listing images and related media that you upload for marketing, editorial, product, archival, moderation, training, testing, analytics, and fraud-prevention purposes, and to keep copies of that content in backups, caches, logs, or archives where reasonably necessary for the operation or protection of the Platform.</p>
+
+        <p>This licence survives deletion of the Listing, expiry of the Listing, closure of your Account, and removal of the content from public view, to the fullest extent permitted by law. We may continue to use, retain, and reproduce archived copies where necessary for legal, operational, compliance, security, or evidentiary purposes.</p>
 
         <p>You represent and warrant that you own or control all rights in the content you upload, including the right to grant the licence above, and that your content does not infringe anyone else's intellectual property, privacy, publicity, or other rights.</p>
 
