@@ -16,8 +16,9 @@ const ADMIN_DELETE_REASONS = [
 ];
 
 const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates'];
-const ALL_STATUSES = ['pending', 'approved', 'rejected', 'expired'];
+const ALL_STATUSES = ['all', 'pending', 'approved', 'rejected', 'expired'];
 const STATUS_OPTIONS = [
+  { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
@@ -37,6 +38,7 @@ const AdminListings = () => {
     ? ['all']
     : (selectedTypes.length > 0 ? selectedTypes : ['all']);
   const selectedStatuses = parseParamList(searchParams.get('statuses'), ALL_STATUSES);
+  const effectiveStatuses = selectedStatuses.includes('all') ? ['all'] : (selectedStatuses.length > 0 ? selectedStatuses : ['all']);
   const hasDeleted = searchParams.get('statuses')?.includes('deleted');
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,33 +75,34 @@ const AdminListings = () => {
       const typesToFetch = effectiveTypes.includes('all')
         ? ['cars', 'bikes', 'parts', 'plates']
         : effectiveTypes;
-      const statusesToFetch = hasDeleted
-        ? (selectedStatuses.length > 0 ? selectedStatuses : ['pending'])
-        : (selectedStatuses.length > 0 ? selectedStatuses : ['pending']);
+      const statusesToFetch = effectiveStatuses.includes('all')
+        ? []
+        : effectiveStatuses;
 
       const promises = [];
 
       // Always fetch from unified endpoint for non-deleted statuses
       const nonDeletedStatuses = statusesToFetch.filter(s => s !== 'deleted');
-      if (nonDeletedStatuses.length > 0) {
-          promises.push(
-            apiClient.get(`/api/admin/listings-search?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`)
-              .catch(() => {
-                // Fallback: if the new endpoint doesn't exist yet, use old per-type endpoints
-                const fallbackPromises = [];
-                for (const type of typesToFetch) {
-                  for (const status of nonDeletedStatuses) {
-                    fallbackPromises.push(
-                      apiClient.get(`/api/admin/approve/${type}?status=${status}`).catch(() => [])
-                    );
-                  }
-                }
-                return Promise.all(fallbackPromises).then(results => results.flat());
-              })
-        );
-      } else {
-        promises.push(Promise.resolve([]));
-      }
+      const mainQuery = nonDeletedStatuses.length > 0
+        ? `/api/admin/listings-search?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`
+        : `/api/admin/listings-search?types=${typesToFetch.join(',')}`;
+
+      promises.push(
+        apiClient.get(mainQuery)
+          .catch(() => {
+            // Fallback: if the new endpoint doesn't exist yet, use old per-type endpoints
+            const fallbackPromises = [];
+            const fallbackStatuses = nonDeletedStatuses.length > 0 ? nonDeletedStatuses : ['pending', 'approved', 'rejected', 'expired'];
+            for (const type of typesToFetch) {
+              for (const status of fallbackStatuses) {
+                fallbackPromises.push(
+                  apiClient.get(`/api/admin/approve/${type}?status=${status}`).catch(() => [])
+                );
+              }
+            }
+            return Promise.all(fallbackPromises).then(results => results.flat());
+          })
+      );
 
       // Fetch deleted listings separately if selected
       if (hasDeleted || statusesToFetch.includes('deleted')) {
@@ -146,7 +149,7 @@ const AdminListings = () => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveTypes.join(','), selectedStatuses.join(','), hasDeleted]);
+  }, [effectiveTypes.join(','), effectiveStatuses.join(','), hasDeleted]);
 
   useEffect(() => {
     fetchListings();
@@ -540,7 +543,7 @@ const AdminListings = () => {
             <button
               key={opt.key}
               onClick={() => toggleParam('statuses', opt.key, ALL_STATUSES.concat(['deleted']))}
-              className={`filter-tab ${selectedStatuses.includes(opt.key) || (opt.key === 'deleted' && hasDeleted) ? 'active' : ''}`}
+              className={`filter-tab ${(effectiveStatuses.includes(opt.key) || (opt.key === 'all' && effectiveStatuses.length === 0) || (opt.key === 'deleted' && hasDeleted)) ? 'active' : ''}`}
             >
               {opt.label}
             </button>

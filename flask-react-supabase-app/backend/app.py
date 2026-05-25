@@ -13834,8 +13834,8 @@ def admin_listings_search(current_user):
         else:
             normalized_types = list(LISTING_TABLE_CONFIG.keys())
 
-        if not requested_statuses:
-            requested_statuses = ["pending"]
+        if not requested_statuses or "all" in requested_statuses:
+            requested_statuses = []
 
         listings = []
         counts = defaultdict(int)

@@ -29,7 +29,7 @@ const REJECTION_REASONS = [
 ];
 
 const TYPE_TABS = ['All', 'Cars', 'Bikes', 'Plates', 'Parts'];
-const STATUS_TABS = ['Pending', 'Active', 'Approved', 'Expired', 'Rejected', 'Deleted'];
+const STATUS_TABS = ['All', 'Pending', 'Active', 'Approved', 'Expired', 'Rejected', 'Deleted'];
 const TYPE_KEYS = ['cars', 'bikes', 'plates', 'parts'];
 
 const typeKeyMap = {
@@ -41,6 +41,7 @@ const typeKeyMap = {
 };
 
 const statusKeyMap = {
+  All: null,
   Pending: 'pending',
   Active: 'active',
   Approved: 'approved',
@@ -66,7 +67,7 @@ const getTitle = (item) => {
 export default function AdminListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState(['All']);
-  const [selectedStatuses, setSelectedStatuses] = useState(['Pending']);
+  const [selectedStatuses, setSelectedStatuses] = useState(['All']);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [kpi, setKpi] = useState({ total: 0, pending: 0, active: 0 });
@@ -82,7 +83,8 @@ export default function AdminListingsScreen({ navigation }) {
         ? []
         : selectedTypes.map((t) => typeKeyMap[t]).filter(Boolean);
       const types = selectedTypeKeys.join(',');
-      const statuses = selectedStatuses.map((s) => statusKeyMap[s]).join(',');
+      const selectedStatusKeys = selectedStatuses.includes('All') ? [] : selectedStatuses.map((s) => statusKeyMap[s]).filter(Boolean);
+      const statuses = selectedStatusKeys.join(',');
       const params = [];
       if (types) params.push(`types=${types}`);
       if (statuses) params.push(`statuses=${statuses}`);
@@ -133,6 +135,8 @@ export default function AdminListingsScreen({ navigation }) {
 
   const toggleStatus = (tab) => {
     setSelectedStatuses((prev) => {
+      if (tab === 'All') return ['All'];
+      if (prev.includes('All')) return [tab];
       if (prev.includes(tab)) {
         if (prev.length === 1) return prev;
         return prev.filter((s) => s !== tab);
@@ -279,7 +283,7 @@ export default function AdminListingsScreen({ navigation }) {
 
       <View style={styles.statusTabBar}>
         {STATUS_TABS.map((tab) => {
-          const active = selectedStatuses.includes(tab);
+          const active = selectedStatuses.includes(tab) || (tab === 'All' && selectedStatuses.length === 0);
           return (
             <TouchableOpacity
               key={tab}
