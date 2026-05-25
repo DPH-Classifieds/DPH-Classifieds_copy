@@ -28,11 +28,12 @@ const REJECTION_REASONS = [
   'Other',
 ];
 
-const TYPE_TABS = ['Cars', 'Bikes', 'Plates', 'Parts'];
+const TYPE_TABS = ['All', 'Cars', 'Bikes', 'Plates', 'Parts'];
 const STATUS_TABS = ['Pending', 'Active', 'Approved', 'Expired', 'Rejected', 'Deleted'];
 const TYPE_KEYS = ['cars', 'bikes', 'plates', 'parts'];
 
 const typeKeyMap = {
+  All: null,
   Cars: 'cars',
   Bikes: 'bikes',
   Plates: 'plates',
@@ -64,7 +65,7 @@ const getTitle = (item) => {
 
 export default function AdminListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);
-  const [selectedTypes, setSelectedTypes] = useState(['Cars']);
+  const [selectedTypes, setSelectedTypes] = useState(['All']);
   const [selectedStatuses, setSelectedStatuses] = useState(['Pending']);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +78,10 @@ export default function AdminListingsScreen({ navigation }) {
   const fetchListings = async () => {
     try {
       setLoading(true);
-      const types = selectedTypes.map((t) => typeKeyMap[t]).join(',');
+      const selectedTypeKeys = selectedTypes.includes('All')
+        ? []
+        : selectedTypes.map((t) => typeKeyMap[t]).filter(Boolean);
+      const types = selectedTypeKeys.join(',');
       const statuses = selectedStatuses.map((s) => statusKeyMap[s]).join(',');
       const params = [];
       if (types) params.push(`types=${types}`);
@@ -116,9 +120,12 @@ export default function AdminListingsScreen({ navigation }) {
 
   const toggleType = (tab) => {
     setSelectedTypes((prev) => {
+      if (tab === 'All') return ['All'];
+      if (prev.includes('All')) return [tab];
       if (prev.includes(tab)) {
         if (prev.length === 1) return prev;
-        return prev.filter((t) => t !== tab);
+        const next = prev.filter((t) => t !== tab);
+        return next.length ? next : ['All'];
       }
       return [...prev, tab];
     });
@@ -248,7 +255,7 @@ export default function AdminListingsScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.typeTabBar}>
         {TYPE_TABS.map((tab) => {
-          const active = selectedTypes.includes(tab);
+          const active = selectedTypes.includes(tab) || (tab === 'All' && selectedTypes.length === 0);
           return (
             <TouchableOpacity
               key={tab}

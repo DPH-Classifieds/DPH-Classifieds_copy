@@ -15,7 +15,7 @@ const ADMIN_DELETE_REASONS = [
   'Price manipulation',
 ];
 
-const ALL_TYPES = ['cars', 'bikes', 'parts', 'plates'];
+const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates'];
 const ALL_STATUSES = ['pending', 'approved', 'rejected', 'expired'];
 const STATUS_OPTIONS = [
   { key: 'pending', label: 'Pending' },
@@ -33,6 +33,9 @@ const parseParamList = (val, allowed) => {
 const AdminListings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTypes = parseParamList(searchParams.get('types'), ALL_TYPES);
+  const effectiveTypes = selectedTypes.includes('all')
+    ? ['all']
+    : (selectedTypes.length > 0 ? selectedTypes : ['all']);
   const selectedStatuses = parseParamList(searchParams.get('statuses'), ALL_STATUSES);
   const hasDeleted = searchParams.get('statuses')?.includes('deleted');
   const [listings, setListings] = useState([]);
@@ -67,7 +70,9 @@ const AdminListings = () => {
     try {
       setLoading(true);
 
-      const typesToFetch = selectedTypes.length > 0 ? selectedTypes : ['cars'];
+      const typesToFetch = effectiveTypes.includes('all')
+        ? ['cars', 'bikes', 'parts', 'plates']
+        : effectiveTypes;
       const statusesToFetch = hasDeleted
         ? (selectedStatuses.length > 0 ? selectedStatuses : ['pending'])
         : (selectedStatuses.length > 0 ? selectedStatuses : ['pending']);
@@ -141,7 +146,7 @@ const AdminListings = () => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTypes.join(','), selectedStatuses.join(','), hasDeleted]);
+  }, [effectiveTypes.join(','), selectedStatuses.join(','), hasDeleted]);
 
   useEffect(() => {
     fetchListings();
@@ -155,9 +160,16 @@ const AdminListings = () => {
 
   const toggleParam = (key, value, allowed) => {
     const current = parseParamList(searchParams.get(key), allowed);
-    const next = current.includes(value)
-      ? current.filter(v => v !== value)
-      : [...current, value];
+    let next;
+    if (value === 'all') {
+      next = ['all'];
+    } else if (current.includes('all')) {
+      next = [value];
+    } else if (current.includes(value)) {
+      next = current.filter(v => v !== value);
+    } else {
+      next = [...current, value];
+    }
     const params = new URLSearchParams(searchParams);
     if (next.length > 0) {
       params.set(key, next.join(','));
@@ -543,9 +555,9 @@ const AdminListings = () => {
             <button
               key={type}
               onClick={() => toggleParam('types', type, ALL_TYPES)}
-              className={`filter-tab ${selectedTypes.includes(type) ? 'active' : ''}`}
+              className={`filter-tab ${effectiveTypes.includes(type) ? 'active' : ''}`}
             >
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+              {type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
             </button>
           ))}
         </div>
