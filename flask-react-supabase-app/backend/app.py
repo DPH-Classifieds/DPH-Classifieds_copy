@@ -741,7 +741,7 @@ def _get_recent_listing_expiry_notice_ids(listing_type, cutoff):
         "get",
         "/rest/v1/listing_deletion_events",
         params={
-            "select": "listing_id,created_at",
+            "select": "listing_id,created_at,metadata",
             "listing_type": f"eq.{listing_type}",
             "reason": f"eq.{LISTING_EXPIRY_NOTICE_REASON}",
             "created_at": f"gte.{_isoformat_utc(cutoff)}",
@@ -751,8 +751,21 @@ def _get_recent_listing_expiry_notice_ids(listing_type, cutoff):
         use_service_role=True,
     )
     if status_code >= 400 or not response:
-        return set()
-    return {str(row.get("listing_id")) for row in response if row.get("listing_id")}
+        return {}
+    notices = {}
+    for row in response:
+        listing_id = row.get("listing_id")
+        if not listing_id:
+            continue
+        metadata = row.get("metadata") or {}
+        state = metadata.get("state") or ""
+        expires_at = metadata.get("expires_at") or ""
+        created_at = _parse_datetime(row.get("created_at"))
+        key = (str(listing_id), str(state), str(expires_at))
+        existing = notices.get(key)
+        if existing is None or (created_at and created_at > existing):
+            notices[key] = created_at
+    return notices
 
 
 def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
@@ -838,13 +851,35 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     owner_email = _resolve_listing_owner_email(record)
     if just_expired and owner_email and record.get("status") not in {"deleted", "rejected"}:
         try:
-            _send_listing_expired_email(
+            _, expiry_email_error = _send_listing_expired_email(
                 owner_email,
                 _listing_display_title(record),
                 table_name,
                 record.get("id"),
                 record.get("days_until_deletion", 30),
             )
+            if not expiry_email_error:
+                listing_type = next(
+                    (
+                        key
+                        for key, cfg in LISTING_TABLE_CONFIG.items()
+                        if cfg["table"] == table_name
+                    ),
+                    None,
+                )
+                if listing_type:
+                    _record_listing_expiry_notice_event(
+                        listing_id=record.get("id"),
+                        listing_type=listing_type,
+                        metadata={
+                            "table": table_name,
+                            "state": "expired",
+                            "expires_at": _isoformat_utc(lifecycle["expires_at"]),
+                            "retention_expires_at": _isoformat_utc(
+                                lifecycle["retention_expires_at"]
+                            ),
+                        },
+                    )
         except Exception as email_err:
             logger.warning(f"Failed sending expiry email: {email_err}")
 
@@ -9317,6 +9352,25 @@ def extend_user_listing(current_user, item_type, item_id):
     refreshed_listing = next(
         (item for item in refreshed_items if str(item.get("id")) == str(item_id)), None
     )
+
+    try:
+        renewal_record = refreshed_listing or {**listing, **updates}
+        owner_email = renewal_record.get("user_email") or renewal_record.get(
+            "contact_email"
+        )
+        if not owner_email:
+            owner_email = get_user_email(current_user)
+        if owner_email and EMAIL_REGEX.match(owner_email):
+            _send_listing_status_email(
+                owner_email,
+                item_type,
+                renewal_record,
+                "renewed",
+                request.headers.get("Origin"),
+            )
+    except Exception as email_err:
+        logger.error(f"Error sending renewal email: {email_err}")
+
     return jsonify(
         {
             "message": "Listing extended successfully",
@@ -13869,7 +13923,7 @@ def admin_listings_search(current_user):
                 synced["listing_type"] = f"{listing_type}s" if listing_type != "part" else "parts"
                 synced["_table_status"] = synced.get("status")
 
-                if not any(
+                if requested_statuses and not any(
                     _admin_listing_matches_status(synced, status)
                     for status in requested_statuses
                 ):
@@ -15122,14 +15176,11 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
         if status >= 400 or not records:
             continue
 
-        recent_notice_ids = _get_recent_listing_expiry_notice_ids(
-            item_type, now - datetime.timedelta(hours=24)
+        recent_notices = _get_recent_listing_expiry_notice_ids(
+            item_type, now - datetime.timedelta(days=90)
         )
 
         for record in records:
-            if str(record.get("id")) in recent_notice_ids:
-                continue
-
             lifecycle = _compute_listing_lifecycle(record)
             if lifecycle["is_archived"]:
                 continue
@@ -15137,6 +15188,21 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
             expires_at = lifecycle["expires_at"]
             if expires_at > reminder_threshold:
                 continue
+
+            notice_state = "expired" if lifecycle["is_expired"] else "active"
+            notice_key = (
+                str(record.get("id")),
+                notice_state,
+                _isoformat_utc(expires_at),
+            )
+            last_sent_at = recent_notices.get(notice_key)
+            if last_sent_at is not None:
+                if notice_state == "active":
+                    # Pre-expiry reminder: only once per expiry cycle
+                    continue
+                # Expired: send at most once per 24 hours
+                if (now - last_sent_at) < datetime.timedelta(hours=23):
+                    continue
 
             owner_email = _resolve_listing_owner_email(record, record.get("user_id"))
             if not owner_email:
@@ -15177,13 +15243,14 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                 listing_type=item_type,
                 metadata={
                     "table": table,
-                    "state": lifecycle["state"],
+                    "state": notice_state,
                     "expires_at": _isoformat_utc(lifecycle["expires_at"]),
                     "retention_expires_at": _isoformat_utc(
                         lifecycle["retention_expires_at"]
                     ),
                 },
             )
+            recent_notices[notice_key] = now
             processed += 1
 
     return {"reminders_sent": processed}

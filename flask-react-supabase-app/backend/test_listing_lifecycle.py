@@ -67,7 +67,19 @@ class ListingLifecycleEmailTests(unittest.TestCase):
             if path == "/rest/v1/cars":
                 return ([listing], 200)
             if path == "/rest/v1/listing_deletion_events":
-                return ([{"listing_id": "listing-2", "created_at": "2026-04-02T12:00:00+00:00"}], 200)
+                return (
+                    [
+                        {
+                            "listing_id": "listing-2",
+                            "created_at": "2026-04-02T12:00:00+00:00",
+                            "metadata": {
+                                "state": "expired",
+                                "expires_at": "2026-04-03T00:00:00+00:00",
+                            },
+                        }
+                    ],
+                    200,
+                )
             return ([], 200)
 
         with patch.object(backend, "_utc_now") as mock_now, \
