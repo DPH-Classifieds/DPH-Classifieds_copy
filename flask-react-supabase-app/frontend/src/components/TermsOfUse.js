@@ -117,8 +117,14 @@ const TermsOfUse = () => {
         <p>Views expressed in Reviews are those of the authors, not DPH. We may remove Reviews that breach these Terms or our policies.</p>
         
         <h2>11) Content you upload</h2>
-        <p>Anything you upload or submit (including Listing photos, descriptions, messages, logos) is non-confidential and non-proprietary as to our use under this licence. You retain ownership but grant DPH a perpetual, worldwide, non-exclusive, royalty-free, transferable, sublicensable licence to use, host, reproduce, adapt, publish, translate, create derivative works of, distribute, perform, and display such content in connection with operating, improving, and promoting the Platform.</p>
-        
+        <p>Anything you upload or submit (including Listing photos, videos, descriptions, messages, logos, and other media) is non-confidential and non-proprietary as to our use under this licence. You retain ownership of your content, but you grant DPH a perpetual, irrevocable, worldwide, non-exclusive, royalty-free, transferable, sublicensable, fully paid licence to use, host, store, cache, reproduce, crop, resize, edit, adapt, watermark, publish, translate, create derivative works of, distribute, perform, display, promote, and otherwise exploit that content, in any media now known or later developed, in connection with operating, improving, moderating, archiving, and promoting the Platform and our business.</p>
+
+        <p>This licence includes the right to use listing images and related media that you upload for marketing, editorial, product, archival, and moderation purposes, and to keep copies of that content in backups, caches, logs, or archives where reasonably necessary for the operation or protection of the Platform.</p>
+
+        <p>You represent and warrant that you own or control all rights in the content you upload, including the right to grant the licence above, and that your content does not infringe anyone else's intellectual property, privacy, publicity, or other rights.</p>
+
+        <p>To the fullest extent permitted by law, you waive any moral rights or equivalent rights you may have in the content to the extent required for DPH to exercise the licence above.</p>
+
         <p>You must back up your content. We may disclose your identity to third parties who claim your content infringes rights or privacy. We may remove content without notice if it breaches these Terms or our policies.</p>
         
         <h2>12) Acceptable Use Policy</h2>

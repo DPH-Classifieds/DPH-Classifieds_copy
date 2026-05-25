@@ -148,10 +148,18 @@ const PrivacyPolicy = () => {
               <td>Ensure Platform security and prevent scams</td>
               <td>Compliance with law</td>
             </tr>
+            <tr>
+              <td>Display and moderate user listings</td>
+              <td>Contractual necessity and legitimate interest</td>
+            </tr>
           </tbody>
         </table>
+
+        <h2>6. User Listings and Uploaded Images</h2>
+        <p>When you upload listing content, including car photos, videos, descriptions, and related media, we process that content so we can host it, display it on the Platform, moderate it, improve our services, and prevent abuse or fraud. Listing media and other listing content may be visible to other users and may be stored in our systems, caches, logs, backups, or archives for operational, legal, security, and evidentiary purposes.</p>
+        <p>Your rights and responsibilities for uploaded content are also described in our Terms of Use. If you submit a listing, you acknowledge that the listing content you provide may be used as part of operating, promoting, and improving the Platform, subject to those Terms and applicable law.</p>
         
-        <h2>6. Sharing Your Data</h2>
+        <h2>7. Sharing Your Data</h2>
         <p>We only share your personal data with trusted parties when necessary:</p>
         
         <table>
@@ -183,10 +191,10 @@ const PrivacyPolicy = () => {
         
         <p>We never sell your personal data to third parties.</p>
         
-        <h2>7. International Data Transfers</h2>
+        <h2>8. International Data Transfers</h2>
         <p>Your data may be transferred and stored outside your country of residence, including in countries that may have different data protection laws. We take steps to ensure appropriate safeguards are in place to protect your information.</p>
         
-        <h2>8. Data Security</h2>
+        <h2>9. Data Security</h2>
         <p>We use strict technical and organizational measures to protect your data, including:</p>
         <ul>
           <li>Encrypted data storage and transmission</li>
@@ -195,7 +203,7 @@ const PrivacyPolicy = () => {
         </ul>
         <p>Despite our efforts, no system is completely secure. You are responsible for safeguarding your account credentials.</p>
         
-        <h2>9. Data Retention</h2>
+        <h2>10. Data Retention</h2>
         <p>We only keep your personal data for as long as necessary to:</p>
         <ul>
           <li>Fulfill the purposes outlined in this Privacy Policy</li>
@@ -205,7 +213,7 @@ const PrivacyPolicy = () => {
         <p>Marketplace listings are normally displayed for 30 days from publication. If a seller extends a listing, the live period is refreshed. Once a listing expires, we may retain it in the seller dashboard for up to 30 additional days so the seller can review, extend, or delete it before permanent removal.</p>
         <p>If data is anonymized, we may retain it indefinitely for analytical purposes.</p>
         
-        <h2>10. Your Privacy Rights</h2>
+        <h2>11. Your Privacy Rights</h2>
         <p>Depending on your location, you may have the following rights:</p>
         <ul>
           <li><strong>Access:</strong> Request a copy of the data we hold about you.</li>
@@ -217,23 +225,23 @@ const PrivacyPolicy = () => {
         </ul>
         <p>To exercise these rights, email privacy@dphclassifieds.com.</p>
         
-        <h2>11. Marketing Preferences</h2>
+        <h2>12. Marketing Preferences</h2>
         <p>You can manage marketing communications by:</p>
         <ul>
           <li>Adjusting notification settings in your account.</li>
           <li>Clicking the "unsubscribe" link in our emails.</li>
         </ul>
         
-        <h2>12. Use by Minors</h2>
+        <h2>13. Use by Minors</h2>
         <p>DPH Classifieds is not intended for users under 18 years old. If we discover that we have inadvertently collected data from a minor, we will delete it immediately.</p>
         
-        <h2>13. Third-Party Links</h2>
+        <h2>14. Third-Party Links</h2>
         <p>Our Platform may link to external websites or apps. We are not responsible for the privacy practices of these third-party services. Always review their privacy policies before sharing personal information.</p>
         
-        <h2>14. Changes to This Privacy Policy</h2>
+        <h2>15. Changes to This Privacy Policy</h2>
         <p>We may update this Privacy Policy periodically. Changes will be posted on this page, with the updated effective date. In certain cases, we may notify you via email or in-app notifications.</p>
         
-        <h2>15. Contact Information</h2>
+        <h2>16. Contact Information</h2>
         <p>For questions or concerns about this Privacy Policy or your data, please contact:</p>
         <ul>
           <li>Email: privacy@dphclassifieds.com</li>
