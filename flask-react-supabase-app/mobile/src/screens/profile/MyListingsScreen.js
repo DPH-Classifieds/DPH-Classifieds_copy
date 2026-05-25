@@ -21,7 +21,7 @@ import FadeInImage from '../../components/ui/FadeInImage';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
 
-const TABS = ['Active', 'Drafts', 'Saved', 'Expired', 'Sold'];
+const TABS = ['Active', 'Drafts', 'Saved', 'Review', 'Sold'];
 
 const getListingImage = (item) => {
   if (item.images && item.images.length > 0) {
@@ -62,7 +62,7 @@ export default function MyListingsScreen({ navigation }) {
     }
     try {
       setLoading(true);
-      const statusMap = { Active: 'active', Drafts: 'draft', Expired: 'expired', Sold: 'sold' };
+      const statusMap = { Active: 'active', Drafts: 'draft', Review: 'expired', Sold: 'sold' };
       const status = statusMap[activeTab] || activeTab.toLowerCase();
       const data = await apiClient.get(`/api/user/listings?status=${status}`);
       setListings(Array.isArray(data) ? data : data?.listings || []);
@@ -107,6 +107,61 @@ export default function MyListingsScreen({ navigation }) {
     } catch (err) {
       Alert.alert('Error', 'Failed to extend listing.');
     }
+  };
+
+  const handleOutcome = (item) => {
+    const type = item.listing_type || 'cars';
+    const actions = [
+      {
+        text: 'Sold on DPH',
+        onPress: async () => {
+          try {
+            await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
+              outcome: 'sold_on_dph',
+            });
+            fetchListings();
+          } catch (err) {
+            Alert.alert('Error', 'Failed to save listing outcome.');
+          }
+        },
+      },
+      {
+        text: 'Sold Elsewhere',
+        onPress: async () => {
+          try {
+            await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
+              outcome: 'sold_elsewhere',
+            });
+            fetchListings();
+          } catch (err) {
+            Alert.alert('Error', 'Failed to save listing outcome.');
+          }
+        },
+      },
+      {
+        text: 'Renew Listing',
+        onPress: async () => {
+          try {
+            await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
+              outcome: 'not_sold_renew',
+            });
+            Alert.alert('Success', 'Listing renewed successfully.');
+            fetchListings();
+          } catch (err) {
+            Alert.alert('Error', 'Failed to renew listing.');
+          }
+        },
+      },
+    ];
+
+    Alert.alert(
+      'Review Listing',
+      `Choose what happened with "${getListingTitle(item)}".`,
+      [
+        ...actions,
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   };
 
   const handleMarkSold = async (item) => {
@@ -177,8 +232,8 @@ export default function MyListingsScreen({ navigation }) {
                 </View>
               </View>
               <Badge
-                label={getDisplayStatus(item, activeTab)}
-                variant={getStatusVariant(getDisplayStatus(item, activeTab))}
+                label={activeTab === 'Review' ? 'Review' : getDisplayStatus(item, activeTab)}
+                variant={activeTab === 'Review' ? 'warning' : getStatusVariant(getDisplayStatus(item, activeTab))}
                 size="sm"
                 style={styles.statusBadge}
               />
@@ -194,20 +249,38 @@ export default function MyListingsScreen({ navigation }) {
               >
                 <Ionicons name="create-outline" size={18} color={COLORS.accent} />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => handleExtend(item)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="time-outline" size={18} color={COLORS.info} />
-              </TouchableOpacity>
-              {activeTab === 'Active' && (
+              {activeTab === 'Active' ? (
                 <TouchableOpacity
                   style={styles.actionBtn}
                   onPress={() => handleMarkSold(item)}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="bag-check-outline" size={18} color={COLORS.warning} />
+                </TouchableOpacity>
+              ) : activeTab === 'Review' ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleOutcome(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="document-text-outline" size={18} color={COLORS.warning} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleExtend(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="time-outline" size={18} color={COLORS.info} />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => handleExtend(item)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="time-outline" size={18} color={COLORS.info} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
