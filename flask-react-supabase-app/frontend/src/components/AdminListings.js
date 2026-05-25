@@ -119,7 +119,9 @@ const AdminListings = () => {
 
       const [mainResponse, deletedResponses] = await Promise.all(promises);
 
-      let allListings = Array.isArray(mainResponse) ? mainResponse : [];
+      let allListings = Array.isArray(mainResponse)
+        ? mainResponse
+        : (Array.isArray(mainResponse?.listings) ? mainResponse.listings : []);
 
       // Process deleted listings
       const deletedArrays = Array.isArray(deletedResponses) ? deletedResponses : [deletedResponses];
