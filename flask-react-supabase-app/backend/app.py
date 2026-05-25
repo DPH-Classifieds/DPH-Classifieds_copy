@@ -799,21 +799,12 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     _apply_listing_lifecycle_metadata(record)
 
     # Send expiry email on first detection of expiry
-    if (
-        just_expired
-        and record.get("user_email")
-        and record.get("status") not in {"deleted", "rejected"}
-    ):
+    owner_email = _resolve_listing_owner_email(record)
+    if just_expired and owner_email and record.get("status") not in {"deleted", "rejected"}:
         try:
-            listing_title = (
-                record.get("listing_title")
-                or f"{record.get('city', '')} {record.get('code', '')} {record.get('number', '')}".strip()
-                or record.get("name")
-                or "Your listing"
-            )
             _send_listing_expired_email(
-                record["user_email"],
-                listing_title,
+                owner_email,
+                _listing_display_title(record),
                 table_name,
                 record.get("id"),
                 record.get("days_until_deletion", 30),
@@ -857,6 +848,7 @@ def _strip_lifecycle_fields(payload):
         "extension_count",
         "is_archived",
         "extras",
+        "user_email",
     }
     return {key: value for key, value in payload.items() if key not in lifecycle_keys}
 
@@ -877,6 +869,7 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
         "last_extended_at",
         "extension_count",
         "is_archived",
+        "user_email",
     ]
     has_lifecycle_error = any(
         keyword in error_text for keyword in lifecycle_error_keywords
@@ -1036,6 +1029,36 @@ def _send_listing_expired_email(
         payload["reply_to"] = reply_to
 
     return _send_resend_email(payload)
+
+
+def _listing_display_title(record):
+    record = record or {}
+    return (
+        record.get("listing_title")
+        or f"{record.get('city', '')} {record.get('code', '')} {record.get('number', '')}".strip()
+        or record.get("name")
+        or "Your listing"
+    )
+
+
+def _resolve_listing_owner_email(record, fallback_user_id=None):
+    record = record or {}
+    for key in ("user_email", "contact_email"):
+        email = record.get(key)
+        if email and EMAIL_REGEX.match(str(email)):
+            return email
+
+    owner_id = record.get("user_id") or fallback_user_id
+    if owner_id:
+        try:
+            email = get_user_email(owner_id)
+        except Exception as exc:
+            logger.warning(f"Failed to resolve owner email for {owner_id}: {exc}")
+            return None
+        if email and EMAIL_REGEX.match(str(email)):
+            return email
+
+    return None
 
 
 def _filter_public_listing_records(table_name, records):
@@ -1427,6 +1450,33 @@ def _collect_user_listing_records(current_user, item_type):
             hydrated_records.append(synced)
 
     return hydrated_records, 200
+
+
+def _listing_matches_status_filter(record, status_filter):
+    if not status_filter or status_filter in {"all", "any"}:
+        return True
+
+    normalized_status = str(status_filter).strip().lower()
+    record_status = str(record.get("status") or "").strip().lower()
+    listing_state = str(record.get("listing_state") or "").strip().lower()
+
+    if normalized_status == "active":
+        return listing_state == "active"
+    if normalized_status == "expired":
+        return listing_state == "expired"
+    if normalized_status == "sold":
+        return record_status == "sold"
+    if normalized_status in {"draft", "drafts"}:
+        return record_status in {"draft", "pending", "rejected"}
+    return True
+
+
+def _filter_user_listing_records(records, status_filter):
+    return [
+        record
+        for record in records or []
+        if _listing_matches_status_filter(record, status_filter)
+    ]
 
 
 def _delete_user_owned_listing(current_user, item_type, item_id):
@@ -4435,6 +4485,7 @@ def create_car(current_user):
             "vehicle_type",
             "is_approved",
             "user_id",
+            "user_email",
             "country_code",
             "whatsapp_number",
             "whatsapp_prefill_text",
@@ -4463,6 +4514,7 @@ def create_car(current_user):
             "registration_document_url",
         }
         car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
+        car_data["user_email"] = get_user_email(current_user)
 
         if not images or len(images) == 0:
             return jsonify(
@@ -9111,6 +9163,7 @@ def get_user_parts(current_user):
 @app.route("/api/user/listings", methods=["GET"])
 @token_required
 def get_all_user_listings(current_user):
+    status_filter = (request.args.get("status") or "").strip().lower()
     categories = {}
     flattened = []
 
@@ -9123,8 +9176,9 @@ def get_all_user_listings(current_user):
 
         for item in category_items:
             item["listing_type"] = item_type
-        categories[f"{item_type}s" if item_type != "part" else "parts"] = category_items
-        flattened.extend(category_items)
+        filtered_items = _filter_user_listing_records(category_items, status_filter)
+        categories[f"{item_type}s" if item_type != "part" else "parts"] = filtered_items
+        flattened.extend(filtered_items)
 
     flattened.sort(
         key=lambda item: _parse_datetime(item.get("created_at")) or _utc_now(),
@@ -9345,6 +9399,7 @@ def create_bike(current_user):
             "wheels",
             "status",
             "user_id",
+            "user_email",
             "is_dealer",
             "expires_at",
             "expired_at",
@@ -9354,6 +9409,7 @@ def create_bike(current_user):
             "is_archived",
         }
         bike_data = {k: v for k, v in bike_data.items() if k in bike_allowed_fields}
+        bike_data["user_email"] = get_user_email(current_user)
 
         # Create the bike
         data, status_code = _create_listing_with_lifecycle_fallback(
@@ -10248,6 +10304,7 @@ def create_part(current_user):
             "is_negotiable",
             "status",
             "user_id",
+            "user_email",
             "country_code",
             "is_dealer",
             "expires_at",
@@ -10258,6 +10315,7 @@ def create_part(current_user):
             "is_archived",
         }
         part_data = {k: v for k, v in part_data.items() if k in part_allowed_fields}
+        part_data["user_email"] = get_user_email(current_user)
 
         # Validate required fields
         required_fields = ["name", "part_type", "price"]
@@ -13696,6 +13754,103 @@ def get_admin_listing_history(current_user):
         return jsonify({"error": "Failed to fetch listing history"}), 500
 
 
+@app.route("/api/admin/listings-search", methods=["GET"])
+@token_required
+def admin_listings_search(current_user):
+    """Unified admin listing search for moderation and lifecycle views."""
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        raw_types = request.args.get("types", "")
+        raw_statuses = request.args.get("statuses", "")
+
+        requested_types = [
+            (value or "").strip().lower()
+            for value in raw_types.split(",")
+            if (value or "").strip()
+        ]
+        requested_statuses = [
+            (value or "").strip().lower()
+            for value in raw_statuses.split(",")
+            if (value or "").strip()
+        ]
+
+        type_map = {
+            "car": "car",
+            "cars": "car",
+            "bike": "bike",
+            "bikes": "bike",
+            "part": "part",
+            "parts": "part",
+            "plate": "plate",
+            "plates": "plate",
+        }
+        if requested_types:
+            normalized_types = [
+                type_map[value] for value in requested_types if value in type_map
+            ]
+        else:
+            normalized_types = list(LISTING_TABLE_CONFIG.keys())
+
+        if not requested_statuses:
+            requested_statuses = ["pending"]
+
+        listings = []
+        counts = defaultdict(int)
+
+        for listing_type in normalized_types:
+            config = LISTING_TABLE_CONFIG.get(listing_type)
+            if not config:
+                continue
+
+            rows, status_code = supabase_request(
+                "get",
+                f"/rest/v1/{config['table']}",
+                params={"select": "*", "order": "created_at.desc", "limit": "500"},
+                use_service_role=True,
+            )
+            if status_code >= 400:
+                logger.warning(
+                    "Failed to fetch admin listings for %s: %s", listing_type, rows
+                )
+                continue
+
+            for row in rows or []:
+                synced = _sync_listing_lifecycle(
+                    config["table"], dict(row), hard_delete_archived=False
+                )
+                if not synced:
+                    continue
+
+                display_status = _admin_listing_display_status(synced)
+                synced["display_status"] = display_status
+                synced["listing_type"] = f"{listing_type}s" if listing_type != "part" else "parts"
+                synced["_table_status"] = synced.get("status")
+
+                if not any(
+                    _admin_listing_matches_status(synced, status)
+                    for status in requested_statuses
+                ):
+                    continue
+
+                counts["total"] += 1
+                counts[synced.get("_table_status") or "unknown"] += 1
+                if synced.get("listing_state") == "active":
+                    counts["active"] += 1
+                if synced.get("listing_state") == "expired":
+                    counts["expired"] += 1
+                if synced.get("status") == "pending":
+                    counts["pending"] += 1
+
+                listings.append(synced)
+
+        return jsonify({"listings": listings, "metadata": dict(counts)}), 200
+    except Exception as e:
+        logger.error(f"Error searching admin listings: {e}")
+        return jsonify({"error": "Failed to search listings"}), 500
+
+
 def _admin_get_listing_meta(item_type):
     normalized = (item_type or "").strip().lower().rstrip("s")
     return LISTING_TABLE_CONFIG.get(normalized)
@@ -13829,6 +13984,36 @@ def _admin_listing_brief(listing_type, listing):
         "created_at": listing.get("created_at"),
         "last_viewed_at": listing.get("last_viewed_at"),
     }
+
+
+def _admin_listing_matches_status(listing, status_filter):
+    if not status_filter:
+        return True
+
+    normalized = str(status_filter).strip().lower()
+    listing_status = str(listing.get("status") or "").strip().lower()
+    listing_state = str(listing.get("listing_state") or "").strip().lower()
+
+    if normalized == "expired":
+        return listing_state == "expired"
+    if normalized == "active":
+        return listing_state == "active"
+    if normalized == "approved":
+        return listing_status == "approved"
+    if normalized == "pending":
+        return listing_status == "pending"
+    if normalized == "rejected":
+        return listing_status == "rejected"
+    if normalized == "deleted":
+        return listing_status == "deleted" or listing_state == "archived"
+    return listing_status == normalized or listing_state == normalized
+
+
+def _admin_listing_display_status(listing):
+    listing_state = str(listing.get("listing_state") or "").strip().lower()
+    if listing_state in {"active", "expired", "archived"}:
+        return listing_state
+    return listing.get("status")
 
 
 def _admin_collect_owned_listing_stats(user_id):
@@ -14869,6 +15054,94 @@ def sitemap_xml():
     return response
 
 
+def _run_listing_expiry_reminders_once(reminder_days_before=3):
+    processed = 0
+    now = _utc_now()
+    reminder_threshold = now + datetime.timedelta(days=reminder_days_before)
+
+    for item_type, config in LISTING_TABLE_CONFIG.items():
+        table = config["table"]
+        records, status = supabase_request(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "select": "id,user_id,expires_at,status,is_archived",
+                "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
+                "expired_at": "is.null",
+                "status": "eq.approved",
+                "is_archived": "eq.false",
+            },
+            use_service_role=True,
+        )
+        if status >= 400 or not records:
+            continue
+
+        for record in records:
+            expires_at = _parse_datetime(record.get("expires_at"))
+            if not expires_at or expires_at <= now:
+                continue
+
+            owner_email = _resolve_listing_owner_email(record, record.get("user_id"))
+            if not owner_email:
+                continue
+
+            days_left = max((expires_at - now).days, 1)
+            _send_listing_expiry_reminder(
+                owner_email,
+                _listing_display_title(record),
+                table,
+                record.get("id"),
+                days_left,
+            )
+            processed += 1
+
+    return {"reminders_sent": processed}
+
+
+def _run_listing_lifecycle_sweep_once():
+    processed = 0
+    expired = 0
+    deleted = 0
+
+    for item_type, config in LISTING_TABLE_CONFIG.items():
+        table = config["table"]
+        records, status = supabase_request(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "select": (
+                    "id,user_id,expires_at,expired_at,retention_expires_at,"
+                    "sold_response_deadline,status,is_archived,sold_status,"
+                    "sold_status_set_at,auto_removed_at"
+                ),
+                "status": "eq.approved",
+                "is_archived": "eq.false",
+            },
+            use_service_role=True,
+        )
+        if status >= 400 or not records:
+            continue
+
+        for record in records:
+            processed += 1
+            before_status = record.get("status")
+            before_expired = bool(record.get("expired_at"))
+            synced = _sync_listing_lifecycle(table, record, hard_delete_archived=True)
+            if not synced:
+                deleted += 1
+                continue
+            if not before_expired and synced.get("expired_at"):
+                expired += 1
+            if before_status != synced.get("status") and synced.get("status") == "deleted":
+                deleted += 1
+
+    return {
+        "processed": processed,
+        "expired": expired,
+        "deleted": deleted,
+    }
+
+
 # Admin routes are registered at the top of the file (after imports)
 # No need to register again here
 
@@ -14878,55 +15151,17 @@ if __name__ == "__main__":
     if debug_mode:
         logger.warning("!!! FLASK DEBUG MODE IS ENABLED - NOT FOR PRODUCTION !!!")
 
-    # Start background expiry reminder thread
     def _run_expiry_reminders():
-        """Check listings daily and send renewal reminders 3 days before expiry."""
-        REMINDER_DAYS_BEFORE = 3
-        CHECK_INTERVAL_SECONDS = 86400  # 24 hours
+        CHECK_INTERVAL_SECONDS = int(
+            os.getenv("LISTING_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
+        )
         while True:
             try:
-                with app.app_context():
-                    for item_type, config in LISTING_TABLE_CONFIG.items():
-                        table = config["table"]
-                        now = _utc_now()
-                        reminder_threshold = now + datetime.timedelta(
-                            days=REMINDER_DAYS_BEFORE
-                        )
-                        # Fetch listings expiring within the reminder window that haven't expired yet
-                        records, status = supabase_request(
-                            "get",
-                            f"/rest/v1/{table}",
-                            params={
-                                "select": "id,user_email,expires_at,city,code,number,listing_title,name,status",
-                                "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
-                                "expired_at": "is.null",
-                                "status": "eq.approved",
-                                "is_archived": "eq.false",
-                            },
-                            use_service_role=True,
-                        )
-                        if status >= 400 or not records:
-                            continue
-                        for record in records:
-                            if not record.get("user_email"):
-                                continue
-                            expires_at = _parse_datetime(record.get("expires_at"))
-                            if not expires_at or expires_at <= now:
-                                continue
-                            days_left = max((expires_at - now).days, 1)
-                            listing_title = (
-                                record.get("listing_title")
-                                or f"{record.get('city', '')} {record.get('code', '')} {record.get('number', '')}".strip()
-                                or record.get("name")
-                                or "Your listing"
-                            )
-                            _send_listing_expiry_reminder(
-                                record["user_email"],
-                                listing_title,
-                                table,
-                                record["id"],
-                                days_left,
-                            )
+                result = _run_listing_expiry_reminders_once()
+                logger.info(
+                    "Listing expiry reminders complete: sent=%d",
+                    int(result.get("reminders_sent") or 0),
+                )
             except Exception as reminder_err:
                 logger.error(f"Expiry reminder job error: {reminder_err}")
             time.sleep(CHECK_INTERVAL_SECONDS)

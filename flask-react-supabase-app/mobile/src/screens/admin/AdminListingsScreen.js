@@ -17,8 +17,19 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
+const REJECTION_REASONS = [
+  'Inappropriate content',
+  'Wrong category',
+  'Spam',
+  'Duplicate listing',
+  'Incomplete information',
+  'Misleading information',
+  'Price manipulation',
+  'Other',
+];
+
 const TYPE_TABS = ['Cars', 'Bikes', 'Plates', 'Parts'];
-const STATUS_TABS = ['Pending', 'Active', 'Approved', 'Rejected', 'Deleted'];
+const STATUS_TABS = ['Pending', 'Active', 'Approved', 'Expired', 'Rejected', 'Deleted'];
 const TYPE_KEYS = ['cars', 'bikes', 'plates', 'parts'];
 
 const typeKeyMap = {
@@ -32,6 +43,7 @@ const statusKeyMap = {
   Pending: 'pending',
   Active: 'active',
   Approved: 'approved',
+  Expired: 'expired',
   Rejected: 'rejected',
   Deleted: 'deleted',
 };
@@ -133,29 +145,37 @@ export default function AdminListingsScreen({ navigation }) {
   };
 
   const handleReject = async (item) => {
-    Alert.alert('Reject Listing', 'Reject this listing?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reject',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const typeKey = item.listing_type || 'cars';
-            await apiClient.post(`/${typeKey}/${item.id}/reject`);
-            setListings((prev) => prev.filter((l) => l.id !== item.id));
-          } catch (err) {
-            Alert.alert('Error', 'Failed to reject listing.');
-          }
-        },
+    const reasonButtons = REJECTION_REASONS.map((reason) => ({
+      text: reason,
+      onPress: async (reasonText) => {
+        try {
+          const typeKey = item.listing_type || 'cars';
+          await apiClient.post(`/${typeKey}/${item.id}/reject`, { reason: reasonText || reason });
+          setListings((prev) => prev.filter((l) => l.id !== item.id));
+        } catch (err) {
+          Alert.alert('Error', 'Failed to reject listing.');
+        }
       },
-    ]);
+    }));
+
+    Alert.alert(
+      'Reject Listing',
+      'Select a reason for rejection:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        ...reasonButtons,
+      ],
+    );
   };
 
   const getStatusVariant = (status) => {
     switch (status) {
       case 'active': return 'success';
+      case 'approved': return 'success';
+      case 'expired': return 'warning';
       case 'pending': return 'warning';
       case 'sold': return 'info';
+      case 'deleted': return 'default';
       case 'rejected': return 'error';
       default: return 'default';
     }
@@ -164,6 +184,9 @@ export default function AdminListingsScreen({ navigation }) {
   const renderListing = ({ item }) => {
     const imageUri = getImageUri(item);
     const title = getTitle(item);
+    const displayStatus = item.listing_state || item.status || 'pending';
+    const rawStatus = item._table_status || item.status || 'pending';
+    const isPending = rawStatus === 'pending';
 
     return (
       <TouchableOpacity
@@ -183,8 +206,8 @@ export default function AdminListingsScreen({ navigation }) {
             <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
             <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
             <View style={styles.cardMeta}>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-                <Text style={styles.statusBadgeText}>{item.status || 'pending'}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
+                <Text style={styles.statusBadgeText}>{displayStatus}</Text>
               </View>
               <Text style={styles.cardDate}>{formatDate(item.created_at)}</Text>
             </View>
@@ -196,7 +219,7 @@ export default function AdminListingsScreen({ navigation }) {
           </View>
         </View>
 
-        {item.status === 'pending' && (
+        {isPending && (
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.actionBtn, styles.approveBtn]}
@@ -318,8 +341,11 @@ export default function AdminListingsScreen({ navigation }) {
 const getStatusColor = (status) => {
   switch (status) {
     case 'active': return COLORS.success;
+    case 'approved': return COLORS.success;
     case 'pending': return COLORS.warning;
+    case 'expired': return COLORS.warning;
     case 'sold': return COLORS.info;
+    case 'deleted': return COLORS.textMuted;
     case 'rejected': return COLORS.error;
     default: return COLORS.textMuted;
   }

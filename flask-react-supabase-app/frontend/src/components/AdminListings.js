@@ -16,11 +16,12 @@ const ADMIN_DELETE_REASONS = [
 ];
 
 const ALL_TYPES = ['cars', 'bikes', 'parts', 'plates'];
-const ALL_STATUSES = ['pending', 'approved', 'rejected'];
+const ALL_STATUSES = ['pending', 'approved', 'rejected', 'expired'];
 const STATUS_OPTIONS = [
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
+  { key: 'expired', label: 'Expired' },
   { key: 'deleted', label: 'Deleted' },
 ];
 
@@ -267,6 +268,8 @@ const AdminListings = () => {
     const styles = {
       pending: { background: 'rgba(255,193,7,0.15)', border: '1px solid rgba(255,193,7,0.3)', color: '#ffc107' },
       approved: { background: 'rgba(76,175,80,0.15)', border: '1px solid rgba(76,175,80,0.3)', color: '#4caf50' },
+      active: { background: 'rgba(76,175,80,0.15)', border: '1px solid rgba(76,175,80,0.3)', color: '#4caf50' },
+      expired: { background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', color: '#f59e0b' },
       rejected: { background: 'rgba(244,67,54,0.15)', border: '1px solid rgba(244,67,54,0.3)', color: '#f44336' },
       deleted: { background: 'rgba(156,163,175,0.15)', border: '1px solid rgba(156,163,175,0.3)', color: '#9ca3af' },
     };
@@ -303,7 +306,8 @@ const AdminListings = () => {
 
   const ListingCard = ({ listing }) => {
     const lt = listing.listing_type || 'cars';
-    const isPending = listing.status === 'pending' || listing._table_status === 'pending';
+    const isPending = (listing._table_status || listing.status) === 'pending';
+    const displayStatus = listing.display_status || listing.listing_state || listing.status || 'pending';
     return (
     <div className="listing-card">
       <div className="listing-info">
@@ -317,7 +321,7 @@ const AdminListings = () => {
         )}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
           <span className="status-badge status-admin" style={{ margin: 0 }}>{lt}</span>
-          {getStatusBadge(listing.status || listing._table_status || 'pending')}
+          {getStatusBadge(displayStatus)}
         </div>
         <h3>{getListingTitle(listing)}</h3>
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>

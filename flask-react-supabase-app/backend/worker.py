@@ -107,10 +107,24 @@ def cleanup_loop(cleanup_fn, interval, max_age_hours, dry_run):
         stop_event.wait(interval)
 
 
+def scheduled_loop(label, task_fn, interval_seconds):
+    while not stop_event.is_set():
+        try:
+            result = task_fn()
+            logger.info("%s complete: %s", label, result)
+        except Exception as exc:
+            logger.exception("%s failed: %s", label, exc)
+        stop_event.wait(interval_seconds)
+
+
 def main():
     logger.info("Worker starting")
 
     try:
+        from app import (
+            _run_listing_expiry_reminders_once,
+            _run_listing_lifecycle_sweep_once,
+        )
         from health_monitoring import (
             HEALTH_CHECK_INTERVAL_SECONDS,
             WORKER_HEARTBEAT_INTERVAL_SECONDS,
@@ -141,6 +155,12 @@ def main():
         "true",
         "yes",
         "on",
+    )
+    listing_reminder_interval_seconds = int(
+        os.getenv("LISTING_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
+    )
+    listing_sweep_interval_seconds = int(
+        os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))
     )
 
     health_server_thread = threading.Thread(
@@ -179,6 +199,34 @@ def main():
     monitor_thread.start()
     logger.info("Worker threads started (heartbeat + health monitor)")
 
+    reminder_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "Listing expiry reminders",
+            _run_listing_expiry_reminders_once,
+            listing_reminder_interval_seconds,
+        ),
+        name="listing-expiry-reminders",
+        daemon=True,
+    )
+    sweep_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "Listing lifecycle sweep",
+            _run_listing_lifecycle_sweep_once,
+            listing_sweep_interval_seconds,
+        ),
+        name="listing-lifecycle-sweep",
+        daemon=True,
+    )
+    reminder_thread.start()
+    sweep_thread.start()
+    logger.info(
+        "Listing lifecycle jobs started (reminders=%ss sweep=%ss)",
+        listing_reminder_interval_seconds,
+        listing_sweep_interval_seconds,
+    )
+
     cleanup_thread = None
     if cleanup_enabled:
         try:
@@ -214,6 +262,8 @@ def main():
         stop_event.set()
         heartbeat_thread.join(timeout=5)
         monitor_thread.join(timeout=5)
+        reminder_thread.join(timeout=5)
+        sweep_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 
