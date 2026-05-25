@@ -2,6 +2,7 @@ from flask import (
     Flask,
     jsonify,
     request,
+    has_request_context,
     abort,
     send_from_directory,
     session,
@@ -598,12 +599,29 @@ def _compute_listing_lifecycle(record):
     expires_at = _parse_datetime(
         record.get("expires_at")
     ) or _default_expiry_from_created_at(record)
+    last_extended_at = _parse_datetime(record.get("last_extended_at"))
+    renewal_repaired = False
+    if (
+        last_extended_at
+        and expires_at <= last_extended_at
+        and record.get("status") == "approved"
+    ):
+        repaired_expires_at = last_extended_at + datetime.timedelta(
+            days=LISTING_EXPIRY_DAYS
+        )
+        if repaired_expires_at > expires_at:
+            expires_at = repaired_expires_at
+            renewal_repaired = True
     expired_at = _parse_datetime(record.get("expired_at"))
+    if renewal_repaired:
+        expired_at = None
 
     if not expired_at and now >= expires_at:
         expired_at = expires_at
 
     retention_expires_at = _parse_datetime(record.get("retention_expires_at"))
+    if renewal_repaired:
+        retention_expires_at = None
     if not retention_expires_at:
         retention_anchor = expired_at or expires_at
         retention_expires_at = retention_anchor + datetime.timedelta(
@@ -611,6 +629,8 @@ def _compute_listing_lifecycle(record):
         )
 
     sold_response_deadline = _parse_datetime(record.get("sold_response_deadline"))
+    if renewal_repaired:
+        sold_response_deadline = None
     if not sold_response_deadline and expired_at:
         sold_response_deadline = expired_at + datetime.timedelta(
             hours=LISTING_SOLD_RESPONSE_WINDOW_HOURS
@@ -739,7 +759,7 @@ def _record_listing_expiry_notice_event(
     )
 
 
-def _get_recent_listing_expiry_notice_ids(listing_type, cutoff):
+def _get_recent_listing_expiry_notice_dates(listing_type, cutoff):
     response, status_code = supabase_request(
         "get",
         "/rest/v1/listing_deletion_events",
@@ -754,20 +774,19 @@ def _get_recent_listing_expiry_notice_ids(listing_type, cutoff):
         use_service_role=True,
     )
     if status_code >= 400 or not response:
-        return {}
-    notices = {}
+        return set()
+    notices = set()
     for row in response:
         listing_id = row.get("listing_id")
         if not listing_id:
             continue
         metadata = row.get("metadata") or {}
-        state = metadata.get("state") or ""
-        expires_at = metadata.get("expires_at") or ""
+        notice_date = metadata.get("notice_date")
         created_at = _parse_datetime(row.get("created_at"))
-        key = (str(listing_id), str(state), str(expires_at))
-        existing = notices.get(key)
-        if existing is None or (created_at and created_at > existing):
-            notices[key] = created_at
+        if not notice_date and created_at:
+            notice_date = created_at.date().isoformat()
+        if notice_date:
+            notices.add((str(listing_id), str(notice_date)))
     return notices
 
 
@@ -775,10 +794,39 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     if not isinstance(record, dict):
         return record
 
+    repaired = {}
+    last_extended_at = _parse_datetime(record.get("last_extended_at"))
+    expires_at = _parse_datetime(record.get("expires_at"))
+    if (
+        last_extended_at
+        and expires_at
+        and last_extended_at > expires_at
+        and record.get("status") not in {"deleted", "rejected"}
+    ):
+        repaired_expires_at = last_extended_at + datetime.timedelta(
+            days=LISTING_EXPIRY_DAYS
+        )
+        if repaired_expires_at > expires_at:
+            repaired = {
+                "expires_at": _isoformat_utc(repaired_expires_at),
+                "expired_at": None,
+                "retention_expires_at": _isoformat_utc(
+                    repaired_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+                ),
+                "sold_response_deadline": None,
+                "auto_removed_at": None,
+                "is_archived": False,
+            }
+            if record.get("status") != "approved":
+                repaired["status"] = "approved"
+            record = {**record, **repaired}
+
     lifecycle = _compute_listing_lifecycle(record)
     updates = {}
     just_expired = False
 
+    if repaired:
+        updates.update(repaired)
     if record.get("expires_at") is None:
         updates["expires_at"] = _isoformat_utc(lifecycle["expires_at"])
     if lifecycle["is_expired"] and record.get("expired_at") is None:
@@ -3774,7 +3822,9 @@ def supabase_request(
     url = f"{SUPABASE_URL}{path}"
 
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
-    user_token = getattr(request, "supabase_token", None)
+    user_token = None
+    if has_request_context():
+        user_token = getattr(request, "supabase_token", None)
 
     if use_service_role or "admin" in path:
         headers = {
@@ -15194,7 +15244,7 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
         if status >= 400 or not records:
             continue
 
-        recent_notices = _get_recent_listing_expiry_notice_ids(
+        recent_notices = _get_recent_listing_expiry_notice_dates(
             item_type, now - datetime.timedelta(days=90)
         )
 
@@ -15205,6 +15255,11 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
 
             expires_at = lifecycle["expires_at"]
             if expires_at > reminder_threshold:
+                continue
+
+            notice_date = now.date().isoformat()
+            notice_key = (str(record.get("id")), notice_date)
+            if notice_key in recent_notices:
                 continue
 
             # Skip if the listing was renewed/extended after the expiry it appears to be in
@@ -15218,19 +15273,6 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                 continue
 
             notice_state = "expired" if lifecycle["is_expired"] else "active"
-            notice_key = (
-                str(record.get("id")),
-                notice_state,
-                _isoformat_utc(expires_at),
-            )
-            last_sent_at = recent_notices.get(notice_key)
-            if last_sent_at is not None:
-                if notice_state == "active":
-                    # Pre-expiry reminder: only once per expiry cycle
-                    continue
-                # Expired: send at most once per 24 hours
-                if (now - last_sent_at) < datetime.timedelta(hours=23):
-                    continue
 
             owner_email = _resolve_listing_owner_email(record, record.get("user_id"))
             if not owner_email:
@@ -15272,13 +15314,15 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                 metadata={
                     "table": table,
                     "state": notice_state,
+                    "notice_date": notice_date,
+                    "notice_phase": notice_state,
                     "expires_at": _isoformat_utc(lifecycle["expires_at"]),
                     "retention_expires_at": _isoformat_utc(
                         lifecycle["retention_expires_at"]
                     ),
                 },
             )
-            recent_notices[notice_key] = now
+            recent_notices.add(notice_key)
             processed += 1
 
     return {"reminders_sent": processed}
