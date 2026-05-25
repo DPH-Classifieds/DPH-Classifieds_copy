@@ -9337,7 +9337,7 @@ def extend_user_listing(current_user, item_type, item_id):
         "patch",
         f"/rest/v1/{config['table']}?id=eq.{item_id}",
         data=updates,
-        user_id=current_user,
+        use_service_role=True,
     )
 
     if update_status >= 400:
@@ -13396,7 +13396,7 @@ def set_listing_outcome(current_user, item_type, item_id):
         "patch",
         f"/rest/v1/{config['table']}?id=eq.{item_id}",
         data=updates,
-        user_id=current_user,
+        use_service_role=True,
     )
     if patch_status >= 400:
         return jsonify({"error": "Failed to update listing outcome"}), patch_status
@@ -13405,7 +13405,7 @@ def set_listing_outcome(current_user, item_type, item_id):
         "get",
         f"/rest/v1/{config['table']}",
         params={"id": f"eq.{item_id}", "select": "*", "limit": 1},
-        user_id=current_user,
+        use_service_role=True,
     )
     if refreshed_status < 400 and refreshed_resp:
         refreshed = _sync_listing_lifecycle(
