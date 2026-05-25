@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Image,
+  ScrollView,
   StyleSheet,
   Dimensions,
   Linking,
@@ -20,6 +21,7 @@ import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
 import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
+import { ensureContactAccess } from '../../utils/contactAccess';
 import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -59,12 +61,22 @@ const SPEC_LABELS = {
   specs_type: 'Specs Type',
 };
 
+const normalizeImages = (images = []) =>
+  [
+    ...(Array.isArray(images) ? images : []),
+  ]
+    .map((image) => (typeof image === 'string'
+      ? image
+      : image?.url || image?.image_url || image?.display_url || null))
+    .filter(Boolean);
+
 export default function CarDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
   const [car, setCar] = useState(routeListing || null);
   const [loading, setLoading] = useState(!routeListing);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
@@ -74,16 +86,19 @@ export default function CarDetailScreen({ route, navigation }) {
   const saved = isSaved('car', carId);
 
   useEffect(() => {
-    if (routeListing) return;
+    if (routeListing) {
+      setCar(routeListing);
+      setLoading(false);
+    }
     const fetchCar = async () => {
       try {
-        setLoading(true);
+        if (!routeListing) setLoading(true);
         const data = await apiClient.get(`/api/cars/${listingId}`);
         setCar(data);
       } catch (err) {
         Alert.alert('Error', 'Failed to load car details.');
       } finally {
-        setLoading(false);
+        if (!routeListing) setLoading(false);
       }
     };
     if (listingId) fetchCar();
@@ -97,25 +112,31 @@ export default function CarDetailScreen({ route, navigation }) {
   }, [car, toggleSaveListing]);
 
   const handleCall = useCallback(() => {
+    if (!ensureContactAccess(user, navigation)) return;
     const phone = car?.car_owner_phone_number || car?.contact_phone;
     if (phone) {
       trackLeadEvent('car', car.id, 'call_click');
       Linking.openURL(`tel:${phone}`);
     }
-  }, [car]);
+  }, [car, user, navigation]);
 
   const handleWhatsApp = useCallback(() => {
+    if (!ensureContactAccess(user, navigation)) return;
     const url = openWhatsapp(car, 'car');
     if (url) {
       trackLeadEvent('car', car.id, 'whatsapp_click');
       Linking.openURL(url);
     }
-  }, [car]);
+  }, [car, user, navigation]);
 
   if (loading) return <LoadingSpinner message="Loading car details..." />;
   if (!car) return <LoadingSpinner message="Car not found" />;
 
-  const images = car.images || [];
+  const imageUris = normalizeImages(car.images);
+  if (imageUris.length === 0) {
+    const fallbackImage = car.image_url || car.display_url || null;
+    if (fallbackImage) imageUris.push(fallbackImage);
+  }
   const title = `${car.make_year || ''} ${car.car_manufacturer || ''} ${car.car_model || ''}${car.trim ? ' ' + car.trim : ''}`.trim() || 'Untitled Car';
 
   const specs = [
@@ -159,33 +180,24 @@ export default function CarDetailScreen({ route, navigation }) {
               setActiveImageIndex(index);
             }}
           >
-            {images.length > 0 ? images.map((img, i) => {
-              const uri = img.url || img.image_url || img.display_url;
-              return (
-                <View key={i} style={styles.imageSlide}>
-                  {uri ? (
-                    <TouchableOpacity onPress={() => setPreviewImage(uri)} activeOpacity={0.9}>
-                      <Image source={{ uri }} style={styles.image} resizeMode="cover" />
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <Ionicons name="car" size={60} color="rgba(255,255,255,0.2)" />
-                    </View>
-                  )}
-                </View>
-              );
-            }) : (
+            {imageUris.length > 0 ? imageUris.map((uri, index) => (
+              <View key={`${uri}-${index}`} style={styles.imageSlide}>
+                <TouchableOpacity onPress={() => { setPreviewImageIndex(index); setPreviewImage(uri); }} activeOpacity={0.9}>
+                  <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                </TouchableOpacity>
+              </View>
+            )) : (
               <View style={styles.imageSlide}>
                 <View style={styles.imagePlaceholder}>
-                  <Ionicons name="car" size={60} color="rgba(255,255,255,0.2)" />
+                  <Ionicons name="car-outline" size={60} color="rgba(255,255,255,0.2)" />
                 </View>
               </View>
             )}
           </ScrollView>
-          {images.length > 1 && (
+          {imageUris.length > 1 && (
             <View style={styles.paginationDots}>
-              {images.map((_, i) => (
-                <View key={i} style={[styles.dot, i === activeImageIndex && styles.dotActive]} />
+              {imageUris.map((_, index) => (
+                <View key={index} style={[styles.dot, index === activeImageIndex && styles.dotActive]} />
               ))}
             </View>
           )}
@@ -237,6 +249,35 @@ export default function CarDetailScreen({ route, navigation }) {
             </View>
           )}
 
+          {car.vin_number && (
+            <View style={styles.vinSection}>
+              <Text style={styles.vinLabel}>VIN Number</Text>
+              {user?.phone_verified ? (
+                <Text style={styles.vinValue}>{car.vin_number}</Text>
+              ) : (
+                <View>
+                  <Text style={styles.vinMasked}>
+                    {'•'.repeat(Math.max(0, car.vin_number.length - 4))}{car.vin_number.slice(-4)}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert(
+                        'Verify to Reveal VIN',
+                        'Verify your phone number to see the full VIN.',
+                        [
+                          { text: 'Verify', onPress: () => navigation.navigate('Profile', { screen: 'VerifyPhone' }) },
+                          { text: 'Cancel', style: 'cancel' },
+                        ]
+                      );
+                    }}
+                  >
+                    <Text style={styles.vinRevealBtn}>Reveal Full VIN</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
           {extras.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{extras.length} Extras</Text>
@@ -284,11 +325,11 @@ export default function CarDetailScreen({ route, navigation }) {
               </View>
             </View>
             <View style={styles.sellerActions}>
-              <TouchableOpacity style={styles.callButton} onPress={() => requireAuth(handleCall)} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.callButton} onPress={handleCall} activeOpacity={0.8}>
                 <Ionicons name="call" size={18} color={COLORS.white} />
                 <Text style={styles.callButtonText}>Call Now</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.whatsappButton} onPress={() => requireAuth(handleWhatsApp)} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsApp} activeOpacity={0.8}>
                 <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
                 <Text style={styles.whatsappButtonText}>WhatsApp</Text>
               </TouchableOpacity>
@@ -314,12 +355,57 @@ export default function CarDetailScreen({ route, navigation }) {
       </ScrollView>
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setPreviewImage(null)} activeOpacity={1}>
-          <Image source={{ uri: previewImage }} style={{ width: '90%', height: '80%' }} resizeMode="contain" />
-          <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, padding: 8 }} onPress={() => setPreviewImage(null)}>
-            <Ionicons name="close" size={28} color={COLORS.white} />
+        <View style={styles.lightboxContainer}>
+          <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
+            <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
-        </TouchableOpacity>
+          <Text style={styles.lightboxCounter}>
+            {previewImageIndex + 1} / {imageUris.length}
+          </Text>
+          {previewImageIndex > 0 && (
+            <TouchableOpacity style={styles.lightboxPrev} onPress={() => {
+              const newIndex = previewImageIndex - 1;
+              const uri = imageUris[newIndex];
+              setPreviewImageIndex(newIndex);
+              setPreviewImage(uri);
+            }}>
+              <Ionicons name="chevron-back" size={32} color="#fff" />
+            </TouchableOpacity>
+          )}
+          {previewImageIndex < imageUris.length - 1 && (
+            <TouchableOpacity style={styles.lightboxNext} onPress={() => {
+              const newIndex = previewImageIndex + 1;
+              const uri = imageUris[newIndex];
+              setPreviewImageIndex(newIndex);
+              setPreviewImage(uri);
+            }}>
+              <Ionicons name="chevron-forward" size={32} color="#fff" />
+            </TouchableOpacity>
+          )}
+          <FlatList
+            data={imageUris}
+            horizontal
+            pagingEnabled
+            initialScrollIndex={previewImageIndex}
+            getItemLayout={(_, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
+            keyExtractor={(uri, index) => `${uri}-${index}`}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <View style={styles.lightboxPage}>
+                <Image source={{ uri: item }} style={styles.lightboxImage} resizeMode="contain" />
+              </View>
+            )}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              setPreviewImageIndex(index);
+              setPreviewImage(imageUris[index]);
+            }}
+          />
+        </View>
       </Modal>
       <AuthPromptModal />
     </SafeAreaView>
@@ -328,26 +414,65 @@ export default function CarDetailScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  imageSection: { height: 280, backgroundColor: COLORS.surfaceDark },
-  imageSlide: { width: SCREEN_WIDTH, height: 280 },
-  image: { width: '100%', height: '100%' },
-  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceDark },
-  paginationDots: { flexDirection: 'row', position: 'absolute', bottom: 12, alignSelf: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
-  dotActive: { backgroundColor: COLORS.accent, width: 10, height: 10, borderRadius: 5 },
+  imageSection: {
+    position: 'relative',
+  },
+  imageSlide: {
+    width: SCREEN_WIDTH,
+    height: 320,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceHigher,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   saveButton: {
-    position: 'absolute', top: 12, right: 12,
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   reportButtonWrap: {
-    position: 'absolute', top: 12, right: 60,
+    position: 'absolute',
+    top: 14,
+    left: 14,
+  },
+  paginationDots: {
+    position: 'absolute',
+    bottom: 14,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BORDER_RADIUS.pill,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  dotActive: {
+    width: 18,
+    backgroundColor: COLORS.accent,
   },
   content: { padding: SPACING.md },
-  price: { color: COLORS.white, fontSize: 24, fontWeight: '700', marginBottom: 8 },
+  price: { color: COLORS.white, fontSize: 26, fontWeight: '800', marginBottom: 8 },
   usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 16 },
+  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 16 },
   specsGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 0, backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg, marginBottom: 16,
@@ -389,4 +514,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
   },
   whatsappButtonText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  vinSection: { backgroundColor: '#1c1c1e', borderRadius: 8, padding: 12, marginTop: 8 },
+  vinLabel: { fontSize: 12, color: 'rgba(255,255,255,0.53)', textTransform: 'uppercase', marginBottom: 4 },
+  vinValue: { fontSize: 14, fontWeight: '600', color: COLORS.white, fontFamily: 'monospace' },
+  vinMasked: { fontSize: 14, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' },
+  vinRevealBtn: { color: COLORS.accent, fontSize: 13, fontWeight: '600', marginTop: 6 },
+  lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
+  lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
+  lightboxImage: { width: '92%', height: '82%' },
+  lightboxClose: { position: 'absolute', top: 50, right: 20, padding: 8, zIndex: 10 },
+  lightboxCounter: { position: 'absolute', top: 55, alignSelf: 'center', color: '#fff', fontSize: 14, fontWeight: '600', zIndex: 10 },
+  lightboxPrev: { position: 'absolute', left: 10, padding: 12, zIndex: 10 },
+  lightboxNext: { position: 'absolute', right: 10, padding: 12, zIndex: 10 },
 });

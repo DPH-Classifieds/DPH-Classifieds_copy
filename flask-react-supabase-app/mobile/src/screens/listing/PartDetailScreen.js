@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  FlatList,
   Image,
   ScrollView,
   TouchableOpacity,
@@ -20,6 +21,7 @@ import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
 import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
+import { ensureContactAccess } from '../../utils/contactAccess';
 import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -41,11 +43,12 @@ const getImageUri = (item) => {
 };
 
 export default function PartDetailScreen({ route, navigation }) {
-  const { listingId } = route.params || {};
-  const [part, setPart] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { listing: routeListing, listingId } = route.params || {};
+  const [part, setPart] = useState(routeListing || null);
+  const [loading, setLoading] = useState(!routeListing);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
   const isOwner = user && (user.id === part?.user_id || user.id === part?.seller_id);
@@ -54,19 +57,23 @@ export default function PartDetailScreen({ route, navigation }) {
   const saved = isSaved('part', partId);
 
   useEffect(() => {
+    if (routeListing) {
+      setPart(routeListing);
+      setLoading(false);
+    }
     const fetchPart = async () => {
       try {
-        setLoading(true);
+        if (!routeListing) setLoading(true);
         const data = await apiClient.get(`/api/parts/${listingId}`);
         setPart(data);
       } catch (err) {
         Alert.alert('Error', 'Failed to load part details.');
       } finally {
-        setLoading(false);
+        if (!routeListing) setLoading(false);
       }
     };
     if (listingId) fetchPart();
-  }, [listingId]);
+  }, [listingId, routeListing]);
 
   const { requireAuth, AuthPromptModal } = useAuthPrompt(navigation);
 
@@ -76,20 +83,22 @@ export default function PartDetailScreen({ route, navigation }) {
   }, [part, toggleSaveListing]);
 
   const handleCall = useCallback(() => {
+    if (!ensureContactAccess(user, navigation)) return;
     const phone = part?.contact_number || part?.contact_phone;
     if (phone) {
       trackLeadEvent('parts', part.id, 'call_click');
       Linking.openURL(`tel:${phone}`);
     }
-  }, [part]);
+  }, [part, user, navigation]);
 
   const handleWhatsApp = useCallback(() => {
+    if (!ensureContactAccess(user, navigation)) return;
     const url = openWhatsapp(part, 'part');
     if (url) {
       trackLeadEvent('parts', part.id, 'whatsapp_click');
       Linking.openURL(url);
     }
-  }, [part]);
+  }, [part, user, navigation]);
 
   if (loading) return <LoadingSpinner message="Loading part details..." />;
   if (!part) return <LoadingSpinner message="Part not found" />;
@@ -116,7 +125,7 @@ export default function PartDetailScreen({ route, navigation }) {
                 return (
                   <View key={i} style={styles.imageSlide}>
                     {uri ? (
-                      <TouchableOpacity onPress={() => setPreviewImage(uri)} activeOpacity={0.9}>
+                      <TouchableOpacity onPress={() => { setPreviewImageIndex(i); setPreviewImage(uri); }} activeOpacity={0.9}>
                         <Image source={{ uri }} style={styles.image} resizeMode="cover" />
                       </TouchableOpacity>
                     ) : (
@@ -214,11 +223,11 @@ export default function PartDetailScreen({ route, navigation }) {
               </View>
             </View>
             <View style={styles.sellerActions}>
-              <TouchableOpacity style={styles.callButton} onPress={() => requireAuth(handleCall)} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.callButton} onPress={handleCall} activeOpacity={0.8}>
                 <Ionicons name="call" size={18} color={COLORS.white} />
                 <Text style={styles.callButtonText}>Call Now</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.whatsappButton} onPress={() => requireAuth(handleWhatsApp)} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsApp} activeOpacity={0.8}>
                 <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
                 <Text style={styles.whatsappButtonText}>WhatsApp</Text>
               </TouchableOpacity>
@@ -244,12 +253,61 @@ export default function PartDetailScreen({ route, navigation }) {
       </ScrollView>
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setPreviewImage(null)} activeOpacity={1}>
-          <Image source={{ uri: previewImage }} style={{ width: '90%', height: '80%' }} resizeMode="contain" />
-          <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, padding: 8 }} onPress={() => setPreviewImage(null)}>
-            <Ionicons name="close" size={28} color={COLORS.white} />
+        <View style={styles.lightboxContainer}>
+          <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
+            <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
-        </TouchableOpacity>
+          <Text style={styles.lightboxCounter}>
+            {previewImageIndex + 1} / {images.length}
+          </Text>
+          {previewImageIndex > 0 && (
+            <TouchableOpacity style={styles.lightboxPrev} onPress={() => {
+              const newIndex = previewImageIndex - 1;
+              const uri = images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url;
+              setPreviewImageIndex(newIndex);
+              setPreviewImage(uri);
+            }}>
+              <Ionicons name="chevron-back" size={32} color="#fff" />
+            </TouchableOpacity>
+          )}
+          {previewImageIndex < images.length - 1 && (
+            <TouchableOpacity style={styles.lightboxNext} onPress={() => {
+              const newIndex = previewImageIndex + 1;
+              const uri = images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url;
+              setPreviewImageIndex(newIndex);
+              setPreviewImage(uri);
+            }}>
+              <Ionicons name="chevron-forward" size={32} color="#fff" />
+            </TouchableOpacity>
+          )}
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            initialScrollIndex={previewImageIndex}
+            getItemLayout={(_, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
+            keyExtractor={(item, index) => `${item.url || item.image_url || item.display_url || index}-${index}`}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const uri = item.url || item.image_url || item.display_url;
+              return (
+                <View style={styles.lightboxPage}>
+                  <Image source={{ uri }} style={styles.lightboxImage} resizeMode="contain" />
+                </View>
+              );
+            }}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              setPreviewImageIndex(index);
+              const item = images[index];
+              setPreviewImage(item?.url || item?.image_url || item?.display_url || null);
+            }}
+          />
+        </View>
       </Modal>
       <AuthPromptModal />
     </SafeAreaView>
@@ -311,4 +369,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
   },
   whatsappButtonText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
+  lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
+  lightboxImage: { width: '92%', height: '82%' },
+  lightboxClose: { position: 'absolute', top: 50, right: 20, padding: 8, zIndex: 10 },
+  lightboxCounter: { position: 'absolute', top: 55, alignSelf: 'center', color: '#fff', fontSize: 14, fontWeight: '600', zIndex: 10 },
+  lightboxPrev: { position: 'absolute', left: 10, padding: 12, zIndex: 10 },
+  lightboxNext: { position: 'absolute', right: 10, padding: 12, zIndex: 10 },
 });

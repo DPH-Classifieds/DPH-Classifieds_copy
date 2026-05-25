@@ -80,14 +80,14 @@ export default function LoginScreen({ navigation, route }) {
 
         <View style={styles.form}>
           <Input
-            label="Email"
+            label="Email or Username"
             value={email}
             onChangeText={(text) => {
               setEmail(text);
               if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
             }}
-            placeholder="you@example.com"
-            keyboardType="email-address"
+            placeholder="you@example.com or username"
+            keyboardType="default"
             autoCapitalize="none"
             icon="mail-outline"
             error={errors.email}
@@ -125,6 +125,38 @@ export default function LoginScreen({ navigation, route }) {
           >
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
+
+          <View style={styles.resendSection}>
+            <Text style={styles.resendHint}>Still missing the reset email?</Text>
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={async () => {
+                if (!email.trim()) {
+                  Alert.alert('Enter Email', 'Please enter your email address first.');
+                  return;
+                }
+                try {
+                  const res = await fetch(
+                    `${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/resend-confirmation`,
+                    {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: email.trim() }),
+                    }
+                  );
+                  if (res.ok) {
+                    Alert.alert('Sent', 'A new confirmation email has been sent.');
+                  } else {
+                    Alert.alert('Error', 'Could not resend email. Please try again.');
+                  }
+                } catch {
+                  Alert.alert('Error', 'Could not resend email. Please try again.');
+                }
+              }}
+            >
+              <Text style={styles.resendButtonText}>Resend confirmation email</Text>
+            </TouchableOpacity>
+          </View>
 
           <Button
             title="Sign In"
@@ -219,5 +251,25 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
+  },
+  resendSection: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    marginTop: -SPACING.xs,
+  },
+  resendHint: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: SPACING.xs,
+  },
+  resendButton: {
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+  },
+  resendButtonText: {
+    color: COLORS.accent,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });

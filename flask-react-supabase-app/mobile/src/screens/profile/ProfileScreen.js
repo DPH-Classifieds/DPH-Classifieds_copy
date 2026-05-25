@@ -10,6 +10,7 @@ import { formatDate } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
+import AnimatedCard from '../../components/ui/AnimatedCard';
 
 const WEBVIEW_URLS = {
   privacy: 'https://dphclassifieds.com/privacy-policy',
@@ -150,20 +151,20 @@ export default function ProfileScreen({ navigation }) {
 
         {stats && (
           <View style={styles.statsRow}>
-            <View style={styles.statItem}>
+            <AnimatedCard style={styles.statItem}>
               <Text style={styles.statNumber}>{stats.total_listings || stats.listings_count || 0}</Text>
               <Text style={styles.statLabel}>Listings</Text>
-            </View>
+            </AnimatedCard>
             <View style={styles.statDivider} />
-            <View style={styles.statItem}>
+            <AnimatedCard style={styles.statItem}>
               <Text style={styles.statNumber}>{stats.saved_count || 0}</Text>
               <Text style={styles.statLabel}>Saved</Text>
-            </View>
+            </AnimatedCard>
             <View style={styles.statDivider} />
-            <View style={styles.statItem}>
+            <AnimatedCard style={styles.statItem}>
               <Text style={styles.statNumber}>{stats.total_views || stats.views || 0}</Text>
               <Text style={styles.statLabel}>Views</Text>
-            </View>
+            </AnimatedCard>
           </View>
         )}
 
@@ -173,11 +174,11 @@ export default function ProfileScreen({ navigation }) {
               return <View key={`div-${index}`} style={styles.menuDivider} />;
             }
             return (
-              <TouchableOpacity
+              <AnimatedCard
                 key={item.label}
-                style={styles.menuItem}
                 onPress={item.onPress}
-                activeOpacity={0.6}
+                style={styles.menuItem}
+                haptic={false}
               >
                 <View style={styles.menuLeft}>
                   <Ionicons
@@ -196,7 +197,7 @@ export default function ProfileScreen({ navigation }) {
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
+              </AnimatedCard>
             );
           })}
         </View>

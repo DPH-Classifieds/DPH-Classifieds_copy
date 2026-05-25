@@ -60,7 +60,10 @@ const apiClient = {
     try {
       const requiresAuth = options.requiresAuth !== false && !isPublicEndpoint(endpoint);
 
-      let token = await getBestAccessToken();
+      let token = null;
+      if (requiresAuth) {
+        token = await getBestAccessToken();
+      }
 
       if (requiresAuth && !token) {
         const error = new Error('Authentication failed. Please log in again.');

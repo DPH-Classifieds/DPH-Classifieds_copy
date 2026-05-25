@@ -13,6 +13,7 @@ import SignupScreen from '../screens/auth/SignupScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import VerifyPhoneScreen from '../screens/auth/VerifyPhoneScreen';
+import CheckEmailScreen from '../screens/auth/CheckEmailScreen';
 
 import ExploreScreen from '../screens/explore/ExploreScreen';
 import CarDetailScreen from '../screens/listing/CarDetailScreen';
@@ -30,6 +31,7 @@ import SettingsScreen from '../screens/profile/SettingsScreen';
 import MyListingsScreen from '../screens/profile/MyListingsScreen';
 import PrivacyPolicyScreen from '../screens/profile/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/profile/TermsOfServiceScreen';
+import AboutScreen from '../screens/profile/AboutScreen';
 
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
@@ -59,6 +61,7 @@ function AuthStack() {
       <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password' }} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />
+      <Stack.Screen name="CheckEmail" component={CheckEmailScreen} options={{ title: 'Verify Email' }} />
     </Stack.Navigator>
   );
 }
@@ -121,6 +124,7 @@ function ProfileStack() {
       <Stack.Screen name="AdminListingDetail" component={AdminListingDetailScreen} options={{ title: 'Listing Detail' }} />
       <Stack.Screen name="AdminDealerDetail" component={AdminDealerDetailScreen} options={{ title: 'Dealer Detail' }} />
       <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Metrics' }} />
+      <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
       <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
       <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
     </Stack.Navigator>

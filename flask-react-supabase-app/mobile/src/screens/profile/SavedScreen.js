@@ -13,6 +13,9 @@ import { useSavedListings } from '../../context/SavedListingsContext';
 import { formatPrice } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
+import AnimatedCard from '../../components/ui/AnimatedCard';
+import FadeInView from '../../components/ui/FadeInView';
+import FadeInImage from '../../components/ui/FadeInImage';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
 const TABS = ['Cars', 'Bikes', 'Plates', 'Parts'];
@@ -50,32 +53,33 @@ export default function SavedScreen({ navigation }) {
   };
 
   const renderListing = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate(DETAIL_ROUTES[activeKey], { listingId: item.id || item.listing_id })}
-      activeOpacity={0.7}
-    >
-      {getImageUri(item) ? (
-        <Image source={{ uri: getImageUri(item) }} style={styles.cardImage} resizeMode="cover" />
-      ) : (
-        <View style={[styles.cardImage, styles.imagePlaceholder]}>
-          <Ionicons name="image-outline" size={32} color={COLORS.textMuted} />
+    <FadeInView delay={0}>
+      <AnimatedCard
+        onPress={() => navigation.navigate(DETAIL_ROUTES[activeKey], { listingId: item.id || item.listing_id })}
+        style={styles.card}
+      >
+        {getImageUri(item) ? (
+          <FadeInImage source={{ uri: getImageUri(item) }} style={styles.cardImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.cardImage, styles.imagePlaceholder]}>
+            <Ionicons name="image-outline" size={32} color={COLORS.textMuted} />
+          </View>
+        )}
+        <View style={styles.cardOverlay}>
+          <TouchableOpacity
+            style={styles.heartButton}
+            onPress={() => handleUnsave(item)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="heart" size={20} color={COLORS.error} />
+          </TouchableOpacity>
         </View>
-      )}
-      <View style={styles.cardOverlay}>
-        <TouchableOpacity
-          style={styles.heartButton}
-          onPress={() => handleUnsave(item)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="heart" size={20} color={COLORS.error} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle} numberOfLines={1}>{getItemTitle(item)}</Text>
-        <Text style={styles.cardPrice}>{formatPrice(getItemPrice(item))}</Text>
-      </View>
-    </TouchableOpacity>
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{getItemTitle(item)}</Text>
+          <Text style={styles.cardPrice}>{formatPrice(getItemPrice(item))}</Text>
+        </View>
+      </AnimatedCard>
+    </FadeInView>
   );
 
   if (loading) {

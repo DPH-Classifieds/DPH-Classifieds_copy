@@ -8,6 +8,9 @@ import {
   StyleSheet,
   Image,
   TextInput,
+  Switch,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +20,9 @@ import apiClient from '../../utils/apiClient';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { UAE_EMIRATES, EMIRATE_AREAS } from '../../utils/listingConstants';
+
+const UAE_EMIRATES_WITH_AL_AIN = [...UAE_EMIRATES, 'Al Ain'];
 
 export default function SettingsScreen({ navigation }) {
   const { user, updateUser } = useAuth();
@@ -28,11 +34,34 @@ export default function SettingsScreen({ navigation }) {
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [whatsappNumber, setWhatsappNumber] = useState(user?.whatsapp_number || '');
-  const [location, setLocation] = useState(user?.location || '');
   const [profilePhoto, setProfilePhoto] = useState(user?.profile_photo || user?.avatar_url || null);
   const [saving, setSaving] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState(null);
   const [usernameChecking, setUsernameChecking] = useState(false);
+
+  const [emirate, setEmirate] = useState(user?.emirate || '');
+  const [area, setArea] = useState(user?.area || '');
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const [notifEmail, setNotifEmail] = useState(user?.notification_preferences?.email ?? true);
+  const [notifSms, setNotifSms] = useState(user?.notification_preferences?.sms ?? true);
+  const [notifMarketing, setNotifMarketing] = useState(user?.notification_preferences?.marketing ?? false);
+  const [notifSaving, setNotifSaving] = useState(false);
+
+  const [isDealer, setIsDealer] = useState(user?.is_dealer || false);
+  const [dealerCompanyName, setDealerCompanyName] = useState(user?.company_name || '');
+  const [dealerRegNumber, setDealerRegNumber] = useState(user?.company_registration_number || '');
+  const [dealerSaving, setDealerSaving] = useState(false);
+  const [dealerStatus, setDealerStatus] = useState(user?.dealer_verification_status || null);
+
+  const [showEmiratePicker, setShowEmiratePicker] = useState(false);
+  const [showAreaPicker, setShowAreaPicker] = useState(false);
+
+  const areasForEmirate = emirate ? EMIRATE_AREAS[emirate] || [] : [];
 
   const checkUsernameAvailability = async () => {
     if (!username.trim() || username === user?.username) {
@@ -51,7 +80,7 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const getProfileCompletion = () => {
-    const fields = [firstName, lastName, email, phone, username, displayName, bio, whatsappNumber, location, profilePhoto];
+    const fields = [firstName, lastName, email, phone, username, displayName, bio, whatsappNumber, emirate, area, profilePhoto];
     const filled = fields.filter(f => f && String(f).trim().length > 0).length;
     return Math.round((filled / fields.length) * 100);
   };
@@ -115,7 +144,8 @@ export default function SettingsScreen({ navigation }) {
         display_name: displayName.trim(),
         bio: bio.trim(),
         whatsapp_number: whatsappNumber.trim(),
-        location: location.trim(),
+        emirate: emirate,
+        area: area,
       });
       updateUser(data);
       Alert.alert('Success', 'Profile updated successfully.', [
@@ -125,6 +155,111 @@ export default function SettingsScreen({ navigation }) {
       Alert.alert('Error', err.message || 'Failed to update profile. Please try again.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const getPasswordStrength = (pw) => {
+    if (!pw) return { score: 0, label: '', color: 'transparent' };
+    let score = 0;
+    if (pw.length >= 8) score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+    if (score <= 2) return { score: 1, label: 'Weak', color: COLORS.error };
+    if (score <= 3) return { score: 2, label: 'Fair', color: COLORS.warning };
+    if (score <= 4) return { score: 3, label: 'Good', color: COLORS.info };
+    return { score: 4, label: 'Strong', color: COLORS.success };
+  };
+
+  const passwordStrength = getPasswordStrength(newPassword);
+
+  const handleUpdatePassword = async () => {
+    if (!currentPassword.trim()) {
+      Alert.alert('Error', 'Current password is required.');
+      return;
+    }
+    if (!newPassword.trim()) {
+      Alert.alert('Error', 'New password is required.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      Alert.alert('Error', 'New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'New passwords do not match.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      Alert.alert('Error', 'New password must be different from current password.');
+      return;
+    }
+
+    try {
+      setPasswordSaving(true);
+      await apiClient.post('/api/auth/update-password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert('Success', 'Password updated successfully.');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to update password. Please check your current password.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const handleSaveNotificationPreferences = async () => {
+    try {
+      setNotifSaving(true);
+      const data = await apiClient.put('/api/user/update-profile', {
+        notification_preferences: {
+          email: notifEmail,
+          sms: notifSms,
+          marketing: notifMarketing,
+        },
+      });
+      if (data) updateUser(data);
+      Alert.alert('Success', 'Notification preferences saved.');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to save notification preferences.');
+    } finally {
+      setNotifSaving(false);
+    }
+  };
+
+  const handleSaveDealer = async () => {
+    if (!dealerCompanyName.trim()) {
+      Alert.alert('Error', 'Company name is required.');
+      return;
+    }
+    if (!dealerRegNumber.trim()) {
+      Alert.alert('Error', 'Company registration number is required.');
+      return;
+    }
+
+    try {
+      setDealerSaving(true);
+      const data = await apiClient.put('/api/user/update-profile', {
+        is_dealer: true,
+        company_name: dealerCompanyName.trim(),
+        company_registration_number: dealerRegNumber.trim(),
+      });
+      if (data) {
+        updateUser(data);
+        setDealerStatus('pending');
+      }
+      Alert.alert('Success', 'Your dealer application has been submitted for verification.');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to submit dealer application.');
+    } finally {
+      setDealerSaving(false);
     }
   };
 
@@ -222,14 +357,6 @@ export default function SettingsScreen({ navigation }) {
             icon="logo-whatsapp"
           />
 
-          <Input
-            label="Location"
-            value={location}
-            onChangeText={setLocation}
-            placeholder="e.g. Dubai, UAE"
-            icon="location-outline"
-          />
-
           <View>
             <Text style={{ color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 6, fontWeight: '500' }}>Bio</Text>
             <TextInput
@@ -243,16 +370,318 @@ export default function SettingsScreen({ navigation }) {
             />
           </View>
 
+          <View style={styles.sectionDivider}>
+            <View style={styles.sectionDividerLine} />
+            <Text style={styles.sectionDividerText}>Location</Text>
+            <View style={styles.sectionDividerLine} />
+          </View>
+
+          <View style={styles.pickerField}>
+            <Text style={styles.pickerLabel}>Emirate</Text>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowEmiratePicker(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="location-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 10 }} />
+              <Text style={[styles.pickerButtonText, !emirate && { color: COLORS.textMuted }]}>
+                {emirate || 'Select Emirate'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {emirate ? (
+            <View style={styles.pickerField}>
+              <Text style={styles.pickerLabel}>Area</Text>
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowAreaPicker(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="map-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 10 }} />
+                <Text style={[styles.pickerButtonText, !area && { color: COLORS.textMuted }]}>
+                  {area || 'Select Area'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          <View style={styles.sectionDivider}>
+            <View style={styles.sectionDividerLine} />
+            <Text style={styles.sectionDividerText}>Change Password</Text>
+            <View style={styles.sectionDividerLine} />
+          </View>
+
+          <Input
+            label="Current Password"
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            placeholder="Enter current password"
+            secureTextEntry
+            icon="lock-closed-outline"
+          />
+
+          <Input
+            label="New Password"
+            value={newPassword}
+            onChangeText={setNewPassword}
+            placeholder="Enter new password"
+            secureTextEntry
+            icon="lock-closed-outline"
+          />
+          {newPassword.length > 0 && (
+            <View style={styles.passwordStrengthContainer}>
+              <View style={styles.strengthBars}>
+                {[1, 2, 3, 4].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.strengthBar,
+                      {
+                        backgroundColor: i <= passwordStrength.score ? passwordStrength.color : COLORS.surfaceHigher,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.strengthLabel, { color: passwordStrength.color }]}>
+                {passwordStrength.label}
+              </Text>
+            </View>
+          )}
+
+          <Input
+            label="Confirm New Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm new password"
+            secureTextEntry
+            icon="lock-closed-outline"
+          />
+          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+            <Text style={{ color: COLORS.error, fontSize: FONT_SIZES.xs, marginTop: -8, marginBottom: 12, marginLeft: 4 }}>
+              Passwords do not match
+            </Text>
+          )}
+
+          <Button
+            title="Update Password"
+            onPress={handleUpdatePassword}
+            loading={passwordSaving}
+            disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+            size="lg"
+            style={styles.saveButton}
+          />
+
+          <View style={styles.sectionDivider}>
+            <View style={styles.sectionDividerLine} />
+            <Text style={styles.sectionDividerText}>Notification Preferences</Text>
+            <View style={styles.sectionDividerLine} />
+          </View>
+
+          <View style={styles.toggleCard}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Ionicons name="mail-outline" size={20} color={COLORS.white} />
+                <View style={styles.toggleTextWrap}>
+                  <Text style={styles.toggleLabel}>Email Notifications</Text>
+                  <Text style={styles.toggleDesc}>Get notified about your listings via email</Text>
+                </View>
+              </View>
+              <Switch
+                value={notifEmail}
+                onValueChange={setNotifEmail}
+                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Ionicons name="chatbubble-outline" size={20} color={COLORS.white} />
+                <View style={styles.toggleTextWrap}>
+                  <Text style={styles.toggleLabel}>SMS Notifications</Text>
+                  <Text style={styles.toggleDesc}>Receive text messages for important updates</Text>
+                </View>
+              </View>
+              <Switch
+                value={notifSms}
+                onValueChange={setNotifSms}
+                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Ionicons name="megaphone-outline" size={20} color={COLORS.white} />
+                <View style={styles.toggleTextWrap}>
+                  <Text style={styles.toggleLabel}>Marketing Emails</Text>
+                  <Text style={styles.toggleDesc}>Receive tips, promotions, and news</Text>
+                </View>
+              </View>
+              <Switch
+                value={notifMarketing}
+                onValueChange={setNotifMarketing}
+                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+          </View>
+
+          <Button
+            title="Save Notification Preferences"
+            onPress={handleSaveNotificationPreferences}
+            loading={notifSaving}
+            disabled={notifSaving}
+            size="lg"
+            style={styles.saveButton}
+          />
+
+          <View style={styles.sectionDivider}>
+            <View style={styles.sectionDividerLine} />
+            <Text style={styles.sectionDividerText}>Dealer Account</Text>
+            <View style={styles.sectionDividerLine} />
+          </View>
+
+          {dealerStatus ? (
+            <View style={styles.dealerStatusCard}>
+              <Ionicons
+                name={dealerStatus === 'verified' ? 'checkmark-circle' : 'time-outline'}
+                size={24}
+                color={dealerStatus === 'verified' ? COLORS.success : COLORS.warning}
+              />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.dealerStatusLabel}>Dealer Status</Text>
+                <Text style={[styles.dealerStatusValue, { color: dealerStatus === 'verified' ? COLORS.success : COLORS.warning }]}>
+                  {dealerStatus === 'verified' ? 'Verified Dealer' : dealerStatus === 'pending' ? 'Verification Pending' : dealerStatus}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.toggleCard}>
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleInfo}>
+                    <Ionicons name="business-outline" size={20} color={COLORS.white} />
+                    <View style={styles.toggleTextWrap}>
+                      <Text style={styles.toggleLabel}>Become a Dealer / Business Account</Text>
+                      <Text style={styles.toggleDesc}>List vehicles as a business and reach more buyers</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={isDealer}
+                    onValueChange={setIsDealer}
+                    trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
+                    thumbColor={COLORS.white}
+                  />
+                </View>
+              </View>
+
+              {isDealer && (
+                <View style={styles.dealerFields}>
+                  <Input
+                    label="Company Name"
+                    value={dealerCompanyName}
+                    onChangeText={setDealerCompanyName}
+                    placeholder="Enter company name"
+                    icon="business-outline"
+                  />
+                  <Input
+                    label="Company Registration Number"
+                    value={dealerRegNumber}
+                    onChangeText={setDealerRegNumber}
+                    placeholder="Enter registration number"
+                    icon="document-text-outline"
+                  />
+                  <Button
+                    title="Submit for Verification"
+                    onPress={handleSaveDealer}
+                    loading={dealerSaving}
+                    disabled={dealerSaving || !dealerCompanyName.trim() || !dealerRegNumber.trim()}
+                    size="lg"
+                    style={styles.saveButton}
+                  />
+                </View>
+              )}
+            </>
+          )}
+
           <Button
             title="Save Changes"
             onPress={handleSave}
             loading={saving}
             disabled={saving}
             size="lg"
-            style={styles.saveButton}
+            style={[styles.saveButton, { marginBottom: SPACING.xl }]}
           />
         </View>
       </ScrollView>
+
+      <Modal visible={showEmiratePicker} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Emirate</Text>
+              <TouchableOpacity onPress={() => setShowEmiratePicker(false)}>
+                <Ionicons name="close" size={24} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={UAE_EMIRATES_WITH_AL_AIN}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.modalItem, emirate === item && styles.modalItemActive]}
+                  onPress={() => {
+                    setEmirate(item);
+                    setArea('');
+                    setShowEmiratePicker(false);
+                  }}
+                >
+                  <Text style={[styles.modalItemText, emirate === item && styles.modalItemTextActive]}>
+                    {item}
+                  </Text>
+                  {emirate === item && <Ionicons name="checkmark" size={20} color={COLORS.accent} />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showAreaPicker} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Area ({emirate})</Text>
+              <TouchableOpacity onPress={() => setShowAreaPicker(false)}>
+                <Ionicons name="close" size={24} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={areasForEmirate}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.modalItem, area === item && styles.modalItemActive]}
+                  onPress={() => {
+                    setArea(item);
+                    setShowAreaPicker(false);
+                  }}
+                >
+                  <Text style={[styles.modalItemText, area === item && styles.modalItemTextActive]}>
+                    {item}
+                  </Text>
+                  {area === item && <Ionicons name="checkmark" size={20} color={COLORS.accent} />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -366,5 +795,162 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
     marginBottom: 16,
+  },
+  sectionDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg,
+    gap: 12,
+  },
+  sectionDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  sectionDividerText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '700',
+  },
+  pickerField: {
+    marginBottom: 16,
+  },
+  pickerLabel: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  pickerButtonText: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    maxHeight: '60%',
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.borderLight,
+  },
+  modalItemActive: {
+    backgroundColor: COLORS.surfaceHigher,
+  },
+  modalItemText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.md,
+  },
+  modalItemTextActive: {
+    color: COLORS.accent,
+    fontWeight: '600',
+  },
+  passwordStrengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 4,
+    gap: 8,
+  },
+  strengthBars: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  strengthBar: {
+    width: 24,
+    height: 4,
+    borderRadius: 2,
+  },
+  strengthLabel: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+  },
+  toggleCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  toggleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleTextWrap: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  toggleLabel: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  toggleDesc: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.xs,
+    marginTop: 2,
+  },
+  dealerStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  dealerStatusLabel: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.xs,
+  },
+  dealerStatusValue: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  dealerFields: {
+    marginBottom: SPACING.sm,
   },
 });

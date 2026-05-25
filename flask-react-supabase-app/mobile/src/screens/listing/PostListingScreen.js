@@ -18,6 +18,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../utils/apiClient';
 import { scanCarRegistration } from '../../utils/ocrScanner';
@@ -405,6 +407,10 @@ export default function PostListingScreen({ navigation, route }) {
   const [carEmirate, setCarEmirate] = useState('Dubai');
   const [carArea, setCarArea] = useState('');
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [lastDraftSave, setLastDraftSave] = useState(null);
+  const draftTimerRef = React.useRef(null);
 
   const [carForm, setCarForm] = useState({
     car_manufacturer: '',
@@ -573,6 +579,15 @@ export default function PostListingScreen({ navigation, route }) {
     }
   }, [category, carForm, bikeForm, plateForm, partsForm, images]);
 
+  // Backend auto-save draft (debounced 5s for car listings)
+  useEffect(() => {
+    if (category === 'car' && carForm.car_manufacturer) {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = setTimeout(saveDraft, 5000);
+    }
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [carForm, carEmirate, carArea, category, selectedLocation]);
+
   // Restore draft on mount
   useEffect(() => {
     if (!isEditMode) {
@@ -601,6 +616,41 @@ export default function PostListingScreen({ navigation, route }) {
   const updateBikeForm = (key, value) => setBikeForm(prev => ({ ...prev, [key]: value }));
   const updatePlateForm = (key, value) => setPlateForm(prev => ({ ...prev, [key]: value }));
   const updatePartsForm = (key, value) => setPartsForm(prev => ({ ...prev, [key]: value }));
+
+  const useMyLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required to use this feature.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({});
+      setSelectedLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+    } catch (err) {
+      Alert.alert('Error', 'Could not get your location.');
+    }
+  };
+
+  const saveDraft = async () => {
+    try {
+      const payload = {
+        ...carForm,
+        emirate: carEmirate,
+        area: carArea,
+        latitude: selectedLocation?.latitude || null,
+        longitude: selectedLocation?.longitude || null,
+        is_draft: true,
+      };
+      if (isEditMode && listingId) {
+        await apiClient.put(`/api/user/listings/cars/${listingId}`, payload);
+      } else {
+        await apiClient.post('/api/user/drafts/car', payload);
+      }
+      setLastDraftSave(new Date());
+    } catch (err) {
+      // Silent fail for drafts
+    }
+  };
 
   const availableModels = carForm.car_manufacturer ? (CAR_MODELS[carForm.car_manufacturer] || []) : [];
 
@@ -876,8 +926,8 @@ export default function PostListingScreen({ navigation, route }) {
           emirate: carEmirate,
           area: carArea,
           car_city: carEmirate,
-          latitude: 25.276987,
-          longitude: 55.296249,
+          latitude: selectedLocation?.latitude || 25.276987,
+          longitude: selectedLocation?.longitude || 55.296249,
           whatsapp_number: carForm.same_as_phone
             ? phone
             : `${carForm.country_code || '+971'}${carForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
@@ -899,6 +949,8 @@ export default function PostListingScreen({ navigation, route }) {
           emirate: bikeEmirate,
           area: bikeArea,
           location: bikeArea,
+          latitude: selectedLocation?.latitude || 25.276987,
+          longitude: selectedLocation?.longitude || 55.296249,
           whatsapp_number: bikeForm.same_as_phone
             ? phone
             : `${bikeForm.country_code || '+971'}${bikeForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
@@ -918,6 +970,8 @@ export default function PostListingScreen({ navigation, route }) {
           city: plateCityName,
           emirate: plateCityName,
           area: plateArea,
+          latitude: selectedLocation?.latitude || 25.276987,
+          longitude: selectedLocation?.longitude || 55.296249,
           contact_phone: phone,
           whatsapp_number: plateForm.same_as_phone
             ? phone
@@ -938,6 +992,8 @@ export default function PostListingScreen({ navigation, route }) {
           emirate: partsEmirate,
           area: partsArea,
           location: partsArea,
+          latitude: selectedLocation?.latitude || 25.276987,
+          longitude: selectedLocation?.longitude || 55.296249,
           contact_number: phone,
           whatsapp_number: partsForm.same_as_phone
             ? phone
@@ -1388,6 +1444,25 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Location" expanded={expandedSections.car_location} onToggle={() => toggleSection('car_location')}>
+        <TouchableOpacity
+          style={styles.locationPickerTrigger}
+          onPress={() => setShowMapPicker(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="location" size={20} color={COLORS.accent} />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={[styles.pickerText, !carEmirate && { color: COLORS.textMuted }]}>
+              {carEmirate ? `${carEmirate}${carArea ? `, ${carArea}` : ''}` : 'Tap to set location'}
+            </Text>
+            {selectedLocation && (
+              <Text style={{ color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginTop: 2 }}>
+                {selectedLocation.latitude.toFixed(4)}, {selectedLocation.longitude.toFixed(4)}
+              </Text>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+
         <Input
           label="Car Location"
           value={carForm.car_location}
@@ -1836,9 +1911,91 @@ export default function PostListingScreen({ navigation, route }) {
     </View>
   );
 
+  // ==================== MAP PICKER MODAL ====================
+  const renderMapPickerModal = () => (
+    <Modal visible={showMapPicker} animationType="slide" onRequestClose={() => setShowMapPicker(false)}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.black }}>
+        <View style={styles.mapPickerHeader}>
+          <TouchableOpacity onPress={() => setShowMapPicker(false)}>
+            <Text style={{ color: COLORS.accent, fontSize: FONT_SIZES.md }}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.lg }}>Set Location</Text>
+          <TouchableOpacity onPress={() => setShowMapPicker(false)}>
+            <Text style={{ color: COLORS.accent, fontSize: FONT_SIZES.md }}>Confirm</Text>
+          </TouchableOpacity>
+        </View>
+
+        <MapView
+          style={{ flex: 1 }}
+          initialRegion={{
+            latitude: selectedLocation?.latitude || 25.276987,
+            longitude: selectedLocation?.longitude || 55.296249,
+            latitudeDelta: 0.5,
+            longitudeDelta: 0.5,
+          }}
+          region={selectedLocation ? {
+            latitude: selectedLocation.latitude,
+            longitude: selectedLocation.longitude,
+            latitudeDelta: 0.5,
+            longitudeDelta: 0.5,
+          } : undefined}
+        >
+          <Marker
+            coordinate={{
+              latitude: selectedLocation?.latitude || 25.276987,
+              longitude: selectedLocation?.longitude || 55.296249,
+            }}
+            draggable
+            onDragEnd={(e) => {
+              setSelectedLocation({
+                ...selectedLocation,
+                latitude: e.nativeEvent.coordinate.latitude,
+                longitude: e.nativeEvent.coordinate.longitude,
+              });
+            }}
+          />
+        </MapView>
+
+        <View style={styles.mapPickerControls}>
+          <TouchableOpacity style={styles.useLocationBtn} onPress={useMyLocation}>
+            <Ionicons name="navigate" size={18} color={COLORS.accent} />
+            <Text style={styles.useLocationBtnText}>Use My Location</Text>
+          </TouchableOpacity>
+
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.fieldLabel}>Emirate *</Text>
+            <Picker
+              value={carEmirate}
+              options={UAE_EMIRATES}
+              onSelect={setCarEmirate}
+              placeholder="Select Emirate"
+            />
+            {carAreaOptions.length > 0 ? (
+              <Picker
+                label="Area"
+                value={carArea}
+                options={carAreaOptions}
+                onSelect={setCarArea}
+                placeholder="Select Area"
+              />
+            ) : (
+              <Input
+                label="Area"
+                value={carArea}
+                onChangeText={setCarArea}
+                placeholder="Area"
+              />
+            )}
+          </View>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+
   // ==================== MAIN FORM VIEW ====================
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {renderMapPickerModal()}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1850,6 +2007,9 @@ export default function PostListingScreen({ navigation, route }) {
           <Text style={styles.formHeaderTitle}>
             {isEditMode ? 'Edit' : 'Post'} {CATEGORIES.find(c => c.key === category)?.label}
           </Text>
+          {lastDraftSave && (
+            <Text style={styles.draftIndicator}>Draft saved</Text>
+          )}
           <View style={{ width: 24 }} />
         </View>
         <ScrollView
@@ -1978,5 +2138,49 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
+  },
+  locationPickerTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  mapPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.md,
+  },
+  mapPickerControls: {
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+  },
+  useLocationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    paddingVertical: 12,
+  },
+  useLocationBtnText: {
+    color: COLORS.accent,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  draftIndicator: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.xs,
+    fontStyle: 'italic',
   },
 });
