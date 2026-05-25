@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +10,7 @@ const AdminRoute = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const checkedUserIdRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +27,11 @@ const AdminRoute = ({ children }) => {
         return;
       }
 
+      if (checkedUserIdRef.current === user.id && (isAdmin || error)) {
+        setLoading(false);
+        return;
+      }
+
       try {
         console.log('AdminRoute: Checking admin status for user:', user.id);
         const response = await apiClient.get('/api/auth/admin-check');
@@ -34,6 +40,7 @@ const AdminRoute = ({ children }) => {
         if (response && (response.is_admin === true || response.is_super_admin === true)) {
           console.log('AdminRoute: User is admin, granting access');
           setIsAdmin(true);
+          checkedUserIdRef.current = user.id;
         } else {
           console.log('AdminRoute: User is not admin');
           setError('Access denied - Admin privileges required');
@@ -47,7 +54,10 @@ const AdminRoute = ({ children }) => {
     };
 
     checkAdminStatus();
-  }, [user, authLoading, navigate]);
+    // The admin check intentionally keys off the user id only to avoid
+    // re-running on auth-context rerenders for the same signed-in user.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authLoading, navigate]);
 
   // Show loading while auth is loading or admin check is in progress
   if (authLoading || loading) {

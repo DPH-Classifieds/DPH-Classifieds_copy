@@ -12243,13 +12243,13 @@ def api_admin_list_items(current_user, item_type):
 @app.route("/api/admin/approve/<item_type>/<item_id>/approve", methods=["POST"])
 @token_required
 def api_admin_approve_item(current_user, item_type, item_id):
-    return api_approve_item(current_user, item_type, item_id)
+    return api_approve_item.__wrapped__(current_user, item_type, item_id)
 
 
 @app.route("/api/admin/approve/<item_type>/<item_id>/reject", methods=["POST"])
 @token_required
 def api_admin_reject_item(current_user, item_type, item_id):
-    return api_reject_item(current_user, item_type, item_id)
+    return api_reject_item.__wrapped__(current_user, item_type, item_id)
 
 
 def admin_required(f):
