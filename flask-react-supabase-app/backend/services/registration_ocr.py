@@ -19,6 +19,8 @@ FIELD_ALIASES = {
 VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 YEAR_RE = re.compile(r"\b(19[8-9]\d|20[0-4]\d)\b")
 DEFAULT_CONFIDENCE_THRESHOLD = 0.75
+DEFAULT_ACCEPTANCE_THRESHOLD = 0.90
+DEFAULT_REVIEW_THRESHOLD = 0.75
 
 
 class TesseractOCRProvider:
@@ -28,10 +30,17 @@ class TesseractOCRProvider:
         except ImportError as exc:
             raise RuntimeError("pytesseract is not installed") from exc
 
+        tesseract_cmd = os.getenv("TESSERACT_CMD")
+        if tesseract_cmd:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+
         return pytesseract.image_to_string(image)
 
 
 def get_default_ocr_provider():
+    provider = os.getenv("OCR_PROVIDER", "local_tesseract").strip().lower()
+    if provider not in {"local_tesseract", "tesseract"}:
+        logger.warning("Unknown OCR_PROVIDER '%s'; using local_tesseract", provider)
     return TesseractOCRProvider()
 
 
@@ -151,16 +160,29 @@ def cross_check_vin(fields, vin_result):
     return validation
 
 
-def _confidence_threshold():
+def _env_float(name, fallback):
     try:
-        return float(
-            os.getenv(
-                "OCR_CONFIDENCE_REVIEW_THRESHOLD",
-                str(DEFAULT_CONFIDENCE_THRESHOLD),
-            )
-        )
+        return float(os.getenv(name, str(fallback)))
     except ValueError:
-        return DEFAULT_CONFIDENCE_THRESHOLD
+        return fallback
+
+
+def _acceptance_threshold():
+    return _env_float("OCR_CONFIDENCE_THRESHOLD", DEFAULT_ACCEPTANCE_THRESHOLD)
+
+
+def _review_threshold():
+    return _env_float("OCR_REVIEW_THRESHOLD", DEFAULT_REVIEW_THRESHOLD)
+
+
+def _confidence_threshold():
+    legacy_threshold = os.getenv("OCR_CONFIDENCE_REVIEW_THRESHOLD")
+    if legacy_threshold is not None:
+        return max(
+            _acceptance_threshold(),
+            _env_float("OCR_CONFIDENCE_REVIEW_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD),
+        )
+    return _acceptance_threshold()
 
 
 def _extract_scan_id(persisted):
@@ -251,7 +273,10 @@ def scan_registration_image(
         review_reasons.append("vin_invalid")
     if vin_validation.get("mismatches"):
         review_reasons.append("decoder_mismatch")
-    if confidence.get("overall", 0) < _confidence_threshold():
+    confidence_overall = confidence.get("overall", 0)
+    if confidence_overall < _confidence_threshold():
+        review_reasons.append("low_confidence")
+    elif confidence_overall < _review_threshold():
         review_reasons.append("low_confidence")
 
     needs_review = bool(review_reasons)

@@ -2,7 +2,7 @@
 import io
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PIL import Image
 
@@ -139,6 +139,50 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertTrue(result["needs_review"])
         self.assertIn("low_confidence", result["review_reasons"])
         self.assertLess(result["confidence"]["overall"], 0.75)
+
+    @patch.dict(os.environ, {"OCR_CONFIDENCE_THRESHOLD": "0.90"}, clear=False)
+    def test_marks_review_when_confidence_is_below_acceptance_threshold(self):
+        result = registration_ocr.scan_registration_image(
+            _jpeg_bytes(),
+            ocr_provider=FakeOCRProvider(
+                f"Make: Honda\nModel: Accord\nVIN: {VALID_VIN}\nRegistered in 2003"
+            ),
+            vin_decoder=FakeVINDecoder(
+                {
+                    "is_valid": True,
+                    "checksum_valid": True,
+                    "decoded": {
+                        "make": "Honda",
+                        "model": "Accord",
+                        "year": "2003",
+                    },
+                    "errors": [],
+                }
+            ),
+            persist_func=lambda payload: [],
+        )
+
+        self.assertEqual(result["confidence"]["overall"], 0.875)
+        self.assertTrue(result["needs_review"])
+        self.assertIn("low_confidence", result["review_reasons"])
+
+    @patch.dict(os.environ, {"TESSERACT_CMD": "/custom/bin/tesseract"}, clear=False)
+    @patch.dict("sys.modules", clear=False)
+    def test_tesseract_provider_honors_configured_command(self):
+        import sys
+
+        fake_pytesseract = Mock()
+        fake_pytesseract.image_to_string.return_value = "Make: Honda"
+        sys.modules["pytesseract"] = fake_pytesseract
+
+        provider = registration_ocr.TesseractOCRProvider()
+        text = provider.extract_text(Image.new("L", (1, 1)))
+
+        self.assertEqual(text, "Make: Honda")
+        self.assertEqual(
+            fake_pytesseract.pytesseract.tesseract_cmd,
+            "/custom/bin/tesseract",
+        )
 
 
 class RegistrationOCRRouteTests(unittest.TestCase):

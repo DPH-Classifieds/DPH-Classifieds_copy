@@ -2,13 +2,14 @@ import copy
 import logging
 import os
 import re
+import time
 
 import requests
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DECODER_URL = (
-    "https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/{vin}?format=json"
+DEFAULT_DECODER_BASE_URL = (
+    "https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvaluesextended"
 )
 VIN_ALLOWED_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 TRANSLITERATION = {
@@ -30,18 +31,32 @@ class VINDecoder:
     def __init__(
         self,
         decoder_url=None,
+        decoder_base_url=None,
         timeout=None,
         session=None,
         cache=None,
+        cache_ttl_seconds=None,
+        clock=None,
     ):
-        self.decoder_url = decoder_url or os.getenv("VIN_DECODER_URL", DEFAULT_DECODER_URL)
+        self.decoder_url = decoder_url or os.getenv("VIN_DECODER_URL")
+        self.decoder_base_url = (
+            decoder_base_url
+            or os.getenv("VIN_DECODER_BASE_URL")
+            or DEFAULT_DECODER_BASE_URL
+        )
         self.timeout = timeout or float(os.getenv("VIN_DECODER_TIMEOUT_SECONDS", "6"))
         self.session = session or requests.Session()
         self.cache = _VIN_CACHE if cache is None else cache
+        self.cache_ttl_seconds = (
+            cache_ttl_seconds
+            if cache_ttl_seconds is not None
+            else int(os.getenv("VIN_DECODER_CACHE_TTL_SECONDS", "86400"))
+        )
+        self.clock = clock or time.time
 
     def validate_and_decode(self, vin):
         normalized_vin = self.normalize_vin(vin)
-        cached = self.cache.get(normalized_vin)
+        cached = self._get_cached(normalized_vin)
         if cached is not None:
             return copy.deepcopy(cached)
 
@@ -70,8 +85,22 @@ class VINDecoder:
         return self._cache(normalized_vin, base_result)
 
     def _cache(self, vin, result):
-        self.cache[vin] = copy.deepcopy(result)
+        self.cache[vin] = {
+            "expires_at": self.clock() + self.cache_ttl_seconds,
+            "result": copy.deepcopy(result),
+        }
         return copy.deepcopy(result)
+
+    def _get_cached(self, vin):
+        cached = self.cache.get(vin)
+        if cached is None:
+            return None
+        if "result" not in cached or "expires_at" not in cached:
+            return copy.deepcopy(cached)
+        if cached["expires_at"] <= self.clock():
+            self.cache.pop(vin, None)
+            return None
+        return copy.deepcopy(cached["result"])
 
     @staticmethod
     def normalize_vin(vin):
@@ -91,8 +120,10 @@ class VINDecoder:
 
     def _remote_decode(self, vin):
         try:
+            url, params = self._decoder_request(vin)
             response = self.session.get(
-                self.decoder_url.format(vin=vin),
+                url,
+                params=params,
                 timeout=self.timeout,
             )
             response.raise_for_status()
@@ -128,3 +159,10 @@ class VINDecoder:
             "decoded": decoded,
             "errors": errors,
         }
+
+    def _decoder_request(self, vin):
+        if self.decoder_url:
+            url = self.decoder_url.format(vin=vin)
+            params = None if "format=" in url.lower() else {"format": "json"}
+            return url, params
+        return f"{self.decoder_base_url.rstrip('/')}/{vin}", {"format": "json"}
