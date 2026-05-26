@@ -325,6 +325,13 @@ const AdminListings = () => {
     const lt = listing.listing_type || 'cars';
     const isPending = (listing._table_status || listing.status) === 'pending';
     const displayStatus = listing.display_status || listing.listing_state || listing.status || 'pending';
+    const verification = listing.verification_status || {};
+    const verificationFields = verification.fields || {};
+    const verificationLabel = verification.needs_review
+      ? 'Review required'
+      : verification.vin_valid
+        ? 'Scan verified'
+        : 'No verified scan';
     return (
     <div className="listing-card">
       <div className="listing-info">
@@ -344,6 +351,10 @@ const AdminListings = () => {
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>
         <p><strong>Seller:</strong> {listing.user_email || listing.seller_email || 'N/A'}</p>
         <p><strong>VIN:</strong> {getListingVin(listing) || 'N/A'}</p>
+        <p><strong>Scan:</strong> {verificationLabel}</p>
+        <p><strong>OCR confidence:</strong> {Math.round(Number(verification.confidence || 0) * 100)}%</p>
+        <p><strong>OCR make/model/year:</strong> {[verificationFields.make, verificationFields.model, verificationFields.year].filter(Boolean).join(' / ') || 'N/A'}</p>
+        <p><strong>OCR VIN:</strong> {verificationFields.vin || 'N/A'}</p>
         <p><strong>Views:</strong> {Number(listing.view_count ?? listing.views ?? 0)}</p>
         <p><strong>Leads:</strong> {getLeadMetrics(listing).qualifiedLeads}</p>
         <p><strong>Calls:</strong> {getLeadMetrics(listing).callClick} · <strong>WhatsApp:</strong> {getLeadMetrics(listing).whatsappClick}</p>

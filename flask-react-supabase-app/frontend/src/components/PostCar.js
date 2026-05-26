@@ -31,6 +31,7 @@ import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
+import { normalizeRegistrationScanResponse } from '../utils/registrationScan';
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -201,6 +202,43 @@ const PostCar = () => {
     setRegistrationOcrDebugInfo(null);
   }, []);
 
+  const applyRegistrationScanResult = useCallback((scan, { status = 'Done', debugInfo = null } = {}) => {
+    setRegistrationOcrSuggestions(scan);
+    setRegistrationOcrDebugInfo(debugInfo);
+    setRegistrationOcrStatus(status);
+    setRegistrationOcrTruth(
+      scan.shouldAutoFill
+        ? {
+            make: scan.fields.make || null,
+            model: scan.fields.model || null,
+            year: scan.fields.year || null,
+            vin: scan.fields.vin || null,
+          }
+        : null
+    );
+
+    if (!scan.shouldAutoFill) {
+      return;
+    }
+
+    setFormData((prev) => {
+      const next = { ...prev };
+      if (scan.fields.make) {
+        next.car_manufacturer = scan.fields.make;
+      }
+      if (scan.fields.model) {
+        next.car_model = scan.fields.model;
+      }
+      if (scan.fields.year) {
+        next.make_year = scan.fields.year;
+      }
+      if (scan.fields.vin) {
+        next.vin_number = String(scan.fields.vin).toUpperCase();
+      }
+      return next;
+    });
+  }, []);
+
   const levenshteinDistance = useCallback((aRaw, bRaw) => {
     const a = String(aRaw || '');
     const b = String(bRaw || '');
@@ -364,7 +402,10 @@ const PostCar = () => {
         { image: await preprocessImageToPngFile(file, { threshold: 170, contrast: 1.2 }), pass: 'prep170' },
         { image: await preprocessImageToPngFile(file, { threshold: 190, contrast: 1.3 }), pass: 'prep190' },
       ].filter((entry) => entry.image);
-      return { attempts: passes.map((entry) => ({ ...entry, source: 'image' })) };
+      return {
+        attempts: passes.map((entry) => ({ ...entry, source: 'image' })),
+        backendFile: file,
+      };
     }
 
     // PDFs: render page 1 at two scales, then preprocess each render.
@@ -376,7 +417,10 @@ const PostCar = () => {
       { image: rendered4, pass: 'pdf-scale4' },
       { image: await preprocessImageToPngFile(rendered4, { threshold: 175, contrast: 1.25 }), pass: 'pdf-scale4-prep' },
     ].filter((entry) => entry.image);
-    return { attempts: passes.map((entry) => ({ ...entry, source: 'pdf' })) };
+    return {
+      attempts: passes.map((entry) => ({ ...entry, source: 'pdf' })),
+      backendFile: rendered4 || rendered3,
+    };
   }, [preprocessImageToPngFile, renderPdfPageToPngFile]);
 
   const parseRegistrationOcr = useCallback(
@@ -550,6 +594,30 @@ const PostCar = () => {
         throw new Error('No OCR input prepared');
       }
 
+      try {
+        const backendFile = prepared?.backendFile || attempts[0]?.image || registrationOcrFile;
+        const formData = new FormData();
+        formData.append('image', backendFile, backendFile?.name || 'registration-scan');
+        formData.append('document_type', 'mulkiya');
+        formData.append('listing_type', 'car');
+        if (isEdit && listingId) {
+          formData.append('listing_id', listingId);
+        }
+
+        const backendScan = normalizeRegistrationScanResponse(
+          await apiClient.post('/api/ocr/scan-registration', formData)
+        );
+
+        applyRegistrationScanResult(backendScan);
+        if (backendScan.shouldAutoFill) {
+          return;
+        }
+
+        setRegistrationOcrError(null);
+      } catch (backendError) {
+        console.warn('Backend registration scan unavailable, falling back to local OCR:', backendError);
+      }
+
       let best = null;
       let bestScore = -1;
       let bestAttempt = null;
@@ -592,40 +660,47 @@ const PostCar = () => {
         throw new Error('OCR failed to produce results');
       }
 
-      setRegistrationOcrSuggestions(best);
-      setRegistrationOcrDebugInfo(bestAttempt ? { source: bestAttempt.source, pass: bestAttempt.pass } : null);
-      setRegistrationOcrTruth({
-        make: best.verifiedMake ? best.make : null,
-        model: best.verifiedModel ? best.model : null,
-        year: best.verifiedYear ? best.year : null,
-        vin: best.verifiedVin ? best.vin : null,
+      const fallbackScan = normalizeRegistrationScanResponse({
+        fields: {
+          make: best.make,
+          model: best.model,
+          year: best.year,
+          vin: best.vin,
+        },
+        confidence: {
+          ...best.confidence,
+          overall: Math.max(
+            best.confidence?.ocr || 0,
+            best.verifiedVin && best.verifiedMake && best.verifiedYear ? 0.95 : 0.6
+          ),
+        },
+        vin_validation: {
+          valid: best.verifiedVin,
+          decoded: {
+            make: best.make,
+            model: best.model,
+            model_year: best.year,
+          },
+        },
+        needs_review: !(best.verifiedVin && best.verifiedMake && best.verifiedYear),
+        review_reasons: best.verifiedVin && best.verifiedMake && best.verifiedYear
+          ? []
+          : ['local_fallback_review'],
+        raw_text: '',
+        document_type: 'mulkiya',
       });
 
-      setFormData((prev) => {
-        const next = { ...prev };
-        if (best.verifiedMake && best.make) {
-          next.car_manufacturer = best.make;
-        }
-        if (best.verifiedModel && best.model) {
-          next.car_model = best.model;
-        }
-        if (best.verifiedYear && best.year) {
-          next.make_year = best.year;
-        }
-        if (best.verifiedVin && best.vin) {
-          next.vin_number = String(best.vin).toUpperCase();
-        }
-        return next;
-      });
-
-      setRegistrationOcrStatus('Done');
+      applyRegistrationScanResult(
+        fallbackScan,
+        { debugInfo: bestAttempt ? { source: bestAttempt.source, pass: bestAttempt.pass } : null }
+      );
     } catch (err) {
       console.error('Registration OCR failed:', err);
       setRegistrationOcrStatus(null);
       setRegistrationOcrError('OCR failed. Please try a clearer photo (good lighting, minimal glare).');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parseRegistrationOcr, prepareRegistrationOcrInput, registrationOcrFile, resetRegistrationOcrState]);
+  }, [applyRegistrationScanResult, isEdit, listingId, parseRegistrationOcr, prepareRegistrationOcrInput, registrationOcrFile, resetRegistrationOcrState]);
 
   const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
@@ -2144,24 +2219,37 @@ const PostCar = () => {
 	                <div className="alert alert-success mt-3" role="status">
 	                  <div style={{ fontWeight: 700, marginBottom: '6px' }}>Detected</div>
 	                  <div>
-	                    Make: {registrationOcrSuggestions.make || '—'} {registrationOcrSuggestions.verifiedMake ? '(verified)' : '(not verified)'}
+	                    Make: {registrationOcrSuggestions.fields?.make || registrationOcrSuggestions.make || '—'} {registrationOcrSuggestions.verifiedMake ? '(verified)' : '(review)'}
 	                  </div>
 	                  <div>
-	                    Model: {registrationOcrSuggestions.model || '—'} {registrationOcrSuggestions.verifiedModel ? '(verified)' : '(not verified)'}
+	                    Model: {registrationOcrSuggestions.fields?.model || registrationOcrSuggestions.model || '—'} {registrationOcrSuggestions.verifiedModel ? '(verified)' : '(review)'}
 	                  </div>
 	                  <div>
-	                    Year: {registrationOcrSuggestions.year || '—'} {registrationOcrSuggestions.verifiedYear ? '(verified)' : '(not verified)'}
+	                    Year: {registrationOcrSuggestions.fields?.year || registrationOcrSuggestions.year || '—'} {registrationOcrSuggestions.verifiedYear ? '(verified)' : '(review)'}
 	                  </div>
 	                  <div>
-	                    VIN: {registrationOcrSuggestions.vin || '—'} {registrationOcrSuggestions.verifiedVin ? '(verified)' : '(not verified)'}
+	                    VIN: {registrationOcrSuggestions.fields?.vin || registrationOcrSuggestions.vin || '—'} {registrationOcrSuggestions.verifiedVin ? '(verified)' : '(review)'}
 	                  </div>
+	                  <div>
+	                    Confidence: {Math.round(((registrationOcrSuggestions.confidence?.overall || 0) * 100))}%
+	                  </div>
+	                  <div>
+	                    VIN validation: {registrationOcrSuggestions.vinValidation?.valid ? 'Valid' : 'Needs review'}
+	                  </div>
+	                  {registrationOcrSuggestions.reviewReasons?.length > 0 && (
+	                    <div style={{ marginTop: '8px', opacity: 0.85 }}>
+	                      Review reasons: {registrationOcrSuggestions.reviewReasons.join(', ')}
+	                    </div>
+	                  )}
 	                  {registrationOcrDebugInfo && (
 	                    <div style={{ marginTop: '8px', opacity: 0.75, fontSize: 12 }}>
 	                      Best pass: {registrationOcrDebugInfo.source}/{registrationOcrDebugInfo.pass}
 	                    </div>
 	                  )}
 	                  <div style={{ marginTop: '8px', opacity: 0.9 }}>
-	                    Verified fields are auto-filled and locked. Use Clear if you need to change them manually.
+	                    {registrationOcrSuggestions.shouldAutoFill
+	                      ? 'Verified fields are auto-filled and locked. Use Clear if you need to change them manually.'
+	                      : 'Scan needs review, so fields stay editable until you confirm them manually.'}
 	                  </div>
 	                  {registrationOcrPreparedImage?.source === 'pdf' && (
 	                    <div style={{ marginTop: '8px', opacity: 0.85 }}>

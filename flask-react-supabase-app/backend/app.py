@@ -14066,6 +14066,15 @@ def admin_listings_search(current_user):
 
                 listings.append(synced)
 
+        latest_scan_map = _admin_fetch_latest_verification_scans(
+            [
+                (listing.get("listing_type"), listing.get("id"))
+                for listing in listings
+            ]
+        )
+        for listing in listings:
+            _admin_attach_latest_verification_scan(listing, latest_scan_map)
+
         return jsonify({"listings": listings, "metadata": dict(counts)}), 200
     except Exception as e:
         logger.error(f"Error searching admin listings: {e}")
@@ -14237,6 +14246,80 @@ def _admin_listing_display_status(listing):
     return listing.get("status")
 
 
+def _verification_scan_key(listing_type, listing_id):
+    normalized_type = str(listing_type or "").strip().lower().rstrip("s")
+    normalized_id = str(listing_id or "").strip()
+    return normalized_type, normalized_id
+
+
+def _verification_status_from_scan(scan):
+    scan = scan or {}
+    vin_validation = scan.get("vin_validation") or {}
+    confidence = scan.get("confidence") or {}
+    fields = scan.get("fields") or {}
+    return {
+        "needs_review": bool(scan.get("needs_review")),
+        "vin_valid": bool(vin_validation.get("valid") or vin_validation.get("is_valid")),
+        "confidence": float(confidence.get("overall") or 0),
+        "fields": {
+            "make": fields.get("make"),
+            "model": fields.get("model"),
+            "year": fields.get("year"),
+            "vin": fields.get("vin"),
+        },
+    }
+
+
+def _admin_fetch_latest_verification_scans(listing_refs):
+    refs_by_type = defaultdict(set)
+    for listing_type, listing_id in listing_refs or []:
+        normalized_type, normalized_id = _verification_scan_key(listing_type, listing_id)
+        if normalized_type and normalized_id:
+            refs_by_type[normalized_type].add(normalized_id)
+
+    latest_scans = {}
+    for listing_type, listing_ids in refs_by_type.items():
+        if not listing_ids:
+            continue
+        rows, status_code = supabase_request(
+            "get",
+            "/rest/v1/listing_verification_scans",
+            params={
+                "select": "id,listing_type,listing_id,document_type,raw_text,fields,vin_validation,confidence,needs_review,created_at",
+                "listing_type": f"eq.{listing_type}",
+                "listing_id": f"in.({','.join(sorted(listing_ids))})",
+                "order": "created_at.desc",
+                "limit": str(max(len(listing_ids) * 5, 25)),
+            },
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            continue
+
+        for row in rows or []:
+            key = _verification_scan_key(row.get("listing_type"), row.get("listing_id"))
+            if key not in latest_scans:
+                latest_scans[key] = row
+
+    return latest_scans
+
+
+def _admin_attach_latest_verification_scan(listing, latest_scan_map=None):
+    if not listing:
+        return listing
+
+    listing_type = listing.get("listing_type") or listing.get("type")
+    listing_id = listing.get("id")
+    if latest_scan_map is None:
+        latest_scan_map = _admin_fetch_latest_verification_scans(
+            [(listing_type, listing_id)]
+        )
+    latest_scan = latest_scan_map.get(_verification_scan_key(listing_type, listing_id))
+    listing["latest_verification_scan"] = latest_scan
+    listing["verification_status"] = _verification_status_from_scan(latest_scan)
+    return listing
+
+
 def _admin_collect_owned_listing_stats(user_id):
     summary = {
         "cars": {"count": 0, "views": 0, "pending": 0, "approved": 0, "rejected": 0},
@@ -14405,6 +14488,7 @@ def get_admin_listing_overview(current_user, item_type, item_id):
             return jsonify({"error": "Listing not found"}), 404
 
         listing = listing_rows[0]
+        listing["listing_type"] = item_type
         owner_id = listing.get("user_id")
         owner_row = _admin_fetch_user_rows(owner_id) if owner_id else None
 
@@ -14474,6 +14558,10 @@ def get_admin_listing_overview(current_user, item_type, item_id):
                 if str(row.get("reason") or "") != LISTING_EXPIRY_NOTICE_REASON
             ]
 
+        _admin_attach_latest_verification_scan(listing)
+        latest_verification_scan = listing.get("latest_verification_scan")
+        verification_status = listing.get("verification_status") or {}
+
         lead_totals = defaultdict(int)
         for event in lead_events or []:
             lead_totals[event.get("action") or "unknown"] += 1
@@ -14498,6 +14586,8 @@ def get_admin_listing_overview(current_user, item_type, item_id):
                 "lead_events": lead_events or [],
                 "reports": report_rows or [],
                 "deletion_events": deletion_rows or [],
+                "latest_verification_scan": latest_verification_scan,
+                "verification_status": verification_status,
             }
         ), 200
     except Exception as e:

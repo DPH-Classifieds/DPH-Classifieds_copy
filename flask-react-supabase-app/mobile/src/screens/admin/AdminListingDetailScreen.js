@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Image, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
@@ -13,7 +13,7 @@ const REJECTION_REASONS = [
 
 export default function AdminListingDetailScreen({ route, navigation }) {
   const { itemType, itemId } = route.params;
-  const [listing, setListing] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadListing(); }, []);
@@ -21,7 +21,7 @@ export default function AdminListingDetailScreen({ route, navigation }) {
   const loadListing = async () => {
     try {
       const data = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
-      setListing(data);
+      setDetail(data);
     } catch (err) {
       Alert.alert('Error', 'Failed to load listing.');
       navigation.goBack();
@@ -65,12 +65,14 @@ export default function AdminListingDetailScreen({ route, navigation }) {
   };
 
   const getImageUri = () => {
+    const listing = detail?.listing;
     if (!listing?.images?.[0]) return null;
-    const img = listing.images[0];
+    const img = detail?.images?.[0] || listing.images[0];
     return typeof img === 'string' ? img : img.url || img.image_url;
   };
 
   const getTitle = () => {
+    const listing = detail?.listing;
     if (!listing) return 'Listing';
     return listing.listing_title || listing.car_manufacturer
       ? `${listing.car_manufacturer || ''} ${listing.car_model || ''}`.trim()
@@ -88,6 +90,9 @@ export default function AdminListingDetailScreen({ route, navigation }) {
   }
 
   const imageUri = getImageUri();
+  const listing = detail?.listing;
+  const verification = detail?.verification_status || {};
+  const verificationFields = verification.fields || {};
 
   return (
     <SafeAreaView style={styles.container}>
@@ -103,6 +108,17 @@ export default function AdminListingDetailScreen({ route, navigation }) {
         {listing?.created_at && (
           <Text style={styles.detail}>Posted: {formatDate(listing.created_at)}</Text>
         )}
+
+        <View style={styles.scanCard}>
+          <Text style={styles.scanTitle}>Verification Scan</Text>
+          <Text style={styles.detail}>Needs review: {verification.needs_review ? 'Yes' : 'No'}</Text>
+          <Text style={styles.detail}>VIN valid: {verification.vin_valid ? 'Yes' : 'No'}</Text>
+          <Text style={styles.detail}>OCR confidence: {Math.round(Number(verification.confidence || 0) * 100)}%</Text>
+          <Text style={styles.detail}>OCR make: {verificationFields.make || 'N/A'}</Text>
+          <Text style={styles.detail}>OCR model: {verificationFields.model || 'N/A'}</Text>
+          <Text style={styles.detail}>OCR year: {verificationFields.year || 'N/A'}</Text>
+          <Text style={styles.detail}>OCR VIN: {verificationFields.vin || 'N/A'}</Text>
+        </View>
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.7}>
@@ -134,6 +150,8 @@ const styles = StyleSheet.create({
   statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
   statusBadgeText: { color: COLORS.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
   detail: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
+  scanCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
+  scanTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '700', marginBottom: SPACING.xs },
   actions: { gap: SPACING.sm, marginTop: SPACING.lg },
   approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, paddingHorizontal: SPACING.md, justifyContent: 'center' },
   approveBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },

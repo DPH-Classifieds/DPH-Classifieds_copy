@@ -123,6 +123,8 @@ const AdminListingDetail = () => {
   const leadEvents = data?.lead_events ?? EMPTY_ARRAY;
   const reports = data?.reports ?? EMPTY_ARRAY;
   const deletionEvents = data?.deletion_events ?? EMPTY_ARRAY;
+  const latestVerificationScan = data?.latest_verification_scan ?? listing?.latest_verification_scan ?? EMPTY_OBJECT;
+  const verificationStatus = data?.verification_status ?? listing?.verification_status ?? EMPTY_OBJECT;
 
   const primaryRouteType = listingRouteType(itemType);
   const approvalRouteType = primaryRouteType === 'part' ? 'parts' : `${primaryRouteType}s`;
@@ -596,6 +598,51 @@ const AdminListingDetail = () => {
             <button className="admin-button admin-button-danger" type="button" disabled={actionLoading} onClick={() => setShowDeleteConfirm(true)}>
               Remove listing
             </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-section">
+        <h2>Verification Scan</h2>
+        <div className="admin-grid-2">
+          <div className="admin-card">
+            <div className="admin-label">Verification status</div>
+            <div className="admin-detail-list">
+              <div className="admin-detail-row">
+                <div className="admin-detail-label">Needs review</div>
+                <div className="admin-detail-value">{verificationStatus.needs_review ? 'Yes' : 'No'}</div>
+              </div>
+              <div className="admin-detail-row">
+                <div className="admin-detail-label">VIN valid</div>
+                <div className="admin-detail-value">{verificationStatus.vin_valid ? 'Yes' : 'No'}</div>
+              </div>
+              <div className="admin-detail-row">
+                <div className="admin-detail-label">OCR confidence</div>
+                <div className="admin-detail-value">{Math.round(Number(verificationStatus.confidence || 0) * 100)}%</div>
+              </div>
+              <div className="admin-detail-row">
+                <div className="admin-detail-label">Extracted make</div>
+                <div className="admin-detail-value">{verificationStatus.fields?.make || 'Not set'}</div>
+              </div>
+              <div className="admin-detail-row">
+                <div className="admin-detail-label">Extracted model</div>
+                <div className="admin-detail-value">{verificationStatus.fields?.model || 'Not set'}</div>
+              </div>
+              <div className="admin-detail-row">
+                <div className="admin-detail-label">Extracted year</div>
+                <div className="admin-detail-value">{verificationStatus.fields?.year || 'Not set'}</div>
+              </div>
+              <div className="admin-detail-row">
+                <div className="admin-detail-label">Extracted VIN</div>
+                <div className="admin-detail-value">{verificationStatus.fields?.vin || 'Not set'}</div>
+              </div>
+            </div>
+          </div>
+          <div className="admin-card">
+            <div className="admin-label">Raw OCR text</div>
+            <pre className="admin-muted" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+              {latestVerificationScan.raw_text || 'No scan captured'}
+            </pre>
           </div>
         </div>
       </div>

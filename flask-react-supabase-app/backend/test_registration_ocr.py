@@ -424,5 +424,69 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         self.assertNotIn("using (true)", source)
 
 
+class RegistrationScanAdminTests(unittest.TestCase):
+    @patch.object(backend, "_require_admin_api_user", return_value=True)
+    @patch.object(
+        backend,
+        "_admin_fetch_user_rows",
+        return_value={"id": "user-1", "email": "owner@example.com"},
+    )
+    @patch.object(backend, "supabase_request")
+    def test_admin_listing_overview_includes_latest_verification_scan(
+        self,
+        mock_supabase_request,
+        _mock_owner,
+        _mock_require_admin,
+    ):
+        def side_effect(method, path, params=None, **kwargs):
+            if path == "/rest/v1/cars":
+                return ([{"id": "car-1", "user_id": "user-1", "status": "approved"}], 200)
+            if path in {
+                "/rest/v1/car_images",
+                "/rest/v1/lead_events",
+                "/rest/v1/reports",
+                "/rest/v1/listing_deletion_events",
+            }:
+                return ([], 200)
+            if path == "/rest/v1/listing_verification_scans":
+                return (
+                    [{
+                        "id": "scan-1",
+                        "listing_type": "car",
+                        "listing_id": "car-1",
+                        "fields": {
+                            "make": "Toyota",
+                            "model": "Camry",
+                            "year": "2021",
+                            "vin": "JTNB11HK0M1234567",
+                        },
+                        "vin_validation": {"valid": True},
+                        "confidence": {"overall": 0.98},
+                        "needs_review": False,
+                        "raw_text": "TOYOTA CAMRY 2021",
+                        "document_type": "mulkiya",
+                        "created_at": "2026-05-26T00:00:00+00:00",
+                    }],
+                    200,
+                )
+            raise AssertionError(f"Unexpected Supabase path: {path}")
+
+        mock_supabase_request.side_effect = side_effect
+
+        with backend.app.test_request_context("/api/admin/listings/cars/car-1/overview"):
+            response, status_code = backend.get_admin_listing_overview.__wrapped__(
+                "admin-user",
+                "cars",
+                "car-1",
+            )
+
+        self.assertEqual(status_code, 200)
+        payload = response.get_json()
+        self.assertIn("latest_verification_scan", payload)
+        self.assertFalse(payload["latest_verification_scan"]["needs_review"])
+        self.assertTrue(payload["verification_status"]["vin_valid"])
+        self.assertEqual(payload["verification_status"]["confidence"], 0.98)
+
+
 if __name__ == "__main__":
     unittest.main()

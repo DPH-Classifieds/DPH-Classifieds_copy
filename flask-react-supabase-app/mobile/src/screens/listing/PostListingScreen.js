@@ -410,6 +410,7 @@ export default function PostListingScreen({ navigation, route }) {
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [lastDraftSave, setLastDraftSave] = useState(null);
+  const [carRegistrationScan, setCarRegistrationScan] = useState(null);
   const draftTimerRef = React.useRef(null);
 
   const [carForm, setCarForm] = useState({
@@ -1101,13 +1102,26 @@ export default function PostListingScreen({ navigation, route }) {
           style={styles.scanButton}
           onPress={async () => {
             try {
-              const data = await scanCarRegistration();
+              const data = await scanCarRegistration({
+                source: 'camera',
+                documentType: 'mulkiya',
+                listingType: 'car',
+                listingId: isEditMode ? listingId : null,
+              });
               if (data) {
-                if (data.make) updateCarForm('car_manufacturer', data.make);
-                if (data.model) updateCarForm('car_model', data.model);
-                if (data.year) updateCarForm('make_year', String(data.year));
-                if (data.vin) updateCarForm('vin_number', data.vin);
-                Alert.alert('Success', 'Registration details scanned and filled in.');
+                setCarRegistrationScan(data);
+                if (data.shouldAutoFill) {
+                  if (data.fields.make) updateCarForm('car_manufacturer', data.fields.make);
+                  if (data.fields.model) updateCarForm('car_model', data.fields.model);
+                  if (data.fields.year) updateCarForm('make_year', String(data.fields.year));
+                  if (data.fields.vin) updateCarForm('vin_number', data.fields.vin);
+                  Alert.alert('Scan Complete', 'Registration details were verified and applied.');
+                } else {
+                  Alert.alert(
+                    'Review Required',
+                    'We found registration details, but they need review before they are applied automatically.'
+                  );
+                }
               }
             } catch (err) {
               Alert.alert('Scan Failed', err.message || 'Could not read registration.');
@@ -1117,6 +1131,35 @@ export default function PostListingScreen({ navigation, route }) {
           <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
           <Text style={styles.scanButtonText}>Scan Registration</Text>
         </TouchableOpacity>
+
+        {carRegistrationScan && (
+          <View style={styles.scanResultCard}>
+            <View style={styles.scanResultHeader}>
+              <Text style={styles.scanResultTitle}>Registration Scan</Text>
+              <Text style={[
+                styles.scanResultBadge,
+                carRegistrationScan.shouldAutoFill ? styles.scanResultBadgeVerified : styles.scanResultBadgeReview,
+              ]}>
+                {carRegistrationScan.shouldAutoFill ? 'Verified' : 'Needs Review'}
+              </Text>
+            </View>
+            <Text style={styles.scanResultLine}>Make: {carRegistrationScan.fields.make || '—'}</Text>
+            <Text style={styles.scanResultLine}>Model: {carRegistrationScan.fields.model || '—'}</Text>
+            <Text style={styles.scanResultLine}>Year: {carRegistrationScan.fields.year || '—'}</Text>
+            <Text style={styles.scanResultLine}>VIN: {carRegistrationScan.fields.vin || '—'}</Text>
+            <Text style={styles.scanResultMeta}>
+              Confidence: {Math.round((carRegistrationScan.confidence.overall || 0) * 100)}%
+            </Text>
+            <Text style={styles.scanResultMeta}>
+              VIN Validation: {carRegistrationScan.vinValidation.valid ? 'Valid' : 'Needs Review'}
+            </Text>
+            {carRegistrationScan.reviewReasons.length > 0 && (
+              <Text style={styles.scanResultMeta}>
+                Review Reasons: {carRegistrationScan.reviewReasons.join(', ')}
+              </Text>
+            )}
+          </View>
+        )}
 
         <Text style={styles.fieldLabel}>Model *</Text>
         <Picker
@@ -2138,6 +2181,50 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
+  },
+  scanResultCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    gap: 6,
+  },
+  scanResultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  scanResultTitle: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '700',
+  },
+  scanResultBadge: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  scanResultBadgeVerified: {
+    color: COLORS.accent,
+    backgroundColor: 'rgba(39, 174, 96, 0.18)',
+  },
+  scanResultBadgeReview: {
+    color: '#f59e0b',
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+  },
+  scanResultLine: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.sm,
+  },
+  scanResultMeta: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.xs,
   },
   locationPickerTrigger: {
     flexDirection: 'row',
