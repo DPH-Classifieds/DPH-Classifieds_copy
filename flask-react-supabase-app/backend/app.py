@@ -3507,6 +3507,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to register admin API routes: {e}")
 
+# Import and register OCR routes
+try:
+    from routes.ocr import ocr_bp
+
+    app.register_blueprint(ocr_bp)
+    logger.info("OCR API routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register OCR API routes: {e}")
+
 logger.info("Admin web routes registered successfully")
 
 
