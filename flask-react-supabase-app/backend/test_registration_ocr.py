@@ -5,8 +5,10 @@ import unittest
 from unittest.mock import Mock, patch
 
 from PIL import Image
+from werkzeug.datastructures import FileStorage
 
 import app as backend
+from routes import ocr as ocr_route
 from services import registration_ocr
 
 
@@ -186,6 +188,16 @@ class RegistrationOCRServiceTests(unittest.TestCase):
             "/custom/bin/tesseract",
         )
 
+    def test_rejects_resize_that_would_exceed_output_pixel_guardrail(self):
+        with self.assertRaises(ValueError) as context:
+            registration_ocr.preprocess_image(
+                _jpeg_bytes(size=(1, 20)),
+                max_pixels=1000,
+                max_resize_pixels=10000,
+            )
+
+        self.assertIn("resized image dimensions are too large", str(context.exception))
+
 
 class RegistrationOCRRouteTests(unittest.TestCase):
     def setUp(self):
@@ -221,17 +233,18 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         )
         mock_persist_scan.return_value = [{"id": "scan-route-1"}]
 
-        response = self.client.post(
-            "/api/ocr/scan-registration",
-            data={
-                "image": (_jpeg_bytes(), "mulkiya.jpg"),
-                "document_type": "hayaza",
-                "listing_type": "car",
-                "listing_id": "listing-456",
-                "user_id": "spoofed-user",
-            },
-            headers={"Authorization": "Bearer test-token"},
-        )
+        with patch("routes.ocr.verify_listing_ownership", return_value=True):
+            response = self.client.post(
+                "/api/ocr/scan-registration",
+                data={
+                    "image": (_jpeg_bytes(), "mulkiya.jpg"),
+                    "document_type": "hayaza",
+                    "listing_type": "car",
+                    "listing_id": "listing-456",
+                    "user_id": "spoofed-user",
+                },
+                headers={"Authorization": "Bearer test-token"},
+            )
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
@@ -245,6 +258,41 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         self.assertEqual(persisted_payload["listing_type"], "car")
         self.assertEqual(persisted_payload["listing_id"], "listing-456")
         self.assertEqual(persisted_payload["user_id"], "auth-user-123")
+
+    @patch("routes.ocr._authenticate_bearer_token")
+    def test_scan_registration_route_rejects_foreign_listing_linkage(self, mock_authenticate):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+
+        with patch("routes.ocr.verify_listing_ownership", return_value=False):
+            response = self.client.post(
+                "/api/ocr/scan-registration",
+                data={
+                    "image": (_jpeg_bytes(), "mulkiya.jpg"),
+                    "listing_type": "car",
+                    "listing_id": "foreign-listing",
+                },
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.get_json()["error"], "listing ownership could not be verified")
+
+    @patch("routes.ocr._authenticate_bearer_token")
+    def test_scan_registration_route_rejects_unknown_listing_type(self, mock_authenticate):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+
+        response = self.client.post(
+            "/api/ocr/scan-registration",
+            data={
+                "image": (_jpeg_bytes(), "mulkiya.jpg"),
+                "listing_type": "unknown",
+                "listing_id": "listing-456",
+            },
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], "unsupported listing_type")
 
     def test_scan_registration_route_requires_auth(self):
         response = self.client.post(
@@ -301,6 +349,23 @@ class RegistrationOCRRouteTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 413)
+
+    def test_upload_validation_checks_actual_file_size(self):
+        with backend.app.test_request_context(
+            "/api/ocr/scan-registration",
+            method="POST",
+            environ_base={"CONTENT_LENGTH": "1"},
+        ):
+            upload = FileStorage(
+                stream=io.BytesIO(b"x" * 128),
+                filename="tiny-header.jpg",
+                content_type="image/jpeg",
+            )
+            with patch("routes.ocr._max_upload_bytes", return_value=32):
+                response, status = ocr_route._validate_registration_upload(upload)
+
+        self.assertEqual(status, 413)
+        self.assertEqual(response.get_json()["error"], "image upload is too large")
 
     def test_scan_registration_route_returns_generic_500(self):
         with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:

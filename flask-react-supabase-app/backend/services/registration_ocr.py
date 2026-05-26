@@ -20,6 +20,9 @@ VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 YEAR_RE = re.compile(r"\b(19[8-9]\d|20[0-4]\d)\b")
 DEFAULT_ACCEPTANCE_THRESHOLD = 0.90
 DEFAULT_MAX_IMAGE_PIXELS = 25000000
+DEFAULT_MAX_RESIZE_PIXELS = 6000000
+DEFAULT_MAX_RESIZE_WIDTH = 2400
+DEFAULT_MAX_RESIZE_HEIGHT = 2400
 
 
 class TesseractOCRProvider:
@@ -78,7 +81,36 @@ def _max_image_pixels():
         return DEFAULT_MAX_IMAGE_PIXELS
 
 
-def preprocess_image(image_file, max_pixels=None):
+def _env_int(name, fallback):
+    try:
+        return int(os.getenv(name, str(fallback)))
+    except ValueError:
+        return fallback
+
+
+def _resize_guardrails(max_resize_pixels=None, max_width=None, max_height=None):
+    return {
+        "pixels": (
+            _env_int("OCR_MAX_RESIZE_PIXELS", DEFAULT_MAX_RESIZE_PIXELS)
+            if max_resize_pixels is None
+            else max_resize_pixels
+        ),
+        "width": _env_int("OCR_MAX_IMAGE_WIDTH", DEFAULT_MAX_RESIZE_WIDTH)
+        if max_width is None
+        else max_width,
+        "height": _env_int("OCR_MAX_IMAGE_HEIGHT", DEFAULT_MAX_RESIZE_HEIGHT)
+        if max_height is None
+        else max_height,
+    }
+
+
+def preprocess_image(
+    image_file,
+    max_pixels=None,
+    max_resize_pixels=None,
+    max_width=None,
+    max_height=None,
+):
     image_file.seek(0)
     try:
         image = Image.open(image_file)
@@ -97,7 +129,15 @@ def preprocess_image(image_file, max_pixels=None):
     image = ImageEnhance.Sharpness(image).enhance(1.5)
     if image.width < 1200:
         ratio = 1200 / max(image.width, 1)
-        image = image.resize((1200, int(image.height * ratio)))
+        target_size = (1200, int(image.height * ratio))
+        guardrails = _resize_guardrails(max_resize_pixels, max_width, max_height)
+        if (
+            target_size[0] > guardrails["width"]
+            or target_size[1] > guardrails["height"]
+            or target_size[0] * target_size[1] > guardrails["pixels"]
+        ):
+            raise ValueError("resized image dimensions are too large")
+        image = image.resize(target_size)
     return image
 
 

@@ -144,6 +144,18 @@ class VINDecoderTests(unittest.TestCase):
         self.assertIn("invalid_format", result["errors"])
         session.get.assert_not_called()
 
+    def test_invalid_vin_cache_is_bounded(self):
+        session = Mock()
+        cache = {}
+        decoder = VINDecoder(session=session, cache=cache, max_cache_entries=2)
+
+        decoder.validate_and_decode("1HGCM82633A00I352")
+        decoder.validate_and_decode("1HGCM82633A00I353")
+        decoder.validate_and_decode("1HGCM82633A00I354")
+
+        self.assertEqual(len(cache), 2)
+        self.assertNotIn("1HGCM82633A00I352", cache)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,6 +36,7 @@ class VINDecoder:
         session=None,
         cache=None,
         cache_ttl_seconds=None,
+        max_cache_entries=None,
         clock=None,
     ):
         self.decoder_url = decoder_url or os.getenv("VIN_DECODER_URL")
@@ -51,6 +52,11 @@ class VINDecoder:
             cache_ttl_seconds
             if cache_ttl_seconds is not None
             else int(os.getenv("VIN_DECODER_CACHE_TTL_SECONDS", "86400"))
+        )
+        self.max_cache_entries = (
+            max_cache_entries
+            if max_cache_entries is not None
+            else int(os.getenv("VIN_DECODER_MAX_CACHE_ENTRIES", "1000"))
         )
         self.clock = clock or time.time
 
@@ -93,7 +99,13 @@ class VINDecoder:
             "expires_at": self.clock() + self.cache_ttl_seconds,
             "result": copy.deepcopy(result),
         }
+        self._enforce_cache_bound()
         return copy.deepcopy(result)
+
+    def _enforce_cache_bound(self):
+        while self.max_cache_entries > 0 and len(self.cache) > self.max_cache_entries:
+            oldest_key = next(iter(self.cache))
+            self.cache.pop(oldest_key, None)
 
     def _get_cached(self, vin):
         cached = self.cache.get(vin)
