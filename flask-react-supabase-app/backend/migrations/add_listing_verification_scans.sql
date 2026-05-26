@@ -20,3 +20,9 @@ CREATE INDEX IF NOT EXISTS idx_listing_verification_scans_user_id
 
 CREATE INDEX IF NOT EXISTS idx_listing_verification_scans_needs_review
     ON public.listing_verification_scans (needs_review);
+
+ALTER TABLE public.listing_verification_scans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.listing_verification_scans FORCE ROW LEVEL SECURITY;
+
+COMMENT ON TABLE public.listing_verification_scans IS
+    'Sensitive OCR registration scans. No public RLS policy is created; backend service role writes scan records.';

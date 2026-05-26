@@ -62,6 +62,7 @@ class VINDecoder:
 
         base_result = {
             "vin": normalized_vin,
+            "valid": False,
             "is_valid": False,
             "checksum_valid": False,
             "decoded": {},
@@ -82,6 +83,9 @@ class VINDecoder:
         base_result["decoded"] = remote["decoded"]
         base_result["errors"].extend(remote["errors"])
         base_result["is_valid"] = not base_result["errors"]
+        base_result["valid"] = base_result["is_valid"]
+        if "decoder_unavailable" in base_result["errors"]:
+            return copy.deepcopy(base_result)
         return self._cache(normalized_vin, base_result)
 
     def _cache(self, vin, result):
@@ -145,6 +149,7 @@ class VINDecoder:
             "make": result.get("Make") or result.get("make"),
             "model": result.get("Model") or result.get("model"),
             "year": result.get("ModelYear") or result.get("year"),
+            "model_year": result.get("ModelYear") or result.get("model_year"),
         }
         decoded = {key: value for key, value in decoded.items() if value}
 

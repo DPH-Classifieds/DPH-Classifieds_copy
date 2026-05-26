@@ -31,9 +31,9 @@ class FakeVINDecoder:
         return decoded
 
 
-def _jpeg_bytes():
+def _jpeg_bytes(size=(8, 8)):
     buffer = io.BytesIO()
-    Image.new("RGB", (8, 8), color=(255, 255, 255)).save(buffer, format="JPEG")
+    Image.new("RGB", size, color=(255, 255, 255)).save(buffer, format="JPEG")
     buffer.seek(0)
     return buffer
 
@@ -80,6 +80,8 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertEqual(result["fields"]["model"], "Accord")
         self.assertEqual(result["fields"]["year"], "2003")
         self.assertEqual(result["fields"]["vin"], VALID_VIN)
+        self.assertTrue(result["vin_validation"]["valid"])
+        self.assertEqual(result["vin_validation"]["decoded"]["model_year"], "2003")
         self.assertFalse(result["needs_review"])
         self.assertEqual(result["review_reasons"], [])
         self.assertGreaterEqual(result["confidence"]["overall"], 0.85)
@@ -190,6 +192,7 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         backend.app.config["TESTING"] = True
         self.client = backend.app.test_client()
 
+    @patch("routes.ocr._authenticate_bearer_token")
     @patch.object(registration_ocr, "persist_scan")
     @patch.object(registration_ocr, "get_default_vin_decoder")
     @patch.object(registration_ocr, "get_default_ocr_provider")
@@ -198,7 +201,9 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         mock_provider_factory,
         mock_decoder_factory,
         mock_persist_scan,
+        mock_authenticate,
     ):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
         mock_provider_factory.return_value = FakeOCRProvider(
             f"Make: Honda\nModel: Accord\nYear: 2003\nVIN: {VALID_VIN}"
         )
@@ -223,8 +228,9 @@ class RegistrationOCRRouteTests(unittest.TestCase):
                 "document_type": "hayaza",
                 "listing_type": "car",
                 "listing_id": "listing-456",
-                "user_id": "user-456",
+                "user_id": "spoofed-user",
             },
+            headers={"Authorization": "Bearer test-token"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -233,19 +239,100 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         self.assertEqual(payload["document_type"], "hayaza")
         self.assertFalse(payload["needs_review"])
         self.assertEqual(payload["fields"]["vin"], VALID_VIN)
+        self.assertTrue(payload["vin_validation"]["valid"])
+        self.assertEqual(payload["vin_validation"]["decoded"]["model_year"], "2003")
         persisted_payload = mock_persist_scan.call_args.args[0]
         self.assertEqual(persisted_payload["listing_type"], "car")
         self.assertEqual(persisted_payload["listing_id"], "listing-456")
-        self.assertEqual(persisted_payload["user_id"], "user-456")
+        self.assertEqual(persisted_payload["user_id"], "auth-user-123")
 
-    def test_scan_registration_route_requires_image(self):
+    def test_scan_registration_route_requires_auth(self):
         response = self.client.post(
             "/api/ocr/scan-registration",
-            data={"document_type": "mulkiya"},
+            data={"image": (_jpeg_bytes(), "mulkiya.jpg")},
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    @patch("routes.ocr._authenticate_bearer_token")
+    def test_scan_registration_route_rejects_non_image_upload(self, mock_authenticate):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+
+        response = self.client.post(
+            "/api/ocr/scan-registration",
+            data={"image": (io.BytesIO(b"not an image"), "document.txt")},
+            headers={"Authorization": "Bearer test-token"},
         )
 
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], "image upload must be an image")
+
+    @patch("routes.ocr._authenticate_bearer_token")
+    def test_scan_registration_route_rejects_invalid_image_content(self, mock_authenticate):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+
+        response = self.client.post(
+            "/api/ocr/scan-registration",
+            data={
+                "image": (
+                    io.BytesIO(b"not really a jpeg"),
+                    "spoofed.jpg",
+                    "image/jpeg",
+                )
+            },
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.get_json()["error"],
+            "image upload must be a valid image",
+        )
+
+    @patch("routes.ocr._authenticate_bearer_token")
+    def test_scan_registration_route_rejects_oversized_request(self, mock_authenticate):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+
+        with patch.object(backend.app, "config", {**backend.app.config, "MAX_CONTENT_LENGTH": 32}):
+            response = self.client.post(
+                "/api/ocr/scan-registration",
+                data={"image": (_jpeg_bytes(), "large.jpg")},
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        self.assertEqual(response.status_code, 413)
+
+    def test_scan_registration_route_returns_generic_500(self):
+        with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:
+            mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+            with patch("routes.ocr.scan_registration_image") as mock_scan:
+                mock_scan.side_effect = RuntimeError("secret backend detail")
+                response = self.client.post(
+                    "/api/ocr/scan-registration",
+                    data={"image": (_jpeg_bytes(), "mulkiya.jpg")},
+                    headers={"Authorization": "Bearer test-token"},
+                )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.get_json(), {"error": "registration OCR scan failed"})
+
+    def test_scan_registration_route_requires_image(self):
+        with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:
+            mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+            response = self.client.post(
+                "/api/ocr/scan-registration",
+                data={"document_type": "mulkiya"},
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()["error"], "image is required")
+
+    def test_rejects_image_above_pixel_guardrail(self):
+        with self.assertRaises(ValueError) as context:
+            registration_ocr.preprocess_image(_jpeg_bytes(size=(32, 32)), max_pixels=100)
+
+        self.assertIn("image dimensions are too large", str(context.exception))
 
     def test_sample_fixtures_are_valid_jpegs(self):
         testdata_dir = os.path.join(os.path.dirname(__file__), "testdata")
@@ -255,6 +342,21 @@ class RegistrationOCRRouteTests(unittest.TestCase):
                 self.assertEqual(image.format, "JPEG")
                 self.assertGreaterEqual(image.width, 1)
                 self.assertGreaterEqual(image.height, 1)
+
+    def test_scan_migration_enables_rls_without_public_policy(self):
+        migration_path = os.path.join(
+            os.path.dirname(__file__),
+            "migrations",
+            "add_listing_verification_scans.sql",
+        )
+        with open(migration_path, "r", encoding="utf-8") as migration:
+            source = migration.read().lower()
+
+        self.assertIn(
+            "alter table public.listing_verification_scans enable row level security",
+            source,
+        )
+        self.assertNotIn("using (true)", source)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,11 @@ class VINDecoderTests(unittest.TestCase):
         }
         return response
 
+    def _decoder_outage_response(self):
+        response = Mock()
+        response.raise_for_status.side_effect = RuntimeError("decoder down")
+        return response
+
     def test_validates_checksum_and_decodes_with_cache(self):
         response = self._decoder_response()
         session = Mock()
@@ -89,6 +94,28 @@ class VINDecoderTests(unittest.TestCase):
         self.assertEqual(first["decoded"]["make"], "HONDA")
         self.assertEqual(second["decoded"]["make"], "HONDA")
         self.assertEqual(third["decoded"]["make"], "ACURA")
+        self.assertEqual(session.get.call_count, 2)
+
+    def test_decoder_outage_is_not_cached_for_normal_ttl(self):
+        session = Mock()
+        session.get.side_effect = [
+            self._decoder_outage_response(),
+            self._decoder_response("HONDA"),
+        ]
+
+        decoder = VINDecoder(
+            decoder_base_url="https://decoder.example/decodevinvaluesextended",
+            session=session,
+            cache={},
+            cache_ttl_seconds=86400,
+        )
+
+        first = decoder.validate_and_decode(VALID_VIN)
+        second = decoder.validate_and_decode(VALID_VIN)
+
+        self.assertIn("decoder_unavailable", first["errors"])
+        self.assertTrue(second["valid"])
+        self.assertEqual(second["decoded"]["make"], "HONDA")
         self.assertEqual(session.get.call_count, 2)
 
     def test_rejects_invalid_checksum_without_remote_lookup(self):

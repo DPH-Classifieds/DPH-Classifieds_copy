@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime, timezone
 
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
 
 from services.vin_decoder import VINDecoder
 
@@ -18,9 +18,8 @@ FIELD_ALIASES = {
 
 VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 YEAR_RE = re.compile(r"\b(19[8-9]\d|20[0-4]\d)\b")
-DEFAULT_CONFIDENCE_THRESHOLD = 0.75
 DEFAULT_ACCEPTANCE_THRESHOLD = 0.90
-DEFAULT_REVIEW_THRESHOLD = 0.75
+DEFAULT_MAX_IMAGE_PIXELS = 25000000
 
 
 class TesseractOCRProvider:
@@ -71,10 +70,27 @@ def _clean_vin(value):
     return re.sub(r"[^A-HJ-NPR-Z0-9]", "", (value or "").upper())
 
 
-def preprocess_image(image_file):
+def _max_image_pixels():
+    configured = os.getenv("OCR_MAX_IMAGE_PIXELS") or os.getenv("MAX_IMAGE_PIXELS")
+    try:
+        return int(configured or DEFAULT_MAX_IMAGE_PIXELS)
+    except ValueError:
+        return DEFAULT_MAX_IMAGE_PIXELS
+
+
+def preprocess_image(image_file, max_pixels=None):
     image_file.seek(0)
-    image = Image.open(image_file)
-    image.load()
+    try:
+        image = Image.open(image_file)
+    except UnidentifiedImageError as exc:
+        raise ValueError("image upload must be a valid image") from exc
+    max_pixels = _max_image_pixels() if max_pixels is None else max_pixels
+    if image.width * image.height > max_pixels:
+        raise ValueError("image dimensions are too large")
+    try:
+        image.load()
+    except UnidentifiedImageError as exc:
+        raise ValueError("image upload must be a valid image") from exc
     image = ImageOps.exif_transpose(image).convert("RGB")
     image = ImageOps.grayscale(image)
     image = ImageOps.autocontrast(image)
@@ -138,7 +154,14 @@ def _normalized_compare(value):
 
 def cross_check_vin(fields, vin_result):
     validation = dict(vin_result or {})
+    validation["valid"] = bool(validation.get("valid", validation.get("is_valid")))
+    validation["is_valid"] = validation["valid"]
     decoded = validation.get("decoded") or {}
+    if "model_year" not in decoded and decoded.get("year"):
+        decoded["model_year"] = decoded.get("year")
+    if "year" not in decoded and decoded.get("model_year"):
+        decoded["year"] = decoded.get("model_year")
+    validation["decoded"] = decoded
     mismatches = []
 
     for field in ("make", "model", "year"):
@@ -171,17 +194,7 @@ def _acceptance_threshold():
     return _env_float("OCR_CONFIDENCE_THRESHOLD", DEFAULT_ACCEPTANCE_THRESHOLD)
 
 
-def _review_threshold():
-    return _env_float("OCR_REVIEW_THRESHOLD", DEFAULT_REVIEW_THRESHOLD)
-
-
 def _confidence_threshold():
-    legacy_threshold = os.getenv("OCR_CONFIDENCE_REVIEW_THRESHOLD")
-    if legacy_threshold is not None:
-        return max(
-            _acceptance_threshold(),
-            _env_float("OCR_CONFIDENCE_REVIEW_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD),
-        )
     return _acceptance_threshold()
 
 
@@ -261,6 +274,7 @@ def scan_registration_image(
     else:
         vin_validation = {
             "vin": None,
+            "valid": False,
             "is_valid": False,
             "checksum_valid": False,
             "decoded": {},
@@ -275,8 +289,6 @@ def scan_registration_image(
         review_reasons.append("decoder_mismatch")
     confidence_overall = confidence.get("overall", 0)
     if confidence_overall < _confidence_threshold():
-        review_reasons.append("low_confidence")
-    elif confidence_overall < _review_threshold():
         review_reasons.append("low_confidence")
 
     needs_review = bool(review_reasons)
