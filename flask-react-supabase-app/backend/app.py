@@ -1062,6 +1062,105 @@ def _resubmission_listing_lifecycle_fields():
     }
 
 
+def _build_renewed_listing_updates(listing, *, now=None):
+    now = now or _utc_now()
+    expiry_anchor = _parse_datetime((listing or {}).get("expires_at")) or now
+    if expiry_anchor < now:
+        expiry_anchor = now
+    new_expires_at = expiry_anchor + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
+    return {
+        "status": "approved",
+        "sold_status": "not_sold_renew",
+        "sold_status_set_at": _isoformat_utc(now),
+        "last_extended_at": _isoformat_utc(now),
+        "extension_count": int((listing or {}).get("extension_count") or 0) + 1,
+        "expires_at": _isoformat_utc(new_expires_at),
+        "expired_at": None,
+        "retention_expires_at": _isoformat_utc(
+            new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+        ),
+        "sold_response_deadline": None,
+        "auto_removed_at": None,
+        "is_archived": False,
+    }
+
+
+def _listing_needs_renewal_repair(record):
+    return bool(_stale_renewal_repair_fields(record))
+
+
+def _fetch_listing_by_id(table_name, listing_id, *, current_user=None, use_service_role=False):
+    params = {"select": "*", "id": f"eq.{listing_id}", "limit": 1}
+    response, status_code = supabase_request(
+        "get",
+        f"/rest/v1/{table_name}",
+        params=params,
+        user_id=current_user,
+        use_service_role=use_service_role,
+    )
+    if status_code >= 400:
+        return None, status_code
+    if not response:
+        return None, 404
+    return response[0], 200
+
+
+def _renew_listing_and_verify(table_name, listing_id, listing, *, current_user=None):
+    renewal_updates = _build_renewed_listing_updates(listing)
+    patch_response, patch_status = supabase_request(
+        "patch",
+        f"/rest/v1/{table_name}?id=eq.{listing_id}",
+        data=renewal_updates,
+        use_service_role=True,
+    )
+    if patch_status >= 400:
+        return None, patch_status, patch_response
+
+    refreshed_listing, refreshed_status = _fetch_listing_by_id(
+        table_name,
+        listing_id,
+        use_service_role=True,
+    )
+    if refreshed_status >= 400 or not refreshed_listing:
+        return None, refreshed_status, {"error": "Failed to reload renewed listing"}
+
+    if _listing_needs_renewal_repair(refreshed_listing):
+        repair_updates = _stale_renewal_repair_fields(refreshed_listing) or {}
+        if repair_updates:
+            repair_updates["sold_status"] = "not_sold_renew"
+            repair_updates["sold_status_set_at"] = renewal_updates["sold_status_set_at"]
+            repair_updates["last_extended_at"] = renewal_updates["last_extended_at"]
+            repair_updates["extension_count"] = renewal_updates["extension_count"]
+            repair_response, repair_status = supabase_request(
+                "patch",
+                f"/rest/v1/{table_name}?id=eq.{listing_id}",
+                data=repair_updates,
+                use_service_role=True,
+            )
+            if repair_status >= 400:
+                return None, repair_status, repair_response
+            refreshed_listing, refreshed_status = _fetch_listing_by_id(
+                table_name,
+                listing_id,
+                use_service_role=True,
+            )
+            if refreshed_status >= 400 or not refreshed_listing:
+                return None, refreshed_status, {
+                    "error": "Failed to reload repaired renewed listing"
+                }
+
+    synced_listing = _sync_listing_lifecycle(
+        table_name,
+        refreshed_listing,
+        hard_delete_archived=False,
+    )
+    if not synced_listing:
+        return None, 410, {"error": "Listing is no longer available"}
+    if _listing_needs_renewal_repair(synced_listing):
+        return None, 500, {"error": "Listing renewal did not persist correctly"}
+    return synced_listing, 200, None
+
+
 def _strip_lifecycle_fields(payload):
     if not isinstance(payload, dict):
         return payload
@@ -9476,50 +9575,19 @@ def extend_user_listing(current_user, item_type, item_id):
     if listing.get("status") in {"deleted", "rejected"}:
         return jsonify({"error": "This listing cannot be extended"}), 400
 
-    now = _utc_now()
-    expiry_anchor = _parse_datetime(listing.get("expires_at")) or now
-    if expiry_anchor < now:
-        expiry_anchor = now
-
-    new_expires_at = expiry_anchor + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
-    new_retention_expires_at = new_expires_at + datetime.timedelta(
-        days=LISTING_RETENTION_DAYS
-    )
-    updates = {
-        "expires_at": _isoformat_utc(new_expires_at),
-        "expired_at": None,
-        "retention_expires_at": _isoformat_utc(new_retention_expires_at),
-        "last_extended_at": _isoformat_utc(now),
-        "extension_count": int(listing.get("extension_count") or 0) + 1,
-        "is_archived": False,
-        "sold_status": "not_sold_renew",
-        "sold_status_set_at": _isoformat_utc(now),
-        "sold_response_deadline": None,
-        "auto_removed_at": None,
-    }
-
-    update_response, update_status = supabase_request(
-        "patch",
-        f"/rest/v1/{config['table']}?id=eq.{item_id}",
-        data=updates,
-        use_service_role=True,
-    )
-
-    if update_status >= 400:
-        return jsonify(update_response), update_status
-
-    refreshed_items, refreshed_status = _collect_user_listing_records(
-        current_user, item_type
+    refreshed_listing, refreshed_status, refresh_error = _renew_listing_and_verify(
+        config["table"],
+        item_id,
+        listing,
+        current_user=current_user,
     )
     if refreshed_status >= 400:
-        return jsonify({"message": "Listing extended successfully"}), 200
+        return jsonify(refresh_error or {"error": "Failed to renew listing"}), refreshed_status
 
-    refreshed_listing = next(
-        (item for item in refreshed_items if str(item.get("id")) == str(item_id)), None
-    )
+    _invalidate_public_inventory_cache(config["table"])
 
     try:
-        renewal_record = refreshed_listing or {**listing, **updates}
+        renewal_record = refreshed_listing
         owner_email = renewal_record.get("user_email") or renewal_record.get(
             "contact_email"
         )
@@ -13529,7 +13597,36 @@ def set_listing_outcome(current_user, item_type, item_id):
         "sold_status_set_at": _isoformat_utc(now),
     }
 
-    if outcome in {"not_sold_renew", "move_to_draft"}:
+    if outcome == "not_sold_renew":
+        refreshed, refreshed_status, refresh_error = _renew_listing_and_verify(
+            config["table"],
+            item_id,
+            listing,
+            current_user=current_user,
+        )
+        if refreshed_status >= 400:
+            return jsonify(refresh_error or {"error": "Failed to renew listing"}), refreshed_status
+
+        _invalidate_public_inventory_cache(config["table"])
+
+        try:
+            user_email = refreshed.get("user_email") or refreshed.get("contact_email")
+            if not user_email:
+                user_email = get_user_email(current_user)
+            if user_email and EMAIL_REGEX.match(user_email):
+                _send_listing_status_email(
+                    user_email,
+                    item_type,
+                    refreshed,
+                    "renewed",
+                    request.headers.get("Origin"),
+                )
+        except Exception as email_err:
+            logger.error(f"Error sending renewal email: {email_err}")
+
+        return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
+
+    if outcome == "move_to_draft":
         expiry_anchor = _parse_datetime(listing.get("expires_at")) or now
         if expiry_anchor < now:
             expiry_anchor = now
@@ -13539,44 +13636,22 @@ def set_listing_outcome(current_user, item_type, item_id):
         lifecycle_updates["retention_expires_at"] = _isoformat_utc(
             new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
         )
-
-        if outcome == "not_sold_renew":
-            updates.update(
-                {
-                    "status": "approved",
-                    "sold_status": "not_sold_renew",
-                    "sold_status_set_at": _isoformat_utc(now),
-                    "last_extended_at": _isoformat_utc(now),
-                    "extension_count": int(listing.get("extension_count") or 0) + 1,
-                }
-            )
-            updates.update(
-                {
-                    "expired_at": None,
-                    "retention_expires_at": lifecycle_updates["retention_expires_at"],
-                    "sold_response_deadline": None,
-                    "auto_removed_at": None,
-                    "is_archived": False,
-                    "expires_at": lifecycle_updates["expires_at"],
-                }
-            )
-        else:
-            updates.update(
-                {
-                    "status": "pending",
-                    "sold_status": None,
-                    "sold_status_set_at": None,
-                    "expired_at": None,
-                    "retention_expires_at": lifecycle_updates["retention_expires_at"],
-                    "sold_response_deadline": None,
-                    "auto_removed_at": None,
-                    "last_extended_at": lifecycle_updates["last_extended_at"],
-                    "is_archived": False,
-                    "expires_at": lifecycle_updates["expires_at"],
-                }
-            )
-            if config["table"] == "cars":
-                updates["is_approved"] = False
+        updates.update(
+            {
+                "status": "pending",
+                "sold_status": None,
+                "sold_status_set_at": None,
+                "expired_at": None,
+                "retention_expires_at": lifecycle_updates["retention_expires_at"],
+                "sold_response_deadline": None,
+                "auto_removed_at": None,
+                "last_extended_at": lifecycle_updates["last_extended_at"],
+                "is_archived": False,
+                "expires_at": lifecycle_updates["expires_at"],
+            }
+        )
+        if config["table"] == "cars":
+            updates["is_approved"] = False
     else:
         updates.update(
             {
@@ -13594,6 +13669,8 @@ def set_listing_outcome(current_user, item_type, item_id):
     if patch_status >= 400:
         return jsonify({"error": "Failed to update listing outcome"}), patch_status
 
+    _invalidate_public_inventory_cache(config["table"])
+
     refreshed_resp, refreshed_status = supabase_request(
         "get",
         f"/rest/v1/{config['table']}",
@@ -13604,25 +13681,6 @@ def set_listing_outcome(current_user, item_type, item_id):
         refreshed = _sync_listing_lifecycle(
             config["table"], refreshed_resp[0], hard_delete_archived=False
         )
-
-        # Send renewal notification email if renewed
-        if outcome == "not_sold_renew":
-            try:
-                user_email = refreshed.get("user_email") or refreshed.get(
-                    "contact_email"
-                )
-                if not user_email:
-                    user_email = get_user_email(current_user)
-                if user_email and EMAIL_REGEX.match(user_email):
-                    _send_listing_status_email(
-                        user_email,
-                        item_type,
-                        refreshed,
-                        "renewed",
-                        request.headers.get("Origin"),
-                    )
-            except Exception as email_err:
-                logger.error(f"Error sending renewal email: {email_err}")
 
         return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
 

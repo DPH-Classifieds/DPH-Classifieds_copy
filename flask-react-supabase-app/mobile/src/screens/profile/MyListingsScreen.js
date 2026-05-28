@@ -105,11 +105,13 @@ export default function MyListingsScreen({ navigation }) {
   const handleExtend = async (item) => {
     try {
       const type = item.listing_type || 'cars';
-      await apiClient.post(`/api/user/listings/${type}/${item.id}/extend`);
-      Alert.alert('Success', 'Listing extended by 30 days.');
+      await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
+        outcome: 'not_sold_renew',
+      });
+      Alert.alert('Success', 'Listing renewed for another 15 days.');
       fetchListings();
     } catch (err) {
-      Alert.alert('Error', 'Failed to extend listing.');
+      Alert.alert('Error', 'Failed to renew listing.');
     }
   };
 
