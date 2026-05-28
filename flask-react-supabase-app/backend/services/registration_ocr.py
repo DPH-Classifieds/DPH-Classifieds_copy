@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
 
-from services.vin_decoder import VINDecoder
+from services.vin_decoder import VIN_ALLOWED_RE, VINDecoder
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,13 @@ DEFAULT_MAX_IMAGE_PIXELS = 25000000
 DEFAULT_MAX_RESIZE_PIXELS = 6000000
 DEFAULT_MAX_RESIZE_WIDTH = 2400
 DEFAULT_MAX_RESIZE_HEIGHT = 2400
+VIN_OCR_SUBSTITUTIONS = {
+    "O": ("0",),
+    "Q": ("0",),
+    "D": ("0",),
+    "I": ("1",),
+    "L": ("1",),
+}
 
 
 class TesseractOCRProvider:
@@ -36,7 +43,21 @@ class TesseractOCRProvider:
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
-        return pytesseract.image_to_string(image)
+        configs = (
+            "--oem 1 --psm 6",
+            "--oem 1 --psm 11",
+            "--oem 1 --psm 12",
+        )
+        texts = []
+        for config in configs:
+            try:
+                text = pytesseract.image_to_string(image, config=config)
+            except TypeError:
+                text = pytesseract.image_to_string(image)
+            if text:
+                if text not in texts:
+                    texts.append(text)
+        return "\n".join(texts)
 
 
 def get_default_ocr_provider():
@@ -67,10 +88,45 @@ def _clean_value(value):
 
 
 def _clean_vin(value):
-    match = VIN_RE.search((value or "").upper().replace(" ", ""))
+    compact = (value or "").upper().replace(" ", "")
+    match = VIN_RE.search(compact)
     if match:
         return match.group(0)
-    return re.sub(r"[^A-HJ-NPR-Z0-9]", "", (value or "").upper())
+    cleaned = re.sub(r"[^A-Z0-9]", "", compact)
+    if len(cleaned) == 17:
+        repaired = _repair_vin_candidate(cleaned)
+        if repaired:
+            return repaired
+    return re.sub(r"[^A-HJ-NPR-Z0-9]", "", cleaned)
+
+
+def _repair_vin_candidate(value):
+    cleaned = re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+    if len(cleaned) != 17:
+        return None
+    if VIN_ALLOWED_RE.match(cleaned) and VINDecoder.is_checksum_valid(cleaned):
+        return cleaned
+
+    candidates = [cleaned]
+    for index, char in enumerate(cleaned):
+        replacements = VIN_OCR_SUBSTITUTIONS.get(char)
+        if not replacements:
+            continue
+        next_candidates = []
+        for candidate in candidates:
+            next_candidates.append(candidate)
+            for replacement in replacements:
+                next_candidates.append(candidate[:index] + replacement + candidate[index + 1 :])
+        candidates = next_candidates[:64]
+
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if VIN_ALLOWED_RE.match(candidate) and VINDecoder.is_checksum_valid(candidate):
+            return candidate
+    return None
 
 
 def _max_image_pixels():
@@ -104,6 +160,45 @@ def _resize_guardrails(max_resize_pixels=None, max_width=None, max_height=None):
     }
 
 
+def _looks_like_pdf(image_file):
+    name = str(getattr(image_file, "name", "") or getattr(image_file, "filename", "")).lower()
+    content_type = str(getattr(image_file, "content_type", "") or getattr(image_file, "mimetype", "")).lower()
+    if name.endswith(".pdf") or content_type == "application/pdf":
+        return True
+
+    current_position = image_file.tell()
+    try:
+        header = image_file.read(5)
+        return header == b"%PDF-"
+    finally:
+        image_file.seek(current_position)
+
+
+def _render_pdf_first_page(image_file):
+    try:
+        import pypdfium2 as pdfium
+    except ImportError as exc:
+        raise RuntimeError("pypdfium2 is not installed") from exc
+
+    image_file.seek(0)
+    pdf = pdfium.PdfDocument(image_file.read())
+    if len(pdf) < 1:
+        raise ValueError("PDF upload must contain at least one page")
+    page = pdf[0]
+    bitmap = page.render(scale=3).to_pil()
+    return bitmap
+
+
+def _build_ocr_variants(image):
+    base = image.copy()
+    stronger_contrast = ImageEnhance.Contrast(base).enhance(2.1)
+    threshold = stronger_contrast.point(lambda p: 255 if p >= 165 else 0)
+    enlarged = stronger_contrast.resize(
+        (max(stronger_contrast.width * 2, 1), max(stronger_contrast.height * 2, 1))
+    )
+    return [base, stronger_contrast, threshold, enlarged]
+
+
 def preprocess_image(
     image_file,
     max_pixels=None,
@@ -113,7 +208,10 @@ def preprocess_image(
 ):
     image_file.seek(0)
     try:
-        image = Image.open(image_file)
+        if _looks_like_pdf(image_file):
+            image = _render_pdf_first_page(image_file)
+        else:
+            image = Image.open(image_file)
     except UnidentifiedImageError as exc:
         raise ValueError("image upload must be a valid image") from exc
     max_pixels = _max_image_pixels() if max_pixels is None else max_pixels
@@ -174,6 +272,14 @@ def extract_registration_fields(raw_text):
         if match:
             fields["vin"] = match.group(0)
             confidence["vin"] = 0.80
+        else:
+            tokens = re.findall(r"[A-Z0-9]{14,20}", (raw_text or "").upper().replace(" ", ""))
+            for token in tokens:
+                repaired = _repair_vin_candidate(token)
+                if repaired:
+                    fields["vin"] = repaired
+                    confidence["vin"] = 0.80
+                    break
 
     if not fields["year"]:
         match = YEAR_RE.search(raw_text or "")
@@ -289,6 +395,26 @@ def _scan_record(
     }
 
 
+def _backfill_fields_from_vin_decoder(fields, confidence, vin_validation):
+    decoded = (vin_validation or {}).get("decoded") or {}
+    if not decoded:
+        return fields, confidence
+
+    merged_fields = dict(fields)
+    merged_confidence = dict(confidence)
+    original_overall = merged_confidence.get("overall")
+
+    for field, decoded_key in (("make", "make"), ("model", "model"), ("year", "model_year")):
+        decoded_value = decoded.get(decoded_key) or decoded.get(field)
+        if decoded_value and not merged_fields.get(field):
+            merged_fields[field] = str(decoded_value)
+            merged_confidence[field] = max(float(merged_confidence.get(field) or 0), 0.92)
+
+    if original_overall is not None:
+        merged_confidence["overall"] = original_overall
+    return merged_fields, merged_confidence
+
+
 def scan_registration_image(
     image_file,
     document_type=None,
@@ -303,8 +429,32 @@ def scan_registration_image(
     normalized_document_type = (document_type or "registration").strip().lower()
 
     processed_image = preprocess_image(image_file)
-    raw_text = provider.extract_text(processed_image) or ""
-    fields, confidence = extract_registration_fields(raw_text)
+    best_raw_text = ""
+    best_fields = {"make": None, "model": None, "year": None, "vin": None}
+    best_confidence = {"make": 0.0, "model": 0.0, "year": 0.0, "vin": 0.0, "overall": 0.0}
+    best_score = -1.0
+
+    for variant in _build_ocr_variants(processed_image):
+        raw_text = provider.extract_text(variant) or ""
+        fields, confidence = extract_registration_fields(raw_text)
+        score = (
+            float(confidence.get("overall") or 0)
+            + (0.4 if fields.get("vin") else 0)
+            + (0.2 if fields.get("make") else 0)
+            + (0.2 if fields.get("model") else 0)
+            + (0.2 if fields.get("year") else 0)
+        )
+        if score > best_score:
+            best_score = score
+            best_raw_text = raw_text
+            best_fields = fields
+            best_confidence = confidence
+
+    raw_text = best_raw_text
+    fields = best_fields
+    confidence = best_confidence
+
+    ocr_confidence_overall = confidence.get("overall", 0)
 
     if fields.get("vin"):
         vin_validation = cross_check_vin(
@@ -322,12 +472,14 @@ def scan_registration_image(
             "mismatches": [],
         }
 
+    fields, confidence = _backfill_fields_from_vin_decoder(fields, confidence, vin_validation)
+
     review_reasons = []
     if not vin_validation.get("is_valid"):
         review_reasons.append("vin_invalid")
     if vin_validation.get("mismatches"):
         review_reasons.append("decoder_mismatch")
-    confidence_overall = confidence.get("overall", 0)
+    confidence_overall = ocr_confidence_overall
     if confidence_overall < _confidence_threshold():
         review_reasons.append("low_confidence")
 

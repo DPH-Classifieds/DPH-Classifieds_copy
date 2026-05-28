@@ -40,6 +40,23 @@ def _jpeg_bytes(size=(8, 8)):
     return buffer
 
 
+def _pdf_bytes():
+    buffer = io.BytesIO()
+    buffer.write(
+        b"%PDF-1.4\n"
+        b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+        b"2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n"
+        b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R>>endobj\n"
+        b"4 0 obj<</Length 44>>stream\n"
+        b"BT /F1 12 Tf 20 100 Td (VIN 1HGCM82633A004352) Tj ET\n"
+        b"endstream endobj\n"
+        b"xref\n0 5\n0000000000 65535 f \n0000000010 00000 n \n0000000053 00000 n \n0000000110 00000 n \n0000000193 00000 n \n"
+        b"trailer<</Root 1 0 R/Size 5>>\nstartxref\n287\n%%EOF\n"
+    )
+    buffer.seek(0)
+    return buffer
+
+
 class RegistrationOCRServiceTests(unittest.TestCase):
     def test_extracts_label_variants_and_persists_scan(self):
         ocr_text = "\n".join(
@@ -143,6 +160,14 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertTrue(result["needs_review"])
         self.assertIn("low_confidence", result["review_reasons"])
         self.assertLess(result["confidence"]["overall"], 0.75)
+
+    def test_extract_registration_fields_repairs_common_vin_ocr_confusions(self):
+        fields, confidence = registration_ocr.extract_registration_fields(
+            "Chassis: 1HGCM82633AOO4352"
+        )
+
+        self.assertEqual(fields["vin"], VALID_VIN)
+        self.assertGreaterEqual(confidence["vin"], 0.8)
 
     @patch.dict(os.environ, {"OCR_CONFIDENCE_THRESHOLD": "0.90"}, clear=False)
     def test_marks_review_when_confidence_is_below_acceptance_threshold(self):
@@ -313,7 +338,10 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.get_json()["error"], "image upload must be an image")
+        self.assertEqual(
+            response.get_json()["error"],
+            "image upload must be an image or PDF",
+        )
 
     @patch("routes.ocr._authenticate_bearer_token")
     def test_scan_registration_route_rejects_invalid_image_content(self, mock_authenticate):
@@ -336,6 +364,37 @@ class RegistrationOCRRouteTests(unittest.TestCase):
             response.get_json()["error"],
             "image upload must be a valid image",
         )
+
+    @patch("routes.ocr._authenticate_bearer_token")
+    @patch("routes.ocr.scan_registration_image")
+    def test_scan_registration_route_accepts_pdf_upload(
+        self,
+        mock_scan_registration_image,
+        mock_authenticate,
+    ):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+        mock_scan_registration_image.return_value = {
+            "fields": {"vin": VALID_VIN},
+            "confidence": {"overall": 0.95},
+            "vin_validation": {"valid": True, "decoded": {}},
+            "needs_review": False,
+            "review_reasons": [],
+            "document_type": "mulkiya",
+            "raw_text": "",
+            "scan_id": "scan-pdf-1",
+        }
+
+        response = self.client.post(
+            "/api/ocr/scan-registration",
+            data={
+                "image": (_pdf_bytes(), "mulkiya.pdf", "application/pdf"),
+                "document_type": "mulkiya",
+            },
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["scan_id"], "scan-pdf-1")
 
     @patch("routes.ocr._authenticate_bearer_token")
     def test_scan_registration_route_rejects_oversized_request(self, mock_authenticate):

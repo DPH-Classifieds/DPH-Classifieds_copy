@@ -136,6 +136,48 @@ class ListingLifecycleEmailTests(unittest.TestCase):
             backend.datetime.datetime(2026, 4, 3, tzinfo=backend.datetime.timezone.utc),
         )
 
+    def test_sync_listing_lifecycle_repairs_pre_expiry_renewal_with_old_expiry(self):
+        record = {
+            "id": "listing-2c",
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "user_email": "owner@example.com",
+            "listing_title": "Renewed Before Expiry",
+            "status": "approved",
+            "sold_status": "not_sold_renew",
+            "created_at": "2026-04-01T00:00:00+00:00",
+            "expires_at": "2026-04-16T11:00:00+00:00",
+            "expired_at": None,
+            "retention_expires_at": "2026-05-16T11:00:00+00:00",
+            "sold_response_deadline": None,
+            "last_extended_at": "2026-04-16T08:00:00+00:00",
+            "sold_status_set_at": "2026-04-16T08:00:00+00:00",
+            "auto_removed_at": None,
+            "is_archived": False,
+        }
+
+        captured = {}
+
+        def fake_supabase_request(method, path, params=None, data=None, use_service_role=False, user_id=None):
+            if method == "patch":
+                captured["data"] = data
+                return ([record], 200)
+            return ([], 200)
+
+        with patch.object(backend, "_utc_now") as mock_now, \
+            patch.object(backend, "supabase_request", side_effect=fake_supabase_request), \
+            patch.object(backend, "_send_listing_expired_email", return_value=("ok", None)):
+            mock_now.return_value = backend.datetime.datetime(2026, 4, 16, 8, 5, tzinfo=backend.datetime.timezone.utc)
+            synced = backend._sync_listing_lifecycle("cars", record, hard_delete_archived=False)
+
+        self.assertIsNotNone(synced)
+        self.assertEqual(synced["status"], "approved")
+        self.assertIsNone(synced["expired_at"])
+        self.assertIn("expires_at", captured["data"])
+        self.assertEqual(
+            backend._parse_datetime(captured["data"]["expires_at"]),
+            backend.datetime.datetime(2026, 5, 1, 11, 0, tzinfo=backend.datetime.timezone.utc),
+        )
+
     def test_expiry_reminders_send_once_and_record_event(self):
         listing = {
             "id": "listing-3",

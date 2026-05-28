@@ -88,8 +88,9 @@ def _validate_registration_upload(image):
     if actual_size is not None and actual_size > max_bytes:
         return jsonify({"error": "image upload is too large"}), 413
 
-    if not (image.mimetype or "").lower().startswith("image/"):
-        return jsonify({"error": "image upload must be an image"}), 400
+    mimetype = (image.mimetype or "").lower()
+    if not (mimetype.startswith("image/") or mimetype == "application/pdf"):
+        return jsonify({"error": "image upload must be an image or PDF"}), 400
 
     return None
 

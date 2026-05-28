@@ -244,6 +244,16 @@ DEALER_DOCUMENT_ALLOWED_MIME_TYPES = [
 DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("DEALER_DOCUMENT_FILE_SIZE_LIMIT_MB", "10")) * 1024 * 1024
 )
+REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "application/pdf",
+]
+REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
+    int(os.getenv("REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_MB", "10")) * 1024 * 1024
+)
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 LISTING_OUTCOME_OPTIONS = {
     "sold_on_dph",
@@ -599,6 +609,52 @@ def _default_expiry_from_created_at(record):
     return created_at + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
 
 
+def _renewal_timestamp(record):
+    if not isinstance(record, dict):
+        return None
+    candidates = [
+        _parse_datetime(record.get("last_extended_at")),
+        _parse_datetime(record.get("sold_status_set_at")),
+    ]
+    candidates = [value for value in candidates if value is not None]
+    if not candidates:
+        return None
+    return max(candidates)
+
+
+def _stale_renewal_repair_fields(record):
+    if not isinstance(record, dict):
+        return None
+    if record.get("status") in {"deleted", "rejected", "sold"}:
+        return None
+    if record.get("sold_status") != "not_sold_renew":
+        return None
+
+    renewal_at = _renewal_timestamp(record)
+    if renewal_at is None:
+        return None
+
+    current_expires_at = _parse_datetime(record.get("expires_at")) or _default_expiry_from_created_at(record)
+    min_expected_expiry = renewal_at + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
+    if current_expires_at >= min_expected_expiry:
+        return None
+
+    repaired_expires_at = max(current_expires_at, renewal_at) + datetime.timedelta(
+        days=LISTING_EXPIRY_DAYS
+    )
+    return {
+        "expires_at": _isoformat_utc(repaired_expires_at),
+        "expired_at": None,
+        "retention_expires_at": _isoformat_utc(
+            repaired_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
+        ),
+        "sold_response_deadline": None,
+        "auto_removed_at": None,
+        "is_archived": False,
+        "status": "approved",
+    }
+
+
 def _compute_listing_lifecycle(record):
     now = _utc_now()
     expires_at = _parse_datetime(
@@ -606,6 +662,12 @@ def _compute_listing_lifecycle(record):
     ) or _default_expiry_from_created_at(record)
     last_extended_at = _parse_datetime(record.get("last_extended_at"))
     renewal_repaired = False
+    stale_renewal_repair = _stale_renewal_repair_fields(record)
+    if stale_renewal_repair:
+        repaired_expires_at = _parse_datetime(stale_renewal_repair.get("expires_at"))
+        if repaired_expires_at:
+            expires_at = repaired_expires_at
+            renewal_repaired = True
     if (
         last_extended_at
         and expires_at <= last_extended_at
@@ -800,6 +862,11 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
         return record
 
     repaired = {}
+    stale_renewal_repair = _stale_renewal_repair_fields(record)
+    if stale_renewal_repair:
+        repaired.update(stale_renewal_repair)
+        record = {**record, **stale_renewal_repair}
+
     last_extended_at = _parse_datetime(record.get("last_extended_at"))
     expires_at = _parse_datetime(record.get("expires_at"))
     if (
@@ -5532,8 +5599,8 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                     "id": bucket_name,
                     "name": bucket_name,
                     "public": False,
-                    "file_size_limit": PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES,
-                    "allowed_mime_types": LISTING_IMAGE_ALLOWED_MIME_TYPES,
+                    "file_size_limit": REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES,
+                    "allowed_mime_types": REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES,
                 }
 
             if desired_config and (
@@ -5577,8 +5644,8 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                 create_data["allowed_mime_types"] = DEALER_DOCUMENT_ALLOWED_MIME_TYPES
             elif bucket_name == "registration-documents":
                 create_data["public"] = False
-                create_data["file_size_limit"] = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES
-                create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
+                create_data["file_size_limit"] = REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES
+                create_data["allowed_mime_types"] = REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES
             create_response = requests.post(
                 create_url,
                 headers={**headers, "Content-Type": "application/json"},

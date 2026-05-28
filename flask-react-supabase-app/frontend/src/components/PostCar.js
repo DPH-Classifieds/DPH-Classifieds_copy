@@ -599,8 +599,8 @@ const PostCar = () => {
         const formData = new FormData();
         formData.append('image', backendFile, backendFile?.name || 'registration-scan');
         formData.append('document_type', 'mulkiya');
-        formData.append('listing_type', 'car');
         if (isEdit && listingId) {
+          formData.append('listing_type', 'car');
           formData.append('listing_id', listingId);
         }
 

@@ -53,8 +53,8 @@ export const scanCarRegistration = async ({
       name: 'registration.jpg',
     });
     formData.append('document_type', documentType);
-    formData.append('listing_type', listingType);
-    if (listingId) {
+    if (listingType && listingId) {
+      formData.append('listing_type', listingType);
       formData.append('listing_id', listingId);
     }
 
