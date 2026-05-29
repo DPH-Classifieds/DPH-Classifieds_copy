@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import builtins
 import io
 import os
 import unittest
@@ -212,6 +213,46 @@ class RegistrationOCRServiceTests(unittest.TestCase):
             fake_pytesseract.pytesseract.tesseract_cmd,
             "/custom/bin/tesseract",
         )
+
+    @patch("subprocess.run")
+    def test_tesseract_provider_falls_back_to_cli_when_pytesseract_is_unavailable(self, mock_run):
+        mock_run.return_value = __import__("subprocess").CompletedProcess(
+            args=["tesseract"],
+            returncode=0,
+            stdout="Make: Honda\n",
+            stderr="",
+        )
+
+        original_import = builtins.__import__
+
+        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "pytesseract":
+                raise ImportError("pytesseract is unavailable")
+            return original_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=guarded_import):
+            provider = registration_ocr.TesseractOCRProvider()
+            text = provider.extract_text(Image.new("L", (32, 32)))
+
+        self.assertEqual(text, "Make: Honda")
+        self.assertTrue(mock_run.called)
+
+    def test_extract_registration_fields_handles_registration_card_noise(self):
+        raw_text = "\n".join(
+            [
+                "Vehicle Information",
+                "| Model 2025 quiseall 2.14] Num. of Pass. 5 cls I! sae",
+                "Veh. Type} GREAT WALL TANK 300 GREAT WALL TANK 300}4u5 511 fas)",
+                "Chassis No. LGWFF7A51SJ614961 3.4clal @ yy",
+            ]
+        )
+
+        fields, confidence = registration_ocr.extract_registration_fields(raw_text)
+
+        self.assertEqual(fields["year"], "2025")
+        self.assertEqual(fields["vin"], "LGWFF7A51SJ614961")
+        self.assertGreaterEqual(confidence["year"], 0.65)
+        self.assertGreaterEqual(confidence["vin"], 0.8)
 
     def test_rejects_resize_that_would_exceed_output_pixel_guardrail(self):
         with self.assertRaises(ValueError) as context:

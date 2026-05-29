@@ -1,6 +1,8 @@
 import logging
 import os
 import re
+import subprocess
+import tempfile
 from datetime import datetime, timezone
 
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
@@ -11,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 FIELD_ALIASES = {
     "make": {"make", "manufacturer", "brand"},
-    "model": {"model", "type"},
+    "model": {"model", "type", "veh type", "vehicle type"},
     "year": {"year", "model year", "manufacture year", "mfg year"},
-    "vin": {"vin", "chassis", "chassis number", "frame number", "vehicle id"},
+    "vin": {"vin", "chassis", "chassis no", "chassis number", "frame number", "vehicle id"},
 }
 
 VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
@@ -33,16 +35,45 @@ VIN_OCR_SUBSTITUTIONS = {
 
 
 class TesseractOCRProvider:
-    def extract_text(self, image):
-        try:
-            import pytesseract
-        except ImportError as exc:
-            raise RuntimeError("pytesseract is not installed") from exc
+    def _run_with_pytesseract(self, image, config):
+        import pytesseract
 
         tesseract_cmd = os.getenv("TESSERACT_CMD")
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
+        try:
+            return pytesseract.image_to_string(image, config=config)
+        except TypeError:
+            return pytesseract.image_to_string(image)
+
+    def _run_with_cli(self, image, config):
+        tesseract_cmd = os.getenv("TESSERACT_CMD", "tesseract")
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            image.save(temp_file.name, format="PNG")
+            temp_path = temp_file.name
+
+        try:
+            command = [tesseract_cmd, temp_path, "stdout"]
+            if config:
+                command.extend(config.split())
+
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode not in (0, 1):
+                raise RuntimeError((result.stderr or "").strip() or "tesseract CLI failed")
+            return result.stdout or ""
+        finally:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
+    def extract_text(self, image):
         configs = (
             "--oem 1 --psm 6",
             "--oem 1 --psm 11",
@@ -51,9 +82,11 @@ class TesseractOCRProvider:
         texts = []
         for config in configs:
             try:
-                text = pytesseract.image_to_string(image, config=config)
-            except TypeError:
-                text = pytesseract.image_to_string(image)
+                text = self._run_with_pytesseract(image, config)
+            except Exception as pytesseract_error:
+                logger.debug("pytesseract OCR failed, falling back to CLI: %s", pytesseract_error)
+                text = self._run_with_cli(image, config)
+            text = (text or "").strip()
             if text:
                 if text not in texts:
                     texts.append(text)
@@ -98,6 +131,45 @@ def _clean_vin(value):
         if repaired:
             return repaired
     return re.sub(r"[^A-HJ-NPR-Z0-9]", "", cleaned)
+
+
+def _collapse_repeated_phrase(value):
+    tokens = re.findall(r"[A-Z0-9]+", str(value or "").upper())
+    if len(tokens) >= 4 and len(tokens) % 2 == 0:
+        half = len(tokens) // 2
+        if tokens[:half] == tokens[half:]:
+            return " ".join(tokens[:half])
+    return " ".join(tokens)
+
+
+def _split_vehicle_type(value):
+    tokens = re.findall(r"[A-Z0-9]+", str(value or "").upper())
+    if len(tokens) >= 3:
+        return " ".join(tokens[:2]), " ".join(tokens[2:])
+    if len(tokens) == 2:
+        return tokens[0], tokens[1]
+    return None, None
+
+
+def _find_vin_candidate(raw_text):
+    normalized = (raw_text or "").upper()
+    seen = set()
+    for token in re.findall(r"[A-Z0-9]{14,20}", normalized):
+        cleaned = re.sub(r"[^A-Z0-9]", "", token)
+        if len(cleaned) < 17:
+            continue
+
+        windows = [cleaned] if len(cleaned) == 17 else [cleaned[index : index + 17] for index in range(len(cleaned) - 16)]
+        for candidate in windows:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            repaired = _repair_vin_candidate(candidate)
+            if repaired:
+                return repaired
+            return candidate
+
+    return None
 
 
 def _repair_vin_candidate(value):
@@ -257,6 +329,14 @@ def extract_registration_fields(raw_text):
             continue
 
         value = _clean_value(match.group(2))
+        if field == "model":
+            year_match = YEAR_RE.match(value)
+            if year_match:
+                if not fields["year"]:
+                    fields["year"] = year_match.group(1)
+                    confidence["year"] = 0.65
+                continue
+
         if field == "vin":
             value = _clean_vin(value)
         elif field == "year":
@@ -273,13 +353,32 @@ def extract_registration_fields(raw_text):
             fields["vin"] = match.group(0)
             confidence["vin"] = 0.80
         else:
-            tokens = re.findall(r"[A-Z0-9]{14,20}", (raw_text or "").upper().replace(" ", ""))
-            for token in tokens:
-                repaired = _repair_vin_candidate(token)
-                if repaired:
-                    fields["vin"] = repaired
-                    confidence["vin"] = 0.80
-                    break
+            candidate = _find_vin_candidate(raw_text)
+            if candidate:
+                fields["vin"] = candidate
+                confidence["vin"] = 0.80
+
+    if not fields["year"]:
+        model_year_match = re.search(r"\bModel\b[\s\]\}\|:.\-]*((?:19[8-9]\d|20[0-4]\d))\b", raw_text or "", re.IGNORECASE)
+        if model_year_match:
+            fields["year"] = model_year_match.group(1)
+            confidence["year"] = 0.65
+
+    if not fields["make"] or not fields["model"]:
+        vehicle_type_match = re.search(
+            r"\b(?:Veh\.?\s*Type|Vehicle\s+Type)\b[\s\]\}\|:.\-]*([A-Z0-9][A-Z0-9 ]{3,80})",
+            raw_text or "",
+            re.IGNORECASE,
+        )
+        if vehicle_type_match:
+            collapsed = _collapse_repeated_phrase(vehicle_type_match.group(1))
+            inferred_make, inferred_model = _split_vehicle_type(collapsed)
+            if inferred_make and not fields["make"]:
+                fields["make"] = inferred_make
+                confidence["make"] = max(confidence["make"], 0.6)
+            if inferred_model and not fields["model"]:
+                fields["model"] = inferred_model
+                confidence["model"] = max(confidence["model"], 0.6)
 
     if not fields["year"]:
         match = YEAR_RE.search(raw_text or "")
