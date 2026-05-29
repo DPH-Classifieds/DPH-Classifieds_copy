@@ -36,6 +36,15 @@ import { normalizeRegistrationScanResponse } from '../utils/registrationScan';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
+// pdfjs-dist 4.x no longer honors `disableWorker: true` on getDocument —
+// it always reads GlobalWorkerOptions.workerSrc and throws if unset. Pin
+// the worker to a version-matched CDN copy so PDF rendering works for the
+// local OCR fallback path. Set once at module load.
+if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/legacy/build/pdf.worker.min.mjs`;
+}
+
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -364,7 +373,7 @@ const PostCar = () => {
 
   const renderPdfPageToPngFile = useCallback(async ({ file, pageNumber = 1, scale = 3 } = {}) => {
     const data = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data, disableWorker: true }).promise;
+    const pdf = await pdfjsLib.getDocument({ data }).promise;
     const page = await pdf.getPage(pageNumber);
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
@@ -588,16 +597,15 @@ const PostCar = () => {
     }
 
     try {
-      const prepared = await prepareRegistrationOcrInput(registrationOcrFile);
-      const attempts = prepared?.attempts || [];
-      if (!attempts.length) {
-        throw new Error('No OCR input prepared');
-      }
-
+      // STEP 1: Try the backend with the ORIGINAL file. The backend accepts
+      // both images and PDFs natively, so we don't need to render PDFs locally
+      // just to talk to it. This means a local PDF-render failure (e.g. pdfjs
+      // worker issues) can no longer block the backend OCR path.
+      let backendSucceeded = false;
       try {
-        const backendFile = prepared?.backendFile || attempts[0]?.image || registrationOcrFile;
+        setRegistrationOcrStatus('Scanning…');
         const formData = new FormData();
-        formData.append('image', backendFile, backendFile?.name || 'registration-scan');
+        formData.append('image', registrationOcrFile, registrationOcrFile.name || 'registration-scan');
         formData.append('document_type', 'mulkiya');
         if (isEdit && listingId) {
           formData.append('listing_type', 'car');
@@ -609,13 +617,37 @@ const PostCar = () => {
         );
 
         applyRegistrationScanResult(backendScan);
+        setRegistrationOcrError(null);
+        backendSucceeded = true;
+
         if (backendScan.shouldAutoFill) {
           return;
         }
-
-        setRegistrationOcrError(null);
       } catch (backendError) {
         console.warn('Backend registration scan unavailable, falling back to local OCR:', backendError);
+      }
+
+      // STEP 2: Local OCR fallback. Only prepare (render PDF, preprocess images)
+      // if we still need it. If preparation fails and the backend already gave
+      // us something, surface that result rather than throwing.
+      setRegistrationOcrStatus('Preparing…');
+      let prepared = null;
+      try {
+        prepared = await prepareRegistrationOcrInput(registrationOcrFile);
+      } catch (prepError) {
+        console.warn('Local OCR preparation failed:', prepError);
+        if (backendSucceeded) {
+          return;
+        }
+        throw prepError;
+      }
+
+      const attempts = prepared?.attempts || [];
+      if (!attempts.length) {
+        if (backendSucceeded) {
+          return;
+        }
+        throw new Error('No OCR input prepared');
       }
 
       let best = null;
@@ -657,6 +689,9 @@ const PostCar = () => {
       }
 
       if (!best) {
+        if (backendSucceeded) {
+          return;
+        }
         throw new Error('OCR failed to produce results');
       }
 
