@@ -284,7 +284,9 @@ const MyListings = () => {
         throw new Error('Failed to delete listing');
       }
 
-      setListings((current) => current.filter((item) => item.id !== listing.id));
+      // Backend performs a soft-delete (status=deleted, deleted_at set). Refresh so the
+      // UI reflects the new lifecycle state and allows reposting from the deleted card.
+      await fetchUserListings();
     } catch (err) {
       console.error('Delete listing error:', err);
       setError('Failed to delete listing. Please try again.');
@@ -632,7 +634,7 @@ const MyListings = () => {
           <div className="delete-confirm-modal">
             <h3 id="delete-confirm-title">Delete listing?</h3>
             <p>
-              <strong>{buildListingTitle(deleteConfirm)}</strong> will be permanently removed. This cannot be undone.
+              <strong>{buildListingTitle(deleteConfirm)}</strong> will be removed from the marketplace. You can repost it later from your deleted listings.
             </p>
             <div className="delete-confirm-actions">
               <button className="btn btn-danger" onClick={confirmDelete}>Yes, delete it</button>
