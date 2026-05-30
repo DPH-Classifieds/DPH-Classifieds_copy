@@ -9947,6 +9947,12 @@ def repost_user_listing(current_user, item_type, item_id):
     new_listing.update(_new_listing_lifecycle_fields())
     new_listing.pop("user_dismissed_at", None)
 
+    logger.info(
+        "Reposting %s/%s: payload keys=%s",
+        config["table"],
+        item_id,
+        sorted(new_listing.keys()),
+    )
     insert_response, insert_status = supabase_request(
         "post",
         f"/rest/v1/{config['table']}",
@@ -9955,12 +9961,26 @@ def repost_user_listing(current_user, item_type, item_id):
     )
     if insert_status >= 400 or not insert_response:
         logger.warning(
-            "Repost insert failed for %s/%s: %s",
+            "Repost insert failed for %s/%s (status=%s): %s",
             config["table"],
             item_id,
+            insert_status,
             insert_response,
         )
-        return jsonify({"error": "Failed to repost listing"}), 500
+        detail = None
+        if isinstance(insert_response, dict):
+            detail = (
+                insert_response.get("message")
+                or insert_response.get("error")
+                or insert_response.get("hint")
+                or insert_response.get("details")
+            )
+        return jsonify(
+            {
+                "error": "Failed to repost listing",
+                "detail": detail or str(insert_response)[:300],
+            }
+        ), 500
 
     new_record = (
         insert_response[0] if isinstance(insert_response, list) else insert_response
