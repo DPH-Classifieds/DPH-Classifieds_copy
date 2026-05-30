@@ -265,6 +265,8 @@ LISTING_EXPIRY_NOTICE_REASON = "expiry_notice"
 LISTING_EXPIRY_EMAILS_ENABLED = os.getenv(
     "LISTING_EXPIRY_EMAILS_ENABLED", "true"
 ).strip().lower() in {"1", "true", "yes", "on"}
+LISTING_ACTIVE_STATUSES = {"approved", "active"}
+LISTING_TERMINAL_STATUSES = {"deleted", "rejected", "sold"}
 WHATSAPP_PREFILL_TEMPLATE = (
     "Hi, I saw your listing on DPHClassifieds and I am interested. "
     "Listing: {{LISTING_URL}}"
@@ -604,6 +606,23 @@ def _isoformat_utc(value):
     return value.astimezone(datetime.timezone.utc).isoformat()
 
 
+def _listing_type_for_table(table_name):
+    return next(
+        (
+            key
+            for key, cfg in LISTING_TABLE_CONFIG.items()
+            if cfg["table"] == table_name
+        ),
+        None,
+    )
+
+
+def _is_listing_deleted(record):
+    return bool(
+        record and (record.get("status") == "deleted" or record.get("deleted_at"))
+    )
+
+
 def _default_expiry_from_created_at(record):
     created_at = _parse_datetime(record.get("created_at")) or _utc_now()
     return created_at + datetime.timedelta(days=LISTING_EXPIRY_DAYS)
@@ -625,7 +644,7 @@ def _renewal_timestamp(record):
 def _stale_renewal_repair_fields(record):
     if not isinstance(record, dict):
         return None
-    if record.get("status") in {"deleted", "rejected", "sold"}:
+    if record.get("status") in LISTING_TERMINAL_STATUSES or record.get("deleted_at"):
         return None
     if record.get("sold_status") != "not_sold_renew":
         return None
@@ -826,6 +845,129 @@ def _record_listing_expiry_notice_event(
     )
 
 
+def _log_listing_expiry_decision(event, **fields):
+    payload = {"event": event}
+    payload.update(fields)
+    try:
+        logger.info(json.dumps(payload, default=str, sort_keys=True))
+    except TypeError:
+        logger.info("%s %s", event, payload)
+
+
+def _claim_listing_expiry_email(
+    table_name,
+    listing_id,
+    expires_at,
+    email_field,
+    *,
+    mark_expired=False,
+):
+    expires_at_iso = _isoformat_utc(_parse_datetime(expires_at))
+    if not listing_id or not expires_at_iso:
+        _log_listing_expiry_decision(
+            "listing_expiry_claim_skipped",
+            listingId=listing_id,
+            emailField=email_field,
+            reason="missing_listing_or_expires_at",
+        )
+        return None
+
+    now_iso = _isoformat_utc(_utc_now())
+    updates = {email_field: now_iso}
+    if mark_expired:
+        updates["expired_at"] = expires_at_iso
+
+    response, status = supabase_request(
+        "patch",
+        f"/rest/v1/{table_name}",
+        params={
+            "id": f"eq.{listing_id}",
+            "status": "in.(approved,active)",
+            "deleted_at": "is.null",
+            "is_archived": "eq.false",
+            "expires_at": f"eq.{expires_at_iso}",
+            email_field: "is.null",
+        },
+        data=updates,
+        use_service_role=True,
+    )
+    if status >= 400:
+        _log_listing_expiry_decision(
+            "listing_expiry_claim_failed",
+            listingId=listing_id,
+            table=table_name,
+            emailField=email_field,
+            expiresAt=expires_at_iso,
+            status=status,
+            response=response,
+        )
+        return None
+    if not response:
+        _log_listing_expiry_decision(
+            "listing_expiry_claim_skipped",
+            listingId=listing_id,
+            table=table_name,
+            emailField=email_field,
+            expiresAt=expires_at_iso,
+            reason="atomic_claim_failed",
+        )
+        return None
+
+    claimed = response[0] if isinstance(response, list) else response
+    _log_listing_expiry_decision(
+        "listing_expiry_claimed",
+        listingId=listing_id,
+        table=table_name,
+        emailField=email_field,
+        expiresAt=expires_at_iso,
+    )
+    return claimed
+
+
+def _soft_delete_listing(
+    table_name,
+    listing_id,
+    *,
+    deleted_by_role="user",
+    deleted_by=None,
+    reason="Deleted",
+    metadata=None,
+):
+    now_iso = _isoformat_utc(_utc_now())
+    response, status = supabase_request(
+        "patch",
+        f"/rest/v1/{table_name}",
+        params={"id": f"eq.{listing_id}"},
+        data={
+            "status": "deleted",
+            "deleted_at": now_iso,
+            "auto_removed_at": now_iso if deleted_by_role == "system" else None,
+        },
+        use_service_role=True,
+    )
+    if status < 400 and not response:
+        return {"error": "Listing not found"}, 404
+    if status < 400:
+        listing_type = _listing_type_for_table(table_name)
+        if listing_type:
+            _record_listing_deletion_event(
+                listing_id=listing_id,
+                listing_type=listing_type,
+                reason=reason,
+                deleted_by_role=deleted_by_role,
+                deleted_by=deleted_by,
+                metadata=metadata or {},
+            )
+        _log_listing_expiry_decision(
+            "listing_deleted",
+            listingId=listing_id,
+            table=table_name,
+            deletedAt=now_iso,
+            deletedByRole=deleted_by_role,
+        )
+    return response, status
+
+
 def _get_recent_listing_expiry_notice_dates(listing_type, cutoff):
     response, status_code = supabase_request(
         "get",
@@ -860,6 +1002,17 @@ def _get_recent_listing_expiry_notice_dates(listing_type, cutoff):
 def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     if not isinstance(record, dict):
         return record
+    if _is_listing_deleted(record):
+        _apply_listing_lifecycle_metadata(record)
+        _log_listing_expiry_decision(
+            "skipping_listing_expiry_job",
+            listingId=record.get("id"),
+            table=table_name,
+            status=record.get("status"),
+            deletedAt=record.get("deleted_at"),
+            reason="listing_deleted",
+        )
+        return record
 
     repaired = {}
     stale_renewal_repair = _stale_renewal_repair_fields(record)
@@ -874,6 +1027,7 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
         and expires_at
         and last_extended_at > expires_at
         and record.get("status") not in {"deleted", "rejected"}
+        and not record.get("deleted_at")
     ):
         repaired_expires_at = last_extended_at + datetime.timedelta(
             days=LISTING_EXPIRY_DAYS
@@ -895,7 +1049,6 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
 
     lifecycle = _compute_listing_lifecycle(record)
     updates = {}
-    just_expired = False
 
     if repaired:
         updates.update(repaired)
@@ -903,7 +1056,6 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
         updates["expires_at"] = _isoformat_utc(lifecycle["expires_at"])
     if lifecycle["is_expired"] and record.get("expired_at") is None:
         updates["expired_at"] = _isoformat_utc(lifecycle["expired_at"])
-        just_expired = True  # First time we're marking this as expired
     if record.get("retention_expires_at") is None:
         updates["retention_expires_at"] = _isoformat_utc(
             lifecycle["retention_expires_at"]
@@ -922,9 +1074,11 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
         and sold_response_deadline
         and _utc_now() >= sold_response_deadline
         and not sold_status_set_at
-        and record.get("status") not in {"deleted", "rejected", "sold"}
+        and record.get("status") not in LISTING_TERMINAL_STATUSES
+        and not record.get("deleted_at")
     ):
         updates["status"] = "deleted"
+        updates["deleted_at"] = _isoformat_utc(_utc_now())
         updates["auto_removed_at"] = _isoformat_utc(_utc_now())
         updates["sold_status"] = record.get("sold_status") or "sold_elsewhere"
         updates["sold_status_set_at"] = _isoformat_utc(_utc_now())
@@ -946,14 +1100,7 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
         else:
             record.update(updates)
             if updates.get("status") == "deleted" and updates.get("auto_removed_at"):
-                listing_type = next(
-                    (
-                        key
-                        for key, cfg in LISTING_TABLE_CONFIG.items()
-                        if cfg["table"] == table_name
-                    ),
-                    None,
-                )
+                listing_type = _listing_type_for_table(table_name)
                 if listing_type:
                     _record_listing_deletion_event(
                         listing_id=record.get("id"),
@@ -970,7 +1117,19 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
 
     _apply_listing_lifecycle_metadata(record)
 
-    # Send expiry email on first detection of expiry
+    _log_listing_expiry_decision(
+        "processing_listing_expiry_job",
+        listingId=record.get("id"),
+        jobExpiresAt=_isoformat_utc(lifecycle.get("expires_at")),
+        dbExpiresAt=record.get("expires_at"),
+        status=record.get("status"),
+        deletedAt=record.get("deleted_at"),
+        expiryReminderSentAt=record.get("expiry_reminder_sent_at"),
+        expiredEmailSentAt=record.get("expired_email_sent_at"),
+    )
+
+    # Expired emails are claimed in the database before sending so retries,
+    # scanner loops, and multiple worker instances cannot duplicate delivery.
     owner_email = _resolve_listing_owner_email(record)
     last_extended_at = _parse_datetime(record.get("last_extended_at"))
     renewed_recently = bool(
@@ -980,11 +1139,30 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     )
     if (
         LISTING_EXPIRY_EMAILS_ENABLED
-        and just_expired
+        and lifecycle["is_expired"]
+        and not record.get("expired_email_sent_at")
         and owner_email
         and not renewed_recently
-        and record.get("status") not in {"deleted", "rejected"}
+        and record.get("status") in LISTING_ACTIVE_STATUSES
+        and not record.get("deleted_at")
     ):
+        claimed_record = _claim_listing_expiry_email(
+            table_name,
+            record.get("id"),
+            lifecycle["expires_at"],
+            "expired_email_sent_at",
+            mark_expired=not bool(record.get("expired_at")),
+        )
+        if not claimed_record:
+            _log_listing_expiry_decision(
+                "skipping_listing_expiry_job",
+                listingId=record.get("id"),
+                table=table_name,
+                reason="atomic_claim_failed",
+                emailField="expired_email_sent_at",
+            )
+            return record
+        record.update(claimed_record)
         try:
             _, expiry_email_error = _send_listing_expired_email(
                 owner_email,
@@ -1017,6 +1195,14 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
                     )
         except Exception as email_err:
             logger.warning(f"Failed sending expiry email: {email_err}")
+    elif lifecycle["is_expired"] and record.get("expired_email_sent_at"):
+        _log_listing_expiry_decision(
+            "skipping_listing_expiry_job",
+            listingId=record.get("id"),
+            table=table_name,
+            reason="email_already_sent",
+            emailField="expired_email_sent_at",
+        )
 
     if hard_delete_archived and record.get("is_archived"):
         _delete_listing_with_assets(table_name, record.get("id"))
@@ -1040,6 +1226,12 @@ def _new_listing_lifecycle_fields():
         "sold_status_set_at": None,
         "sold_response_deadline": None,
         "auto_removed_at": None,
+        "deleted_at": None,
+        "renewed_at": None,
+        "expiry_reminder_sent_at": None,
+        "expired_email_sent_at": None,
+        "reminder_job_id": None,
+        "expiration_job_id": None,
     }
 
 
@@ -1058,6 +1250,12 @@ def _resubmission_listing_lifecycle_fields():
         "sold_status_set_at": None,
         "sold_response_deadline": None,
         "auto_removed_at": None,
+        "deleted_at": None,
+        "renewed_at": _isoformat_utc(now),
+        "expiry_reminder_sent_at": None,
+        "expired_email_sent_at": None,
+        "reminder_job_id": None,
+        "expiration_job_id": None,
         "is_archived": False,
     }
 
@@ -1073,14 +1271,25 @@ def _build_renewed_listing_updates(listing, *, now=None):
         "sold_status": "not_sold_renew",
         "sold_status_set_at": _isoformat_utc(now),
         "last_extended_at": _isoformat_utc(now),
+        "renewed_at": _isoformat_utc(now),
         "extension_count": int((listing or {}).get("extension_count") or 0) + 1,
         "expires_at": _isoformat_utc(new_expires_at),
         "expired_at": None,
+        "expiry_reminder_sent_at": None,
+        "expired_email_sent_at": None,
         "retention_expires_at": _isoformat_utc(
             new_expires_at + datetime.timedelta(days=LISTING_RETENTION_DAYS)
         ),
         "sold_response_deadline": None,
         "auto_removed_at": None,
+        "reminder_job_id": (
+            f"listing:{(listing or {}).get('id')}:reminder:"
+            f"{int(new_expires_at.timestamp() * 1000)}"
+        ),
+        "expiration_job_id": (
+            f"listing:{(listing or {}).get('id')}:expire:"
+            f"{int(new_expires_at.timestamp() * 1000)}"
+        ),
         "is_archived": False,
     }
 
@@ -1106,6 +1315,12 @@ def _fetch_listing_by_id(table_name, listing_id, *, current_user=None, use_servi
 
 
 def _renew_listing_and_verify(table_name, listing_id, listing, *, current_user=None):
+    if (
+        _is_listing_deleted(listing)
+        or (listing or {}).get("status") in LISTING_TERMINAL_STATUSES
+    ):
+        return None, 400, {"error": "This listing cannot be renewed"}
+
     renewal_updates = _build_renewed_listing_updates(listing)
     patch_response, patch_status = supabase_request(
         "patch",
@@ -1169,7 +1384,13 @@ def _strip_lifecycle_fields(payload):
         "expired_at",
         "retention_expires_at",
         "last_extended_at",
+        "renewed_at",
+        "deleted_at",
         "extension_count",
+        "expiry_reminder_sent_at",
+        "expired_email_sent_at",
+        "reminder_job_id",
+        "expiration_job_id",
         "is_archived",
         "extras",
         "user_email",
@@ -1744,6 +1965,7 @@ def _collect_user_listing_records(current_user, item_type):
         params={
             "select": "*",
             "user_id": f"eq.{current_user}",
+            "status": "neq.deleted",
             "order": "created_at.desc",
         },
         user_id=current_user,
@@ -1808,7 +2030,11 @@ def _delete_user_owned_listing(current_user, item_type, item_id):
     listing_data, listing_status = supabase_request(
         "get",
         f"/rest/v1/{config['table']}",
-        params={"select": "user_id", "id": f"eq.{item_id}", "limit": 1},
+        params={
+            "select": "user_id,status,deleted_at",
+            "id": f"eq.{item_id}",
+            "limit": 1,
+        },
         user_id=current_user,
     )
 
@@ -1821,17 +2047,16 @@ def _delete_user_owned_listing(current_user, item_type, item_id):
     if listing_data[0].get("user_id") != current_user:
         return {"error": "You do not have permission to delete this listing"}, 403
 
-    supabase_request(
-        "delete",
-        f"/rest/v1/{config['images_table']}",
-        params={config["fk"]: f"eq.{item_id}"},
-        user_id=current_user,
-    )
-    delete_response, delete_status = supabase_request(
-        "delete",
-        f"/rest/v1/{config['table']}",
-        params={"id": f"eq.{item_id}"},
-        user_id=current_user,
+    if _is_listing_deleted(listing_data[0]):
+        return {"message": "Listing already deleted"}, 200
+
+    delete_response, delete_status = _soft_delete_listing(
+        config["table"],
+        item_id,
+        deleted_by_role="user",
+        deleted_by=current_user,
+        reason="Deleted by user",
+        metadata={"endpoint": "user_delete", "item_type": item_type},
     )
 
     return delete_response, delete_status
@@ -5556,43 +5781,11 @@ def create_storage_signed_upload_url(current_user):
 @token_required
 def delete_car(current_user, car_id):
     try:
-        # Verify car ownership
-        car_data, car_status = supabase_request(
-            "get",
-            f"/rest/v1/cars",
-            params={"select": "user_id", "id": f"eq.{car_id}", "limit": 1},
-            user_id=current_user,
+        delete_response, delete_status = _delete_user_owned_listing(
+            current_user, "car", car_id
         )
-
-        if car_status >= 400:
-            return jsonify(car_data), car_status
-
-        if not car_data:
-            return jsonify({"error": "Car not found"}), 404
-
-        if car_data[0]["user_id"] != current_user:
-            return jsonify(
-                {"error": "You do not have permission to delete this car"}
-            ), 403
-
-        # Delete car images first
-        delete_images, delete_images_status = supabase_request(
-            "delete",
-            "/rest/v1/car_images",
-            params={"car_id": f"eq.{car_id}"},
-            user_id=current_user,
-        )
-
-        # Delete the car
-        delete_car, delete_car_status = supabase_request(
-            "delete",
-            "/rest/v1/cars",
-            params={"id": f"eq.{car_id}"},
-            user_id=current_user,
-        )
-
-        if delete_car_status >= 400:
-            return jsonify(delete_car), delete_car_status
+        if delete_status >= 400:
+            return jsonify(delete_response), delete_status
 
         _invalidate_public_inventory_cache("cars")
         _invalidate_api_cache_prefixes([f"/api/cars/{car_id}"])
@@ -10036,41 +10229,9 @@ def update_bike(current_user, bike_id):
 @token_required
 def delete_bike(current_user, bike_id):
     try:
-        # Verify bike ownership
-        bike_data, bike_status = supabase_request(
-            "get",
-            f"/rest/v1/bikes",
-            params={"select": "user_id", "id": f"eq.{bike_id}", "limit": 1},
-            user_id=current_user,
+        delete_resp, delete_status = _delete_user_owned_listing(
+            current_user, "bike", bike_id
         )
-
-        if bike_status >= 400:
-            return jsonify(bike_data), bike_status
-
-        if not bike_data:
-            return jsonify({"error": "Bike not found"}), 404
-
-        if bike_data[0]["user_id"] != current_user:
-            return jsonify(
-                {"error": "You do not have permission to delete this bike"}
-            ), 403
-
-        # Delete bike images first
-        delete_images, delete_images_status = supabase_request(
-            "delete",
-            "/rest/v1/bike_images",
-            params={"bike_id": f"eq.{bike_id}"},
-            user_id=current_user,
-        )
-
-        # Delete the bike
-        delete_resp, delete_status = supabase_request(
-            "delete",
-            "/rest/v1/bikes",
-            params={"id": f"eq.{bike_id}"},
-            user_id=current_user,
-        )
-
         if delete_status >= 400:
             return jsonify(delete_resp), delete_status
 
@@ -15151,7 +15312,7 @@ def delete_listing(current_user, item_type, item_id):
         if item_type not in valid_types:
             return jsonify({"error": "Invalid item type"}), 400
 
-        # Map item_type to table name and image table
+        # Map item_type to table name
         table_mapping = {
             "car": "cars",
             "bike": "bikes",
@@ -15159,16 +15320,8 @@ def delete_listing(current_user, item_type, item_id):
             "part": "car_parts",
             "plate": "license_plates",
         }
-        image_table_mapping = {
-            "car": "car_images",
-            "bike": "bike_images",
-            "car-part": "part_images",
-            "part": "part_images",
-            "plate": "plate_images",
-        }
 
         table_name = table_mapping[item_type]
-        image_table_name = image_table_mapping.get(item_type)
         delete_reason = "Removed by admin"
         if request.is_json and request.json:
             delete_reason = (
@@ -15221,34 +15374,17 @@ def delete_listing(current_user, item_type, item_id):
         except Exception as fetch_err:
             logger.warning(f"Could not fetch listing data before delete: {fetch_err}")
 
-        # First, delete associated images if image table exists
-        if image_table_name:
-            try:
-                img_url = f"{app.config['SUPABASE_URL']}/rest/v1/{image_table_name}?listing_id=eq.{item_id}"
-                img_response = requests.delete(img_url, headers=headers)
-                if img_response.status_code not in (200, 204):
-                    logger.warning(
-                        f"Failed to delete images for {item_type} {item_id}: {img_response.status_code}"
-                    )
-            except Exception as img_err:
-                logger.warning(
-                    f"Error deleting images for {item_type} {item_id}: {img_err}"
-                )
+        delete_response, delete_status = _soft_delete_listing(
+            table_name,
+            item_id,
+            deleted_by_role="admin",
+            deleted_by=current_user,
+            reason=delete_reason,
+            metadata={"endpoint": "admin_delete"},
+        )
 
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/{table_name}?id=eq.{item_id}"
-
-        response = requests.delete(url, headers=headers)
-
-        if response.status_code == 200 or response.status_code == 204:
+        if delete_status < 400:
             normalized_type = "part" if item_type == "car-part" else item_type
-            _record_listing_deletion_event(
-                listing_id=item_id,
-                listing_type=normalized_type,
-                reason=delete_reason,
-                deleted_by_role="admin",
-                deleted_by=current_user,
-                metadata={"endpoint": "admin_delete"},
-            )
 
             # Send email notification to listing owner
             if owner_email and owner_email != "unknown@example.com":
@@ -15271,9 +15407,9 @@ def delete_listing(current_user, item_type, item_id):
             ), 200
         else:
             logger.error(
-                f"Failed to delete {item_type} {item_id}: {response.status_code}"
+                f"Failed to delete {item_type} {item_id}: {delete_status}"
             )
-            return jsonify({"error": "Failed to delete listing"}), response.status_code
+            return jsonify({"error": "Failed to delete listing"}), delete_status
 
     except Exception as e:
         logger.error(f"Error deleting {item_type} {item_id}: {str(e)}")
@@ -15510,32 +15646,49 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
             "get",
             f"/rest/v1/{table}",
             params={
-                "select": "id,user_id,expires_at,expired_at,retention_expires_at,status,is_archived,last_extended_at,sold_status",
+                "select": (
+                    "id,user_id,user_email,contact_email,listing_title,expires_at,"
+                    "expired_at,retention_expires_at,status,is_archived,"
+                    "last_extended_at,sold_status,deleted_at,"
+                    "expiry_reminder_sent_at,expired_email_sent_at"
+                ),
                 "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
-                "status": "eq.approved",
+                "status": "in.(approved,active)",
                 "is_archived": "eq.false",
+                "deleted_at": "is.null",
             },
             use_service_role=True,
         )
         if status >= 400 or not records:
             continue
 
-        recent_notices = _get_recent_listing_expiry_notice_dates(
-            item_type, now - datetime.timedelta(days=90)
-        )
-
         for record in records:
+            listing_id = record.get("id")
             lifecycle = _compute_listing_lifecycle(record)
+            _log_listing_expiry_decision(
+                "processing_listing_expiry_job",
+                listingId=listing_id,
+                jobExpiresAt=_isoformat_utc(lifecycle.get("expires_at")),
+                dbExpiresAt=record.get("expires_at"),
+                status=record.get("status"),
+                deletedAt=record.get("deleted_at"),
+                expiryReminderSentAt=record.get("expiry_reminder_sent_at"),
+                expiredEmailSentAt=record.get("expired_email_sent_at"),
+                source="scanner",
+            )
+            if _is_listing_deleted(record):
+                _log_listing_expiry_decision(
+                    "skipping_listing_expiry_job",
+                    listingId=listing_id,
+                    table=table,
+                    reason="listing_deleted",
+                )
+                continue
             if lifecycle["is_archived"]:
                 continue
 
             expires_at = lifecycle["expires_at"]
             if expires_at > reminder_threshold:
-                continue
-
-            notice_date = now.date().isoformat()
-            notice_key = (str(record.get("id")), notice_date)
-            if notice_key in recent_notices:
                 continue
 
             # Skip if the listing was renewed/extended after the expiry it appears to be in
@@ -15546,16 +15699,59 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                 and lifecycle["expired_at"]
                 and last_extended_at >= lifecycle["expired_at"]
             ):
+                _log_listing_expiry_decision(
+                    "skipping_listing_expiry_job",
+                    listingId=listing_id,
+                    table=table,
+                    reason="stale_renewed_listing",
+                )
                 continue
 
             notice_state = "expired" if lifecycle["is_expired"] else "active"
+            email_field = (
+                "expired_email_sent_at"
+                if lifecycle["is_expired"]
+                else "expiry_reminder_sent_at"
+            )
+            if record.get(email_field):
+                _log_listing_expiry_decision(
+                    "skipping_listing_expiry_job",
+                    listingId=listing_id,
+                    table=table,
+                    reason="email_already_sent",
+                    emailField=email_field,
+                )
+                continue
 
             owner_email = _resolve_listing_owner_email(record, record.get("user_id"))
             if not owner_email:
+                _log_listing_expiry_decision(
+                    "skipping_listing_expiry_job",
+                    listingId=listing_id,
+                    table=table,
+                    reason="missing_owner_email",
+                )
                 continue
 
+            claimed_record = _claim_listing_expiry_email(
+                table,
+                listing_id,
+                expires_at,
+                email_field,
+                mark_expired=lifecycle["is_expired"] and not record.get("expired_at"),
+            )
+            if not claimed_record:
+                _log_listing_expiry_decision(
+                    "skipping_listing_expiry_job",
+                    listingId=listing_id,
+                    table=table,
+                    reason="atomic_claim_failed",
+                    emailField=email_field,
+                )
+                continue
+            record.update(claimed_record)
+
             listing_title = _listing_display_title(record)
-            listing_id = record.get("id")
             if lifecycle["is_expired"]:
                 days_until_deletion = max((lifecycle["retention_expires_at"] - now).days, 1)
                 result, error = _send_listing_expired_email(
@@ -15590,7 +15786,7 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                 metadata={
                     "table": table,
                     "state": notice_state,
-                    "notice_date": notice_date,
+                    "notice_date": now.date().isoformat(),
                     "notice_phase": notice_state,
                     "expires_at": _isoformat_utc(lifecycle["expires_at"]),
                     "retention_expires_at": _isoformat_utc(
@@ -15598,7 +15794,6 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                     ),
                 },
             )
-            recent_notices.add(notice_key)
             processed += 1
 
     return {"reminders_sent": processed}
@@ -15618,10 +15813,12 @@ def _run_listing_lifecycle_sweep_once():
                 "select": (
                     "id,user_id,expires_at,expired_at,retention_expires_at,"
                     "sold_response_deadline,status,is_archived,sold_status,"
-                    "sold_status_set_at,auto_removed_at"
+                    "sold_status_set_at,auto_removed_at,deleted_at,"
+                    "expiry_reminder_sent_at,expired_email_sent_at"
                 ),
-                "status": "eq.approved",
+                "status": "in.(approved,active)",
                 "is_archived": "eq.false",
+                "deleted_at": "is.null",
             },
             use_service_role=True,
         )
