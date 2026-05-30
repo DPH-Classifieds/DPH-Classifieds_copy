@@ -173,8 +173,10 @@
 }
 
 .listing-state-tag.state-deleted {
-  background: rgba(239, 68, 68, 0.18);
-  color: #fecaca;
+  background: #dc2626;
+  color: #ffffff;
+  font-weight: 600;
+  border: none;
 }
 
 .my-listing-image {
