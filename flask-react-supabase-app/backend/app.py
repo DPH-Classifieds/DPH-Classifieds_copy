@@ -722,10 +722,13 @@ def _compute_listing_lifecycle(record):
             hours=LISTING_SOLD_RESPONSE_WINDOW_HOURS
         )
 
+    is_deleted = _is_listing_deleted(record)
     is_archived = bool(record.get("is_archived")) or now >= retention_expires_at
     is_expired = now >= expires_at
 
-    if is_archived:
+    if is_deleted:
+        state = "deleted"
+    elif is_archived:
         state = "archived"
     elif is_expired:
         state = "expired"
@@ -739,6 +742,7 @@ def _compute_listing_lifecycle(record):
         "sold_response_deadline": sold_response_deadline,
         "is_expired": is_expired,
         "is_archived": is_archived,
+        "is_deleted": is_deleted,
         "state": state,
         "days_until_expiry": max((expires_at - now).days, 0) if not is_expired else 0,
         "days_until_deletion": max((retention_expires_at - now).days, 0)
@@ -761,6 +765,7 @@ def _apply_listing_lifecycle_metadata(record):
     record["sold_response_deadline"] = _isoformat_utc(
         lifecycle["sold_response_deadline"]
     )
+    record["deleted_at"] = _isoformat_utc(record.get("deleted_at"))
     record["days_until_expiry"] = lifecycle["days_until_expiry"]
     record["days_until_deletion"] = lifecycle["days_until_deletion"]
     record["can_extend"] = not lifecycle["is_archived"] and record.get(
@@ -1965,7 +1970,6 @@ def _collect_user_listing_records(current_user, item_type):
         params={
             "select": "*",
             "user_id": f"eq.{current_user}",
-            "status": "neq.deleted",
             "order": "created_at.desc",
         },
         user_id=current_user,
@@ -1990,7 +1994,7 @@ def _collect_user_listing_records(current_user, item_type):
             record["moderation_status"] = "rejected"
             record["status"] = "draft"
         synced = _sync_listing_lifecycle(
-            config["table"], record, hard_delete_archived=True
+            config["table"], record, hard_delete_archived=False
         )
         if synced:
             hydrated_records.append(synced)
@@ -2010,6 +2014,8 @@ def _listing_matches_status_filter(record, status_filter):
         return listing_state == "active"
     if normalized_status == "expired":
         return listing_state == "expired"
+    if normalized_status == "deleted":
+        return record_status == "deleted" or listing_state == "deleted"
     if normalized_status == "sold":
         return record_status == "sold"
     if normalized_status in {"draft", "drafts"}:
@@ -2361,6 +2367,8 @@ def _build_saved_listing_card(listing_type, listing, saved_row=None):
 
     _, config = _saved_listing_config(normalized_type)
     listing = listing or {}
+    if not listing:
+        return None
     listing_id = listing.get("id") or (saved_row or {}).get("listing_id")
     card = {
         "id": listing_id,
@@ -2381,8 +2389,10 @@ def _build_saved_listing_card(listing_type, listing, saved_row=None):
         "location": _saved_listing_location(normalized_type, listing),
         "savedAt": (saved_row or {}).get("created_at"),
         "isSaved": True,
-        "isUnavailable": not bool(listing),
+        "isUnavailable": False,
     }
+    if listing and _is_listing_deleted(listing):
+        return None
     return card
 
 
@@ -2471,10 +2481,15 @@ def _fetch_saved_listing_cards(current_user):
         listing_type = _normalize_saved_listing_type(row.get("listing_type"))
         if not listing_type:
             continue
+        record = records_by_type.get(listing_type, {}).get(row.get("listing_id"))
+        if record and _is_listing_deleted(record):
+            continue
+        card = _build_saved_listing_card(listing_type, record, row)
+        if not card:
+            continue
         saved_ids.append(f"{listing_type}:{row.get('listing_id')}")
         counts[listing_type] = counts.get(listing_type, 0) + 1
-        record = records_by_type.get(listing_type, {}).get(row.get("listing_id"))
-        cards.append(_build_saved_listing_card(listing_type, record, row))
+        cards.append(card)
 
     cards = [card for card in cards if card]
     return {

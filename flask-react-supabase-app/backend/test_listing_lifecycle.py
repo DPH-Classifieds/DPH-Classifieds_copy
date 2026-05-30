@@ -465,6 +465,90 @@ class UserListingsFilterTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in payload["cars"]], ["car-2"])
         self.assertEqual([item["id"] for item in payload["bikes"]], ["bike-1"])
 
+    def test_user_listings_includes_deleted_rows(self):
+        def fake_collect(current_user, item_type):
+            sample = {
+                "car": [
+                    {"id": "car-1", "status": "approved", "listing_state": "active", "created_at": "2026-05-01T00:00:00+00:00"},
+                    {"id": "car-2", "status": "deleted", "listing_state": "deleted", "deleted_at": "2026-05-02T00:00:00+00:00", "created_at": "2026-05-02T00:00:00+00:00"},
+                ],
+                "bike": [],
+                "part": [],
+                "plate": [],
+            }
+            return sample[item_type], 200
+
+        with patch.object(backend, "_collect_user_listing_records", side_effect=fake_collect), \
+            patch.object(backend, "_get_user_listing_count", return_value=(0, None)):
+            with backend.app.test_request_context("/api/user/listings"):
+                response, status_code = backend.get_all_user_listings.__wrapped__(
+                    "11111111-1111-1111-1111-111111111111"
+                )
+
+        self.assertEqual(status_code, 200)
+        payload = json.loads(response.get_data(as_text=True))
+        self.assertEqual([item["id"] for item in payload["listings"]], ["car-2", "car-1"])
+        self.assertEqual([item["id"] for item in payload["cars"]], ["car-1", "car-2"])
+
+    def test_user_listings_filters_deleted_status(self):
+        def fake_collect(current_user, item_type):
+            sample = {
+                "car": [
+                    {"id": "car-1", "status": "approved", "listing_state": "active", "created_at": "2026-05-01T00:00:00+00:00"},
+                    {"id": "car-2", "status": "deleted", "listing_state": "deleted", "deleted_at": "2026-05-02T00:00:00+00:00", "created_at": "2026-05-02T00:00:00+00:00"},
+                ],
+                "bike": [],
+                "part": [],
+                "plate": [],
+            }
+            return sample[item_type], 200
+
+        with patch.object(backend, "_collect_user_listing_records", side_effect=fake_collect), \
+            patch.object(backend, "_get_user_listing_count", return_value=(0, None)):
+            with backend.app.test_request_context("/api/user/listings?status=deleted"):
+                response, status_code = backend.get_all_user_listings.__wrapped__(
+                    "11111111-1111-1111-1111-111111111111"
+                )
+
+        self.assertEqual(status_code, 200)
+        payload = json.loads(response.get_data(as_text=True))
+        self.assertEqual([item["id"] for item in payload["listings"]], ["car-2"])
+        self.assertEqual([item["id"] for item in payload["cars"]], ["car-2"])
+
+
+class SavedListingVisibilityTests(unittest.TestCase):
+    @patch.object(backend, "_sync_listing_lifecycle", side_effect=lambda table, record, **kwargs: record)
+    @patch.object(backend, "supabase_request")
+    def test_saved_listings_skip_deleted_and_missing_rows(self, mock_supabase_request, mock_sync):
+        saved_rows = [
+            {"id": "saved-1", "user_id": "user-1", "listing_id": "car-1", "listing_type": "car", "created_at": "2026-05-01T00:00:00+00:00"},
+            {"id": "saved-2", "user_id": "user-1", "listing_id": "car-2", "listing_type": "car", "created_at": "2026-05-02T00:00:00+00:00"},
+            {"id": "saved-3", "user_id": "user-1", "listing_id": "car-3", "listing_type": "car", "created_at": "2026-05-03T00:00:00+00:00"},
+        ]
+        records = [
+            {"id": "car-1", "status": "approved", "listing_state": "active", "created_at": "2026-05-01T00:00:00+00:00"},
+            {"id": "car-2", "status": "deleted", "listing_state": "deleted", "deleted_at": "2026-05-02T12:00:00+00:00", "created_at": "2026-05-02T00:00:00+00:00"},
+        ]
+
+        def fake_supabase_request(method, path, params=None, data=None, use_service_role=False, user_id=None):
+            if path == "/rest/v1/saved_listings":
+                return (saved_rows, 200)
+            if path == "/rest/v1/cars":
+                return (records, 200)
+            if path == "/rest/v1/car_images":
+                return ([], 200)
+            return ([], 200)
+
+        mock_supabase_request.side_effect = fake_supabase_request
+
+        payload, status_code = backend._fetch_saved_listing_cards("user-1")
+
+        self.assertEqual(status_code, 200)
+        self.assertEqual([item["id"] for item in payload["items"]], ["car-1"])
+        self.assertEqual(payload["saved_ids"], ["car:car-1"])
+        self.assertEqual(payload["counts"]["car"], 1)
+        self.assertEqual(payload["total"], 1)
+
 
 class ListingOutcomeTransitionTests(unittest.TestCase):
     def test_renewal_clears_expiry_email_state_and_sets_cycle_job_ids(self):

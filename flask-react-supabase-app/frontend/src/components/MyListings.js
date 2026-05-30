@@ -108,6 +108,10 @@ const getListingPrice = (listing) =>
   listing.expected_selling_price ?? listing.price ?? null;
 
 const getLifecycleCopy = (listing) => {
+  if (listing.listing_state === 'deleted' || String(listing.status || '').toLowerCase() === 'deleted') {
+    return `Deleted${listing.deleted_at ? ` on ${formatDate(listing.deleted_at)}` : ''}.`;
+  }
+
   if (listing.listing_state === 'expired') {
     return `Expired on ${formatDate(listing.expired_at || listing.expires_at)}. Deletes in ${listing.days_until_deletion ?? 0} day${listing.days_until_deletion === 1 ? '' : 's'}.`;
   }
