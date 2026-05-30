@@ -136,6 +136,7 @@ const isDraftListing = (listing) => {
 const MyListings = () => {
   const [listings, setListings] = useState([]);
   const [listingLimit, setListingLimit] = useState({ current: 0, max: 4, remaining: 4 });
+  const [listingLimitPerType, setListingLimitPerType] = useState(null);
   const [leadTotals, setLeadTotals] = useState({
     qualified_leads: 0,
     call_click: 0,
@@ -206,6 +207,7 @@ const MyListings = () => {
 
       if (payload.listing_limit) {
         setListingLimit(payload.listing_limit);
+        setListingLimitPerType(payload.listing_limit.per_type || null);
       }
 
       const pendingOutcome = nextListings.find(
@@ -253,6 +255,7 @@ const MyListings = () => {
   }, [draftListings]);
 
   const hasUnlimitedListings = listingLimit.unlimited || listingLimit.max == null;
+  const hasPerTypeLimits = Boolean(listingLimitPerType && typeof listingLimitPerType === 'object');
 
   const handleDeleteListing = async (listing) => {
     setDeleteConfirm(listing);
@@ -707,7 +710,7 @@ const MyListings = () => {
             <span>VIN opens: {leadTotals.vin_open || 0}</span>
           </div>
           <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-            {!hasUnlimitedListings ? (
+            {!hasUnlimitedListings && !hasPerTypeLimits ? (
               <div style={{ display: 'flex', gap: 4 }}>
                 {Array.from({ length: listingLimit.max }, (_, i) => (
                   <div
@@ -723,11 +726,24 @@ const MyListings = () => {
                 ))}
               </div>
             ) : null}
+            {!hasUnlimitedListings && hasPerTypeLimits ? (
+              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                Cars {listingLimitPerType?.car?.current ?? 0}/{listingLimitPerType?.car?.max ?? 4}
+                {' • '}
+                Bikes {listingLimitPerType?.bike?.current ?? 0}/{listingLimitPerType?.bike?.max ?? 4}
+                {' • '}
+                Plates {listingLimitPerType?.plate?.current ?? 0}/{listingLimitPerType?.plate?.max ?? 4}
+              </span>
+            ) : null}
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
               {hasUnlimitedListings ? (
                 <>
                   {listingLimit.current} listings used
                   <span style={{ color: '#8bd6b4', marginLeft: 4 }}>(unlimited for your account)</span>
+                </>
+              ) : hasPerTypeLimits ? (
+                <>
+                  {listingLimit.current} total listings
                 </>
               ) : (
                 <>

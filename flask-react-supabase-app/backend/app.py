@@ -87,6 +87,9 @@ except ImportError:
     MAIL_ENABLED = False
     logger.warning("Flask-Mail not installed; email notifications disabled")
 MAX_LISTINGS_PER_USER = int(os.getenv("MAX_LISTINGS_PER_USER", "4"))
+MAX_LISTINGS_PER_USER_PER_TYPE = int(
+    os.getenv("MAX_LISTINGS_PER_USER_PER_TYPE", str(MAX_LISTINGS_PER_USER))
+)
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "20"))
 Image.MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "25000000"))
 CONTACT_RATE_LIMIT_WINDOW_SEC = int(os.getenv("CONTACT_RATE_LIMIT_WINDOW_SEC", "3600"))
@@ -3731,6 +3734,7 @@ def add_security_headers(response):
 
 
 def _get_user_listing_count(user_id):
+    """Legacy: total listings across core listing types (cars/bikes/plates)."""
     tables = ["cars", "bikes", "license_plates"]
     total = 0
 
@@ -3741,35 +3745,97 @@ def _get_user_listing_count(user_id):
             params={
                 "select": "id",
                 "user_id": f"eq.{user_id}",
+                "deleted_at": "is.null",
                 "limit": MAX_LISTINGS_PER_USER + 1,
             },
             use_service_role=True,
         )
 
         if status_code >= 400:
-            return None, data
+            # If schema doesn't have deleted_at yet, fall back to counting all rows.
+            if isinstance(data, dict) and str(data.get("code") or "") == "PGRST204":
+                data, status_code = supabase_request(
+                    "get",
+                    f"/rest/v1/{table}",
+                    params={
+                        "select": "id",
+                        "user_id": f"eq.{user_id}",
+                        "limit": MAX_LISTINGS_PER_USER + 1,
+                    },
+                    use_service_role=True,
+                )
+            if status_code >= 400:
+                return None, data
 
-        total += len(data)
+        total += len(data or [])
         if total >= MAX_LISTINGS_PER_USER:
             break
 
     return total, None
 
 
+def _get_user_listing_counts_by_table(user_id):
+    """Counts listings per core listing table, excluding deleted rows when possible."""
+    tables = ["cars", "bikes", "license_plates"]
+    counts = {}
+
+    for table in tables:
+        data, status_code = supabase_request(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "select": "id",
+                "user_id": f"eq.{user_id}",
+                "deleted_at": "is.null",
+                "limit": MAX_LISTINGS_PER_USER_PER_TYPE + 50,
+            },
+            use_service_role=True,
+        )
+        if (
+            status_code >= 400
+            and isinstance(data, dict)
+            and str(data.get("code") or "") == "PGRST204"
+        ):
+            # deleted_at column not present yet; fall back to counting all rows.
+            data, status_code = supabase_request(
+                "get",
+                f"/rest/v1/{table}",
+                params={
+                    "select": "id",
+                    "user_id": f"eq.{user_id}",
+                    "limit": MAX_LISTINGS_PER_USER_PER_TYPE + 50,
+                },
+                use_service_role=True,
+            )
+        if status_code >= 400:
+            return None, data
+        counts[table] = len(data or [])
+
+    return counts, None
+
+
 def _enforce_listing_limit(user_id):
     if _is_super_admin_user(user_id):
         return None
 
-    total, error = _get_user_listing_count(user_id)
-    if error is not None:
+    counts, error = _get_user_listing_counts_by_table(user_id)
+    if error is not None or counts is None:
         return jsonify({"error": "Failed to verify listing limit"}), 500
-    if total >= MAX_LISTINGS_PER_USER:
+
+    over = {
+        table: count
+        for table, count in (counts or {}).items()
+        if count >= MAX_LISTINGS_PER_USER_PER_TYPE
+    }
+    if over:
+        # Keep response explicit so frontend can show per-category messaging.
         return jsonify(
             {
-                "error": f"Listing limit reached. You can only post {MAX_LISTINGS_PER_USER} ads.",
+                "error": f"Listing limit reached. You can only post {MAX_LISTINGS_PER_USER_PER_TYPE} ads per category.",
                 "code": "listing_limit",
-                "limit": MAX_LISTINGS_PER_USER,
-                "current": total,
+                "limit_per_type": MAX_LISTINGS_PER_USER_PER_TYPE,
+                "counts": counts,
+                "over": over,
             }
         ), 403
     return None
@@ -4179,12 +4245,38 @@ def _user_listing_limit_info(user_id, listing_count=None):
             "remaining": None,
             "unlimited": True,
         }
+    # Prefer per-type counts (cars/bikes/plates). Fall back to legacy aggregate.
+    counts, error = _get_user_listing_counts_by_table(user_id)
+    per_type = None
+    if error is None and counts is not None:
+        cars_current = int((counts or {}).get("cars") or 0)
+        bikes_current = int((counts or {}).get("bikes") or 0)
+        plates_current = int((counts or {}).get("license_plates") or 0)
+        per_type = {
+            "car": {
+                "current": cars_current,
+                "max": MAX_LISTINGS_PER_USER_PER_TYPE,
+                "remaining": max(0, MAX_LISTINGS_PER_USER_PER_TYPE - cars_current),
+            },
+            "bike": {
+                "current": bikes_current,
+                "max": MAX_LISTINGS_PER_USER_PER_TYPE,
+                "remaining": max(0, MAX_LISTINGS_PER_USER_PER_TYPE - bikes_current),
+            },
+            "plate": {
+                "current": plates_current,
+                "max": MAX_LISTINGS_PER_USER_PER_TYPE,
+                "remaining": max(0, MAX_LISTINGS_PER_USER_PER_TYPE - plates_current),
+            },
+        }
+
     current = int(listing_count or 0)
     return {
         "current": current,
         "max": MAX_LISTINGS_PER_USER,
         "remaining": max(0, MAX_LISTINGS_PER_USER - current),
         "unlimited": False,
+        "per_type": per_type,
     }
 
 
@@ -9867,6 +9959,31 @@ _REPOST_STRIP_KEYS = {
     "primary_image_url",
 }
 
+def _strip_listing_lifecycle_write_fields(payload):
+    """Remove lifecycle write fields that may not exist on older schemas.
+
+    Keep user content fields intact (including `extras`) so reposts remain faithful.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    lifecycle_keys = {
+        "expires_at",
+        "expired_at",
+        "retention_expires_at",
+        "last_extended_at",
+        "renewed_at",
+        "deleted_at",
+        "extension_count",
+        "is_archived",
+        "expiry_reminder_sent_at",
+        "expired_email_sent_at",
+        "reminder_job_id",
+        "expiration_job_id",
+        "sold_response_deadline",
+        "auto_removed_at",
+    }
+    return {k: v for k, v in payload.items() if k not in lifecycle_keys}
+
 
 def _clone_listing_images(images_table, fk_field, new_listing_id, original_images):
     """Reinsert image rows pointing at the new listing id. Reuses storage URLs."""
@@ -9959,6 +10076,27 @@ def repost_user_listing(current_user, item_type, item_id):
         data=new_listing,
         use_service_role=True,
     )
+
+    # If lifecycle/idempotency columns haven't been migrated yet (or PostgREST cache
+    # is stale), retry without those fields so repost still works.
+    if (
+        insert_status >= 400
+        and isinstance(insert_response, dict)
+        and str(insert_response.get("code") or "") == "PGRST204"
+    ):
+        stripped_listing = _strip_listing_lifecycle_write_fields(new_listing)
+        logger.warning(
+            "Repost insert failed due to missing columns; retrying without lifecycle fields. table=%s listing_id=%s error=%s",
+            config["table"],
+            item_id,
+            insert_response.get("message"),
+        )
+        insert_response, insert_status = supabase_request(
+            "post",
+            f"/rest/v1/{config['table']}",
+            data=stripped_listing,
+            use_service_role=True,
+        )
     if insert_status >= 400 or not insert_response:
         logger.warning(
             "Repost insert failed for %s/%s (status=%s): %s",
