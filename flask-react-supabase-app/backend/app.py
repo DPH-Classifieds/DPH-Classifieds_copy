@@ -1970,6 +1970,7 @@ def _collect_user_listing_records(current_user, item_type):
         params={
             "select": "*",
             "user_id": f"eq.{current_user}",
+            "user_dismissed_at": "is.null",
             "order": "created_at.desc",
         },
         user_id=current_user,
@@ -9818,6 +9819,241 @@ def extend_user_listing(current_user, item_type, item_id):
             "listing": refreshed_listing,
         }
     ), 200
+
+
+# Columns that should NOT be carried over when a listing is reposted as a new draft.
+# Anything else on the original row is reused so the user gets a faithful copy that
+# they can edit before resubmitting.
+_REPOST_STRIP_KEYS = {
+    "id",
+    "created_at",
+    "updated_at",
+    "approved_at",
+    "approved_by",
+    "is_approved",
+    "moderation_status",
+    "rejection_note",
+    "view_count",
+    "qualified_leads",
+    "call_click",
+    "whatsapp_click",
+    "vin_open",
+    "vin_reveal",
+    "user_dismissed_at",
+    "auto_removed_at",
+    "deleted_at",
+    "sold_status",
+    "sold_status_set_at",
+    "sold_response_deadline",
+    "renewed_at",
+    "reminder_job_id",
+    "expiration_job_id",
+    "expiry_reminder_sent_at",
+    "expired_email_sent_at",
+    "expires_at",
+    "expired_at",
+    "retention_expires_at",
+    "last_extended_at",
+    "extension_count",
+    "is_archived",
+    "listing_type",
+    "listing_state",
+    "is_expired",
+    "days_until_expiry",
+    "days_until_deletion",
+    "can_extend",
+    "images",
+    "image_urls",
+    "primary_image_url",
+}
+
+
+def _clone_listing_images(images_table, fk_field, new_listing_id, original_images):
+    """Reinsert image rows pointing at the new listing id. Reuses storage URLs."""
+    if not original_images:
+        return
+    image_strip = {
+        "id",
+        "uploaded_at",
+        "created_at",
+        "updated_at",
+        fk_field,
+    }
+    new_rows = []
+    for img in original_images:
+        if not isinstance(img, dict):
+            continue
+        cleaned = {k: v for k, v in img.items() if k not in image_strip and v is not None}
+        # The image must point at a real URL — skip ghost rows.
+        if not (cleaned.get("image_url") or cleaned.get("url") or cleaned.get("display_url")):
+            continue
+        cleaned[fk_field] = new_listing_id
+        new_rows.append(cleaned)
+    if not new_rows:
+        return
+    supabase_request(
+        "post",
+        f"/rest/v1/{images_table}",
+        data=new_rows,
+        use_service_role=True,
+    )
+
+
+@app.route(
+    "/api/user/listings/<item_type>/<item_id>/repost", methods=["POST"]
+)
+@token_required
+def repost_user_listing(current_user, item_type, item_id):
+    config = LISTING_TABLE_CONFIG.get(item_type)
+    if not config:
+        return jsonify({"error": "Invalid listing type"}), 400
+
+    listing_data, listing_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={"select": "*", "id": f"eq.{item_id}", "limit": 1},
+        user_id=current_user,
+    )
+    if listing_status >= 400:
+        return jsonify(listing_data), listing_status
+    if not listing_data:
+        return jsonify({"error": "Listing not found"}), 404
+
+    original = listing_data[0]
+    if original.get("user_id") != current_user:
+        return jsonify({"error": "You do not have permission to repost this listing"}), 403
+
+    status_value = str(original.get("status") or "").lower()
+    if status_value not in {"deleted", "rejected"} and not original.get("deleted_at"):
+        return jsonify({"error": "Only deleted listings can be reposted"}), 400
+
+    # Per-account listing cap applies to fresh listings too.
+    limit_response = _enforce_listing_limit(current_user)
+    if limit_response:
+        return limit_response
+
+    dealer_check = _require_dealer_verified(current_user)
+    if dealer_check:
+        return dealer_check
+
+    # Build the new row from the original, stripping persistence/analytics fields.
+    new_listing = {
+        key: value
+        for key, value in original.items()
+        if key not in _REPOST_STRIP_KEYS
+    }
+    new_listing["user_id"] = current_user
+    new_listing["status"] = "pending"
+    new_listing.update(_new_listing_lifecycle_fields())
+    new_listing.pop("user_dismissed_at", None)
+
+    insert_response, insert_status = supabase_request(
+        "post",
+        f"/rest/v1/{config['table']}",
+        data=new_listing,
+        use_service_role=True,
+    )
+    if insert_status >= 400 or not insert_response:
+        logger.warning(
+            "Repost insert failed for %s/%s: %s",
+            config["table"],
+            item_id,
+            insert_response,
+        )
+        return jsonify({"error": "Failed to repost listing"}), 500
+
+    new_record = (
+        insert_response[0] if isinstance(insert_response, list) else insert_response
+    )
+    new_id = new_record.get("id")
+
+    # Clone images so the user doesn't have to re-upload.
+    original_images, images_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['images_table']}",
+        params={"select": "*", config["fk"]: f"eq.{item_id}"},
+        use_service_role=True,
+    )
+    if images_status < 400 and new_id is not None:
+        _clone_listing_images(
+            config["images_table"], config["fk"], new_id, original_images or []
+        )
+
+    # Hide the original from the user's listings view (audit trail stays).
+    supabase_request(
+        "patch",
+        f"/rest/v1/{config['table']}",
+        params={"id": f"eq.{item_id}", "user_id": f"eq.{current_user}"},
+        data={"user_dismissed_at": _isoformat_utc(_utc_now())},
+        use_service_role=True,
+    )
+
+    _invalidate_public_inventory_cache(config["table"])
+
+    return jsonify(
+        {
+            "message": "Listing reposted as a new pending listing",
+            "new_listing_id": new_id,
+            "listing": new_record,
+        }
+    ), 201
+
+
+@app.route(
+    "/api/user/listings/<item_type>/<item_id>/dismiss", methods=["POST"]
+)
+@token_required
+def dismiss_user_listing(current_user, item_type, item_id):
+    config = LISTING_TABLE_CONFIG.get(item_type)
+    if not config:
+        return jsonify({"error": "Invalid listing type"}), 400
+
+    listing_data, listing_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={
+            "select": "id,user_id,status,deleted_at,is_archived,user_dismissed_at",
+            "id": f"eq.{item_id}",
+            "limit": 1,
+        },
+        user_id=current_user,
+    )
+    if listing_status >= 400:
+        return jsonify(listing_data), listing_status
+    if not listing_data:
+        return jsonify({"error": "Listing not found"}), 404
+
+    original = listing_data[0]
+    if original.get("user_id") != current_user:
+        return jsonify(
+            {"error": "You do not have permission to dismiss this listing"}
+        ), 403
+
+    status_value = str(original.get("status") or "").lower()
+    if (
+        status_value not in {"deleted", "rejected", "sold"}
+        and not original.get("deleted_at")
+        and not original.get("is_archived")
+    ):
+        return jsonify(
+            {"error": "Only deleted, expired, or sold listings can be removed from your list"}
+        ), 400
+
+    # Idempotent: if already dismissed, return success.
+    if original.get("user_dismissed_at"):
+        return jsonify({"message": "Listing already removed from your list"}), 200
+
+    patch_response, patch_status = supabase_request(
+        "patch",
+        f"/rest/v1/{config['table']}",
+        params={"id": f"eq.{item_id}", "user_id": f"eq.{current_user}"},
+        data={"user_dismissed_at": _isoformat_utc(_utc_now())},
+        use_service_role=True,
+    )
+    if patch_status >= 400:
+        return jsonify({"error": "Failed to remove listing from your list"}), 500
+
+    return jsonify({"message": "Listing removed from your list"}), 200
 
 
 @app.route("/api/bikes", methods=["POST"])

@@ -162,6 +162,21 @@
   border-color: rgba(239, 176, 53, 0.35);
 }
 
+.my-listing-card.is-deleted {
+  border-color: rgba(239, 68, 68, 0.35);
+  opacity: 0.78;
+}
+
+.my-listing-card.is-deleted .my-listing-details h3 {
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.6);
+}
+
+.listing-state-tag.state-deleted {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+}
+
 .my-listing-image {
   position: relative;
   aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);

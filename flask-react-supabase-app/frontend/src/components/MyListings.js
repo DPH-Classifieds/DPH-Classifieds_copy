@@ -332,13 +332,87 @@ const MyListings = () => {
 
   const isExpiredListing = (listing) => listing?.listing_state === 'expired';
 
+  const isDeletedListing = (listing) => {
+    const status = String(listing?.status || '').toLowerCase();
+    const state = String(listing?.listing_state || '').toLowerCase();
+    return status === 'deleted' || state === 'deleted' || Boolean(listing?.deleted_at);
+  };
+
+  const handleRepostListing = async (listing) => {
+    setActioningId(listing.id);
+    setError(null);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await fetch(
+        `${API_URL}/api/user/listings/${listing.listing_type}/${listing.id}/repost`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to repost listing');
+      }
+      await fetchUserListings();
+    } catch (err) {
+      console.error('Repost listing error:', err);
+      setError(err.message || 'Failed to repost listing.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleDismissListing = async (listing) => {
+    setActioningId(listing.id);
+    setError(null);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await fetch(
+        `${API_URL}/api/user/listings/${listing.listing_type}/${listing.id}/dismiss`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to remove listing');
+      }
+      setListings((current) => current.filter((item) => item.id !== listing.id));
+    } catch (err) {
+      console.error('Dismiss listing error:', err);
+      setError(err.message || 'Failed to remove listing.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
   const renderListingCard = (listing, config) => {
     const imageUrl = getPrimaryImage(listing);
     const canEdit = Boolean(config.editPath);
     const isBusy = actioningId === listing.id;
+    const isDeleted = isDeletedListing(listing);
+    const wasAutoRemoved = Boolean(listing.auto_removed_at);
+
+    const cardModifier = isDeleted
+      ? 'is-deleted'
+      : listing.listing_state === 'expired'
+        ? 'is-expired'
+        : '';
 
     return (
-      <div key={`${listing.listing_type}-${listing.id}`} className={`my-listing-card ${listing.listing_state === 'expired' ? 'is-expired' : ''}`}>
+      <div key={`${listing.listing_type}-${listing.id}`} className={`my-listing-card ${cardModifier}`}>
         <div className="my-listing-image">
           {imageUrl ? (
             <img
@@ -355,8 +429,8 @@ const MyListings = () => {
 
           <div className="my-listing-top-tags">
             <span className="listing-type-tag">{config.label}</span>
-            <span className={`listing-state-tag state-${listing.listing_state}`}>
-              {listing.listing_state === 'expired' ? 'Expired' : listing.status || 'Live'}
+            <span className={`listing-state-tag state-${isDeleted ? 'deleted' : listing.listing_state}`}>
+              {isDeleted ? 'Deleted' : (listing.listing_state === 'expired' ? 'Expired' : listing.status || 'Live')}
             </span>
           </div>
         </div>
@@ -367,6 +441,11 @@ const MyListings = () => {
           <p className="my-listing-price">{formatMoney(getListingPrice(listing))}</p>
           <p className="my-listing-date">Posted on {formatDate(listing.created_at)}</p>
           <p className="my-listing-lifecycle">{getLifecycleCopy(listing)}</p>
+          {isDeleted && wasAutoRemoved && (
+            <p className="my-listing-lifecycle">
+              Auto-removed because no outcome was selected within 48 hours of expiry.
+            </p>
+          )}
           {listing.rejection_note && (
             <p className="my-listing-lifecycle">Rejection reason: {listing.rejection_note}</p>
           )}
@@ -386,58 +465,81 @@ const MyListings = () => {
             View
           </button>
 
-          {canEdit && (
-            <button
-              onClick={() => navigate(config.editPath(listing.id))}
-              className="btn btn-secondary"
-              aria-label="Edit listing"
-            >
-              Edit
-            </button>
-          )}
-
-          {isExpiredListing(listing) ? (
+          {isDeleted ? (
             <>
               <button
-                onClick={() => handleOutcomeAction(listing, 'not_sold_renew')}
+                onClick={() => handleRepostListing(listing)}
                 className="btn btn-primary"
                 disabled={isBusy}
+                aria-label="Repost listing"
               >
-                {isBusy ? 'Updating...' : 'Renew'}
+                {isBusy ? 'Reposting...' : 'Repost'}
               </button>
               <button
-                onClick={() => handleOutcomeAction(listing, 'move_to_draft')}
+                onClick={() => handleDismissListing(listing)}
                 className="btn btn-secondary"
                 disabled={isBusy}
+                aria-label="Remove from my listings"
               >
-                {isBusy ? 'Updating...' : 'Move to Drafts'}
-              </button>
-              <button
-                onClick={() => setOutcomePromptListing(listing)}
-                className="btn btn-secondary"
-                disabled={isBusy}
-              >
-                Sold Options
+                {isBusy ? 'Removing...' : 'Remove from list'}
               </button>
             </>
-          ) : listing.can_extend && (
-            <button
-              onClick={() => setOutcomePromptListing(listing)}
-              className="btn btn-primary"
-              disabled={isBusy}
-            >
-              {isBusy ? 'Updating...' : 'Renew / Sold'}
-            </button>
-          )}
+          ) : (
+            <>
+              {canEdit && (
+                <button
+                  onClick={() => navigate(config.editPath(listing.id))}
+                  className="btn btn-secondary"
+                  aria-label="Edit listing"
+                >
+                  Edit
+                </button>
+              )}
 
-          <button
-            onClick={() => handleDeleteListing(listing)}
-            className="btn btn-danger"
-            disabled={isBusy}
-            aria-label="Delete listing"
-          >
-            Delete
-          </button>
+              {isExpiredListing(listing) ? (
+                <>
+                  <button
+                    onClick={() => handleOutcomeAction(listing, 'not_sold_renew')}
+                    className="btn btn-primary"
+                    disabled={isBusy}
+                  >
+                    {isBusy ? 'Updating...' : 'Renew'}
+                  </button>
+                  <button
+                    onClick={() => handleOutcomeAction(listing, 'move_to_draft')}
+                    className="btn btn-secondary"
+                    disabled={isBusy}
+                  >
+                    {isBusy ? 'Updating...' : 'Move to Drafts'}
+                  </button>
+                  <button
+                    onClick={() => setOutcomePromptListing(listing)}
+                    className="btn btn-secondary"
+                    disabled={isBusy}
+                  >
+                    Sold Options
+                  </button>
+                </>
+              ) : listing.can_extend && (
+                <button
+                  onClick={() => setOutcomePromptListing(listing)}
+                  className="btn btn-primary"
+                  disabled={isBusy}
+                >
+                  {isBusy ? 'Updating...' : 'Renew / Sold'}
+                </button>
+              )}
+
+              <button
+                onClick={() => handleDeleteListing(listing)}
+                className="btn btn-danger"
+                disabled={isBusy}
+                aria-label="Delete listing"
+              >
+                Delete
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
