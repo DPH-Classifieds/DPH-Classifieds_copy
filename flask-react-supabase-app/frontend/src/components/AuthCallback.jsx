@@ -60,7 +60,6 @@ const AuthCallback = () => {
       // auth.users created_at fires once per identity; we treat anyone created
       // in the last few minutes as a fresh sign-up.
       const createdAtMs = supabaseUser?.created_at ? Date.parse(supabaseUser.created_at) : null;
-      const lastSignInMs = supabaseUser?.last_sign_in_at ? Date.parse(supabaseUser.last_sign_in_at) : null;
       const isFreshSignup = createdAtMs && (Date.now() - createdAtMs) < NEW_USER_WINDOW_SECONDS * 1000;
       const eventMethod = oauthProvider || 'oauth';
 
