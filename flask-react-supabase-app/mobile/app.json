@@ -64,7 +64,8 @@
         {
           "locationWhenInUsePermission": "Allow DPH Classifieds to use your location to show nearby listings."
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }

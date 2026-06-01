@@ -161,7 +161,33 @@ export const signIn = async (email, password) => {
       email,
       password,
     });
-    
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
+// Start the Google OAuth flow. Supabase redirects to Google, Google redirects
+// back to https://<supabase>/auth/v1/callback, Supabase then sends the user to
+// `redirectTo` with the session in the URL hash. AuthCallback.jsx picks up
+// from there and handles phone-verify gating + analytics events.
+export const signInWithGoogle = async ({ redirectAfter = '/' } = {}) => {
+  try {
+    const target = redirectAfter && redirectAfter.startsWith('/') ? redirectAfter : '/';
+    const redirectTo = `${window.location.origin}/auth/callback?oauth=google&redirect=${encodeURIComponent(target)}`;
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: {
+          // Force account chooser so users with multiple Google accounts
+          // can pick the right one rather than getting auto-routed.
+          prompt: 'select_account',
+        },
+      },
+    });
     if (error) throw error;
     return { data, error: null };
   } catch (error) {

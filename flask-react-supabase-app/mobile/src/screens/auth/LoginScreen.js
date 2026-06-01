@@ -13,16 +13,55 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import apiClient from '../../utils/apiClient';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
 export default function LoginScreen({ navigation, route }) {
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const redirect = route?.params?.redirect;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  const navigateAfterAuth = (signedInUser) => {
+    const rootNav = navigation.getParent();
+    if (!signedInUser?.phone_verified) {
+      navigation.navigate('VerifyPhone', {
+        phone: signedInUser?.phone || '',
+        countryCode: signedInUser?.country_code || '+971',
+        purpose: 'profile_verify',
+        redirect: redirect || 'Profile',
+      });
+      return;
+    }
+    if (redirect && rootNav) {
+      rootNav.navigate('Main', { screen: redirect });
+    } else if (rootNav) {
+      rootNav.goBack();
+    }
+  };
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      // signInWithGoogle already calls syncWithSupabase which installs the
+      // bearer token on apiClient. Pull a fresh /api/auth/me so we have the
+      // current phone_verified state before routing.
+      const me = await apiClient.get('/api/auth/me').catch(() => null);
+      navigateAfterAuth(me);
+    } catch (err) {
+      const message = err?.message || 'Google sign-in failed. Please try again.';
+      if (message.toLowerCase() !== 'sign-in cancelled') {
+        Alert.alert('Google Sign-in Failed', message);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -157,10 +196,28 @@ export default function LoginScreen({ navigation, route }) {
             title="Sign In"
             onPress={handleSignIn}
             loading={loading}
-            disabled={loading}
+            disabled={loading || googleLoading}
             size="lg"
             style={styles.signInButton}
           />
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerLabel}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.googleButton, (googleLoading || loading) && styles.googleButtonDisabled]}
+            onPress={handleGoogle}
+            disabled={googleLoading || loading}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="logo-google" size={18} color="#1f2937" />
+            <Text style={styles.googleButtonText}>
+              {googleLoading ? 'Opening Google...' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
@@ -231,6 +288,41 @@ const styles = StyleSheet.create({
   },
   signInButton: {
     width: '100%',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.md,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  dividerLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: FONT_SIZES.xs,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  googleButtonDisabled: {
+    opacity: 0.7,
+  },
+  googleButtonText: {
+    color: '#1f2937',
+    fontWeight: '600',
+    fontSize: FONT_SIZES.md,
   },
   footer: {
     flexDirection: 'row',

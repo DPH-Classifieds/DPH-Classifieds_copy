@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import apiClient from '../../utils/apiClient';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
@@ -89,7 +90,34 @@ function getPasswordStrength(pw) {
 }
 
 export default function SignupScreen({ navigation }) {
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      const me = await apiClient.get('/api/auth/me').catch(() => null);
+      const rootNav = navigation.getParent();
+      if (!me?.phone_verified) {
+        navigation.navigate('VerifyPhone', {
+          phone: me?.phone || '',
+          countryCode: me?.country_code || '+971',
+          purpose: 'profile_verify',
+          redirect: 'Profile',
+        });
+      } else if (rootNav) {
+        rootNav.goBack();
+      }
+    } catch (err) {
+      const message = err?.message || 'Google sign-up failed. Please try again.';
+      if (message.toLowerCase() !== 'sign-in cancelled') {
+        Alert.alert('Google Sign-up Failed', message);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
   const [accountType, setAccountType] = useState('individual');
   const [username, setUsername] = useState('');
   const [usernameStatus, setUsernameStatus] = useState(null);
@@ -233,6 +261,27 @@ export default function SignupScreen({ navigation }) {
           <Text style={styles.logoText}>DPH</Text>
           <Text style={styles.logoSubtext}>Classifieds</Text>
           <Text style={styles.subtitle}>Create your account</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.googleSignupButton, googleLoading && { opacity: 0.7 }]}
+          onPress={handleGoogle}
+          disabled={googleLoading || loading}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="logo-google" size={18} color="#1f2937" />
+          <Text style={styles.googleSignupButtonText}>
+            {googleLoading ? 'Opening Google...' : 'Continue with Google'}
+          </Text>
+        </TouchableOpacity>
+        <Text style={styles.googleSignupNote}>
+          After Google sign-up, we still need to verify your phone number.
+        </Text>
+
+        <View style={styles.signupDividerRow}>
+          <View style={styles.signupDividerLine} />
+          <Text style={styles.signupDividerLabel}>or use email</Text>
+          <View style={styles.signupDividerLine} />
         </View>
 
         <View style={styles.accountTypeContainer}>
@@ -669,6 +718,44 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
     marginTop: SPACING.md,
+  },
+  googleSignupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: 14,
+    marginBottom: SPACING.xs,
+  },
+  googleSignupButtonText: {
+    color: '#1f2937',
+    fontWeight: '600',
+    fontSize: FONT_SIZES.md,
+  },
+  googleSignupNote: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.xs,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  signupDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg,
+    gap: 10,
+  },
+  signupDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  signupDividerLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: FONT_SIZES.xs,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   accountTypeContainer: {
     flexDirection: 'row',

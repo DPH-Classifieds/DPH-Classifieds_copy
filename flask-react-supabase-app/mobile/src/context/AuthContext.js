@@ -1,9 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as authService from '../utils/authService';
-import { supabase, getSession } from '../utils/supabaseClient';
+import { supabase, getSession, signInWithGoogle as supabaseSignInWithGoogle } from '../utils/supabaseClient';
 import { API_BASE_URL } from '../constants/config';
 import { trackEvent } from '../utils/analytics';
+
+// Treat the user as newly registered if their auth row was created within
+// this many seconds of the OAuth completion. Used to fire sign_up vs login.
+const NEW_USER_WINDOW_SECONDS = 120;
 
 const AuthContext = createContext();
 
@@ -123,6 +127,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      setError(null);
+      const { data, error } = await supabaseSignInWithGoogle();
+      if (error) throw error;
+
+      const supabaseUser = data?.user || data?.session?.user;
+      const createdAtMs = supabaseUser?.created_at ? Date.parse(supabaseUser.created_at) : null;
+      const isFreshSignup = createdAtMs && (Date.now() - createdAtMs) < NEW_USER_WINDOW_SECONDS * 1000;
+      try {
+        if (isFreshSignup) {
+          trackEvent('sign_up', { method: 'google', platform: 'mobile' });
+        }
+        trackEvent('login', { method: 'google', platform: 'mobile' });
+      } catch (_) { /* analytics never blocks auth */ }
+
+      // syncWithSupabase pulls /api/auth/me, which auto-creates the
+      // public.users row on first Google sign-in. The returned user is
+      // immediately readable from this hook's `user` state after sync.
+      await syncWithSupabase({ forceBackendCheck: true });
+      return { data, error: null };
+    } catch (err) {
+      setError(err?.message || 'Google sign-in failed');
+      throw err;
+    }
+  };
+
   const signOut = async () => {
     try {
       setError(null);
@@ -181,7 +212,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, error, signIn, signUp, signOut, updateUser, syncWithSupabase, resetPassword, updatePassword }}>
+    <AuthContext.Provider value={{ user, isLoading, error, signIn, signUp, signInWithGoogle, signOut, updateUser, syncWithSupabase, resetPassword, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );
