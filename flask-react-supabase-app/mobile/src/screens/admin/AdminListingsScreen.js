@@ -29,9 +29,9 @@ const REJECTION_REASONS = [
   'Other',
 ];
 
-const TYPE_TABS = ['All', 'Cars', 'Bikes', 'Plates', 'Parts'];
+const TYPE_TABS = ['All', 'Cars', 'Bikes', 'Plates', 'Parts', 'Buying Requests'];
 const STATUS_TABS = ['All', 'Pending', 'Active', 'Approved', 'Expired', 'Rejected', 'Deleted'];
-const TYPE_KEYS = ['cars', 'bikes', 'plates', 'parts'];
+const TYPE_KEYS = ['cars', 'bikes', 'plates', 'parts', 'buying_requests'];
 
 const typeKeyMap = {
   All: null,
@@ -39,6 +39,7 @@ const typeKeyMap = {
   Bikes: 'bikes',
   Plates: 'plates',
   Parts: 'parts',
+  'Buying Requests': 'buying_requests',
 };
 
 const statusKeyMap = {
@@ -59,10 +60,19 @@ const getImageUri = (item) => {
 };
 
 const getTitle = (item) => {
+  if (item.listing_type === 'buying_requests' || item.item_type) {
+    const carPart = `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim();
+    return item.item_name || carPart || 'Buying Request';
+  }
   if (item.car_manufacturer) return `${item.car_manufacturer} ${item.car_model || ''}`.trim() || 'Car';
   if (item.bike_brand) return `${item.bike_brand} ${item.bike_model || ''}`.trim() || 'Bike';
   if (item.city) return [item.city, item.code, item.digits || item.number].filter(Boolean).join(' ') || 'Plate';
   return item.part_type || item.part_name || 'Part';
+};
+
+const getDisplayPrice = (item) => {
+  if (item.listing_type === 'buying_requests') return item.budget || 0;
+  return item.price || item.expected_selling_price || 0;
 };
 
 export default function AdminListingsScreen({ navigation }) {
@@ -198,7 +208,9 @@ export default function AdminListingsScreen({ navigation }) {
     const title = getTitle(item);
     const displayStatus = item.listing_state || item.status || 'pending';
     const rawStatus = item._table_status || item.status || 'pending';
-    const isPending = rawStatus === 'pending';
+    const isBuyingRequest = item.listing_type === 'buying_requests';
+    const isPending = rawStatus === 'pending' && !isBuyingRequest;
+    const placeholderIcon = isBuyingRequest ? 'cart-outline' : 'image-outline';
 
     return (
       <TouchableOpacity
@@ -211,12 +223,21 @@ export default function AdminListingsScreen({ navigation }) {
             <Image source={{ uri: imageUri }} style={styles.thumbnail} />
           ) : (
             <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-              <Ionicons name="image-outline" size={28} color={COLORS.textMuted} />
+              <Ionicons name={placeholderIcon} size={28} color={COLORS.textMuted} />
             </View>
           )}
           <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
-            <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
+              {isBuyingRequest && (
+                <View style={styles.requestPill}>
+                  <Text style={styles.requestPillText}>Request</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.cardPrice}>
+              {isBuyingRequest ? `Budget ${formatPrice(getDisplayPrice(item))}` : formatPrice(getDisplayPrice(item))}
+            </Text>
             <View style={styles.cardMeta}>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
                 <Text style={styles.statusBadgeText}>{displayStatus}</Text>
@@ -486,11 +507,29 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.md,
     justifyContent: 'center',
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   cardTitle: {
+    flexShrink: 1,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.white,
-    marginBottom: 4,
+  },
+  requestPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: 'rgba(76,175,80,0.18)',
+  },
+  requestPillText: {
+    color: COLORS.accent,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   cardPrice: {
     fontSize: FONT_SIZES.md,

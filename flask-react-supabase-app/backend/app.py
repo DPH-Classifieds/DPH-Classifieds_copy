@@ -14853,6 +14853,8 @@ def admin_listings_search(current_user):
             "parts": "part",
             "plate": "plate",
             "plates": "plate",
+            "buying_request": "buying_request",
+            "buying_requests": "buying_request",
         }
         if requested_types:
             normalized_types = [

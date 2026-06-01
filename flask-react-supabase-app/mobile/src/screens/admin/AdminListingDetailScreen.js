@@ -71,12 +71,25 @@ export default function AdminListingDetailScreen({ route, navigation }) {
     return typeof img === 'string' ? img : img.url || img.image_url;
   };
 
+  const isBuyingRequest = itemType === 'buying_requests' || itemType === 'buying_request';
+
   const getTitle = () => {
     const listing = detail?.listing;
     if (!listing) return 'Listing';
+    if (isBuyingRequest) {
+      const carPart = `${listing.car_manufacturer || ''} ${listing.car_model || ''}`.trim();
+      return listing.item_name || carPart || 'Buying Request';
+    }
     return listing.listing_title || listing.car_manufacturer
       ? `${listing.car_manufacturer || ''} ${listing.car_model || ''}`.trim()
       : listing.name || 'Listing';
+  };
+
+  const getPrice = () => {
+    const listing = detail?.listing;
+    if (!listing) return 0;
+    if (isBuyingRequest) return listing.budget || 0;
+    return listing.expected_selling_price || listing.price || 0;
   };
 
   if (loading) {
@@ -99,41 +112,58 @@ export default function AdminListingDetailScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
         <Text style={styles.title}>{getTitle()}</Text>
-        <Text style={styles.price}>{formatPrice(listing?.expected_selling_price || listing?.price)}</Text>
+        <Text style={styles.price}>
+          {isBuyingRequest ? `Budget ${formatPrice(getPrice())}` : formatPrice(getPrice())}
+        </Text>
         <View style={[styles.statusBadge, { backgroundColor: listing?.status === 'active' ? COLORS.success : COLORS.warning }]}>
           <Text style={styles.statusBadgeText}>{listing?.status || 'pending'}</Text>
         </View>
-        <Text style={styles.detail}>Seller: {listing?.seller_name || 'N/A'}</Text>
-        <Text style={styles.detail}>Type: {itemType}</Text>
+        <Text style={styles.detail}>Type: {isBuyingRequest ? 'Buying request' : itemType}</Text>
+        {!isBuyingRequest && (
+          <Text style={styles.detail}>Seller: {listing?.seller_name || 'N/A'}</Text>
+        )}
+        {isBuyingRequest && listing?.mileage_preference && (
+          <Text style={styles.detail}>Mileage preference: {listing.mileage_preference}</Text>
+        )}
+        {isBuyingRequest && listing?.regional_spec && (
+          <Text style={styles.detail}>Regional spec: {listing.regional_spec}</Text>
+        )}
+        {isBuyingRequest && listing?.reference_notes && (
+          <Text style={styles.detail}>Notes: {listing.reference_notes}</Text>
+        )}
         {listing?.created_at && (
           <Text style={styles.detail}>Posted: {formatDate(listing.created_at)}</Text>
         )}
 
-        <View style={styles.scanCard}>
-          <Text style={styles.scanTitle}>Verification Scan</Text>
-          <Text style={styles.detail}>Needs review: {verification.needs_review ? 'Yes' : 'No'}</Text>
-          <Text style={styles.detail}>VIN valid: {verification.vin_valid ? 'Yes' : 'No'}</Text>
-          <Text style={styles.detail}>OCR confidence: {Math.round(Number(verification.confidence || 0) * 100)}%</Text>
-          <Text style={styles.detail}>OCR make: {verificationFields.make || 'N/A'}</Text>
-          <Text style={styles.detail}>OCR model: {verificationFields.model || 'N/A'}</Text>
-          <Text style={styles.detail}>OCR year: {verificationFields.year || 'N/A'}</Text>
-          <Text style={styles.detail}>OCR VIN: {verificationFields.vin || 'N/A'}</Text>
-        </View>
+        {!isBuyingRequest && (
+          <View style={styles.scanCard}>
+            <Text style={styles.scanTitle}>Verification Scan</Text>
+            <Text style={styles.detail}>Needs review: {verification.needs_review ? 'Yes' : 'No'}</Text>
+            <Text style={styles.detail}>VIN valid: {verification.vin_valid ? 'Yes' : 'No'}</Text>
+            <Text style={styles.detail}>OCR confidence: {Math.round(Number(verification.confidence || 0) * 100)}%</Text>
+            <Text style={styles.detail}>OCR make: {verificationFields.make || 'N/A'}</Text>
+            <Text style={styles.detail}>OCR model: {verificationFields.model || 'N/A'}</Text>
+            <Text style={styles.detail}>OCR year: {verificationFields.year || 'N/A'}</Text>
+            <Text style={styles.detail}>OCR VIN: {verificationFields.vin || 'N/A'}</Text>
+          </View>
+        )}
 
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.7}>
-            <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
-            <Text style={styles.approveBtnText}>Approve</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={18} color={COLORS.error} />
-            <Text style={styles.rejectBtnText}>Reject</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-            <Text style={styles.deleteBtnText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
+        {!isBuyingRequest && (
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.7}>
+              <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
+              <Text style={styles.approveBtnText}>Approve</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.7}>
+              <Ionicons name="close-circle" size={18} color={COLORS.error} />
+              <Text style={styles.rejectBtnText}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+              <Text style={styles.deleteBtnText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

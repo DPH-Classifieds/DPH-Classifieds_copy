@@ -131,6 +131,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const totalDealers = clamp(stats.total_dealers || dealers.length);
   const verifiedDealers = dealers.filter((d) => d.dealer_verified).length;
   const liveVisitorsCount = clamp(liveUsers?.live_visitors);
+  const uniqueVisitors = clamp(stats.unique_visitors);
 
   const pendingByType = [
     { label: 'Cars', value: clamp(stats.cars_pending) },
@@ -230,6 +231,7 @@ export default function AdminDashboardScreen({ navigation }) {
           <KpiCard icon="logo-whatsapp" label="WhatsApp Clicks" value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
           <KpiCard icon="phone-portrait" label="Phone Clicks" value={formatNumber(totalCalls)} color={COLORS.accent} />
           <KpiCard icon="eye" label="Total Views" value={formatNumber(totalViews)} color={COLORS.accent} />
+          <KpiCard icon="globe-outline" label={`Site Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={COLORS.accent} />
           <KpiCard icon="time" label="Pending Approvals" value={formatNumber(pendingApprovals)} color={COLORS.warning} />
           <KpiCard icon="flag" label="Reports" value={formatNumber(totalReports)} color={COLORS.error} />
           <KpiCard icon="radio" label="Live Users" value={formatNumber(liveVisitorsCount)} color={COLORS.accent} />
