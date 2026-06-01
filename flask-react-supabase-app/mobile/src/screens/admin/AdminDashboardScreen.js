@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
+  Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -328,6 +330,30 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>External Analytics</Text>
+          <ExternalAnalyticsCard
+            title="Open GA4 Dashboard"
+            subtitle="Active users, sessions, conversions"
+            icon="stats-chart-outline"
+            envVarName="EXPO_PUBLIC_GA4_MEASUREMENT_ID"
+            // Without a property number we can only deep-link to the property
+            // picker — that's still useful (one click to the right account).
+            url="https://analytics.google.com/analytics/web/"
+            enabled={!!process.env.EXPO_PUBLIC_GA4_MEASUREMENT_ID}
+          />
+          <ExternalAnalyticsCard
+            title="Open Clarity Dashboard"
+            subtitle="Heatmaps and session recordings"
+            icon="eye-outline"
+            envVarName="EXPO_PUBLIC_CLARITY_PROJECT_ID"
+            url={process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID
+              ? `https://clarity.microsoft.com/projects/view/${process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID}/dashboard`
+              : 'https://clarity.microsoft.com'}
+            enabled={!!process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID}
+          />
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           {QUICK_ACTIONS.map((action, index) => (
             <TouchableOpacity
@@ -346,6 +372,40 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ExternalAnalyticsCard({ title, subtitle, icon, envVarName, url, enabled }) {
+  const handlePress = () => {
+    if (!enabled) {
+      Alert.alert(
+        'Configure analytics',
+        `Set ${envVarName} in mobile/.env, then rebuild. See docs/ANALYTICS_SETUP.md.`,
+      );
+      return;
+    }
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Could not open', 'No browser available to open the dashboard.');
+    });
+  };
+
+  return (
+    <TouchableOpacity
+      style={[styles.actionCard, !enabled && styles.actionCardDisabled]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.actionLeft}>
+        <Ionicons name={icon} size={20} color={enabled ? COLORS.accent : COLORS.textMuted} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.actionLabel, !enabled && { color: COLORS.textMuted }]}>{title}</Text>
+          <Text style={styles.actionSubtitle}>
+            {enabled ? subtitle : `Add ${envVarName} to env`}
+          </Text>
+        </View>
+      </View>
+      <Ionicons name="open-outline" size={18} color={enabled ? COLORS.textSecondary : COLORS.textMuted} />
+    </TouchableOpacity>
   );
 }
 
@@ -390,8 +450,10 @@ const styles = StyleSheet.create({
   badgeWarning: { backgroundColor: 'rgba(255,152,0,0.2)', color: '#FF9800' },
   emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: 12 },
   actionCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  actionCardDisabled: { opacity: 0.6 },
+  actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
   actionLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.white },
+  actionSubtitle: { fontSize: FONT_SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
   errorTitle: { fontSize: 20, fontWeight: '700', color: COLORS.white, marginTop: 16 },
   errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },

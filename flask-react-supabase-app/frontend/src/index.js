@@ -4,9 +4,13 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { initializeAuth } from './utils/authService';
+import { initAnalytics } from './utils/analytics';
 
 // Initialize authentication
 initializeAuth();
+
+// Initialize GA4 + Clarity (no-op if env vars are unset)
+initAnalytics();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

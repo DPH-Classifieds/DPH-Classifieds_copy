@@ -55,6 +55,8 @@ Thumbs.db
 
 # dotenv environment variable files
 .env*
+# ...but keep the public placeholder template tracked
+!.env.example
 
 # Temporary folders
 tmp/

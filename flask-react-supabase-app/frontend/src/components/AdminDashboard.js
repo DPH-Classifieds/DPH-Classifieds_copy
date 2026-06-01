@@ -3,7 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
+import { analyticsConfig } from '../utils/analytics';
 import '../styles/AdminOps.css';
+
+const CLARITY_DASHBOARD_URL = analyticsConfig.clarityProjectId
+  ? `https://clarity.microsoft.com/projects/view/${analyticsConfig.clarityProjectId}/dashboard`
+  : 'https://clarity.microsoft.com';
+const GA4_DASHBOARD_URL = 'https://analytics.google.com/analytics/web/';
 
 const EMPTY_ARRAY = [];
 
@@ -564,6 +570,55 @@ const AdminDashboard = () => {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div className="admin-card" style={{ marginTop: 24 }}>
+          <h3>External Analytics</h3>
+          <p className="admin-muted" style={{ marginTop: -4 }}>
+            Hosted dashboards for traffic, conversions, heatmaps and session
+            recordings. See <code>docs/ANALYTICS_SETUP.md</code> to provision
+            the keys.
+          </p>
+          <div className="admin-actions" style={{ marginTop: 12, gap: 12, flexWrap: 'wrap' }}>
+            {analyticsConfig.ga4Enabled ? (
+              <a
+                className="admin-button admin-button-primary"
+                href={GA4_DASHBOARD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open GA4 Dashboard ↗
+              </a>
+            ) : (
+              <button
+                className="admin-button"
+                type="button"
+                disabled
+                title="Set REACT_APP_GA4_MEASUREMENT_ID in frontend/.env"
+              >
+                GA4 — add REACT_APP_GA4_MEASUREMENT_ID
+              </button>
+            )}
+            {analyticsConfig.clarityEnabled ? (
+              <a
+                className="admin-button"
+                href={CLARITY_DASHBOARD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open Clarity Dashboard ↗
+              </a>
+            ) : (
+              <button
+                className="admin-button"
+                type="button"
+                disabled
+                title="Set REACT_APP_CLARITY_PROJECT_ID in frontend/.env"
+              >
+                Clarity — add REACT_APP_CLARITY_PROJECT_ID
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
