@@ -12,6 +12,7 @@ import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
+import { forwardLeadToGa4 } from '../utils/analytics';
 import { resolveMediaUrl } from '../utils/media';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -167,6 +168,7 @@ const BikeDetailRedesigned = () => {
     });
 
   const trackLeadEvent = async (action) => {
+    forwardLeadToGa4('bike', id, action);
     try {
       const token = await getAccessToken();
       await fetch(`${API_URL}/api/listings/bike/${id}/lead-events`, {

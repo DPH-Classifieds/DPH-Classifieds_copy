@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as authService from '../utils/authService';
 import { supabase, getSession } from '../utils/supabaseClient';
+import { trackEvent } from '../utils/analytics';
 
 const AuthContext = createContext();
 
@@ -269,14 +270,20 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       
       const { data, error } = await authService.signUp(email, password, additionalData, turnstileToken);
-      
+
       if (error) {
         throw error;
       }
-      
+
+      trackEvent('sign_up', {
+        method: 'email',
+        platform: 'web',
+        account_type: additionalData?.accountType || 'individual',
+      });
+
       // Also sync with Supabase after signup
       await syncWithSupabase({ forceBackendCheck: true });
-      
+
       return { data, error: null };
     } catch (err) {
       setError(err.message);
@@ -294,7 +301,9 @@ export const AuthProvider = ({ children }) => {
         console.error("Sign in error:", error);
         throw new Error(error);
       }
-      
+
+      trackEvent('login', { method: 'email', platform: 'web' });
+
       // Update user state - Use user data from the login response directly if available
       if (data && data.user) {
         console.log("Login successful, using user data from response:", data.user.email);

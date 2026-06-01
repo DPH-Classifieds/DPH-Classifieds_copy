@@ -14,3 +14,4 @@ Flask-Mail==0.10.0
 flask-compress==1.15
 brotli==1.1.0
 redis==5.1.1
+google-analytics-data==0.18.13

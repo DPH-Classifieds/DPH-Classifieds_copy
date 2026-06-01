@@ -20,6 +20,7 @@ import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
+import { forwardLeadToGa4 } from '../utils/analytics';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -235,6 +236,7 @@ const CarDetail = () => {
     });
 
   const trackLeadEvent = async (action, payload = {}) => {
+    forwardLeadToGa4('car', id, action);
     try {
       const token = await getAccessToken();
       await fetch(`${API_URL}/api/listings/car/${id}/lead-events`, {

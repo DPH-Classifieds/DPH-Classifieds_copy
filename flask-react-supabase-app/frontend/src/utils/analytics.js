@@ -59,6 +59,26 @@ export function trackEvent(name, params = {}) {
   try { window.gtag('event', name, params); } catch (err) { /* swallow */ }
 }
 
+// Forward a first-party lead_event to GA4 with our standardized event name.
+// The detail-page components already POST to /api/listings/.../lead-events
+// for the in-app KPIs; this just mirrors the same action into GA4 so the
+// hosted dashboard shows the same conversions. Map kept in sync with mobile.
+const LEAD_GA4_NAMES = {
+  call_click: 'contact_click_call',
+  whatsapp_click: 'contact_click_whatsapp',
+  vin_open: 'vin_open',
+  vin_reveal: 'vin_reveal',
+};
+export function forwardLeadToGa4(listingType, listingId, action, extra = {}) {
+  const name = LEAD_GA4_NAMES[action];
+  if (!name) return;
+  trackEvent(name, {
+    listing_type: listingType,
+    listing_id: listingId == null ? '' : String(listingId),
+    ...extra,
+  });
+}
+
 // Surface configuration so the admin panel can show "configure X" hints
 // without poking at process.env from a component.
 export const analyticsConfig = {

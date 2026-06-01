@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
+import { trackEvent } from '../utils/analytics';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
@@ -353,6 +354,9 @@ const PostPlate = () => {
         }
       } else {
         await apiClient.post('/api/plates', payload);
+      }
+      if (!isEdit) {
+        trackEvent('post_listing_success', { listing_type: 'plate', platform: 'web' });
       }
       setSuccess(true);
 

@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
+import { trackEvent } from '../utils/analytics';
 import '../styles/PostForms.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import LoadingSpinner from './LoadingSpinner';
@@ -2038,6 +2039,9 @@ const PostCar = () => {
         }
       }
 
+      if (!isEdit) {
+        trackEvent('post_listing_success', { listing_type: 'car', platform: 'web' });
+      }
       setSuccess(true);
       // Redirect to my listings after 2 seconds
       setTimeout(() => {

@@ -47,6 +47,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
   const [liveUsers, setLiveUsers] = useState(null);
+  const [ga4, setGa4] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -68,16 +69,19 @@ export default function AdminDashboardScreen({ navigation }) {
       setError('');
       const statsQuery = days ? `/api/admin/stats?days=${days}` : '/api/admin/stats';
       const leadQuery = days ? `/api/admin/lead-metrics?days=${days}` : '/api/admin/lead-metrics';
-      const [statsRes, leadRes, dealersRes, reportsRes] = await Promise.all([
+      const ga4Query = `/api/admin/ga4-summary?days=${days || 30}`;
+      const [statsRes, leadRes, dealersRes, reportsRes, ga4Res] = await Promise.all([
         apiClient.get(statsQuery).catch(() => ({})),
         apiClient.get(leadQuery).catch(() => null),
         apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
         apiClient.get('/api/admin/reports').catch(() => []),
+        apiClient.get(ga4Query).catch(() => null),
       ]);
       setStats(statsRes || {});
       setLeadMetrics(leadRes || null);
       setDealers(Array.isArray(dealersRes) ? dealersRes : []);
       setReports(Array.isArray(reportsRes) ? reportsRes : []);
+      setGa4(ga4Res || null);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard');
     } finally {
@@ -330,6 +334,11 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Google Analytics ({selectedRangeLabel})</Text>
+          <Ga4Block ga4={ga4} rangeLabel={selectedRangeLabel} />
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>External Analytics</Text>
           <ExternalAnalyticsCard
             title="Open GA4 Dashboard"
@@ -406,6 +415,64 @@ function ExternalAnalyticsCard({ title, subtitle, icon, envVarName, url, enabled
       </View>
       <Ionicons name="open-outline" size={18} color={enabled ? COLORS.textSecondary : COLORS.textMuted} />
     </TouchableOpacity>
+  );
+}
+
+function Ga4Block({ ga4, rangeLabel }) {
+  if (!ga4) {
+    return (
+      <View style={styles.surface}>
+        <Text style={styles.emptyText}>Loading GA4...</Text>
+      </View>
+    );
+  }
+  if (!ga4.enabled) {
+    return (
+      <View style={styles.surface}>
+        <Text style={styles.queueLabel}>GA4 not connected</Text>
+        <Text style={styles.queueSub}>
+          {ga4.reason || 'Add GA4_PROPERTY_ID + GA4_SERVICE_ACCOUNT_JSON to the backend env.'}
+        </Text>
+        <Text style={styles.queueSub}>
+          See docs/ANALYTICS_SETUP.md §5 for the service-account setup.
+        </Text>
+      </View>
+    );
+  }
+  const minutes = Math.floor((ga4.avg_session_duration_seconds || 0) / 60);
+  const seconds = Math.round((ga4.avg_session_duration_seconds || 0) % 60);
+  const events = ga4.events || {};
+  return (
+    <View style={{ gap: SPACING.md }}>
+      <View style={styles.kpiGrid}>
+        <KpiCard icon="people" label="Active users" value={formatNumber(ga4.active_users)} color={COLORS.accent} />
+        <KpiCard icon="layers" label="Sessions" value={formatNumber(ga4.sessions)} color={COLORS.accent} />
+        <KpiCard icon="document" label="Page views" value={formatNumber(ga4.page_views)} color={COLORS.accent} />
+        <KpiCard icon="hourglass" label="Avg session" value={`${minutes}m ${seconds}s`} color={COLORS.accent} />
+      </View>
+      {ga4.top_sources?.length > 0 && (
+        <View style={styles.surface}>
+          <Text style={styles.queueLabel}>Top sources</Text>
+          {ga4.top_sources.map((src) => (
+            <View key={src.label} style={styles.queueRow}>
+              <Text style={styles.queueLabel}>{src.label}</Text>
+              <Text style={[styles.badge, styles.badgeSuccess]}>{formatNumber(src.sessions)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      <View style={styles.surface}>
+        <Text style={styles.queueLabel}>Conversions ({rangeLabel})</Text>
+        {['contact_click_call', 'contact_click_whatsapp', 'sign_up', 'post_listing_success', 'login', 'view_listing', 'vin_reveal'].map((name) => (
+          <View key={name} style={styles.queueRow}>
+            <Text style={styles.queueLabel}>{name}</Text>
+            <Text style={[styles.badge, events[name] ? styles.badgeSuccess : styles.badgeWarning]}>
+              {formatNumber(events[name] || 0)}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 

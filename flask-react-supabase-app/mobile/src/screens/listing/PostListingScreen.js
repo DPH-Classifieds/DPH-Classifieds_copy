@@ -24,6 +24,7 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../utils/apiClient';
 import { scanCarRegistration } from '../../utils/ocrScanner';
+import { trackEvent } from '../../utils/analytics';
 import { useAuth } from '../../context/AuthContext';
 import {
   CAR_MAKES,
@@ -1091,6 +1092,12 @@ export default function PostListingScreen({ navigation, route }) {
         await apiClient.post(endpoint, payload);
       }
       await AsyncStorage.removeItem(DRAFT_KEY);
+      if (!isEditMode) {
+        trackEvent('post_listing_success', {
+          listing_type: category,
+          platform: 'mobile',
+        });
+      }
       Alert.alert('Success', isEditMode ? 'Your listing has been updated!' : 'Your listing has been posted!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);

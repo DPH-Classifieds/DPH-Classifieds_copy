@@ -13969,6 +13969,13 @@ def get_admin_live_users(current_user):
 
         lookback_seconds = int(request.args.get("window_seconds", 300))
         lookback_seconds = max(min(lookback_seconds, 1800), 30)
+        # 15s cache. Live-users is polled every 15s from the mobile dashboard;
+        # serving the same payload twice in a tight loop is wasteful.
+        cache_key = f"api-cache:admin-live-users:window={lookback_seconds}"
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return jsonify(cached_payload), 200
+
         cutoff = (_utc_now() - datetime.timedelta(seconds=lookback_seconds)).isoformat()
 
         events_resp, status_code = supabase_request(
@@ -13991,16 +13998,13 @@ def get_admin_live_users(current_user):
             if row and str(row.get("visitor_id") or "").strip()
         }
 
-        return (
-            jsonify(
-                {
-                    "window_seconds": lookback_seconds,
-                    "live_visitors": len(visitors),
-                    "timestamp": _isoformat_utc(_utc_now()),
-                }
-            ),
-            200,
-        )
+        payload = {
+            "window_seconds": lookback_seconds,
+            "live_visitors": len(visitors),
+            "timestamp": _isoformat_utc(_utc_now()),
+        }
+        _api_cache_set(cache_key, payload, ttl_seconds=15)
+        return jsonify(payload), 200
     except Exception as exc:
         logger.error(f"Failed to compute live visitors: {exc}")
         return jsonify({"error": "Failed to compute live visitors"}), 500
@@ -14091,6 +14095,165 @@ def admin_health(current_user):
         ), 500
 
 
+GA4_PROPERTY_ID = os.getenv("GA4_PROPERTY_ID", "").strip()
+GA4_SERVICE_ACCOUNT_JSON = os.getenv("GA4_SERVICE_ACCOUNT_JSON", "").strip()
+GA4_CACHE_TTL_SECONDS = int(os.getenv("GA4_CACHE_TTL_SECONDS", "300"))
+_GA4_CLIENT_CACHE = {"client": None, "error": None}
+
+
+def _get_ga4_client():
+    """Lazy-build the GA4 BetaAnalyticsDataClient. Returns (client, error_str)."""
+    if not GA4_PROPERTY_ID or not GA4_SERVICE_ACCOUNT_JSON:
+        return None, "GA4 disabled: set GA4_PROPERTY_ID and GA4_SERVICE_ACCOUNT_JSON."
+    if _GA4_CLIENT_CACHE["client"] is not None or _GA4_CLIENT_CACHE["error"] is not None:
+        return _GA4_CLIENT_CACHE["client"], _GA4_CLIENT_CACHE["error"]
+    try:
+        from google.analytics.data_v1beta import BetaAnalyticsDataClient
+        from google.oauth2 import service_account
+        info = json.loads(GA4_SERVICE_ACCOUNT_JSON)
+        creds = service_account.Credentials.from_service_account_info(info)
+        client = BetaAnalyticsDataClient(credentials=creds)
+        _GA4_CLIENT_CACHE["client"] = client
+        return client, None
+    except Exception as err:
+        message = f"GA4 client init failed: {err}"
+        logger.warning(message)
+        _GA4_CLIENT_CACHE["error"] = message
+        return None, message
+
+
+@app.route("/api/admin/ga4-summary", methods=["GET"])
+@token_required
+def get_admin_ga4_summary(current_user):
+    """Return GA4 active users, sessions, conversions for the selected window.
+
+    Returns {enabled: false, reason: '...'} cleanly when GA4 env vars are
+    missing so the admin UI can render a configuration hint instead of an
+    error. Cached server-side because the GA4 Data API has tight quotas
+    and the underlying data is 1-3 hours stale anyway.
+    """
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        days = max(min(int(request.args.get("days", 30)), 365), 1)
+        cache_key = f"api-cache:admin-ga4-summary:days={days}"
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return jsonify(cached_payload), 200
+
+        client, error = _get_ga4_client()
+        if not client:
+            payload = {
+                "enabled": False,
+                "reason": error,
+                "days": days,
+            }
+            return jsonify(payload), 200
+
+        from google.analytics.data_v1beta.types import (
+            DateRange,
+            Dimension,
+            Metric,
+            RunReportRequest,
+            OrderBy,
+        )
+
+        property_path = f"properties/{GA4_PROPERTY_ID}"
+        date_range = [DateRange(start_date=f"{days}daysAgo", end_date="today")]
+
+        # Totals (single row)
+        totals = client.run_report(RunReportRequest(
+            property=property_path,
+            date_ranges=date_range,
+            metrics=[
+                Metric(name="activeUsers"),
+                Metric(name="sessions"),
+                Metric(name="screenPageViews"),
+                Metric(name="averageSessionDuration"),
+                Metric(name="conversions"),
+            ],
+        ))
+        totals_row = totals.rows[0] if totals.rows else None
+        get_total = lambda i: float(totals_row.metric_values[i].value) if totals_row else 0.0
+
+        # Top sources (traffic acquisition)
+        sources_resp = client.run_report(RunReportRequest(
+            property=property_path,
+            date_ranges=date_range,
+            dimensions=[Dimension(name="sessionDefaultChannelGroup")],
+            metrics=[Metric(name="sessions")],
+            order_bys=[OrderBy(metric=OrderBy.MetricOrderBy(metric_name="sessions"), desc=True)],
+            limit=5,
+        ))
+        top_sources = [
+            {
+                "label": row.dimension_values[0].value or "(unknown)",
+                "sessions": int(float(row.metric_values[0].value or 0)),
+            }
+            for row in sources_resp.rows or []
+        ]
+
+        # Top pages
+        pages_resp = client.run_report(RunReportRequest(
+            property=property_path,
+            date_ranges=date_range,
+            dimensions=[Dimension(name="pageTitle")],
+            metrics=[Metric(name="screenPageViews")],
+            order_bys=[OrderBy(metric=OrderBy.MetricOrderBy(metric_name="screenPageViews"), desc=True)],
+            limit=5,
+        ))
+        top_pages = [
+            {
+                "label": row.dimension_values[0].value or "(unknown)",
+                "views": int(float(row.metric_values[0].value or 0)),
+            }
+            for row in pages_resp.rows or []
+        ]
+
+        # Conversion events
+        conversions_resp = client.run_report(RunReportRequest(
+            property=property_path,
+            date_ranges=date_range,
+            dimensions=[Dimension(name="eventName")],
+            metrics=[Metric(name="eventCount")],
+            dimension_filter=None,
+        ))
+        conversion_targets = {
+            "contact_click_call",
+            "contact_click_whatsapp",
+            "sign_up",
+            "post_listing_success",
+            "login",
+            "view_listing",
+            "vin_reveal",
+        }
+        events_by_name = {}
+        for row in conversions_resp.rows or []:
+            name = row.dimension_values[0].value
+            count = int(float(row.metric_values[0].value or 0))
+            if name in conversion_targets:
+                events_by_name[name] = count
+
+        payload = {
+            "enabled": True,
+            "days": days,
+            "active_users": int(get_total(0)),
+            "sessions": int(get_total(1)),
+            "page_views": int(get_total(2)),
+            "avg_session_duration_seconds": round(get_total(3), 1),
+            "conversions_total": int(get_total(4)),
+            "top_sources": top_sources,
+            "top_pages": top_pages,
+            "events": events_by_name,
+        }
+        _api_cache_set(cache_key, payload, ttl_seconds=GA4_CACHE_TTL_SECONDS)
+        return jsonify(payload), 200
+    except Exception as exc:
+        logger.error(f"Error fetching GA4 summary: {exc}")
+        return jsonify({"enabled": False, "reason": f"GA4 query failed: {exc}"}), 200
+
+
 @app.route("/api/admin/stats", methods=["GET"])
 @token_required
 def get_admin_stats(current_user):
@@ -14100,6 +14263,14 @@ def get_admin_stats(current_user):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
         days = max(min(int(request.args.get("days", 30)), 90), 1)
+        # 60s cache. This endpoint scans up to ~13k Supabase rows per call —
+        # admin dashboards refresh on every focus, so without the cache each
+        # operator session generates dozens of needless full table scans.
+        cache_key = f"api-cache:admin-stats:days={days}"
+        cached_payload = _api_cache_get(cache_key)
+        if cached_payload is not None:
+            return jsonify(cached_payload), 200
+
         cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
 
         def _fetch_rows(path, params):
@@ -14217,6 +14388,7 @@ def get_admin_stats(current_user):
             "live_users": len(live_visitors),
         }
 
+        _api_cache_set(cache_key, stats, ttl_seconds=60)
         return jsonify(stats), 200
     except Exception as exc:
         logger.error(f"Error fetching admin stats: {exc}")

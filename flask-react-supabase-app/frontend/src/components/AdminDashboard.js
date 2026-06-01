@@ -52,6 +52,7 @@ const AdminDashboard = () => {
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
   const [liveUsers, setLiveUsers] = useState(null);
+  const [ga4, setGa4] = useState(null);
   const [timeRange, setTimeRange] = useState('30d');
 
   useEffect(() => {
@@ -65,12 +66,15 @@ const AdminDashboard = () => {
         const selectedRange = TIME_RANGES.find((r) => r.key === timeRange);
         const daysParam = selectedRange?.days ? `?days=${selectedRange.days}` : '';
 
-        const [statsRes, leadRes, historyRes, dealersRes, reportsRes] = await Promise.all([
+        const ga4Days = selectedRange?.days || 30;
+
+        const [statsRes, leadRes, historyRes, dealersRes, reportsRes, ga4Res] = await Promise.all([
           apiClient.get(`/api/admin/stats${daysParam}`).catch(() => ({})),
           apiClient.get(`/api/admin/lead-metrics?days=${selectedRange?.days || 365}`).catch(() => null),
           apiClient.get('/api/admin/listing-history?limit=12').catch(() => []),
           apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
           apiClient.get('/api/admin/reports').catch(() => []),
+          apiClient.get(`/api/admin/ga4-summary?days=${ga4Days}`).catch(() => null),
         ]);
 
         if (!active) return;
@@ -79,6 +83,7 @@ const AdminDashboard = () => {
         setHistory(Array.isArray(historyRes) ? historyRes : []);
         setDealers(Array.isArray(dealersRes) ? dealersRes : []);
         setReports(Array.isArray(reportsRes) ? reportsRes : []);
+        setGa4(ga4Res || null);
       } catch (loadError) {
         if (!active) return;
         console.error('Failed to load admin dashboard:', loadError);
@@ -573,6 +578,11 @@ const AdminDashboard = () => {
         </div>
 
         <div className="admin-card" style={{ marginTop: 24 }}>
+          <h3>Google Analytics</h3>
+          <Ga4Panel ga4={ga4} />
+        </div>
+
+        <div className="admin-card" style={{ marginTop: 24 }}>
           <h3>External Analytics</h3>
           <p className="admin-muted" style={{ marginTop: -4 }}>
             Hosted dashboards for traffic, conversions, heatmaps and session
@@ -619,6 +629,79 @@ const AdminDashboard = () => {
               </button>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const GA4_CONVERSION_EVENTS = [
+  'contact_click_call',
+  'contact_click_whatsapp',
+  'sign_up',
+  'post_listing_success',
+  'login',
+  'view_listing',
+  'vin_reveal',
+];
+
+const Ga4Panel = ({ ga4 }) => {
+  if (!ga4) {
+    return <p className="admin-muted">Loading GA4...</p>;
+  }
+  if (!ga4.enabled) {
+    return (
+      <div>
+        <p className="admin-muted" style={{ marginTop: -4 }}>
+          {ga4.reason || 'GA4 not connected.'}
+        </p>
+        <p className="admin-muted">
+          Set <code>GA4_PROPERTY_ID</code> and <code>GA4_SERVICE_ACCOUNT_JSON</code> in
+          backend env, then redeploy. See <code>docs/ANALYTICS_SETUP.md</code> §5.
+        </p>
+      </div>
+    );
+  }
+  const dur = ga4.avg_session_duration_seconds || 0;
+  const minutes = Math.floor(dur / 60);
+  const seconds = Math.round(dur % 60);
+  const events = ga4.events || {};
+  return (
+    <div>
+      <div className="admin-stats-grid" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
+        <div className="admin-stat-card"><div className="admin-stat-label">Active users</div><div className="admin-stat-value">{(ga4.active_users || 0).toLocaleString()}</div></div>
+        <div className="admin-stat-card"><div className="admin-stat-label">Sessions</div><div className="admin-stat-value">{(ga4.sessions || 0).toLocaleString()}</div></div>
+        <div className="admin-stat-card"><div className="admin-stat-label">Page views</div><div className="admin-stat-value">{(ga4.page_views || 0).toLocaleString()}</div></div>
+        <div className="admin-stat-card"><div className="admin-stat-label">Avg session</div><div className="admin-stat-value">{minutes}m {seconds}s</div></div>
+      </div>
+      <div style={{ display: 'flex', gap: 24, marginTop: 20, flexWrap: 'wrap' }}>
+        {ga4.top_sources?.length > 0 && (
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <h4>Top sources</h4>
+            <table className="admin-table">
+              <tbody>
+                {ga4.top_sources.map((src) => (
+                  <tr key={src.label}>
+                    <td>{src.label}</td>
+                    <td style={{ textAlign: 'right' }}>{src.sessions.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <h4>Conversions</h4>
+          <table className="admin-table">
+            <tbody>
+              {GA4_CONVERSION_EVENTS.map((name) => (
+                <tr key={name}>
+                  <td><code>{name}</code></td>
+                  <td style={{ textAlign: 'right' }}>{(events[name] || 0).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

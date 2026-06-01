@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
+import { trackEvent } from '../utils/analytics';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import {
   UAE_EMIRATES,
@@ -434,6 +435,9 @@ const PostBike = () => {
           throw new Error('Please upload at least one bike image.');
         }
         await apiClient.post('/api/bikes', payload);
+      }
+      if (!isEdit) {
+        trackEvent('post_listing_success', { listing_type: 'bike', platform: 'web' });
       }
       setSuccess(true);
 

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
+import { trackEvent } from '../utils/analytics';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { UAE_EMIRATES, getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
@@ -388,6 +389,9 @@ const PostCarParts = () => {
           throw new Error('Please upload at least one part image.');
         }
         await apiClient.post('/api/parts', payload);
+      }
+      if (!isEdit) {
+        trackEvent('post_listing_success', { listing_type: 'part', platform: 'web' });
       }
       setSuccess(true);
 

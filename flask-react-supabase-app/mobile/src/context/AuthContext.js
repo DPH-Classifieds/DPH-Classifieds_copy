@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as authService from '../utils/authService';
 import { supabase, getSession } from '../utils/supabaseClient';
 import { API_BASE_URL } from '../constants/config';
+import { trackEvent } from '../utils/analytics';
 
 const AuthContext = createContext();
 
@@ -89,6 +90,7 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       const { data, error } = await authService.signIn(email, password);
       if (error) throw new Error(error);
+      trackEvent('login', { method: 'email', platform: 'mobile' });
       if (data?.user) {
         setUser(data.user);
         await syncWithSupabase({ forceBackendCheck: true });
@@ -108,6 +110,11 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       const { data, error } = await authService.signUp(email, password, additionalData);
       if (error) throw error;
+      trackEvent('sign_up', {
+        method: 'email',
+        platform: 'mobile',
+        account_type: additionalData?.accountType || 'individual',
+      });
       await syncWithSupabase({ forceBackendCheck: true });
       return { data, error: null };
     } catch (err) {
