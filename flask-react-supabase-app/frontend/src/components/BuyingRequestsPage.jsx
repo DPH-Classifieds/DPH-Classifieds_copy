@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { resolveMediaUrl } from '../utils/media';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
@@ -80,11 +81,11 @@ export default function BuyingRequestsPage() {
             const title = row?.item_name || 'Buying request';
             const type = String(row?.item_type || '').toUpperCase();
             const imageUrl =
-              row?.images?.[0]?.display_url ||
-              row?.images?.[0]?.image_url ||
-              row?.images?.[0]?.url ||
-              row?.display_url ||
-              row?.image_url ||
+              resolveMediaUrl(row?.images?.[0]?.display_url) ||
+              resolveMediaUrl(row?.images?.[0]?.image_url) ||
+              resolveMediaUrl(row?.images?.[0]?.url) ||
+              resolveMediaUrl(row?.display_url) ||
+              resolveMediaUrl(row?.image_url) ||
               PLACEHOLDER_IMAGE;
             return (
               <Link

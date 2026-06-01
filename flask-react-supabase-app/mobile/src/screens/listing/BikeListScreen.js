@@ -18,6 +18,7 @@ import { formatPrice } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
+import { resolveMediaUrl } from '../../utils/media';
 
 const BIKE_BRANDS = [
   'Honda', 'Yamaha', 'Kawasaki', 'Suzuki', 'BMW', 'Ducati', 'Harley-Davidson',
@@ -40,9 +41,9 @@ const PAGE_SIZE = 15;
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
-    return item.images[0].url || item.images[0].image_url || item.images[0].display_url;
+    return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
   }
-  return item.image_url || item.display_url || null;
+  return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
 export default function BikeListScreen({ navigation }) {

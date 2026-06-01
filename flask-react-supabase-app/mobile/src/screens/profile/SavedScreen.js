@@ -18,16 +18,17 @@ import AnimatedCard from '../../components/ui/AnimatedCard';
 import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { resolveMediaUrl } from '../../utils/media';
 
 const TABS = ['Cars', 'Bikes', 'Plates', 'Parts'];
 const TAB_KEYS = ['cars', 'bikes', 'plates', 'parts'];
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
-    if (typeof item.images[0] === 'string') return item.images[0];
-    return item.images[0].url || item.images[0].image_url || item.images[0].display_url;
+    if (typeof item.images[0] === 'string') return resolveMediaUrl(item.images[0]);
+    return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
   }
-  return item.image_url || item.display_url || null;
+  return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
 const getItemTitle = (item) => {

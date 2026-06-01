@@ -30,6 +30,7 @@ import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
 import ListingMap from '../../components/ui/ListingMap';
+import { resolveMediaUrl } from '../../utils/media';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,9 +38,9 @@ const CONDITION_VARIANT = { New: 'success', Used: 'warning', Refurbished: 'info'
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
-    return item.images[0].url || item.images[0].image_url || item.images[0].display_url;
+    return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
   }
-  return item.image_url || item.display_url || null;
+  return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
 export default function PartDetailScreen({ route, navigation }) {
@@ -263,7 +264,7 @@ export default function PartDetailScreen({ route, navigation }) {
           {previewImageIndex > 0 && (
             <TouchableOpacity style={styles.lightboxPrev} onPress={() => {
               const newIndex = previewImageIndex - 1;
-              const uri = images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url;
+              const uri = resolveMediaUrl(images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url) || images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url;
               setPreviewImageIndex(newIndex);
               setPreviewImage(uri);
             }}>
@@ -273,7 +274,7 @@ export default function PartDetailScreen({ route, navigation }) {
           {previewImageIndex < images.length - 1 && (
             <TouchableOpacity style={styles.lightboxNext} onPress={() => {
               const newIndex = previewImageIndex + 1;
-              const uri = images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url;
+              const uri = resolveMediaUrl(images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url) || images[newIndex]?.url || images[newIndex]?.image_url || images[newIndex]?.display_url;
               setPreviewImageIndex(newIndex);
               setPreviewImage(uri);
             }}>
@@ -293,7 +294,7 @@ export default function PartDetailScreen({ route, navigation }) {
             keyExtractor={(item, index) => `${item.url || item.image_url || item.display_url || index}-${index}`}
             showsHorizontalScrollIndicator={false}
             renderItem={({ item }) => {
-              const uri = item.url || item.image_url || item.display_url;
+              const uri = resolveMediaUrl(item.url || item.image_url || item.display_url) || item.url || item.image_url || item.display_url;
               return (
                 <View style={styles.lightboxPage}>
                   <Image source={{ uri }} style={styles.lightboxImage} resizeMode="contain" />
@@ -304,7 +305,7 @@ export default function PartDetailScreen({ route, navigation }) {
               const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
               setPreviewImageIndex(index);
               const item = images[index];
-              setPreviewImage(item?.url || item?.image_url || item?.display_url || null);
+              setPreviewImage(resolveMediaUrl(item?.url || item?.image_url || item?.display_url) || item?.url || item?.image_url || item?.display_url || null);
             }}
           />
         </View>

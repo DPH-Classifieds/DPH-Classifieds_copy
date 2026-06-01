@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../utils/apiClient';
 import { formatPrice } from '../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';
+import { resolveMediaUrl } from '../utils/media';
 
 export default function RecommendedListings({ listingType, listingId, navigation }) {
   const [items, setItems] = useState([]);
@@ -24,7 +25,16 @@ export default function RecommendedListings({ listingType, listingId, navigation
     return (
       <TouchableOpacity style={styles.card} onPress={() => navigation.push(detailRoute, { listingId: item.id, listing: item })}>
         {item.images?.[0] ? (
-          <Image source={{ uri: typeof item.images[0] === 'string' ? item.images[0] : item.images[0].url }} style={styles.image} />
+          <Image
+            source={{
+              uri: resolveMediaUrl(
+                typeof item.images[0] === 'string'
+                  ? item.images[0]
+                  : item.images[0].url || item.images[0].image_url || item.images[0].display_url
+              ),
+            }}
+            style={styles.image}
+          />
         ) : (
           <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={24} color={COLORS.textMuted} /></View>
         )}

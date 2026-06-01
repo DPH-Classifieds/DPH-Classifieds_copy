@@ -891,19 +891,48 @@ export default function PostListingScreen({ navigation, route }) {
 
   const descriptionWordCount = countWords(carForm.car_description || '');
 
-  const buildFormData = (form, imageUris) => {
-    const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => {
-      if (typeof v === 'boolean') fd.append(k, String(v));
-      else if (Array.isArray(v)) fd.append(k, JSON.stringify(v));
-      else if (v !== '' && v !== null && v !== undefined) fd.append(k, String(v));
-    });
-    imageUris.forEach((uri, i) => {
-      const ext = uri.split('.').pop() || 'jpg';
-      fd.append('images', { uri, type: `image/${ext}`, name: `image_${i}.${ext}` });
-    });
-    return fd;
+  const getImageMimeType = (uri) => {
+    const cleanUri = String(uri || '').split('?')[0].toLowerCase();
+    const extension = cleanUri.includes('.') ? cleanUri.split('.').pop() : 'jpg';
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+      case 'heif':
+        return 'image/heic';
+      case 'gif':
+        return 'image/gif';
+      default:
+        return 'image/jpeg';
+    }
   };
+
+  const uploadListingImages = useCallback(async (imageUris) => {
+    if (!imageUris || imageUris.length === 0) return [];
+
+    const formData = new FormData();
+    imageUris.forEach((uri, index) => {
+      formData.append('images', {
+        uri,
+        type: getImageMimeType(uri),
+        name: `image_${index}.jpg`,
+      });
+    });
+
+    const uploadResponse = await apiClient.post('/api/upload-images', formData);
+    const urls =
+      uploadResponse?.absolute_urls ||
+      uploadResponse?.urls ||
+      uploadResponse?.images?.map((image) => image?.url || image?.image_url || image?.display_url).filter(Boolean) ||
+      [];
+
+    return urls.filter(Boolean);
+  }, []);
 
   const toggleCarExtra = (extra) => {
     setCarForm(prev => {
@@ -928,8 +957,28 @@ export default function PostListingScreen({ navigation, route }) {
     }
     try {
       setLoading(true);
-      let fd;
       let endpoint;
+      let payload = null;
+      const isLocalImageUri = (uri) => {
+        const value = String(uri || '');
+        return value.startsWith('file:') || value.startsWith('content:') || value.startsWith('ph:');
+      };
+      const existingImageUrls = images.filter((uri) => uri && !isLocalImageUri(uri));
+      const newImageUris = images.filter((uri) => uri && isLocalImageUri(uri));
+      const uploadedImageUrls = newImageUris.length > 0 ? await uploadListingImages(newImageUris) : [];
+      const finalImageUrls = [...existingImageUrls, ...uploadedImageUrls];
+
+      if ((category === 'car' || category === 'bike') && finalImageUrls.length === 0) {
+        Alert.alert('Required', 'Please add at least one image before posting.');
+        setLoading(false);
+        return;
+      }
+
+      if (newImageUris.length > 0 && uploadedImageUrls.length === 0) {
+        Alert.alert('Error', 'Failed to upload images. Please try again.');
+        setLoading(false);
+        return;
+      }
 
       if (isEditMode) {
         const endpointMap = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
@@ -943,7 +992,7 @@ export default function PostListingScreen({ navigation, route }) {
           return;
         }
         const phone = `${carForm.country_code || '+971'}${carForm.car_owner_phone_number || ''}`.replace(/[^0-9+]/g, '');
-        const payload = {
+        payload = {
           ...carForm,
           emirate: carEmirate,
           area: carArea,
@@ -954,8 +1003,8 @@ export default function PostListingScreen({ navigation, route }) {
             ? phone
             : `${carForm.country_code || '+971'}${carForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
           whatsapp_prefill_text: `Hi, I'm interested in your ${carForm.car_manufacturer} ${carForm.car_model} listed on DPH Classifieds for AED ${carForm.expected_selling_price}. Is it still available?`,
+          images: finalImageUrls,
         };
-        fd = buildFormData(payload, images);
         if (!isEditMode) endpoint = '/api/cars';
       } else if (category === 'bike') {
         if (!bikeForm.bike_brand || !bikeForm.bike_model || !bikeForm.price) {
@@ -964,7 +1013,7 @@ export default function PostListingScreen({ navigation, route }) {
           return;
         }
         const phone = `${bikeForm.country_code || '+971'}${bikeForm.contact_number || ''}`.replace(/[^0-9+]/g, '');
-        const payload = {
+        payload = {
           ...bikeForm,
           bike_type: bikeForm.bike_category,
           engine_size: bikeForm.engine_capacity,
@@ -977,8 +1026,8 @@ export default function PostListingScreen({ navigation, route }) {
             ? phone
             : `${bikeForm.country_code || '+971'}${bikeForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
           whatsapp_prefill_text: `Hi, I'm interested in your ${bikeForm.bike_brand} ${bikeForm.bike_model} listed on DPH Classifieds for AED ${bikeForm.price}. Is it still available?`,
+          images: finalImageUrls,
         };
-        fd = buildFormData(payload, images);
         if (!isEditMode) endpoint = '/api/bikes';
       } else if (category === 'plate') {
         if (!plateCityName || !plateForm.price) {
@@ -987,7 +1036,7 @@ export default function PostListingScreen({ navigation, route }) {
           return;
         }
         const phone = `${plateForm.country_code || '+971'}${plateForm.contact_phone || ''}`.replace(/[^0-9+]/g, '');
-        const payload = {
+        payload = {
           ...plateForm,
           city: plateCityName,
           emirate: plateCityName,
@@ -999,8 +1048,8 @@ export default function PostListingScreen({ navigation, route }) {
             ? phone
             : `${plateForm.country_code || '+971'}${plateForm.whatsapp_number || ''}`.replace(/[^0-9+]/g, ''),
           whatsapp_prefill_text: `Hi, I'm interested in your ${plateCityName} plate "${plateForm.code} ${plateForm.number}" listed on DPH Classifieds for AED ${plateForm.price}. Is it still available?`,
+          images: finalImageUrls,
         };
-        fd = buildFormData(payload, images);
         if (!isEditMode) endpoint = '/api/plates';
       } else if (category === 'parts') {
         if (!partsForm.name || !partsForm.price) {
@@ -1009,7 +1058,7 @@ export default function PostListingScreen({ navigation, route }) {
           return;
         }
         const phone = `${partsForm.country_code || '+971'}${partsForm.contact_number || ''}`.replace(/[^0-9+]/g, '');
-        const payload = {
+        payload = {
           ...partsForm,
           emirate: partsEmirate,
           area: partsArea,
@@ -1027,15 +1076,19 @@ export default function PostListingScreen({ navigation, route }) {
           compatible_models: partsForm.compatible_models
             ? partsForm.compatible_models.split(',').map(s => s.trim()).filter(Boolean)
             : [],
+          images: finalImageUrls,
         };
-        fd = buildFormData(payload, images);
         if (!isEditMode) endpoint = '/api/parts';
       }
 
+      if (!payload || !endpoint) {
+        throw new Error('Unable to determine listing payload.');
+      }
+
       if (isEditMode) {
-        await apiClient.put(endpoint, fd);
+        await apiClient.put(endpoint, payload);
       } else {
-        await apiClient.post(endpoint, fd);
+        await apiClient.post(endpoint, payload);
       }
       await AsyncStorage.removeItem(DRAFT_KEY);
       Alert.alert('Success', isEditMode ? 'Your listing has been updated!' : 'Your listing has been posted!', [
@@ -1046,7 +1099,7 @@ export default function PostListingScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  }, [category, carForm, bikeForm, plateForm, partsForm, images, navigation, carEmirate, carArea, bikeEmirate, bikeArea, plateCityName, plateArea, partsEmirate, partsArea]);
+  }, [category, carForm, bikeForm, plateForm, partsForm, images, navigation, carEmirate, carArea, bikeEmirate, bikeArea, plateCityName, plateArea, partsEmirate, partsArea, uploadListingImages, isEditMode, listingType, listingId, user?.phone_verified]);
 
   const resetAndGoBack = () => {
     if (isEditMode) {

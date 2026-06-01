@@ -20,15 +20,16 @@ import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { resolveMediaUrl } from '../../utils/media';
 
 const TABS = ['Active', 'Drafts', 'Saved', 'Review', 'Sold'];
 
 const getListingImage = (item) => {
   if (item.images && item.images.length > 0) {
-    if (typeof item.images[0] === 'string') return item.images[0];
-    return item.images[0].url || item.images[0].image_url || item.images[0].display_url;
+    if (typeof item.images[0] === 'string') return resolveMediaUrl(item.images[0]);
+    return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
   }
-  return item.image_url || item.display_url || null;
+  return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
 const getListingTitle = (item) => {

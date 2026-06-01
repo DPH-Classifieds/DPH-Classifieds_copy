@@ -30,6 +30,7 @@ import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
 import ListingMap from '../../components/ui/ListingMap';
+import { resolveMediaUrl } from '../../utils/media';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -66,8 +67,8 @@ const normalizeImages = (images = []) =>
     ...(Array.isArray(images) ? images : []),
   ]
     .map((image) => (typeof image === 'string'
-      ? image
-      : image?.url || image?.image_url || image?.display_url || null))
+      ? resolveMediaUrl(image)
+      : resolveMediaUrl(image?.url || image?.image_url || image?.display_url || null)))
     .filter(Boolean);
 
 export default function CarDetailScreen({ route, navigation }) {

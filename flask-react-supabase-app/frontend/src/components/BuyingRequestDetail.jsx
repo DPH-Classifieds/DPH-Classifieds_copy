@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
 import { ensureContactAccess } from '../utils/contactAccess';
+import { resolveMediaUrl } from '../utils/media';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
@@ -19,12 +20,14 @@ export default function BuyingRequestDetail() {
   const [error, setError] = useState('');
   const [revealing, setRevealing] = useState(false);
   const [revealError, setRevealError] = useState('');
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const title = useMemo(() => row?.item_name || 'Buying request', [row]);
+  const images = useMemo(() => (Array.isArray(row?.images) ? row.images.filter(Boolean) : []), [row]);
   const heroImage = useMemo(() => {
-    const img = Array.isArray(row?.images) ? row.images[0] : null;
-    return img?.display_url || img?.image_url || img?.url || null;
-  }, [row]);
+    const img = images[activeImageIndex] || images[0] || null;
+    return resolveMediaUrl(img?.display_url) || resolveMediaUrl(img?.image_url) || resolveMediaUrl(img?.url) || null;
+  }, [images, activeImageIndex]);
 
   useEffect(() => {
     (async () => {
@@ -40,6 +43,10 @@ export default function BuyingRequestDetail() {
       }
     })();
   }, [id]);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [id, row?.id]);
 
   const revealWhatsapp = async () => {
     setRevealError('');
@@ -103,6 +110,26 @@ export default function BuyingRequestDetail() {
         <div className="aspect-[16/10] w-full bg-black/20">
           <img src={heroImage || PLACEHOLDER_IMAGE} alt="" className="h-full w-full object-cover opacity-90" />
         </div>
+        {images.length > 1 ? (
+          <div className="flex gap-2 overflow-x-auto border-t border-white/10 bg-black/20 p-3">
+            {images.map((img, index) => {
+              const thumb = img?.display_url || img?.image_url || img?.url || PLACEHOLDER_IMAGE;
+              const resolvedThumb = resolveMediaUrl(thumb) || PLACEHOLDER_IMAGE;
+              return (
+                <button
+                  key={`${thumb}-${index}`}
+                  type="button"
+                  onClick={() => setActiveImageIndex(index)}
+                  className={`h-16 w-24 shrink-0 overflow-hidden rounded-lg border transition ${
+                    activeImageIndex === index ? 'border-[#8bd6b4]' : 'border-white/10'
+                  }`}
+                >
+                  <img src={resolvedThumb} alt="" className="h-full w-full object-cover" />
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         <div className="grid gap-2 p-5 text-white/80">
           <div><span className="text-white/55">Regional spec:</span> {row.regional_spec}</div>
           <div><span className="text-white/55">Mileage preference:</span> {row.mileage_preference}</div>

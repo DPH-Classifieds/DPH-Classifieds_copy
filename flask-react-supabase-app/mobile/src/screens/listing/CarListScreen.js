@@ -20,6 +20,7 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
+import { resolveMediaUrl } from '../../utils/media';
 
 const PRICE_RANGES = [
   { label: 'Any', min: 0, max: 0 },
@@ -36,9 +37,9 @@ const years = getYearOptions();
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
-    return item.images[0].url || item.images[0].image_url || item.images[0].display_url;
+    return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
   }
-  return item.image_url || item.display_url || null;
+  return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
 export default function CarListScreen({ navigation }) {

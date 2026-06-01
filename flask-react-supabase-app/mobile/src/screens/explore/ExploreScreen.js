@@ -29,6 +29,7 @@ import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
 import BottomSheet from '../../components/ui/BottomSheet';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { resolveMediaUrl } from '../../utils/media';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -77,9 +78,9 @@ const CATEGORY_COLORS = {
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
-    return item.images[0].url || item.images[0].image_url || item.images[0].display_url;
+    return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
   }
-  return item.image_url || item.display_url || null;
+  return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
 const normalizeItem = (category, item) => {
