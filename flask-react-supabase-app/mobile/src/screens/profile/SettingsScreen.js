@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Switch,
   Modal,
   FlatList,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +26,16 @@ import { UAE_EMIRATES, EMIRATE_AREAS } from '../../utils/listingConstants';
 const UAE_EMIRATES_WITH_AL_AIN = [...UAE_EMIRATES, 'Al Ain'];
 
 export default function SettingsScreen({ navigation }) {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, syncWithSupabase } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (syncWithSupabase) await syncWithSupabase({ forceBackendCheck: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [syncWithSupabase]);
   const [firstName, setFirstName] = useState(user?.first_name || '');
   const [lastName, setLastName] = useState(user?.last_name || '');
   const [email] = useState(user?.email || '');
@@ -265,7 +275,13 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+        }
+      >
         <View style={styles.photoSection}>
           <TouchableOpacity onPress={pickImage} style={styles.photoContainer} activeOpacity={0.7}>
             {profilePhoto ? (

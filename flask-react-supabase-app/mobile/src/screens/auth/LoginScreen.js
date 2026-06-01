@@ -44,16 +44,11 @@ export default function LoginScreen({ navigation, route }) {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
-      if (redirect) {
-        const rootNav = navigation.getParent()?.getParent()?.getParent() || navigation.getParent();
-        if (rootNav) {
-          rootNav.navigate('Main');
-          rootNav.navigate(redirect);
-        } else {
-          navigation.goBack();
-        }
-      } else if (navigation.getParent()) {
-        navigation.getParent().goBack();
+      const rootNav = navigation.getParent();
+      if (redirect && rootNav) {
+        rootNav.navigate('Main', { screen: redirect });
+      } else if (rootNav) {
+        rootNav.goBack();
       }
     } catch (err) {
       Alert.alert('Sign In Failed', err.message || 'Invalid email or password. Please try again.');

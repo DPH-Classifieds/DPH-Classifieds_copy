@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.black },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
-  content: { padding: SPACING.md },
+  content: { padding: SPACING.md, paddingBottom: SPACING.xxl, gap: SPACING.xs },
   image: { width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md },
   title: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.xs },
   price: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },

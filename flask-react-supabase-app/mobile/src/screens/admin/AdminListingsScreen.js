@@ -8,6 +8,7 @@ import {
   Alert,
   StyleSheet,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -257,7 +258,11 @@ export default function AdminListingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.typeTabBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.typeTabBar}
+      >
         {TYPE_TABS.map((tab) => {
           const active = selectedTypes.includes(tab) || (tab === 'All' && selectedTypes.length === 0);
           return (
@@ -279,9 +284,13 @@ export default function AdminListingsScreen({ navigation }) {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
-      <View style={styles.statusTabBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.statusTabBar}
+      >
         {STATUS_TABS.map((tab) => {
           const active = selectedStatuses.includes(tab) || (tab === 'All' && selectedStatuses.length === 0);
           return (
@@ -303,7 +312,7 @@ export default function AdminListingsScreen({ navigation }) {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
       {!loading && (
         <View style={styles.kpiRow}>
@@ -374,9 +383,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   typeTab: {
-    flex: 1,
     flexDirection: 'row',
     paddingVertical: 8,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: BORDER_RADIUS.pill,
@@ -386,7 +395,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
   },
   typeTabText: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: FONT_SIZES.sm,
     fontWeight: '600',
     color: COLORS.textSecondary,
   },
@@ -400,9 +409,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusTab: {
-    flex: 1,
     flexDirection: 'row',
     paddingVertical: 8,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: BORDER_RADIUS.pill,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,8 +42,18 @@ const getItemPrice = (item) => item.expected_selling_price || item.price || 0;
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
 export default function SavedScreen({ navigation }) {
-  const { savedListings, loading, toggleSaveListing, savedCounts } = useSavedListings();
+  const { savedListings, loading, toggleSaveListing, savedCounts, loadSavedListings } = useSavedListings();
   const [activeTab, setActiveTab] = useState('Cars');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (loadSavedListings) await loadSavedListings();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadSavedListings]);
 
   const activeKey = TAB_KEYS[TABS.indexOf(activeTab)];
   const items = savedListings[activeKey] || [];
@@ -123,6 +134,9 @@ export default function SavedScreen({ navigation }) {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+        }
         ListEmptyComponent={
           <EmptyState
             icon="heart-outline"

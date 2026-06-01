@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Linking, ActivityIndicator,
+  View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Linking, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,23 +18,33 @@ const WEBVIEW_URLS = {
 };
 
 export default function ProfileScreen({ navigation }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, syncWithSupabase } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await apiClient.get('/api/user/statistics');
+      setStats(data);
+    } catch (err) {
+      setStats({ total_listings: 0, saved_count: 0, total_views: 0 });
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await apiClient.get('/api/user/statistics');
-        setStats(data);
-      } catch (err) {
-        setStats({ total_listings: 0, saved_count: 0, total_views: 0 });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+    fetchStats().finally(() => setLoading(false));
+  }, [fetchStats]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (syncWithSupabase) await syncWithSupabase({ forceBackendCheck: true });
+      await fetchStats();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchStats, syncWithSupabase]);
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -126,7 +136,12 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
         </View>

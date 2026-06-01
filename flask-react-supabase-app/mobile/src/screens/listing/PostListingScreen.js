@@ -14,6 +14,7 @@ import {
   Switch,
   TextInput,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -363,35 +364,55 @@ function CollapsibleSection({ title, expanded, onToggle, children }) {
 function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Photos ({images.length}/10)</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
-        {images.map((uri, i) => (
-          <View key={i} style={styles.imageThumb}>
-            <View style={styles.imageThumbPlaceholder}>
-              <Ionicons name="image" size={20} color="rgba(255,255,255,0.3)" />
+      <View style={styles.imageHeader}>
+        <Text style={styles.sectionTitle}>Photos</Text>
+        <Text style={styles.imageCount}>{images.length}/10</Text>
+      </View>
+      {images.length === 0 ? (
+        <TouchableOpacity style={styles.emptyAddImage} onPress={onPickImages} activeOpacity={0.7}>
+          <Ionicons name="images-outline" size={40} color={COLORS.accent} />
+          <Text style={styles.emptyAddImageTitle}>Add Photos</Text>
+          <Text style={styles.emptyAddImageSubtitle}>
+            Up to 10. The first photo will be the cover image.
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
+          {images.map((uri, i) => (
+            <View key={`${uri}-${i}`} style={styles.imageThumb}>
+              <Image source={{ uri }} style={styles.imageThumbImage} resizeMode="cover" />
+              {i === 0 && (
+                <View style={styles.imageCoverBadge}>
+                  <Ionicons name="star" size={10} color={COLORS.white} />
+                  <Text style={styles.imageCoverText}>Cover</Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.imageRemove} onPress={() => onRemoveImage(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={22} color={COLORS.error} />
+              </TouchableOpacity>
+              {i > 0 && (
+                <TouchableOpacity style={styles.imageReorderLeft} onPress={() => onReorderImages(i, i - 1)}>
+                  <Ionicons name="chevron-back" size={14} color={COLORS.white} />
+                </TouchableOpacity>
+              )}
+              {i < images.length - 1 && (
+                <TouchableOpacity style={styles.imageReorderRight} onPress={() => onReorderImages(i, i + 1)}>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.white} />
+                </TouchableOpacity>
+              )}
             </View>
-            <TouchableOpacity style={styles.imageRemove} onPress={() => onRemoveImage(i)}>
-              <Ionicons name="close-circle" size={20} color={COLORS.error} />
+          ))}
+          {images.length < 10 && (
+            <TouchableOpacity style={styles.addImageBtn} onPress={onPickImages} activeOpacity={0.7}>
+              <Ionicons name="add" size={28} color={COLORS.accent} />
+              <Text style={styles.addImageText}>Add</Text>
             </TouchableOpacity>
-            {i > 0 && (
-              <TouchableOpacity style={styles.imageReorderLeft} onPress={() => onReorderImages(i, i - 1)}>
-                <Ionicons name="chevron-back" size={14} color={COLORS.white} />
-              </TouchableOpacity>
-            )}
-            {i < images.length - 1 && (
-              <TouchableOpacity style={styles.imageReorderRight} onPress={() => onReorderImages(i, i + 1)}>
-                <Ionicons name="chevron-forward" size={14} color={COLORS.white} />
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-        {images.length < 10 && (
-          <TouchableOpacity style={styles.addImageBtn} onPress={onPickImages}>
-            <Ionicons name="camera-outline" size={28} color={COLORS.textMuted} />
-            <Text style={styles.addImageText}>Add</Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
+      )}
+      {images.length > 0 && (
+        <Text style={styles.imageHint}>Tap arrows to reorder. First photo is the cover.</Text>
+      )}
     </View>
   );
 }
@@ -1100,32 +1121,44 @@ export default function PostListingScreen({ navigation, route }) {
 
         <TouchableOpacity
           style={styles.scanButton}
-          onPress={async () => {
-            try {
-              const data = await scanCarRegistration({
-                source: 'camera',
-                documentType: 'mulkiya',
-                listingType: 'car',
-                listingId: isEditMode ? listingId : null,
-              });
-              if (data) {
-                setCarRegistrationScan(data);
-                if (data.shouldAutoFill) {
-                  if (data.fields.make) updateCarForm('car_manufacturer', data.fields.make);
-                  if (data.fields.model) updateCarForm('car_model', data.fields.model);
-                  if (data.fields.year) updateCarForm('make_year', String(data.fields.year));
-                  if (data.fields.vin) updateCarForm('vin_number', data.fields.vin);
-                  Alert.alert('Scan Complete', 'Registration details were verified and applied.');
-                } else {
-                  Alert.alert(
-                    'Review Required',
-                    'We found registration details, but they need review before they are applied automatically.'
-                  );
+          onPress={() => {
+            const runScan = async (source) => {
+              try {
+                const data = await scanCarRegistration({
+                  source,
+                  documentType: 'mulkiya',
+                  listingType: 'car',
+                  listingId: isEditMode ? listingId : null,
+                });
+                if (data) {
+                  setCarRegistrationScan(data);
+                  if (data.shouldAutoFill) {
+                    if (data.fields.make) updateCarForm('car_manufacturer', data.fields.make);
+                    if (data.fields.model) updateCarForm('car_model', data.fields.model);
+                    if (data.fields.year) updateCarForm('make_year', String(data.fields.year));
+                    if (data.fields.vin) updateCarForm('vin_number', data.fields.vin);
+                    Alert.alert('Scan Complete', 'Registration details were verified and applied.');
+                  } else {
+                    Alert.alert(
+                      'Review Required',
+                      'We found registration details, but they need review before they are applied automatically.'
+                    );
+                  }
                 }
+              } catch (err) {
+                Alert.alert('Scan Failed', err.message || 'Could not read registration.');
               }
-            } catch (err) {
-              Alert.alert('Scan Failed', err.message || 'Could not read registration.');
-            }
+            };
+            Alert.alert(
+              'Scan Registration',
+              'Choose a source for the registration document.',
+              [
+                { text: 'Take Photo', onPress: () => runScan('camera') },
+                { text: 'Choose from Photos', onPress: () => runScan('library') },
+                { text: 'Choose File (PDF / Image)', onPress: () => runScan('file') },
+                { text: 'Cancel', style: 'cancel' },
+              ],
+            );
           }}
         >
           <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
@@ -2146,24 +2179,90 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5,
   },
   submitBtn: { marginTop: 8 },
-  imageScroll: { marginBottom: 8 },
+  imageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  imageCount: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  imageScroll: {
+    marginTop: 4,
+  },
   imageThumb: {
-    width: 80, height: 80, borderRadius: BORDER_RADIUS.md,
+    width: 96, height: 96, borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden', marginRight: 10, position: 'relative',
+    backgroundColor: COLORS.surfaceHigher,
   },
-  imageThumbPlaceholder: {
-    flex: 1, backgroundColor: COLORS.surfaceHigher,
-    alignItems: 'center', justifyContent: 'center',
+  imageThumbImage: {
+    width: '100%',
+    height: '100%',
   },
-  imageRemove: { position: 'absolute', top: -4, right: -4 },
+  imageCoverBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: 'rgba(76,175,80,0.95)',
+  },
+  imageCoverText: {
+    color: COLORS.white,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  imageRemove: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 12,
+  },
   imageReorderLeft: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   imageReorderRight: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   addImageBtn: {
-    width: 80, height: 80, borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed',
+    width: 96, height: 96, borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1.5, borderColor: COLORS.accent, borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(76,175,80,0.06)',
   },
-  addImageText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginTop: 4 },
+  addImageText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, marginTop: 4, fontWeight: '600' },
+  emptyAddImage: {
+    borderWidth: 1.5,
+    borderColor: COLORS.accent,
+    borderStyle: 'dashed',
+    borderRadius: BORDER_RADIUS.lg,
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(76,175,80,0.06)',
+  },
+  emptyAddImageTitle: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  emptyAddImageSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.sm,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  imageHint: {
+    marginTop: 8,
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZES.xs,
+  },
   scanButton: {
     flexDirection: 'row',
     alignItems: 'center',
