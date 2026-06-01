@@ -14271,7 +14271,9 @@ def get_admin_stats(current_user):
         if cached_payload is not None:
             return jsonify(cached_payload), 200
 
-        cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+        now = _utc_now()
+        window_start = now - datetime.timedelta(days=days)
+        cutoff = window_start.isoformat()
 
         def _fetch_rows(path, params):
             rows, status = supabase_request(
@@ -14282,19 +14284,45 @@ def get_admin_stats(current_user):
             )
             return rows or [] if status < 400 else []
 
-        platform_events = _fetch_rows(
+        # platform_events: query directly so we can detect "table missing"
+        # explicitly and feed that into data_health for the admin UI.
+        platform_events = []
+        platform_events_status = "ok"
+        events_resp, events_status = supabase_request(
+            "get",
             "/rest/v1/platform_events",
-            {
+            params={
                 "select": "visitor_id,user_id,session_id,created_at",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
                 "limit": "5000",
             },
+            use_service_role=True,
         )
+        if events_status == 404 or (
+            events_status >= 400 and "does not exist" in str(events_resp).lower()
+        ):
+            platform_events_status = "missing"
+            logger.warning(
+                "platform_events table is missing in production Supabase. "
+                "Apply backend/migrations/add_platform_analytics_tracking.sql."
+            )
+        elif events_status >= 400:
+            platform_events_status = "error"
+            logger.warning(
+                "platform_events query failed: status=%s body=%s", events_status, events_resp
+            )
+        else:
+            platform_events = events_resp or []
+            if not platform_events:
+                platform_events_status = "empty"
+
         lead_events = _fetch_rows(
             "/rest/v1/lead_events",
             {
-                "select": "action,listing_type,listing_id,created_at",
+                # visitor_id/session_id/user_id are the fallback unique-visitor
+                # signal when platform_events is missing/empty.
+                "select": "action,listing_type,listing_id,created_at,user_id,session_id,visitor_id",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
                 "limit": "5000",
@@ -14344,15 +14372,22 @@ def get_admin_stats(current_user):
         users = _fetch_rows(
             "/rest/v1/users",
             {
-                "select": "id,is_dealer,account_status",
+                "select": "id,is_dealer,account_status,created_at",
                 "order": "created_at.desc",
                 "limit": "4000",
             },
         )
 
+        # Unique visitors: prefer platform_events when present, but always merge
+        # in lead_events distinct visitors and new signups in the window so the
+        # KPI surfaces a meaningful number even if the platform_events table
+        # hasn't been migrated yet. IDs are namespaced per source so the same
+        # person doesn't get double-counted across signals.
         unique_visitors = set()
         live_visitors = set()
-        live_cutoff = _utc_now() - datetime.timedelta(minutes=5)
+        unique_sources = set()
+        live_cutoff = now - datetime.timedelta(minutes=5)
+
         for event in platform_events:
             visitor_id = str(
                 event.get("visitor_id")
@@ -14360,14 +14395,39 @@ def get_admin_stats(current_user):
                 or event.get("session_id")
                 or "anonymous"
             )
-            unique_visitors.add(visitor_id)
+            unique_visitors.add(f"pe:{visitor_id}")
+            unique_sources.add("platform_events")
             event_time = _parse_datetime(event.get("created_at"))
             if event_time and event_time >= live_cutoff:
-                live_visitors.add(visitor_id)
+                live_visitors.add(f"pe:{visitor_id}")
 
         lead_actions = defaultdict(int)
         for event in lead_events:
             lead_actions[str(event.get("action") or "unknown")] += 1
+            fallback_id = (
+                event.get("user_id")
+                or event.get("session_id")
+                or event.get("visitor_id")
+            )
+            if fallback_id:
+                unique_visitors.add(f"le:{fallback_id}")
+                unique_sources.add("lead_events")
+
+        new_signups_in_window = 0
+        for user in users:
+            created_at = _parse_datetime(user.get("created_at"))
+            if created_at and created_at >= window_start and user.get("id"):
+                unique_visitors.add(f"u:{user['id']}")
+                unique_sources.add("new_signups")
+                new_signups_in_window += 1
+
+        data_health = {
+            "platform_events": platform_events_status,
+            "platform_events_window_count": len(platform_events),
+            "unique_visitor_sources": sorted(unique_sources),
+            "new_signups_window_count": new_signups_in_window,
+            "lead_events_window_count": len(lead_events),
+        }
 
         stats = {
             "cars_pending": sum(1 for row in cars if (row.get("status") or "").lower() == "pending"),
@@ -14386,6 +14446,7 @@ def get_admin_stats(current_user):
             "total_dealers": sum(1 for row in users if row.get("is_dealer")),
             "unique_visitors": len(unique_visitors),
             "live_users": len(live_visitors),
+            "data_health": data_health,
         }
 
         _api_cache_set(cache_key, stats, ttl_seconds=60)

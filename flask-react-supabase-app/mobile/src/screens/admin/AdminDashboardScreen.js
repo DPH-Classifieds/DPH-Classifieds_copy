@@ -138,6 +138,8 @@ export default function AdminDashboardScreen({ navigation }) {
   const verifiedDealers = dealers.filter((d) => d.dealer_verified).length;
   const liveVisitorsCount = clamp(liveUsers?.live_visitors);
   const uniqueVisitors = clamp(stats.unique_visitors);
+  const dataHealth = stats.data_health || null;
+  const platformEventsMissing = dataHealth?.platform_events === 'missing';
 
   const pendingByType = [
     { label: 'Cars', value: clamp(stats.cars_pending) },
@@ -226,6 +228,17 @@ export default function AdminDashboardScreen({ navigation }) {
           })}
         </View>
 
+        {platformEventsMissing && (
+          <View style={styles.healthBanner}>
+            <Ionicons name="warning-outline" size={18} color={COLORS.warning} />
+            <Text style={styles.healthBannerText}>
+              Site Visitors falls back to lead events + signups because the
+              `platform_events` table is missing. Apply
+              backend/migrations/add_platform_analytics_tracking.sql in the
+              Supabase SQL editor to get full page-view tracking.
+            </Text>
+          </View>
+        )}
         <View style={styles.kpiGrid}>
           <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" />
           <KpiCard icon="people" label="Total Users" value={formatNumber(totalUsers)} color={COLORS.accent} />
@@ -237,7 +250,12 @@ export default function AdminDashboardScreen({ navigation }) {
           <KpiCard icon="logo-whatsapp" label="WhatsApp Clicks" value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
           <KpiCard icon="phone-portrait" label="Phone Clicks" value={formatNumber(totalCalls)} color={COLORS.accent} />
           <KpiCard icon="eye" label="Total Views" value={formatNumber(totalViews)} color={COLORS.accent} />
-          <KpiCard icon="globe-outline" label={`Site Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={COLORS.accent} />
+          <KpiCard
+            icon="globe-outline"
+            label={`Site Visitors (${selectedRangeLabel})`}
+            value={formatNumber(uniqueVisitors)}
+            color={COLORS.accent}
+          />
           <KpiCard icon="time" label="Pending Approvals" value={formatNumber(pendingApprovals)} color={COLORS.warning} />
           <KpiCard icon="flag" label="Reports" value={formatNumber(totalReports)} color={COLORS.error} />
           <KpiCard icon="radio" label="Live Users" value={formatNumber(liveVisitorsCount)} color={COLORS.accent} />
@@ -496,6 +514,24 @@ const styles = StyleSheet.create({
   timeRangePillActive: { backgroundColor: COLORS.accent },
   timeRangeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.textSecondary },
   timeRangeTextActive: { color: COLORS.white },
+  healthBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(255,152,0,0.12)',
+    borderRadius: BORDER_RADIUS.md,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.warning,
+  },
+  healthBannerText: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: FONT_SIZES.xs,
+    lineHeight: 16,
+  },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
   kpiCard: { width: '48%', backgroundColor: '#272729', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
   kpiIcon: { marginBottom: SPACING.sm },

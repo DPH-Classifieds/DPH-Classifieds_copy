@@ -150,6 +150,8 @@ const AdminDashboard = () => {
   const totalWhatsapp = clampNumber(stats.total_whatsapp || totals.whatsapp_click || 0);
   const totalDealers = clampNumber(stats.total_dealers || dealers.length);
   const siteVisitors = clampNumber(stats.unique_visitors);
+  const dataHealth = stats.data_health || null;
+  const platformEventsMissing = dataHealth?.platform_events === 'missing';
   const verifiedDealers = dealers.filter((dealer) => dealer.dealer_verified).length;
   const pendingDealers = dealers.filter((dealer) => !dealer.dealer_verified).length;
   const pendingReports = reports.filter((report) => (report.status || 'pending') === 'pending').length;
@@ -316,7 +318,11 @@ const AdminDashboard = () => {
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Site visitors</div>
           <div className="admin-kpi-value">{formatCompact(siteVisitors)}</div>
-          <div className="admin-kpi-note">Unique visitors in the selected window.</div>
+          <div className="admin-kpi-note">
+            {platformEventsMissing
+              ? 'Fallback (lead events + signups). Apply the platform_events migration for full tracking.'
+              : 'Unique visitors in the selected window.'}
+          </div>
         </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Pending approvals</div>
