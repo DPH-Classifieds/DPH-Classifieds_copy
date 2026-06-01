@@ -385,6 +385,7 @@ const getStatusColor = (status) => {
     case 'approved': return COLORS.success;
     case 'pending': return COLORS.warning;
     case 'expired': return COLORS.warning;
+    case 'archived': return COLORS.textMuted;
     case 'sold': return COLORS.info;
     case 'deleted': return COLORS.textMuted;
     case 'rejected': return COLORS.error;

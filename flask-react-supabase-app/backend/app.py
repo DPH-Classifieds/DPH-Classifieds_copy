@@ -15072,9 +15072,18 @@ def _admin_listing_matches_status(listing, status_filter):
     normalized = str(status_filter).strip().lower()
     listing_status = str(listing.get("status") or "").strip().lower()
     listing_state = str(listing.get("listing_state") or "").strip().lower()
+    auto_removed = bool(listing.get("auto_removed_at"))
+    is_expired = bool(listing.get("is_expired"))
 
     if normalized == "expired":
-        return listing_state == "expired"
+        # Surface every listing whose lifecycle is past its expiry, including
+        # those auto-removed after the 48hr sold-response window and those
+        # archived past the 30-day retention window. Otherwise admins lose
+        # sight of expired listings within hours of expiry.
+        return (
+            listing_state in {"expired", "archived"}
+            or (auto_removed and is_expired)
+        )
     if normalized == "active":
         return listing_state == "active"
     if normalized == "approved":
@@ -15084,12 +15093,18 @@ def _admin_listing_matches_status(listing, status_filter):
     if normalized == "rejected":
         return listing_status == "rejected"
     if normalized == "deleted":
-        return listing_status == "deleted" or listing_state == "archived"
+        # Restrict "Deleted" to admin/seller deletions; auto-removed-for-expiry
+        # rows belong under "Expired" instead.
+        if auto_removed and is_expired:
+            return False
+        return listing_status == "deleted"
     return listing_status == normalized or listing_state == normalized
 
 
 def _admin_listing_display_status(listing):
     listing_state = str(listing.get("listing_state") or "").strip().lower()
+    if listing.get("auto_removed_at") and listing.get("is_expired"):
+        return "expired"
     if listing_state in {"active", "expired", "archived"}:
         return listing_state
     return listing.get("status")
