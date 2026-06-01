@@ -445,15 +445,28 @@ function Ga4Block({ ga4, rangeLabel }) {
     );
   }
   if (!ga4.enabled) {
+    const cfg = ga4.config || {};
     return (
       <View style={styles.surface}>
         <Text style={styles.queueLabel}>GA4 not connected</Text>
         <Text style={styles.queueSub}>
           {ga4.reason || 'Add GA4_PROPERTY_ID + GA4_SERVICE_ACCOUNT_JSON to the backend env.'}
         </Text>
-        <Text style={styles.queueSub}>
-          See docs/ANALYTICS_SETUP.md §5 for the service-account setup.
-        </Text>
+        {ga4.kind === 'permission_denied' && cfg.service_account_email && cfg.property_id && (
+          <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#444' }}>
+            <Text style={[styles.queueLabel, { marginBottom: 4 }]}>Fix in 60s</Text>
+            <Text style={styles.queueSub}>1. analytics.google.com → ⚙️ Admin.</Text>
+            <Text style={styles.queueSub}>2. Property column → confirm Property ID is {cfg.property_id}.</Text>
+            <Text style={styles.queueSub}>3. Property access management → + → Add users.</Text>
+            <Text style={styles.queueSub}>4. Email: {cfg.service_account_email}</Text>
+            <Text style={styles.queueSub}>5. UNTICK "Notify by email", role Viewer, Add.</Text>
+          </View>
+        )}
+        {(cfg.property_id || cfg.service_account_email) && (
+          <Text style={[styles.queueSub, { marginTop: 8 }]}>
+            Configured: property {cfg.property_id || '(not set)'} · {cfg.service_account_email || '(no service account)'}
+          </Text>
+        )}
       </View>
     );
   }

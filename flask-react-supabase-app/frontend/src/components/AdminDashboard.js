@@ -656,15 +656,52 @@ const Ga4Panel = ({ ga4 }) => {
     return <p className="admin-muted">Loading GA4...</p>;
   }
   if (!ga4.enabled) {
+    const cfg = ga4.config || {};
+    const email = cfg.service_account_email;
+    const propId = cfg.property_id;
     return (
       <div>
         <p className="admin-muted" style={{ marginTop: -4 }}>
           {ga4.reason || 'GA4 not connected.'}
         </p>
-        <p className="admin-muted">
-          Set <code>GA4_PROPERTY_ID</code> and <code>GA4_SERVICE_ACCOUNT_JSON</code> in
-          backend env, then redeploy. See <code>docs/ANALYTICS_SETUP.md</code> §5.
-        </p>
+        {ga4.kind === 'permission_denied' && email && propId && (
+          <div className="admin-status-panel" style={{ marginTop: 12, padding: 12, borderRadius: 12, background: 'rgba(255,152,0,0.12)', borderLeft: '3px solid #FF9800' }}>
+            <strong>Fix in 60 seconds</strong>
+            <ol style={{ marginTop: 8, paddingLeft: 20, lineHeight: 1.6 }}>
+              <li>Open <a href="https://analytics.google.com" target="_blank" rel="noopener noreferrer">analytics.google.com</a> → ⚙️ Admin.</li>
+              <li>Make sure the <strong>Property</strong> at the top of the right column has ID <code>{propId}</code>. If not, switch property.</li>
+              <li>Right column → <strong>Property access management</strong> → <strong>+</strong> → <strong>Add users</strong>.</li>
+              <li>Email: <code>{email}</code> (copy-paste exactly)</li>
+              <li><strong>Untick</strong> "Notify new users by email" or you'll get the "doesn't match Google Account" error.</li>
+              <li>Role: <strong>Viewer</strong> → <strong>Add</strong>. Refresh this page after 60 seconds.</li>
+            </ol>
+          </div>
+        )}
+        {ga4.kind === 'invalid_property' && propId && (
+          <p className="admin-muted">
+            Property ID <code>{propId}</code> looks invalid. Get the real one from
+            analytics.google.com → ⚙️ Admin → Property column → Property Settings →
+            PROPERTY ID (9 digits).
+          </p>
+        )}
+        {ga4.kind === 'bad_credentials' && (
+          <p className="admin-muted">
+            Service-account credentials rejected. Re-create the key in
+            Cloud Console (Credentials → service account → Keys → ADD KEY → JSON)
+            and replace <code>GA4_SERVICE_ACCOUNT_JSON</code> in Railway.
+          </p>
+        )}
+        {ga4.kind === 'config_missing' && (
+          <p className="admin-muted">
+            Set <code>GA4_PROPERTY_ID</code> and <code>GA4_SERVICE_ACCOUNT_JSON</code>{' '}
+            in backend env, then redeploy. See <code>docs/ANALYTICS_SETUP.md</code> §5.
+          </p>
+        )}
+        {(email || propId) && (
+          <p className="admin-muted" style={{ marginTop: 12, fontSize: '0.8rem' }}>
+            Configured: property <code>{propId || '(not set)'}</code> · service account <code>{email || '(not set)'}</code>
+          </p>
+        )}
       </div>
     );
   }

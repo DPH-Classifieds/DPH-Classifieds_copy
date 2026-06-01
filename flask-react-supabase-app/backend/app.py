@@ -14098,7 +14098,24 @@ def admin_health(current_user):
 GA4_PROPERTY_ID = os.getenv("GA4_PROPERTY_ID", "").strip()
 GA4_SERVICE_ACCOUNT_JSON = os.getenv("GA4_SERVICE_ACCOUNT_JSON", "").strip()
 GA4_CACHE_TTL_SECONDS = int(os.getenv("GA4_CACHE_TTL_SECONDS", "300"))
-_GA4_CLIENT_CACHE = {"client": None, "error": None}
+_GA4_CLIENT_CACHE = {"client": None, "error": None, "service_account_email": None}
+
+
+def _ga4_service_account_email():
+    """Return the configured service-account email if the JSON parses, else None."""
+    cached = _GA4_CLIENT_CACHE.get("service_account_email")
+    if cached is not None:
+        return cached or None
+    if not GA4_SERVICE_ACCOUNT_JSON:
+        return None
+    try:
+        info = json.loads(GA4_SERVICE_ACCOUNT_JSON)
+        email = (info.get("client_email") or "").strip()
+        _GA4_CLIENT_CACHE["service_account_email"] = email
+        return email or None
+    except Exception:
+        _GA4_CLIENT_CACHE["service_account_email"] = ""
+        return None
 
 
 def _get_ga4_client():
@@ -14111,6 +14128,7 @@ def _get_ga4_client():
         from google.analytics.data_v1beta import BetaAnalyticsDataClient
         from google.oauth2 import service_account
         info = json.loads(GA4_SERVICE_ACCOUNT_JSON)
+        _GA4_CLIENT_CACHE["service_account_email"] = (info.get("client_email") or "").strip()
         creds = service_account.Credentials.from_service_account_info(info)
         client = BetaAnalyticsDataClient(credentials=creds)
         _GA4_CLIENT_CACHE["client"] = client
@@ -14142,11 +14160,18 @@ def get_admin_ga4_summary(current_user):
         if cached_payload is not None:
             return jsonify(cached_payload), 200
 
+        config_block = {
+            "property_id": GA4_PROPERTY_ID or None,
+            "service_account_email": _ga4_service_account_email(),
+        }
+
         client, error = _get_ga4_client()
         if not client:
             payload = {
                 "enabled": False,
                 "reason": error,
+                "kind": "config_missing",
+                "config": config_block,
                 "days": days,
             }
             return jsonify(payload), 200
@@ -14238,6 +14263,7 @@ def get_admin_ga4_summary(current_user):
         payload = {
             "enabled": True,
             "days": days,
+            "config": config_block,
             "active_users": int(get_total(0)),
             "sessions": int(get_total(1)),
             "page_views": int(get_total(2)),
@@ -14251,7 +14277,25 @@ def get_admin_ga4_summary(current_user):
         return jsonify(payload), 200
     except Exception as exc:
         logger.error(f"Error fetching GA4 summary: {exc}")
-        return jsonify({"enabled": False, "reason": f"GA4 query failed: {exc}"}), 200
+        reason_text = str(exc)
+        lower = reason_text.lower()
+        if "permission" in lower or "403" in lower:
+            kind = "permission_denied"
+        elif "not found" in lower or "404" in lower or "invalid" in lower:
+            kind = "invalid_property"
+        elif "could not be acquired" in lower or "unauthenticated" in lower or "401" in lower:
+            kind = "bad_credentials"
+        else:
+            kind = "query_failed"
+        return jsonify({
+            "enabled": False,
+            "reason": f"GA4 query failed: {reason_text}",
+            "kind": kind,
+            "config": {
+                "property_id": GA4_PROPERTY_ID or None,
+                "service_account_email": _ga4_service_account_email(),
+            },
+        }), 200
 
 
 @app.route("/api/admin/stats", methods=["GET"])

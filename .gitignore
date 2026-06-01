@@ -23,6 +23,8 @@
 client_secret_*.json
 *-service-account*.json
 ga4_service_account.json
+# Catch Google Cloud Console JSON downloads (filename = <project-id>-<key-id>.json)
+fit-asset-*.json
 .terraform.d/credentials.tfrc.json
 .vault-token
 *.pem
