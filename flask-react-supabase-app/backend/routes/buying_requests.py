@@ -103,7 +103,31 @@ def list_buying_requests():
     if status >= 400:
         return jsonify({"error": "Failed to fetch buying requests"}), status
 
-    payload = [_scrub_public_row(row) for row in (resp or [])]
+    rows = list(resp or [])
+    request_ids = [str(row.get("id")) for row in rows if row.get("id")]
+    images_by_request = {}
+    if request_ids:
+        images, images_status = supabase_request(
+            "get",
+            "/rest/v1/buying_request_images",
+            params={
+                "select": "*",
+                "buying_request_id": f"in.({','.join(request_ids)})",
+                "order": "uploaded_at.asc",
+            },
+        )
+        if images_status < 400:
+            for image in images or []:
+                request_id = str(image.get("buying_request_id") or "")
+                if not request_id:
+                    continue
+                images_by_request.setdefault(request_id, []).append(image)
+
+    payload = []
+    for row in rows:
+        row = dict(row)
+        row["images"] = images_by_request.get(str(row.get("id")), [])
+        payload.append(_scrub_public_row(row))
     _api_cache_set(cache_key, payload, ttl_seconds=BUYING_REQUESTS_CACHE_TTL_SECONDS)
     return jsonify(payload), 200
 

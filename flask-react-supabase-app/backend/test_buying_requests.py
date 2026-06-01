@@ -50,3 +50,40 @@ def test_buying_requests_limit_5(monkeypatch):
 
     assert resp.status_code == 400
     assert "up to 5" in (resp.get_json() or {}).get("error", "")
+
+
+def test_buying_requests_list_includes_preview_image(monkeypatch):
+    with patch.object(backend, "token_required", new=lambda f: _passthrough_token_required(f)):
+        mod = importlib.import_module("routes.buying_requests")
+        importlib.reload(mod)
+
+    app = Flask(__name__)
+    app.config["TESTING"] = True
+    app.register_blueprint(mod.buying_requests_bp)
+
+    def fake_supabase_request(method, path, params=None, data=None, user_id=None, **kwargs):
+        if method == "get" and path == "/rest/v1/buying_requests":
+            return ([{"id": "req-1", "item_name": "BMW X5 wanted"}], 200)
+        if method == "get" and path == "/rest/v1/buying_request_images":
+            return (
+                [
+                    {
+                        "id": "img-1",
+                        "buying_request_id": "req-1",
+                        "display_url": "https://example.com/ref.jpg",
+                        "image_url": "https://example.com/ref.jpg",
+                        "url": "https://example.com/ref.jpg",
+                    }
+                ],
+                200,
+            )
+        return ([], 200)
+
+    monkeypatch.setattr(mod, "supabase_request", fake_supabase_request)
+
+    with app.test_client() as client:
+        resp = client.get("/api/buying-requests")
+
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload[0]["images"][0]["display_url"] == "https://example.com/ref.jpg"

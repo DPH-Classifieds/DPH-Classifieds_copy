@@ -79,7 +79,13 @@ export default function BuyingRequestsPage() {
           {filtered.map((row) => {
             const title = row?.item_name || 'Buying request';
             const type = String(row?.item_type || '').toUpperCase();
-            const imageUrl = PLACEHOLDER_IMAGE;
+            const imageUrl =
+              row?.images?.[0]?.display_url ||
+              row?.images?.[0]?.image_url ||
+              row?.images?.[0]?.url ||
+              row?.display_url ||
+              row?.image_url ||
+              PLACEHOLDER_IMAGE;
             return (
               <Link
                 key={row.id}
@@ -89,7 +95,7 @@ export default function BuyingRequestsPage() {
                 <div className="aspect-[16/10] w-full bg-black/20">
                   <img
                     src={imageUrl}
-                    alt=""
+                    alt={title}
                     className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
                     loading="lazy"
                   />
@@ -112,4 +118,3 @@ export default function BuyingRequestsPage() {
     </div>
   );
 }
-

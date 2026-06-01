@@ -28,6 +28,7 @@ export default function PostBuyingRequest() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedPreview, setSelectedPreview] = useState('');
   const [form, setForm] = useState({
     item_type: 'car',
     item_name: '',
@@ -96,9 +97,24 @@ export default function PostBuyingRequest() {
       setError('Reference image is too large.');
       return;
     }
+    setSelectedPreview((currentPreview) => {
+      if (currentPreview) {
+        URL.revokeObjectURL(currentPreview);
+      }
+      return URL.createObjectURL(file);
+    });
     setSelectedFiles([file]);
     setForm((prev) => ({ ...prev, images: [] }));
   };
+
+  useEffect(
+    () => () => {
+      if (selectedPreview) {
+        URL.revokeObjectURL(selectedPreview);
+      }
+    },
+    [selectedPreview]
+  );
 
   const submit = async (e) => {
     e.preventDefault();
@@ -325,6 +341,13 @@ export default function PostBuyingRequest() {
           <input type="file" accept="image/*" onChange={onAddReferenceImage} className="text-white/80" />
           <span className="text-xs text-white/50">Max {Math.round(LISTING_IMAGE_MAX_BYTES / 1024 / 1024)}MB.</span>
         </label>
+
+        {selectedPreview ? (
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+            <div className="px-3 py-2 text-xs uppercase tracking-wide text-white/50">Image preview</div>
+            <img src={selectedPreview} alt="Reference preview" className="h-56 w-full object-cover" />
+          </div>
+        ) : null}
 
         <button
           type="submit"
