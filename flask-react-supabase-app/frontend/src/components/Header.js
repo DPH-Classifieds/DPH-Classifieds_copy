@@ -26,6 +26,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui
 
 const browseLinks = [
   {
+    title: 'Buying Requests',
+    description: 'Browse anonymous buying requests.',
+    href: '/buying-requests',
+    icon: Plus,
+  },
+  {
     title: 'Cars',
     description: 'Browse used, luxury, and performance cars.',
     href: '/cars',
@@ -88,6 +94,7 @@ const Header = () => {
         { title: 'Post Car Part', href: user ? '/post-car-parts' : '/login?redirect=/post-car-parts' },
         { title: 'Post Plate', href: user ? '/post-plate' : '/login?redirect=/post-plate' },
         { title: 'Post Bike', href: user ? '/post-bike' : '/login?redirect=/post-bike' },
+        { title: 'Post a Buying Request', href: user ? '/post-buying-request' : '/login?redirect=/post-buying-request' },
       ];
       if (user && !dealerCanPost) {
         return base.map((item) => ({ ...item, href: '/settings', disabled: true }));

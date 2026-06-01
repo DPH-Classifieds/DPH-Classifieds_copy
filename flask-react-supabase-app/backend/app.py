@@ -284,6 +284,11 @@ LISTING_TABLE_CONFIG = {
         "images_table": "plate_images",
         "fk": "plate_id",
     },
+    "buying_request": {
+        "table": "buying_requests",
+        "images_table": "buying_request_images",
+        "fk": "buying_request_id",
+    },
 }
 ADMIN_ITEM_TYPE_TO_TABLE = {
     "cars": "cars",
@@ -296,6 +301,7 @@ API_ITEM_TYPE_TO_TABLE = {
     "bike": "bikes",
     "part": "car_parts",
     "plate": "license_plates",
+    "buying_request": "buying_requests",
 }
 LISTING_IMAGE_SELECTS = {
     "cars": "id,car_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
@@ -464,6 +470,7 @@ def _invalidate_public_inventory_cache(item_type):
         "bikes": ["/api/bikes"],
         "parts": ["/api/parts"],
         "plates": ["/api/plates"],
+        "buying_requests": ["/api/buying-requests"],
     }
     _invalidate_api_cache_prefixes(public_prefixes.get(item_type, [f"/api/{item_type}"]))
 
@@ -1588,6 +1595,7 @@ def _listing_display_title(record):
     record = record or {}
     return (
         record.get("listing_title")
+        or record.get("item_name")
         or f"{record.get('city', '')} {record.get('code', '')} {record.get('number', '')}".strip()
         or record.get("name")
         or "Your listing"
@@ -12390,6 +12398,18 @@ def get_user_email(user_id):
         return "unknown@example.com"
 
 
+# Import and register Buying Requests routes.
+# NOTE: This must happen after `get_user_email` is defined because
+# `routes.buying_requests` imports it from this module.
+try:
+    from routes.buying_requests import buying_requests_bp
+
+    app.register_blueprint(buying_requests_bp)
+    logger.info("Buying Requests API routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register Buying Requests API routes: {e}")
+
+
 def _get_user_email_by_id(user_id):
     try:
         user_data, status_code = supabase_request(
@@ -14069,6 +14089,138 @@ def admin_health(current_user):
         return jsonify(
             {"error": "Failed to fetch health status", "details": str(exc)}
         ), 500
+
+
+@app.route("/api/admin/stats", methods=["GET"])
+@token_required
+def get_admin_stats(current_user):
+    """Return dashboard summary counts plus visitor totals."""
+    try:
+        if not _require_admin_api_user(current_user):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+
+        def _fetch_rows(path, params):
+            rows, status = supabase_request(
+                "get",
+                path,
+                params=params,
+                use_service_role=True,
+            )
+            return rows or [] if status < 400 else []
+
+        platform_events = _fetch_rows(
+            "/rest/v1/platform_events",
+            {
+                "select": "visitor_id,user_id,session_id,created_at",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "5000",
+            },
+        )
+        lead_events = _fetch_rows(
+            "/rest/v1/lead_events",
+            {
+                "select": "action,listing_type,listing_id,created_at",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "5000",
+            },
+        )
+        reports = _fetch_rows(
+            "/rest/v1/reports",
+            {
+                "select": "id,status,created_at",
+                "created_at": f"gte.{cutoff}",
+                "order": "created_at.desc",
+                "limit": "1000",
+            },
+        )
+        cars = _fetch_rows(
+            "/rest/v1/cars",
+            {
+                "select": "status,view_count",
+                "order": "created_at.desc",
+                "limit": "2000",
+            },
+        )
+        bikes = _fetch_rows(
+            "/rest/v1/bikes",
+            {
+                "select": "status,view_count",
+                "order": "created_at.desc",
+                "limit": "2000",
+            },
+        )
+        parts = _fetch_rows(
+            "/rest/v1/car_parts",
+            {
+                "select": "status,view_count",
+                "order": "created_at.desc",
+                "limit": "2000",
+            },
+        )
+        plates = _fetch_rows(
+            "/rest/v1/license_plates",
+            {
+                "select": "status,view_count",
+                "order": "created_at.desc",
+                "limit": "2000",
+            },
+        )
+        users = _fetch_rows(
+            "/rest/v1/users",
+            {
+                "select": "id,is_dealer,account_status",
+                "order": "created_at.desc",
+                "limit": "4000",
+            },
+        )
+
+        unique_visitors = set()
+        live_visitors = set()
+        live_cutoff = _utc_now() - datetime.timedelta(minutes=5)
+        for event in platform_events:
+            visitor_id = str(
+                event.get("visitor_id")
+                or event.get("user_id")
+                or event.get("session_id")
+                or "anonymous"
+            )
+            unique_visitors.add(visitor_id)
+            event_time = _parse_datetime(event.get("created_at"))
+            if event_time and event_time >= live_cutoff:
+                live_visitors.add(visitor_id)
+
+        lead_actions = defaultdict(int)
+        for event in lead_events:
+            lead_actions[str(event.get("action") or "unknown")] += 1
+
+        stats = {
+            "cars_pending": sum(1 for row in cars if (row.get("status") or "").lower() == "pending"),
+            "bikes_pending": sum(1 for row in bikes if (row.get("status") or "").lower() == "pending"),
+            "parts_pending": sum(1 for row in parts if (row.get("status") or "").lower() == "pending"),
+            "plates_pending": sum(1 for row in plates if (row.get("status") or "").lower() == "pending"),
+            "cars_views": sum(int(row.get("view_count") or 0) for row in cars),
+            "bikes_views": sum(int(row.get("view_count") or 0) for row in bikes),
+            "parts_views": sum(int(row.get("view_count") or 0) for row in parts),
+            "plates_views": sum(int(row.get("view_count") or 0) for row in plates),
+            "total_users": len(users),
+            "total_reports": len(reports),
+            "total_leads": sum(lead_actions.values()),
+            "total_calls": int(lead_actions.get("call_click", 0)),
+            "total_whatsapp": int(lead_actions.get("whatsapp_click", 0)),
+            "total_dealers": sum(1 for row in users if row.get("is_dealer")),
+            "unique_visitors": len(unique_visitors),
+            "live_users": len(live_visitors),
+        }
+
+        return jsonify(stats), 200
+    except Exception as exc:
+        logger.error(f"Error fetching admin stats: {exc}")
+        return jsonify({"error": "Failed to fetch admin stats"}), 500
 
 
 @app.route("/api/listings/<item_type>/<item_id>/lead-events", methods=["POST"])

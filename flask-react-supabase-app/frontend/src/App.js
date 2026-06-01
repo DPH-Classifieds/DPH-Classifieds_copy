@@ -112,6 +112,9 @@ const AdminMetrics = lazy(() => import('./components/AdminMetrics'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
 const ExplorePage = lazy(() => import('./components/ExplorePage'));
+const BuyingRequestsPage = lazy(() => import('./components/BuyingRequestsPage'));
+const BuyingRequestDetail = lazy(() => import('./components/BuyingRequestDetail'));
+const PostBuyingRequest = lazy(() => import('./components/PostBuyingRequest'));
 
 const AuthHashHandler = () => {
   const navigate = useNavigate();
@@ -244,6 +247,8 @@ function App() {
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-use" element={<TermsOfUse />} />
               <Route path="/explore" element={<ExplorePage />} />
+              <Route path="/buying-requests" element={<BuyingRequestsPage />} />
+              <Route path="/buying-requests/:id" element={<BuyingRequestDetail />} />
 
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
@@ -263,6 +268,7 @@ function App() {
                   <Route path="/post-bike" element={<PostBike />} />
                   <Route path="/post-plate" element={<PostPlate />} />
                   <Route path="/post-car-parts" element={<PostCarParts />} />
+                  <Route path="/post-buying-request" element={<PostBuyingRequest />} />
                   <Route path="/post/:type" element={<PostTypeRedirect />} />
                 </Route>
               </Route>
