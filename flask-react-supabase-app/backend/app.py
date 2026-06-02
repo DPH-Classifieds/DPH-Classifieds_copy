@@ -14261,6 +14261,9 @@ def get_admin_stats(current_user):
         for event in platform_events:
             key = _canonical_visitor_key(event)
             if not key:
+                # Row had no user_id / visitor_id / session_id — no identity, no visitor.
+                # Previously bucketed under "pe:anonymous" which inflated the count by
+                # collapsing all anonymous-no-ID traffic into a single fake visitor.
                 continue
             unique_visitors.add(key)
             unique_sources.add("platform_events")

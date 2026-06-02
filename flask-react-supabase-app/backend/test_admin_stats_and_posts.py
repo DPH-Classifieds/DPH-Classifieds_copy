@@ -155,7 +155,12 @@ class AdminStatsTests(unittest.TestCase):
             with backend.app.test_request_context("/api/admin/stats?days=30"):
                 payload, status_code = backend.get_admin_stats.__wrapped__("admin-1")
                 self.assertEqual(status_code, 200)
-                self.assertEqual(payload.get_json()["unique_visitors"], 1)
+                data = payload.get_json()
+                self.assertEqual(data["unique_visitors"], 1)
+                sources = data["data_health"]["unique_visitor_sources"]
+                self.assertIn("platform_events", sources)
+                self.assertIn("lead_events", sources)
+                self.assertIn("new_signups", sources)
 
     def test_total_views_is_window_bounded(self):
         iso = backend._isoformat_utc
