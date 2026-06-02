@@ -7,7 +7,7 @@ There are three places keys live:
 | File | Used by | What goes in |
 |---|---|---|
 | `flask-react-supabase-app/frontend/.env` | The website (React) | Web tracking IDs |
-| `flask-react-supabase-app/backend/.env` | The Flask API | Server-side GA4 Data API (for in-app KPIs) |
+| `flask-react-supabase-app/backend/.env` | The Flask API | Server-side admin endpoints (Clarity deep-link only) |
 | `flask-react-supabase-app/mobile/.env` | The Expo app | Mobile event tracking |
 
 All three are gitignored. Reference templates with comments live next to each one as `.env.example`.
@@ -21,10 +21,10 @@ All three are gitignored. Reference templates with comments live next to each on
 | "Just give me page views, sessions, conversions on the website" | §1 → §3 | ~15 min |
 | "Also give me heatmaps and session recordings" | §2 | +5 min |
 | "Track mobile sessions too" | §4 | +10 min |
-| "I want GA4 numbers inside the admin dashboard, not just the GA4 site" | §5 | +30 min (mostly cloud console) |
+| ~~"I want GA4 numbers inside the admin dashboard"~~ | *Removed — see §5 for why* | n/a |
 | "Hook the 'Open GA4' / 'Open Clarity' buttons in the admin panel" | §6 (auto-on as soon as IDs from §1/§2 are in place) | 0 min |
 
-A reasonable order: §1 → §2 → §6 → (later) §4 → (later) §5.
+A reasonable order: §1 → §2 → §6 → (later) §4.
 
 ---
 
@@ -158,48 +158,13 @@ The mobile `analytics.js` will start sending events the next time you launch the
 
 ---
 
-## 5. Pulling GA4 numbers into the admin panel (optional, do later)
+## 5. ~~Pulling GA4 numbers into the admin panel~~ (removed)
 
-By default the "Open GA4 Dashboard" button just deep-links you to analytics.google.com. If you want **GA4 numbers rendered inline next to the in-app KPIs** (Active Users, Sessions, Conversions), the backend needs to call the GA4 Data API. This is the most fiddly section.
+This feature used to pull GA4 numbers (Active Users / Sessions / Conversions) via the Data API and render them inline on the admin dashboard. **Removed in 2026-06**: Google has made granting service accounts access to GA4 properties prohibitively unreliable (the UI rejects service-account emails with "doesn't match a Google Account" even when the notify-by-email toggle is off, and the workarounds via OAuth Playground / `analytics.manage.users` scope are blocked by Google's "this app is blocked" enforcement on sensitive scopes).
 
-### 5.1 Enable the API
+The "Open GA4 Dashboard ↗" button on the admin panel deep-links to analytics.google.com where the same numbers live — that's the supported path now.
 
-1. Go to <https://console.cloud.google.com>.
-2. Create a new project (or reuse one) — name it `dph-analytics`.
-3. Top search bar → "Google Analytics Data API" → **Enable**.
-
-### 5.2 Create a service account
-
-1. Same project → **APIs & Services** → **Credentials** → **+ Create Credentials** → **Service account**.
-2. Name: `dph-ga4-reader`. Skip the optional steps. **Done**.
-3. Click the new service account → **Keys** tab → **Add Key** → **Create new key** → **JSON** → **Create**. A JSON file downloads.
-4. Copy the `client_email` from that JSON file (it looks like `dph-ga4-reader@dph-analytics.iam.gserviceaccount.com`).
-
-### 5.3 Grant it Viewer access on the GA4 property
-
-1. GA4 → **Admin** → **Property access management** (under "Property", at the top).
-2. **+** → **Add users** → paste the `client_email` from §5.2 step 4.
-3. Role: **Viewer**. Untick "Notify new users by email". **Add**.
-
-### 5.4 Get the GA4 Property ID
-
-GA4 → **Admin** → **Property Settings** → **Property ID** (a number like `312345678`). **This is not the `G-XXXXX` Measurement ID** — different value, same property.
-
-### 5.5 Add both to backend env
-
-```bash
-# flask-react-supabase-app/backend/.env
-GA4_PROPERTY_ID=312345678
-
-# Paste the *entire downloaded JSON file* on one line:
-GA4_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"dph-analytics", ... }
-```
-
-On Railway/Heroku/Vercel, set them via the dashboard's env var UI; the JSON one-liner works there too.
-
-### 5.6 Verify
-
-The backend endpoint `GET /api/admin/ga4-summary` (added in a follow-up commit) returns Active Users, Sessions, top sources, conversions. Once both env vars are set, the admin dashboard's "GA4" KPI block populates instead of staying empty.
+If Google later reverses these restrictions, the implementation lived at commits before `<see git log around 2026-06>` and can be restored.
 
 ---
 
@@ -231,9 +196,6 @@ Sorted by which file they live in. Required keys are bold.
 ### `flask-react-supabase-app/backend/.env`
 
 - `CLARITY_PROJECT_ID` — same value as `REACT_APP_CLARITY_PROJECT_ID` (used by admin button only)
-- `GA4_PROPERTY_ID` — numeric ID from §5.4
-- `GA4_SERVICE_ACCOUNT_JSON` — full JSON one-liner from §5.5
-- `GA4_CACHE_TTL_SECONDS` — defaults to `300`, no need to set unless tuning
 
 ---
 
