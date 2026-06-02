@@ -19,6 +19,27 @@ class SupabaseCountTests(unittest.TestCase):
             mock_head.return_value = Mock(status_code=500, headers={})
             self.assertEqual(backend._supabase_count("users", {}), 0)
 
+    def test_supabase_count_returns_zero_on_4xx(self):
+        with patch("app.requests.head") as mock_head, \
+             self.assertLogs("app", level="WARNING") as logs:
+            mock_head.return_value = Mock(
+                status_code=403,
+                headers={"Content-Range": "*/0"},
+                text="permission denied",
+            )
+            self.assertEqual(backend._supabase_count("users", {}), 0)
+        self.assertTrue(any("status=403" in msg for msg in logs.output))
+
+    def test_supabase_count_handles_unknown_total(self):
+        # Content-Range "*/*" means PostgREST couldn't determine count.
+        with patch("app.requests.head") as mock_head:
+            mock_head.return_value = Mock(
+                status_code=206,
+                headers={"Content-Range": "*/*"},
+                text="",
+            )
+            self.assertEqual(backend._supabase_count("users", {}), 0)
+
 
 class AdminStatsTests(unittest.TestCase):
     def test_admin_stats_includes_visitor_counts(self):

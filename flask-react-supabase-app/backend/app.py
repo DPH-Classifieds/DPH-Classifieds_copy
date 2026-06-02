@@ -4376,9 +4376,18 @@ def _supabase_count(table: str, params: dict | None = None) -> int:
             params=params or {},
             timeout=8,
         )
+        if resp.status_code not in (200, 206):
+            logger.warning(
+                "supabase count failed for %s: status=%s body=%s",
+                table, resp.status_code, getattr(resp, "text", "")[:200],
+            )
+            return 0
         content_range = resp.headers.get("Content-Range", "")
         if "/" in content_range:
-            return int(content_range.rsplit("/", 1)[1])
+            total = content_range.rsplit("/", 1)[1]
+            if total.isdigit():
+                return int(total)
+        return 0
     except Exception as exc:
         logger.warning("supabase count failed for %s: %s", table, exc)
     return 0
