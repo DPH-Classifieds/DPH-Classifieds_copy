@@ -300,8 +300,8 @@ export default function AdminDashboardScreen({ navigation }) {
           <KpiCard icon="construct" label="Total Parts" value={formatNumber(clamp(stats.parts_total))} color={COLORS.accent} />
           <KpiCard icon="key" label="Total Plates" value={formatNumber(clamp(stats.plates_total))} color={COLORS.accent} />
           <KpiCard icon="call" label="Total Leads" value={formatNumber(totalLeads)} color={COLORS.accent} />
-          <KpiCard icon="logo-whatsapp" label="WhatsApp Clicks" value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
-          <KpiCard icon="phone-portrait" label="Phone Clicks" value={formatNumber(totalCalls)} color={COLORS.accent} />
+          <KpiCard icon="logo-whatsapp" label={`Unique WhatsApp (${selectedRangeLabel})`} value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
+          <KpiCard icon="phone-portrait" label={`Unique Callers (${selectedRangeLabel})`} value={formatNumber(totalCalls)} color={COLORS.accent} />
           <KpiCard icon="eye" label="Total Views" value={formatNumber(totalViews)} color={COLORS.accent} />
           <KpiCard
             icon="globe-outline"

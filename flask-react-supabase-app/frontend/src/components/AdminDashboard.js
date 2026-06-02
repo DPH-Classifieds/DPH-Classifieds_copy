@@ -344,20 +344,26 @@ const AdminDashboard = () => {
           <div className="admin-kpi-value">{formatCompact(totalLeads)}</div>
           <div className="admin-kpi-note">Call and WhatsApp actions across all listings.</div>
         </div>
-        <div className="admin-kpi-card">
+        <div
+          className="admin-kpi-card"
+          title="Unique users who tapped WhatsApp in the selected window. Total raw events: total_whatsapp_events"
+        >
           <div className="admin-kpi-label">WhatsApp clicks</div>
           <div className="admin-kpi-value">{formatCompact(totalWhatsapp)}</div>
-          <div className="admin-kpi-note">Messaging intent from live inventory.</div>
+          <div className="admin-kpi-note">Unique users who tapped WhatsApp in the selected window.</div>
         </div>
-        <div className="admin-kpi-card">
+        <div
+          className="admin-kpi-card"
+          title="Unique users who tapped Call in the selected window. Total raw events: total_call_events"
+        >
           <div className="admin-kpi-label">Phone clicks</div>
           <div className="admin-kpi-value">{formatCompact(totalCalls)}</div>
-          <div className="admin-kpi-note">Direct call actions across the marketplace.</div>
+          <div className="admin-kpi-note">Unique users who tapped Call in the selected window.</div>
         </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Total views</div>
           <div className="admin-kpi-value">{formatCompact(totalViews)}</div>
-          <div className="admin-kpi-note">Combined listing visibility by type.</div>
+          <div className="admin-kpi-note">Detail-page mounts in the selected window.</div>
         </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-label">Site visitors</div>
