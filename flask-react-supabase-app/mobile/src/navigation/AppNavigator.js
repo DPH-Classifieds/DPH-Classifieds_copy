@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef, useMemo } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { buildNavigationStateChangeHandler } from '../utils/platformTracker';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -193,13 +194,18 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { isLoading } = useAuth();
+  const navigationRef = useRef(null);
+  const handleStateChange = useMemo(
+    () => buildNavigationStateChangeHandler(navigationRef),
+    []
+  );
 
   if (isLoading) {
     return <LoadingSpinner message="Loading..." />;
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} onStateChange={handleStateChange}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen
