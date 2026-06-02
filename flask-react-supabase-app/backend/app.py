@@ -14333,6 +14333,17 @@ def get_admin_stats(current_user):
             "unique_visitors": len(unique_visitors),
             "live_users": len(live_visitors),
             "data_health": data_health,
+            "cars_total": _supabase_count("cars"),
+            "bikes_total": _supabase_count("bikes"),
+            "parts_total": _supabase_count("car_parts"),
+            "plates_total": _supabase_count("license_plates"),
+            "verified_dealers": _supabase_count(
+                "users",
+                {"is_dealer": "eq.true", "dealer_verified": "eq.true"},
+            ),
+            "pending_reports": _supabase_count("reports", {"status": "eq.pending"}),
+            "total_vin_reveals": len(lead_unique_actors.get("vin_reveal", set())),
+            "total_vin_reveal_events": lead_event_counts.get("vin_reveal", 0),
         }
 
         _api_cache_set(cache_key, stats, ttl_seconds=60)

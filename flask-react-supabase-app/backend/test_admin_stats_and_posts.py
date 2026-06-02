@@ -237,6 +237,16 @@ class AdminStatsTests(unittest.TestCase):
                 self.assertEqual(data["plates_views"], 0)
 
 
+class AdminStatsRoutingTests(unittest.TestCase):
+    def test_only_one_admin_stats_route_registered(self):
+        rules = [r for r in backend.app.url_map.iter_rules()
+                 if r.rule == "/api/admin/stats"]
+        self.assertEqual(len(rules), 1,
+                         f"Expected one /api/admin/stats route, got {len(rules)}: "
+                         f"{[r.endpoint for r in rules]}")
+        self.assertEqual(rules[0].endpoint, "get_admin_stats")
+
+
 class PostListingSmokeTests(unittest.TestCase):
     def setUp(self):
         self.supabase_patch = patch.object(backend, "supabase_request")
