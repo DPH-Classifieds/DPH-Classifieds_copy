@@ -115,8 +115,13 @@ class AdminStatsTests(unittest.TestCase):
         self.assertEqual(payload["plates_pending"], 1)
         self.assertEqual(payload["total_users"], 3)
         self.assertEqual(payload["total_reports"], 2)
-        self.assertEqual(payload["total_calls"], 1)
-        self.assertEqual(payload["total_whatsapp"], 1)
+        # lead_events fixture rows above have no user_id/visitor_id/session_id,
+        # so _canonical_visitor_key() returns None and they don't add to the
+        # unique-actor sets. Raw event counts still reflect the rows.
+        self.assertEqual(payload["total_calls"], 0)
+        self.assertEqual(payload["total_call_events"], 1)
+        self.assertEqual(payload["total_whatsapp"], 0)
+        self.assertEqual(payload["total_whatsapp_events"], 1)
         self.assertEqual(payload["total_dealers"], 1)
 
     def test_unique_visitors_dedupes_across_sources(self):
@@ -161,6 +166,37 @@ class AdminStatsTests(unittest.TestCase):
                 self.assertIn("platform_events", sources)
                 self.assertIn("lead_events", sources)
                 self.assertIn("new_signups", sources)
+
+    def test_total_calls_dedupes_per_actor(self):
+        iso = backend._isoformat_utc
+        now = backend._utc_now()
+
+        lead_events = [
+            {"user_id": "u1", "action": "call_click", "created_at": iso(now)},
+            {"user_id": "u1", "action": "call_click", "created_at": iso(now)},  # same user, repeat
+            {"user_id": "u2", "action": "call_click", "created_at": iso(now)},
+            {"user_id": "u3", "action": "whatsapp_click", "created_at": iso(now)},
+        ]
+
+        def fake_supabase_request(method, path, **kwargs):
+            return [], 200  # no platform_events
+
+        def fake_fetch(path, params):
+            return lead_events if "lead_events" in path else []
+
+        with patch("app.supabase_request", side_effect=fake_supabase_request), \
+             patch("app._fetch_rows", side_effect=fake_fetch), \
+             patch("app._supabase_count", return_value=0), \
+             patch("app._api_cache_get", return_value=None), \
+             patch("app._require_admin_api_user", return_value=True):
+            with backend.app.test_request_context("/api/admin/stats?days=30"):
+                payload, status_code = backend.get_admin_stats.__wrapped__("admin-1")
+                self.assertEqual(status_code, 200)
+                data = payload.get_json()
+                self.assertEqual(data["total_calls"], 2)            # unique callers
+                self.assertEqual(data["total_call_events"], 3)      # raw event count
+                self.assertEqual(data["total_whatsapp"], 1)         # unique whatsappers
+                self.assertEqual(data["total_whatsapp_events"], 1)  # raw whatsapp count
 
     def test_total_views_is_window_bounded(self):
         iso = backend._isoformat_utc

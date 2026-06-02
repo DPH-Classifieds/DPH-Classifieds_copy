@@ -14283,11 +14283,14 @@ def get_admin_stats(current_user):
                 view_counts_by_type[listing_type] += 1
             view_counts_by_type["__total__"] += 1
 
-        lead_actions = defaultdict(int)
+        lead_event_counts = defaultdict(int)       # raw event counts per action
+        lead_unique_actors = defaultdict(set)      # unique actors per action
         for event in lead_events:
-            lead_actions[str(event.get("action") or "unknown")] += 1
+            action = str(event.get("action") or "unknown")
+            lead_event_counts[action] += 1
             key = _canonical_visitor_key(event)
             if key:
+                lead_unique_actors[action].add(key)
                 unique_visitors.add(key)
                 unique_sources.add("lead_events")
 
@@ -14321,9 +14324,11 @@ def get_admin_stats(current_user):
             "total_views": view_counts_by_type.get("__total__", 0),
             "total_users": total_users,
             "total_reports": total_reports,
-            "total_leads": sum(lead_actions.values()),
-            "total_calls": int(lead_actions.get("call_click", 0)),
-            "total_whatsapp": int(lead_actions.get("whatsapp_click", 0)),
+            "total_leads": sum(lead_event_counts.values()),
+            "total_calls": len(lead_unique_actors.get("call_click", set())),
+            "total_call_events": lead_event_counts.get("call_click", 0),
+            "total_whatsapp": len(lead_unique_actors.get("whatsapp_click", set())),
+            "total_whatsapp_events": lead_event_counts.get("whatsapp_click", 0),
             "total_dealers": total_dealers,
             "unique_visitors": len(unique_visitors),
             "live_users": len(live_visitors),
