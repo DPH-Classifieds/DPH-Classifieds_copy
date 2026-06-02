@@ -4,6 +4,22 @@ from unittest.mock import Mock, patch
 import app as backend
 
 
+class SupabaseCountTests(unittest.TestCase):
+    def test_supabase_count_parses_content_range(self):
+        with patch("app.requests.head") as mock_head:
+            mock_head.return_value = Mock(
+                status_code=206,
+                headers={"Content-Range": "0-0/4231"},
+            )
+            count = backend._supabase_count("users", {"is_dealer": "eq.true"})
+            self.assertEqual(count, 4231)
+
+    def test_supabase_count_returns_zero_when_missing(self):
+        with patch("app.requests.head") as mock_head:
+            mock_head.return_value = Mock(status_code=500, headers={})
+            self.assertEqual(backend._supabase_count("users", {}), 0)
+
+
 class AdminStatsTests(unittest.TestCase):
     def test_admin_stats_includes_visitor_counts(self):
         fixed_now = backend._utc_now()
@@ -18,15 +34,18 @@ class AdminStatsTests(unittest.TestCase):
             {"action": "call_click", "created_at": now_iso},
             {"action": "whatsapp_click", "created_at": now_iso},
         ]
-        reports = [{"id": "report-1"}, {"id": "report-2"}]
-        cars = [{"status": "pending", "view_count": 3}]
-        bikes = [{"status": "approved", "view_count": 4}]
-        parts = [{"status": "pending", "view_count": 5}]
-        plates = [{"status": "pending", "view_count": 6}]
+        cars = [{"view_count": 3}]
+        bikes = [{"view_count": 4}]
+        parts = [{"view_count": 5}]
+        plates = [{"view_count": 6}]
+        # No created_at on users so they don't pollute the unique_visitors
+        # set — the test specifically asserts unique_visitors == 2 (the two
+        # platform_events visitors). total_users/total_dealers now come from
+        # the _supabase_count mock, not from this fetch.
         users = [
-            {"id": "u1", "is_dealer": True},
-            {"id": "u2", "is_dealer": False},
-            {"id": "u3", "is_dealer": False},
+            {"id": "u1"},
+            {"id": "u2"},
+            {"id": "u3"},
         ]
 
         def fake_supabase_request(method, path, params=None, data=None, user_id=None, use_service_role=False):
@@ -34,8 +53,6 @@ class AdminStatsTests(unittest.TestCase):
                 return platform_events, 200
             if path == "/rest/v1/lead_events":
                 return lead_events, 200
-            if path == "/rest/v1/reports":
-                return reports, 200
             if path == "/rest/v1/cars":
                 return cars, 200
             if path == "/rest/v1/bikes":
@@ -48,10 +65,25 @@ class AdminStatsTests(unittest.TestCase):
                 return users, 200
             return [], 200
 
+        count_returns = {
+            ("users", None): 3,
+            ("users", frozenset({"is_dealer": "eq.true"}.items())): 1,
+            ("reports", None): 2,
+            ("cars", frozenset({"status": "eq.pending"}.items())): 1,
+            ("bikes", frozenset({"status": "eq.pending"}.items())): 0,
+            ("car_parts", frozenset({"status": "eq.pending"}.items())): 1,
+            ("license_plates", frozenset({"status": "eq.pending"}.items())): 1,
+        }
+
+        def fake_count(table, params=None):
+            key = (table, frozenset((params or {}).items()) if params else None)
+            return count_returns.get(key, 0)
+
         with backend.app.test_request_context("/api/admin/stats?days=30"):
             with patch.object(backend, "_require_admin_api_user", return_value=True):
                 with patch.object(backend, "supabase_request", side_effect=fake_supabase_request):
-                    response, status = backend.get_admin_stats.__wrapped__("admin-1")
+                    with patch.object(backend, "_supabase_count", side_effect=fake_count):
+                        response, status = backend.get_admin_stats.__wrapped__("admin-1")
 
         self.assertEqual(status, 200)
         payload = response.get_json()

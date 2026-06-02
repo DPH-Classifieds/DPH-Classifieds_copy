@@ -4356,6 +4356,34 @@ def admin_check(current_user):
 
 
 # Supabase REST API Helper
+def _supabase_count(table: str, params: dict | None = None) -> int:
+    """Return row count via Content-Range header. Cheaper than SELECT *.
+
+    params is a dict of PostgREST filter expressions, e.g. {"status": "eq.pending"}.
+    """
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Range-Unit": "items",
+        "Range": "0-0",
+        "Prefer": "count=exact",
+    }
+    try:
+        resp = requests.head(
+            f"{SUPABASE_URL}/rest/v1/{table}",
+            headers=headers,
+            params=params or {},
+            timeout=8,
+        )
+        content_range = resp.headers.get("Content-Range", "")
+        if "/" in content_range:
+            return int(content_range.rsplit("/", 1)[1])
+    except Exception as exc:
+        logger.warning("supabase count failed for %s: %s", table, exc)
+    return 0
+
+
 def supabase_request(
     method, path, data=None, params=None, user_id=None, use_service_role=False
 ):
@@ -14177,19 +14205,21 @@ def get_admin_stats(current_user):
                 "limit": "5000",
             },
         )
-        reports = _fetch_rows(
-            "/rest/v1/reports",
-            {
-                "select": "id,status,created_at",
-                "created_at": f"gte.{cutoff}",
-                "order": "created_at.desc",
-                "limit": "1000",
-            },
-        )
+        # Reports total + per-listing pending counts: HEAD count probes via
+        # Content-Range. Cheaper than SELECT * and removes the silent row cap.
+        total_reports = _supabase_count("reports")
+        cars_pending = _supabase_count("cars", {"status": "eq.pending"})
+        bikes_pending = _supabase_count("bikes", {"status": "eq.pending"})
+        parts_pending = _supabase_count("car_parts", {"status": "eq.pending"})
+        plates_pending = _supabase_count("license_plates", {"status": "eq.pending"})
+
+        # Listing rows still fetched for view_count aggregation (Task 2 will
+        # rework views via lead_events). Status column dropped — pending counts
+        # now come from the HEAD probes above.
         cars = _fetch_rows(
             "/rest/v1/cars",
             {
-                "select": "status,view_count",
+                "select": "view_count",
                 "order": "created_at.desc",
                 "limit": "2000",
             },
@@ -14197,7 +14227,7 @@ def get_admin_stats(current_user):
         bikes = _fetch_rows(
             "/rest/v1/bikes",
             {
-                "select": "status,view_count",
+                "select": "view_count",
                 "order": "created_at.desc",
                 "limit": "2000",
             },
@@ -14205,7 +14235,7 @@ def get_admin_stats(current_user):
         parts = _fetch_rows(
             "/rest/v1/car_parts",
             {
-                "select": "status,view_count",
+                "select": "view_count",
                 "order": "created_at.desc",
                 "limit": "2000",
             },
@@ -14213,15 +14243,21 @@ def get_admin_stats(current_user):
         plates = _fetch_rows(
             "/rest/v1/license_plates",
             {
-                "select": "status,view_count",
+                "select": "view_count",
                 "order": "created_at.desc",
                 "limit": "2000",
             },
         )
+        # Users: total + dealer counts via HEAD probes. Row fetch kept only for
+        # new-signups-in-window unique-visitor merge below — narrow projection
+        # and tighter window cuts it from 4000 to just the active window.
+        total_users = _supabase_count("users")
+        total_dealers = _supabase_count("users", {"is_dealer": "eq.true"})
         users = _fetch_rows(
             "/rest/v1/users",
             {
-                "select": "id,is_dealer,account_status,created_at",
+                "select": "id,created_at",
+                "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
                 "limit": "4000",
             },
@@ -14279,20 +14315,20 @@ def get_admin_stats(current_user):
         }
 
         stats = {
-            "cars_pending": sum(1 for row in cars if (row.get("status") or "").lower() == "pending"),
-            "bikes_pending": sum(1 for row in bikes if (row.get("status") or "").lower() == "pending"),
-            "parts_pending": sum(1 for row in parts if (row.get("status") or "").lower() == "pending"),
-            "plates_pending": sum(1 for row in plates if (row.get("status") or "").lower() == "pending"),
+            "cars_pending": cars_pending,
+            "bikes_pending": bikes_pending,
+            "parts_pending": parts_pending,
+            "plates_pending": plates_pending,
             "cars_views": sum(int(row.get("view_count") or 0) for row in cars),
             "bikes_views": sum(int(row.get("view_count") or 0) for row in bikes),
             "parts_views": sum(int(row.get("view_count") or 0) for row in parts),
             "plates_views": sum(int(row.get("view_count") or 0) for row in plates),
-            "total_users": len(users),
-            "total_reports": len(reports),
+            "total_users": total_users,
+            "total_reports": total_reports,
             "total_leads": sum(lead_actions.values()),
             "total_calls": int(lead_actions.get("call_click", 0)),
             "total_whatsapp": int(lead_actions.get("whatsapp_click", 0)),
-            "total_dealers": sum(1 for row in users if row.get("is_dealer")),
+            "total_dealers": total_dealers,
             "unique_visitors": len(unique_visitors),
             "live_users": len(live_visitors),
             "data_health": data_health,
