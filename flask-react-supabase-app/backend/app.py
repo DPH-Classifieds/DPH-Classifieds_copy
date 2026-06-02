@@ -14140,6 +14140,21 @@ def admin_health(current_user):
 # + lead_events + signups in /api/admin/stats below — no GA4 dependency.
 
 
+def _fetch_rows(path, params):
+    """Service-role GET helper for admin aggregations.
+
+    Hoisted to module level so unit tests can patch it in isolation when
+    exercising /api/admin/stats and similar endpoints.
+    """
+    rows, status = supabase_request(
+        "get",
+        path,
+        params=params,
+        use_service_role=True,
+    )
+    return rows or [] if status < 400 else []
+
+
 @app.route("/api/admin/stats", methods=["GET"])
 @token_required
 def get_admin_stats(current_user):
@@ -14160,15 +14175,6 @@ def get_admin_stats(current_user):
         now = _utc_now()
         window_start = now - datetime.timedelta(days=days)
         cutoff = window_start.isoformat()
-
-        def _fetch_rows(path, params):
-            rows, status = supabase_request(
-                "get",
-                path,
-                params=params,
-                use_service_role=True,
-            )
-            return rows or [] if status < 400 else []
 
         # platform_events: query directly so we can detect "table missing"
         # explicitly and feed that into data_health for the admin UI.
@@ -14222,41 +14228,10 @@ def get_admin_stats(current_user):
         parts_pending = _supabase_count("car_parts", {"status": "eq.pending"})
         plates_pending = _supabase_count("license_plates", {"status": "eq.pending"})
 
-        # Listing rows still fetched for view_count aggregation (Task 2 will
-        # rework views via lead_events). Status column dropped — pending counts
-        # now come from the HEAD probes above.
-        cars = _fetch_rows(
-            "/rest/v1/cars",
-            {
-                "select": "view_count",
-                "order": "created_at.desc",
-                "limit": "2000",
-            },
-        )
-        bikes = _fetch_rows(
-            "/rest/v1/bikes",
-            {
-                "select": "view_count",
-                "order": "created_at.desc",
-                "limit": "2000",
-            },
-        )
-        parts = _fetch_rows(
-            "/rest/v1/car_parts",
-            {
-                "select": "view_count",
-                "order": "created_at.desc",
-                "limit": "2000",
-            },
-        )
-        plates = _fetch_rows(
-            "/rest/v1/license_plates",
-            {
-                "select": "view_count",
-                "order": "created_at.desc",
-                "limit": "2000",
-            },
-        )
+        # Views are now derived from lead_events in the active window rather
+        # than the cumulative `view_count` columns on each listing table. The
+        # PlatformAnalyticsTracker / detail-page mounts are expected to emit
+        # action="view_listing" rows tagged with listing_type.
         # Users: total + dealer counts via HEAD probes. Row fetch kept only for
         # new-signups-in-window unique-visitor merge below — narrow projection
         # and tighter window cuts it from 4000 to just the active window.
@@ -14296,8 +14271,14 @@ def get_admin_stats(current_user):
                 live_visitors.add(f"pe:{visitor_id}")
 
         lead_actions = defaultdict(int)
+        view_counts_by_type = defaultdict(int)
         for event in lead_events:
             lead_actions[str(event.get("action") or "unknown")] += 1
+            if (event.get("action") or "").strip() == "view_listing":
+                listing_type = (event.get("listing_type") or "").strip().rstrip("s")
+                if listing_type:
+                    view_counts_by_type[listing_type] += 1
+                view_counts_by_type["__total__"] += 1
             fallback_id = (
                 event.get("user_id")
                 or event.get("session_id")
@@ -14328,10 +14309,11 @@ def get_admin_stats(current_user):
             "bikes_pending": bikes_pending,
             "parts_pending": parts_pending,
             "plates_pending": plates_pending,
-            "cars_views": sum(int(row.get("view_count") or 0) for row in cars),
-            "bikes_views": sum(int(row.get("view_count") or 0) for row in bikes),
-            "parts_views": sum(int(row.get("view_count") or 0) for row in parts),
-            "plates_views": sum(int(row.get("view_count") or 0) for row in plates),
+            "cars_views": view_counts_by_type.get("car", 0),
+            "bikes_views": view_counts_by_type.get("bike", 0),
+            "parts_views": view_counts_by_type.get("part", 0),
+            "plates_views": view_counts_by_type.get("plate", 0),
+            "total_views": view_counts_by_type.get("__total__", 0),
             "total_users": total_users,
             "total_reports": total_reports,
             "total_leads": sum(lead_actions.values()),
