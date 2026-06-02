@@ -8,12 +8,14 @@ import {
   RefreshControl,
   Linking,
   Alert,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../utils/apiClient';
 import { formatNumber } from '../../utils/formatters';
+import { swrGet, swrSet } from '../../utils/swrCache';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
@@ -62,9 +64,8 @@ export default function AdminDashboardScreen({ navigation }) {
     );
   }
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async ({ hadCache = false } = {}) => {
     try {
-      setLoading(true);
       setError('');
       const statsQuery = days ? `/api/admin/stats?days=${days}` : '/api/admin/stats';
       const leadQuery = days ? `/api/admin/lead-metrics?days=${days}` : '/api/admin/lead-metrics';
@@ -74,30 +75,86 @@ export default function AdminDashboardScreen({ navigation }) {
         apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
         apiClient.get('/api/admin/reports').catch(() => []),
       ]);
-      setStats(statsRes || {});
-      setLeadMetrics(leadRes || null);
-      setDealers(Array.isArray(dealersRes) ? dealersRes : []);
-      setReports(Array.isArray(reportsRes) ? reportsRes : []);
+      const merged = {
+        stats: statsRes || {},
+        leadMetrics: leadRes || null,
+        dealers: Array.isArray(dealersRes) ? dealersRes : [],
+        reports: Array.isArray(reportsRes) ? reportsRes : [],
+      };
+      setStats(merged.stats);
+      setLeadMetrics(merged.leadMetrics);
+      setDealers(merged.dealers);
+      setReports(merged.reports);
+      swrSet(`admin-dashboard:${days}`, merged);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard');
+      // Keep cached values on error — only surface error if there was no cache.
+      if (!hadCache) setError(err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
   }, [days]);
 
-  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const cached = await swrGet(`admin-dashboard:${days}`);
+      if (!active) return;
+      if (cached?.value) {
+        const { stats: cStats, leadMetrics: cLead, dealers: cDealers, reports: cReports } = cached.value;
+        if (cStats) setStats(cStats);
+        if (cLead !== undefined) setLeadMetrics(cLead);
+        if (Array.isArray(cDealers)) setDealers(cDealers);
+        if (Array.isArray(cReports)) setReports(cReports);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+      if (!active) return;
+      loadDashboard({ hadCache: !!cached?.value });
+    })();
+    return () => { active = false; };
+  }, [loadDashboard, days]);
 
   useEffect(() => {
     let cancelled = false;
-    const pollLiveUsers = async () => {
+    let intervalId = null;
+
+    const loadLive = async () => {
       try {
-        const res = await apiClient.get('/api/admin/live-users?window_seconds=300');
+        const res = await apiClient.get('/api/admin/live-users?window_seconds=300').catch(() => null);
         if (!cancelled) setLiveUsers(res);
-      } catch { if (!cancelled) setLiveUsers(null); }
+      } catch (_) {
+        if (!cancelled) setLiveUsers(null);
+      }
     };
-    pollLiveUsers();
-    const id = setInterval(pollLiveUsers, 15000);
-    return () => { cancelled = true; clearInterval(id); };
+
+    const start = () => {
+      if (!intervalId) intervalId = setInterval(loadLive, 15000);
+    };
+    const stop = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    loadLive();
+    if (AppState.currentState === 'active') start();
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        loadLive();
+        start();
+      } else {
+        stop();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      stop();
+      sub.remove();
+    };
   }, []);
 
   const onRefresh = useCallback(async () => {

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import LoadingSpinner from './LoadingSpinner';
 import { analyticsConfig } from '../utils/analytics';
+import { swrGet, swrSet } from '../utils/swrCache';
 import '../styles/AdminOps.css';
 
 const CLARITY_DASHBOARD_URL = analyticsConfig.clarityProjectId
@@ -55,11 +56,29 @@ const AdminDashboard = () => {
   const [timeRange, setTimeRange] = useState('30d');
 
   useEffect(() => {
+    const cacheKey = `admin-dashboard:${timeRange}`;
+    // 1. Synchronously hydrate from cache so we paint instantly.
+    const cached = swrGet(cacheKey);
+    if (cached?.value) {
+      const {
+        stats: cStats,
+        leadMetrics: cLeadMetrics,
+        history: cHistory,
+        dealers: cDealers,
+        reports: cReports,
+      } = cached.value;
+      if (cStats) setStats(cStats);
+      if (cLeadMetrics !== undefined) setLeadMetrics(cLeadMetrics);
+      if (Array.isArray(cHistory)) setHistory(cHistory);
+      if (Array.isArray(cDealers)) setDealers(cDealers);
+      if (Array.isArray(cReports)) setReports(cReports);
+      setLoading(false);
+    }
+
     let active = true;
 
-    const loadDashboard = async () => {
+    (async () => {
       try {
-        setLoading(true);
         setError('');
 
         const selectedRange = TIME_RANGES.find((r) => r.key === timeRange);
@@ -74,21 +93,30 @@ const AdminDashboard = () => {
         ]);
 
         if (!active) return;
-        setStats(statsRes || {});
-        setLeadMetrics(leadRes || null);
-        setHistory(Array.isArray(historyRes) ? historyRes : []);
-        setDealers(Array.isArray(dealersRes) ? dealersRes : []);
-        setReports(Array.isArray(reportsRes) ? reportsRes : []);
+
+        const merged = {
+          stats: statsRes || {},
+          leadMetrics: leadRes || null,
+          history: Array.isArray(historyRes) ? historyRes : [],
+          dealers: Array.isArray(dealersRes) ? dealersRes : [],
+          reports: Array.isArray(reportsRes) ? reportsRes : [],
+        };
+        setStats(merged.stats);
+        setLeadMetrics(merged.leadMetrics);
+        setHistory(merged.history);
+        setDealers(merged.dealers);
+        setReports(merged.reports);
+        swrSet(cacheKey, merged);
       } catch (loadError) {
         if (!active) return;
         console.error('Failed to load admin dashboard:', loadError);
-        setError(loadError.message || 'Failed to load dashboard');
+        // Don't blow away cached values on error — only show error if there was no cache.
+        if (!cached?.value) setError(loadError.message || 'Failed to load dashboard');
       } finally {
         if (active) setLoading(false);
       }
-    };
+    })();
 
-    loadDashboard();
     return () => {
       active = false;
     };
@@ -107,12 +135,33 @@ const AdminDashboard = () => {
       }
     };
 
+    const start = () => {
+      if (!intervalId) intervalId = window.setInterval(loadLiveUsers, 15000);
+    };
+    const stop = () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        loadLiveUsers();
+        start();
+      }
+    };
+
     loadLiveUsers();
-    intervalId = window.setInterval(loadLiveUsers, 15000);
+    if (!document.hidden) start();
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       cancelled = true;
-      if (intervalId) window.clearInterval(intervalId);
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 
