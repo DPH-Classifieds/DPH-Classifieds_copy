@@ -14248,28 +14248,25 @@ def get_admin_stats(current_user):
             },
         )
 
-        # Unique visitors: prefer platform_events when present, but always merge
-        # in lead_events distinct visitors and new signups in the window so the
-        # KPI surfaces a meaningful number even if the platform_events table
-        # hasn't been migrated yet. IDs are namespaced per source so the same
-        # person doesn't get double-counted across signals.
+        # Unique visitors: collapse all signal sources onto a canonical identity
+        # key (auth user_id > visitor_id > session_id) so the same person showing
+        # up across platform_events, lead_events, and the signups list counts
+        # once. The previous pe:/le:/u: prefix scheme avoided in-source
+        # collisions but inflated cross-source counts.
         unique_visitors = set()
         live_visitors = set()
         unique_sources = set()
         live_cutoff = now - datetime.timedelta(minutes=5)
 
         for event in platform_events:
-            visitor_id = str(
-                event.get("visitor_id")
-                or event.get("user_id")
-                or event.get("session_id")
-                or "anonymous"
-            )
-            unique_visitors.add(f"pe:{visitor_id}")
+            key = _canonical_visitor_key(event)
+            if not key:
+                continue
+            unique_visitors.add(key)
             unique_sources.add("platform_events")
             event_time = _parse_datetime(event.get("created_at"))
             if event_time and event_time >= live_cutoff:
-                live_visitors.add(f"pe:{visitor_id}")
+                live_visitors.add(key)
 
         # Source views from platform_events page_view rows tagged as
         # page_kind="listing_detail" — that's where PlatformAnalyticsTracker
@@ -14286,20 +14283,18 @@ def get_admin_stats(current_user):
         lead_actions = defaultdict(int)
         for event in lead_events:
             lead_actions[str(event.get("action") or "unknown")] += 1
-            fallback_id = (
-                event.get("user_id")
-                or event.get("session_id")
-                or event.get("visitor_id")
-            )
-            if fallback_id:
-                unique_visitors.add(f"le:{fallback_id}")
+            key = _canonical_visitor_key(event)
+            if key:
+                unique_visitors.add(key)
                 unique_sources.add("lead_events")
 
         new_signups_in_window = 0
         for user in users:
             created_at = _parse_datetime(user.get("created_at"))
             if created_at and created_at >= window_start and user.get("id"):
-                unique_visitors.add(f"u:{user['id']}")
+                # users-table rows use `id` (not `user_id`), so we form the
+                # canonical key inline rather than via _canonical_visitor_key.
+                unique_visitors.add(f"v:{user['id']}")
                 unique_sources.add("new_signups")
                 new_signups_in_window += 1
 
@@ -15179,6 +15174,20 @@ def _admin_listing_brief(listing_type, listing):
         "created_at": listing.get("created_at"),
         "last_viewed_at": listing.get("last_viewed_at"),
     }
+
+
+def _canonical_visitor_key(row):
+    """Return a canonical visitor identity for dedupe across sources.
+
+    Priority: user_id (authoritative when authenticated) > visitor_id (anonymous
+    tracker) > session_id (last resort). Returns None when nothing is available
+    so callers can skip the row.
+    """
+    for field in ("user_id", "visitor_id", "session_id"):
+        value = row.get(field)
+        if value:
+            return f"v:{value}"
+    return None
 
 
 def _admin_listing_matches_status(listing, status_filter):

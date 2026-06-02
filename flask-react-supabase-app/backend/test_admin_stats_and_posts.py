@@ -119,6 +119,44 @@ class AdminStatsTests(unittest.TestCase):
         self.assertEqual(payload["total_whatsapp"], 1)
         self.assertEqual(payload["total_dealers"], 1)
 
+    def test_unique_visitors_dedupes_across_sources(self):
+        iso = backend._isoformat_utc
+        now = backend._utc_now()
+        user_a = "user-aaaa-1111"
+
+        platform_events = [
+            {"user_id": user_a, "visitor_id": "v-anon-1", "session_id": "s1",
+             "page_kind": "home", "created_at": iso(now)},
+        ]
+        lead_events = [
+            {"user_id": user_a, "session_id": "s2", "action": "call_click",
+             "created_at": iso(now)},
+        ]
+        users_in_window = [{"id": user_a, "created_at": iso(now)}]
+
+        # Should collapse to ONE unique visitor, not three.
+        def fake_supabase_request(method, path, **kwargs):
+            if "platform_events" in path:
+                return platform_events, 200
+            return [], 200
+
+        def fake_fetch(path, params):
+            if "lead_events" in path:
+                return lead_events
+            if "users" in path:
+                return users_in_window
+            return []
+
+        with patch("app.supabase_request", side_effect=fake_supabase_request), \
+             patch("app._fetch_rows", side_effect=fake_fetch), \
+             patch("app._supabase_count", return_value=1), \
+             patch("app._api_cache_get", return_value=None), \
+             patch("app._require_admin_api_user", return_value=True):
+            with backend.app.test_request_context("/api/admin/stats?days=30"):
+                payload, status_code = backend.get_admin_stats.__wrapped__("admin-1")
+                self.assertEqual(status_code, 200)
+                self.assertEqual(payload.get_json()["unique_visitors"], 1)
+
     def test_total_views_is_window_bounded(self):
         iso = backend._isoformat_utc
         now = backend._utc_now()
