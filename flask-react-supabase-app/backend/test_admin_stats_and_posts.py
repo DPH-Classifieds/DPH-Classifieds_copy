@@ -123,38 +123,39 @@ class AdminStatsTests(unittest.TestCase):
         iso = backend._isoformat_utc
         now = backend._utc_now()
 
-        lead_events = [
-            {"action": "view_listing", "listing_type": "car", "created_at": iso(now)},
-            {"action": "view_listing", "listing_type": "car", "created_at": iso(now)},
-            {"action": "view_listing", "listing_type": "bike", "created_at": iso(now)},
-            {"action": "call_click", "created_at": iso(now)},  # not a view
+        platform_events = [
+            {"page_kind": "listing_detail", "listing_type": "car", "visitor_id": "v1", "created_at": iso(now)},
+            {"page_kind": "listing_detail", "listing_type": "car", "visitor_id": "v2", "created_at": iso(now)},
+            {"page_kind": "listing_detail", "listing_type": "bike", "visitor_id": "v3", "created_at": iso(now)},
+            # Not a listing detail page — must not count.
+            {"page_kind": "home", "visitor_id": "v4", "created_at": iso(now)},
+            # listing_detail but no listing_type — counts toward total but not per-type.
+            {"page_kind": "listing_detail", "visitor_id": "v5", "created_at": iso(now)},
         ]
 
+        def fake_supabase_request(method, path, **kwargs):
+            if "platform_events" in path:
+                return platform_events, 200
+            return [], 200
+
         def fake_fetch(path, params):
-            return lead_events if "lead_events" in path else []
+            return []  # nothing else needs row data for this test
 
-        # NOTE: /api/admin/stats is registered by BOTH app.py:get_admin_stats
-        # and the routes/admin.py blueprint; Flask dispatches to the blueprint
-        # rule because it's registered first. We invoke the app.py handler
-        # via __wrapped__ (skipping the auth decorator the same way the
-        # sibling test_admin_stats_includes_visitor_counts test does) so we
-        # exercise the code path Task 2 actually modified.
-        with backend.app.test_request_context("/api/admin/stats?days=30"):
-            with patch("app.supabase_request", return_value=([], 200)), \
-                 patch("app._fetch_rows", side_effect=fake_fetch), \
-                 patch("app._supabase_count", return_value=0), \
-                 patch("app._require_admin_api_user", return_value=True), \
-                 patch("app._api_cache_get", return_value=None), \
-                 patch("app._api_cache_set"):
-                response, status = backend.get_admin_stats.__wrapped__("admin-1")
-
-        self.assertEqual(status, 200)
-        payload = response.get_json()
-        self.assertEqual(payload["total_views"], 3)
-        self.assertEqual(payload["cars_views"], 2)
-        self.assertEqual(payload["bikes_views"], 1)
-        self.assertEqual(payload["parts_views"], 0)
-        self.assertEqual(payload["plates_views"], 0)
+        with patch("app.supabase_request", side_effect=fake_supabase_request), \
+             patch("app._fetch_rows", side_effect=fake_fetch), \
+             patch("app._supabase_count", return_value=0), \
+             patch("app._api_cache_get", return_value=None), \
+             patch("app._require_admin_api_user", return_value=True):
+            with backend.app.test_request_context("/api/admin/stats?days=30"):
+                resp = backend.get_admin_stats.__wrapped__("admin-1")
+                payload, status_code = resp
+                self.assertEqual(status_code, 200)
+                data = payload.get_json()
+                self.assertEqual(data["total_views"], 4)
+                self.assertEqual(data["cars_views"], 2)
+                self.assertEqual(data["bikes_views"], 1)
+                self.assertEqual(data["parts_views"], 0)
+                self.assertEqual(data["plates_views"], 0)
 
 
 class PostListingSmokeTests(unittest.TestCase):

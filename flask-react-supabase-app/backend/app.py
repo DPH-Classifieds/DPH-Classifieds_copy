@@ -14184,7 +14184,7 @@ def get_admin_stats(current_user):
             "get",
             "/rest/v1/platform_events",
             params={
-                "select": "visitor_id,user_id,session_id,created_at",
+                "select": "visitor_id,user_id,session_id,page_kind,listing_type,created_at",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
                 "limit": "5000",
@@ -14228,10 +14228,11 @@ def get_admin_stats(current_user):
         parts_pending = _supabase_count("car_parts", {"status": "eq.pending"})
         plates_pending = _supabase_count("license_plates", {"status": "eq.pending"})
 
-        # Views are now derived from lead_events in the active window rather
-        # than the cumulative `view_count` columns on each listing table. The
-        # PlatformAnalyticsTracker / detail-page mounts are expected to emit
-        # action="view_listing" rows tagged with listing_type.
+        # Views are now derived from platform_events in the active window
+        # rather than the cumulative `view_count` columns on each listing
+        # table. PlatformAnalyticsTracker writes page_view rows with
+        # page_kind="listing_detail" and listing_type already parsed from
+        # page_path — see aggregation below where platform_events is in scope.
         # Users: total + dealer counts via HEAD probes. Row fetch kept only for
         # new-signups-in-window unique-visitor merge below — narrow projection
         # and tighter window cuts it from 4000 to just the active window.
@@ -14270,15 +14271,21 @@ def get_admin_stats(current_user):
             if event_time and event_time >= live_cutoff:
                 live_visitors.add(f"pe:{visitor_id}")
 
-        lead_actions = defaultdict(int)
+        # Source views from platform_events page_view rows tagged as
+        # page_kind="listing_detail" — that's where PlatformAnalyticsTracker
+        # writes them, with listing_type already parsed from page_path.
         view_counts_by_type = defaultdict(int)
+        for event in platform_events:
+            if (event.get("page_kind") or "").strip() != "listing_detail":
+                continue
+            listing_type = (event.get("listing_type") or "").strip().rstrip("s")
+            if listing_type:
+                view_counts_by_type[listing_type] += 1
+            view_counts_by_type["__total__"] += 1
+
+        lead_actions = defaultdict(int)
         for event in lead_events:
             lead_actions[str(event.get("action") or "unknown")] += 1
-            if (event.get("action") or "").strip() == "view_listing":
-                listing_type = (event.get("listing_type") or "").strip().rstrip("s")
-                if listing_type:
-                    view_counts_by_type[listing_type] += 1
-                view_counts_by_type["__total__"] += 1
             fallback_id = (
                 event.get("user_id")
                 or event.get("session_id")
