@@ -1,34 +1,38 @@
 import React from 'react';
-import '../styles/AdminLayout.css';
+import { Link } from 'react-router-dom';
+import { Menu, X, ExternalLink } from 'lucide-react';
 
-const AdminHeader = ({ onToggleSidebar, sidebarOpen }) => {
-  return (
-    <header className="admin-header">
-      <div className="header-left">
-        <button
-          className="sidebar-toggle"
-          onClick={onToggleSidebar}
-          aria-label="Toggle sidebar"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            {sidebarOpen ? (
-              <>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </>
-            ) : (
-              <>
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </>
-            )}
-          </svg>
-        </button>
-        <h1 className="header-title"><span style={{ color: '#ffffff' }}>DPH</span> <span style={{ color: '#8bd6b4' }}>Classifieds</span> Admin</h1>
-      </div>
-    </header>
-  );
-};
+const AdminHeader = ({ onToggleSidebar, sidebarOpen }) => (
+  <header className="sticky top-0 z-40 h-14 w-full flex items-center px-4 bg-[#070d10]/80 backdrop-blur-xl border-b border-white/[0.06]">
+    {/* Left: hamburger + title */}
+    <div className="flex items-center gap-3 flex-1 min-w-0">
+      <button
+        type="button"
+        onClick={onToggleSidebar}
+        aria-label="Toggle sidebar"
+        className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/[0.06] transition-all duration-150"
+      >
+        {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+      </button>
+
+      <h1 className="text-sm font-semibold tracking-tight truncate">
+        <span className="text-white">DPH</span>{' '}
+        <span className="text-emerald-400">Classifieds</span>{' '}
+        <span className="text-white/60">Admin</span>
+      </h1>
+    </div>
+
+    {/* Right: view site link */}
+    <div className="flex items-center">
+      <Link
+        to="/"
+        className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors duration-150 px-2 py-1 rounded-lg hover:bg-white/[0.04]"
+      >
+        <ExternalLink size={12} />
+        View site
+      </Link>
+    </div>
+  </header>
+);
 
 export default AdminHeader;

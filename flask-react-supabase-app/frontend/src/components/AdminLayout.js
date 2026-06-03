@@ -3,7 +3,6 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
-import '../styles/AdminLayout.css';
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -45,22 +44,25 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="admin-layout">
+    <div className="min-h-screen bg-[#070d10] text-white">
       <AdminHeader
         onToggleSidebar={() => setSidebarOpen((current) => !current)}
         sidebarOpen={sidebarOpen}
       />
-      <div className="admin-content-wrapper">
+      <div className="flex relative">
+        {/* Mobile backdrop */}
         {isMobile && sidebarOpen && (
           <button
             type="button"
-            className="admin-sidebar-backdrop"
+            className="fixed inset-0 z-20 bg-black/50 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
             aria-label="Close admin navigation"
           />
         )}
-        <AdminSidebar open={sidebarOpen} user={user} onLogout={handleLogout} />
-        <main className={`admin-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+
+        <AdminSidebar open={sidebarOpen} user={user} onLogout={handleLogout} isMobile={isMobile} />
+
+        <main className="flex-1 min-w-0 p-8 max-w-[1800px] mx-auto w-full">
           <Outlet />
         </main>
       </div>
