@@ -67,16 +67,43 @@ Every dealer-panel query is scoped by `dealership_id`, never by `user_id`. This 
 
 Role-based write gating happens inside endpoints:
 
-| Action | owner | manager | sales_rep |
-| --- | :---: | :---: | :---: |
-| View dashboard / analytics / market eval | ✅ | ✅ | ✅ |
-| Edit dealership profile, invite seats, revoke seats | ✅ | ❌ | ❌ |
-| Edit listings owned by the dealership | ✅ | ✅ | ❌ |
-| Update any lead | ✅ | ✅ | ❌ |
-| Update leads assigned to me | ✅ | ✅ | ✅ |
-| Configure webhooks, API sources, importers | ✅ | ✅ | ❌ |
+| Action | owner | manager | sales_rep | platform_admin* |
+| --- | :---: | :---: | :---: | :---: |
+| View dashboard / analytics / market eval | ✅ | ✅ | ✅ | ✅ |
+| Edit dealership profile, invite seats, revoke seats | ✅ | ❌ | ❌ | ✅ (audited) |
+| Edit listings owned by the dealership | ✅ | ✅ | ❌ | ✅ (audited) |
+| Update any lead | ✅ | ✅ | ❌ | ✅ (audited) |
+| Update leads assigned to me | ✅ | ✅ | ✅ | n/a |
+| Configure webhooks, API sources, importers | ✅ | ✅ | ❌ | ✅ (audited) |
+| Suspend / restore dealership | ❌ | ❌ | ❌ | ✅ (audited) |
 
-### 2.4 Persistence stack (per memory rule)
+\*See §2.4 for the super-admin access model.
+
+### 2.4 Super-admin access
+
+Platform admins (users with `is_admin = true`, per the existing `is_admin` helper used by the admin panel) need to enter any dealer's panel — to support dealers, debug issues, and oversee the marketplace.
+
+**Access model — "view as":** an admin doesn't *belong* to the dealership. Instead, the `@dealer_required` decorator resolves the effective `dealership_id` from one of two sources:
+
+1. If the caller has a `dealership_members` row → that dealership_id.
+2. Else if the caller has `is_admin = true` → the dealership_id specified in `X-Acting-As-Dealership` header (or `?as=<dealership_id>` query param for GET endpoints). Returns 400 if missing for admin callers.
+
+If the caller is neither a member nor admin → 403.
+
+The decorator also exposes `request.dealer_ctx.actor_kind` = `member | admin`, so endpoints know whether to gate writes by `dealership_members.role` or by admin status.
+
+**Audit trail.** Every write by an admin while acting-as a dealership is logged to a new `dealer_admin_audit` table (defined in §3.1) with: admin user_id, dealership_id, http method, endpoint, payload digest (not raw payload, to avoid leaking secrets), timestamp. Reads are not audited (too noisy).
+
+**UI surface — entry points for admin:**
+- The existing `AdminDealers.js` list gets a **"Open panel"** button per dealership row. Clicking opens `/dealer/dashboard` with the `as` query param set; the frontend stores it in `DealerContext` and forwards it as the `X-Acting-As-Dealership` header on every subsequent dealer-API call.
+- Every dealer page renders an **orange "Acting as <dealership name> (super-admin)"** banner across the top when `actor_kind === 'admin'`. Banner contains an "Exit" button that returns to `/admin/dealers`.
+- Write actions show a confirm dialog: *"You are acting as <dealership>. This action will be logged."*
+
+**Cross-dealership admin overview.** A new top-level admin page `/admin/dealerships` (distinct from the existing dealer-verification queue in `AdminDealers`) lists all *active* dealerships with at-a-glance KPIs (active listings, 7d impressions, 7d leads, 7d conversion %, sold-this-month). Sortable; each row clicks through to the per-dealership panel via the same "view as" flow. Backed by the same `dealer_kpi_daily` rollups + `dealer_market_snapshots` already computed for the dealer panel, just queried without a `dealership_id` filter.
+
+**Reads.** Admin reads of dealer endpoints bypass the membership check but still go through the same dealership-scoped queries — they just resolve the scope from the header instead of membership. RLS for admins relies on the existing `is_admin(auth.uid())` predicate already used elsewhere; new policies on dealer tables include an `OR is_admin(auth.uid())` branch for SELECT.
+
+### 2.5 Persistence stack (per memory rule)
 
 Every new listing-like resource is wired into **DB + Redis (read-through cache + invalidation on write) + worker lifecycle jobs**:
 
@@ -138,6 +165,21 @@ CREATE TABLE dealership_invitations (
   accepted_at       timestamptz,
   created_at        timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE dealer_admin_audit (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_user_id     uuid NOT NULL REFERENCES users(id),
+  dealership_id     uuid NOT NULL REFERENCES dealerships(id) ON DELETE CASCADE,
+  http_method       text NOT NULL,
+  endpoint          text NOT NULL,
+  payload_digest    text,           -- sha256 of redacted payload; never raw body
+  result_status     int,
+  user_agent        text,
+  ip_address        text,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_dealer_admin_audit_admin ON dealer_admin_audit(admin_user_id, created_at DESC);
+CREATE INDEX idx_dealer_admin_audit_dealership ON dealer_admin_audit(dealership_id, created_at DESC);
 
 CREATE TABLE dealer_kpi_daily (
   dealership_id     uuid NOT NULL REFERENCES dealerships(id) ON DELETE CASCADE,
@@ -283,8 +325,10 @@ CREATE TABLE dealer_webhook_deliveries (
 
 All new dealer tables get RLS enabled:
 
-- **Read**: `auth.uid()` must appear in `dealership_members` with `status='active'` for the row's `dealership_id`. Service role bypasses (used by workers).
-- **Write**: same membership check, plus `role IN ('owner','manager')` for all writes except `dealer_leads.status/assigned_to/notes` updates where `role='sales_rep'` is allowed when `assigned_to = auth.uid()`.
+- **Read**: `auth.uid()` must appear in `dealership_members` with `status='active'` for the row's `dealership_id`, **OR** `is_admin(auth.uid()) = true`. Service role bypasses (used by workers).
+- **Write**: same membership check, plus `role IN ('owner','manager')` for all writes except `dealer_leads.status/assigned_to/notes` updates where `role='sales_rep'` is allowed when `assigned_to = auth.uid()`. Admins are permitted writes *only* via the backend `@dealer_required` path (which writes an audit row in the same transaction) — direct-via-RLS admin writes are disabled to force the audit. (RLS policies for writes do **not** include the `is_admin` branch; the backend uses the service role on behalf of audited admin actions.)
+
+`dealer_admin_audit` itself: read-only for admins; insert-only via service role; never updatable or deletable.
 
 Pre-existing tables (`cars`, etc.) keep their current RLS; the new `dealership_id` column is exposed read-only to dealer members through a new policy. Service role retains full access.
 
@@ -294,7 +338,7 @@ Pre-existing tables (`cars`, etc.) keep their current RLS; the new `dealership_i
 2. Backfill: for each user with `is_dealer=true`, create one dealership (owner = themselves; slug = sanitized username/email); insert their membership row with role=`owner`.
 3. Add `dealership_id` columns to listings tables (nullable). Backfill from `users.is_dealer`.
 4. Add denormalised `dealership_id` to `lead_events`; backfill.
-5. Create the remaining new tables (kpi_daily, market_snapshots, leads, lead_events, inventory_*, api_sources, webhooks, deliveries).
+5. Create the remaining new tables (admin_audit, kpi_daily, market_snapshots, leads, lead_events, inventory_*, api_sources, webhooks, deliveries).
 6. Enable RLS + policies.
 7. Deploy backend with the dealer blueprint behind a feature flag (`ENABLE_DEALER_PANEL`).
 8. Deploy frontend with `/dealer/*` routes gated by the same flag.
@@ -640,6 +684,7 @@ A verified dealer can:
 4. Click any listing → see per-listing analytics with time series, sources, engagement-no-contact count, and market position.
 5. Click "diagnostic" on a listing → see verdict + 3–6 ranked findings → click "apply suggested price" → pre-filled edit form opens.
 6. All RLS policies verified — a curl with another dealer's JWT returns 0 rows from any dealer endpoint.
-7. Performance budgets met on a seeded dealership with 200 listings.
+7. A platform admin can open `/admin/dealerships`, see the cross-dealership overview, click into any dealership's panel, see the orange "Acting as" banner, and have any write recorded in `dealer_admin_audit`.
+8. Performance budgets met on a seeded dealership with 200 listings.
 
 Phase 1 ships when all of the above is true and a smoke test passes against the seeded staging dealership.
