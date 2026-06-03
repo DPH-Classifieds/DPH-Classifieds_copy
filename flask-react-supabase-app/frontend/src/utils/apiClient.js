@@ -85,6 +85,11 @@ export const apiClient = {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      // Forward acting-as dealership header when an admin is impersonating a dealership
+      if (typeof window !== 'undefined' && window.__ACTING_AS_DEALERSHIP__) {
+        headers['X-Acting-As-Dealership'] = window.__ACTING_AS_DEALERSHIP__;
+      }
+
       // Create the full request options
       const requestOptions = {
         ...options,
