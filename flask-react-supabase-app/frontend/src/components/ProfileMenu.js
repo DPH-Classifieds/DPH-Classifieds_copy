@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Settings, SquareUserRound, Shield, Heart } from 'lucide-react';
+import { LogOut, Settings, SquareUserRound, Shield, Heart, Store } from 'lucide-react';
 import { resolveMediaUrl } from '../utils/media';
 import apiClient from '../utils/apiClient';
 import '../styles/ProfileMenu.css';
@@ -9,6 +9,7 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isDealer, setIsDealer] = useState(false);
   const menuRef = useRef(null);
 
   const avatarSrc = resolveMediaUrl(user?.profile_photo_url || user?.profilePhotoUrl);
@@ -64,6 +65,24 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
     };
 
     checkAdmin();
+  }, [user]);
+
+  // Check dealer-panel access (verified dealer with an active dealership membership).
+  useEffect(() => {
+    const checkDealer = async () => {
+      if (!user) {
+        setIsDealer(false);
+        return;
+      }
+      try {
+        const response = await apiClient.get('/api/dealer/me');
+        setIsDealer(Boolean(response && response.dealership));
+      } catch (error) {
+        setIsDealer(false);
+      }
+    };
+
+    checkDealer();
   }, [user]);
 
   // Get user initials for avatar
@@ -157,9 +176,20 @@ const ProfileMenu = ({ user, onLogout, closeMenu }) => {
               Favourites
             </Link>
             
+            {isDealer && (
+              <Link
+                to="/dealer/dashboard"
+                className="profile-menu-item dealer-link"
+                onClick={handleLinkClick}
+              >
+                <Store className="profile-icon" aria-hidden="true" />
+                Dealer Panel
+              </Link>
+            )}
+
             {isAdmin && (
-              <Link 
-                to="/admin" 
+              <Link
+                to="/admin"
                 className="profile-menu-item admin-link"
                 onClick={handleLinkClick}
               >
