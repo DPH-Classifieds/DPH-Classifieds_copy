@@ -13757,6 +13757,11 @@ def update_user_status_api(user_id):
 app.register_blueprint(admin_web_bp)
 logger.info("Admin web routes registered successfully")
 
+# Dealer admin panel (feature-flagged)
+if os.getenv("ENABLE_DEALER_PANEL", "false").lower() == "true":
+    from routes.dealer import register_dealer_blueprints
+    register_dealer_blueprints(app)
+
 
 # ... (End of admin_bp blueprint, before app.register_blueprint(admin_bp) if it was moved, or before if __name__ ...)
 
