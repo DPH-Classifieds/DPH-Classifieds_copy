@@ -67,7 +67,7 @@ Every dealer-panel query is scoped by `dealership_id`, never by `user_id`. This 
 
 Role-based write gating happens inside endpoints:
 
-| Action | owner | manager | sales_rep | platform_admin* |
+| Action | owner | manager | sales_rep | admin* |
 | --- | :---: | :---: | :---: | :---: |
 | View dashboard / analytics / market eval | ✅ | ✅ | ✅ | ✅ |
 | Edit dealership profile, invite seats, revoke seats | ✅ | ❌ | ❌ | ✅ (audited) |
@@ -77,31 +77,37 @@ Role-based write gating happens inside endpoints:
 | Configure webhooks, API sources, importers | ✅ | ✅ | ❌ | ✅ (audited) |
 | Suspend / restore dealership | ❌ | ❌ | ❌ | ✅ (audited) |
 
-\*See §2.4 for the super-admin access model.
+\*"admin" = a user with `is_admin = true` — i.e. the same role gating the existing `/admin/*` panel today. There is no separate "super-admin" tier. See §2.4 for how admins enter dealer pages.
 
-### 2.4 Super-admin access
+### 2.4 Admin access — the existing admin panel IS the oversight panel
 
-Platform admins (users with `is_admin = true`, per the existing `is_admin` helper used by the admin panel) need to enter any dealer's panel — to support dealers, debug issues, and oversee the marketplace.
+There is **one** admin role on this platform: `users.is_admin = true`, the same role today gating `/admin/*`, `AdminRoute.jsx`, and the existing admin blueprint. The dealer panel does not introduce a new "super-admin" tier. Existing admins inherit full oversight of every dealership.
 
-**Access model — "view as":** an admin doesn't *belong* to the dealership. Instead, the `@dealer_required` decorator resolves the effective `dealership_id` from one of two sources:
+**How admins enter dealer pages — "view as".** An admin doesn't *belong* to a dealership. Instead, the `@dealer_required` decorator resolves the effective `dealership_id` from one of two sources:
 
-1. If the caller has a `dealership_members` row → that dealership_id.
-2. Else if the caller has `is_admin = true` → the dealership_id specified in `X-Acting-As-Dealership` header (or `?as=<dealership_id>` query param for GET endpoints). Returns 400 if missing for admin callers.
+1. If the caller has a `dealership_members` row → that dealership_id (the normal dealer path).
+2. Else if the caller has `is_admin = true` → the dealership_id specified in the `X-Acting-As-Dealership` header (or `?as=<dealership_id>` query param for GET endpoints). Returns 400 if missing for admin callers.
 
-If the caller is neither a member nor admin → 403.
+Neither member nor admin → 403.
 
-The decorator also exposes `request.dealer_ctx.actor_kind` = `member | admin`, so endpoints know whether to gate writes by `dealership_members.role` or by admin status.
+The decorator exposes `request.dealer_ctx.actor_kind` = `member | admin`, so endpoint code can branch (e.g. skip role checks for admin, write an audit row for admin).
 
-**Audit trail.** Every write by an admin while acting-as a dealership is logged to a new `dealer_admin_audit` table (defined in §3.1) with: admin user_id, dealership_id, http method, endpoint, payload digest (not raw payload, to avoid leaking secrets), timestamp. Reads are not audited (too noisy).
+**Audit trail.** Every write by an admin while acting-as a dealership is logged to `dealer_admin_audit` (§3.1) in the same DB transaction as the write — admin_user_id, dealership_id, method, endpoint, payload digest (not raw body), result status, ip, user-agent, timestamp. Reads are not audited (too noisy). The audit table is visible to admins at `/admin/dealerships/audit-log`.
 
-**UI surface — entry points for admin:**
-- The existing `AdminDealers.js` list gets a **"Open panel"** button per dealership row. Clicking opens `/dealer/dashboard` with the `as` query param set; the frontend stores it in `DealerContext` and forwards it as the `X-Acting-As-Dealership` header on every subsequent dealer-API call.
-- Every dealer page renders an **orange "Acting as <dealership name> (super-admin)"** banner across the top when `actor_kind === 'admin'`. Banner contains an "Exit" button that returns to `/admin/dealers`.
-- Write actions show a confirm dialog: *"You are acting as <dealership>. This action will be logged."*
+**Integration into the existing admin shell (no parallel UI).**
 
-**Cross-dealership admin overview.** A new top-level admin page `/admin/dealerships` (distinct from the existing dealer-verification queue in `AdminDealers`) lists all *active* dealerships with at-a-glance KPIs (active listings, 7d impressions, 7d leads, 7d conversion %, sold-this-month). Sortable; each row clicks through to the per-dealership panel via the same "view as" flow. Backed by the same `dealer_kpi_daily` rollups + `dealer_market_snapshots` already computed for the dealer panel, just queried without a `dealership_id` filter.
+1. **`AdminSidebar.js`** gets one new item — **"Dealerships"** — sitting next to the existing "Dealers" (which today is the *verification queue* — pending applications + document review). The two are deliberately separate concerns:
+   - **"Dealers"** (existing `AdminDealers.js`) — verification/approval workflow.
+   - **"Dealerships"** (new) — operational oversight of *approved* dealerships.
+2. **`/admin/dealerships`** — new admin page (lives under the existing `AdminLayout`), listing active dealerships with at-a-glance KPIs: active listings, 7d impressions, 7d leads, 7d conversion %, sold-this-month, last-active. Sortable / searchable. Each row has an **"Open panel"** action that opens `/dealer/dashboard?as=<dealership_id>` in the same tab. Backed by the same `dealer_kpi_daily` rollups + `dealer_market_snapshots` computed for the dealer panel, just queried without a single `dealership_id` filter. New endpoint: `GET /api/admin/dealerships?window=7d`.
+3. **`/admin/dealerships/:id`** — admin-side dealership detail (members, suspend/restore, audit log for this dealership, plan status placeholder). Acts as the "manage" view; the "Open panel" button cross-links into the live dealer panel.
+4. **`AdminDealers.js` row action** — also gains an "Open panel" link for already-approved dealers, so the verification queue connects naturally to the operational view.
+5. **Acting-as banner on dealer pages.** When `actor_kind === 'admin'`, every `/dealer/*` page renders a sticky orange bar across the top: *"Admin view — acting as <dealership name>. Writes are audited."* with an **"Exit"** button that returns to `/admin/dealerships`. Write actions on dealer pages show a confirm dialog when `actor_kind === 'admin'`: *"You are acting as <dealership>. This action will be logged."*
+6. **`DealerContext`** stores the `as` param on mount; an axios/fetch interceptor adds `X-Acting-As-Dealership` to every `/api/dealer/*` request automatically.
 
-**Reads.** Admin reads of dealer endpoints bypass the membership check but still go through the same dealership-scoped queries — they just resolve the scope from the header instead of membership. RLS for admins relies on the existing `is_admin(auth.uid())` predicate already used elsewhere; new policies on dealer tables include an `OR is_admin(auth.uid())` branch for SELECT.
+**Why a separate dealer panel at all** (rather than building everything into `/admin/*`): the same UI must work for dealers themselves *without* admin powers. Putting the operational dealer screens under `/dealer/*` means there's one set of pages and one set of components, used by both audiences — the only difference is the banner and the audit-on-write. Admins do not see *less* than dealers; they see *more* (suspend, audit log, cross-dealership overview), and those additions live on the admin side of the app.
+
+**Reads & RLS.** Admin reads of dealer endpoints bypass the membership check but still go through the same dealership-scoped queries — they just resolve the scope from the header instead of membership. RLS on every new dealer table includes an `OR is_admin(auth.uid())` branch for SELECT. RLS for writes does **not** include the admin branch — admin writes flow through the backend `@dealer_required` path which uses the service role and writes the audit row in the same transaction. This makes the audit non-skippable.
 
 ### 2.5 Persistence stack (per memory rule)
 
@@ -684,7 +690,7 @@ A verified dealer can:
 4. Click any listing → see per-listing analytics with time series, sources, engagement-no-contact count, and market position.
 5. Click "diagnostic" on a listing → see verdict + 3–6 ranked findings → click "apply suggested price" → pre-filled edit form opens.
 6. All RLS policies verified — a curl with another dealer's JWT returns 0 rows from any dealer endpoint.
-7. A platform admin can open `/admin/dealerships`, see the cross-dealership overview, click into any dealership's panel, see the orange "Acting as" banner, and have any write recorded in `dealer_admin_audit`.
+7. A user with `is_admin = true` can: see the new "Dealerships" entry in the existing admin sidebar; open `/admin/dealerships` and see the cross-dealership overview; click "Open panel" on any dealership to land in `/dealer/dashboard?as=<id>`; see the orange "Admin view — acting as …" banner on every dealer page; perform any owner-equivalent write and have it recorded in `dealer_admin_audit`; review the audit log at `/admin/dealerships/audit-log`.
 8. Performance budgets met on a seeded dealership with 200 listings.
 
 Phase 1 ships when all of the above is true and a smoke test passes against the seeded staging dealership.
