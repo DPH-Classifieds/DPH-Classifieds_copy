@@ -33,13 +33,15 @@ def _service_headers():
 
 
 def _get_current_user_id():
-    """Returns the JWT-authenticated user id from flask.g (set by token_required).
+    """Returns the JWT-authenticated user id.
 
-    The existing app.py token_required decorator sets ``g.current_user`` or returns
-    the user id. We accept either via flask.g lookup; callers stack token_required
-    above dealer_required.
+    The project's existing ``token_required`` decorator (app.py:2587) sets
+    ``request.user_id`` and passes ``current_user`` as the first positional
+    argument. We read ``request.user_id`` here so a plain
+    ``@token_required`` followed by ``@dealer_required`` works without
+    juggling the positional arg in every endpoint.
     """
-    return getattr(g, "current_user", None) or getattr(g, "user_id", None)
+    return getattr(request, "user_id", None)
 
 
 def _lookup_membership(user_id):

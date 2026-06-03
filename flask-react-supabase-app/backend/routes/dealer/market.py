@@ -19,34 +19,33 @@ def _svc():
             "Accept": "application/json"}
 
 
+def _token_required(fn):
+    from app import token_required
+    return token_required(fn)
+
+
 @market_bp.route("/listings/<listing_type>/<listing_id>/market", methods=["GET"])
-def listing_market(listing_type, listing_id):
-    from app import token_required as _tr
-    @_tr
-    @dealer_required
-    def _inner():
-        # Try latest stored snapshot first.
-        r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/dealer_market_snapshots",
-            headers=_svc(),
-            params={
-                "select": "*",
-                "listing_type": f"eq.{listing_type}",
-                "listing_id": f"eq.{listing_id}",
-                "order": "snapshot_at.desc",
-                "limit": 1,
-            }, timeout=10,
-        )
-        rows = r.json() if r.status_code == 200 else []
-        if rows:
-            return jsonify({"snapshot": rows[0]})
+@_token_required
+@dealer_required
+def listing_market(current_user, listing_type, listing_id):
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/dealer_market_snapshots",
+        headers=_svc(),
+        params={
+            "select": "*",
+            "listing_type": f"eq.{listing_type}",
+            "listing_id": f"eq.{listing_id}",
+            "order": "snapshot_at.desc",
+            "limit": 1,
+        }, timeout=10,
+    )
+    rows = r.json() if r.status_code == 200 else []
+    if rows:
+        return jsonify({"snapshot": rows[0]})
 
-        # Compute on demand if missing.
-        snap = compute_snapshot(listing_type, listing_id, g.dealer_ctx["dealership_id"])
-        if snap is None or snap.get("insufficient_comps"):
-            return jsonify({"snapshot": None,
-                            "reason": "insufficient_comps",
-                            "comp_count": snap.get("comp_count", 0) if snap else 0})
-        return jsonify({"snapshot": snap})
-
-    return _inner()
+    snap = compute_snapshot(listing_type, listing_id, g.dealer_ctx["dealership_id"])
+    if snap is None or snap.get("insufficient_comps"):
+        return jsonify({"snapshot": None,
+                        "reason": "insufficient_comps",
+                        "comp_count": snap.get("comp_count", 0) if snap else 0})
+    return jsonify({"snapshot": snap})
