@@ -79,6 +79,16 @@ Role-based write gating happens inside endpoints:
 
 \*"admin" = a user with `is_admin = true` — i.e. the same role gating the existing `/admin/*` panel today. There is no separate "super-admin" tier. See §2.4 for how admins enter dealer pages.
 
+### 2.3.1 Route access summary
+
+| Route prefix | Anonymous | Regular user | Dealer member | Admin (`is_admin=true`) |
+| --- | :---: | :---: | :---: | :---: |
+| `/` (public site) | ✅ | ✅ | ✅ | ✅ |
+| `/admin/*` (existing admin panel — incl. `/admin/dealerships`) | ❌ | ❌ | ❌ | ✅ |
+| `/dealer/*` (own dealership scope) | ❌ | ❌ | ✅ | ✅ via `?as=<id>` |
+
+Dealers never access anything under `/admin/*`. Admins access `/dealer/*` only via the "Open panel" flow, which sets `?as=<id>` and surfaces the audit banner.
+
 ### 2.4 Admin access — the existing admin panel IS the oversight panel
 
 There is **one** admin role on this platform: `users.is_admin = true`, the same role today gating `/admin/*`, `AdminRoute.jsx`, and the existing admin blueprint. The dealer panel does not introduce a new "super-admin" tier. Existing admins inherit full oversight of every dealership.
