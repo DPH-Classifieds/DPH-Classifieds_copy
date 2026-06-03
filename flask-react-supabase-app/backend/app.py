@@ -12688,6 +12688,8 @@ def api_approve_item(current_user, item_type, item_id):
             "bikes": "bikes",
             "parts": "car_parts",
             "plates": "license_plates",
+            "buying_requests": "buying_requests",
+            "buying_request": "buying_requests",
         }
 
         if item_type not in valid_item_types:
@@ -12791,6 +12793,8 @@ def api_reject_item(current_user, item_type, item_id):
             "bikes": "bikes",
             "parts": "car_parts",
             "plates": "license_plates",
+            "buying_requests": "buying_requests",
+            "buying_request": "buying_requests",
         }
 
         if item_type not in valid_item_types:
@@ -13274,6 +13278,8 @@ def list_pending_items_api(item_type):
         "bikes": "bikes",
         "parts": "car_parts",
         "plates": "license_plates",
+        "buying_requests": "buying_requests",
+        "buying_request": "buying_requests",
     }
     if item_type not in valid_item_types:
         return jsonify({"error": f"Invalid item type: {item_type}"}), 400
@@ -13313,6 +13319,8 @@ def approve_item_api(item_type, item_id):
         "bikes": "bikes",
         "parts": "car_parts",
         "plates": "license_plates",
+        "buying_requests": "buying_requests",
+        "buying_request": "buying_requests",
     }
     if item_type not in valid_item_types:
         return jsonify({"error": f"Invalid item type: {item_type}"}), 400
@@ -16158,8 +16166,20 @@ def get_deleted_listings(current_user):
             "offset": str(offset),
         }
 
-        if listing_type and listing_type in ("car", "bike", "part", "plate"):
-            params["listing_type"] = f"eq.{listing_type}"
+        deleted_type_map = {
+            "car": "car",
+            "cars": "car",
+            "bike": "bike",
+            "bikes": "bike",
+            "part": "part",
+            "parts": "part",
+            "plate": "plate",
+            "plates": "plate",
+            "buying_request": "buying_request",
+            "buying_requests": "buying_request",
+        }
+        if listing_type and listing_type in deleted_type_map:
+            params["listing_type"] = f"eq.{deleted_type_map[listing_type]}"
 
         response, status_code = supabase_request(
             "get",

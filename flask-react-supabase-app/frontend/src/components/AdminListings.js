@@ -15,7 +15,7 @@ const ADMIN_DELETE_REASONS = [
   'Price manipulation',
 ];
 
-const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates'];
+const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates', 'buying_requests'];
 const ALL_STATUSES = ['all', 'pending', 'approved', 'rejected', 'expired'];
 const STATUS_OPTIONS = [
   { key: 'all', label: 'All' },
@@ -73,7 +73,7 @@ const AdminListings = () => {
       setLoading(true);
 
       const typesToFetch = effectiveTypes.includes('all')
-        ? ['cars', 'bikes', 'parts', 'plates']
+        ? ['cars', 'bikes', 'parts', 'plates', 'buying_requests']
         : effectiveTypes;
       const statusesToFetch = effectiveStatuses.includes('all')
         ? []
@@ -107,7 +107,7 @@ const AdminListings = () => {
       // Fetch deleted listings separately if selected
       if (hasDeleted || statusesToFetch.includes('deleted')) {
         const deletedPromises = typesToFetch.map(type => {
-          const typeSingular = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate' }[type] || 'car';
+          const typeSingular = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate', buying_requests: 'buying_request' }[type] || 'car';
           return apiClient.get(`/api/admin/deleted-listings?type=${typeSingular}&limit=100`).catch(() => ({ events: [] }));
         });
         promises.push(Promise.all(deletedPromises));
@@ -226,7 +226,7 @@ const AdminListings = () => {
   };
 
   const getDeleteType = (listingType) => {
-    const map = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate' };
+    const map = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate', buying_requests: 'buying_request' };
     return map[listingType] || 'car';
   };
 
@@ -266,13 +266,20 @@ const AdminListings = () => {
     if (listing.display_title) return listing.display_title;
     if (listing.listing_title) return listing.listing_title;
     if (listing.title) return listing.title;
+    if (listing.item_name) return listing.item_name;
     return `Listing #${listing.id ? listing.id.slice(0, 8) : 'Unknown'}`;
   };
 
   const getListingPrice = (listing) => {
-    const price = listing.display_price ?? listing.price ?? listing.expected_selling_price;
+    const price = listing.display_price ?? listing.price ?? listing.expected_selling_price ?? listing.budget;
     if (!price) return 'N/A';
     return `${Number(price).toLocaleString()} AED`;
+  };
+
+  const getListingTypeLabel = (listingType) => {
+    const normalized = String(listingType || '').toLowerCase();
+    if (normalized === 'buying_requests' || normalized === 'buying_request') return 'Buying Request';
+    return normalized.replace(/s$/, '');
   };
 
   const getListingImage = (listing, index = 0) => {
@@ -344,12 +351,13 @@ const AdminListings = () => {
           />
         )}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-          <span className="status-badge status-admin" style={{ margin: 0 }}>{lt}</span>
+          <span className="status-badge status-admin" style={{ margin: 0 }}>{getListingTypeLabel(lt)}</span>
           {getStatusBadge(displayStatus)}
         </div>
         <h3>{getListingTitle(listing)}</h3>
         <p><strong>Price:</strong> {getListingPrice(listing)}</p>
         <p><strong>Seller:</strong> {listing.user_email || listing.seller_email || 'N/A'}</p>
+        {listing.item_name ? <p><strong>Item name:</strong> {listing.item_name}</p> : null}
         <p><strong>VIN:</strong> {getListingVin(listing) || 'N/A'}</p>
         <p><strong>Scan:</strong> {verificationLabel}</p>
         <p><strong>OCR confidence:</strong> {Math.round(Number(verification.confidence || 0) * 100)}%</p>
@@ -429,7 +437,7 @@ const AdminListings = () => {
             Deleted
           </span>
           <span className="status-badge status-admin" style={{ margin: 0 }}>
-            {listing.listing_type}
+            {getListingTypeLabel(listing.listing_type)}
           </span>
         </div>
         <h3>{listing.title}</h3>

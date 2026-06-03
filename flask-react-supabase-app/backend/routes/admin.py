@@ -362,6 +362,8 @@ def get_all_listings():
             "bikes": "bikes",
             "plates": "license_plates",
             "parts": "car_parts",
+            "buying_requests": "buying_requests",
+            "buying_request": "buying_requests",
         }
 
         table = table_map.get(listing_type, "cars")
@@ -401,6 +403,10 @@ def get_all_listings():
                     listing["display_title"] = (
                         f"{listing.get('city', '')} {listing.get('code', '')} {listing.get('number', '')} — posted by {listing['user_name']}"
                     )
+                elif listing_type in ("buying_requests", "buying_request"):
+                    listing["display_title"] = (
+                        f"{listing.get('item_name', 'Buying request')} — posted by {listing['user_name']}"
+                    )
                 else:
                     listing["display_title"] = (
                         f"{listing.get('title', 'Unknown listing')} — posted by {listing['user_name']}"
@@ -427,6 +433,8 @@ def approve_listing(listing_id):
             "bikes": "bikes",
             "plates": "license_plates",
             "parts": "car_parts",
+            "buying_requests": "buying_requests",
+            "buying_request": "buying_requests",
         }
 
         table = table_map.get(listing_type, "cars")
@@ -531,6 +539,8 @@ def reject_item(item_type, item_id):
         "bikes": "bikes",
         "parts": "car_parts",
         "plates": "license_plates",
+        "buying_requests": "buying_requests",
+        "buying_request": "buying_requests",
     }
     if item_type not in valid_item_types:
         return jsonify({"error": f"Invalid item type: {item_type}"}), 400
@@ -602,6 +612,8 @@ def delete_listing(listing_id):
             "bikes": "bikes",
             "plates": "license_plates",
             "parts": "car_parts",
+            "buying_requests": "buying_requests",
+            "buying_request": "buying_requests",
         }
 
         table = table_map.get(listing_type, "cars")
@@ -618,6 +630,8 @@ def delete_listing(listing_id):
             "bikes": "bike_images",
             "plates": "plate_images",
             "parts": "part_images",
+            "buying_requests": "buying_request_images",
+            "buying_request": "buying_request_images",
         }
 
         image_table = image_table_map.get(listing_type)
@@ -1580,6 +1594,8 @@ def get_listing_views(listing_type, listing_id):
             "bikes": "bikes",
             "plates": "license_plates",
             "parts": "car_parts",
+            "buying_requests": "buying_requests",
+            "buying_request": "buying_requests",
         }
 
         table = table_map.get(listing_type)

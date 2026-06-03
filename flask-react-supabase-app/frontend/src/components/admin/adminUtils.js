@@ -79,6 +79,7 @@ export const getListingTypeLabel = (value) => {
   if (normalized === 'bike' || normalized === 'bikes') return 'Bikes';
   if (normalized === 'part' || normalized === 'parts' || normalized === 'car-parts') return 'Parts';
   if (normalized === 'plate' || normalized === 'plates') return 'Plates';
+  if (normalized === 'buying_request' || normalized === 'buying_requests') return 'Buying Requests';
   return normalized || 'Listing';
 };
 

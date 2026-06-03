@@ -325,6 +325,7 @@ const AdminDashboard = () => {
             ))}
           </div>
           <span className="admin-status-pill tone-success">{formatCompact(totalLeads)} leads</span>
+          <span className="admin-status-pill">{formatCompact(siteVisitors)} visitors</span>
           <span className="admin-status-pill tone-warning">{formatCompact(pendingApprovals)} pending</span>
           <span className="admin-status-pill">{formatCompact(verifiedDealers)}/{formatCompact(totalDealers)} dealers verified</span>
           <Link className="admin-button admin-button-primary" to="/admin/metrics">

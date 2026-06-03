@@ -15,6 +15,7 @@ const listingRouteType = (value) => {
   if (normalized === 'bikes' || normalized === 'bike') return 'bike';
   if (normalized === 'parts' || normalized === 'part' || normalized === 'car-parts') return 'part';
   if (normalized === 'plates' || normalized === 'plate') return 'plate';
+  if (normalized === 'buying_requests' || normalized === 'buying_request') return 'buying_request';
   return 'car';
 };
 
@@ -127,7 +128,7 @@ const AdminListingDetail = () => {
   const verificationStatus = data?.verification_status ?? listing?.verification_status ?? EMPTY_OBJECT;
 
   const primaryRouteType = listingRouteType(itemType);
-  const approvalRouteType = primaryRouteType === 'part' ? 'parts' : `${primaryRouteType}s`;
+  const approvalRouteType = primaryRouteType === 'part' ? 'parts' : primaryRouteType === 'buying_request' ? 'buying_requests' : `${primaryRouteType}s`;
   const listingTypeLabel = getListingTypeLabel(itemType);
   const statusTone = getStatusTone(listing?.status || 'pending');
 
@@ -299,6 +300,39 @@ const AdminListingDetail = () => {
             buildField('Condition', listing.condition),
             buildField('Price', listing.price, 'currency'),
             buildField('Description', listing.description),
+          ],
+        },
+        ownerSection,
+        locationSection,
+        {
+          title: 'Lifecycle & Moderation',
+          fields: [
+            buildField('Approved', listing.is_approved),
+            buildField('Expires at', listing.expires_at, 'date'),
+            buildField('Expired at', listing.expired_at, 'date'),
+            buildField('Retention expires at', listing.retention_expires_at, 'date'),
+            buildField('Archived', listing.is_archived),
+            buildField('Rejection note', listing.rejection_note),
+          ],
+        },
+      ];
+    }
+
+    if (primaryRouteType === 'buying_request') {
+      return [
+        identitySection,
+        {
+          title: 'Buying Request Details',
+          fields: [
+            buildField('Item type', listing.item_type),
+            buildField('Item name', listing.item_name),
+            buildField('Mileage preference', listing.mileage_preference),
+            buildField('Regional spec', listing.regional_spec),
+            buildField('Description / features', listing.reference_notes),
+            buildField('Budget', listing.budget, 'currency'),
+            buildField('Make', listing.car_manufacturer),
+            buildField('Model', listing.car_model),
+            buildField('Trim', listing.trim),
           ],
         },
         ownerSection,
