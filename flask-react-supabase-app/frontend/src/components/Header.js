@@ -232,12 +232,21 @@ const Header = () => {
 
             {user && (
               <NavigationMenuItem>
-                <NavigationMenuLink
-                  asChild
-                  className={`${location.pathname === '/my-listings' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
-                >
-                  <Link to="/my-listings">My Listings</Link>
-                </NavigationMenuLink>
+                {user?.is_dealer && user?.dealer_verified ? (
+                  <NavigationMenuLink
+                    asChild
+                    className={`${location.pathname.startsWith('/dealer') ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                  >
+                    <Link to="/dealer/dashboard">Dealer Panel</Link>
+                  </NavigationMenuLink>
+                ) : (
+                  <NavigationMenuLink
+                    asChild
+                    className={`${location.pathname === '/my-listings' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                  >
+                    <Link to="/my-listings">My Listings</Link>
+                  </NavigationMenuLink>
+                )}
               </NavigationMenuItem>
             )}
           </NavigationMenuList>
@@ -363,9 +372,15 @@ const Header = () => {
                   About
                 </Link>
                 {user && (
-                  <Link to="/my-listings" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
-                    My Listings
-                  </Link>
+                  user?.is_dealer && user?.dealer_verified ? (
+                    <Link to="/dealer/dashboard" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                      Dealer Panel
+                    </Link>
+                  ) : (
+                    <Link to="/my-listings" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                      My Listings
+                    </Link>
+                  )
                 )}
               </div>
 
