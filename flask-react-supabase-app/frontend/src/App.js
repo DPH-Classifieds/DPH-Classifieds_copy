@@ -13,6 +13,16 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PhoneVerifiedRoute from './components/PhoneVerifiedRoute';
 import AdminRoute from './components/AdminRoute';
 import AdminLayout from './components/AdminLayout';
+import { DealerProvider } from './context/DealerContext';
+import DealerRoute from './components/DealerRoute';
+import DealerLayout from './components/DealerLayout';
+import DealerDashboard from './components/dealer/DealerDashboard';
+import DealerListings from './components/dealer/DealerListings';
+import DealerListingAnalytics from './components/dealer/DealerListingAnalytics';
+import DealerListingDiagnostic from './components/dealer/DealerListingDiagnostic';
+import DealerTeam from './components/dealer/DealerTeam';
+import DealerSettings from './components/dealer/DealerSettings';
+import DealerInviteAccept from './components/dealer/DealerInviteAccept';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
@@ -291,6 +301,24 @@ function App() {
                 <Route path="dealers/:dealerId" element={<AdminDealerDetail />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="metrics" element={<AdminMetrics />} />
+              </Route>
+
+              {/* Dealer routes */}
+              <Route path="/dealer/invite/accept" element={<DealerInviteAccept />} />
+              <Route path="/dealer" element={
+                <DealerProvider>
+                  <DealerRoute>
+                    <DealerLayout />
+                  </DealerRoute>
+                </DealerProvider>
+              }>
+                <Route index element={<Navigate to="/dealer/dashboard" replace />} />
+                <Route path="dashboard" element={<DealerDashboard />} />
+                <Route path="listings" element={<DealerListings />} />
+                <Route path="listings/:listing_type/:listing_id/analytics" element={<DealerListingAnalytics />} />
+                <Route path="listings/:listing_type/:listing_id/diagnostic" element={<DealerListingDiagnostic />} />
+                <Route path="team" element={<DealerTeam />} />
+                <Route path="settings" element={<DealerSettings />} />
               </Route>
 
               {/* 404 route */}
