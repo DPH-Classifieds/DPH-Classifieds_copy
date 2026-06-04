@@ -42,6 +42,7 @@ const GA4_DASHBOARD_URL = 'https://analytics.google.com/analytics/web/';
 const EMPTY_ARRAY = [];
 
 const WINDOW_OPTIONS = [
+  { label: '24h', value: 1  },
   { label: '7d',  value: 7  },
   { label: '30d', value: 30 },
   { label: '90d', value: 90 },

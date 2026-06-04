@@ -134,9 +134,11 @@ const BarRow = ({ label, value, maxValue }) => {
 
 const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Health'];
 const WINDOW_OPTIONS = [
+  { label: '24h', value: 1  },
   { label: '7d',  value: 7  },
   { label: '30d', value: 30 },
   { label: '90d', value: 90 },
+  { label: '365d',value: 365},
 ];
 
 const AdminMetrics = () => {

@@ -13893,7 +13893,7 @@ def get_admin_metrics_overview(current_user):
         if not user_details or not user_details.get("is_admin"):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
-        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        days = max(min(int(request.args.get("days", 30)), 365), 1)
         cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
 
         events_resp, events_status = supabase_request(
@@ -14766,7 +14766,7 @@ def get_admin_lead_metrics(current_user):
         if not user_details or not user_details.get("is_admin"):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
-        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        days = max(min(int(request.args.get("days", 30)), 365), 1)
         cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
         # 1. Fetch ALL lead events for the period (only action column for efficiency) to get accurate totals
         leads_total_resp, leads_total_status = supabase_request(
@@ -14860,7 +14860,7 @@ def get_admin_lead_metrics(current_user):
 def get_user_lead_metrics(current_user):
     """Lead metrics scoped to listings owned by the authenticated user."""
     try:
-        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        days = max(min(int(request.args.get("days", 30)), 365), 1)
         cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
 
         owned_listing_ids = defaultdict(set)
