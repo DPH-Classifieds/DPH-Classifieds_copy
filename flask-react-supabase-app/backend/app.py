@@ -3742,8 +3742,8 @@ def add_security_headers(response):
 
 
 def _get_user_listing_count(user_id):
-    """Legacy: total listings across core listing types (cars/bikes/plates)."""
-    tables = ["cars", "bikes", "license_plates"]
+    """Total listings across all listing types (cars/bikes/plates/parts)."""
+    tables = ["cars", "bikes", "license_plates", "car_parts"]
     total = 0
 
     for table in tables:
@@ -3784,7 +3784,7 @@ def _get_user_listing_count(user_id):
 
 def _get_user_listing_counts_by_table(user_id):
     """Counts listings per core listing table, excluding deleted rows when possible."""
-    tables = ["cars", "bikes", "license_plates"]
+    tables = ["cars", "bikes", "license_plates", "car_parts"]
     counts = {}
 
     for table in tables:
@@ -4260,6 +4260,7 @@ def _user_listing_limit_info(user_id, listing_count=None):
         cars_current = int((counts or {}).get("cars") or 0)
         bikes_current = int((counts or {}).get("bikes") or 0)
         plates_current = int((counts or {}).get("license_plates") or 0)
+        parts_current = int((counts or {}).get("car_parts") or 0)
         per_type = {
             "car": {
                 "current": cars_current,
@@ -4275,6 +4276,11 @@ def _user_listing_limit_info(user_id, listing_count=None):
                 "current": plates_current,
                 "max": MAX_LISTINGS_PER_USER_PER_TYPE,
                 "remaining": max(0, MAX_LISTINGS_PER_USER_PER_TYPE - plates_current),
+            },
+            "part": {
+                "current": parts_current,
+                "max": MAX_LISTINGS_PER_USER_PER_TYPE,
+                "remaining": max(0, MAX_LISTINGS_PER_USER_PER_TYPE - parts_current),
             },
         }
 
@@ -9866,7 +9872,7 @@ def get_all_user_listings(current_user):
         reverse=True,
     )
 
-    # Get listing count against limit (cars + bikes + plates, parts excluded)
+    # Total count across cars + bikes + plates + parts.
     listing_count, count_error = _get_user_listing_count(current_user)
     if count_error is not None:
         listing_count = 0

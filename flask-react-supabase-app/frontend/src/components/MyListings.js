@@ -733,6 +733,8 @@ const MyListings = () => {
                 Bikes {listingLimitPerType?.bike?.current ?? 0}/{listingLimitPerType?.bike?.max ?? 4}
                 {' • '}
                 Plates {listingLimitPerType?.plate?.current ?? 0}/{listingLimitPerType?.plate?.max ?? 4}
+                {' • '}
+                Parts {listingLimitPerType?.part?.current ?? 0}/{listingLimitPerType?.part?.max ?? 4}
               </span>
             ) : null}
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
