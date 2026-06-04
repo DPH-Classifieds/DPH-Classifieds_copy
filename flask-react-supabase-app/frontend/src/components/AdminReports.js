@@ -10,6 +10,11 @@ import {
   Phone,
   MessageSquare,
   Eye,
+  Car,
+  Bike,
+  Hash,
+  Wrench,
+  Bug,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { getEventActorLabel } from './admin/adminUtils';
@@ -56,23 +61,6 @@ const relTime = (ts) => {
   if (diffHrs < 24) return `${diffHrs}h ago`;
   const diffDays = Math.round(diffHrs / 24);
   return `${diffDays}d ago`;
-};
-
-const listingUrl = (type, id) => {
-  if (!id || !type) return null;
-  const t = String(type).toLowerCase();
-  if (t === 'bug') return null;
-  const map = {
-    car:   `/cars/${id}`,
-    cars:  `/cars/${id}`,
-    bike:  `/bikes/${id}`,
-    bikes: `/bikes/${id}`,
-    plate: `/plates/${id}`,
-    plates:`/plates/${id}`,
-    part:  `/car-parts/${id}`,
-    parts: `/car-parts/${id}`,
-  };
-  return map[t] || null;
 };
 
 // ─── sub-components ───────────────────────────────────────────────────────────
@@ -448,7 +436,6 @@ const AdminReports = () => {
                       const status = report.status || 'pending';
                       const isBusy = busyReportId === report.id;
                       const isExpanded = expandedId === report.id;
-                      const url = listingUrl(report.listing_type, report.listing_id);
                       const reporterId = report.reporter_id || '';
                       const shortReporter = reporterId ? `user-${reporterId.slice(0, 8)}` : '—';
 
@@ -482,26 +469,66 @@ const AdminReports = () => {
 
                             {/* Listing */}
                             <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <TypeBadge type={report.listing_type} />
-                                {report.listing_id ? (
-                                  <span className="font-mono text-xs text-white/50">
-                                    {report.listing_id.slice(0, 8)}
-                                  </span>
-                                ) : null}
-                                {url && (
-                                  <a
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    title="Open listing in new tab"
-                                    className="text-white/40 hover:text-emerald-300 transition-colors"
-                                  >
-                                    <ExternalLink size={14} />
-                                  </a>
-                                )}
-                              </div>
+                              {(() => {
+                                const listing = report.listing;
+                                const isBugReport = String(report.listing_type || '').toLowerCase() === 'bug';
+                                if (isBugReport || !listing) {
+                                  return (
+                                    <div className="flex items-center gap-2 text-white/40">
+                                      <Bug size={14} />
+                                      <span className="text-sm">Bug report</span>
+                                    </div>
+                                  );
+                                }
+                                const lt = String(report.listing_type || '').toLowerCase();
+                                const FallbackIcon = lt === 'car' ? Car : lt === 'bike' ? Bike : lt === 'plate' ? Hash : Wrench;
+                                const priceNum = listing.price != null ? Number(listing.price) : null;
+                                const priceStr = priceNum != null && !isNaN(priceNum)
+                                  ? `AED ${priceNum.toLocaleString()}`
+                                  : null;
+                                const title = listing.title || '';
+                                const shortTitle = title.length > 36 ? title.slice(0, 36) + '…' : title;
+                                return (
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    {/* Thumbnail */}
+                                    {listing.image_url ? (
+                                      <img
+                                        src={listing.image_url}
+                                        alt=""
+                                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5"
+                                      />
+                                    ) : (
+                                      <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center flex-shrink-0">
+                                        <FallbackIcon size={16} className="text-white/30" />
+                                      </div>
+                                    )}
+                                    {/* Text */}
+                                    <div className="min-w-0">
+                                      <p className="text-sm text-white font-medium truncate" title={title}>
+                                        {shortTitle || '—'}
+                                      </p>
+                                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                        <TypeBadge type={report.listing_type} />
+                                        {priceStr && (
+                                          <span className="text-[11px] text-white/50">{priceStr}</span>
+                                        )}
+                                        {listing.public_url && (
+                                          <a
+                                            href={listing.public_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            title="Open listing in new tab"
+                                            className="text-white/40 hover:text-emerald-300 transition-colors"
+                                          >
+                                            <ExternalLink size={12} />
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Reason */}
@@ -511,12 +538,30 @@ const AdminReports = () => {
 
                             {/* Reporter */}
                             <td className="px-4 py-3">
-                              <span
-                                title={reporterId || undefined}
-                                className="font-mono text-xs text-white/50 cursor-default"
-                              >
-                                {shortReporter}
-                              </span>
+                              {(() => {
+                                const reporterEmail = report.reporter?.email;
+                                if (reporterEmail) {
+                                  const short = reporterEmail.length > 24
+                                    ? reporterEmail.slice(0, 24) + '…'
+                                    : reporterEmail;
+                                  return (
+                                    <span
+                                      title={reporterEmail}
+                                      className="text-xs text-white/60 cursor-default"
+                                    >
+                                      {short}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span
+                                    title={reporterId || undefined}
+                                    className="font-mono text-xs text-white/40 cursor-default"
+                                  >
+                                    {shortReporter}
+                                  </span>
+                                );
+                              })()}
                             </td>
 
                             {/* Status */}
