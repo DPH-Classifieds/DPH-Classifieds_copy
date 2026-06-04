@@ -1,13 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import apiClient from '../utils/apiClient';
-import LoadingSpinner from './LoadingSpinner';
+import { motion } from 'motion/react';
 import {
-  formatNumber,
-} from './admin/adminUtils';
-import '../styles/AdminOps.css';
+  BarChart3,
+  TrendingUp,
+  DollarSign,
+  Users,
+  ShoppingBag,
+  Layers,
+  Activity,
+  Heart,
+  Database,
+  Cpu,
+  Zap,
+  Globe,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  ChevronLeft,
+} from 'lucide-react';
+import apiClient from '../utils/apiClient';
+import { formatNumber } from './admin/adminUtils';
+import {
+  GlassCard,
+  KpiTile,
+  TrendChart,
+  EmptyState,
+  SegmentedControl,
+} from './ui/dashboard';
 
-const WINDOW_OPTIONS = [7, 30, 90];
+// ─── local format helpers (preserved from original) ─────────────────────────
 
 const formatPercent = (value) => {
   const numeric = Number(value ?? 0);
@@ -26,76 +48,107 @@ const formatMoney = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value ?? 0));
 
-const Section = ({ label, title, subtitle, children }) => (
-  <section className="admin-section">
-    <div className="admin-surface admin-metrics-surface">
-      <div className="admin-label">{label}</div>
-      <h2 className="admin-metrics-title">{title}</h2>
-      {subtitle && <p className="admin-page-subtitle">{subtitle}</p>}
-      {children}
-    </div>
-  </section>
-);
+// ─── shared primitives ───────────────────────────────────────────────────────
 
-const StatCard = ({ label, value, note, tone = '' }) => (
-  <div className={`admin-kpi-card ${tone ? `tone-${tone}` : ''}`}>
-    <div className="admin-kpi-label">{label}</div>
-    <div className="admin-kpi-value">{value}</div>
-    {note ? <div className="admin-kpi-note">{note}</div> : null}
+/** Underline-tab bar */
+const TabBar = ({ tabs, active, onChange }) => (
+  <div className="flex gap-1 border-b border-white/[0.06] mb-6">
+    {tabs.map((t) => (
+      <button
+        key={t}
+        type="button"
+        onClick={() => onChange(t)}
+        className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+          active === t ? 'text-white' : 'text-white/40 hover:text-white/70'
+        }`}
+      >
+        {t}
+        {active === t && (
+          <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-emerald-400 rounded-full" />
+        )}
+      </button>
+    ))}
   </div>
 );
 
-const ListBars = ({ items, valueKey = 'views', labelKey = 'segment', emptyLabel = 'No data yet' }) => {
-  const maxValue = Math.max(1, ...(items || []).map((item) => Number(item?.[valueKey] || 0)));
-  if (!items || items.length === 0) {
-    return <p className="admin-muted">{emptyLabel}</p>;
-  }
+/** Section title */
+const SectionTitle = ({ children }) => (
+  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
+    {children}
+  </p>
+);
 
-  return (
-    <div className="admin-chart-bars">
-      {items.map((item) => (
-        <div key={`${item[labelKey]}-${item[valueKey]}`} className="admin-chart-row">
-          <div className="admin-chart-label">{item[labelKey]}</div>
-          <div className="admin-chart-track">
-            <div
-              className="admin-chart-fill"
-              style={{ width: `${Math.max(4, (Number(item[valueKey] || 0) / maxValue) * 100)}%` }}
-            />
-          </div>
-          <div className="admin-chart-value">{formatNumber(item[valueKey])}</div>
-        </div>
-      ))}
-    </div>
-  );
+/** Health status pill */
+const HealthPill = ({ status }) => {
+  const s = String(status || 'unknown').toLowerCase();
+  const ok = s === 'ok' || s === 'healthy' || s === 'up';
+  const degraded = s === 'degraded' || s === 'warning';
+  const down = s === 'down' || s === 'error' || s === 'critical';
+
+  if (ok)      return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full"><CheckCircle size={10} /> Healthy</span>;
+  if (degraded) return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full"><AlertCircle size={10} /> Degraded</span>;
+  if (down)    return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full"><XCircle size={10} /> Down</span>;
+  return <span className="text-[11px] text-white/30 px-2 py-0.5 rounded-full border border-white/10">Unknown</span>;
 };
 
-const KeyValueList = ({ items, emptyLabel = 'No data yet' }) => {
+/** Generic key-value row list inside a GlassCard section */
+const KvList = ({ items, emptyLabel = 'No data' }) => {
   if (!items || items.length === 0) {
-    return <p className="admin-muted">{emptyLabel}</p>;
+    return <p className="text-sm text-white/30">{emptyLabel}</p>;
   }
-
   return (
-    <div className="admin-queue-list">
-      {items.map((item) => (
-        <div key={`${item.label}-${item.value}`} className="admin-queue-item">
+    <div className="space-y-2">
+      {items.map(({ label, value, note }) => (
+        <div key={label} className="flex items-start justify-between gap-3 py-1.5 border-b border-white/[0.04] last:border-0">
           <div>
-            <strong>{item.label}</strong>
-            {item.note ? <small>{item.note}</small> : null}
+            <p className="text-sm text-white/70">{label}</p>
+            {note && <p className="text-[11px] text-white/30">{note}</p>}
           </div>
-          <span>{item.value}</span>
+          <p className="text-sm font-semibold text-white tabular-nums flex-shrink-0">{value}</p>
         </div>
       ))}
     </div>
   );
 };
+
+/** Horizontal bar chart row */
+const BarRow = ({ label, value, maxValue }) => {
+  const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 4;
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <p className="text-sm text-white/60 w-32 flex-shrink-0 truncate">{label}</p>
+      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-emerald-500/60 rounded-full transition-all duration-700"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-sm font-semibold tabular-nums text-white/70 w-16 text-right flex-shrink-0">
+        {formatNumber(value)}
+      </p>
+    </div>
+  );
+};
+
+// ─── main component ──────────────────────────────────────────────────────────
+
+const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Health'];
+const WINDOW_OPTIONS = [
+  { label: '7d',  value: 7  },
+  { label: '30d', value: 30 },
+  { label: '90d', value: 90 },
+];
 
 const AdminMetrics = () => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [days, setDays] = useState(30);
-  const [metrics, setMetrics] = useState(null);
-  const [health, setHealth] = useState(null);
+  // ── state ──────────────────────────────────────────────────────────────
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [days, setDays]         = useState(30);
+  const [metrics, setMetrics]   = useState(null);
+  const [health, setHealth]     = useState(null);
+  const [activeTab, setActiveTab] = useState('Engagement');
 
+  // ── API: metrics overview (re-fetches on window change) ─────────────────
   useEffect(() => {
     let active = true;
 
@@ -111,18 +164,15 @@ const AdminMetrics = () => {
         console.error('Failed to load admin metrics:', fetchError);
         setError(fetchError.message || 'Failed to load metrics');
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     };
 
     fetchMetrics();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [days]);
 
+  // ── API: health (once on mount) ─────────────────────────────────────────
   useEffect(() => {
     let active = true;
 
@@ -139,397 +189,520 @@ const AdminMetrics = () => {
     };
 
     fetchHealth();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
-  const userMetrics = metrics?.user_metrics || {};
+  // ── derived values ──────────────────────────────────────────────────────
+  const userMetrics      = metrics?.user_metrics      || {};
   const financialMetrics = metrics?.financial_metrics || {};
-  const carMetrics = metrics?.car_metrics || {};
-  const plateMetrics = metrics?.plate_metrics || {};
-  const healthCurrent = health?.current || null;
-  const healthLatest = health?.latest || null;
-  const healthSnapshot = healthCurrent || healthLatest || null;
+  const carMetrics       = metrics?.car_metrics       || {};
+  const plateMetrics     = metrics?.plate_metrics     || {};
+
+  const healthCurrent   = health?.current  || null;
+  const healthLatest    = health?.latest   || null;
+  const healthSnapshot  = healthCurrent || healthLatest || null;
   const healthComponents = healthSnapshot?.details || {};
+
   const healthLabel = (component) => {
-    if (!component) return 'Unknown';
-    return component.ok ? 'Healthy' : (component.status || 'Degraded').toUpperCase();
+    if (!component) return 'unknown';
+    return component.ok ? 'ok' : (component.status || 'degraded');
   };
 
-  const summaryCards = [
-    { label: 'Sessions', value: formatNumber(userMetrics.sessions), note: 'Tracked page journeys in the window.' },
-    { label: 'Page views', value: formatNumber(userMetrics.page_views), note: 'Sitewide route views captured by the tracker.' },
-    { label: 'Bounce rate', value: formatPercent(userMetrics.bounce_rate_percent), note: 'Single-page / short-lived sessions.' },
-    { label: 'Conversions', value: formatNumber(userMetrics.conversion_sessions), note: 'Sessions with lead or form intent.' },
-    { label: 'GMV', value: formatMoney(financialMetrics.gross_merchandise_value), note: 'Listing value pool across tracked inventory.' },
-    { label: 'Listings / seller', value: formatDecimal(financialMetrics.listings_per_seller_avg), note: 'All tracked listings divided by active sellers.' },
-    { label: 'LTV', value: formatMoney(financialMetrics.estimated_ltv), note: 'Value pool per visitor proxy.' },
-    {
-      label: 'CAC',
-      value: financialMetrics.estimated_cac == null ? 'N/A' : formatMoney(financialMetrics.estimated_cac),
-      note: financialMetrics.estimated_cac == null ? 'Add spend data to compute CAC.' : 'Spend divided by new users in the window.',
-    },
-  ];
-
-  const repeatRate = userMetrics.repeat_purchase_rate_percent ?? userMetrics.repeat_visit_rate_percent;
-  const topPages = userMetrics.top_pages || [];
+  const repeatRate = userMetrics.repeat_purchase_rate_percent ?? userMetrics.repeat_visit_rate_percent ?? 0;
+  const topPages      = userMetrics.top_pages      || [];
   const trafficSources = userMetrics.traffic_sources || [];
-  const dailyTrends = userMetrics.daily_trends || [];
+  const dailyTrends   = userMetrics.daily_trends   || [];
 
+  // Build TrendChart series for engagement daily
+  const engagementSeries = dailyTrends.length > 1
+    ? [
+        {
+          label: 'Sessions',
+          color: '#10b981',
+          data: dailyTrends.map((d) => ({ date: d.date, value: d.sessions || 0 })),
+        },
+        {
+          label: 'Conversions',
+          color: '#6366f1',
+          data: dailyTrends.map((d) => ({ date: d.date, value: d.conversions || d.conversion_sessions || 0 })),
+        },
+      ]
+    : [];
+
+  // ── avg time on site formatter ──────────────────────────────────────────
+  const fmtDuration = (seconds) => {
+    const s = Number(seconds ?? 0);
+    if (!s) return '0m';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  // ── loading skeleton ────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="admin-ops admin-page">
-        <LoadingSpinner message="Loading platform metrics..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="admin-ops admin-page">
-        <div className="admin-card">
-          <h2>Metrics unavailable</h2>
-          <p className="admin-muted">{error}</p>
-          <div className="admin-actions" style={{ marginTop: '16px' }}>
-            <button className="admin-button admin-button-primary" type="button" onClick={() => window.location.reload()}>
-              Retry
-            </button>
-          </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="animate-pulse bg-white/[0.06] rounded-lg h-9 w-56" />
+          <div className="animate-pulse bg-white/[0.06] rounded-full h-8 w-36" />
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="admin-ops admin-page admin-metrics">
-      <div className="admin-page-header">
-        <div>
-          <div className="admin-label">Metrics</div>
-          <h1 className="admin-page-title">Platform analytics and demand intelligence</h1>
-          <p className="admin-page-subtitle">
-            Real platform event tracking for site behavior, retention, unit economics, car demand, and plate demand.
-          </p>
-        </div>
-        <div className="admin-actions">
-          {WINDOW_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`filter-tab ${days === option ? 'active' : ''}`}
-              onClick={() => setDays(option)}
-            >
-              Last {option} days
-            </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <KpiTile key={i} label="" value={0} loading />
           ))}
         </div>
       </div>
+    );
+  }
 
-      <div className="admin-kpi-grid">
-        {summaryCards.map((card) => (
-          <StatCard key={card.label} {...card} />
-        ))}
+  // ── error state ─────────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <GlassCard className="text-center py-16">
+          <p className="text-white text-lg font-medium mb-2">Metrics unavailable</p>
+          <p className="text-white/50 text-sm mb-6">{error}</p>
+          <button
+            type="button"
+            className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/15 transition-colors"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </GlassCard>
       </div>
+    );
+  }
 
-      <Section
-        label="User Metrics"
-        title="User engagement & retention"
-        subtitle="Track how often people return, how long they stay, and which pages create repeat engagement."
+  // ── render ───────────────────────────────────────────────────────────────
+  return (
+    <div className="space-y-6">
+
+      {/* ── Hero ────────────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="flex items-center justify-between gap-4 flex-wrap"
       >
-        <div className="admin-grid-2">
-          <div className="admin-chart-card">
-            <div className="admin-chart-title">
-              <div>
-                <strong>Retention & behavior</strong>
-                <p className="admin-muted" style={{ margin: '6px 0 0' }}>
-                  Repeat rate, bounce rate, time on site, and conversion sessions.
-                </p>
-              </div>
-            </div>
-            <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-              <StatCard label="Repeat purchase / return rate" value={formatPercent(repeatRate)} />
-              <StatCard label="Avg time on site" value={`${formatDecimal((userMetrics.avg_time_on_site_seconds || 0) / 3600)}h`} />
-              <StatCard label="Pages / session" value={formatDecimal(userMetrics.avg_pages_per_session || 0)} />
-              <StatCard label="Conversion rate" value={formatPercent(userMetrics.conversion_rate_percent || 0)} />
-            </div>
-            <div className="admin-divider" />
-            <div className="admin-grid-2">
-              <div>
-                <h3 style={{ marginTop: 0 }}>Cohort retention</h3>
-                <KeyValueList
-                  items={[
-                    { label: 'Day 1', value: formatPercent(userMetrics.cohort_retention?.day_1 || 0) },
-                    { label: 'Day 7', value: formatPercent(userMetrics.cohort_retention?.day_7 || 0) },
-                    { label: 'Day 30', value: formatPercent(userMetrics.cohort_retention?.day_30 || 0) },
-                  ]}
-                />
-              </div>
-              <div>
-                <h3 style={{ marginTop: 0 }}>Traffic sources</h3>
-                <KeyValueList
-                  items={trafficSources.map((item) => ({
-                    label: item.source,
-                    value: formatNumber(item.sessions),
-                  }))}
-                />
-              </div>
-            </div>
-          </div>
+        <div>
+          <h1 className="text-3xl font-semibold text-white">Platform metrics</h1>
+          <p className="text-sm text-white/40 mt-1">
+            Analytics, unit economics, demand intelligence and system health.
+          </p>
+        </div>
+        <SegmentedControl options={WINDOW_OPTIONS} value={days} onChange={setDays} />
+      </motion.div>
 
-          <div className="admin-chart-card">
-            <div className="admin-chart-title">
+      {/* ── Tab bar ─────────────────────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
+        <GlassCard>
+          <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
+
+          {/* ── ENGAGEMENT tab ────────────────────────────────────────── */}
+          {activeTab === 'Engagement' && (
+            <div className="space-y-6">
               <div>
-                <strong>Daily activity</strong>
-                <p className="admin-muted" style={{ margin: '6px 0 0' }}>
-                  Session and conversion trend across the selected window.
-                </p>
+                <SectionTitle>User engagement</SectionTitle>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    {
+                      label: 'Repeat return rate',
+                      value: Number(repeatRate),
+                      icon: Heart,
+                      suffix: '%',
+                      accent: 'default',
+                    },
+                    {
+                      label: 'Avg time on site',
+                      value: fmtDuration(userMetrics.avg_time_on_site_seconds),
+                      icon: Activity,
+                    },
+                    {
+                      label: 'Pages per session',
+                      value: formatDecimal(userMetrics.avg_pages_per_session || 0),
+                      icon: Layers,
+                    },
+                    {
+                      label: 'Conversion rate',
+                      value: Number(userMetrics.conversion_rate_percent || 0),
+                      icon: TrendingUp,
+                      suffix: '%',
+                      accent: 'emerald',
+                    },
+                  ].map(({ label, value, icon, suffix, accent }, i) => (
+                    <motion.div
+                      key={label}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                    >
+                      <KpiTile label={label} value={typeof value === 'number' ? value : value} icon={icon} suffix={suffix} accent={accent} />
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Activity trend chart */}
+              <div>
+                <SectionTitle>Daily activity trend</SectionTitle>
+                <TrendChart
+                  series={engagementSeries}
+                  height={220}
+                  showLegend
+                  emptyLabel="No daily trend data for this window"
+                />
+              </div>
+
+              {/* Cohort retention + traffic sources */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <SectionTitle>Cohort retention</SectionTitle>
+                  <KvList
+                    items={[
+                      { label: 'Day 1', value: formatPercent(userMetrics.cohort_retention?.day_1 || 0) },
+                      { label: 'Day 7', value: formatPercent(userMetrics.cohort_retention?.day_7 || 0) },
+                      { label: 'Day 30', value: formatPercent(userMetrics.cohort_retention?.day_30 || 0) },
+                    ]}
+                    emptyLabel="No cohort data yet"
+                  />
+                </div>
+                <div>
+                  <SectionTitle>Traffic sources</SectionTitle>
+                  {trafficSources.length === 0 ? (
+                    <EmptyState icon={Globe} title="No source data" description="Traffic attribution will appear here." />
+                  ) : (
+                    <div className="space-y-1">
+                      {trafficSources.map((src) => (
+                        <BarRow
+                          key={src.source}
+                          label={src.source}
+                          value={src.sessions || 0}
+                          maxValue={Math.max(1, ...trafficSources.map((s) => s.sessions || 0))}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Top pages */}
+              {topPages.length > 0 && (
+                <div>
+                  <SectionTitle>Top pages</SectionTitle>
+                  <div className="space-y-1">
+                    {topPages.slice(0, 8).map((pg) => (
+                      <BarRow
+                        key={pg.page_path}
+                        label={pg.page_path}
+                        value={pg.views || 0}
+                        maxValue={Math.max(1, ...topPages.map((p) => p.views || 0))}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── ACQUISITION tab ───────────────────────────────────────── */}
+          {activeTab === 'Acquisition' && (
+            <div className="space-y-6">
+              <SectionTitle>Unit economics</SectionTitle>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  {
+                    label: 'GMV',
+                    value: formatMoney(financialMetrics.gross_merchandise_value),
+                    icon: DollarSign,
+                    accent: 'emerald',
+                  },
+                  {
+                    label: 'Avg listing price',
+                    value: formatMoney(financialMetrics.average_listing_price),
+                    icon: ShoppingBag,
+                  },
+                  {
+                    label: 'New users',
+                    value: Number(financialMetrics.new_users || 0),
+                    icon: Users,
+                  },
+                  {
+                    label: 'Unique sellers',
+                    value: Number(financialMetrics.unique_sellers || 0),
+                    icon: Users,
+                  },
+                  {
+                    label: 'Listings / seller',
+                    value: formatDecimal(financialMetrics.listings_per_seller_avg || 0),
+                    icon: Layers,
+                  },
+                  {
+                    label: 'LTV / CAC ratio',
+                    value: financialMetrics.ltv_cac_ratio == null ? 'N/A' : formatDecimal(financialMetrics.ltv_cac_ratio),
+                    icon: TrendingUp,
+                    accent: 'emerald',
+                  },
+                ].map(({ label, value, icon, accent }, i) => (
+                  <motion.div
+                    key={label}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                  >
+                    <KpiTile label={label} value={value} icon={icon} accent={accent} />
+                  </motion.div>
+                ))}
+              </div>
+
+              {financialMetrics.notes?.[0] && (
+                <p className="text-sm text-white/30 italic">{financialMetrics.notes[0]}</p>
+              )}
+
+              {/* LTV / CAC detail */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <SectionTitle>Lifetime value detail</SectionTitle>
+                  <KvList
+                    items={[
+                      { label: 'Estimated LTV', value: formatMoney(financialMetrics.estimated_ltv), note: 'Value pool per visitor proxy' },
+                      { label: 'Estimated CAC', value: financialMetrics.estimated_cac == null ? 'N/A' : formatMoney(financialMetrics.estimated_cac), note: financialMetrics.estimated_cac == null ? 'Add spend data to compute CAC' : 'Spend ÷ new users' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <SectionTitle>Platform totals</SectionTitle>
+                  <KvList
+                    items={[
+                      { label: 'Sessions', value: formatNumber(userMetrics.sessions), note: 'Tracked journeys in the window' },
+                      { label: 'Page views', value: formatNumber(userMetrics.page_views), note: 'Sitewide route views' },
+                      { label: 'Bounce rate', value: formatPercent(userMetrics.bounce_rate_percent), note: 'Single-page / short-lived sessions' },
+                      { label: 'Conversion sessions', value: formatNumber(userMetrics.conversion_sessions), note: 'Sessions with lead or form intent' },
+                    ]}
+                  />
+                </div>
               </div>
             </div>
-            <div className="admin-chart-bars">
-              {dailyTrends.slice(-12).map((item) => (
-                <div key={item.date} className="admin-chart-row">
-                  <div className="admin-chart-label">{item.date}</div>
-                  <div className="admin-chart-track">
-                    <div
-                      className="admin-chart-fill"
-                      style={{
-                        width: `${Math.max(5, ((item.sessions || 0) / Math.max(...dailyTrends.map((row) => row.sessions || 0), 1)) * 100)}%`,
-                      }}
+          )}
+
+          {/* ── CONVERSION tab ────────────────────────────────────────── */}
+          {activeTab === 'Conversion' && (
+            <div className="space-y-6">
+              <SectionTitle>Car demand</SectionTitle>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Segment views */}
+                <div>
+                  <p className="text-sm text-white/40 mb-3">
+                    Segment views
+                    <span className="ml-2 text-[11px] text-white/20">{carMetrics.total_listings || 0} listings</span>
+                  </p>
+                  {(carMetrics.segment_views || []).length === 0 ? (
+                    <EmptyState icon={BarChart3} title="No segment data" description="Car segment analytics will appear here." />
+                  ) : (
+                    <div className="space-y-1">
+                      {(carMetrics.segment_views || []).map((item) => (
+                        <BarRow
+                          key={item.segment}
+                          label={item.segment}
+                          value={item.views || 0}
+                          maxValue={Math.max(1, ...(carMetrics.segment_views || []).map((s) => s.views || 0))}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Price distribution */}
+                <div>
+                  <p className="text-sm text-white/40 mb-3">Price distribution</p>
+                  {(carMetrics.price_bands || []).length === 0 ? (
+                    <EmptyState icon={BarChart3} title="No price band data" description="Price distribution will appear here." />
+                  ) : (
+                    <div className="space-y-1">
+                      {(carMetrics.price_bands || []).map((item) => (
+                        <BarRow
+                          key={item.band}
+                          label={item.band}
+                          value={item.count || 0}
+                          maxValue={Math.max(1, ...(carMetrics.price_bands || []).map((b) => b.count || 0))}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Top car listings */}
+              {(carMetrics.top_listings || []).length > 0 && (
+                <div>
+                  <SectionTitle>Top car listings</SectionTitle>
+                  <KvList
+                    items={(carMetrics.top_listings || []).slice(0, 5).map((item) => ({
+                      label: item.title,
+                      value: `${formatNumber(item.views)} views`,
+                      note: item.price ? formatMoney(item.price) : '',
+                    }))}
+                  />
+                </div>
+              )}
+
+              <div className="border-t border-white/[0.06] pt-6">
+                <SectionTitle>Plate demand</SectionTitle>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Plate segment views */}
+                  <div>
+                    <p className="text-sm text-white/40 mb-3">
+                      Demand by segment
+                      <span className="ml-2 text-[11px] text-white/20">{plateMetrics.total_listings || 0} listings</span>
+                    </p>
+                    {(plateMetrics.segment_views || []).length === 0 ? (
+                      <EmptyState icon={BarChart3} title="No plate segment data" description="Plate analytics will appear here." />
+                    ) : (
+                      <div className="space-y-1">
+                        {(plateMetrics.segment_views || []).map((item) => (
+                          <BarRow
+                            key={item.segment}
+                            label={item.segment}
+                            value={item.views || 0}
+                            maxValue={Math.max(1, ...(plateMetrics.segment_views || []).map((s) => s.views || 0))}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Plate price bands */}
+                  <div>
+                    <p className="text-sm text-white/40 mb-3">Price distribution</p>
+                    {(plateMetrics.price_bands || []).length === 0 ? (
+                      <EmptyState icon={BarChart3} title="No plate price data" description="Plate price bands will appear here." />
+                    ) : (
+                      <div className="space-y-1">
+                        {(plateMetrics.price_bands || []).map((item) => (
+                          <BarRow
+                            key={item.band}
+                            label={item.band}
+                            value={item.count || 0}
+                            maxValue={Math.max(1, ...(plateMetrics.price_bands || []).map((b) => b.count || 0))}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Top plate listings */}
+                {(plateMetrics.top_listings || []).length > 0 && (
+                  <div className="mt-4">
+                    <SectionTitle>Top plate listings</SectionTitle>
+                    <KvList
+                      items={(plateMetrics.top_listings || []).slice(0, 5).map((item) => ({
+                        label: item.title,
+                        value: `${formatNumber(item.views)} views`,
+                        note: item.price ? formatMoney(item.price) : '',
+                      }))}
                     />
                   </div>
-                  <div className="admin-chart-value">{formatNumber(item.sessions)}</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── HEALTH tab ────────────────────────────────────────────── */}
+          {activeTab === 'Health' && (
+            <div className="space-y-6">
+              {health?.error && (
+                <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-rose-300 text-sm">
+                  Health check unavailable — {health.error}
                 </div>
-              ))}
-            </div>
-            <div className="admin-divider" />
-            <h3 style={{ marginTop: 0 }}>Top pages</h3>
-            <ListBars
-              items={topPages.map((item) => ({
-                segment: item.page_path,
-                views: item.views,
-              }))}
-              labelKey="segment"
-              valueKey="views"
-            />
-          </div>
-        </div>
-      </Section>
+              )}
 
-      <Section
-        label="Financial Health"
-        title="Unit economics"
-        subtitle="Show gross value, CAC, LTV, and the listings per seller ratio in one place."
-      >
-        <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          <StatCard label="GMV" value={formatMoney(financialMetrics.gross_merchandise_value)} />
-          <StatCard label="Average price" value={formatMoney(financialMetrics.average_listing_price)} />
-          <StatCard label="New users" value={formatNumber(financialMetrics.new_users)} />
-          <StatCard label="Unique sellers" value={formatNumber(financialMetrics.unique_sellers)} />
-          <StatCard label="Listings / seller" value={formatDecimal(financialMetrics.listings_per_seller_avg || 0)} />
-          <StatCard label="LTV / CAC" value={financialMetrics.ltv_cac_ratio == null ? 'N/A' : formatDecimal(financialMetrics.ltv_cac_ratio)} />
-        </div>
-        <div className="admin-divider" />
-        <p className="admin-muted" style={{ marginTop: 0 }}>
-          {financialMetrics.notes?.[0] || 'CAC requires spend input. LTV is estimated from the current value pool.'}
-        </p>
-      </Section>
+              {/* Overall status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {[
+                  { label: 'Overall',  status: healthSnapshot?.overall_status || 'unknown', icon: Activity,  note: healthSnapshot?.checked_at ? `Checked ${new Date(healthSnapshot.checked_at).toLocaleTimeString()}` : 'No snapshot yet' },
+                  { label: 'Frontend', status: healthLabel(healthComponents.frontend),       icon: Globe,     note: healthComponents.frontend?.message || 'Waiting for snapshot' },
+                  { label: 'Backend',  status: healthLabel(healthComponents.backend),        icon: Cpu,       note: healthComponents.backend?.message  || 'Waiting for snapshot' },
+                  { label: 'Redis',    status: healthLabel(healthComponents.redis),          icon: Zap,       note: healthComponents.redis?.message    || 'Waiting for snapshot' },
+                  { label: 'Worker',   status: healthLabel(healthComponents.worker),         icon: Database,  note: healthComponents.worker?.last_seen_at ? `Last seen ${new Date(healthComponents.worker.last_seen_at).toLocaleTimeString()}` : 'Waiting for snapshot' },
+                ].map(({ label, status, icon: Icon, note }, i) => (
+                  <motion.div
+                    key={label}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                  >
+                    <GlassCard>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{label}</p>
+                        <Icon size={14} className="text-white/30" />
+                      </div>
+                      <div className="mb-2">
+                        <HealthPill status={status} />
+                      </div>
+                      {note && <p className="text-[11px] text-white/30 mt-1">{note}</p>}
+                    </GlassCard>
+                  </motion.div>
+                ))}
+              </div>
 
-      <Section
-        label="Car Metrics"
-        title="Car demand, pricing, and segment views"
-        subtitle="See which vehicle segments, price bands, and listing groups are getting attention."
-      >
-        <div className="admin-grid-2">
-          <div className="admin-chart-card">
-            <div className="admin-chart-title">
-              <strong>Segment views</strong>
-              <span className="admin-status-pill">{carMetrics.total_listings || 0} listings</span>
+              {/* Detail grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <SectionTitle>Latest snapshot</SectionTitle>
+                  <KvList
+                    items={[
+                      { label: 'Status',      value: healthSnapshot?.overall_status  || 'unknown' },
+                      { label: 'Checked at',  value: healthSnapshot?.checked_at ? new Date(healthSnapshot.checked_at).toLocaleString() : 'Not yet checked' },
+                      { label: 'Source',      value: healthSnapshot?.source || 'worker' },
+                    ]}
+                    emptyLabel="No health snapshot available"
+                  />
+                </div>
+                <div>
+                  <SectionTitle>Component notes</SectionTitle>
+                  <KvList
+                    items={[
+                      { label: 'Frontend', value: healthComponents.frontend?.status || 'unknown', note: healthComponents.frontend?.checked_url || '' },
+                      { label: 'Backend',  value: healthComponents.backend?.status  || 'unknown', note: healthComponents.backend?.checked_url  || '' },
+                      { label: 'Redis',    value: healthComponents.redis?.status    || 'unknown', note: healthComponents.redis?.message        || '' },
+                      { label: 'Worker',   value: healthComponents.worker?.status   || 'unknown', note: healthComponents.worker?.last_seen_at  || '' },
+                    ]}
+                  />
+                </div>
+              </div>
             </div>
-            <ListBars items={carMetrics.segment_views || []} labelKey="segment" valueKey="views" />
-          </div>
-          <div className="admin-chart-card">
-            <div className="admin-chart-title">
-              <strong>Price distribution</strong>
-            </div>
-            <ListBars
-              items={(carMetrics.price_bands || []).map((item) => ({
-                segment: item.band,
-                views: item.count,
-              }))}
-              labelKey="segment"
-              valueKey="views"
-            />
-          </div>
-        </div>
-        <div className="admin-divider" />
-        <div className="admin-grid-2">
-          <div>
-            <h3 style={{ marginTop: 0 }}>Most viewed car segment</h3>
-            <KeyValueList
-              items={[
-                {
-                  label: carMetrics.most_viewed_segment?.segment || 'Unknown',
-                  value: formatNumber(carMetrics.most_viewed_segment?.views || 0),
-                  note: 'Based on tracked page views.',
-                },
-              ]}
-            />
-          </div>
-          <div>
-            <h3 style={{ marginTop: 0 }}>Top car listings</h3>
-            <KeyValueList
-              items={(carMetrics.top_listings || []).slice(0, 5).map((item) => ({
-                label: item.title,
-                value: `${formatNumber(item.views)} views`,
-                note: item.price ? formatMoney(item.price) : '',
-              }))}
-            />
-          </div>
-        </div>
-      </Section>
+          )}
+        </GlassCard>
+      </motion.div>
 
-      <Section
-        label="Plate Analysis"
-        title="Plate price and demand intelligence"
-        subtitle="Track what plate types, cities, and formats are most in demand."
-      >
-        <div className="admin-grid-2">
-          <div className="admin-chart-card">
-            <div className="admin-chart-title">
-              <strong>Demand by plate segment</strong>
-              <span className="admin-status-pill">{plateMetrics.total_listings || 0} listings</span>
-            </div>
-            <ListBars items={plateMetrics.segment_views || []} labelKey="segment" valueKey="views" />
-          </div>
-          <div className="admin-chart-card">
-            <div className="admin-chart-title">
-              <strong>Plate price distribution</strong>
-            </div>
-            <ListBars
-              items={(plateMetrics.price_bands || []).map((item) => ({
-                segment: item.band,
-                views: item.count,
-              }))}
-              labelKey="segment"
-              valueKey="views"
-            />
-          </div>
-        </div>
-        <div className="admin-divider" />
-        <div className="admin-grid-2">
-          <div>
-            <h3 style={{ marginTop: 0 }}>Most in demand</h3>
-            <KeyValueList
-              items={[
-                {
-                  label: plateMetrics.most_in_demand?.segment || 'Unknown',
-                  value: formatNumber(plateMetrics.most_in_demand?.views || 0),
-                  note: 'Based on tracked plate page views.',
-                },
-              ]}
-            />
-          </div>
-          <div>
-            <h3 style={{ marginTop: 0 }}>Top plate listings</h3>
-            <KeyValueList
-              items={(plateMetrics.top_listings || []).slice(0, 5).map((item) => ({
-                label: item.title,
-                value: `${formatNumber(item.views)} views`,
-                note: item.price ? formatMoney(item.price) : '',
-              }))}
-            />
-          </div>
-        </div>
-      </Section>
-
-      <Section
-        label="Health"
-        title="Frontend, backend, Redis, and worker status"
-        subtitle="This view is fed by the live health snapshot that the worker stores every 30 minutes."
-      >
-        {health?.error ? (
-          <div className="admin-card">
-            <h3>Health unavailable</h3>
-            <p className="admin-muted">{health.error}</p>
-          </div>
-        ) : null}
-        <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          <StatCard
-            label="Overall"
-            value={(healthSnapshot?.overall_status || 'unknown').toUpperCase()}
-            note={healthSnapshot?.checked_at ? `Checked ${new Date(healthSnapshot.checked_at).toLocaleString()}` : 'No snapshot yet'}
-            tone={healthSnapshot?.overall_status === 'healthy' ? 'success' : 'warning'}
-          />
-          <StatCard
-            label="Frontend"
-            value={healthLabel(healthComponents.frontend)}
-            note={healthComponents.frontend?.message || 'Waiting for snapshot'}
-            tone={healthComponents.frontend?.ok ? 'success' : 'warning'}
-          />
-          <StatCard
-            label="Backend"
-            value={healthLabel(healthComponents.backend)}
-            note={healthComponents.backend?.message || 'Waiting for snapshot'}
-            tone={healthComponents.backend?.ok ? 'success' : 'warning'}
-          />
-          <StatCard
-            label="Redis"
-            value={healthLabel(healthComponents.redis)}
-            note={healthComponents.redis?.message || 'Waiting for snapshot'}
-            tone={healthComponents.redis?.ok ? 'success' : 'warning'}
-          />
-          <StatCard
-            label="Worker"
-            value={healthLabel(healthComponents.worker)}
-            note={healthComponents.worker?.message || 'Waiting for snapshot'}
-            tone={healthComponents.worker?.ok ? 'success' : 'warning'}
-          />
-        </div>
-        <div className="admin-divider" />
-        <div className="admin-grid-2">
-          <div>
-            <h3 style={{ marginTop: 0 }}>Latest snapshot</h3>
-            <KeyValueList
-              items={[
-                { label: 'Status', value: healthSnapshot?.overall_status || 'unknown' },
-                { label: 'Checked at', value: healthSnapshot?.checked_at ? new Date(healthSnapshot.checked_at).toLocaleString() : 'Not yet checked' },
-                { label: 'Source', value: healthSnapshot?.source || 'worker' },
-              ]}
-            />
-          </div>
-          <div>
-            <h3 style={{ marginTop: 0 }}>Component notes</h3>
-            <KeyValueList
-              items={[
-                { label: 'Frontend', value: healthComponents.frontend?.status || 'unknown', note: healthComponents.frontend?.checked_url || '' },
-                { label: 'Backend', value: healthComponents.backend?.status || 'unknown', note: healthComponents.backend?.checked_url || '' },
-                { label: 'Redis', value: healthComponents.redis?.status || 'unknown', note: healthComponents.redis?.message || '' },
-                { label: 'Worker', value: healthComponents.worker?.status || 'unknown', note: healthComponents.worker?.last_seen_at || '' },
-              ]}
-            />
-          </div>
-        </div>
-      </Section>
-
-      <div className="admin-section">
-        <div className="admin-surface">
-          <div className="admin-label">Navigation</div>
-          <div className="admin-actions" style={{ marginTop: '14px' }}>
-            <Link className="admin-button admin-button-secondary" to="/admin">
-              Back to dashboard
+      {/* ── nav footer ────────────────────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.24 }}>
+        <GlassCard>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+            >
+              <ChevronLeft size={12} /> Dashboard
             </Link>
-            <Link className="admin-button admin-button-secondary" to="/admin/users">
-              Users
-            </Link>
-            <Link className="admin-button admin-button-secondary" to="/admin/listings">
-              Listings
-            </Link>
-            <Link className="admin-button admin-button-secondary" to="/admin/reports">
-              Reports
-            </Link>
+            {[
+              { label: 'Users',    href: '/admin/users'    },
+              { label: 'Listings', href: '/admin/listings' },
+              { label: 'Reports',  href: '/admin/reports'  },
+            ].map(({ label, href }) => (
+              <Link
+                key={href}
+                to={href}
+                className="inline-flex items-center text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+              >
+                {label}
+              </Link>
+            ))}
           </div>
-        </div>
-      </div>
+        </GlassCard>
+      </motion.div>
+
     </div>
   );
 };

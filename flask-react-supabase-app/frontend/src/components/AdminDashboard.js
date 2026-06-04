@@ -1,11 +1,38 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
+import {
+  Users,
+  Eye,
+  Target,
+  Phone,
+  MessageSquare,
+  Store,
+  Activity,
+  AlertTriangle,
+  Car,
+  Bike,
+  Wrench,
+  Hash,
+  ShieldCheck,
+  Shield,
+  Radio,
+  ExternalLink,
+  ChevronRight,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
-import LoadingSpinner from './LoadingSpinner';
 import { analyticsConfig } from '../utils/analytics';
 import { swrGet, swrSet } from '../utils/swrCache';
-import '../styles/AdminOps.css';
+import {
+  GlassCard,
+  KpiTile,
+  TrendChart,
+  EmptyState,
+  SegmentedControl,
+} from './ui/dashboard';
+
+// ─── constants ──────────────────────────────────────────────────────────────
 
 const CLARITY_DASHBOARD_URL = analyticsConfig.clarityProjectId
   ? `https://clarity.microsoft.com/projects/view/${analyticsConfig.clarityProjectId}/dashboard`
@@ -14,37 +41,98 @@ const GA4_DASHBOARD_URL = 'https://analytics.google.com/analytics/web/';
 
 const EMPTY_ARRAY = [];
 
+const WINDOW_OPTIONS = [
+  { label: '7d',  value: 7  },
+  { label: '30d', value: 30 },
+  { label: '90d', value: 90 },
+  { label: '365d',value: 365},
+];
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+/** Clamp any value to a finite number */
 const clampNumber = (value) => {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatCompact = (value) => new Intl.NumberFormat('en-AE', { maximumFractionDigits: 0 }).format(clampNumber(value));
+/** Days since a listing was created (for display) */
+// eslint-disable-next-line no-unused-vars
+const daysFromCreated = (createdAt) => {
+  if (!createdAt) return null;
+  const diff = Date.now() - new Date(createdAt).getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+};
 
 const formatDateKey = (date) => date.toISOString().slice(0, 10);
 
-const labelForDay = (date) =>
-  date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-
 const LAUNCH_DATE = new Date('2026-05-09T00:00:00');
 
+// Days since launch — kept for potential future use
+// eslint-disable-next-line no-unused-vars
 const getDaysSinceLaunch = () => {
-  const now = new Date();
-  const diffMs = now.getTime() - LAUNCH_DATE.getTime();
+  const diffMs = Date.now() - LAUNCH_DATE.getTime();
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 };
 
-const TIME_RANGES = [
-  { key: '24h', label: '24 Hours', days: 1 },
-  { key: '7d', label: '7 Days', days: 7 },
-  { key: '30d', label: '30 Days', days: 30 },
-  { key: '90d', label: '90 Days', days: 90 },
-  { key: 'all', label: 'All Time', days: null },
-];
+/** Relative-time label (e.g. "2d ago") */
+const relTime = (ts) => {
+  if (!ts) return '';
+  const diffMs = Date.now() - new Date(ts).getTime();
+  const diffMins = Math.round(diffMs / 60000);
+  if (diffMins < 2) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHrs = Math.round(diffMins / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  const diffDays = Math.round(diffHrs / 24);
+  return `${diffDays}d ago`;
+};
+
+// ─── sub-components ──────────────────────────────────────────────────────────
+
+/** Small inline badge */
+const Badge = ({ children, color = 'white' }) => {
+  const cls = {
+    white:   'text-white/60 bg-white/[0.06] border-white/10',
+    emerald: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+    amber:   'text-amber-300 bg-amber-500/10 border-amber-500/20',
+    rose:    'text-rose-300 bg-rose-500/10 border-rose-500/20',
+    blue:    'text-blue-300 bg-blue-500/10 border-blue-500/20',
+  }[color] || 'text-white/60 bg-white/[0.06] border-white/10';
+  return (
+    <span className={`inline-block text-[10px] font-semibold uppercase tracking-[0.10em] px-2 py-0.5 rounded-full border ${cls}`}>
+      {children}
+    </span>
+  );
+};
+
+/** Listing-type badge */
+const TypeBadge = ({ type }) => {
+  const t = String(type || '').toLowerCase();
+  if (t === 'car' || t === 'cars')  return <Badge color="blue">Car</Badge>;
+  if (t === 'bike' || t === 'bikes') return <Badge color="emerald">Bike</Badge>;
+  if (t === 'plate' || t === 'plates') return <Badge color="amber">Plate</Badge>;
+  if (t === 'part' || t === 'parts')  return <Badge color="white">Part</Badge>;
+  return <Badge>{type || 'Listing'}</Badge>;
+};
+
+/** Severity dot for reports */
+const SeverityDot = ({ severity }) => {
+  const s = Number(severity ?? 0);
+  const cls = s >= 0.7 ? 'bg-rose-400' : s >= 0.4 ? 'bg-amber-400' : 'bg-yellow-400';
+  return <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cls}`} />;
+};
+
+// ─── main component ──────────────────────────────────────────────────────────
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
+  useAuth(); // keep context subscription for auth-guard side-effects
   const navigate = useNavigate();
+
+  // UI state
+  const [days, setDays] = useState(30);
+
+  // Data state (all preserved from original)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState({});
@@ -53,10 +141,11 @@ const AdminDashboard = () => {
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
   const [liveUsers, setLiveUsers] = useState(null);
-  const [timeRange, setTimeRange] = useState('30d');
 
+  // ── primary data fetch ──────────────────────────────────────────────────
   useEffect(() => {
-    const cacheKey = `admin-dashboard:${timeRange}`;
+    const cacheKey = `admin-dashboard:${days}`;
+
     // 1. Synchronously hydrate from cache so we paint instantly.
     const cached = swrGet(cacheKey);
     if (cached?.value) {
@@ -80,13 +169,11 @@ const AdminDashboard = () => {
     (async () => {
       try {
         setError('');
-
-        const selectedRange = TIME_RANGES.find((r) => r.key === timeRange);
-        const daysParam = selectedRange?.days ? `?days=${selectedRange.days}` : '';
+        const daysParam = days ? `?days=${days}` : '';
 
         const [statsRes, leadRes, historyRes, dealersRes, reportsRes] = await Promise.all([
           apiClient.get(`/api/admin/stats${daysParam}`).catch(() => ({})),
-          apiClient.get(`/api/admin/lead-metrics?days=${selectedRange?.days || 365}`).catch(() => null),
+          apiClient.get(`/api/admin/lead-metrics?days=${days || 365}`).catch(() => null),
           apiClient.get('/api/admin/listing-history?limit=12').catch(() => []),
           apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
           apiClient.get('/api/admin/reports').catch(() => []),
@@ -110,18 +197,16 @@ const AdminDashboard = () => {
       } catch (loadError) {
         if (!active) return;
         console.error('Failed to load admin dashboard:', loadError);
-        // Don't blow away cached values on error — only show error if there was no cache.
         if (!cached?.value) setError(loadError.message || 'Failed to load dashboard');
       } finally {
         if (active) setLoading(false);
       }
     })();
 
-    return () => {
-      active = false;
-    };
-  }, [timeRange]);
+    return () => { active = false; };
+  }, [days]);
 
+  // ── live-users polling (30 s, visibility-aware) ─────────────────────────
   useEffect(() => {
     let cancelled = false;
     let intervalId = null;
@@ -130,7 +215,7 @@ const AdminDashboard = () => {
       try {
         const res = await apiClient.request('/api/admin/live-users?window_seconds=300').catch(() => null);
         if (!cancelled) setLiveUsers(res);
-      } catch (liveError) {
+      } catch {
         if (!cancelled) setLiveUsers(null);
       }
     };
@@ -139,19 +224,10 @@ const AdminDashboard = () => {
       if (!intervalId) intervalId = window.setInterval(loadLiveUsers, 15000);
     };
     const stop = () => {
-      if (intervalId) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-      }
+      if (intervalId) { window.clearInterval(intervalId); intervalId = null; }
     };
-
     const onVisibility = () => {
-      if (document.hidden) {
-        stop();
-      } else {
-        loadLiveUsers();
-        start();
-      }
+      if (document.hidden) { stop(); } else { loadLiveUsers(); start(); }
     };
 
     loadLiveUsers();
@@ -165,524 +241,451 @@ const AdminDashboard = () => {
     };
   }, []);
 
+  // ── derived values ───────────────────────────────────────────────────────
   const totals = leadMetrics?.totals || {};
   const recentEvents = leadMetrics?.recent_events ?? EMPTY_ARRAY;
-  const recentReports = leadMetrics?.recent_reports ?? EMPTY_ARRAY;
 
-  const pendingApprovals = useMemo(() => {
-    return (
-      clampNumber(stats.cars_pending) +
-      clampNumber(stats.bikes_pending) +
-      clampNumber(stats.parts_pending) +
-      clampNumber(stats.plates_pending)
-    );
-  }, [stats]);
-
-  const totalViews = useMemo(() => {
-    return (
+  const totalListingViews = useMemo(
+    () =>
       clampNumber(stats.cars_views) +
       clampNumber(stats.bikes_views) +
       clampNumber(stats.parts_views) +
-      clampNumber(stats.plates_views)
-    );
-  }, [stats]);
-
-  const totalUsers = clampNumber(stats.total_users);
-  const totalReports = clampNumber(stats.total_reports || reports.length);
-  const totalLeads = clampNumber(stats.total_leads || totals.qualified_leads || totals.call_click || 0);
-  const totalCalls = clampNumber(stats.total_calls || totals.call_click || 0);
-  const totalWhatsapp = clampNumber(stats.total_whatsapp || totals.whatsapp_click || 0);
-  const totalDealers = clampNumber(stats.total_dealers || dealers.length);
-  const siteVisitors = clampNumber(stats.unique_visitors);
-  const dataHealth = stats.data_health || null;
-  const platformEventsMissing = dataHealth?.platform_events === 'missing';
-  const verifiedDealers = dealers.filter((dealer) => dealer.dealer_verified).length;
-  const pendingDealers = dealers.filter((dealer) => !dealer.dealer_verified).length;
-  const pendingReports = reports.filter((report) => (report.status || 'pending') === 'pending').length;
-  const liveVisitorsCount = clampNumber(liveUsers?.live_visitors);
-  const pendingByType = [
-    { label: 'Cars', value: clampNumber(stats.cars_pending) },
-    { label: 'Bikes', value: clampNumber(stats.bikes_pending) },
-    { label: 'Parts', value: clampNumber(stats.parts_pending) },
-    { label: 'Plates', value: clampNumber(stats.plates_pending) },
-  ];
-
-  const leadMix = [
-    { label: 'Calls', value: clampNumber(totals.call_click || totalCalls) },
-    { label: 'WhatsApp', value: clampNumber(totals.whatsapp_click || totalWhatsapp) },
-    { label: 'VIN Opens', value: clampNumber(totals.vin_open) },
-    { label: 'VIN Reveals', value: clampNumber(totals.vin_reveal) },
-    { label: 'Reports', value: clampNumber(totals.reports_created || totalReports) },
-  ];
-
-  const weeklyActivity = useMemo(() => {
-    const days = 7;
-    const buckets = [];
-    const map = new Map();
-    for (let index = days - 1; index >= 0; index -= 1) {
-      const date = new Date();
-      date.setDate(date.getDate() - index);
-      const key = formatDateKey(date);
-      map.set(key, {
-        key,
-        label: labelForDay(date),
-        total: 0,
-        call_click: 0,
-        whatsapp_click: 0,
-        vin_open: 0,
-      });
-    }
-
-    recentEvents.forEach((event) => {
-      const date = new Date(event.created_at);
-      if (Number.isNaN(date.getTime())) return;
-      const key = formatDateKey(date);
-      const bucket = map.get(key);
-      if (!bucket) return;
-      const action = event.action || 'unknown';
-      bucket.total += 1;
-      if (action in bucket) {
-        bucket[action] += 1;
-      }
-    });
-
-    map.forEach((bucket) => buckets.push(bucket));
-    return buckets;
-  }, [recentEvents]);
-
-  const chartMax = Math.max(
-    1,
-    ...leadMix.map((item) => item.value),
-    ...weeklyActivity.map((item) => item.total),
-    ...pendingByType.map((item) => item.value),
+      clampNumber(stats.plates_views),
+    [stats],
   );
 
-  const topDealerRows = useMemo(() => {
-    return dealers.slice(0, 6).map((dealer) => ({
-      id: dealer.id,
-      name: [dealer.first_name, dealer.last_name].filter(Boolean).join(' ') || dealer.email || 'Dealer',
-      company: dealer.company_name || dealer.company_registration_number || 'No company name',
-      status: dealer.dealer_verified ? 'Verified' : 'Pending',
-      tone: dealer.dealer_verified ? 'success' : 'warning',
-    }));
-  }, [dealers]);
+  const totalLeads    = clampNumber(stats.total_leads    || totals.qualified_leads || totals.call_click || 0);
+  const totalCalls    = clampNumber(stats.total_calls    || totals.call_click  || 0);
+  const totalWhatsapp = clampNumber(stats.total_whatsapp || totals.whatsapp_click || 0);
+  const totalDealers  = clampNumber(stats.total_dealers  || dealers.length);
+  const totalReports  = clampNumber(stats.total_reports  || reports.length);
 
-  const quickLinks = [
-    { label: 'Review People', href: '/admin/users', description: 'Search users and drill into account health.' },
-    { label: 'Review Listings', href: '/admin/listings', description: 'Inspect listing performance and moderation.' },
-    { label: 'Review Dealers', href: '/admin/dealers', description: 'Check verification and dealer health.' },
-    { label: 'Open Reports', href: '/admin/reports', description: 'Track reports, removals, and lead history.' },
-    { label: 'Open Metrics', href: '/admin/metrics', description: 'Review retention, car demand, and plate analysis.' },
-  ];
+  const pendingDealers = dealers.filter((d) => !d.dealer_verified);
+  const pendingReports = reports.filter((r) => (r.status || 'pending') === 'pending');
+  const liveVisitorsCount = clampNumber(liveUsers?.live_visitors);
+  const dataHealth = stats.data_health || null;
 
+  // ── lead trend series for TrendChart ────────────────────────────────────
+  const leadTrendSeries = useMemo(() => {
+    if (leadMetrics?.daily && Array.isArray(leadMetrics.daily) && leadMetrics.daily.length > 1) {
+      const daily = leadMetrics.daily;
+      return [
+        {
+          label: 'Calls',
+          color: '#10b981',
+          data: daily.map((d) => ({ date: d.date, value: d.call_click || 0 })),
+        },
+        {
+          label: 'WhatsApp',
+          color: '#3b82f6',
+          data: daily.map((d) => ({ date: d.date, value: d.whatsapp_click || 0 })),
+        },
+        {
+          label: 'VIN Reveals',
+          color: '#f59e0b',
+          data: daily.map((d) => ({ date: d.date, value: d.vin_reveal || 0 })),
+        },
+      ];
+    }
+
+    // Fallback: build weekly buckets from recent_events
+    const buckets = [];
+    const map = new Map();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const key = formatDateKey(date);
+      map.set(key, { date: key, call_click: 0, whatsapp_click: 0, vin_reveal: 0 });
+    }
+    recentEvents.forEach((ev) => {
+      const d = new Date(ev.created_at);
+      if (Number.isNaN(d.getTime())) return;
+      const key = formatDateKey(d);
+      const bucket = map.get(key);
+      if (!bucket) return;
+      const action = ev.action || '';
+      if (action === 'call_click')     bucket.call_click     += 1;
+      if (action === 'whatsapp_click') bucket.whatsapp_click += 1;
+      if (action === 'vin_reveal')     bucket.vin_reveal     += 1;
+    });
+    map.forEach((v) => buckets.push(v));
+
+    return [
+      { label: 'Calls',      color: '#10b981', data: buckets.map((b) => ({ date: b.date, value: b.call_click })) },
+      { label: 'WhatsApp',   color: '#3b82f6', data: buckets.map((b) => ({ date: b.date, value: b.whatsapp_click })) },
+      { label: 'VIN Reveals',color: '#f59e0b', data: buckets.map((b) => ({ date: b.date, value: b.vin_reveal })) },
+    ];
+  }, [leadMetrics, recentEvents]);
+
+  // ── loading skeleton ─────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="admin-ops admin-page">
-        <LoadingSpinner message="Loading operator dashboard..." />
+      <div className="space-y-6 p-1">
+        {/* hero skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="animate-pulse bg-white/[0.06] rounded-lg h-9 w-56" />
+          <div className="animate-pulse bg-white/[0.06] rounded-full h-8 w-40" />
+        </div>
+        {/* 8-tile skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <KpiTile key={i} label="" value={0} loading />
+          ))}
+        </div>
       </div>
     );
   }
 
+  // ── error state ──────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className="admin-ops admin-page">
-        <div className="admin-card">
-          <h2>Dashboard unavailable</h2>
-          <p className="admin-muted">{error}</p>
-          <div className="admin-actions" style={{ marginTop: '16px' }}>
-            <button className="admin-button admin-button-primary" type="button" onClick={() => window.location.reload()}>
-              Retry
-            </button>
-          </div>
-        </div>
+      <div className="space-y-6 p-1">
+        <GlassCard className="text-center py-16">
+          <p className="text-white text-lg font-medium mb-2">Dashboard unavailable</p>
+          <p className="text-white/50 text-sm mb-6">{error}</p>
+          <button
+            type="button"
+            className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/15 transition-colors"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </GlassCard>
       </div>
     );
   }
 
+  // ── render ───────────────────────────────────────────────────────────────
   return (
-    <div className="admin-ops admin-page">
-      <div className="admin-page-header">
-        <div>
-          <div className="admin-label">Operator console</div>
-          <h1 className="admin-page-title">
-            Live control center for {user?.display_name || user?.email || 'the marketplace'}
-          </h1>
-          <p className="admin-page-subtitle">
-            Track leads, approvals, dealer verification, reports, removals, and traffic across the marketplace in one working surface.
-          </p>
+    <div className="space-y-6">
+
+      {/* ── 1. Hero row ─────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="flex items-center justify-between gap-4 flex-wrap"
+      >
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-3xl font-semibold text-white">Platform overview</h1>
+          {/* Live visitors pill */}
+          <span
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+              liveVisitorsCount > 0
+                ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.25)]'
+                : 'text-white/40 bg-white/[0.04] border-white/[0.08]'
+            }`}
+          >
+            <Radio size={10} className={liveVisitorsCount > 0 ? 'text-emerald-400 animate-pulse' : 'text-white/30'} />
+            Live: {liveVisitorsCount.toLocaleString('en-AE')} visitors
+          </span>
         </div>
-        <div className="admin-actions">
-          <div className="admin-time-range-selector">
-            {TIME_RANGES.map((range) => (
-              <button
-                key={range.key}
-                type="button"
-                className={`admin-time-range-btn ${timeRange === range.key ? 'is-active' : ''}`}
-                onClick={() => setTimeRange(range.key)}
+        <SegmentedControl options={WINDOW_OPTIONS} value={days} onChange={setDays} />
+      </motion.div>
+
+      {/* ── 2. Primary KPI grid (8 tiles) ───────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total users',       value: clampNumber(stats.total_users),   icon: Users,         accent: 'default' },
+          { label: 'Site visitors',     value: clampNumber(stats.unique_visitors),icon: Eye,           suffix: ' uniq'   },
+          { label: 'Total leads',       value: totalLeads,                        icon: Target,        accent: 'emerald' },
+          { label: 'Calls',             value: totalCalls,                        icon: Phone                           },
+          { label: 'WhatsApp',          value: totalWhatsapp,                     icon: MessageSquare                   },
+          { label: 'Total dealers',     value: totalDealers,                      icon: Store                           },
+          { label: 'Active listing views', value: totalListingViews,              icon: Activity                        },
+          {
+            label: pendingReports.length > 0
+              ? `Reports (${pendingReports.length} pending)`
+              : 'Reports',
+            value: totalReports,
+            icon: AlertTriangle,
+            delta: pendingReports.length > 0 ? -pendingReports.length : undefined,
+          },
+        ].map(({ label, value, icon, accent, suffix, delta }, i) => (
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.04 }}
+          >
+            <KpiTile
+              label={label}
+              value={value}
+              icon={icon}
+              accent={accent}
+              suffix={suffix}
+              delta={delta}
+            />
+          </motion.div>
+        ))}
+      </div>
+
+      {/* ── 3. Pending review queue ──────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
+          Moderation queue
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: 'Cars pending',   value: clampNumber(stats.cars_pending),   icon: Car,   href: '/admin/listings?type=car&status=pending'   },
+            { label: 'Bikes pending',  value: clampNumber(stats.bikes_pending),  icon: Bike,  href: '/admin/listings?type=bike&status=pending'  },
+            { label: 'Parts pending',  value: clampNumber(stats.parts_pending),  icon: Wrench,href: '/admin/listings?type=part&status=pending'  },
+            { label: 'Plates pending', value: clampNumber(stats.plates_pending), icon: Hash,  href: '/admin/listings?type=plate&status=pending' },
+          ].map(({ label, value, icon: Icon, href }, i) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.20 + i * 0.04 }}
+            >
+              <GlassCard
+                className="cursor-pointer hover:bg-white/[0.06] transition-colors"
+                onClick={() => navigate(href)}
               >
-                {range.label}
-              </button>
-            ))}
-          </div>
-          <span className="admin-status-pill tone-success">{formatCompact(totalLeads)} leads</span>
-          <span className="admin-status-pill">{formatCompact(siteVisitors)} visitors</span>
-          <span className="admin-status-pill tone-warning">{formatCompact(pendingApprovals)} pending</span>
-          <span className="admin-status-pill">{formatCompact(verifiedDealers)}/{formatCompact(totalDealers)} dealers verified</span>
-          <Link className="admin-button admin-button-primary" to="/admin/metrics">
-            Open Metrics
-          </Link>
-        </div>
-      </div>
-
-      <div className="admin-kpi-grid">
-        <div className="admin-kpi-card admin-kpi-card-launch">
-          <div className="admin-kpi-label">Days since launch</div>
-          <div className="admin-kpi-value">{getDaysSinceLaunch()}</div>
-          <div className="admin-kpi-note">Launched 9 May 2026. The journey continues.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Total leads</div>
-          <div className="admin-kpi-value">{formatCompact(totalLeads)}</div>
-          <div className="admin-kpi-note">Call and WhatsApp actions across all listings.</div>
-        </div>
-        <div
-          className="admin-kpi-card"
-          title="Unique users who tapped WhatsApp in the selected window. Total raw events: total_whatsapp_events"
-        >
-          <div className="admin-kpi-label">WhatsApp clicks</div>
-          <div className="admin-kpi-value">{formatCompact(totalWhatsapp)}</div>
-          <div className="admin-kpi-note">Unique users who tapped WhatsApp in the selected window.</div>
-        </div>
-        <div
-          className="admin-kpi-card"
-          title="Unique users who tapped Call in the selected window. Total raw events: total_call_events"
-        >
-          <div className="admin-kpi-label">Phone clicks</div>
-          <div className="admin-kpi-value">{formatCompact(totalCalls)}</div>
-          <div className="admin-kpi-note">Unique users who tapped Call in the selected window.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Total views</div>
-          <div className="admin-kpi-value">{formatCompact(totalViews)}</div>
-          <div className="admin-kpi-note">Detail-page mounts in the selected window.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Site visitors</div>
-          <div className="admin-kpi-value">{formatCompact(siteVisitors)}</div>
-          <div className="admin-kpi-note">
-            {platformEventsMissing
-              ? 'Fallback (lead events + signups). Apply the platform_events migration for full tracking.'
-              : 'Unique visitors in the selected window.'}
-          </div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Pending approvals</div>
-          <div className="admin-kpi-value">{formatCompact(pendingApprovals)}</div>
-          <div className="admin-kpi-note">Listings waiting in the moderation queue.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Reports</div>
-          <div className="admin-kpi-value">{formatCompact(totalReports)}</div>
-          <div className="admin-kpi-note">Open and historical reports available to review.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Users</div>
-          <div className="admin-kpi-value">{formatCompact(totalUsers)}</div>
-          <div className="admin-kpi-note">Active accounts in the platform database.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Live users</div>
-          <div className="admin-kpi-value">{formatCompact(liveVisitorsCount)}</div>
-          <div className="admin-kpi-note">Distinct visitors active in the last 5 minutes.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Dealer health</div>
-          <div className="admin-kpi-value">{formatCompact(verifiedDealers)}</div>
-          <div className="admin-kpi-note">{formatCompact(pendingDealers)} still need verification.</div>
-        </div>
-      </div>
-
-      <div className="admin-dashboard-grid admin-section">
-        <div className="admin-list">
-          <div className="admin-surface">
-            <div className="admin-chart-title">
-              <div>
-                <div className="admin-label">Lead mix</div>
-                <h2 style={{ margin: '8px 0 0' }}>30 day signal profile</h2>
-              </div>
-              <span className="admin-status-pill">from lead_events</span>
-            </div>
-            <div className="admin-chart-bars">
-              {leadMix.map((item) => {
-                const width = Math.max(6, (item.value / chartMax) * 100);
-                return (
-                  <div key={item.label} className="admin-chart-row">
-                    <div className="admin-muted">{item.label}</div>
-                    <div className="admin-chart-track">
-                      <div className="admin-chart-fill" style={{ width: `${width}%` }} />
-                    </div>
-                    <div className="admin-chart-value">{formatCompact(item.value)}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="admin-surface">
-            <div className="admin-chart-title">
-              <div>
-                <div className="admin-label">Activity trend</div>
-                <h2 style={{ margin: '8px 0 0' }}>Seven day lead volume</h2>
-              </div>
-              <span className="admin-status-pill tone-success">Recent activity</span>
-            </div>
-            <div className="admin-chart-bars">
-              {weeklyActivity.map((day) => {
-                const width = Math.max(6, (day.total / chartMax) * 100);
-                return (
-                  <div key={day.key} className="admin-chart-row">
-                    <div className="admin-muted">{day.label}</div>
-                    <div className="admin-chart-track">
-                      <div className="admin-chart-fill" style={{ width: `${width}%` }} />
-                    </div>
-                    <div className="admin-chart-value">{formatCompact(day.total)}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="admin-columns">
-            <div className="admin-surface">
-              <div className="admin-label">Moderation queue</div>
-              <h2 style={{ margin: '8px 0 16px' }}>Pending approvals by type</h2>
-              <div className="admin-queue-list">
-                {pendingByType.map((item) => (
-                  <div key={item.label} className="admin-queue-item">
-                    <div>
-                      <strong>{item.label}</strong>
-                      <small>Listings waiting for moderation</small>
-                    </div>
-                    <span className="admin-status-pill tone-warning">{formatCompact(item.value)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="admin-surface">
-              <div className="admin-label">Dealers</div>
-              <h2 style={{ margin: '8px 0 16px' }}>Verification backlog</h2>
-              <div className="admin-queue-list">
-                {topDealerRows.length === 0 ? (
-                  <div className="admin-empty-state">
-                    <h2>No pending dealers</h2>
-                    <p>Dealer verification queue is clear.</p>
-                  </div>
-                ) : (
-                  topDealerRows.map((dealerRow) => (
-                    <div key={dealerRow.id} className="admin-queue-item">
-                      <div>
-                        <strong>{dealerRow.name}</strong>
-                        <small>{dealerRow.company}</small>
-                      </div>
-                      <span className={`admin-status-pill tone-${dealerRow.tone}`}>{dealerRow.status}</span>
-                    </div>
-                  ))
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{label}</p>
+                  <Icon size={14} className="text-white/30" />
+                </div>
+                <p className="text-2xl font-semibold tabular-nums text-white">
+                  {value.toLocaleString('en-AE')}
+                </p>
+                {value > 0 && (
+                  <p className="text-[11px] text-amber-300/70 mt-1">Needs review</p>
                 )}
-              </div>
-            </div>
-          </div>
+              </GlassCard>
+            </motion.div>
+          ))}
         </div>
+      </motion.div>
 
-        <aside className="admin-list">
-          <div className="admin-surface">
-            <div className="admin-label">Quick actions</div>
-            <h2 style={{ margin: '8px 0 16px' }}>Jump straight to the work</h2>
-            <div className="admin-list">
-              {quickLinks.map((item) => (
-                <button key={item.href} type="button" className="admin-queue-item" onClick={() => navigate(item.href)}>
-                  <div style={{ textAlign: 'left' }}>
-                    <strong>{item.label}</strong>
-                    <small>{item.description}</small>
-                  </div>
-                  <span className="admin-status-pill">Open</span>
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* ── 4. Two-column: Lead activity + Pending dealers ──────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4">
 
-          <div className="admin-surface">
-            <div className="admin-label">Reports</div>
-            <h2 style={{ margin: '8px 0 16px' }}>Open items and removals</h2>
-            <div className="admin-queue-list">
-              {recentReports.slice(0, 5).map((report) => (
-                <Link key={report.id} to="/admin/reports" className="admin-queue-item" style={{ textDecoration: 'none' }}>
-                  <div>
-                    <strong>{(report.listing_type || 'listing').toUpperCase()} · {report.reason || 'Report'}</strong>
-                    <small>{report.details || report.status || 'Pending review'}</small>
-                  </div>
-                  <span className="admin-status-pill tone-warning">{report.status || 'pending'}</span>
-                </Link>
-              ))}
-              {recentReports.length === 0 && (
-                <div className="admin-empty-state">
-                  <h2>No recent reports</h2>
-                  <p>Open reports will surface here when they arrive.</p>
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Lead activity chart */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+          <GlassCard>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+              Lead activity
+            </p>
+            <TrendChart
+              series={leadTrendSeries}
+              height={220}
+              showLegend
+              emptyLabel="No lead activity in this window"
+            />
+          </GlassCard>
+        </motion.div>
 
-          <div className="admin-surface">
-            <div className="admin-label">Removal history</div>
-            <h2 style={{ margin: '8px 0 16px' }}>Latest listing actions</h2>
-            <div className="admin-queue-list">
-              {history.slice(0, 6).map((entry) => (
-                <div key={entry.id} className="admin-queue-item">
-                  <div>
-                    <strong>{(entry.listing_type || 'listing').toUpperCase()} · {entry.deleted_by_role || 'admin'}</strong>
-                    <small>{entry.reason || 'Removed with no reason recorded'}</small>
-                  </div>
-                  <span className="admin-status-pill tone-danger">Removed</span>
-                </div>
-              ))}
-              {history.length === 0 && (
-                <div className="admin-empty-state">
-                  <h2>No removal history</h2>
-                  <p>Listing deletion events will appear here.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
+        {/* Pending dealers */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.30 }}>
+          <GlassCard className="flex flex-col h-full">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+              Pending dealers
+            </p>
+
+            {pendingDealers.length === 0 ? (
+              <EmptyState
+                icon={ShieldCheck}
+                title="No pending dealers"
+                description="The verification queue is clear."
+              />
+            ) : (
+              <div className="space-y-2 flex-1">
+                {pendingDealers.slice(0, 5).map((dealer) => {
+                  const initial = (dealer.email || 'D')[0].toUpperCase();
+                  const email = dealer.email || 'No email';
+                  return (
+                    <div
+                      key={dealer.id}
+                      className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0"
+                    >
+                      {/* Initial circle */}
+                      <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-[11px] font-semibold text-amber-300 flex-shrink-0">
+                        {initial}
+                      </div>
+                      <p className="text-sm text-white/70 flex-1 truncate">{email}</p>
+                      <Badge color="amber">Pending</Badge>
+                      <Link
+                        to={`/admin/dealers/${dealer.id}`}
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors flex-shrink-0"
+                      >
+                        Review
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {pendingDealers.length > 0 && (
+              <Link
+                to="/admin/dealers?pending=true"
+                className="mt-4 pt-3 border-t border-white/[0.06] text-[11px] text-white/40 hover:text-white/70 transition-colors flex items-center gap-1"
+              >
+                View all pending <ChevronRight size={11} />
+              </Link>
+            )}
+          </GlassCard>
+        </motion.div>
       </div>
 
-      <div className="admin-columns admin-section">
-        <div className="admin-table-card">
-          <div style={{ padding: '20px 20px 0' }}>
-            <div className="admin-label">Inventory signal</div>
-            <h2 style={{ margin: '8px 0 16px' }}>Pending listings and queue health</h2>
-          </div>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Count</th>
-                <th>Context</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Pending approvals</td>
-                <td>{formatCompact(pendingApprovals)}</td>
-                <td>Listings waiting for review.</td>
-              </tr>
-              <tr>
-                <td>Open reports</td>
-                <td>{formatCompact(pendingReports)}</td>
-                <td>Reports not yet closed.</td>
-              </tr>
-              <tr>
-                <td>Lead actions</td>
-                <td>{formatCompact(totalLeads)}</td>
-                <td>Calls and WhatsApp clicks.</td>
-              </tr>
-              <tr>
-                <td>Dealers verified</td>
-                <td>{formatCompact(verifiedDealers)}</td>
-                <td>Verified dealer accounts.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="admin-table-card">
-          <div style={{ padding: '20px 20px 0' }}>
-            <div className="admin-label">Direct links</div>
-            <h2 style={{ margin: '8px 0 16px' }}>Open the live pages</h2>
-          </div>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Surface</th>
-                <th>Route</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>People</td>
-                <td>/admin/users</td>
-                <td><Link to="/admin/users">Open</Link></td>
-              </tr>
-              <tr>
-                <td>Listings</td>
-                <td>/admin/listings</td>
-                <td><Link to="/admin/listings">Open</Link></td>
-              </tr>
-              <tr>
-                <td>Dealers</td>
-                <td>/admin/dealers</td>
-                <td><Link to="/admin/dealers">Open</Link></td>
-              </tr>
-              <tr>
-                <td>Reports</td>
-                <td>/admin/reports</td>
-                <td><Link to="/admin/reports">Open</Link></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="admin-card" style={{ marginTop: 24 }}>
-          <h3>External Analytics</h3>
-          <p className="admin-muted" style={{ marginTop: -4 }}>
-            Hosted dashboards for traffic, conversions, heatmaps and session
-            recordings. See <code>docs/ANALYTICS_SETUP.md</code> to provision
-            the keys.
+      {/* ── 5. Recent listing activity ───────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
+        <GlassCard>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+            Recent listings
           </p>
-          <div className="admin-actions" style={{ marginTop: 12, gap: 12, flexWrap: 'wrap' }}>
+          {history.length === 0 ? (
+            <EmptyState icon={Activity} title="No listing history" description="Listing activity will appear here." />
+          ) : (
+            <div className="space-y-1">
+              {history.slice(0, 8).map((entry, i) => (
+                <motion.div
+                  key={entry.id || i}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.36 + i * 0.03 }}
+                  className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0"
+                >
+                  <TypeBadge type={entry.listing_type} />
+                  <p className="text-sm text-white/60 font-mono flex-1 truncate">
+                    {String(entry.id || '').slice(0, 8) || '—'}
+                  </p>
+                  <Badge color={entry.status === 'approved' ? 'emerald' : entry.status === 'rejected' ? 'rose' : 'amber'}>
+                    {entry.status || 'removed'}
+                  </Badge>
+                  <span className="text-[11px] text-white/30 flex-shrink-0">
+                    {relTime(entry.created_at || entry.deleted_at)}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+      </motion.div>
+
+      {/* ── 6. Open reports ─────────────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
+        <GlassCard>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+            Open reports
+          </p>
+          {pendingReports.length === 0 ? (
+            <EmptyState icon={Shield} title="No open reports" description="All clear right now." />
+          ) : (
+            <div className="space-y-1">
+              {pendingReports.slice(0, 5).map((report, i) => (
+                <motion.div
+                  key={report.id || i}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.40 + i * 0.03 }}
+                  className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0"
+                >
+                  <SeverityDot severity={report.severity} />
+                  <p className="text-sm text-white/70 flex-1 truncate">
+                    {report.title || report.reason || (report.details || '').slice(0, 60) || 'Report'}
+                  </p>
+                  <span className="text-[11px] text-white/30 flex-shrink-0">
+                    {relTime(report.created_at)}
+                  </span>
+                  <Link
+                    to="/admin/reports"
+                    className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors flex-shrink-0"
+                  >
+                    Review
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+      </motion.div>
+
+      {/* ── 7. Data health (optional) ────────────────────────────────────── */}
+      {dataHealth && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }}>
+          <GlassCard>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-4">
+              Data health
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {Object.entries(dataHealth).map(([key, val]) => {
+                const ok = val === true || val === 'ok' || val === 'healthy' || val === 'indexed';
+                const bad = val === false || val === 'missing' || val === 'down';
+                const icon = ok ? '✓' : bad ? '✗' : '·';
+                const color = ok ? 'text-emerald-400' : bad ? 'text-rose-400' : 'text-amber-400';
+                const label = key.replace(/_/g, ' ');
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className={`font-semibold ${color} w-4 text-center flex-shrink-0`}>{icon}</span>
+                    <span className="text-[11px] text-white/50 capitalize">{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {/* ── External analytics ──────────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}>
+        <GlassCard>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-1">
+            External analytics
+          </p>
+          <p className="text-sm text-white/40 mb-4">
+            Hosted dashboards for traffic, conversions, heatmaps and session recordings.
+          </p>
+          <div className="flex flex-wrap gap-3">
             {analyticsConfig.ga4Enabled ? (
               <a
-                className="admin-button admin-button-primary"
                 href={GA4_DASHBOARD_URL}
                 target="_blank"
                 rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/80 hover:bg-white/10 transition-colors"
               >
-                Open GA4 Dashboard ↗
+                GA4 Dashboard <ExternalLink size={11} />
               </a>
             ) : (
               <button
-                className="admin-button"
                 type="button"
                 disabled
+                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/30 cursor-not-allowed"
                 title="Set REACT_APP_GA4_MEASUREMENT_ID in frontend/.env"
               >
-                GA4 — add REACT_APP_GA4_MEASUREMENT_ID
+                GA4 — add measurement ID
               </button>
             )}
             {analyticsConfig.clarityEnabled ? (
               <a
-                className="admin-button"
                 href={CLARITY_DASHBOARD_URL}
                 target="_blank"
                 rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white/80 hover:bg-white/10 transition-colors"
               >
-                Open Clarity Dashboard ↗
+                Clarity Dashboard <ExternalLink size={11} />
               </a>
             ) : (
               <button
-                className="admin-button"
                 type="button"
                 disabled
+                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/30 cursor-not-allowed"
                 title="Set REACT_APP_CLARITY_PROJECT_ID in frontend/.env"
               >
-                Clarity — add REACT_APP_CLARITY_PROJECT_ID
+                Clarity — add project ID
               </button>
             )}
+            <Link
+              to="/admin/metrics"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+            >
+              Open Metrics <ChevronRight size={11} />
+            </Link>
           </div>
-        </div>
-      </div>
+        </GlassCard>
+      </motion.div>
+
     </div>
   );
 };
