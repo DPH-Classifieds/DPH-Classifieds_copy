@@ -1,91 +1,156 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  ArrowLeft,
+  Car,
+  Bike,
+  Eye,
+  Phone,
+  Flag,
+  Clock,
+  ExternalLink,
+  Trash2,
+  RotateCcw,
+  X,
+  Image as ImageIcon,
+  CheckCircle,
+  XCircle,
+  ShieldCheck,
+} from 'lucide-react';
 import apiClient from '../utils/apiClient';
-import LoadingSpinner from './LoadingSpinner';
+import { GlassCard, KpiTile, EmptyState } from './ui/dashboard';
 import { LISTING_REJECTION_REASONS } from './admin/rejectionConstants';
-import { formatCurrencyAED, formatDateTime, formatNumber, getDisplayName, getEventActorLabel, getListingTitle, getListingTypeLabel, getStatusTone } from './admin/adminUtils';
-import '../styles/AdminOps.css';
+import {
+  formatCurrencyAED,
+  formatDateTime,
+  formatNumber,
+  getDisplayName,
+  getEventActorLabel,
+  getListingTitle,
+  getListingTypeLabel,
+  getStatusTone,
+} from './admin/adminUtils';
+
+/* ── helpers ─────────────────────────────────────────────────────────────── */
 
 const EMPTY_ARRAY = [];
 const EMPTY_OBJECT = {};
 
 const listingRouteType = (value) => {
-  const normalized = String(value || '').toLowerCase();
-  if (normalized === 'cars' || normalized === 'car') return 'car';
-  if (normalized === 'bikes' || normalized === 'bike') return 'bike';
-  if (normalized === 'parts' || normalized === 'part' || normalized === 'car-parts') return 'part';
-  if (normalized === 'plates' || normalized === 'plate') return 'plate';
-  if (normalized === 'buying_requests' || normalized === 'buying_request') return 'buying_request';
+  const n = String(value || '').toLowerCase();
+  if (n === 'cars' || n === 'car') return 'car';
+  if (n === 'bikes' || n === 'bike') return 'bike';
+  if (n === 'parts' || n === 'part' || n === 'car-parts') return 'part';
+  if (n === 'plates' || n === 'plate') return 'plate';
+  if (n === 'buying_requests' || n === 'buying_request') return 'buying_request';
   return 'car';
 };
 
 const listingExtrasFromRecord = (listing) => {
-  if (Array.isArray(listing?.extras) && listing.extras.length > 0) {
-    return listing.extras;
-  }
-
-  const extraMap = {
-    keyless_entry: 'Keyless Entry',
-    dvd_player: 'DVD Player',
-    climate_control: 'Climate Control',
-    navigation_system: 'Navigation System',
-    premium_sound_system: 'Premium Sound System',
-    cooled_seats: 'Cooled Seats',
-    front_wheel_drive: 'Front Wheel Drive',
-    leather_seats: 'Leather Seats',
-    parking_sensors: 'Parking Sensors',
-    rear_view_camera: 'Rear View Camera',
+  if (Array.isArray(listing?.extras) && listing.extras.length > 0) return listing.extras;
+  const map = {
+    keyless_entry: 'Keyless Entry', dvd_player: 'DVD Player',
+    climate_control: 'Climate Control', navigation_system: 'Navigation System',
+    premium_sound_system: 'Premium Sound System', cooled_seats: 'Cooled Seats',
+    front_wheel_drive: 'Front Wheel Drive', leather_seats: 'Leather Seats',
+    parking_sensors: 'Parking Sensors', rear_view_camera: 'Rear View Camera',
   };
-
-  return Object.entries(extraMap)
-    .filter(([key]) => Boolean(listing?.[key]))
-    .map(([, label]) => label);
+  return Object.entries(map).filter(([k]) => Boolean(listing?.[k])).map(([, l]) => l);
 };
 
 const formatFieldValue = (value, format) => {
-  if (format === 'currency') {
-    return formatCurrencyAED(value);
-  }
-
-  if (format === 'date') {
-    return formatDateTime(value);
-  }
-
-  if (format === 'number') {
-    return formatNumber(value);
-  }
-
+  if (format === 'currency') return formatCurrencyAED(value);
+  if (format === 'date') return formatDateTime(value);
+  if (format === 'number') return formatNumber(value);
   if (format === 'chips') {
-    if (!Array.isArray(value) || value.length === 0) {
-      return 'None';
-    }
+    if (!Array.isArray(value) || value.length === 0) return 'None';
     return value;
   }
-
-  if (Array.isArray(value)) {
-    return value.length > 0 ? value.join(', ') : 'None';
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No';
-  }
-
-  if (value === null || value === undefined || value === '') {
-    return 'Not set';
-  }
-
-  if (typeof value === 'object') {
-    return JSON.stringify(value, null, 2);
-  }
-
+  if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : 'None';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (value === null || value === undefined || value === '') return 'Not set';
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
   return String(value);
 };
 
-const buildField = (label, value, format) => ({
-  label,
-  value,
-  format,
-});
+const buildField = (label, value, format) => ({ label, value, format });
+
+/* ── badge helper ─────────────────────────────────────────────────────────── */
+const statusBadgeClass = (status) => {
+  const t = getStatusTone(status);
+  if (t === 'success') return 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20';
+  if (t === 'danger') return 'text-rose-300 bg-rose-500/10 border-rose-500/20';
+  return 'text-amber-300 bg-amber-500/10 border-amber-500/20';
+};
+
+const Badge = ({ children, className = '' }) => (
+  <span className={`text-[10px] font-semibold rounded-full border px-2.5 py-1 ${className}`}>
+    {children}
+  </span>
+);
+
+/* ── section label ────────────────────────────────────────────────────────── */
+const SectionLabel = ({ children }) => (
+  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">{children}</p>
+);
+
+/* ── field row ────────────────────────────────────────────────────────────── */
+const FieldRow = ({ label, value }) => (
+  <div className="flex items-start justify-between gap-3 py-2 border-b border-white/[0.04] last:border-0">
+    <span className="text-xs text-white/40 shrink-0">{label}</span>
+    <span className="text-sm text-white/70 text-right break-all">{value}</span>
+  </div>
+);
+
+/* ── loading skeleton ─────────────────────────────────────────────────────── */
+const Skeleton = () => (
+  <div className="text-white space-y-5 animate-pulse">
+    <div className="h-4 w-32 bg-white/[0.06] rounded-lg" />
+    <div className="h-9 w-64 bg-white/[0.06] rounded-xl" />
+    <div className="grid grid-cols-4 gap-4">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-28" />
+      ))}
+    </div>
+    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-64" />
+  </div>
+);
+
+/* ── modal overlay ────────────────────────────────────────────────────────── */
+const Modal = ({ show, onClose, title, children }) => (
+  <AnimatePresence>
+    {show && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[1000] px-4"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0, y: 8 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 8 }}
+          transition={{ duration: 0.2 }}
+          className="bg-[#0f1117] border border-white/10 rounded-2xl p-7 max-w-lg w-full shadow-2xl"
+        >
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-white">{title}</h2>
+            <button onClick={onClose} className="text-white/40 hover:text-white transition p-1">
+              <X size={18} />
+            </button>
+          </div>
+          {children}
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+const TABS = ['Details', 'Engagement', 'History'];
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
 const AdminListingDetail = () => {
   const { itemType, itemId } = useParams();
@@ -99,6 +164,8 @@ const AdminListingDetail = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [rejectReasonIndex, setRejectReasonIndex] = useState('');
+  const [activeTab, setActiveTab] = useState('Details');
+  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -113,7 +180,6 @@ const AdminListingDetail = () => {
         setLoading(false);
       }
     };
-
     fetchDetail();
   }, [itemId, itemType]);
 
@@ -128,9 +194,10 @@ const AdminListingDetail = () => {
   const verificationStatus = data?.verification_status ?? listing?.verification_status ?? EMPTY_OBJECT;
 
   const primaryRouteType = listingRouteType(itemType);
-  const approvalRouteType = primaryRouteType === 'part' ? 'parts' : primaryRouteType === 'buying_request' ? 'buying_requests' : `${primaryRouteType}s`;
+  const approvalRouteType = primaryRouteType === 'part' ? 'parts'
+    : primaryRouteType === 'buying_request' ? 'buying_requests'
+    : `${primaryRouteType}s`;
   const listingTypeLabel = getListingTypeLabel(itemType);
-  const statusTone = getStatusTone(listing?.status || 'pending');
 
   const handleModerationAction = async (action, extraPayload) => {
     try {
@@ -165,15 +232,10 @@ const AdminListingDetail = () => {
     }
   };
 
-  const leadTotals = useMemo(() => {
-    return leadEvents.reduce(
-      (acc, event) => {
-        acc[event.action] = (acc[event.action] || 0) + 1;
-        return acc;
-      },
-      { call_click: 0, whatsapp_click: 0, vin_open: 0, vin_reveal: 0 }
-    );
-  }, [leadEvents]);
+  const leadTotals = useMemo(() => leadEvents.reduce(
+    (acc, event) => { acc[event.action] = (acc[event.action] || 0) + 1; return acc; },
+    { call_click: 0, whatsapp_click: 0, vin_open: 0, vin_reveal: 0 }
+  ), [leadEvents]);
 
   const detailSections = useMemo(() => {
     const titleValue = getListingTitle(listing);
@@ -220,715 +282,790 @@ const AdminListingDetail = () => {
       ],
     };
 
+    const lifecycleSection = {
+      title: 'Lifecycle & Moderation',
+      fields: [
+        buildField('Approved', listing.is_approved),
+        buildField('Expires at', listing.expires_at, 'date'),
+        buildField('Expired at', listing.expired_at, 'date'),
+        buildField('Retention expires at', listing.retention_expires_at, 'date'),
+        buildField('Archived', listing.is_archived),
+        buildField('Rejection note', listing.rejection_note),
+      ],
+    };
+
     if (primaryRouteType === 'bike') {
-      return [
-        identitySection,
-        {
-          title: 'Bike Specifications',
-          fields: [
-            buildField('Make year', listing.make_year, 'number'),
-            buildField('Make', listing.make || listing.bike_brand),
-            buildField('Model', listing.model || listing.bike_model),
-            buildField('Bike type', listing.bike_type || listing.type || listing.bike_category),
-            buildField('Engine size', listing.engine_size || listing.engine_capacity),
-            buildField('Mileage', listing.mileage || listing.kilometer_driven, 'number'),
-            buildField('Fuel type', listing.fuel_type),
-            buildField('Transmission', listing.transmission_type),
-            buildField('Ownership', listing.ownership_status),
-            buildField('Extras', listingExtrasFromRecord(listing), 'chips'),
-            buildField('Description', listing.description || listing.car_description),
-          ],
-        },
-        ownerSection,
-        locationSection,
-        {
-          title: 'Lifecycle & Moderation',
-          fields: [
-            buildField('Approved', listing.is_approved),
-            buildField('Expires at', listing.expires_at, 'date'),
-            buildField('Expired at', listing.expired_at, 'date'),
-            buildField('Retention expires at', listing.retention_expires_at, 'date'),
-            buildField('Archived', listing.is_archived),
-            buildField('Rejection note', listing.rejection_note),
-          ],
-        },
-      ];
+      return [identitySection, {
+        title: 'Bike Specifications',
+        fields: [
+          buildField('Make year', listing.make_year, 'number'),
+          buildField('Make', listing.make || listing.bike_brand),
+          buildField('Model', listing.model || listing.bike_model),
+          buildField('Bike type', listing.bike_type || listing.type || listing.bike_category),
+          buildField('Engine size', listing.engine_size || listing.engine_capacity),
+          buildField('Mileage', listing.mileage || listing.kilometer_driven, 'number'),
+          buildField('Fuel type', listing.fuel_type),
+          buildField('Transmission', listing.transmission_type),
+          buildField('Ownership', listing.ownership_status),
+          buildField('Extras', listingExtrasFromRecord(listing), 'chips'),
+          buildField('Description', listing.description || listing.car_description),
+        ],
+      }, ownerSection, locationSection, lifecycleSection];
     }
 
     if (primaryRouteType === 'plate') {
-      return [
-        identitySection,
-        {
-          title: 'Plate Details',
-          fields: [
-            buildField('City', listing.city),
-            buildField('Code', listing.code),
-            buildField('Number', listing.number),
-            buildField('Digits', listing.digits, 'number'),
-            buildField('Format', listing.plate_format),
-            buildField('Plate type', listing.plate_type),
-            buildField('Reserved', listing.is_reserved),
-            buildField('Description', listing.description),
-          ],
-        },
-        ownerSection,
-        locationSection,
-        {
-          title: 'Lifecycle & Moderation',
-          fields: [
-            buildField('Approved', listing.is_approved),
-            buildField('Expires at', listing.expires_at, 'date'),
-            buildField('Expired at', listing.expired_at, 'date'),
-            buildField('Retention expires at', listing.retention_expires_at, 'date'),
-            buildField('Archived', listing.is_archived),
-            buildField('Rejection note', listing.rejection_note),
-          ],
-        },
-      ];
+      return [identitySection, {
+        title: 'Plate Details',
+        fields: [
+          buildField('City', listing.city), buildField('Code', listing.code),
+          buildField('Number', listing.number), buildField('Digits', listing.digits, 'number'),
+          buildField('Format', listing.plate_format), buildField('Plate type', listing.plate_type),
+          buildField('Reserved', listing.is_reserved), buildField('Description', listing.description),
+        ],
+      }, ownerSection, locationSection, lifecycleSection];
     }
 
     if (primaryRouteType === 'part') {
-      return [
-        identitySection,
-        {
-          title: 'Part Details',
-          fields: [
-            buildField('Part name', listing.name || listing.part_name),
-            buildField('Brand', listing.brand),
-            buildField('Category', listing.category || listing.part_type),
-            buildField('Compatibility', listing.compatible_makes || listing.compatible_models),
-            buildField('Condition', listing.condition),
-            buildField('Price', listing.price, 'currency'),
-            buildField('Description', listing.description),
-          ],
-        },
-        ownerSection,
-        locationSection,
-        {
-          title: 'Lifecycle & Moderation',
-          fields: [
-            buildField('Approved', listing.is_approved),
-            buildField('Expires at', listing.expires_at, 'date'),
-            buildField('Expired at', listing.expired_at, 'date'),
-            buildField('Retention expires at', listing.retention_expires_at, 'date'),
-            buildField('Archived', listing.is_archived),
-            buildField('Rejection note', listing.rejection_note),
-          ],
-        },
-      ];
+      return [identitySection, {
+        title: 'Part Details',
+        fields: [
+          buildField('Part name', listing.name || listing.part_name),
+          buildField('Brand', listing.brand),
+          buildField('Category', listing.category || listing.part_type),
+          buildField('Compatibility', listing.compatible_makes || listing.compatible_models),
+          buildField('Condition', listing.condition),
+          buildField('Price', listing.price, 'currency'),
+          buildField('Description', listing.description),
+        ],
+      }, ownerSection, locationSection, lifecycleSection];
     }
 
     if (primaryRouteType === 'buying_request') {
-      return [
-        identitySection,
-        {
-          title: 'Buying Request Details',
-          fields: [
-            buildField('Item type', listing.item_type),
-            buildField('Item name', listing.item_name),
-            buildField('Mileage preference', listing.mileage_preference),
-            buildField('Regional spec', listing.regional_spec),
-            buildField('Description / features', listing.reference_notes),
-            buildField('Budget', listing.budget, 'currency'),
-            buildField('Make', listing.car_manufacturer),
-            buildField('Model', listing.car_model),
-            buildField('Trim', listing.trim),
-          ],
-        },
-        ownerSection,
-        locationSection,
-        {
-          title: 'Lifecycle & Moderation',
-          fields: [
-            buildField('Approved', listing.is_approved),
-            buildField('Expires at', listing.expires_at, 'date'),
-            buildField('Expired at', listing.expired_at, 'date'),
-            buildField('Retention expires at', listing.retention_expires_at, 'date'),
-            buildField('Archived', listing.is_archived),
-            buildField('Rejection note', listing.rejection_note),
-          ],
-        },
-      ];
+      return [identitySection, {
+        title: 'Buying Request Details',
+        fields: [
+          buildField('Item type', listing.item_type),
+          buildField('Item name', listing.item_name),
+          buildField('Mileage preference', listing.mileage_preference),
+          buildField('Regional spec', listing.regional_spec),
+          buildField('Description / features', listing.reference_notes),
+          buildField('Budget', listing.budget, 'currency'),
+          buildField('Make', listing.car_manufacturer),
+          buildField('Model', listing.car_model),
+          buildField('Trim', listing.trim),
+        ],
+      }, ownerSection, locationSection, lifecycleSection];
     }
 
-    return [
-      identitySection,
-      {
-        title: 'Car Identity',
-        fields: [
-          buildField('Make year', listing.make_year, 'number'),
-          buildField('Manufacturer', listing.car_manufacturer || listing.make),
-          buildField('Model', listing.car_model || listing.model),
-          buildField('Trim', listing.trim || listing.car_variant),
-          buildField('Body type', listing.body_type),
-          buildField('Regional spec', listing.regional_spec),
-          buildField('Vehicle type', listing.vehicle_type),
-          buildField('Ownership status', listing.ownership_status),
-          buildField('Dealer listing', listing.is_dealer),
-          buildField('Featured listing', listing.featured_listing),
-        ],
-      },
-      {
-        title: 'Specs & Condition',
-        fields: [
-          buildField('Mileage', listing.kilometer_driven || listing.kilometer || listing.mileage, 'number'),
-          buildField('Fuel type', listing.fuel_type),
-          buildField('Transmission', listing.transmission_type),
-          buildField('Steering side', listing.steering_side),
-          buildField('Seating capacity', listing.seating_capacity),
-          buildField('Horsepower', listing.horsepower),
-          buildField('Engine capacity', listing.engine_capacity),
-          buildField('Cylinders', listing.cylinders),
-          buildField('Doors', listing.doors),
-          buildField('Color', listing.color),
-          buildField('Interior color', listing.interior_color),
-          buildField('Drivetrain', listing.drivetrain),
-          buildField('Fuel efficiency', listing.fuel_efficiency),
-          buildField('Top speed', listing.top_speed),
-          buildField('0-100', listing.zero_to_hundred),
-          buildField('Torque', listing.torque),
-          buildField('Insured', listing.is_insured),
-          buildField('Warranty', listing.warranty),
-          buildField('Service history', listing.service_history),
-          buildField('Lady driven', listing.lady_driven),
-        ],
-      },
-      ownerSection,
-      locationSection,
-      {
-        title: 'Description & Extras',
-        fields: [
-          buildField('Listing title', listing.listing_title),
-          buildField('Car description', listing.car_description),
-          buildField('VIN', listing.vin_number || listing.vin),
-          buildField('WhatsApp number', listing.whatsapp_number),
-          buildField('Country code', listing.country_code),
-          buildField('WhatsApp country code', listing.whatsapp_country_code),
-          buildField('WhatsApp pre-text', listing.whatsapp_prefill_text),
-          buildField('Extras', extras, 'chips'),
-        ],
-      },
-      {
-        title: 'Lifecycle & Moderation',
-        fields: [
-          buildField('Approved', listing.is_approved),
-          buildField('Expires at', listing.expires_at, 'date'),
-          buildField('Expired at', listing.expired_at, 'date'),
-          buildField('Retention expires at', listing.retention_expires_at, 'date'),
-          buildField('Last extended at', listing.last_extended_at, 'date'),
-          buildField('Extension count', listing.extension_count, 'number'),
-          buildField('Archived', listing.is_archived),
-          buildField('Rejection note', listing.rejection_note),
-        ],
-      },
-    ];
+    return [identitySection, {
+      title: 'Car Identity',
+      fields: [
+        buildField('Make year', listing.make_year, 'number'),
+        buildField('Manufacturer', listing.car_manufacturer || listing.make),
+        buildField('Model', listing.car_model || listing.model),
+        buildField('Trim', listing.trim || listing.car_variant),
+        buildField('Body type', listing.body_type),
+        buildField('Regional spec', listing.regional_spec),
+        buildField('Vehicle type', listing.vehicle_type),
+        buildField('Ownership status', listing.ownership_status),
+        buildField('Dealer listing', listing.is_dealer),
+        buildField('Featured listing', listing.featured_listing),
+      ],
+    }, {
+      title: 'Specs & Condition',
+      fields: [
+        buildField('Mileage', listing.kilometer_driven || listing.kilometer || listing.mileage, 'number'),
+        buildField('Fuel type', listing.fuel_type),
+        buildField('Transmission', listing.transmission_type),
+        buildField('Steering side', listing.steering_side),
+        buildField('Seating capacity', listing.seating_capacity),
+        buildField('Horsepower', listing.horsepower),
+        buildField('Engine capacity', listing.engine_capacity),
+        buildField('Cylinders', listing.cylinders),
+        buildField('Doors', listing.doors),
+        buildField('Color', listing.color),
+        buildField('Interior color', listing.interior_color),
+        buildField('Drivetrain', listing.drivetrain),
+        buildField('Fuel efficiency', listing.fuel_efficiency),
+        buildField('Top speed', listing.top_speed),
+        buildField('0-100', listing.zero_to_hundred),
+        buildField('Torque', listing.torque),
+        buildField('Insured', listing.is_insured),
+        buildField('Warranty', listing.warranty),
+        buildField('Service history', listing.service_history),
+        buildField('Lady driven', listing.lady_driven),
+      ],
+    }, ownerSection, locationSection, {
+      title: 'Description & Extras',
+      fields: [
+        buildField('Listing title', listing.listing_title),
+        buildField('Car description', listing.car_description),
+        buildField('VIN', listing.vin_number || listing.vin),
+        buildField('WhatsApp number', listing.whatsapp_number),
+        buildField('Country code', listing.country_code),
+        buildField('WhatsApp country code', listing.whatsapp_country_code),
+        buildField('WhatsApp pre-text', listing.whatsapp_prefill_text),
+        buildField('Extras', extras, 'chips'),
+      ],
+    }, {
+      title: 'Lifecycle & Moderation',
+      fields: [
+        buildField('Approved', listing.is_approved),
+        buildField('Expires at', listing.expires_at, 'date'),
+        buildField('Expired at', listing.expired_at, 'date'),
+        buildField('Retention expires at', listing.retention_expires_at, 'date'),
+        buildField('Last extended at', listing.last_extended_at, 'date'),
+        buildField('Extension count', listing.extension_count, 'number'),
+        buildField('Archived', listing.is_archived),
+        buildField('Rejection note', listing.rejection_note),
+      ],
+    }];
   }, [images.length, listing, listingTypeLabel, owner, primaryRouteType]);
 
-  if (loading) {
-    return (
-      <div className="admin-ops admin-page">
-        <LoadingSpinner message="Loading listing intelligence..." />
-      </div>
-    );
-  }
+  /* ── computed display values ──────────────────────────────────────────── */
+  const titleText = getListingTitle(listing);
+  const priceText = formatCurrencyAED(listing.display_price ?? listing.price ?? listing.expected_selling_price);
+  const previewImages = images.slice(0, 3);
+  const daysListed = listing.created_at
+    ? Math.floor((Date.now() - new Date(listing.created_at)) / 86400000)
+    : 0;
+  const isSold = listing.status === 'sold';
+  const isActive = listing.status === 'approved' || listing.status === 'active';
+
+  /* ── loading / error ──────────────────────────────────────────────────── */
+  if (loading) return <Skeleton />;
 
   if (error && !data) {
     return (
-      <div className="admin-ops admin-page">
-        <div className="admin-card">
-          <h2>Listing not available</h2>
-          <p className="admin-muted">{error}</p>
-          <div className="admin-actions" style={{ marginTop: '16px' }}>
-            <button className="admin-button admin-button-secondary" type="button" onClick={() => navigate('/admin/listings')}>
-              Back to listings
-            </button>
-          </div>
-        </div>
+      <div className="text-white flex flex-col items-center justify-center py-24 gap-4">
+        <XCircle size={48} className="text-rose-400/50" />
+        <p className="text-lg font-semibold text-white/70">Listing not available</p>
+        <p className="text-sm text-white/40">{error}</p>
+        <button
+          onClick={() => navigate('/admin/listings')}
+          className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-emerald-400 transition-colors mt-2"
+        >
+          <ArrowLeft size={14} /> Back to listings
+        </button>
       </div>
     );
   }
 
+  /* ── render ───────────────────────────────────────────────────────────── */
   return (
-    <div className="admin-ops admin-page">
-      <div className="admin-page-header">
+    <div className="text-white space-y-5">
+
+      {/* Breadcrumb */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+        <Link
+          to="/admin/listings"
+          className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-emerald-400 transition-colors"
+        >
+          <ArrowLeft size={14} /> Back to listings
+        </Link>
+      </motion.div>
+
+      {/* Title row */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="flex items-start justify-between gap-4 flex-wrap"
+      >
         <div>
-          <Link to="/admin/listings" className="admin-back-link">Back to listings</Link>
-          <h1 className="admin-page-title">{getListingTitle(listing)}</h1>
-          <p className="admin-page-subtitle">
-            Drilldown for {listingTypeLabel.toLowerCase()} performance, moderation history, owner context, and lead activity.
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-semibold text-white">{titleText}</h1>
+            <Badge className={statusBadgeClass(listing.status)}>{listing.status || 'pending'}</Badge>
+            <Badge className="text-sky-300 bg-sky-500/10 border-sky-500/20">{listingTypeLabel}</Badge>
+          </div>
+          <p className="text-sm text-white/40 mt-1">
+            {listing.city || listing.car_city || listing.emirate || 'UAE'} · Owner: {getDisplayName(owner)}
           </p>
         </div>
-        <div className="admin-actions">
-          <span className={`admin-status-pill tone-${statusTone}`}>{listing.status || 'pending'}</span>
-          <span className="admin-status-pill">{listingTypeLabel}</span>
-          <span className="admin-status-pill">{formatNumber(summary.view_count)} views</span>
-        </div>
-      </div>
+        <p className="text-2xl font-semibold text-emerald-300 tabular-nums">{priceText}</p>
+      </motion.div>
 
-      <div className="admin-kpi-grid">
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Qualified Leads</div>
-          <div className="admin-kpi-value">{formatNumber(summary.qualified_leads)}</div>
-          <div className="admin-kpi-note">Call and WhatsApp interactions.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Call Clicks</div>
-          <div className="admin-kpi-value">{formatNumber(summary.call_clicks || leadTotals.call_click)}</div>
-          <div className="admin-kpi-note">Phone intent on this listing.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">WhatsApp Clicks</div>
-          <div className="admin-kpi-value">{formatNumber(summary.whatsapp_clicks || leadTotals.whatsapp_click)}</div>
-          <div className="admin-kpi-note">Messaging intent on this listing.</div>
-        </div>
-        <div className="admin-kpi-card">
-          <div className="admin-kpi-label">Reports</div>
-          <div className="admin-kpi-value">{formatNumber(summary.report_count)}</div>
-          <div className="admin-kpi-note">Reports and moderation actions.</div>
-        </div>
-      </div>
+      {/* KPI tiles */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        <KpiTile label="Views" value={summary.view_count ?? 0} icon={Eye} />
+        <KpiTile label="Qualified Leads" value={summary.qualified_leads ?? 0} icon={Phone} />
+        <KpiTile label="Days Listed" value={daysListed} icon={Clock} />
+        <KpiTile label="Reports" value={summary.report_count ?? 0} icon={Flag} />
+      </motion.div>
 
-      <div className="admin-columns admin-section">
-        <div className="admin-surface">
-          <div className="admin-hero-row">
-            <div>
-              <div className="admin-label">Listing</div>
-              <h2 style={{ margin: '8px 0' }}>{getListingTitle(listing)}</h2>
-              <div className="admin-muted">{formatCurrencyAED(listing.display_price ?? listing.price ?? listing.expected_selling_price)}</div>
-              <div className="admin-muted">{listing.city || listing.car_city || listing.location || 'UAE'}</div>
-            </div>
-            <div className="admin-actions">
-              <span className="admin-chip">Owner: {getDisplayName(owner)}</span>
-              <span className="admin-chip">Created: {formatDateTime(listing.created_at)}</span>
-              <span className="admin-chip">Updated: {formatDateTime(listing.updated_at)}</span>
-            </div>
-          </div>
-
-          <div className="admin-divider" />
-
-          <div className="admin-grid-2">
-            <div className="admin-card">
-              <div className="admin-label">Listing data</div>
-              <p className="admin-muted">Status: {listing.status || 'pending'}</p>
-              <p className="admin-muted">Type: {listingTypeLabel}</p>
-              <p className="admin-muted">Owner email: {owner.email || listing.user_email || 'Not set'}</p>
-              <p className="admin-muted">Owner phone: {owner.phone || owner.whatsapp_number || 'Not set'}</p>
-              <p className="admin-muted">VIN: {listing.vin_number || listing.vin || 'Not set'}</p>
-              <p className="admin-muted">Mileage: {listing.kilometer_driven || listing.kilometer || listing.mileage ? formatNumber(listing.kilometer_driven || listing.kilometer || listing.mileage) : 'N/A'} km</p>
-              <p className="admin-muted">Rejection note: {listing.rejection_note || 'None'}</p>
-            </div>
-            <div className="admin-card">
-              <div className="admin-label">Media</div>
-              <p className="admin-muted">Image count: {formatNumber(images.length)}</p>
-              <p className="admin-muted">Lead events: {formatNumber(leadEvents.length)}</p>
-              <p className="admin-muted">Reports: {formatNumber(reports.length)}</p>
-              <p className="admin-muted">Deletion events: {formatNumber(deletionEvents.length)}</p>
-              <div className="admin-actions" style={{ marginTop: '12px' }}>
-                <button className="admin-button admin-button-primary" type="button" onClick={() => navigate(`/admin/users/${listing.user_id}`)}>
-                  Open owner profile
-                </button>
-                <button className="admin-button admin-button-secondary" type="button" onClick={() => navigate(`/admin/${primaryRouteType}s`)}>
-                  Back to {primaryRouteType}s
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {listing.registration_document_url && (
-          <div className="admin-surface">
-            <div className="admin-label">Registration Document (Mulkiya)</div>
-            <h3>Uploaded for VIN and ownership verification</h3>
-            <p className="admin-muted" style={{ marginBottom: '12px' }}>
-              Compare the VIN on the Mulkiya with the listing VIN: <strong>{listing.vin_number || listing.vin || 'N/A'}</strong>
-            </p>
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <a
-                href={listing.registration_document_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ flexShrink: 0 }}
-              >
-                <img
-                  src={listing.registration_document_url}
-                  alt="Car Registration (Mulkiya)"
-                  style={{
-                    maxWidth: '400px',
-                    width: '100%',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(148, 218, 153, 0.2)',
-                    cursor: 'zoom-in',
-                  }}
-                  onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
-                />
-              </a>
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <p className="admin-muted"><strong>Verification checklist:</strong></p>
-                <ul style={{ margin: '8px 0', paddingLeft: '20px', color: 'rgba(255,255,255,0.6)', fontSize: '13px', lineHeight: '1.8' }}>
-                  <li>VIN on Mulkiya matches listing VIN</li>
-                  <li>Car make and model match</li>
-                  <li>Registration is current (not expired)</li>
-                  <li>Owner name matches (if visible)</li>
-                </ul>
-                <p className="admin-muted" style={{ marginTop: '12px', fontSize: '12px', color: '#f59e0b' }}>
-                  This image will be automatically deleted after the listing is approved.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="admin-surface">
-          <div className="admin-label">Moderation</div>
-          <h3>Approve, reject, or remove</h3>
-          <div className="admin-field">
-            <label htmlFor="moderation-note">Note</label>
-            <textarea
-              id="moderation-note"
-              className="admin-textarea"
-              value={moderationNote}
-              onChange={(event) => setModerationNote(event.target.value)}
-              placeholder="Add an internal note or rejection reason..."
-            />
-          </div>
-          <div className="admin-field" style={{ marginTop: '12px' }}>
-            <label htmlFor="delete-reason">Removal reason</label>
-            <input
-              id="delete-reason"
-              className="admin-input"
-              value={removeReason}
-              onChange={(event) => setRemoveReason(event.target.value)}
-              placeholder="Reason for deletion"
-            />
-          </div>
-          <div className="admin-actions" style={{ marginTop: '16px' }}>
-            {listing.status !== 'approved' ? (
-              <button className="admin-button admin-button-primary" type="button" disabled={actionLoading} onClick={() => handleModerationAction('approve')}>
-                Approve
-              </button>
-            ) : null}
-            <button className="admin-button" type="button" disabled={actionLoading} onClick={() => setShowRejectModal(true)}>
-              Reject
-            </button>
-            <button
-              className="admin-button admin-button-secondary"
-              type="button"
-              disabled={actionLoading}
-              onClick={async () => {
-                try {
-                  setActionLoading(true);
-                  await apiClient.post(`/api/admin/listings/${itemType}/${itemId}/vin-unlock`, {});
-                  const response = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
-                  setData(response || null);
-                } catch (unlockError) {
-                  setError(unlockError.message || 'Failed to unlock VIN');
-                } finally {
-                  setActionLoading(false);
-                }
-              }}
-            >
-              VIN Unlock
-            </button>
-            <button className="admin-button admin-button-danger" type="button" disabled={actionLoading} onClick={() => setShowDeleteConfirm(true)}>
-              Remove listing
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="admin-section">
-        <h2>Verification Scan</h2>
-        <div className="admin-grid-2">
-          <div className="admin-card">
-            <div className="admin-label">Verification status</div>
-            <div className="admin-detail-list">
-              <div className="admin-detail-row">
-                <div className="admin-detail-label">Needs review</div>
-                <div className="admin-detail-value">{verificationStatus.needs_review ? 'Yes' : 'No'}</div>
-              </div>
-              <div className="admin-detail-row">
-                <div className="admin-detail-label">VIN valid</div>
-                <div className="admin-detail-value">{verificationStatus.vin_valid ? 'Yes' : 'No'}</div>
-              </div>
-              <div className="admin-detail-row">
-                <div className="admin-detail-label">OCR confidence</div>
-                <div className="admin-detail-value">{Math.round(Number(verificationStatus.confidence || 0) * 100)}%</div>
-              </div>
-              <div className="admin-detail-row">
-                <div className="admin-detail-label">Extracted make</div>
-                <div className="admin-detail-value">{verificationStatus.fields?.make || 'Not set'}</div>
-              </div>
-              <div className="admin-detail-row">
-                <div className="admin-detail-label">Extracted model</div>
-                <div className="admin-detail-value">{verificationStatus.fields?.model || 'Not set'}</div>
-              </div>
-              <div className="admin-detail-row">
-                <div className="admin-detail-label">Extracted year</div>
-                <div className="admin-detail-value">{verificationStatus.fields?.year || 'Not set'}</div>
-              </div>
-              <div className="admin-detail-row">
-                <div className="admin-detail-label">Extracted VIN</div>
-                <div className="admin-detail-value">{verificationStatus.fields?.vin || 'Not set'}</div>
-              </div>
-            </div>
-          </div>
-          <div className="admin-card">
-            <div className="admin-label">Raw OCR text</div>
-            <pre className="admin-muted" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-              {latestVerificationScan.raw_text || 'No scan captured'}
-            </pre>
-          </div>
-        </div>
-      </div>
-
-      <div className="admin-section">
-        <h2>Full listing schema</h2>
-        <div className="admin-grid-2">
-          {detailSections.map((section) => (
-            <div key={section.title} className="admin-card">
-              <div className="admin-label">{section.title}</div>
-              <div className="admin-detail-list">
-                {section.fields.map((field) => {
-                  const renderedValue = formatFieldValue(field.value, field.format);
-                  return (
-                    <div key={field.label} className="admin-detail-row">
-                      <div className="admin-detail-label">{field.label}</div>
-                      <div className="admin-detail-value">
-                        {field.format === 'chips' && Array.isArray(renderedValue) ? (
-                          renderedValue.length > 0 ? (
-                            <div className="admin-chip-list">
-                              {renderedValue.map((chip) => (
-                                <span key={chip} className="admin-chip">{chip}</span>
-                              ))}
-                            </div>
-                          ) : (
-                            'None'
-                          )
-                        ) : (
-                          renderedValue
-                        )}
+      {/* Hero card: gallery + meta */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+      >
+        <GlassCard>
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Gallery */}
+            <div className="flex-1 min-w-0">
+              <SectionLabel>Gallery</SectionLabel>
+              {previewImages.length === 0 ? (
+                <div className="flex items-center justify-center h-48 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  {primaryRouteType === 'bike'
+                    ? <Bike size={48} className="text-white/20" />
+                    : <Car size={48} className="text-white/20" />}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {previewImages.map((img) => (
+                    <button
+                      key={img.id || img.image_url}
+                      type="button"
+                      onClick={() => setLightboxUrl(img.display_url || img.image_url || img.url)}
+                      className="relative overflow-hidden rounded-xl border border-white/[0.06] hover:border-emerald-500/30 transition-all"
+                    >
+                      <img
+                        src={img.display_url || img.image_url || img.url}
+                        alt={titleText}
+                        className="w-full object-cover"
+                        style={{ height: '200px' }}
+                        onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                      />
+                      {img.is_primary && (
+                        <span className="absolute top-1.5 left-1.5 text-[9px] font-bold bg-emerald-500/90 text-emerald-950 rounded px-1.5 py-0.5">
+                          PRIMARY
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  {images.length > 3 && (
+                    <div className="flex items-center justify-center rounded-xl bg-white/[0.03] border border-white/[0.06]" style={{ height: '200px' }}>
+                      <div className="text-center">
+                        <ImageIcon size={24} className="text-white/30 mx-auto mb-1" />
+                        <p className="text-xs text-white/40">+{images.length - 3} more</p>
                       </div>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Meta sidebar */}
+            <div className="lg:w-72 space-y-4">
+              <div>
+                <SectionLabel>Quick info</SectionLabel>
+                <div className="space-y-1">
+                  <FieldRow label="Owner" value={getDisplayName(owner)} />
+                  <FieldRow label="Email" value={owner.email || listing.user_email || 'N/A'} />
+                  <FieldRow label="Phone" value={owner.phone || owner.whatsapp_number || 'N/A'} />
+                  <FieldRow label="VIN" value={listing.vin_number || listing.vin || 'N/A'} />
+                  <FieldRow
+                    label="Mileage"
+                    value={
+                      listing.kilometer_driven || listing.kilometer || listing.mileage
+                        ? `${formatNumber(listing.kilometer_driven || listing.kilometer || listing.mileage)} km`
+                        : 'N/A'
+                    }
+                  />
+                  <FieldRow label="Created" value={formatDateTime(listing.created_at)} />
+                  <FieldRow label="Updated" value={formatDateTime(listing.updated_at)} />
+                </div>
               </div>
+
+              {/* Mulkiya */}
+              {listing.registration_document_url && (
+                <div>
+                  <SectionLabel>Mulkiya (Reg. doc)</SectionLabel>
+                  <a href={listing.registration_document_url} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={listing.registration_document_url}
+                      alt="Registration document"
+                      className="w-full rounded-xl border border-emerald-500/20 hover:border-emerald-500/40 transition cursor-zoom-in"
+                      style={{ maxHeight: '180px', objectFit: 'cover' }}
+                      onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                    />
+                  </a>
+                  <p className="text-[10px] text-amber-400 mt-1.5">
+                    Auto-deleted after approval.
+                  </p>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        </GlassCard>
+      </motion.div>
 
-      <div className="admin-section">
-        <h2>Images</h2>
-        <div className="admin-three-up">
-          {images.length === 0 ? (
-            <div className="admin-card">No images available.</div>
-          ) : images.map((image) => (
-            <div key={image.id || image.image_url} className="admin-card">
-              <img
-                src={image.display_url || image.image_url || image.url}
-                alt={getListingTitle(listing)}
-                style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: '16px' }}
-              />
-              <p className="admin-muted" style={{ marginTop: '10px' }}>
-                Primary: {image.is_primary ? 'Yes' : 'No'} · Uploaded: {formatDateTime(image.uploaded_at)}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="admin-columns admin-section">
-        <div className="admin-table-card">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Actor</th>
-                <th>Lead event</th>
-                <th>Action</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leadEvents.length === 0 ? (
-                <tr><td colSpan="4" className="admin-muted">No lead events found.</td></tr>
-              ) : leadEvents.slice(0, 15).map((event) => (
-                <tr key={event.id}>
-                  <td>{getEventActorLabel(event)}</td>
-                  <td>{event.listing_type} · {event.listing_id}</td>
-                  <td>{event.action}</td>
-                  <td>{formatDateTime(event.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="admin-table-card">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Reports</th>
-                <th>Reason</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.length === 0 ? (
-                <tr><td colSpan="3" className="admin-muted">No reports found.</td></tr>
-              ) : reports.slice(0, 15).map((report) => (
-                <tr key={report.id}>
-                  <td>{report.listing_type} · {report.listing_id}</td>
-                  <td>{report.reason || 'N/A'}</td>
-                  <td>{report.status || 'pending'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="admin-section">
-        <h2>Deletion history</h2>
-        <div className="admin-table-card">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Reason</th>
-                <th>Deleted by</th>
-                <th>When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deletionEvents.length === 0 ? (
-                <tr><td colSpan="3" className="admin-muted">No deletion history found.</td></tr>
-              ) : deletionEvents.map((event) => (
-                <tr key={event.id}>
-                  <td>{event.reason}</td>
-                  <td>{event.deleted_by_role}</td>
-                  <td>{formatDateTime(event.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showRejectModal && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content" style={{ background: '#1a1a2e', borderRadius: 16, padding: 28, maxWidth: 500, width: '90%', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ margin: 0, color: '#fff', fontSize: 18 }}>Reject Listing</h2>
-              <button onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setModerationNote(''); }} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 20 }}>×</button>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label htmlFor="reject-reason-select" style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>Reason for rejection *</label>
-              <select
-                id="reject-reason-select"
-                value={rejectReasonIndex}
-                onChange={(e) => setRejectReasonIndex(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14 }}
+      {/* Main content: tabbed + right sidebar */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.15 }}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-5"
+      >
+        {/* Left: tabs */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Tab switcher */}
+          <div className="flex gap-1 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1 w-fit">
+            {TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === tab
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
               >
-                <option value="">Select a reason...</option>
-                {LISTING_REJECTION_REASONS.map((item, idx) => (
-                  <option key={idx} value={idx}>{item.reason}</option>
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Details tab */}
+          {activeTab === 'Details' && (
+            <div className="space-y-4">
+              {/* Verification scan */}
+              <GlassCard>
+                <SectionLabel>Verification Scan</SectionLabel>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <FieldRow label="Needs review" value={verificationStatus.needs_review ? 'Yes' : 'No'} />
+                    <FieldRow label="VIN valid" value={verificationStatus.vin_valid ? 'Yes' : 'No'} />
+                    <FieldRow label="OCR confidence" value={`${Math.round(Number(verificationStatus.confidence || 0) * 100)}%`} />
+                    <FieldRow label="Extracted make" value={verificationStatus.fields?.make || 'Not set'} />
+                    <FieldRow label="Extracted model" value={verificationStatus.fields?.model || 'Not set'} />
+                    <FieldRow label="Extracted year" value={verificationStatus.fields?.year || 'Not set'} />
+                    <FieldRow label="Extracted VIN" value={verificationStatus.fields?.vin || 'Not set'} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium mb-2">Raw OCR text</p>
+                    <pre className="text-xs text-white/50 whitespace-pre-wrap bg-white/[0.02] rounded-lg p-3 border border-white/[0.04]">
+                      {latestVerificationScan.raw_text || 'No scan captured'}
+                    </pre>
+                  </div>
+                </div>
+              </GlassCard>
+
+              {/* Full schema sections */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {detailSections.map((section) => (
+                  <GlassCard key={section.title}>
+                    <SectionLabel>{section.title}</SectionLabel>
+                    {section.fields.map((field) => {
+                      const rendered = formatFieldValue(field.value, field.format);
+                      if (field.format === 'chips' && Array.isArray(rendered)) {
+                        return (
+                          <div key={field.label} className="py-2 border-b border-white/[0.04] last:border-0">
+                            <span className="text-xs text-white/40 block mb-1">{field.label}</span>
+                            {rendered.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {rendered.map((chip) => (
+                                  <span key={chip} className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.08] text-white/60">
+                                    {chip}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-white/40">None</span>
+                            )}
+                          </div>
+                        );
+                      }
+                      return <FieldRow key={field.label} label={field.label} value={rendered} />;
+                    })}
+                  </GlassCard>
                 ))}
-              </select>
-            </div>
-            {rejectReasonIndex !== '' && (
-              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                <div style={{ fontSize: 12, color: '#fca5a5', marginBottom: 4, fontWeight: 600 }}>How to fix:</div>
-                <div style={{ fontSize: 13, color: '#ddd', lineHeight: 1.5 }}>{LISTING_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</div>
               </div>
-            )}
-            <div style={{ marginBottom: 16 }}>
-              <label htmlFor="reject-note" style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 4 }}>Additional notes (optional)</label>
+            </div>
+          )}
+
+          {/* Engagement tab */}
+          {activeTab === 'Engagement' && (
+            <GlassCard>
+              <SectionLabel>Lead Events (last 20)</SectionLabel>
+              {leadEvents.length === 0 ? (
+                <EmptyState
+                  icon={Phone}
+                  title="No lead events"
+                  description="No call or WhatsApp events recorded for this listing yet."
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/[0.06]">
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Actor</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Action</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Source</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leadEvents.slice(0, 20).map((event) => (
+                        <tr key={event.id} className="border-b border-white/[0.04] last:border-0">
+                          <td className="py-2.5 text-white/70">{getEventActorLabel(event)}</td>
+                          <td className="py-2.5">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                              {event.action}
+                            </span>
+                          </td>
+                          <td className="py-2.5 text-white/50">{event.listing_type}</td>
+                          <td className="py-2.5 text-white/40 text-xs">{formatDateTime(event.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </GlassCard>
+          )}
+
+          {/* History tab */}
+          {activeTab === 'History' && (
+            <div className="space-y-4">
+              <GlassCard>
+                <SectionLabel>Reports</SectionLabel>
+                {reports.length === 0 ? (
+                  <EmptyState
+                    icon={Flag}
+                    title="No reports"
+                    description="No reports have been filed against this listing."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Listing</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Reason</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reports.slice(0, 15).map((report) => (
+                          <tr key={report.id} className="border-b border-white/[0.04] last:border-0">
+                            <td className="py-2.5 text-white/70">{report.listing_type} · {report.listing_id}</td>
+                            <td className="py-2.5 text-white/60">{report.reason || 'N/A'}</td>
+                            <td className="py-2.5">
+                              <Badge className={statusBadgeClass(report.status)}>{report.status || 'pending'}</Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </GlassCard>
+
+              <GlassCard>
+                <SectionLabel>Deletion History</SectionLabel>
+                {deletionEvents.length === 0 ? (
+                  <EmptyState
+                    icon={Trash2}
+                    title="No deletion history"
+                    description="No deletion or removal events found for this listing."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Reason</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Deleted by</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">When</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deletionEvents.map((event) => (
+                          <tr key={event.id} className="border-b border-white/[0.04] last:border-0">
+                            <td className="py-2.5 text-white/70">{event.reason}</td>
+                            <td className="py-2.5 text-white/50">{event.deleted_by_role}</td>
+                            <td className="py-2.5 text-white/40 text-xs">{formatDateTime(event.created_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </GlassCard>
+            </div>
+          )}
+        </div>
+
+        {/* Right: admin actions */}
+        <div className="space-y-4">
+          <GlassCard>
+            <SectionLabel>Admin Actions</SectionLabel>
+            <div className="space-y-2.5">
+              {/* View public page */}
+              <a
+                href={listing.tour_url || `/${approvalRouteType}/${itemId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center gap-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl px-4 py-3 text-sm border border-white/10 transition"
+              >
+                <ExternalLink size={15} className="text-white/30 flex-shrink-0" />
+                <span>View public page</span>
+              </a>
+
+              {/* Open owner */}
+              <button
+                type="button"
+                onClick={() => navigate(`/admin/users/${listing.user_id}`)}
+                className="w-full inline-flex items-center gap-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl px-4 py-3 text-sm border border-white/10 transition text-left"
+              >
+                <Eye size={15} className="text-white/30 flex-shrink-0" />
+                <span>Open owner profile</span>
+              </button>
+
+              <div className="border-t border-white/[0.06] my-1" />
+
+              {/* Approve / Reject */}
+              {listing.status !== 'approved' && (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => handleModerationAction('approve')}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-xl px-4 py-3 text-sm transition disabled:opacity-50"
+                >
+                  <CheckCircle size={15} />
+                  {actionLoading ? 'Working…' : 'Approve listing'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => setShowRejectModal(true)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl px-4 py-3 text-sm transition font-semibold disabled:opacity-50"
+              >
+                <XCircle size={15} />
+                Reject listing
+              </button>
+
+              {/* VIN Unlock */}
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={async () => {
+                  try {
+                    setActionLoading(true);
+                    await apiClient.post(`/api/admin/listings/${itemType}/${itemId}/vin-unlock`, {});
+                    const response = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
+                    setData(response || null);
+                  } catch (unlockError) {
+                    setError(unlockError.message || 'Failed to unlock VIN');
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+                className="w-full inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl px-4 py-3 text-sm transition font-medium disabled:opacity-50"
+              >
+                <ShieldCheck size={15} />
+                VIN Unlock
+              </button>
+
+              <div className="border-t border-white/[0.06] my-1" />
+
+              {/* Status flip */}
+              {isActive ? (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl px-4 py-3 text-sm transition font-semibold disabled:opacity-50"
+                >
+                  <RotateCcw size={15} />
+                  Mark removed
+                </button>
+              ) : !isSold && (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => handleModerationAction('approve')}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl px-4 py-3 text-sm transition font-medium disabled:opacity-50"
+                >
+                  <RotateCcw size={15} />
+                  Restore listing
+                </button>
+              )}
+
+              {/* Delete permanently */}
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl px-4 py-3 text-sm transition font-semibold disabled:opacity-50"
+              >
+                <Trash2 size={15} />
+                Delete permanently
+              </button>
+            </div>
+
+            {/* Moderation note */}
+            <div className="mt-4 pt-4 border-t border-white/[0.06]">
+              <SectionLabel>Moderation note</SectionLabel>
               <textarea
-                id="reject-note"
+                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/70 placeholder-white/25 resize-none focus:outline-none focus:border-emerald-500/40 transition"
                 rows={3}
                 value={moderationNote}
                 onChange={(e) => setModerationNote(e.target.value)}
-                placeholder="Add any extra context..."
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, resize: 'vertical' }}
+                placeholder="Internal note or rejection reason…"
+              />
+              <input
+                className="w-full mt-2 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/70 placeholder-white/25 focus:outline-none focus:border-emerald-500/40 transition"
+                value={removeReason}
+                onChange={(e) => setRemoveReason(e.target.value)}
+                placeholder="Removal reason (for delete)"
               />
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setModerationNote(''); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#aaa', cursor: 'pointer' }}>Cancel</button>
-              <button
-                onClick={() => handleModerationAction('reject')}
-                disabled={actionLoading || rejectReasonIndex === ''}
-                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: rejectReasonIndex === '' ? '#555' : '#ef4444', color: '#fff', cursor: rejectReasonIndex === '' ? 'not-allowed' : 'pointer', fontWeight: 600 }}
-              >
-                {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {showDeleteConfirm && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content" style={{ background: '#1a1a2e', borderRadius: 16, padding: 28, maxWidth: 540, width: '90%', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ margin: 0, color: '#fff', fontSize: 18 }}>Confirm Permanent Removal</h2>
-              <button onClick={() => setShowDeleteConfirm(false)} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 20 }}>×</button>
+            {error && (
+              <p className="mt-3 text-xs text-rose-300">{error}</p>
+            )}
+          </GlassCard>
+
+          {/* Lead summary card */}
+          <GlassCard>
+            <SectionLabel>Lead Summary</SectionLabel>
+            <FieldRow label="Call clicks" value={formatNumber(summary.call_clicks || leadTotals.call_click)} />
+            <FieldRow label="WhatsApp clicks" value={formatNumber(summary.whatsapp_clicks || leadTotals.whatsapp_click)} />
+            <FieldRow label="VIN opens" value={formatNumber(leadTotals.vin_open)} />
+            <FieldRow label="VIN reveals" value={formatNumber(leadTotals.vin_reveal)} />
+            <FieldRow label="Total events" value={formatNumber(leadEvents.length)} />
+          </GlassCard>
+        </div>
+      </motion.div>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightboxUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[2000] p-4"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <motion.img
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              src={lightboxUrl}
+              alt="Full size"
+              className="max-w-full max-h-full rounded-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-6 right-6 text-white/60 hover:text-white bg-white/10 rounded-full p-2 transition"
+            >
+              <X size={20} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reject modal */}
+      <Modal
+        show={showRejectModal}
+        onClose={() => { setShowRejectModal(false); setRejectReasonIndex(''); setModerationNote(''); }}
+        title="Reject Listing"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs text-white/50 mb-1.5">Reason for rejection *</label>
+            <select
+              value={rejectReasonIndex}
+              onChange={(e) => setRejectReasonIndex(e.target.value)}
+              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/40"
+            >
+              <option value="">Select a reason…</option>
+              {LISTING_REJECTION_REASONS.map((item, idx) => (
+                <option key={idx} value={idx}>{item.reason}</option>
+              ))}
+            </select>
+          </div>
+          {rejectReasonIndex !== '' && (
+            <div className="p-3 rounded-xl bg-rose-500/[0.08] border border-rose-500/20">
+              <p className="text-[11px] text-rose-300 font-semibold uppercase tracking-wide mb-1">How to fix:</p>
+              <p className="text-sm text-white/70">{LISTING_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</p>
             </div>
-            <div style={{ marginBottom: 16, textAlign: 'center' }}>
-              <div style={{
-                width: 56,
-                height: 56,
-                borderRadius: '50%',
-                background: 'rgba(239,68,68,0.12)',
-                border: '2px solid rgba(239,68,68,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 20px',
-              }}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  <line x1="10" y1="11" x2="10" y2="17" />
-                  <line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
-              </div>
-              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', marginBottom: 8 }}>
-                This action cannot be undone.
-              </p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
-                <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{getListingTitle(listing)}</strong>
-                <br />will be permanently deleted and the owner will be emailed.
-              </p>
-            </div>
-            <div style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 10,
-              padding: 12,
-              textAlign: 'left',
-              marginBottom: 20,
-            }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Reason</p>
-              <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.8)' }}>{removeReason || moderationNote || 'Removed by admin'}</p>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#aaa', cursor: 'pointer' }}>Go Back</button>
-              <button
-                onClick={async () => {
-                  try {
-                    await handleModerationAction('delete');
-                    setShowDeleteConfirm(false);
-                  } catch (error) {
-                    // handleModerationAction already surfaces the error
-                  }
-                }}
-                disabled={actionLoading}
-                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: actionLoading ? '#555' : 'linear-gradient(135deg, #ef4444, #991b1b)', color: '#fff', cursor: actionLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}
-              >
-                {actionLoading ? 'Removing...' : 'Yes, Delete Permanently'}
-              </button>
-            </div>
+          )}
+          <div>
+            <label className="block text-xs text-white/50 mb-1.5">Additional notes (optional)</label>
+            <textarea
+              rows={3}
+              value={moderationNote}
+              onChange={(e) => setModerationNote(e.target.value)}
+              placeholder="Add any extra context…"
+              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-amber-500/40"
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => { setShowRejectModal(false); setRejectReasonIndex(''); setModerationNote(''); }}
+              className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleModerationAction('reject')}
+              disabled={actionLoading || rejectReasonIndex === ''}
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {actionLoading ? 'Rejecting…' : 'Confirm Rejection'}
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      {/* Delete confirm modal */}
+      <Modal
+        show={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Confirm Permanent Removal"
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col items-center text-center gap-3 py-2">
+            <div className="w-14 h-14 rounded-full bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center">
+              <Trash2 size={24} className="text-rose-400" />
+            </div>
+            <p className="text-sm text-white/70">This action cannot be undone.</p>
+            <p className="text-sm text-white/50">
+              <span className="text-white/80 font-medium">{titleText}</span>
+              <br />will be permanently deleted and the owner will be emailed.
+            </p>
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-white/30 mb-1">Reason</p>
+            <p className="text-sm text-white/70">{removeReason || moderationNote || 'Removed by admin'}</p>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await handleModerationAction('delete');
+                  setShowDeleteConfirm(false);
+                } catch (_) {
+                  // handleModerationAction surfaces the error
+                }
+              }}
+              disabled={actionLoading}
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-white transition disabled:opacity-40"
+            >
+              {actionLoading ? 'Removing…' : 'Yes, Delete Permanently'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
