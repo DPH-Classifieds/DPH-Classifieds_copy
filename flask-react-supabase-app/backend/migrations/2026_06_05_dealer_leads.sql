@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.dealer_leads (
 
     contact_phone   text,
     contact_name    text,
-    assigned_to     uuid REFERENCES public.users(id),
+    assigned_to     uuid REFERENCES public.users(id) ON DELETE SET NULL,
     status          text NOT NULL DEFAULT 'new'
                     CHECK (status IN ('new','contacted','quoted','test_drive','won','lost')),
     lost_reason     text CHECK (lost_reason IS NULL
@@ -33,13 +33,15 @@ CREATE TABLE IF NOT EXISTS public.dealer_leads (
     updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
--- Dedupe uniqueness: one row per (dealership, listing, source, visitor_or_fingerprint).
+-- Lookup indexes: help the aggregator find rows to dedupe within time windows.
 -- Anonymous leads use `fingerprint`; logged-in use `visitor_id`.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_dealer_leads_dedupe_visitor
+-- NOT UNIQUE: time-windowed dedupe (24h/30min) is enforced by the worker,
+-- not the database, so after the window expires a fresh row must be insertable.
+CREATE INDEX IF NOT EXISTS idx_dealer_leads_lookup_visitor
     ON public.dealer_leads (dealership_id, listing_type, listing_id, source, visitor_id)
     WHERE visitor_id IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_dealer_leads_dedupe_fingerprint
+CREATE INDEX IF NOT EXISTS idx_dealer_leads_lookup_fingerprint
     ON public.dealer_leads (dealership_id, listing_type, listing_id, source, fingerprint)
     WHERE visitor_id IS NULL AND fingerprint IS NOT NULL;
 
@@ -54,7 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_dealer_leads_listing
 CREATE TABLE IF NOT EXISTS public.dealer_lead_events (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     lead_id         uuid NOT NULL REFERENCES public.dealer_leads(id) ON DELETE CASCADE,
-    actor_user_id   uuid REFERENCES public.users(id),
+    actor_user_id   uuid REFERENCES public.users(id) ON DELETE SET NULL,
     kind            text NOT NULL
                     CHECK (kind IN ('status_change','note','assignment','inbound_contact')),
     payload         jsonb NOT NULL DEFAULT '{}'::jsonb,
