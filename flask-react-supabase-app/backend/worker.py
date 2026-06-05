@@ -125,6 +125,7 @@ def main():
             _run_listing_expiry_reminders_once,
             _run_listing_lifecycle_sweep_once,
         )
+        from workers.webhook_delivery_worker import run as _run_webhook_delivery_once
         from health_monitoring import (
             HEALTH_CHECK_INTERVAL_SECONDS,
             WORKER_HEARTBEAT_INTERVAL_SECONDS,
@@ -161,6 +162,9 @@ def main():
     )
     listing_sweep_interval_seconds = int(
         os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))
+    )
+    webhook_delivery_interval_seconds = int(
+        os.getenv("WEBHOOK_DELIVERY_INTERVAL_SECONDS", "5")
     )
 
     health_server_thread = threading.Thread(
@@ -219,12 +223,27 @@ def main():
         name="listing-lifecycle-sweep",
         daemon=True,
     )
+    webhook_delivery_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "webhook_delivery_worker",
+            _run_webhook_delivery_once,
+            webhook_delivery_interval_seconds,
+        ),
+        name="webhook-delivery",
+        daemon=True,
+    )
     reminder_thread.start()
     sweep_thread.start()
+    webhook_delivery_thread.start()
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss sweep=%ss)",
         listing_reminder_interval_seconds,
         listing_sweep_interval_seconds,
+    )
+    logger.info(
+        "Webhook delivery worker started (interval=%ss)",
+        webhook_delivery_interval_seconds,
     )
 
     cleanup_thread = None
@@ -264,6 +283,7 @@ def main():
         monitor_thread.join(timeout=5)
         reminder_thread.join(timeout=5)
         sweep_thread.join(timeout=5)
+        webhook_delivery_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 
