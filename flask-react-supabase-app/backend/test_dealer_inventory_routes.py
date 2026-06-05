@@ -16,6 +16,10 @@ def app_with_inventory():
         import app as flask_app_module
         from routes.dealer.inventory import inventory_bp
         if "dealer_inventory" not in flask_app_module.app.blueprints:
+            # Reset _got_first_request so this module can register late even
+            # if a prior test module already served a request via the same
+            # Flask app instance.
+            flask_app_module.app._got_first_request = False
             flask_app_module.app.register_blueprint(inventory_bp)
         flask_app_module.app.config["TESTING"] = True
         yield flask_app_module.app

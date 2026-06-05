@@ -28,6 +28,10 @@ def app_with_api_sources():
         import app as flask_app_module
         from routes.dealer.api_sources import api_sources_bp
         if "dealer_api_sources" not in flask_app_module.app.blueprints:
+            # Earlier test modules may have served a request through the same
+            # Flask app, which sets _got_first_request and blocks late
+            # register_blueprint. Reset so this module can register cleanly.
+            flask_app_module.app._got_first_request = False
             flask_app_module.app.register_blueprint(api_sources_bp)
         flask_app_module.app.config["TESTING"] = True
         yield flask_app_module.app
