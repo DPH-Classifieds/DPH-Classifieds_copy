@@ -40,6 +40,12 @@ function ScrollToTop() {
   return null;
 }
 
+function SiteChrome({ children }) {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin')) return null;
+  return <>{children}</>;
+}
+
 function BackToTop() {
   const [visible, setVisible] = useState(false);
 
@@ -229,11 +235,13 @@ function App() {
           <PlatformAnalyticsTracker />
           <UserBehaviorTracker />
           <div className="app">
-            <Header />
-            <AnnouncementBanner />
-            <DealerPendingBanner />
-            <UsernameRequiredBanner />
-            <SavedListingsNotice />
+            <SiteChrome>
+              <Header />
+              <AnnouncementBanner />
+              <DealerPendingBanner />
+              <UsernameRequiredBanner />
+              <SavedListingsNotice />
+            </SiteChrome>
             <main className="app-content">
               <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
                 <Routes>
@@ -332,7 +340,9 @@ function App() {
                 </Routes>
               </Suspense>
             </main>
-            <Footer />
+            <SiteChrome>
+              <Footer />
+            </SiteChrome>
           </div>
           <CookieBanner />
           <BackToTop />

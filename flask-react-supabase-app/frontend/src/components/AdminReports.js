@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Shield,
@@ -15,6 +16,10 @@ import {
   Hash,
   Wrench,
   Bug,
+  Loader2,
+  ArrowRight,
+  ImageOff,
+  User,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { getEventActorLabel } from './admin/adminUtils';
@@ -50,6 +55,15 @@ const TYPE_CHIPS = [
 ];
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
+
+const adminListingRouteType = (value) => {
+  const n = String(value || '').toLowerCase();
+  if (n === 'cars' || n === 'car') return 'car';
+  if (n === 'bikes' || n === 'bike') return 'bike';
+  if (n === 'parts' || n === 'part') return 'part';
+  if (n === 'plates' || n === 'plate') return 'plate';
+  return '';
+};
 
 const relTime = (ts) => {
   if (!ts) return '';
@@ -324,7 +338,13 @@ const AdminReports = () => {
             </span>
           </div>
         </div>
-        <div className="flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {metricsLoading && !loading && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/60">
+              <Loader2 size={11} className="animate-spin" />
+              Updating…
+            </span>
+          )}
           <SegmentedControl
             options={WINDOW_OPTIONS}
             value={days}
@@ -610,6 +630,105 @@ const AdminReports = () => {
                                     className="overflow-hidden"
                                   >
                                     <div className={`px-6 py-4 bg-white/[0.02] border-l-4 ${expandedAccent} space-y-4`}>
+                                      {/* Reported listing preview */}
+                                      {(() => {
+                                        const listing = report.listing;
+                                        const isBugReport = String(report.listing_type || '').toLowerCase() === 'bug';
+                                        if (isBugReport) return null;
+                                        const adminType = adminListingRouteType(report.listing_type);
+                                        const detailHref = adminType && report.listing_id
+                                          ? `/admin/listings/${adminType}/${report.listing_id}`
+                                          : null;
+
+                                        if (!listing) {
+                                          return (
+                                            <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.04] px-4 py-3 text-sm text-rose-200/80">
+                                              The reported listing is no longer available (may have been deleted).
+                                              {detailHref && (
+                                                <>
+                                                  {' '}
+                                                  <Link
+                                                    to={detailHref}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="underline hover:text-rose-100"
+                                                  >
+                                                    Open admin record
+                                                  </Link>
+                                                </>
+                                              )}
+                                            </div>
+                                          );
+                                        }
+
+                                        const priceNum = listing.price != null ? Number(listing.price) : null;
+                                        const priceStr = priceNum != null && !isNaN(priceNum)
+                                          ? `AED ${priceNum.toLocaleString('en-AE')}`
+                                          : null;
+
+                                        return (
+                                          <div>
+                                            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-2">
+                                              Reported listing
+                                            </p>
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 flex gap-4 items-start">
+                                              {listing.image_url ? (
+                                                <img
+                                                  src={listing.image_url}
+                                                  alt=""
+                                                  className="w-28 h-28 rounded-lg object-cover flex-shrink-0 bg-white/5"
+                                                />
+                                              ) : (
+                                                <div className="w-28 h-28 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center flex-shrink-0">
+                                                  <ImageOff size={20} className="text-white/30" />
+                                                </div>
+                                              )}
+                                              <div className="flex-1 min-w-0 space-y-1.5">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                  <TypeBadge type={report.listing_type} />
+                                                  {priceStr && (
+                                                    <span className="text-sm font-semibold text-white">{priceStr}</span>
+                                                  )}
+                                                </div>
+                                                <p className="text-sm text-white font-medium leading-snug">
+                                                  {listing.title || '—'}
+                                                </p>
+                                                {listing.seller_email && (
+                                                  <p className="flex items-center gap-1.5 text-xs text-white/50">
+                                                    <User size={11} />
+                                                    Seller: <span className="text-white/70">{listing.seller_email}</span>
+                                                  </p>
+                                                )}
+                                                <p className="font-mono text-[10px] text-white/30 break-all">
+                                                  {report.listing_id}
+                                                </p>
+                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                  {detailHref && (
+                                                    <Link
+                                                      to={detailHref}
+                                                      onClick={(e) => e.stopPropagation()}
+                                                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/25 transition-colors"
+                                                    >
+                                                      Open in Admin Detail <ArrowRight size={12} />
+                                                    </Link>
+                                                  )}
+                                                  {listing.public_url && (
+                                                    <a
+                                                      href={listing.public_url}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      onClick={(e) => e.stopPropagation()}
+                                                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+                                                    >
+                                                      View public page <ExternalLink size={11} />
+                                                    </a>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+
                                       {/* Details */}
                                       {report.details && (
                                         <div>
