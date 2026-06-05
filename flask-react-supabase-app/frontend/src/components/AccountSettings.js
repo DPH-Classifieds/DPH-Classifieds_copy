@@ -163,6 +163,10 @@ const AccountSettings = () => {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // Kept as a setter-only ref so existing onChange/handleCropCancel handlers
+  // can still call setCropModalImage(null) without us reading the value
+  // anywhere (UnifiedCropper takes the File directly).
+  // eslint-disable-next-line no-unused-vars
   const [cropModalImage, setCropModalImage] = useState(null);
   const [pendingProfileFile, setPendingProfileFile] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);

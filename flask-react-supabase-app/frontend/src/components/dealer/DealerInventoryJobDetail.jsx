@@ -2,12 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  FileText,
-  CheckCircle2,
   AlertCircle,
-  Clock,
-  Loader2,
-  RefreshCw,
 } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';

@@ -2,8 +2,6 @@
 //
 // Pure helpers for UnifiedCropper. No React, no DOM mutation. Tested in isolation.
 
-import { getKindConfig } from './kindConfig';
-
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 /**

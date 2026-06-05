@@ -9,7 +9,9 @@ import {
   normaliseImageOrientation,
   blobToFile,
 } from './cropUtils';
-import './unifiedCropper.css';
+// unifiedCropper.css is imported from App.js (top-level) instead of here so
+// that webpack's mini-css-extract-plugin doesn't see it in the lazy chunk,
+// where it would conflict-order with PostForms.css and fail CI builds.
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
@@ -64,8 +66,9 @@ export default function UnifiedCropper({ kind, images, isOpen, onClose, onComple
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
+    const urlsRef = previewUrlsRef;
     return () => {
-      previewUrlsRef.current.forEach((url) => url && URL.revokeObjectURL(url));
+      urlsRef.current.forEach((url) => url && URL.revokeObjectURL(url));
     };
   }, []);
 

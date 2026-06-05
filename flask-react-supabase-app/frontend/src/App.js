@@ -29,6 +29,7 @@ import SavedListingsNotice from './components/SavedListingsNotice';
 import AnnouncementBanner from './components/AnnouncementBanner';
 import './App.css';
 import './styles/UAELicensePlate.css';
+import './components/cropper/unifiedCropper.css';
 
 const DealerLeads = lazy(() => import('./components/dealer/DealerLeads'));
 const DealerLeadDetail = lazy(() => import('./components/dealer/DealerLeadDetail'));

@@ -356,7 +356,9 @@ function SourceModal({ isOpen, onClose, source, onSave }) {
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function DealerApiSources() {
-  const { dealership, loading: dealerLoading } = useDealer();
+  // dealership is intentionally not destructured — backend resolves it from the
+  // JWT for every /api/dealer/api-sources call. We only need the loading flag.
+  const { loading: dealerLoading } = useDealer();
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
