@@ -32,6 +32,9 @@ import './styles/UAELicensePlate.css';
 
 const DealerLeads = lazy(() => import('./components/dealer/DealerLeads'));
 const DealerLeadDetail = lazy(() => import('./components/dealer/DealerLeadDetail'));
+const DealerInventory = lazy(() => import('./components/dealer/DealerInventory'));
+const DealerInventoryJobDetail = lazy(() => import('./components/dealer/DealerInventoryJobDetail'));
+const DealerApiSources = lazy(() => import('./components/dealer/DealerApiSources'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -346,6 +349,9 @@ function App() {
                 <Route path="listings/:listing_type/:listing_id/diagnostic" element={<DealerListingDiagnostic />} />
                 <Route path="leads" element={<DealerLeads />} />
                 <Route path="leads/:id" element={<DealerLeadDetail />} />
+                <Route path="inventory" element={<DealerInventory />} />
+                <Route path="inventory/jobs/:id" element={<DealerInventoryJobDetail />} />
+                <Route path="integrations" element={<DealerApiSources />} />
                 <Route path="team" element={<DealerTeam />} />
                 <Route path="settings" element={<DealerSettings />} />
               </Route>
