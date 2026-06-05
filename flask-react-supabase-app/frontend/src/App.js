@@ -23,13 +23,14 @@ import DealerListingDiagnostic from './components/dealer/DealerListingDiagnostic
 import DealerTeam from './components/dealer/DealerTeam';
 import DealerSettings from './components/dealer/DealerSettings';
 import DealerInviteAccept from './components/dealer/DealerInviteAccept';
-const DealerWebhooks = lazy(() => import('./components/dealer/DealerWebhooks'));
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
 import AnnouncementBanner from './components/AnnouncementBanner';
 import './App.css';
 import './styles/UAELicensePlate.css';
+
+const DealerWebhooks = lazy(() => import('./components/dealer/DealerWebhooks'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
