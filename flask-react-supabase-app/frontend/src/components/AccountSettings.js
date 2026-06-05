@@ -11,7 +11,7 @@ import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect } from '../utils/dire
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import LoadingSpinner from './LoadingSpinner';
-import ImageCropModal from './ImageCropModal';
+import UnifiedCropper from './cropper/UnifiedCropper';
 import { useSavedListings } from '../context/SavedListingsContext';
 import '../styles/AccountSettings.css';
 
@@ -164,6 +164,7 @@ const AccountSettings = () => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cropModalImage, setCropModalImage] = useState(null);
+  const [pendingProfileFile, setPendingProfileFile] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
 
@@ -326,6 +327,7 @@ const AccountSettings = () => {
       }
 
       setError(null);
+      setPendingProfileFile(file);
       const reader = new FileReader();
       reader.onload = (ev) => {
         setCropModalImage(ev.target.result);
@@ -345,6 +347,7 @@ const AccountSettings = () => {
   const handleCropCancel = () => {
     setShowCropModal(false);
     setCropModalImage(null);
+    setPendingProfileFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -683,11 +686,20 @@ const AccountSettings = () => {
 
   return (
     <div className="account-settings-container">
-      {showCropModal && (
-        <ImageCropModal
-          imageSrc={cropModalImage}
-          onCropComplete={handleCropComplete}
-          onCancel={handleCropCancel}
+      {showCropModal && pendingProfileFile && (
+        <UnifiedCropper
+          kind="profile"
+          images={[pendingProfileFile]}
+          isOpen
+          onClose={handleCropCancel}
+          onComplete={(results) => {
+            const cropped = results[0];
+            if (cropped) {
+              handleCropComplete(cropped.croppedFile, cropped.previewUrl);
+            } else {
+              handleCropCancel();
+            }
+          }}
         />
       )}
 
