@@ -27,7 +27,7 @@ import {
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import ImageFramingModal from './ImageFramingModal';
+import UnifiedCropper from './cropper/UnifiedCropper';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
@@ -57,7 +57,6 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
-const DEFAULT_IMAGE_CROP = { focalX: 50, focalY: 50, zoom: 1 };
 const MAX_DESCRIPTION_WORDS = 300;
 const DEFAULT_MAP_POSITION = [25.276987, 55.296249];
 const CAR_DRAFT_STORAGE_KEY = 'dph_post_car_draft_v2';
@@ -83,12 +82,9 @@ const PostCar = () => {
   const locationInputRef = useRef(null);
   const [showExtras, setShowExtras] = useState(true);
   const [otherFuelType, setOtherFuelType] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [previewImages, setPreviewImages] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
-  const [imageCropSettings, setImageCropSettings] = useState([]);
-  const [showFramingModal, setShowFramingModal] = useState(false);
-  const [activeFramingIndex, setActiveFramingIndex] = useState(0);
+  const [pendingCropFiles, setPendingCropFiles] = useState(null);
+  const [croppedImages, setCroppedImages] = useState([]); // Array<{croppedFile, originalFile, previewUrl}>
   const [mapPosition, setMapPosition] = useState(DEFAULT_MAP_POSITION); // Default to Dubai coordinates
   const [marker, setMarker] = useState(DEFAULT_MAP_POSITION);
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
@@ -948,9 +944,6 @@ const PostCar = () => {
     if (Array.isArray(draft.existingImages)) {
       setExistingImages(draft.existingImages);
     }
-    if (Array.isArray(draft.imageCropSettings)) {
-      setImageCropSettings(draft.imageCropSettings);
-    }
     return true;
   }, []);
 
@@ -1524,100 +1517,16 @@ const PostCar = () => {
     }
   };
 
+  // Revoke cropped preview blob URLs on unmount to avoid memory leaks.
   useEffect(() => {
     return () => {
-      previewImages.forEach((url) => URL.revokeObjectURL(url));
+      croppedImages.forEach(({ previewUrl }) => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      });
     };
-  }, [previewImages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const updateImageCropSetting = (index, partialUpdate) => {
-    setImageCropSettings((prev) =>
-      prev.map((setting, currentIndex) =>
-        currentIndex === index ? { ...setting, ...partialUpdate } : setting
-      )
-    );
-  };
-
-	  const existingCount = Array.isArray(existingImages) ? existingImages.length : 0;
-	  const framingImages = useMemo(() => {
-	    const existing = (existingImages || []).map((image, index) => ({
-	      name: `Existing ${index + 1}`,
-	      previewUrl: image?.display_url || image?.image_url || image?.url || '',
-	    }));
-	    const fresh = (previewImages || []).map((previewUrl, index) => ({
-	      name: `New ${index + 1}`,
-	      previewUrl,
-	    }));
-	    return [...existing, ...fresh].filter((entry) => entry.previewUrl);
-	  }, [existingImages, previewImages]);
-
-	  const framingCropSettings = useMemo(() => {
-	    const existing = (existingImages || []).map((image) => {
-	      const zoom =
-	        typeof image?.crop_meta?.zoom === 'number'
-	          ? image.crop_meta.zoom
-	          : 1;
-	      return {
-	        focalX: Number.isFinite(Number(image?.focal_x)) ? Number(image.focal_x) : 50,
-	        focalY: Number.isFinite(Number(image?.focal_y)) ? Number(image.focal_y) : 50,
-	        zoom: Number.isFinite(Number(zoom)) ? Number(zoom) : 1,
-	      };
-	    });
-	    const fresh = (imageCropSettings || []).map((setting) => ({
-	      focalX: Number.isFinite(Number(setting?.focalX)) ? Number(setting.focalX) : 50,
-	      focalY: Number.isFinite(Number(setting?.focalY)) ? Number(setting.focalY) : 50,
-	      zoom: Number.isFinite(Number(setting?.zoom)) ? Number(setting.zoom) : 1,
-	    }));
-	    return [...existing, ...fresh];
-	  }, [existingImages, imageCropSettings]);
-
-	  const updateFramingCropSetting = (index, partialUpdate) => {
-	    if (index < existingCount) {
-	      setExistingImages((prev) =>
-	        prev.map((image, currentIndex) => {
-	          if (currentIndex !== index) return image;
-	          const focalX = partialUpdate.focalX ?? partialUpdate.focal_x;
-	          const focalY = partialUpdate.focalY ?? partialUpdate.focal_y;
-	          const zoom = partialUpdate.zoom;
-	          return {
-	            ...image,
-	            focal_x: Number.isFinite(Number(focalX)) ? Number(focalX) : image.focal_x,
-	            focal_y: Number.isFinite(Number(focalY)) ? Number(focalY) : image.focal_y,
-	            crop_meta: {
-	              ...(image.crop_meta || {}),
-	              ...(Number.isFinite(Number(zoom)) ? { zoom: Number(zoom) } : {}),
-	            },
-	          };
-	        })
-	      );
-	      return;
-	    }
-
-	    updateImageCropSetting(index - existingCount, partialUpdate);
-	  };
-
-	  const applyFramingToAll = (sourceIndex) => {
-	    const source = framingCropSettings[sourceIndex] || DEFAULT_IMAGE_CROP;
-	    setExistingImages((prev) =>
-	      prev.map((image) => ({
-	        ...image,
-	        focal_x: Number.isFinite(Number(source.focalX)) ? Number(source.focalX) : 50,
-	        focal_y: Number.isFinite(Number(source.focalY)) ? Number(source.focalY) : 50,
-	        crop_meta: {
-	          ...(image.crop_meta || {}),
-	          zoom: Number.isFinite(Number(source.zoom)) ? Number(source.zoom) : 1,
-	        },
-	      }))
-	    );
-
-	    setImageCropSettings((prev) =>
-	      prev.map(() => ({
-	        focalX: Number.isFinite(Number(source.focalX)) ? Number(source.focalX) : 50,
-	        focalY: Number.isFinite(Number(source.focalY)) ? Number(source.focalY) : 50,
-	        zoom: Number.isFinite(Number(source.zoom)) ? Number(source.zoom) : 1,
-	      }))
-	    );
-	  };
 
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -1659,12 +1568,14 @@ const PostCar = () => {
 
     const dedupedNewFiles = nextFiles.filter((file) => {
       const signature = `${file.name}-${file.size}-${file.lastModified}`;
-      return !selectedFiles.some(
-        (existingFile) => `${existingFile.name}-${existingFile.size}-${existingFile.lastModified}` === signature
+      return !croppedImages.some(
+        ({ originalFile }) =>
+          originalFile &&
+          `${originalFile.name}-${originalFile.size}-${originalFile.lastModified}` === signature
       );
     });
 
-    const totalFiles = existingImages.length + selectedFiles.length + dedupedNewFiles.length;
+    const totalFiles = existingImages.length + croppedImages.length + dedupedNewFiles.length;
     if (totalFiles > 10) {
       setError("You can only upload up to 10 images.");
       return;
@@ -1683,14 +1594,7 @@ const PostCar = () => {
     }
     
     setError(null);
-    setSelectedFiles((current) => [...current, ...dedupedNewFiles]);
-    
-    // Create preview URLs
-    const previews = dedupedNewFiles.map((file) => URL.createObjectURL(file));
-    setPreviewImages((current) => [...current, ...previews]);
-    setImageCropSettings((current) => [...current, ...dedupedNewFiles.map(() => ({ ...DEFAULT_IMAGE_CROP }))]);
-    setActiveFramingIndex((current) => current || 0);
-    setShowFramingModal(true);
+    setPendingCropFiles(dedupedNewFiles);
   };
 
   const handleDragOver = (e) => {
@@ -1746,22 +1650,13 @@ const PostCar = () => {
       return;
     }
 
-    // Reorder files
-    const newFiles = [...selectedFiles];
-    const [draggedFile] = newFiles.splice(draggedIndex, 1);
-    newFiles.splice(dropIndex, 0, draggedFile);
-    setSelectedFiles(newFiles);
-
-    // Reorder previews
-    const newPreviews = [...previewImages];
-    const [draggedPreview] = newPreviews.splice(draggedIndex, 1);
-    newPreviews.splice(dropIndex, 0, draggedPreview);
-    setPreviewImages(newPreviews);
-
-    const newCropSettings = [...imageCropSettings];
-    const [draggedCrop] = newCropSettings.splice(draggedIndex, 1);
-    newCropSettings.splice(dropIndex, 0, draggedCrop);
-    setImageCropSettings(newCropSettings);
+    // Reorder cropped images
+    setCroppedImages((prev) => {
+      const next = [...prev];
+      const [dragged] = next.splice(draggedIndex, 1);
+      next.splice(dropIndex, 0, dragged);
+      return next;
+    });
 
     setDraggedIndex(null);
     setDragOverIndex(null);
@@ -1823,13 +1718,16 @@ const PostCar = () => {
         throw new Error('User authentication required. Please log in again.');
       }
 
-      if (selectedFiles.length === 0) {
+      if (croppedImages.length === 0) {
         throw new Error('No images selected for upload.');
       }
 
-      return await uploadListingImagesDirect(selectedFiles, {
+      // croppedImages already contain pre-cropped JPEG blobs; upload them directly
+      // without re-applying crop math (the blob is the display variant).
+      const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
+      return await uploadListingImagesDirect(croppedFiles, {
         userId: user.id,
-        cropSettings: imageCropSettings,
+        cropSettings: [], // blobs are already cropped; no focal-point math needed
       });
     } catch (error) {
       console.error("Image upload error:", error);
@@ -1857,7 +1755,6 @@ const PostCar = () => {
       marker,
       whatsappSameAsPhone,
       existingImages,
-      imageCropSettings,
       savedAt: new Date().toISOString(),
     };
 
@@ -1910,13 +1807,13 @@ const PostCar = () => {
     }
     clearFieldHighlights();
 
-    if (!isEdit && selectedFiles.length === 0) {
+    if (!isEdit && croppedImages.length === 0) {
       setError('You must upload at least one image of your car.');
       focusAndHighlightField('images');
       return;
     }
 
-    if (isEdit && existingImages.length + selectedFiles.length === 0) {
+    if (isEdit && existingImages.length + croppedImages.length === 0) {
       setError('You must keep or upload at least one image of your car.');
       focusAndHighlightField('images');
       return;
@@ -1943,7 +1840,7 @@ const PostCar = () => {
       };
 
       if (isEdit) {
-        const uploadedImages = selectedFiles.length > 0 ? await uploadImages() : [];
+        const uploadedImages = croppedImages.length > 0 ? await uploadImages() : [];
         const persistedImages = existingImages
           .map((image, index) => {
             if (!image) {
@@ -1980,7 +1877,7 @@ const PostCar = () => {
           })
           .filter(Boolean);
 
-        if (persistedImages.length === 0 && selectedFiles.length > 0 && uploadedImages.length === 0) {
+        if (persistedImages.length === 0 && croppedImages.length > 0 && uploadedImages.length === 0) {
           // uploadImages already sets a user-facing error; abort early so we don't send an empty
           // image payload that forces a backend rollback.
           focusAndHighlightField('images');
@@ -3257,75 +3154,36 @@ const PostCar = () => {
                 <p className="upload-text-sub">Maximum 10 images • JPG, PNG, WEBP, GIF • 20MB each</p>
               </div>
               
-              {previewImages.length > 0 && (
+              {croppedImages.length > 0 && (
                 <div className="image-previews-grid car-framing-grid">
-	                  {previewImages.map((preview, index) => (
-	                    <div 
-	                      className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
-	                      key={index}
-	                      draggable
-	                      role="button"
-	                      tabIndex={0}
-	                      onClick={() => {
-	                        if (draggedIndex !== null) return;
-	                        setActiveFramingIndex(existingCount + index);
-	                        setShowFramingModal(true);
-	                      }}
-	                      onKeyDown={(event) => {
-	                        if (event.key === 'Enter') {
-	                          setActiveFramingIndex(existingCount + index);
-	                          setShowFramingModal(true);
-	                        }
-	                      }}
-	                      onDragStart={(e) => handleImageDragStart(e, index)}
-	                      onDragOver={(e) => handleImageDragOver(e, index)}
-	                      onDragLeave={handleImageDragLeave}
-	                      onDrop={(e) => handleImageDrop(e, index)}
-	                      onDragEnd={handleImageDragEnd}
+                  {croppedImages.map((img, index) => (
+                    <div
+                      className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                      key={index}
+                      draggable
+                      role="button"
+                      tabIndex={0}
+                      onDragStart={(e) => handleImageDragStart(e, index)}
+                      onDragOver={(e) => handleImageDragOver(e, index)}
+                      onDragLeave={handleImageDragLeave}
+                      onDrop={(e) => handleImageDrop(e, index)}
+                      onDragEnd={handleImageDragEnd}
                     >
                       <div className="preview-order">{index + 1}</div>
                       <img
-                        src={preview}
+                        src={img.previewUrl}
                         alt={`Preview ${index + 1}`}
-                        style={{
-                          objectPosition: `${imageCropSettings[index]?.focalX ?? 50}% ${imageCropSettings[index]?.focalY ?? 50}%`,
-                          transform: `scale(${imageCropSettings[index]?.zoom ?? 1})`,
-                          transformOrigin: `${imageCropSettings[index]?.focalX ?? 50}% ${imageCropSettings[index]?.focalY ?? 50}%`
-                        }}
                       />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         className="remove-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const newPreviews = [...previewImages];
-                          const newSelectedFiles = [...selectedFiles];
-                          const newCropSettings = [...imageCropSettings];
-                          newPreviews.splice(index, 1);
-                          newSelectedFiles.splice(index, 1);
-                          newCropSettings.splice(index, 1);
-                          setPreviewImages(newPreviews);
-                          setSelectedFiles(newSelectedFiles);
-                          setImageCropSettings(newCropSettings);
-                          if (!newPreviews.length) {
-                            setShowFramingModal(false);
-                            setActiveFramingIndex(0);
-                          }
+                          setCroppedImages((prev) => prev.filter((_, j) => j !== index));
                         }}
                       >
                         ×
                       </button>
-	                      <button
-	                        type="button"
-	                        className="frame-btn"
-	                        onClick={(event) => {
-	                          event.stopPropagation();
-	                          setActiveFramingIndex(existingCount + index);
-	                          setShowFramingModal(true);
-	                        }}
-	                      >
-	                        Frame
-	                      </button>
                       <div className="drag-handle">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                           <circle cx="9" cy="6" r="1.5"/>
@@ -3340,78 +3198,57 @@ const PostCar = () => {
                   ))}
                 </div>
               )}
-	              {existingImages.length > 0 && (
-	                <div className="image-previews-grid car-framing-grid">
-		                  {existingImages.map((image, index) => (
-		                    <div
-		                      className={`preview-item car-framing-preview ${draggedExistingIndex === index ? 'dragging' : ''} ${dragOverExistingIndex === index ? 'drag-over' : ''}`}
-		                      key={image.id || `${image.url}-${index}`}
-		                      draggable
-		                      role="button"
-		                      tabIndex={0}
-		                      onClick={() => {
-		                        setActiveFramingIndex(index);
-		                        setShowFramingModal(true);
-		                      }}
-		                      onKeyDown={(event) => {
-		                        if (event.key === 'Enter') {
-		                          setActiveFramingIndex(index);
-		                          setShowFramingModal(true);
-		                        }
-		                      }}
-		                      onDragStart={(event) => handleExistingDragStart(event, index)}
-		                      onDragOver={(event) => handleExistingDragOver(event, index)}
-		                      onDragLeave={handleExistingDragLeave}
-		                      onDrop={(event) => handleExistingDrop(event, index)}
-		                      onDragEnd={handleExistingDragEnd}
-		                    >
-		                      <div className="preview-order">{index + 1}</div>
-		                      <img
-		                        src={image.display_url || image.image_url || image.url}
-		                        alt={`Existing ${index + 1}`}
-                        style={{
-                          objectPosition: `${Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50}% ${Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50}%`,
-                        }}
+              {existingImages.length > 0 && (
+                <div className="image-previews-grid car-framing-grid">
+                  {existingImages.map((image, index) => (
+                    <div
+                      className={`preview-item car-framing-preview ${draggedExistingIndex === index ? 'dragging' : ''} ${dragOverExistingIndex === index ? 'drag-over' : ''}`}
+                      key={image.id || `${image.url}-${index}`}
+                      draggable
+                      role="button"
+                      tabIndex={0}
+                      onDragStart={(event) => handleExistingDragStart(event, index)}
+                      onDragOver={(event) => handleExistingDragOver(event, index)}
+                      onDragLeave={handleExistingDragLeave}
+                      onDrop={(event) => handleExistingDrop(event, index)}
+                      onDragEnd={handleExistingDragEnd}
+                    >
+                      <div className="preview-order">{index + 1}</div>
+                      <img
+                        src={image.display_url || image.image_url || image.url}
+                        alt={`Existing ${index + 1}`}
+                        style={image.cropped_at
+                          ? undefined
+                          : { objectPosition: `${Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50}% ${Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50}%` }
+                        }
                       />
-		                      <button
-		                        type="button"
-		                        className="remove-btn"
-		                        onClick={(event) => {
-		                          event.stopPropagation();
-		                          setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
-		                        }}
-		                      >
-		                        ×
-		                      </button>
-		                      <div className="drag-handle">
-		                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-		                          <circle cx="9" cy="6" r="1.5"/>
-		                          <circle cx="15" cy="6" r="1.5"/>
-		                          <circle cx="9" cy="12" r="1.5"/>
-		                          <circle cx="15" cy="12" r="1.5"/>
-		                          <circle cx="9" cy="18" r="1.5"/>
-		                          <circle cx="15" cy="18" r="1.5"/>
-		                        </svg>
-		                      </div>
-		                    </div>
-		                  ))}
-		                </div>
-		              )}
-              {previewImages.length > 1 && (
+                      <button
+                        type="button"
+                        className="remove-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+                        }}
+                      >
+                        ×
+                      </button>
+                      <div className="drag-handle">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.5"/>
+                          <circle cx="15" cy="6" r="1.5"/>
+                          <circle cx="9" cy="12" r="1.5"/>
+                          <circle cx="15" cy="12" r="1.5"/>
+                          <circle cx="9" cy="18" r="1.5"/>
+                          <circle cx="15" cy="18" r="1.5"/>
+                        </svg>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {croppedImages.length > 1 && (
                 <p className="reorder-hint">Drag images to reorder. First image will be the main photo.</p>
               )}
-	              {previewImages.length > 0 && (
-	                <button
-	                  type="button"
-	                  className="frame-all-btn"
-	                  onClick={() => {
-	                    setActiveFramingIndex(0);
-	                    setShowFramingModal(true);
-	                  }}
-	                >
-	                  Adjust Photo Framing
-	                </button>
-	              )}
             </div>
           </div>
         </div>
@@ -3447,16 +3284,18 @@ const PostCar = () => {
         </div>
       </section>
 
-      <ImageFramingModal
-        isOpen={showFramingModal}
-        images={framingImages}
-        cropSettings={framingCropSettings}
-        activeIndex={activeFramingIndex}
-        onActiveIndexChange={setActiveFramingIndex}
-        onUpdateCrop={updateFramingCropSetting}
-        onApplyCurrentToAll={applyFramingToAll}
-        onClose={() => setShowFramingModal(false)}
-      />
+      {pendingCropFiles && (
+        <UnifiedCropper
+          kind="car"
+          images={pendingCropFiles}
+          isOpen
+          onClose={() => setPendingCropFiles(null)}
+          onComplete={(results) => {
+            setCroppedImages((prev) => [...prev, ...results]);
+            setPendingCropFiles(null);
+          }}
+        />
+      )}
     </div>
   );
 };

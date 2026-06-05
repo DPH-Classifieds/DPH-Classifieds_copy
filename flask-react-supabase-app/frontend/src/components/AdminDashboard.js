@@ -778,6 +778,21 @@ const AdminDashboard = () => {
         </motion.div>
       )}
 
+      {/* ── 7b. Unified Cropper rollout health ──────────────────────────── */}
+      {stats?.cropped_at_pct !== null && stats?.cropped_at_pct !== undefined && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+          <GlassCard>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-1">
+              Modern crop rollout
+            </p>
+            <p className="text-2xl font-semibold text-white">{stats.cropped_at_pct}%</p>
+            <p className="text-[11px] text-white/50 mt-1">
+              of listing images use the unified cropper
+            </p>
+          </GlassCard>
+        </motion.div>
+      )}
+
       {/* ── External analytics ──────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}>
         <GlassCard>
