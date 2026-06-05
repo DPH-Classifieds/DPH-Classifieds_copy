@@ -89,3 +89,107 @@ def list_leads(current_user):
             total = None
 
     return jsonify({"leads": r.json(), "limit": limit, "offset": offset, "total": total}), 200
+
+
+LISTING_TABLES = {
+    "car": ("cars", "id,expected_selling_price,make,make_year,car_model,user_id"),
+    "bike": ("bikes", "id,expected_selling_price,make,make_year,bike_model,user_id"),
+    "plate": ("license_plates", "id,price,code,number,city,user_id"),
+    "part": ("car_parts", "id,price,name,part_name,category,user_id"),
+}
+
+
+def _listing_title(lt, row):
+    if lt == "car":
+        bits = [row.get("make_year"), row.get("make"), row.get("car_model")]
+        return " ".join(str(b) for b in bits if b) or str(row.get("id", ""))
+    if lt == "bike":
+        bits = [row.get("make_year"), row.get("make"), row.get("bike_model")]
+        return " ".join(str(b) for b in bits if b) or str(row.get("id", ""))
+    if lt == "plate":
+        return f"{row.get('code', '') or ''} {row.get('number', '') or ''}".strip() or str(row.get("id", ""))
+    if lt == "part":
+        return row.get("part_name") or row.get("name") or str(row.get("id", ""))
+    return str(row.get("id", ""))
+
+
+@leads_bp.route("/leads/<lead_id>", methods=["GET"])
+@_token_required
+@dealer_required
+def get_lead(current_user, lead_id):
+    """Detail view: lead + timeline + minimal listing card + visitor session."""
+    dealership_id = g.dealer_ctx["dealership_id"]
+
+    lead_r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/dealer_leads",
+        headers=_svc(prefer=""),
+        params={
+            "select": "*",
+            "id": f"eq.{lead_id}",
+            "dealership_id": f"eq.{dealership_id}",
+            "limit": 1,
+        },
+        timeout=10,
+    )
+    if lead_r.status_code != 200 or not lead_r.json():
+        return jsonify({"error": {"code": "not_found", "message": "Lead not found"}}), 404
+    lead = lead_r.json()[0]
+
+    # Timeline
+    tl_r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/dealer_lead_events",
+        headers=_svc(prefer=""),
+        params={
+            "select": "id,actor_user_id,kind,payload,created_at",
+            "lead_id": f"eq.{lead_id}",
+            "order": "created_at.asc",
+            "limit": 200,
+        },
+        timeout=10,
+    )
+    timeline = tl_r.json() if tl_r.status_code == 200 else []
+
+    # Listing card
+    listing_card = None
+    table_select = LISTING_TABLES.get(lead["listing_type"])
+    if table_select:
+        table, select = table_select
+        lr = requests.get(
+            f"{SUPABASE_URL}/rest/v1/{table}",
+            headers=_svc(prefer=""),
+            params={"select": select, "id": f"eq.{lead['listing_id']}", "limit": 1},
+            timeout=10,
+        )
+        if lr.status_code == 200 and lr.json():
+            row = lr.json()[0]
+            listing_card = {
+                "id": row["id"],
+                "title": _listing_title(lead["listing_type"], row),
+                "price": row.get("expected_selling_price") or row.get("price"),
+                "type": lead["listing_type"],
+            }
+
+    # Visitor session — same visitor's platform_events from first_event_at onwards.
+    session_events = []
+    if lead.get("visitor_id"):
+        first_iso = lead["first_event_at"]
+        sess_r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/platform_events",
+            headers=_svc(prefer=""),
+            params={
+                "select": "id,event_name,page_path,page_title,page_kind,created_at,metadata",
+                "visitor_id": f"eq.{lead['visitor_id']}",
+                "created_at": f"gte.{first_iso}",
+                "order": "created_at.asc",
+                "limit": 100,
+            },
+            timeout=15,
+        )
+        session_events = sess_r.json() if sess_r.status_code == 200 else []
+
+    return jsonify({
+        "lead": lead,
+        "timeline": timeline,
+        "listing": listing_card,
+        "session": session_events,
+    }), 200

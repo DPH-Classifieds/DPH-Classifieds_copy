@@ -118,3 +118,94 @@ def test_list_leads_ignores_invalid_status(
     params = mock_requests.get.call_args.kwargs["params"]
     # Bogus status is silently dropped (not echoed to Supabase as a filter).
     assert "status" not in params
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_get_lead_detail_returns_timeline_listing_and_session(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    # The view makes 4 GETs in this order: lead row, timeline, listing, session.
+    mock_requests.get.side_effect = [
+        _resp(200, [{
+            "id": "lead-1", "dealership_id": "d1",
+            "listing_type": "car", "listing_id": "L1",
+            "source": "call", "status": "new",
+            "visitor_id": "v1",
+            "first_event_at": "2026-06-05T10:00:00+00:00",
+            "last_event_at": "2026-06-05T11:00:00+00:00",
+            "event_count": 2,
+        }]),
+        _resp(200, [{
+            "id": "dle-1", "kind": "inbound_contact",
+            "payload": {"source": "call"},
+            "created_at": "2026-06-05T10:00:00+00:00",
+        }]),
+        _resp(200, [{
+            "id": "L1", "expected_selling_price": 50000,
+            "make": "Toyota", "car_model": "Camry", "make_year": 2022,
+        }]),
+        _resp(200, [{
+            "id": "pe-1", "page_path": "/cars/L1", "event_name": "page_view",
+            "created_at": "2026-06-05T09:55:00+00:00",
+            "metadata": {"referrer": "/cars"},
+        }]),
+    ]
+
+    rv = client.get("/api/dealer/leads/lead-1")
+    assert rv.status_code == 200
+    data = rv.get_json()
+    assert data["lead"]["id"] == "lead-1"
+    assert isinstance(data["timeline"], list) and data["timeline"][0]["id"] == "dle-1"
+    assert data["listing"]["title"].startswith("2022 Toyota")
+    assert data["listing"]["price"] == 50000
+    assert data["listing"]["type"] == "car"
+    assert isinstance(data["session"], list) and data["session"][0]["page_path"] == "/cars/L1"
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_get_lead_detail_returns_404_when_lead_belongs_to_other_dealership(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    # PostgREST returns empty because the dealership_id filter excludes it.
+    mock_requests.get.return_value = _resp(200, [])
+    rv = client.get("/api/dealer/leads/lead-other")
+    assert rv.status_code == 404
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_get_lead_detail_no_session_when_visitor_id_missing(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    mock_requests.get.side_effect = [
+        _resp(200, [{
+            "id": "lead-2", "dealership_id": "d1",
+            "listing_type": "car", "listing_id": "L1",
+            "source": "call", "status": "new",
+            "visitor_id": None,
+            "first_event_at": "2026-06-05T10:00:00+00:00",
+            "last_event_at": "2026-06-05T10:00:00+00:00",
+            "event_count": 1,
+        }]),
+        _resp(200, []),  # timeline empty
+        _resp(200, [{"id": "L1", "expected_selling_price": 12000,
+                     "make": "Honda", "car_model": "Civic", "make_year": 2018}]),
+        # NOTE: no 4th call expected — view should skip platform_events when visitor_id is None.
+    ]
+    rv = client.get("/api/dealer/leads/lead-2")
+    assert rv.status_code == 200
+    data = rv.get_json()
+    assert data["session"] == []
+    # Confirm we made exactly 3 GETs (not 4).
+    assert mock_requests.get.call_count == 3
