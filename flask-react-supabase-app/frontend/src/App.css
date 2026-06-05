@@ -45,6 +45,12 @@ body {
   margin-top: 84px;
 }
 
+/* Bare main wrapper for routes whose layout supplies its own header (admin). */
+.app-main--bare {
+  width: 100%;
+  margin-top: 0;
+}
+
 a {
   text-decoration: none;
   color: inherit;

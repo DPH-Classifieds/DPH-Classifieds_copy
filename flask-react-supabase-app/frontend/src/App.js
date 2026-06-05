@@ -46,6 +46,16 @@ function SiteChrome({ children }) {
   return <>{children}</>;
 }
 
+// On /admin/* the consumer Header is hidden by SiteChrome, so the
+// .app-content margin-top:84px would render as a black gap above the
+// admin shell. Drop the className on admin routes; AdminLayout supplies
+// its own sticky header.
+function MainArea({ children }) {
+  const { pathname } = useLocation();
+  const isAdmin = pathname.startsWith('/admin');
+  return <main className={isAdmin ? 'app-main--bare' : 'app-content'}>{children}</main>;
+}
+
 function BackToTop() {
   const [visible, setVisible] = useState(false);
 
@@ -242,7 +252,7 @@ function App() {
               <UsernameRequiredBanner />
               <SavedListingsNotice />
             </SiteChrome>
-            <main className="app-content">
+            <MainArea>
               <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
                 <Routes>
               {/* Public routes */}
@@ -339,7 +349,7 @@ function App() {
               <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-            </main>
+            </MainArea>
             <SiteChrome>
               <Footer />
             </SiteChrome>

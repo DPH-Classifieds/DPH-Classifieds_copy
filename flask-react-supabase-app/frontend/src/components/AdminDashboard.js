@@ -20,6 +20,7 @@ import {
   ExternalLink,
   ChevronRight,
   Loader2,
+  ImageOff,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -634,15 +635,53 @@ const AdminDashboard = () => {
           ) : (
             <div className="space-y-1">
               {history.slice(0, 8).map((entry, i) => {
-                const href = adminListingDetailHref(entry.listing_type, entry.id);
-                const rowClass = 'flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0';
+                // listing_deletion_events.id is the event ID — link target is listing_id.
+                const listingId = entry.listing_id || entry.id;
+                const href = adminListingDetailHref(entry.listing_type, listingId);
+                const idLabel = String(listingId || '').slice(0, 8) || '—';
+                const priceNum = entry.price != null ? Number(entry.price) : null;
+                const priceStr =
+                  priceNum != null && !Number.isNaN(priceNum) && priceNum > 0
+                    ? `AED ${priceNum.toLocaleString('en-AE')}`
+                    : null;
+                const rowClass =
+                  'flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0';
                 const rowBody = (
                   <>
+                    {entry.image_url ? (
+                      <img
+                        src={entry.image_url}
+                        alt=""
+                        loading="lazy"
+                        className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-white/5"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-md bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+                        <ImageOff size={14} className="text-white/30" />
+                      </div>
+                    )}
                     <TypeBadge type={entry.listing_type} />
-                    <p className="text-sm text-white/60 font-mono flex-1 truncate">
-                      {String(entry.id || '').slice(0, 8) || '—'}
-                    </p>
-                    <Badge color={entry.status === 'approved' ? 'emerald' : entry.status === 'rejected' ? 'rose' : 'amber'}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white/80 truncate">
+                        {entry.title || idLabel}
+                      </p>
+                      {(priceStr || entry.title) && (
+                        <p className="text-[11px] text-white/40 truncate">
+                          {priceStr}
+                          {priceStr && entry.title ? ' · ' : ''}
+                          <span className="font-mono">{idLabel}</span>
+                        </p>
+                      )}
+                    </div>
+                    <Badge
+                      color={
+                        entry.status === 'approved'
+                          ? 'emerald'
+                          : entry.status === 'rejected'
+                          ? 'rose'
+                          : 'amber'
+                      }
+                    >
                       {entry.status || 'removed'}
                     </Badge>
                     <span className="text-[11px] text-white/30 flex-shrink-0">
@@ -652,7 +691,7 @@ const AdminDashboard = () => {
                 );
                 return (
                   <motion.div
-                    key={entry.id || i}
+                    key={entry.id || listingId || i}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.36 + i * 0.03 }}
