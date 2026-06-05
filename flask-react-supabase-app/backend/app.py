@@ -5281,6 +5281,7 @@ def create_car(current_user):
                 "focal_x": normalized_crop["focal_x"],
                 "focal_y": normalized_crop["focal_y"],
                 "crop_meta": crop_meta,
+                "cropped_at": _isoformat_utc(_utc_now()),
             }
             image_inserts.append(image_insert)
 
@@ -5720,6 +5721,7 @@ def update_car(current_user, car_id):
                             "focal_x": upload_metadata.get("focal_x", 50),
                             "focal_y": upload_metadata.get("focal_y", 50),
                             "crop_meta": upload_metadata.get("crop_meta"),
+                            "cropped_at": _isoformat_utc(_utc_now()),
                         }
 
                         image_insert_response, image_insert_status = supabase_request(
@@ -5786,6 +5788,7 @@ def update_car(current_user, car_id):
                         "focal_x": normalized_crop["focal_x"],
                         "focal_y": normalized_crop["focal_y"],
                         "crop_meta": crop_meta,
+                        "cropped_at": _isoformat_utc(_utc_now()),
                     }
                 )
 
@@ -5986,6 +5989,7 @@ def upload_car_images(current_user, car_id):
                 "url": image_url,
                 "image_url": image_url,  # Add image_url field for frontend compatibility
                 "crop_meta": {"sort_index": index},
+                "cropped_at": _isoformat_utc(_utc_now()),
             }
             supabase_request(
                 "post", "/rest/v1/car_images", data=image_data, user_id=current_user
@@ -10418,6 +10422,7 @@ def create_bike(current_user):
                             "focal_x": image_url.get("focal_x"),
                             "focal_y": image_url.get("focal_y"),
                             "crop_meta": image_url.get("crop_meta"),
+                            "cropped_at": _isoformat_utc(_utc_now()),
                         }
                     )
                     continue
@@ -10426,6 +10431,7 @@ def create_bike(current_user):
                         "bike_id": bike_id,
                         "url": image_url,
                         "image_url": image_url,  # Add image_url field for frontend compatibility
+                        "cropped_at": _isoformat_utc(_utc_now()),
                     }
                 )
 
@@ -10613,6 +10619,7 @@ def update_bike(current_user, bike_id):
                                 "focal_x": image_url.get("focal_x"),
                                 "focal_y": image_url.get("focal_y"),
                                 "crop_meta": image_url.get("crop_meta"),
+                                "cropped_at": _isoformat_utc(_utc_now()),
                             }
                         )
                         continue
@@ -10621,6 +10628,7 @@ def update_bike(current_user, bike_id):
                             "bike_id": bike_id,
                             "url": image_url,
                             "image_url": image_url,  # Add image_url field for frontend compatibility
+                            "cropped_at": _isoformat_utc(_utc_now()),
                         }
                     )
 
@@ -11312,6 +11320,7 @@ def create_part(current_user):
                             "focal_x": image_url.get("focal_x"),
                             "focal_y": image_url.get("focal_y"),
                             "crop_meta": image_url.get("crop_meta"),
+                            "cropped_at": _isoformat_utc(_utc_now()),
                         }
                     )
                     continue
@@ -11320,6 +11329,7 @@ def create_part(current_user):
                         "part_id": part_id,
                         "url": image_url,
                         "image_url": image_url,  # Add image_url field for frontend compatibility
+                        "cropped_at": _isoformat_utc(_utc_now()),
                     }
                 )
 
@@ -11549,6 +11559,7 @@ def update_part(current_user, part_id):
                                 "focal_x": image_url.get("focal_x"),
                                 "focal_y": image_url.get("focal_y"),
                                 "crop_meta": image_url.get("crop_meta"),
+                                "cropped_at": _isoformat_utc(_utc_now()),
                             }
                         )
                         continue
@@ -11557,6 +11568,7 @@ def update_part(current_user, part_id):
                             "part_id": part_id,
                             "url": image_url,
                             "image_url": image_url,
+                            "cropped_at": _isoformat_utc(_utc_now()),
                         }
                     )
 
@@ -12370,6 +12382,7 @@ def _create_plate_with_image_impl(current_user):
                 "url": image_url,
                 "image_url": image_url,
                 "is_primary": True,
+                "cropped_at": _isoformat_utc(_utc_now()),
             }
 
             image_response, image_status = supabase_request(
@@ -14914,7 +14927,7 @@ def get_admin_reports(current_user):
             try:
                 img_resp, img_sc = supabase_request(
                     "get",
-                    f"/rest/v1/{cfg['img_table']}?listing_id=in.({ids_csv})&select=listing_id,url,display_url&limit=1000",
+                    f"/rest/v1/{cfg['img_table']}?listing_id=in.({ids_csv})&select=listing_id,url,display_url,cropped_at&limit=1000",
                     user_id=current_user,
                     use_service_role=True,
                 )
@@ -15331,7 +15344,7 @@ def get_admin_listing_history(current_user):
                     "get",
                     (
                         f"/rest/v1/{cfg['img_table']}"
-                        f"?listing_id=in.({ids_csv})&select=listing_id,url,display_url&limit=1000"
+                        f"?listing_id=in.({ids_csv})&select=listing_id,url,display_url,cropped_at&limit=1000"
                     ),
                     user_id=current_user,
                     use_service_role=True,
