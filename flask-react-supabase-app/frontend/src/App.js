@@ -30,6 +30,9 @@ import AnnouncementBanner from './components/AnnouncementBanner';
 import './App.css';
 import './styles/UAELicensePlate.css';
 
+const DealerLeads = lazy(() => import('./components/dealer/DealerLeads'));
+const DealerLeadDetail = lazy(() => import('./components/dealer/DealerLeadDetail'));
+
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -341,6 +344,8 @@ function App() {
                 <Route path="listings" element={<DealerListings />} />
                 <Route path="listings/:listing_type/:listing_id/analytics" element={<DealerListingAnalytics />} />
                 <Route path="listings/:listing_type/:listing_id/diagnostic" element={<DealerListingDiagnostic />} />
+                <Route path="leads" element={<DealerLeads />} />
+                <Route path="leads/:id" element={<DealerLeadDetail />} />
                 <Route path="team" element={<DealerTeam />} />
                 <Route path="settings" element={<DealerSettings />} />
               </Route>
