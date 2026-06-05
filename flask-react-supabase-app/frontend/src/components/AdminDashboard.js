@@ -19,6 +19,7 @@ import {
   Radio,
   ExternalLink,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -135,6 +136,7 @@ const AdminDashboard = () => {
 
   // Data state (all preserved from original)
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [stats, setStats] = useState({});
   const [leadMetrics, setLeadMetrics] = useState(null);
@@ -142,6 +144,7 @@ const AdminDashboard = () => {
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
   const [liveUsers, setLiveUsers] = useState(null);
+  const [liveUsersHistory, setLiveUsersHistory] = useState([]);
 
   // ── primary data fetch ──────────────────────────────────────────────────
   useEffect(() => {
@@ -166,6 +169,7 @@ const AdminDashboard = () => {
     }
 
     let active = true;
+    setRefreshing(true);
 
     (async () => {
       try {
@@ -200,7 +204,10 @@ const AdminDashboard = () => {
         console.error('Failed to load admin dashboard:', loadError);
         if (!cached?.value) setError(loadError.message || 'Failed to load dashboard');
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     })();
 
@@ -215,7 +222,16 @@ const AdminDashboard = () => {
     const loadLiveUsers = async () => {
       try {
         const res = await apiClient.request('/api/admin/live-users?window_seconds=300').catch(() => null);
-        if (!cancelled) setLiveUsers(res);
+        if (cancelled) return;
+        setLiveUsers(res);
+        if (res && Number.isFinite(Number(res.live_visitors))) {
+          const ts = res.timestamp || new Date().toISOString();
+          setLiveUsersHistory((prev) => {
+            const next = [...prev, { date: ts, value: Number(res.live_visitors) }];
+            // Keep last ~30 min at 15s cadence = 120 samples
+            return next.length > 120 ? next.slice(next.length - 120) : next;
+          });
+        }
       } catch {
         if (!cancelled) setLiveUsers(null);
       }
@@ -318,6 +334,18 @@ const AdminDashboard = () => {
     ];
   }, [leadMetrics, recentEvents]);
 
+  // ── live-users sparkline series ─────────────────────────────────────────
+  const liveUsersSeries = useMemo(() => {
+    if (!liveUsersHistory.length) return [];
+    return [
+      {
+        label: 'Live visitors',
+        color: '#10b981',
+        data: liveUsersHistory.map((p) => ({ date: p.date, value: p.value })),
+      },
+    ];
+  }, [liveUsersHistory]);
+
   // ── loading skeleton ─────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -381,7 +409,15 @@ const AdminDashboard = () => {
             Live: {liveVisitorsCount.toLocaleString('en-AE')} visitors
           </span>
         </div>
-        <SegmentedControl options={WINDOW_OPTIONS} value={days} onChange={setDays} />
+        <div className="flex items-center gap-2">
+          {refreshing && !loading && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/60">
+              <Loader2 size={11} className="animate-spin" />
+              Updating…
+            </span>
+          )}
+          <SegmentedControl options={WINDOW_OPTIONS} value={days} onChange={setDays} />
+        </div>
       </motion.div>
 
       {/* ── 2. Primary KPI grid (8 tiles) ───────────────────────────────── */}
@@ -459,8 +495,8 @@ const AdminDashboard = () => {
         </div>
       </motion.div>
 
-      {/* ── 4. Two-column: Lead activity + Pending dealers ──────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4">
+      {/* ── 4. Three-column: Lead activity + Live visitors + Pending dealers ─ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_380px] gap-4">
 
         {/* Lead activity chart */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
@@ -474,6 +510,36 @@ const AdminDashboard = () => {
               showLegend
               emptyLabel="No lead activity in this window"
             />
+          </GlassCard>
+        </motion.div>
+
+        {/* Live visitors sparkline */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.29 }}>
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">
+                Live visitors
+              </p>
+              <span
+                className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                  liveVisitorsCount > 0
+                    ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
+                    : 'text-white/40 bg-white/[0.04] border-white/[0.08]'
+                }`}
+              >
+                <Radio size={9} className={liveVisitorsCount > 0 ? 'text-emerald-400 animate-pulse' : 'text-white/30'} />
+                Now: {liveVisitorsCount.toLocaleString('en-AE')}
+              </span>
+            </div>
+            <TrendChart
+              series={liveUsersSeries}
+              height={220}
+              showLegend={false}
+              emptyLabel="Collecting live samples…"
+            />
+            <p className="mt-2 text-[10px] text-white/30">
+              Rolling 30 min · refreshes every 15s
+            </p>
           </GlassCard>
         </motion.div>
 
