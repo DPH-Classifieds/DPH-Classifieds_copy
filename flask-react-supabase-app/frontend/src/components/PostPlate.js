@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -10,9 +10,15 @@ import { getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
+import UnifiedCropper from './cropper/UnifiedCropper';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
+
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
+const MAX_IMAGES = 10;
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('plate');
@@ -85,10 +91,16 @@ const PostPlate = () => {
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
 
+  const fileInputRef = useRef(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingListing, setIsLoadingListing] = useState(isEdit);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [pendingCropFiles, setPendingCropFiles] = useState(null);
+  const [croppedImages, setCroppedImages] = useState([]); // Array<{croppedFile, originalFile, previewUrl}>
+  const [existingImageUrls, setExistingImageUrls] = useState([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [useUsernameAsContactName, setUseUsernameAsContactName] = useState(false);
   const [formData, setFormData] = useState({
@@ -178,6 +190,13 @@ const PostPlate = () => {
             normalizedWhatsapp.countryCode === normalizedContact.countryCode &&
             normalizedWhatsapp.localNumber === normalizedContact.localNumber
         );
+
+        const urls = Array.isArray(data.images)
+          ? data.images
+              .map((img) => img?.display_url || img?.image_url || img?.url)
+              .filter(Boolean)
+          : [];
+        setExistingImageUrls(urls);
       } catch (fetchError) {
         setError(fetchError.message || 'Failed to load plate listing');
       } finally {
@@ -187,6 +206,16 @@ const PostPlate = () => {
 
     fetchListing();
   }, [isEdit, listingId]);
+
+  // Revoke cropped preview blob URLs on unmount to avoid memory leaks.
+  useEffect(() => {
+    return () => {
+      croppedImages.forEach(({ previewUrl }) => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isUnauthed = !isLoading && !user;
   const codeOptions = useMemo(() => getCodeOptions(formData.city), [formData.city]);
@@ -298,6 +327,37 @@ const PostPlate = () => {
     });
   };
 
+  const onPickImages = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const validFiles = [];
+    for (const file of files) {
+      if (croppedImages.length + validFiles.length >= MAX_IMAGES) {
+        setError(`Maximum ${MAX_IMAGES} images allowed`);
+        break;
+      }
+      if (!SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase())) {
+        setError(`Unsupported file type: ${file.name}`);
+        continue;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setError(`File too large: ${file.name}. Max size is 20MB.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (!validFiles.length) return;
+    setError(null);
+    setPendingCropFiles(validFiles);
+    e.target.value = '';
+  };
+
+  const removeExistingImage = (index) => {
+    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -309,6 +369,14 @@ const PostPlate = () => {
     setIsSubmitting(true);
 
     try {
+      // Upload any new cropped images before building the payload
+      let uploadedImages = [];
+      if (croppedImages.length > 0) {
+        const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
+        uploadedImages = await uploadListingImagesDirect(croppedFiles, { userId: user.id });
+      }
+      const mergedImages = [...existingImageUrls, ...uploadedImages];
+
       const payload = {
         city: formData.city,
         code: formData.code,
@@ -327,6 +395,7 @@ const PostPlate = () => {
         emirate: formData.emirate || formData.city,
         description: formData.description.trim(),
         is_dealer: formData.is_dealer,
+        ...(mergedImages.length > 0 && { images: mergedImages }),
       };
 
       if (isEdit) {
@@ -697,6 +766,89 @@ const PostPlate = () => {
               </div>
             </div>
 
+            <div className="form-section-layout">
+              <div className="form-section-sidebar">
+                <h2 className="form-section-title">Gallery</h2>
+                <p className="form-section-desc">
+                  Upload optional supplementary plate photos. Each image is cropped to 4:1 banner format before upload.
+                </p>
+              </div>
+              <div className="form-section-content">
+                <div
+                  className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(false);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(false);
+                    const droppedFiles = Array.from(event.dataTransfer.files || []);
+                    if (!droppedFiles.length) return;
+                    const validFiles = droppedFiles.filter((f) =>
+                      SUPPORTED_IMAGE_TYPES.includes((f.type || '').toLowerCase()) &&
+                      f.size <= MAX_IMAGE_SIZE_BYTES
+                    );
+                    if (validFiles.length) {
+                      setError(null);
+                      setPendingCropFiles(validFiles);
+                    }
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="upload-icon-wrapper">
+                    <span className="material-symbols-outlined">upload</span>
+                  </div>
+                  <p className="upload-text-main">Drop plate photos here or click to browse</p>
+                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 20MB each</p>
+                  <input
+                    ref={fileInputRef}
+                    className="file-input"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.gif"
+                    multiple
+                    onChange={onPickImages}
+                  />
+                </div>
+
+                {croppedImages.length > 0 && (
+                  <div className="image-previews-grid">
+                    {croppedImages.map((img, index) => (
+                      <div className="preview-item" key={index}>
+                        <img src={img.previewUrl} alt={`Plate preview ${index + 1}`} />
+                        <button
+                          type="button"
+                          className="remove-btn"
+                          onClick={() => setCroppedImages((prev) => prev.filter((_, j) => j !== index))}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {existingImageUrls.length > 0 && (
+                  <div className="image-previews-grid">
+                    {existingImageUrls.map((imageUrl, index) => (
+                      <div className="preview-item" key={`${imageUrl}-${index}`}>
+                        <img src={imageUrl} alt={`Existing plate ${index + 1}`} />
+                        <button type="button" className="remove-btn" onClick={() => removeExistingImage(index)}>
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="form-actions-section">
               {isSubmitting ? (
                 <div className="submit-loading-state" aria-live="polite" aria-atomic="true">
@@ -714,6 +866,18 @@ const PostPlate = () => {
           </form>
         </div>
       </section>
+      {pendingCropFiles && (
+        <UnifiedCropper
+          kind="plate"
+          images={pendingCropFiles}
+          isOpen
+          onClose={() => setPendingCropFiles(null)}
+          onComplete={(results) => {
+            setCroppedImages((prev) => [...prev, ...results]);
+            setPendingCropFiles(null);
+          }}
+        />
+      )}
     </div>
   );
 };
