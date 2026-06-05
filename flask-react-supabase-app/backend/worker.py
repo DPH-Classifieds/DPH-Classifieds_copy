@@ -125,6 +125,7 @@ def main():
             _run_listing_expiry_reminders_once,
             _run_listing_lifecycle_sweep_once,
         )
+        from workers.inventory_import_worker import run as _run_inventory_import_once
         from health_monitoring import (
             HEALTH_CHECK_INTERVAL_SECONDS,
             WORKER_HEARTBEAT_INTERVAL_SECONDS,
@@ -161,6 +162,9 @@ def main():
     )
     listing_sweep_interval_seconds = int(
         os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))
+    )
+    inventory_import_interval_seconds = int(
+        os.getenv("INVENTORY_IMPORT_INTERVAL_SECONDS", "10")
     )
 
     health_server_thread = threading.Thread(
@@ -219,8 +223,19 @@ def main():
         name="listing-lifecycle-sweep",
         daemon=True,
     )
+    inventory_import_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "inventory_import_worker",
+            _run_inventory_import_once,
+            inventory_import_interval_seconds,
+        ),
+        name="inventory-import",
+        daemon=True,
+    )
     reminder_thread.start()
     sweep_thread.start()
+    inventory_import_thread.start()
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss sweep=%ss)",
         listing_reminder_interval_seconds,
@@ -264,6 +279,7 @@ def main():
         monitor_thread.join(timeout=5)
         reminder_thread.join(timeout=5)
         sweep_thread.join(timeout=5)
+        inventory_import_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 
