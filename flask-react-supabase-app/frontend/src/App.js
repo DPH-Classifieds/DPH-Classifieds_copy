@@ -23,6 +23,9 @@ import DealerListingDiagnostic from './components/dealer/DealerListingDiagnostic
 import DealerTeam from './components/dealer/DealerTeam';
 import DealerSettings from './components/dealer/DealerSettings';
 import DealerInviteAccept from './components/dealer/DealerInviteAccept';
+
+const DealerLeads = lazy(() => import('./components/dealer/DealerLeads'));
+const DealerLeadDetail = lazy(() => import('./components/dealer/DealerLeadDetail'));
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
@@ -341,6 +344,8 @@ function App() {
                 <Route path="listings" element={<DealerListings />} />
                 <Route path="listings/:listing_type/:listing_id/analytics" element={<DealerListingAnalytics />} />
                 <Route path="listings/:listing_type/:listing_id/diagnostic" element={<DealerListingDiagnostic />} />
+                <Route path="leads" element={<DealerLeads />} />
+                <Route path="leads/:id" element={<DealerLeadDetail />} />
                 <Route path="team" element={<DealerTeam />} />
                 <Route path="settings" element={<DealerSettings />} />
               </Route>
