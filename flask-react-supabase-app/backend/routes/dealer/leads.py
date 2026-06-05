@@ -265,7 +265,8 @@ def update_lead(current_user, lead_id):
     update["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     pr = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/dealer_leads?id=eq.{lead_id}",
+        f"{SUPABASE_URL}/rest/v1/dealer_leads"
+        f"?id=eq.{lead_id}&dealership_id=eq.{dealership_id}",
         headers=_svc(),
         json=update,
         timeout=10,
