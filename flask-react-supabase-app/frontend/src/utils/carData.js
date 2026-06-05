@@ -179,7 +179,7 @@ const carTrims = {
     'X-Trail': ['S', 'SV', 'SL'],
     'Xterra': ['S', 'SV', 'PRO-4X'],
     'Navara': ['S', 'SV', 'PRO-4X', 'Platinum'],
-    'Patrol': ['XE', 'SE', 'SE T2', 'SE Titanium', 'SE Platinum', 'SE Platinum Platinum City ', 'LE', 'LE T1', 'LE T2', 'LE Titanium', 'LE Platinum', 'LE Platinum  City ', 'Nismo'],
+    'Patrol': ['XE', 'SE', 'SE T2', 'SE Titanium', 'SE Platinum', 'SE Platinum Platinum City ', 'LE', 'LE T1', 'LE T2', 'LE Titanium', 'LE Platinum', 'LE Platinum  City ', 'Nismo','Pro 4X'],
     'Sunny': ['S', 'SV', 'SR'],
     'Micra': ['S', 'SV', 'SR'],
     'Tiida': ['S', 'SV', 'SR'],
