@@ -62,7 +62,7 @@ const AdminLayout = () => {
 
         <AdminSidebar open={sidebarOpen} user={user} onLogout={handleLogout} isMobile={isMobile} />
 
-        <main className="flex-1 min-w-0 p-8 max-w-[1800px] mx-auto w-full">
+        <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8 max-w-[1800px] mx-auto w-full">
           <Outlet />
         </main>
       </div>

@@ -45,10 +45,17 @@ body {
   margin-top: 84px;
 }
 
-/* Bare main wrapper for routes whose layout supplies its own header (admin). */
+/* Bare main wrapper for routes whose layout supplies its own header (admin).
+   Use !important to guarantee no top spacing even if another rule (e.g. the
+   mobile @media .app-content override) wins the cascade for some viewport.
+   AdminLayout's own sticky AdminHeader supplies the chrome. */
 .app-main--bare {
-  width: 100%;
-  margin-top: 0;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.app-main--bare > div {
+  margin-top: 0 !important;
 }
 
 a {

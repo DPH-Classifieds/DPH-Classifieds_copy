@@ -12,12 +12,38 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Polyline, Rect } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../utils/apiClient';
 import { formatNumber } from '../../utils/formatters';
 import { swrGet, swrSet } from '../../utils/swrCache';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+
+// Tiny SVG sparkline. `points` is an array of { ts, value }; we map the
+// last N onto an inline polyline. Doesn't import a charting library — keeps
+// the bundle small and skips the perf cost of recharts/victory.
+function LiveVisitorsSparkline({ points = [], width = 280, height = 60 }) {
+  if (!points.length) {
+    return (
+      <View style={{ height, width, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: COLORS.textMuted, fontSize: 11 }}>Collecting live samples…</Text>
+      </View>
+    );
+  }
+  const values = points.map((p) => Number(p.value) || 0);
+  const max = Math.max(1, ...values);
+  const stepX = width / Math.max(1, points.length - 1);
+  const polyPoints = values
+    .map((v, i) => `${(i * stepX).toFixed(1)},${(height - (v / max) * (height - 8) - 4).toFixed(1)}`)
+    .join(' ');
+  return (
+    <Svg width={width} height={height}>
+      <Rect x={0} y={0} width={width} height={height} fill="rgba(16,185,129,0.04)" rx={6} />
+      <Polyline points={polyPoints} fill="none" stroke="#10b981" strokeWidth={2} />
+    </Svg>
+  );
+}
 
 const QUICK_ACTIONS = [
   { label: 'Review Users', icon: 'people-outline', route: 'AdminUsers' },
@@ -49,6 +75,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
   const [liveUsers, setLiveUsers] = useState(null);
+  const [liveUsersHistory, setLiveUsersHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -119,17 +146,41 @@ export default function AdminDashboardScreen({ navigation }) {
     let cancelled = false;
     let intervalId = null;
 
+    // Seed the sparkline with ~30 min of per-minute history so the chart
+    // paints meaningfully on first load instead of waiting for live samples.
+    const loadHistory = async () => {
+      try {
+        const res = await apiClient
+          .get('/api/admin/live-users/history?window_seconds=1800&bucket_seconds=60')
+          .catch(() => null);
+        if (cancelled || !res || !Array.isArray(res.points)) return;
+        const seeded = res.points
+          .filter((p) => p && p.ts && Number.isFinite(Number(p.value)))
+          .map((p) => ({ ts: p.ts, value: Number(p.value) }));
+        if (seeded.length) setLiveUsersHistory(seeded);
+      } catch (_) { /* swallow — polling will populate as it goes */ }
+    };
+
     const loadLive = async () => {
       try {
         const res = await apiClient.get('/api/admin/live-users?window_seconds=300').catch(() => null);
-        if (!cancelled) setLiveUsers(res);
+        if (cancelled) return;
+        setLiveUsers(res);
+        if (res && Number.isFinite(Number(res.live_visitors))) {
+          const ts = res.timestamp || new Date().toISOString();
+          setLiveUsersHistory((prev) => {
+            const next = [...prev, { ts, value: Number(res.live_visitors) }];
+            return next.length > 60 ? next.slice(next.length - 60) : next;
+          });
+        }
       } catch (_) {
         if (!cancelled) setLiveUsers(null);
       }
     };
 
     const start = () => {
-      if (!intervalId) intervalId = setInterval(loadLive, 15000);
+      // Web bumped to 30s to match backend cache TTL — same here.
+      if (!intervalId) intervalId = setInterval(loadLive, 30000);
     };
     const stop = () => {
       if (intervalId) {
@@ -138,6 +189,7 @@ export default function AdminDashboardScreen({ navigation }) {
       }
     };
 
+    loadHistory();
     loadLive();
     if (AppState.currentState === 'active') start();
 
@@ -313,6 +365,20 @@ export default function AdminDashboardScreen({ navigation }) {
           <KpiCard icon="flag" label="Reports" value={formatNumber(totalReports)} color={COLORS.error} />
           <KpiCard icon="radio" label="Live Users" value={formatNumber(liveVisitorsCount)} color={COLORS.accent} />
           <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={COLORS.accent} />
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.liveVisitorsHeader}>
+            <Text style={styles.sectionTitle}>Live Visitors</Text>
+            <View style={styles.liveVisitorsPill}>
+              <Ionicons name="radio" size={10} color="#10b981" />
+              <Text style={styles.liveVisitorsPillText}>Now: {formatNumber(liveVisitorsCount)}</Text>
+            </View>
+          </View>
+          <View style={styles.surface}>
+            <LiveVisitorsSparkline points={liveUsersHistory} width={300} height={64} />
+            <Text style={styles.liveVisitorsCaption}>Rolling 30 min · refreshes every 30 s</Text>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -552,4 +618,18 @@ const styles = StyleSheet.create({
   errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
   retryBtn: { marginTop: 20, backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.md },
+  liveVisitorsHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
+  },
+  liveVisitorsPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(16,185,129,0.10)', borderColor: 'rgba(16,185,129,0.30)', borderWidth: 1,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+  },
+  liveVisitorsPillText: {
+    color: '#a7f3d0', fontSize: 11, fontWeight: '700', letterSpacing: 0.2,
+  },
+  liveVisitorsCaption: {
+    color: 'rgba(255,255,255,0.30)', fontSize: 10, marginTop: 6,
+  },
 });
