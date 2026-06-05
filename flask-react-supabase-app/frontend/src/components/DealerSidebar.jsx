@@ -5,6 +5,8 @@ import {
   Car,
   Users,
   Settings,
+  Upload,
+  Plug,
   ArrowLeft,
 } from 'lucide-react';
 import { useDealer } from '../context/DealerContext';
@@ -12,6 +14,8 @@ import { useDealer } from '../context/DealerContext';
 const NAV_ITEMS = [
   { to: '/dealer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/dealer/listings', label: 'Listings', icon: Car },
+  { to: '/dealer/inventory', label: 'Inventory', icon: Upload },
+  { to: '/dealer/integrations', label: 'Integrations', icon: Plug },
   { to: '/dealer/team', label: 'Team', icon: Users, ownerOnly: true },
   { to: '/dealer/settings', label: 'Settings', icon: Settings, ownerOnly: true },
 ];

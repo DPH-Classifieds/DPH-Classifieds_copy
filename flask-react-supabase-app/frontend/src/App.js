@@ -23,6 +23,9 @@ import DealerListingDiagnostic from './components/dealer/DealerListingDiagnostic
 import DealerTeam from './components/dealer/DealerTeam';
 import DealerSettings from './components/dealer/DealerSettings';
 import DealerInviteAccept from './components/dealer/DealerInviteAccept';
+const DealerInventory = lazy(() => import('./components/dealer/DealerInventory'));
+const DealerInventoryJobDetail = lazy(() => import('./components/dealer/DealerInventoryJobDetail'));
+const DealerApiSources = lazy(() => import('./components/dealer/DealerApiSources'));
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
@@ -341,6 +344,9 @@ function App() {
                 <Route path="listings" element={<DealerListings />} />
                 <Route path="listings/:listing_type/:listing_id/analytics" element={<DealerListingAnalytics />} />
                 <Route path="listings/:listing_type/:listing_id/diagnostic" element={<DealerListingDiagnostic />} />
+                <Route path="inventory" element={<DealerInventory />} />
+                <Route path="inventory/jobs/:id" element={<DealerInventoryJobDetail />} />
+                <Route path="integrations" element={<DealerApiSources />} />
                 <Route path="team" element={<DealerTeam />} />
                 <Route path="settings" element={<DealerSettings />} />
               </Route>
