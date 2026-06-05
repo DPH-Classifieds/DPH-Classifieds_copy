@@ -216,7 +216,7 @@ const AdminDashboard = () => {
     return () => { active = false; };
   }, [days]);
 
-  // ── live-users polling (15 s, visibility-aware) ─────────────────────────
+  // ── live-users polling (30 s, visibility-aware) ─────────────────────────
   useEffect(() => {
     let cancelled = false;
     let intervalId = null;
@@ -265,7 +265,7 @@ const AdminDashboard = () => {
     };
 
     const start = () => {
-      if (!intervalId) intervalId = window.setInterval(loadLiveUsers, 15000);
+      if (!intervalId) intervalId = window.setInterval(loadLiveUsers, 30000);
     };
     const stop = () => {
       if (intervalId) { window.clearInterval(intervalId); intervalId = null; }

@@ -107,14 +107,43 @@ def cleanup_loop(cleanup_fn, interval, max_age_hours, dry_run):
         stop_event.wait(interval)
 
 
-def scheduled_loop(label, task_fn, interval_seconds):
+def _result_did_work(result):
+    """Heuristic: did this tick actually process anything?
+
+    Workers return either an int (count processed) or a (count, *) tuple.
+    Anything truthy / >0 means real work happened; we should poll fast.
+    Anything zero / None / empty means the queue was idle; back off.
+    """
+    if result is None:
+        return False
+    if isinstance(result, tuple) and result:
+        head = result[0]
+        return bool(head) if not isinstance(head, (int, float)) else head > 0
+    if isinstance(result, (int, float)):
+        return result > 0
+    return bool(result)
+
+
+def scheduled_loop(label, task_fn, interval_seconds, max_backoff_seconds=300):
+    """Adaptive polling: doubles the wait on idle ticks (capped), resets when
+    work happens. Equivalent to a "long poll" when the queue is quiet — the
+    worker sleeps up to ``max_backoff_seconds`` between empty checks instead
+    of hammering the DB every ``interval_seconds``. The base interval kicks
+    back in as soon as any tick reports work, so latency stays low when the
+    queue is busy.
+    """
+    base = max(1, int(interval_seconds))
+    cap = max(base, int(max_backoff_seconds))
+    wait = base
     while not stop_event.is_set():
         try:
             result = task_fn()
             logger.info("%s complete: %s", label, result)
+            wait = base if _result_did_work(result) else min(wait * 2, cap)
         except Exception as exc:
             logger.exception("%s failed: %s", label, exc)
-        stop_event.wait(interval_seconds)
+            wait = min(max(wait, base) * 2, cap)
+        stop_event.wait(wait)
 
 
 def main():
