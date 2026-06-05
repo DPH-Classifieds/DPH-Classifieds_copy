@@ -280,6 +280,75 @@ def update_lead(current_user, lead_id):
     if "assigned_to" in update and update["assigned_to"] != current.get("assigned_to"):
         _emit_event(lead_id, current_user, "assignment",
                     {"from": current.get("assigned_to"), "to": update["assigned_to"]})
+        _email_assignment(lead_id, update["assigned_to"], dealership_id)
 
     new_row = pr.json()[0] if isinstance(pr.json(), list) and pr.json() else None
     return jsonify({"lead": new_row}), 200
+
+
+@leads_bp.route("/leads/<lead_id>/note", methods=["POST"])
+@_token_required
+@dealer_required
+def add_lead_note(current_user, lead_id):
+    """Append a free-text note to a lead's timeline."""
+    dealership_id = g.dealer_ctx["dealership_id"]
+    body = (request.get_json(silent=True) or {}).get("body", "").strip()
+    if not body:
+        return jsonify({"error": {"code": "empty_note"}}), 400
+
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/dealer_leads",
+        headers=_svc(prefer=""),
+        params={"select": "id", "id": f"eq.{lead_id}",
+                "dealership_id": f"eq.{dealership_id}", "limit": 1},
+        timeout=10,
+    )
+    if r.status_code != 200 or not r.json():
+        return jsonify({"error": {"code": "not_found"}}), 404
+
+    ir = requests.post(
+        f"{SUPABASE_URL}/rest/v1/dealer_lead_events",
+        headers=_svc(),
+        json={"lead_id": lead_id, "actor_user_id": current_user,
+              "kind": "note", "payload": {"body": body}},
+        timeout=10,
+    )
+    if ir.status_code not in (200, 201):
+        return jsonify({"error": {"code": "insert_failed", "message": ir.text[:300]}}), 502
+    return jsonify({"event": ir.json()[0] if ir.json() else None}), 201
+
+
+def _email_assignment(lead_id, assignee_user_id, dealership_id):
+    """Best-effort email to the assignee. Swallows any error so it never
+    blocks the PATCH response."""
+    if not assignee_user_id:
+        return
+    try:
+        u = requests.get(f"{SUPABASE_URL}/rest/v1/users",
+                         headers=_svc(prefer=""),
+                         params={"select": "email,first_name",
+                                 "id": f"eq.{assignee_user_id}", "limit": 1},
+                         timeout=8).json()
+        if not u:
+            return
+        d = requests.get(f"{SUPABASE_URL}/rest/v1/dealerships",
+                         headers=_svc(prefer=""),
+                         params={"select": "name", "id": f"eq.{dealership_id}", "limit": 1},
+                         timeout=8).json()
+        dealership_name = d[0]["name"] if d else "your dealership"
+        site_url = os.getenv("SITE_URL", "").rstrip("/")
+        link = f"{site_url}/dealer/leads/{lead_id}" if site_url else f"/dealer/leads/{lead_id}"
+
+        # Real signature: _send_email(to_address, subject, html_body)
+        from app import _send_email
+        _send_email(
+            u[0]["email"],
+            f"New lead assigned to you — {dealership_name}",
+            (
+                f"<p>Hi {u[0].get('first_name') or ''},</p>"
+                f"<p>A lead has been assigned to you in <strong>{dealership_name}</strong>.</p>"
+                f"<p><a href=\"{link}\">Open the lead</a></p>"
+            ),
+        )
+    except Exception:
+        pass

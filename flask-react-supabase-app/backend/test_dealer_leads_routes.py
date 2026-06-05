@@ -322,3 +322,49 @@ def test_patch_lead_emits_assignment_event_on_assignment_change(
                         and c.kwargs["json"]["kind"] == "assignment"]
     assert assignment_calls
     assert assignment_calls[0].kwargs["json"]["payload"]["to"] == "rep-7"
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_post_note_creates_lead_event(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "manager", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [{"id": "lead-1"}])
+    mock_requests.post.return_value = _resp(201, [{"id": "dle-9"}])
+
+    rv = client.post("/api/dealer/leads/lead-1/note",
+                     json={"body": "Customer wants finance options"})
+    assert rv.status_code == 201
+    post_call = mock_requests.post.call_args
+    assert "dealer_lead_events" in post_call.args[0]
+    assert post_call.kwargs["json"]["kind"] == "note"
+    assert post_call.kwargs["json"]["payload"]["body"] == "Customer wants finance options"
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_post_note_rejects_empty_body(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "manager", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [{"id": "lead-1"}])
+    rv = client.post("/api/dealer/leads/lead-1/note", json={"body": "   "})
+    assert rv.status_code == 400
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_post_note_returns_404_for_wrong_dealership(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "manager", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [])
+    rv = client.post("/api/dealer/leads/lead-other/note", json={"body": "hi"})
+    assert rv.status_code == 404
