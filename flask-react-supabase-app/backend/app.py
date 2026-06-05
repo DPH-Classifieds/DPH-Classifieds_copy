@@ -14480,6 +14480,23 @@ def get_admin_stats(current_user):
             "total_vin_reveal_events": lead_event_counts.get("vin_reveal", 0),
         }
 
+        # Cropped_at migration health — % of image rows that have been migrated to the
+        # real cropped-blob render path. When this approaches 100%, the legacy
+        # focal-point CSS fallback in the detail-page renderers can be removed.
+        cropped_at_pct = None
+        try:
+            total_all = 0
+            cropped_all = 0
+            for table in ("car_images", "bike_images", "plate_images", "part_images"):
+                total_all += _supabase_count(table)
+                cropped_all += _supabase_count(table, {"cropped_at": "not.is.null"})
+            if total_all > 0:
+                cropped_at_pct = round(100.0 * cropped_all / total_all, 2)
+        except Exception as exc:
+            logger.warning("cropped_at_pct calculation failed: %s", exc)
+
+        stats["cropped_at_pct"] = cropped_at_pct
+
         _api_cache_set(cache_key, stats, ttl_seconds=60)
         return jsonify(stats), 200
     except Exception as exc:
