@@ -22,7 +22,7 @@ import {
   User,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
-import { getEventActorLabel } from './admin/adminUtils';
+import { getEventActorLabel, adminListingRouteType } from './admin/adminUtils';
 import {
   GlassCard,
   EmptyState,
