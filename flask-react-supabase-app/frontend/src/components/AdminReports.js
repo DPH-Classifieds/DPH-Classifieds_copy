@@ -56,15 +56,6 @@ const TYPE_CHIPS = [
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-const adminListingRouteType = (value) => {
-  const n = String(value || '').toLowerCase();
-  if (n === 'cars' || n === 'car') return 'car';
-  if (n === 'bikes' || n === 'bike') return 'bike';
-  if (n === 'parts' || n === 'part') return 'part';
-  if (n === 'plates' || n === 'plate') return 'plate';
-  return '';
-};
-
 const relTime = (ts) => {
   if (!ts) return '';
   const diffMs = Date.now() - new Date(ts).getTime();

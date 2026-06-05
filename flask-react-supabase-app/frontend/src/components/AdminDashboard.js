@@ -32,6 +32,7 @@ import {
   EmptyState,
   SegmentedControl,
 } from './ui/dashboard';
+import { adminListingDetailHref } from './admin/adminUtils';
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -214,10 +215,35 @@ const AdminDashboard = () => {
     return () => { active = false; };
   }, [days]);
 
-  // ── live-users polling (30 s, visibility-aware) ─────────────────────────
+  // ── live-users polling (15 s, visibility-aware) ─────────────────────────
   useEffect(() => {
     let cancelled = false;
     let intervalId = null;
+
+    // Seed the sparkline with the last 30 min of per-minute buckets so the
+    // chart renders meaningful history on first paint instead of waiting
+    // 15s+ for polled samples to accumulate.
+    const loadHistory = async () => {
+      try {
+        const res = await apiClient
+          .request('/api/admin/live-users/history?window_seconds=1800&bucket_seconds=60')
+          .catch(() => null);
+        if (cancelled || !res || !Array.isArray(res.points)) return;
+        const seeded = res.points
+          .filter((p) => p && p.ts && Number.isFinite(Number(p.value)))
+          .map((p) => ({ date: p.ts, value: Number(p.value) }));
+        if (!seeded.length) return;
+        setLiveUsersHistory((prev) => {
+          // If the polling loop already pushed a sample, keep it on top.
+          if (!prev.length) return seeded;
+          const lastSeedTs = new Date(seeded[seeded.length - 1].date).getTime();
+          const tail = prev.filter((p) => new Date(p.date).getTime() > lastSeedTs);
+          return [...seeded, ...tail];
+        });
+      } catch {
+        /* swallow — polling will populate as it goes */
+      }
+    };
 
     const loadLiveUsers = async () => {
       try {
@@ -228,8 +254,8 @@ const AdminDashboard = () => {
           const ts = res.timestamp || new Date().toISOString();
           setLiveUsersHistory((prev) => {
             const next = [...prev, { date: ts, value: Number(res.live_visitors) }];
-            // Keep last ~30 min at 15s cadence = 120 samples
-            return next.length > 120 ? next.slice(next.length - 120) : next;
+            // Keep last ~30 min of samples (30 history buckets + ~120 poll samples = ~150 cap)
+            return next.length > 200 ? next.slice(next.length - 200) : next;
           });
         }
       } catch {
@@ -247,6 +273,7 @@ const AdminDashboard = () => {
       if (document.hidden) { stop(); } else { loadLiveUsers(); start(); }
     };
 
+    loadHistory();
     loadLiveUsers();
     if (!document.hidden) start();
     document.addEventListener('visibilitychange', onVisibility);
@@ -606,26 +633,43 @@ const AdminDashboard = () => {
             <EmptyState icon={Activity} title="No listing history" description="Listing activity will appear here." />
           ) : (
             <div className="space-y-1">
-              {history.slice(0, 8).map((entry, i) => (
-                <motion.div
-                  key={entry.id || i}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.36 + i * 0.03 }}
-                  className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0"
-                >
-                  <TypeBadge type={entry.listing_type} />
-                  <p className="text-sm text-white/60 font-mono flex-1 truncate">
-                    {String(entry.id || '').slice(0, 8) || '—'}
-                  </p>
-                  <Badge color={entry.status === 'approved' ? 'emerald' : entry.status === 'rejected' ? 'rose' : 'amber'}>
-                    {entry.status || 'removed'}
-                  </Badge>
-                  <span className="text-[11px] text-white/30 flex-shrink-0">
-                    {relTime(entry.created_at || entry.deleted_at)}
-                  </span>
-                </motion.div>
-              ))}
+              {history.slice(0, 8).map((entry, i) => {
+                const href = adminListingDetailHref(entry.listing_type, entry.id);
+                const rowClass = 'flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0';
+                const rowBody = (
+                  <>
+                    <TypeBadge type={entry.listing_type} />
+                    <p className="text-sm text-white/60 font-mono flex-1 truncate">
+                      {String(entry.id || '').slice(0, 8) || '—'}
+                    </p>
+                    <Badge color={entry.status === 'approved' ? 'emerald' : entry.status === 'rejected' ? 'rose' : 'amber'}>
+                      {entry.status || 'removed'}
+                    </Badge>
+                    <span className="text-[11px] text-white/30 flex-shrink-0">
+                      {relTime(entry.created_at || entry.deleted_at)}
+                    </span>
+                  </>
+                );
+                return (
+                  <motion.div
+                    key={entry.id || i}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.36 + i * 0.03 }}
+                  >
+                    {href ? (
+                      <Link
+                        to={href}
+                        className={`${rowClass} hover:bg-white/[0.03] rounded-lg px-2 -mx-2 transition-colors cursor-pointer`}
+                      >
+                        {rowBody}
+                      </Link>
+                    ) : (
+                      <div className={rowClass}>{rowBody}</div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </GlassCard>

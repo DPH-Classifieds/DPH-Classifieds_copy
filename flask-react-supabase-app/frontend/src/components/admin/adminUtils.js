@@ -83,6 +83,25 @@ export const getListingTypeLabel = (value) => {
   return normalized || 'Listing';
 };
 
+// Maps any inbound listing-type variant to the param expected by
+// /admin/listings/:itemType/:itemId. Returns '' for unrecognised types
+// (caller should treat that as "no admin route available").
+export const adminListingRouteType = (value) => {
+  const n = String(value || '').toLowerCase();
+  if (n === 'car' || n === 'cars') return 'car';
+  if (n === 'bike' || n === 'bikes') return 'bike';
+  if (n === 'part' || n === 'parts' || n === 'car-parts' || n === 'car_parts') return 'part';
+  if (n === 'plate' || n === 'plates' || n === 'license_plate' || n === 'license_plates') return 'plate';
+  return '';
+};
+
+// Builds the admin detail route for a listing, or '' if we can't.
+export const adminListingDetailHref = (listingType, listingId) => {
+  const t = adminListingRouteType(listingType);
+  if (!t || !listingId) return '';
+  return `/admin/listings/${t}/${listingId}`;
+};
+
 export const getStatusTone = (status) => {
   const normalized = String(status || 'unknown').toLowerCase();
   if (normalized === 'approved' || normalized === 'active' || normalized === 'verified') return 'success';
