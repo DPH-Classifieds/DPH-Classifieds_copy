@@ -15,6 +15,7 @@ import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
+import UnifiedCropper from './cropper/UnifiedCropper';
 import '../styles/PostForms.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -77,8 +78,8 @@ const PostBike = () => {
   const [isLoadingListing, setIsLoadingListing] = useState(isEdit);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [previewImages, setPreviewImages] = useState([]);
+  const [pendingCropFiles, setPendingCropFiles] = useState(null);
+  const [croppedImages, setCroppedImages] = useState([]); // Array<{croppedFile, originalFile, previewUrl}>
   const [existingImageUrls, setExistingImageUrls] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
@@ -192,11 +193,15 @@ const PostBike = () => {
     fetchListing();
   }, [isEdit, listingId]);
 
+  // Revoke cropped preview blob URLs on unmount to avoid memory leaks.
   useEffect(() => {
     return () => {
-      previewImages.forEach((preview) => URL.revokeObjectURL(preview));
+      croppedImages.forEach(({ previewUrl }) => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      });
     };
-  }, [previewImages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isUnauthed = !isLoading && !user;
 
@@ -311,55 +316,40 @@ const PostBike = () => {
     }));
   };
 
-  const processFiles = (files) => {
-    if (!files.length) {
-      return;
-    }
+  const onPickImages = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
-    const nextFiles = [...selectedFiles];
-    const nextPreviews = [...previewImages];
-
+    const validFiles = [];
     for (const file of files) {
-      if (nextFiles.length >= MAX_IMAGES) {
+      if (croppedImages.length + validFiles.length >= MAX_IMAGES) {
         setError(`Maximum ${MAX_IMAGES} images allowed`);
         break;
       }
-
       if (!SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase())) {
         setError(`Unsupported file type: ${file.name}`);
         continue;
       }
-
       if (file.size > MAX_IMAGE_SIZE_BYTES) {
         setError(`File too large: ${file.name}. Max size is 20MB.`);
         continue;
       }
-
-      nextFiles.push(file);
-      nextPreviews.push(URL.createObjectURL(file));
+      validFiles.push(file);
     }
 
+    if (!validFiles.length) return;
     setError(null);
-    setSelectedFiles(nextFiles);
-    setPreviewImages(nextPreviews);
-  };
-
-  const removeImage = (index) => {
-    const previewToRevoke = previewImages[index];
-    if (previewToRevoke) {
-      URL.revokeObjectURL(previewToRevoke);
-    }
-
-    setSelectedFiles((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
-    setPreviewImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+    setPendingCropFiles(validFiles);
+    e.target.value = '';
   };
 
   const uploadImages = async () => {
-    if (selectedFiles.length === 0) {
+    if (croppedImages.length === 0) {
       throw new Error('Please upload at least one bike image.');
     }
 
-    return uploadListingImagesDirect(selectedFiles, { userId: user.id });
+    const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
+    return uploadListingImagesDirect(croppedFiles, { userId: user.id });
   };
 
   const removeExistingImage = (index) => {
@@ -377,7 +367,7 @@ const PostBike = () => {
     setIsSubmitting(true);
 
     try {
-      const uploadedImages = selectedFiles.length > 0 ? await uploadImages() : [];
+      const uploadedImages = croppedImages.length > 0 ? await uploadImages() : [];
       const mergedImages = [...existingImageUrls, ...uploadedImages];
       const payload = {
         bike_brand: formData.bike_brand.trim(),
@@ -843,7 +833,16 @@ const PostBike = () => {
                   onDrop={(event) => {
                     event.preventDefault();
                     setIsDragOver(false);
-                    processFiles(Array.from(event.dataTransfer.files));
+                    const droppedFiles = Array.from(event.dataTransfer.files || []);
+                    if (!droppedFiles.length) return;
+                    const validFiles = droppedFiles.filter((f) =>
+                      SUPPORTED_IMAGE_TYPES.includes((f.type || '').toLowerCase()) &&
+                      f.size <= MAX_IMAGE_SIZE_BYTES
+                    );
+                    if (validFiles.length) {
+                      setError(null);
+                      setPendingCropFiles(validFiles);
+                    }
                   }}
                   onClick={() => fileInputRef.current?.click()}
                   role="button"
@@ -860,19 +859,20 @@ const PostBike = () => {
                     type="file"
                     accept=".jpg,.jpeg,.png,.webp,.gif"
                     multiple
-                    onChange={(event) => {
-                      processFiles(Array.from(event.target.files || []));
-                      event.target.value = '';
-                    }}
+                    onChange={onPickImages}
                   />
                 </div>
 
-                {previewImages.length > 0 && (
+                {croppedImages.length > 0 && (
                   <div className="image-previews-grid">
-                    {previewImages.map((preview, index) => (
-                      <div className="preview-item" key={preview}>
-                        <img src={preview} alt={`Bike preview ${index + 1}`} />
-                        <button type="button" className="remove-btn" onClick={() => removeImage(index)}>
+                    {croppedImages.map((img, index) => (
+                      <div className="preview-item" key={index}>
+                        <img src={img.previewUrl} alt={`Bike preview ${index + 1}`} />
+                        <button
+                          type="button"
+                          className="remove-btn"
+                          onClick={() => setCroppedImages((prev) => prev.filter((_, j) => j !== index))}
+                        >
                           ×
                         </button>
                       </div>
@@ -912,6 +912,18 @@ const PostBike = () => {
           </form>
         </div>
       </section>
+      {pendingCropFiles && (
+        <UnifiedCropper
+          kind="bike"
+          images={pendingCropFiles}
+          isOpen
+          onClose={() => setPendingCropFiles(null)}
+          onComplete={(results) => {
+            setCroppedImages((prev) => [...prev, ...results]);
+            setPendingCropFiles(null);
+          }}
+        />
+      )}
     </div>
   );
 };
