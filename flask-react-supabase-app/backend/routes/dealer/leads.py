@@ -193,3 +193,93 @@ def get_lead(current_user, lead_id):
         "listing": listing_card,
         "session": session_events,
     }), 200
+
+
+def _emit_event(lead_id, actor_user_id, kind, payload):
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/dealer_lead_events",
+        headers=_svc(prefer="return=minimal"),
+        json={"lead_id": lead_id, "actor_user_id": actor_user_id,
+              "kind": kind, "payload": payload},
+        timeout=10,
+    )
+
+
+@leads_bp.route("/leads/<lead_id>", methods=["PATCH"])
+@_token_required
+@dealer_required
+def update_lead(current_user, lead_id):
+    """Update status, assignee, notes, sale_price, lost_reason.
+
+    Role gating:
+      - owner / manager / admin: any field on any lead in the dealership.
+      - sales_rep: status / notes only, and ONLY on leads assigned to them.
+    """
+    dealership_id = g.dealer_ctx["dealership_id"]
+    role = g.dealer_ctx["role"]
+    actor_kind = g.dealer_ctx.get("actor_kind")
+    body = request.get_json(silent=True) or {}
+
+    cur_r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/dealer_leads",
+        headers=_svc(prefer=""),
+        params={"select": "id,status,assigned_to",
+                "id": f"eq.{lead_id}",
+                "dealership_id": f"eq.{dealership_id}",
+                "limit": 1},
+        timeout=10,
+    )
+    if cur_r.status_code != 200 or not cur_r.json():
+        return jsonify({"error": {"code": "not_found"}}), 404
+    current = cur_r.json()[0]
+
+    # sales_rep gating
+    if actor_kind != "admin" and role == "sales_rep":
+        if current.get("assigned_to") != current_user:
+            return jsonify({"error": {"code": "forbidden",
+                                      "message": "Sales reps can only update their own leads."}}), 403
+        body = {k: v for k, v in body.items() if k in ("status", "notes")}
+
+    update = {}
+    if "status" in body:
+        if body["status"] not in ALLOWED_STATUS:
+            return jsonify({"error": {"code": "invalid_status"}}), 400
+        update["status"] = body["status"]
+    if "assigned_to" in body:
+        update["assigned_to"] = body["assigned_to"]
+    if "notes" in body:
+        update["notes"] = body["notes"]
+    if "sale_price" in body:
+        try:
+            update["sale_price"] = float(body["sale_price"]) if body["sale_price"] is not None else None
+        except (TypeError, ValueError):
+            return jsonify({"error": {"code": "invalid_sale_price"}}), 400
+    if "lost_reason" in body:
+        if body["lost_reason"] is not None and body["lost_reason"] not in ALLOWED_LOST:
+            return jsonify({"error": {"code": "invalid_lost_reason"}}), 400
+        update["lost_reason"] = body["lost_reason"]
+
+    if not update:
+        return jsonify({"error": {"code": "no_fields"}}), 400
+
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    pr = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/dealer_leads?id=eq.{lead_id}",
+        headers=_svc(),
+        json=update,
+        timeout=10,
+    )
+    if pr.status_code not in (200, 204):
+        return jsonify({"error": {"code": "update_failed", "message": pr.text[:300]}}), 502
+
+    # Emit timeline events for meaningful changes.
+    if "status" in update and update["status"] != current.get("status"):
+        _emit_event(lead_id, current_user, "status_change",
+                    {"from": current.get("status"), "to": update["status"]})
+    if "assigned_to" in update and update["assigned_to"] != current.get("assigned_to"):
+        _emit_event(lead_id, current_user, "assignment",
+                    {"from": current.get("assigned_to"), "to": update["assigned_to"]})
+
+    new_row = pr.json()[0] if isinstance(pr.json(), list) and pr.json() else None
+    return jsonify({"lead": new_row}), 200

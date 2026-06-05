@@ -209,3 +209,116 @@ def test_get_lead_detail_no_session_when_visitor_id_missing(
     assert data["session"] == []
     # Confirm we made exactly 3 GETs (not 4).
     assert mock_requests.get.call_count == 3
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_patch_lead_updates_status_and_emits_timeline_event(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [
+        {"id": "lead-1", "status": "new", "assigned_to": None}
+    ])
+    mock_requests.patch.return_value = _resp(200, [{"id": "lead-1", "status": "contacted"}])
+    mock_requests.post.return_value = _resp(201, [{"id": "dle-99"}])
+
+    rv = client.patch("/api/dealer/leads/lead-1", json={"status": "contacted"})
+    assert rv.status_code == 200
+    # status_change event was emitted
+    post_calls = [c for c in mock_requests.post.call_args_list
+                  if "dealer_lead_events" in c.args[0]]
+    assert post_calls
+    assert post_calls[0].kwargs["json"]["kind"] == "status_change"
+    assert post_calls[0].kwargs["json"]["payload"]["from"] == "new"
+    assert post_calls[0].kwargs["json"]["payload"]["to"] == "contacted"
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_patch_lead_rejects_invalid_status(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [{"id": "lead-1", "status": "new", "assigned_to": None}])
+    rv = client.patch("/api/dealer/leads/lead-1", json={"status": "invalid"})
+    assert rv.status_code == 400
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_patch_lead_rejects_invalid_lost_reason(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [{"id": "lead-1", "status": "lost", "assigned_to": None}])
+    rv = client.patch("/api/dealer/leads/lead-1", json={"lost_reason": "nope"})
+    assert rv.status_code == 400
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_patch_lead_rejects_empty_body(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [{"id": "lead-1", "status": "new", "assigned_to": None}])
+    rv = client.patch("/api/dealer/leads/lead-1", json={})
+    assert rv.status_code == 400
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_patch_lead_returns_404_for_wrong_dealership(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "owner", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [])
+    rv = client.patch("/api/dealer/leads/lead-other", json={"status": "contacted"})
+    assert rv.status_code == 404
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_patch_lead_sales_rep_blocked_on_unassigned_lead(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "sales_rep", "status": "active"}
+    # The lead is assigned to someone else; sales_rep should 403.
+    mock_requests.get.return_value = _resp(200, [
+        {"id": "lead-1", "status": "new", "assigned_to": "someone-else"}
+    ])
+    rv = client.patch("/api/dealer/leads/lead-1", json={"status": "contacted"})
+    assert rv.status_code == 403
+
+
+@patch("routes.dealer.leads.requests")
+@patch("routes.dealer._decorators._lookup_membership")
+@patch("routes.dealer._decorators._is_admin")
+def test_patch_lead_emits_assignment_event_on_assignment_change(
+    mock_is_admin, mock_lookup, mock_requests, client
+):
+    mock_is_admin.return_value = False
+    mock_lookup.return_value = {"dealership_id": "d1", "role": "manager", "status": "active"}
+    mock_requests.get.return_value = _resp(200, [{"id": "lead-1", "status": "new", "assigned_to": None}])
+    mock_requests.patch.return_value = _resp(200, [{"id": "lead-1", "assigned_to": "rep-7"}])
+    mock_requests.post.return_value = _resp(201, [{"id": "dle-x"}])
+    rv = client.patch("/api/dealer/leads/lead-1", json={"assigned_to": "rep-7"})
+    assert rv.status_code == 200
+    assignment_calls = [c for c in mock_requests.post.call_args_list
+                        if "dealer_lead_events" in c.args[0]
+                        and c.kwargs["json"]["kind"] == "assignment"]
+    assert assignment_calls
+    assert assignment_calls[0].kwargs["json"]["payload"]["to"] == "rep-7"
