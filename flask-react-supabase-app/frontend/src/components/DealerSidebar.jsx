@@ -8,6 +8,7 @@ import {
   Settings,
   Upload,
   Plug,
+  Webhook,
   ArrowLeft,
 } from 'lucide-react';
 import { useDealer } from '../context/DealerContext';
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: '/dealer/leads', label: 'Leads', icon: Inbox },
   { to: '/dealer/inventory', label: 'Inventory', icon: Upload },
   { to: '/dealer/integrations', label: 'Integrations', icon: Plug },
+  { to: '/dealer/webhooks', label: 'Webhooks', icon: Webhook, ownerOnly: true },
   { to: '/dealer/team', label: 'Team', icon: Users, ownerOnly: true },
   { to: '/dealer/settings', label: 'Settings', icon: Settings, ownerOnly: true },
 ];

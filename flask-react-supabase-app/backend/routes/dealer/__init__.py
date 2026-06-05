@@ -9,6 +9,7 @@ Sub-blueprints (registered in this package's `register_dealer_blueprints`):
   - dealer_market    : market snapshots
   - admin_dealerships: /api/admin/dealerships oversight surface
   - dealer_leads     : /api/dealer/leads list/detail/PATCH/note
+  - dealer_webhooks  : /api/dealer/webhooks CRUD + send-test + delivery log
 
 Feature-flagged behind ENABLE_DEALER_PANEL=true at app startup.
 """
@@ -28,6 +29,7 @@ def register_dealer_blueprints(app):
     from .market import market_bp
     from .admin_oversight import admin_oversight_bp
     from .leads import leads_bp
+    from .webhooks import webhooks_bp
 
     app.register_blueprint(api_sources_bp)
     app.register_blueprint(analytics_bp)
@@ -37,3 +39,4 @@ def register_dealer_blueprints(app):
     app.register_blueprint(market_bp)
     app.register_blueprint(admin_oversight_bp)
     app.register_blueprint(leads_bp)
+    app.register_blueprint(webhooks_bp)

@@ -35,6 +35,7 @@ const DealerLeadDetail = lazy(() => import('./components/dealer/DealerLeadDetail
 const DealerInventory = lazy(() => import('./components/dealer/DealerInventory'));
 const DealerInventoryJobDetail = lazy(() => import('./components/dealer/DealerInventoryJobDetail'));
 const DealerApiSources = lazy(() => import('./components/dealer/DealerApiSources'));
+const DealerWebhooks = lazy(() => import('./components/dealer/DealerWebhooks'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -352,6 +353,7 @@ function App() {
                 <Route path="inventory" element={<DealerInventory />} />
                 <Route path="inventory/jobs/:id" element={<DealerInventoryJobDetail />} />
                 <Route path="integrations" element={<DealerApiSources />} />
+                <Route path="webhooks" element={<DealerWebhooks />} />
                 <Route path="team" element={<DealerTeam />} />
                 <Route path="settings" element={<DealerSettings />} />
               </Route>
