@@ -308,7 +308,8 @@ const CarDetail = () => {
           originalUrl: originalUrl || displayUrl,
           hasDisplayVariant: Boolean(image.display_url),
           focalX,
-          focalY
+          focalY,
+          cropped_at: image.cropped_at || null
         };
       })
       .filter(Boolean);
@@ -329,6 +330,7 @@ const CarDetail = () => {
   const getMainImageObjectPosition = () => {
     const mainImage = getMainImage();
     if (!mainImage || mainImage.hasDisplayVariant) return undefined;
+    if (mainImage.cropped_at) return undefined;
     return `${mainImage.focalX}% ${mainImage.focalY}%`;
   };
 
