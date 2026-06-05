@@ -126,6 +126,7 @@ def main():
             _run_listing_lifecycle_sweep_once,
         )
         from workers.inventory_import_worker import run as _run_inventory_import_once
+        from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
         from health_monitoring import (
             HEALTH_CHECK_INTERVAL_SECONDS,
             WORKER_HEARTBEAT_INTERVAL_SECONDS,
@@ -165,6 +166,9 @@ def main():
     )
     inventory_import_interval_seconds = int(
         os.getenv("INVENTORY_IMPORT_INTERVAL_SECONDS", "10")
+    )
+    dealer_api_poll_interval_seconds = int(
+        os.getenv("DEALER_API_POLL_INTERVAL_SECONDS", "60")
     )
 
     health_server_thread = threading.Thread(
@@ -233,9 +237,20 @@ def main():
         name="inventory-import",
         daemon=True,
     )
+    dealer_api_poll_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "dealer_api_source_poller",
+            _run_dealer_api_source_poller_once,
+            dealer_api_poll_interval_seconds,
+        ),
+        name="dealer-api-poll",
+        daemon=True,
+    )
     reminder_thread.start()
     sweep_thread.start()
     inventory_import_thread.start()
+    dealer_api_poll_thread.start()
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss sweep=%ss)",
         listing_reminder_interval_seconds,
@@ -280,6 +295,7 @@ def main():
         reminder_thread.join(timeout=5)
         sweep_thread.join(timeout=5)
         inventory_import_thread.join(timeout=5)
+        dealer_api_poll_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 
