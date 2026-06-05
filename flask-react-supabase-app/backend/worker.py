@@ -133,6 +133,7 @@ def main():
             send_health_alert,
             store_health_snapshot,
         )
+        from workers.dealer_lead_aggregator import run as _run_dealer_lead_aggregator_once
 
         logger.info("health_monitoring imported successfully")
     except Exception as exc:
@@ -161,6 +162,9 @@ def main():
     )
     listing_sweep_interval_seconds = int(
         os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))
+    )
+    dealer_lead_agg_interval_seconds = int(
+        os.getenv("DEALER_LEAD_AGG_INTERVAL_SECONDS", "30")
     )
 
     health_server_thread = threading.Thread(
@@ -219,8 +223,18 @@ def main():
         name="listing-lifecycle-sweep",
         daemon=True,
     )
+    dealer_lead_agg_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "dealer_lead_aggregator",
+            _run_dealer_lead_aggregator_once,
+            dealer_lead_agg_interval_seconds,
+        ),
+        daemon=True,
+    )
     reminder_thread.start()
     sweep_thread.start()
+    dealer_lead_agg_thread.start()
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss sweep=%ss)",
         listing_reminder_interval_seconds,
@@ -264,6 +278,7 @@ def main():
         monitor_thread.join(timeout=5)
         reminder_thread.join(timeout=5)
         sweep_thread.join(timeout=5)
+        dealer_lead_agg_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 
