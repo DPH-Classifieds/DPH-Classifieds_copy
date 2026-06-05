@@ -1,8 +1,19 @@
 # Dealer Admin Panel — Design Spec
 
-Date: 2026-06-03
-Status: Approved (sections 1–3); sections 4–8 written for review.
+Date: 2026-06-03 (last reviewed 2026-06-05)
+Status: Approved end-to-end. Phase 1 shipped; Phases 2–4 ready for implementation plans.
 Author: brainstorm session (Claude + project owner)
+
+## Implementation status (as of 2026-06-05)
+
+| Phase | Status | Evidence |
+| --- | --- | --- |
+| **P1** Foundation, KPI dashboard, per-listing analytics, diagnostic, market eval, team, settings | **Shipped** | Migrations `2026_06_03_dealerships*.sql`, `2026_06_03_lead_events_dealership.sql`, `2026_06_03_listings_dealership_link.sql`, `2026_06_03_dealer_rls.sql`, `2026_06_03_dealer_kpi_market_audit.sql`. Backend `routes/dealer/{core,analytics,diagnostic,market,admin_oversight}.py`. Frontend `components/dealer/*.jsx` (Dashboard, KpiTiles, Trends, Funnel, Performers, Listings, ListingAnalytics, ListingDiagnostic, ListingMarket, Team, Settings, InviteAccept). Admin oversight (`/admin/dealerships`, audit log) and Header "Dealer Panel" entry are live. |
+| **P2** Lead inbox + pipeline | **Not started** | Tables `dealer_leads` and `dealer_lead_events` are declared in §3.1 but no migrations or routes yet. Next implementation plan. |
+| **P3** Bulk inventory feed + DMS API ingest | **Not started** | Tables `dealer_inventory_jobs`, `dealer_inventory_row_errors`, `dealer_api_sources` declared but unbuilt. |
+| **P4** Outbound webhooks | **Not started** | Tables `dealer_webhooks`, `dealer_webhook_deliveries` declared but unbuilt. |
+
+The spec below describes the full end-state. Sections covering shipped behaviour are authoritative reference for how Phase 1 *should* behave — any drift between this doc and current code is a bug in the code, not the spec.
 
 ## 1. Purpose & scope
 
