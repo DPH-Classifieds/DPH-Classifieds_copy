@@ -5795,11 +5795,19 @@ def update_car(current_user, car_id):
             if not image_inserts:
                 return jsonify({"error": "At least one valid image is required."}), 400
 
-            supabase_request(
-                "delete",
+            # Snapshot existing image IDs BEFORE inserting replacements so we can
+            # delete them only after the new rows land. If the insert fails we
+            # leave the originals intact rather than wiping the listing.
+            existing_images_resp, existing_images_status = supabase_request(
+                "get",
                 "/rest/v1/car_images",
-                params={"car_id": f"eq.{car_id}"},
+                params={"select": "id", "car_id": f"eq.{car_id}"},
                 user_id=current_user,
+            )
+            existing_image_ids = (
+                [row["id"] for row in existing_images_resp if isinstance(row, dict) and row.get("id")]
+                if existing_images_status < 400 and isinstance(existing_images_resp, list)
+                else []
             )
 
             images_response, images_status = supabase_request(
@@ -5809,8 +5817,8 @@ def update_car(current_user, car_id):
                 user_id=current_user,
             )
 
+            inserted_rows = []
             if images_status >= 400:
-                inserted_images = []
                 for image_insert in image_inserts:
                     single_image_response, single_image_status = supabase_request(
                         "post",
@@ -5820,19 +5828,41 @@ def update_car(current_user, car_id):
                     )
                     if single_image_status < 400 and single_image_response:
                         if isinstance(single_image_response, list):
-                            inserted_images.extend(single_image_response)
+                            inserted_rows.extend(single_image_response)
                         else:
-                            inserted_images.append(single_image_response)
+                            inserted_rows.append(single_image_response)
 
-                if not inserted_images:
+                if not inserted_rows:
                     logger.error(
                         f"Failed to replace car images for {car_id}: "
                         f"{images_status} - {images_response}"
                     )
+                    # No new rows landed → leave originals untouched.
                     return jsonify({"error": "Failed to save listing images."}), 500
-                images_data = _sort_listing_images(inserted_images)
             else:
-                images_data = _sort_listing_images(images_response)
+                if isinstance(images_response, list):
+                    inserted_rows = images_response
+                elif isinstance(images_response, dict):
+                    inserted_rows = [images_response]
+
+            # New rows are persisted; safe to drop the originals now.
+            if existing_image_ids:
+                inserted_ids = {
+                    row.get("id")
+                    for row in inserted_rows
+                    if isinstance(row, dict) and row.get("id")
+                }
+                to_delete = [img_id for img_id in existing_image_ids if img_id not in inserted_ids]
+                if to_delete:
+                    quoted_ids = ",".join(f'"{img_id}"' for img_id in to_delete)
+                    supabase_request(
+                        "delete",
+                        "/rest/v1/car_images",
+                        params={"id": f"in.({quoted_ids})"},
+                        user_id=current_user,
+                    )
+
+            images_data = _sort_listing_images(inserted_rows)
 
         # Get updated car with images
         updated_car, updated_status = supabase_request(
