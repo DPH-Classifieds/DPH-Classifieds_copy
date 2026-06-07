@@ -458,6 +458,89 @@ const PostCarParts = () => {
           <form onSubmit={handleSubmit} className="post-form">
             <div className="form-section-layout">
               <div className="form-section-sidebar">
+                <h2 className="form-section-title">Gallery</h2>
+                <p className="form-section-desc">
+                  Upload clear part photos from multiple angles. These are uploaded first, then the returned URLs are stored in `part_images`.
+                </p>
+              </div>
+              <div className="form-section-content">
+                <div
+                  className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(false);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsDragOver(false);
+                    const droppedFiles = Array.from(event.dataTransfer.files || []);
+                    if (!droppedFiles.length) return;
+                    const validFiles = droppedFiles.filter((f) =>
+                      SUPPORTED_IMAGE_TYPES.includes((f.type || '').toLowerCase()) &&
+                      f.size <= MAX_IMAGE_SIZE_BYTES
+                    );
+                    if (validFiles.length) {
+                      setError(null);
+                      setPendingCropFiles(validFiles);
+                    }
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="upload-icon-wrapper">
+                    <span className="material-symbols-outlined">upload</span>
+                  </div>
+                  <p className="upload-text-main">Drop part photos here or click to browse</p>
+                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 20MB each</p>
+                  <input
+                    ref={fileInputRef}
+                    className="file-input"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.gif"
+                    multiple
+                    onChange={onPickImages}
+                  />
+                </div>
+
+                {croppedImages.length > 0 && (
+                  <div className="image-previews-grid">
+                    {croppedImages.map((img, index) => (
+                      <div className="preview-item" key={index}>
+                        <img src={img.previewUrl} alt={`Part preview ${index + 1}`} />
+                        <button
+                          type="button"
+                          className="remove-btn"
+                          onClick={() => setCroppedImages((prev) => prev.filter((_, j) => j !== index))}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {existingImageUrls.length > 0 && (
+                  <div className="image-previews-grid">
+                    {existingImageUrls.map((imageUrl, index) => (
+                      <div className="preview-item" key={`${imageUrl}-${index}`}>
+                        <img src={imageUrl} alt={`Existing part ${index + 1}`} />
+                        <button type="button" className="remove-btn" onClick={() => removeExistingImage(index)}>
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="form-section-layout">
+              <div className="form-section-sidebar">
                 <h2 className="form-section-title">Part details</h2>
                 <p className="form-section-desc">
                   Start with the exact fields the backend requires: `name`, `part_type`, `condition`, and price. This removes the old mismatch between the UI and payload.
@@ -700,89 +783,6 @@ const PostCarParts = () => {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="form-section-layout">
-              <div className="form-section-sidebar">
-                <h2 className="form-section-title">Gallery</h2>
-                <p className="form-section-desc">
-                  Upload clear part photos from multiple angles. These are uploaded first, then the returned URLs are stored in `part_images`.
-                </p>
-              </div>
-              <div className="form-section-content">
-                <div
-                  className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={(event) => {
-                    event.preventDefault();
-                    setIsDragOver(false);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setIsDragOver(false);
-                    const droppedFiles = Array.from(event.dataTransfer.files || []);
-                    if (!droppedFiles.length) return;
-                    const validFiles = droppedFiles.filter((f) =>
-                      SUPPORTED_IMAGE_TYPES.includes((f.type || '').toLowerCase()) &&
-                      f.size <= MAX_IMAGE_SIZE_BYTES
-                    );
-                    if (validFiles.length) {
-                      setError(null);
-                      setPendingCropFiles(validFiles);
-                    }
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="upload-icon-wrapper">
-                    <span className="material-symbols-outlined">upload</span>
-                  </div>
-                  <p className="upload-text-main">Drop part photos here or click to browse</p>
-                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 20MB each</p>
-                  <input
-                    ref={fileInputRef}
-                    className="file-input"
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.gif"
-                    multiple
-                    onChange={onPickImages}
-                  />
-                </div>
-
-                {croppedImages.length > 0 && (
-                  <div className="image-previews-grid">
-                    {croppedImages.map((img, index) => (
-                      <div className="preview-item" key={index}>
-                        <img src={img.previewUrl} alt={`Part preview ${index + 1}`} />
-                        <button
-                          type="button"
-                          className="remove-btn"
-                          onClick={() => setCroppedImages((prev) => prev.filter((_, j) => j !== index))}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {existingImageUrls.length > 0 && (
-                  <div className="image-previews-grid">
-                    {existingImageUrls.map((imageUrl, index) => (
-                      <div className="preview-item" key={`${imageUrl}-${index}`}>
-                        <img src={imageUrl} alt={`Existing part ${index + 1}`} />
-                        <button type="button" className="remove-btn" onClick={() => removeExistingImage(index)}>
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
 

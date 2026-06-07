@@ -2023,6 +2023,142 @@ const PostCar = () => {
           />
           <form onSubmit={handleSubmit} id="carDetailsForm" className="post-form" ref={formRef} noValidate>
         <div className="form-section">
+          <h2>Car Images</h2>
+          
+          <div className="form-row">
+            <div className="form-group full-width">
+              <label>Upload Images <RequiredMark /></label>
+              <div 
+                className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={handleContainerClick}
+              >
+                <div className="upload-icon-wrapper">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </div>
+                <p className="upload-text-main">Drag & Drop Images Here</p>
+                <p className="upload-text-sub">or</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.gif"
+                  multiple
+                  onChange={handleFileChange}
+                  className="file-input"
+                  id="images"
+                />
+                <button type="button" className="browse-btn" onClick={handleBrowseClick}>
+                  Browse Files
+                </button>
+                <p className="upload-text-sub">Maximum 10 images • JPG, PNG, WEBP, GIF • 20MB each</p>
+              </div>
+              
+              {croppedImages.length > 0 && (
+                <div className="image-previews-grid car-framing-grid">
+                  {croppedImages.map((img, index) => (
+                    <div
+                      className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                      key={index}
+                      draggable
+                      role="button"
+                      tabIndex={0}
+                      onDragStart={(e) => handleImageDragStart(e, index)}
+                      onDragOver={(e) => handleImageDragOver(e, index)}
+                      onDragLeave={handleImageDragLeave}
+                      onDrop={(e) => handleImageDrop(e, index)}
+                      onDragEnd={handleImageDragEnd}
+                    >
+                      <div className="preview-order">{index + 1}</div>
+                      <img
+                        src={img.previewUrl}
+                        alt={`Preview ${index + 1}`}
+                      />
+                      <button
+                        type="button"
+                        className="remove-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCroppedImages((prev) => prev.filter((_, j) => j !== index));
+                        }}
+                      >
+                        ×
+                      </button>
+                      <div className="drag-handle">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.5"/>
+                          <circle cx="15" cy="6" r="1.5"/>
+                          <circle cx="9" cy="12" r="1.5"/>
+                          <circle cx="15" cy="12" r="1.5"/>
+                          <circle cx="9" cy="18" r="1.5"/>
+                          <circle cx="15" cy="18" r="1.5"/>
+                        </svg>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {existingImages.length > 0 && (
+                <div className="image-previews-grid car-framing-grid">
+                  {existingImages.map((image, index) => (
+                    <div
+                      className={`preview-item car-framing-preview ${draggedExistingIndex === index ? 'dragging' : ''} ${dragOverExistingIndex === index ? 'drag-over' : ''}`}
+                      key={image.id || `${image.url}-${index}`}
+                      draggable
+                      role="button"
+                      tabIndex={0}
+                      onDragStart={(event) => handleExistingDragStart(event, index)}
+                      onDragOver={(event) => handleExistingDragOver(event, index)}
+                      onDragLeave={handleExistingDragLeave}
+                      onDrop={(event) => handleExistingDrop(event, index)}
+                      onDragEnd={handleExistingDragEnd}
+                    >
+                      <div className="preview-order">{index + 1}</div>
+                      <img
+                        src={image.display_url || image.image_url || image.url}
+                        alt={`Existing ${index + 1}`}
+                        style={image.cropped_at
+                          ? undefined
+                          : { objectPosition: `${Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50}% ${Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50}%` }
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="remove-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+                        }}
+                      >
+                        ×
+                      </button>
+                      <div className="drag-handle">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.5"/>
+                          <circle cx="15" cy="6" r="1.5"/>
+                          <circle cx="9" cy="12" r="1.5"/>
+                          <circle cx="15" cy="12" r="1.5"/>
+                          <circle cx="9" cy="18" r="1.5"/>
+                          <circle cx="15" cy="18" r="1.5"/>
+                        </svg>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {croppedImages.length > 1 && (
+                <p className="reorder-hint">Drag images to reorder. First image will be the main photo.</p>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="form-section">
           <h2>Basic Details</h2>
           
           <div className="form-row">
@@ -3113,142 +3249,6 @@ const PostCar = () => {
                   <MarkerWithDrag />
                 </MapContainer>
               </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="form-section">
-          <h2>Car Images</h2>
-          
-          <div className="form-row">
-            <div className="form-group full-width">
-              <label>Upload Images <RequiredMark /></label>
-              <div 
-                className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={handleContainerClick}
-              >
-                <div className="upload-icon-wrapper">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                </div>
-                <p className="upload-text-main">Drag & Drop Images Here</p>
-                <p className="upload-text-sub">or</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.webp,.gif"
-                  multiple
-                  onChange={handleFileChange}
-                  className="file-input"
-                  id="images"
-                />
-                <button type="button" className="browse-btn" onClick={handleBrowseClick}>
-                  Browse Files
-                </button>
-                <p className="upload-text-sub">Maximum 10 images • JPG, PNG, WEBP, GIF • 20MB each</p>
-              </div>
-              
-              {croppedImages.length > 0 && (
-                <div className="image-previews-grid car-framing-grid">
-                  {croppedImages.map((img, index) => (
-                    <div
-                      className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
-                      key={index}
-                      draggable
-                      role="button"
-                      tabIndex={0}
-                      onDragStart={(e) => handleImageDragStart(e, index)}
-                      onDragOver={(e) => handleImageDragOver(e, index)}
-                      onDragLeave={handleImageDragLeave}
-                      onDrop={(e) => handleImageDrop(e, index)}
-                      onDragEnd={handleImageDragEnd}
-                    >
-                      <div className="preview-order">{index + 1}</div>
-                      <img
-                        src={img.previewUrl}
-                        alt={`Preview ${index + 1}`}
-                      />
-                      <button
-                        type="button"
-                        className="remove-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCroppedImages((prev) => prev.filter((_, j) => j !== index));
-                        }}
-                      >
-                        ×
-                      </button>
-                      <div className="drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <circle cx="9" cy="6" r="1.5"/>
-                          <circle cx="15" cy="6" r="1.5"/>
-                          <circle cx="9" cy="12" r="1.5"/>
-                          <circle cx="15" cy="12" r="1.5"/>
-                          <circle cx="9" cy="18" r="1.5"/>
-                          <circle cx="15" cy="18" r="1.5"/>
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {existingImages.length > 0 && (
-                <div className="image-previews-grid car-framing-grid">
-                  {existingImages.map((image, index) => (
-                    <div
-                      className={`preview-item car-framing-preview ${draggedExistingIndex === index ? 'dragging' : ''} ${dragOverExistingIndex === index ? 'drag-over' : ''}`}
-                      key={image.id || `${image.url}-${index}`}
-                      draggable
-                      role="button"
-                      tabIndex={0}
-                      onDragStart={(event) => handleExistingDragStart(event, index)}
-                      onDragOver={(event) => handleExistingDragOver(event, index)}
-                      onDragLeave={handleExistingDragLeave}
-                      onDrop={(event) => handleExistingDrop(event, index)}
-                      onDragEnd={handleExistingDragEnd}
-                    >
-                      <div className="preview-order">{index + 1}</div>
-                      <img
-                        src={image.display_url || image.image_url || image.url}
-                        alt={`Existing ${index + 1}`}
-                        style={image.cropped_at
-                          ? undefined
-                          : { objectPosition: `${Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50}% ${Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50}%` }
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="remove-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setExistingImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
-                        }}
-                      >
-                        ×
-                      </button>
-                      <div className="drag-handle">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <circle cx="9" cy="6" r="1.5"/>
-                          <circle cx="15" cy="6" r="1.5"/>
-                          <circle cx="9" cy="12" r="1.5"/>
-                          <circle cx="15" cy="12" r="1.5"/>
-                          <circle cx="9" cy="18" r="1.5"/>
-                          <circle cx="15" cy="18" r="1.5"/>
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {croppedImages.length > 1 && (
-                <p className="reorder-hint">Drag images to reorder. First image will be the main photo.</p>
-              )}
             </div>
           </div>
         </div>
