@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 from flask import Blueprint, g, jsonify, request
 
-from ._decorators import dealer_required, role_required
+from ._decorators import dealer_required, role_required, _is_admin, _lookup_membership
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = (
@@ -39,23 +39,65 @@ def _token_required(fn):
 
 @core_bp.route("/me", methods=["GET"])
 @_token_required
-@dealer_required
 def me(current_user):
-    ctx = g.dealer_ctx
-    r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/dealerships",
-        headers=_svc_headers(),
-        params={"select": "*", "id": f"eq.{ctx['dealership_id']}", "limit": 1},
-        timeout=10,
-    )
-    if r.status_code != 200 or not r.json():
-        return jsonify({"error": {"code": "dealership_not_found", "message": "Dealership not found"}}), 404
-    dealership = r.json()[0]
-    return jsonify({
-        "dealership": dealership,
-        "role": ctx["role"],
-        "actor_kind": ctx["actor_kind"],
-    })
+    """Probe-friendly dealer identity endpoint.
+
+    Always returns 200 so the frontend can use it as a status check without
+    polluting the console with expected 4xx errors for non-dealer users.
+    Response shape:
+      - dealer member: {is_dealer: true, dealership, role, actor_kind: "member"}
+      - admin acting-as: {is_dealer: true, dealership, role: "owner", actor_kind: "admin"}
+      - admin without acting-as: {is_dealer: false, reason: "acting_as_required", is_admin: true}
+      - non-dealer: {is_dealer: false, reason: "not_a_dealer"}
+    """
+    membership = _lookup_membership(current_user)
+    if membership:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealerships",
+            headers=_svc_headers(),
+            params={"select": "*", "id": f"eq.{membership['dealership_id']}", "limit": 1},
+            timeout=10,
+        )
+        if r.status_code != 200 or not r.json():
+            return jsonify({"is_dealer": False, "reason": "dealership_not_found"}), 200
+        return jsonify({
+            "is_dealer": True,
+            "dealership": r.json()[0],
+            "role": membership["role"],
+            "actor_kind": "member",
+        }), 200
+
+    if _is_admin(current_user):
+        acting_as = (
+            request.headers.get("X-Acting-As-Dealership")
+            or request.args.get("as")
+        )
+        if not acting_as:
+            return jsonify({
+                "is_dealer": False,
+                "is_admin": True,
+                "reason": "acting_as_required",
+            }), 200
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/dealerships",
+            headers=_svc_headers(),
+            params={"select": "*", "id": f"eq.{acting_as}", "limit": 1},
+            timeout=10,
+        )
+        if r.status_code != 200 or not r.json():
+            return jsonify({
+                "is_dealer": False,
+                "is_admin": True,
+                "reason": "dealership_not_found",
+            }), 200
+        return jsonify({
+            "is_dealer": True,
+            "dealership": r.json()[0],
+            "role": "owner",
+            "actor_kind": "admin",
+        }), 200
+
+    return jsonify({"is_dealer": False, "reason": "not_a_dealer"}), 200
 
 
 @core_bp.route("/profile", methods=["PATCH"])
