@@ -18,6 +18,11 @@ import {
   Activity,
   BarChart2,
   AlertTriangle,
+  MailQuestion,
+  Plus,
+  Trash2,
+  Send,
+  Clock,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { GlassCard, KpiTile, EmptyState } from './ui/dashboard';
@@ -234,6 +239,120 @@ const RejectModal = ({ show, onClose, onConfirm, busy }) => {
   );
 };
 
+/* ── request more info modal ──────────────────────────────────────────────── */
+const RequestMoreInfoModal = ({ show, onClose, onConfirm, busy }) => {
+  const [documents, setDocuments] = useState(['']);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!show) {
+      setDocuments(['']);
+      setMessage('');
+    }
+  }, [show]);
+
+  if (!show) return null;
+
+  const updateDoc = (idx, value) => {
+    setDocuments((prev) => prev.map((d, i) => (i === idx ? value : d)));
+  };
+  const addDoc = () => setDocuments((prev) => (prev.length >= 10 ? prev : [...prev, '']));
+  const removeDoc = (idx) =>
+    setDocuments((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+
+  const cleanDocs = documents.map((d) => d.trim()).filter(Boolean);
+  const canSubmit = cleanDocs.length > 0 && !busy;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[1000] px-4"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0, y: 8 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 8 }}
+          transition={{ duration: 0.2 }}
+          className="bg-[#0f1117] border border-white/10 rounded-2xl p-7 max-w-lg w-full shadow-2xl"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-semibold text-white">Request more information</h2>
+            <button onClick={onClose} className="text-white/40 hover:text-white transition p-1"><X size={18} /></button>
+          </div>
+          <p className="text-xs text-white/45 mb-5">
+            The dealer will receive an email with a secure link to upload the documents you list below.
+          </p>
+
+          <div className="space-y-3 mb-4">
+            <label className="block text-xs text-white/50">Documents required *</label>
+            {documents.map((doc, idx) => (
+              <div key={idx} className="flex gap-2">
+                <input
+                  type="text"
+                  value={doc}
+                  onChange={(e) => updateDoc(idx, e.target.value)}
+                  placeholder="e.g. Trade license (clear scan)"
+                  className="flex-1 bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/85 placeholder-white/25 focus:outline-none focus:border-emerald-500/40"
+                />
+                {documents.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeDoc(idx)}
+                    className="px-2.5 rounded-xl text-white/40 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 bg-white/5 hover:bg-rose-500/10 transition"
+                    aria-label="Remove document"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addDoc}
+              disabled={documents.length >= 10}
+              className="inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:text-emerald-200 transition disabled:opacity-40"
+            >
+              <Plus size={13} /> Add another document
+            </button>
+          </div>
+
+          <div className="mb-5">
+            <label className="block text-xs text-white/50 mb-1.5">Note for the dealer (optional)</label>
+            <textarea
+              rows={3}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Explain what you need or why, in plain language…"
+              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-emerald-500/40"
+            />
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onConfirm(cleanDocs, message.trim())}
+              disabled={!canSubmit}
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-emerald-950 transition disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            >
+              <Send size={14} />
+              {busy ? 'Sending…' : 'Send request'}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 const AdminDealerDetail = () => {
@@ -247,12 +366,61 @@ const AdminDealerDetail = () => {
   const [dealerDocs, setDealerDocs] = useState([]);
   const [reviewingDocId, setReviewingDocId] = useState(null);
   const [denyModalDoc, setDenyModalDoc] = useState(null);
+  const [showInfoRequestModal, setShowInfoRequestModal] = useState(false);
+  const [infoRequests, setInfoRequests] = useState([]);
+  const [sendingInfoRequest, setSendingInfoRequest] = useState(false);
+  const [cancellingRequestId, setCancellingRequestId] = useState(null);
 
   const refreshData = async () => {
     const response = await apiClient.get(`/api/admin/dealers/${dealerId}/overview`);
     setData(response || null);
     const docsResp = await apiClient.get(`/api/admin/dealers/${dealerId}/documents`);
     setDealerDocs(docsResp?.documents || []);
+    try {
+      const infoResp = await apiClient.get(`/api/admin/dealers/${dealerId}/info-requests`);
+      setInfoRequests(infoResp?.requests || []);
+    } catch (_) {
+      setInfoRequests([]);
+    }
+  };
+
+  const handleCreateInfoRequest = async (documents, message) => {
+    setSendingInfoRequest(true);
+    try {
+      await apiClient.post(`/api/admin/dealers/${dealerId}/info-requests`, {
+        documents,
+        message,
+      });
+      setShowInfoRequestModal(false);
+      await refreshData();
+    } catch (e) {
+      setError(e.message || 'Failed to send info request');
+    } finally {
+      setSendingInfoRequest(false);
+    }
+  };
+
+  const handleCancelInfoRequest = async (requestId) => {
+    setCancellingRequestId(requestId);
+    try {
+      await apiClient.post(`/api/admin/info-requests/${requestId}/cancel`, {});
+      await refreshData();
+    } catch (e) {
+      setError(e.message || 'Failed to cancel request');
+    } finally {
+      setCancellingRequestId(null);
+    }
+  };
+
+  const copyInfoRequestLink = async (token) => {
+    if (!token) return;
+    const url = `${window.location.origin}/dealer-info-request/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (_) {
+      // Clipboard may be blocked; fall back to a prompt so the admin can copy manually.
+      window.prompt('Copy the link:', url);
+    }
   };
 
   useEffect(() => {
@@ -621,6 +789,15 @@ const AdminDealerDetail = () => {
 
               <button
                 type="button"
+                onClick={() => setShowInfoRequestModal(true)}
+                className="inline-flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl px-5 py-3 text-sm transition font-semibold"
+              >
+                <MailQuestion size={15} />
+                Request more info
+              </button>
+
+              <button
+                type="button"
                 onClick={() => navigate(`/admin/users/${dealerId}`)}
                 className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl px-5 py-3 text-sm transition"
               >
@@ -778,6 +955,92 @@ const AdminDealerDetail = () => {
               )}
             </div>
           </GlassCard>
+
+          {/* Info requests history */}
+          {infoRequests.length > 0 && (
+            <GlassCard className="mt-5">
+              <div className="flex items-center justify-between mb-3">
+                <SectionLabel>Info requests</SectionLabel>
+                <span className="text-[11px] text-white/30">{infoRequests.length} total</span>
+              </div>
+              <div className="space-y-3">
+                {infoRequests.map((req) => {
+                  const uploads = req.dealer_info_request_uploads || [];
+                  const requestedCount = (req.requested_documents || []).length;
+                  const tone = req.status === 'submitted'
+                    ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
+                    : req.status === 'pending'
+                      ? 'text-amber-300 bg-amber-500/10 border-amber-500/20'
+                      : 'text-white/40 bg-white/[0.04] border-white/10';
+                  return (
+                    <div
+                      key={req.id}
+                      className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="min-w-0">
+                          <p className="text-xs text-white/40 mb-0.5">
+                            <Clock size={11} className="inline mr-1" />
+                            Sent {req.created_at ? new Date(req.created_at).toLocaleString() : '—'}
+                          </p>
+                          <p className="text-white/70 text-xs">
+                            {uploads.length} of {requestedCount} uploaded
+                            {req.submitted_at ? ` · submitted ${new Date(req.submitted_at).toLocaleDateString()}` : ''}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 border ${tone}`}>
+                          {req.status}
+                        </span>
+                      </div>
+                      <ul className="space-y-1 mb-2">
+                        {(req.requested_documents || []).map((label) => {
+                          const docUploads = uploads.filter((u) => u.document_label === label);
+                          return (
+                            <li key={label} className="flex items-start justify-between gap-2 text-xs">
+                              <span className={`min-w-0 truncate ${docUploads.length ? 'text-white/65' : 'text-white/45'}`}>
+                                {docUploads.length ? '• ' : '◦ '}{label}
+                              </span>
+                              {docUploads.length > 0 && (
+                                <a
+                                  href={docUploads[docUploads.length - 1].url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-300 hover:text-emerald-200 shrink-0"
+                                >
+                                  view
+                                </a>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <div className="flex gap-2 mt-2">
+                        {req.token && req.status === 'pending' && (
+                          <button
+                            type="button"
+                            onClick={() => copyInfoRequestLink(req.token)}
+                            className="text-[11px] text-white/55 hover:text-white border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 rounded-lg px-2.5 py-1 transition"
+                          >
+                            Copy link
+                          </button>
+                        )}
+                        {req.status === 'pending' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelInfoRequest(req.id)}
+                            disabled={cancellingRequestId === req.id}
+                            className="text-[11px] text-rose-300 hover:text-rose-200 border border-rose-500/20 hover:border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 rounded-lg px-2.5 py-1 transition disabled:opacity-40"
+                          >
+                            {cancellingRequestId === req.id ? 'Cancelling…' : 'Cancel'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </GlassCard>
+          )}
         </div>
       </motion.div>
 
@@ -798,6 +1061,14 @@ const AdminDealerDetail = () => {
         onClose={() => { setShowRejectModal(false); }}
         onConfirm={handleReject}
         busy={actionLoading}
+      />
+
+      {/* Request more info modal */}
+      <RequestMoreInfoModal
+        show={showInfoRequestModal}
+        onClose={() => setShowInfoRequestModal(false)}
+        onConfirm={handleCreateInfoRequest}
+        busy={sendingInfoRequest}
       />
     </div>
   );

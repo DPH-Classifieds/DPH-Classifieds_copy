@@ -10618,56 +10618,104 @@ def update_bike(current_user, bike_id):
         if status_code >= 400:
             return jsonify(data), status_code
 
-        # Update images if provided
+        # Update images if provided. Snapshot the existing rows first, attempt
+        # the insert, and only drop the originals once the replacements have
+        # landed — otherwise a transient insert failure would wipe the listing.
         if images is not None:
-            # First, delete all existing images
-            delete_resp, delete_status = supabase_request(
-                "delete",
+            existing_images_resp, existing_images_status = supabase_request(
+                "get",
                 "/rest/v1/bike_images",
-                params={"bike_id": f"eq.{bike_id}"},
+                params={"select": "id", "bike_id": f"eq.{bike_id}"},
                 user_id=current_user,
             )
+            existing_image_ids = (
+                [row["id"] for row in existing_images_resp if isinstance(row, dict) and row.get("id")]
+                if existing_images_status < 400 and isinstance(existing_images_resp, list)
+                else []
+            )
 
-            # Add new images
-            if images:
-                image_inserts = []
-                for image_url in images:
-                    if isinstance(image_url, dict):
-                        url_value = (
-                            image_url.get("image_url")
-                            or image_url.get("url")
-                            or image_url.get("display_url")
-                        )
-                        if not url_value:
-                            continue
-                        image_inserts.append(
-                            {
-                                "bike_id": bike_id,
-                                "url": image_url.get("url") or url_value,
-                                "image_url": image_url.get("image_url") or url_value,
-                                "display_url": image_url.get("display_url"),
-                                "focal_x": image_url.get("focal_x"),
-                                "focal_y": image_url.get("focal_y"),
-                                "crop_meta": image_url.get("crop_meta"),
-                                "cropped_at": _isoformat_utc(_utc_now()),
-                            }
-                        )
+            image_inserts = []
+            for image_url in images:
+                if isinstance(image_url, dict):
+                    url_value = (
+                        image_url.get("image_url")
+                        or image_url.get("url")
+                        or image_url.get("display_url")
+                    )
+                    if not url_value:
                         continue
                     image_inserts.append(
                         {
                             "bike_id": bike_id,
-                            "url": image_url,
-                            "image_url": image_url,  # Add image_url field for frontend compatibility
+                            "url": image_url.get("url") or url_value,
+                            "image_url": image_url.get("image_url") or url_value,
+                            "display_url": image_url.get("display_url"),
+                            "focal_x": image_url.get("focal_x"),
+                            "focal_y": image_url.get("focal_y"),
+                            "crop_meta": image_url.get("crop_meta"),
                             "cropped_at": _isoformat_utc(_utc_now()),
                         }
                     )
+                    continue
+                image_inserts.append(
+                    {
+                        "bike_id": bike_id,
+                        "url": image_url,
+                        "image_url": image_url,
+                        "cropped_at": _isoformat_utc(_utc_now()),
+                    }
+                )
 
-                images_data, images_status = supabase_request(
+            inserted_rows = []
+            if image_inserts:
+                bulk_resp, bulk_status = supabase_request(
                     "post",
                     "/rest/v1/bike_images",
                     data=image_inserts,
                     user_id=current_user,
                 )
+                if bulk_status < 400:
+                    if isinstance(bulk_resp, list):
+                        inserted_rows = bulk_resp
+                    elif isinstance(bulk_resp, dict):
+                        inserted_rows = [bulk_resp]
+                else:
+                    for image_insert in image_inserts:
+                        single_resp, single_status = supabase_request(
+                            "post",
+                            "/rest/v1/bike_images",
+                            data=image_insert,
+                            user_id=current_user,
+                        )
+                        if single_status < 400 and single_resp:
+                            if isinstance(single_resp, list):
+                                inserted_rows.extend(single_resp)
+                            else:
+                                inserted_rows.append(single_resp)
+
+                    if not inserted_rows:
+                        logger.error(
+                            f"Failed to replace bike images for {bike_id}: "
+                            f"{bulk_status} - {bulk_resp}"
+                        )
+                        return jsonify({"error": "Failed to save listing images."}), 500
+
+            # New rows are in (or images list was empty → delete-all is OK).
+            if existing_image_ids:
+                inserted_ids = {
+                    row.get("id")
+                    for row in inserted_rows
+                    if isinstance(row, dict) and row.get("id")
+                }
+                to_delete = [img_id for img_id in existing_image_ids if img_id not in inserted_ids]
+                if to_delete:
+                    quoted_ids = ",".join(f'"{img_id}"' for img_id in to_delete)
+                    supabase_request(
+                        "delete",
+                        "/rest/v1/bike_images",
+                        params={"id": f"in.({quoted_ids})"},
+                        user_id=current_user,
+                    )
 
         # Get updated bike with images
         updated_bike, updated_status = supabase_request(
@@ -11560,54 +11608,103 @@ def update_part(current_user, part_id):
         if status_code >= 400:
             return jsonify(data), status_code
 
-        # Handle image updates from JSON payload (uploaded URLs)
+        # Handle image updates from JSON payload (uploaded URLs). Snapshot
+        # existing rows, insert replacements, then delete the originals only
+        # once the new rows are persisted.
         if images is not None:
-            supabase_request(
-                "delete",
+            existing_images_resp, existing_images_status = supabase_request(
+                "get",
                 "/rest/v1/part_images",
-                params={"part_id": f"eq.{part_id}"},
+                params={"select": "id", "part_id": f"eq.{part_id}"},
                 user_id=current_user,
             )
+            existing_image_ids = (
+                [row["id"] for row in existing_images_resp if isinstance(row, dict) and row.get("id")]
+                if existing_images_status < 400 and isinstance(existing_images_resp, list)
+                else []
+            )
 
-            if images:
-                image_inserts = []
-                for image_url in images:
-                    if isinstance(image_url, dict):
-                        url_value = (
-                            image_url.get("image_url")
-                            or image_url.get("url")
-                            or image_url.get("display_url")
-                        )
-                        if not url_value:
-                            continue
-                        image_inserts.append(
-                            {
-                                "part_id": part_id,
-                                "url": image_url.get("url") or url_value,
-                                "image_url": image_url.get("image_url") or url_value,
-                                "display_url": image_url.get("display_url"),
-                                "focal_x": image_url.get("focal_x"),
-                                "focal_y": image_url.get("focal_y"),
-                                "crop_meta": image_url.get("crop_meta"),
-                                "cropped_at": _isoformat_utc(_utc_now()),
-                            }
-                        )
+            image_inserts = []
+            for image_url in images:
+                if isinstance(image_url, dict):
+                    url_value = (
+                        image_url.get("image_url")
+                        or image_url.get("url")
+                        or image_url.get("display_url")
+                    )
+                    if not url_value:
                         continue
                     image_inserts.append(
                         {
                             "part_id": part_id,
-                            "url": image_url,
-                            "image_url": image_url,
+                            "url": image_url.get("url") or url_value,
+                            "image_url": image_url.get("image_url") or url_value,
+                            "display_url": image_url.get("display_url"),
+                            "focal_x": image_url.get("focal_x"),
+                            "focal_y": image_url.get("focal_y"),
+                            "crop_meta": image_url.get("crop_meta"),
                             "cropped_at": _isoformat_utc(_utc_now()),
                         }
                     )
+                    continue
+                image_inserts.append(
+                    {
+                        "part_id": part_id,
+                        "url": image_url,
+                        "image_url": image_url,
+                        "cropped_at": _isoformat_utc(_utc_now()),
+                    }
+                )
 
-                supabase_request(
+            inserted_rows = []
+            if image_inserts:
+                bulk_resp, bulk_status = supabase_request(
                     "post",
                     "/rest/v1/part_images",
                     data=image_inserts,
                     user_id=current_user,
                 )
+                if bulk_status < 400:
+                    if isinstance(bulk_resp, list):
+                        inserted_rows = bulk_resp
+                    elif isinstance(bulk_resp, dict):
+                        inserted_rows = [bulk_resp]
+                else:
+                    for image_insert in image_inserts:
+                        single_resp, single_status = supabase_request(
+                            "post",
+                            "/rest/v1/part_images",
+                            data=image_insert,
+                            user_id=current_user,
+                        )
+                        if single_status < 400 and single_resp:
+                            if isinstance(single_resp, list):
+                                inserted_rows.extend(single_resp)
+                            else:
+                                inserted_rows.append(single_resp)
+
+                    if not inserted_rows:
+                        logger.error(
+                            f"Failed to replace part images for {part_id}: "
+                            f"{bulk_status} - {bulk_resp}"
+                        )
+                        return jsonify({"error": "Failed to save listing images."}), 500
+
+            if existing_image_ids:
+                inserted_ids = {
+                    row.get("id")
+                    for row in inserted_rows
+                    if isinstance(row, dict) and row.get("id")
+                }
+                to_delete = [img_id for img_id in existing_image_ids if img_id not in inserted_ids]
+                if to_delete:
+                    quoted_ids = ",".join(f'"{img_id}"' for img_id in to_delete)
+                    supabase_request(
+                        "delete",
+                        "/rest/v1/part_images",
+                        params={"id": f"in.({quoted_ids})"},
+                        user_id=current_user,
+                    )
 
         # Fetch full part data for email
         refreshed_resp, refreshed_status = supabase_request(
@@ -16398,6 +16495,413 @@ def review_dealer_document(current_user, doc_id):
     except Exception as e:
         logger.error(f"Error reviewing document: {str(e)}")
         return jsonify({"error": "Failed to review document"}), 500
+
+
+# ─── Admin "request more info" dealer flow ────────────────────────────────────
+
+DEALER_INFO_REQUEST_TTL_DAYS = int(os.getenv("DEALER_INFO_REQUEST_TTL_DAYS", "14"))
+
+
+def _send_info_request_email(email, dealer_name, documents, message, link_url):
+    """Email a dealer asking them to upload additional documents."""
+    if not email or not EMAIL_REGEX.match(email):
+        return None, "Invalid recipient email"
+
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    doc_list_html = "".join(
+        f'<li style="color:#cbd5e1;margin-bottom:6px;">{doc}</li>'
+        for doc in (documents or [])
+        if doc
+    )
+    message_block = (
+        f'<p style="color:#94a3b8;line-height:1.6;margin:0 0 20px;">{message}</p>'
+        if message
+        else ""
+    )
+
+    name_part = f", {dealer_name}" if dealer_name else ""
+
+    html_content = f"""
+    <div style="font-family:'Inter',-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;background-color:#041008;color:#f0fdf4;border-radius:24px;border:1px solid rgba(139,214,180,0.1);">
+        <div style="text-align:center;margin-bottom:32px;">
+            <div style="font-size:28px;font-weight:800;color:#8bd6b4;letter-spacing:-0.02em;">DPH<span style="color:#ffffff;">CLASSIFIEDS</span></div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);border-radius:20px;padding:32px;border:1px solid rgba(255,255,255,0.05);margin-bottom:24px;">
+            <h2 style="margin:0 0 16px;color:#ffffff;font-size:22px;font-weight:700;">Additional documents required</h2>
+            <p style="color:#94a3b8;line-height:1.6;margin:0 0 20px;">
+                Hi{name_part}, our review team needs a few more documents to continue verifying your dealer account.
+            </p>
+            {message_block}
+            <p style="color:#cbd5e1;line-height:1.6;margin:0 0 12px;font-weight:600;">Please upload the following:</p>
+            <ul style="padding-left:22px;margin:0 0 24px;">{doc_list_html}</ul>
+            <a href="{link_url}" style="display:inline-block;background:#8bd6b4;color:#041008;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">Upload documents</a>
+            <p style="color:#64748b;font-size:12px;margin-top:24px;">This link expires in {DEALER_INFO_REQUEST_TTL_DAYS} days. If you have any questions, just reply to this email.</p>
+        </div>
+        <div style="text-align:center;color:#64748b;font-size:13px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+        </div>
+    </div>
+    """
+
+    payload = {
+        "from": from_email,
+        "to": [email],
+        "subject": "Additional documents required for your dealer verification",
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+    return _send_resend_email(payload)
+
+
+@app.route("/api/admin/dealers/<dealer_id>/info-requests", methods=["POST"])
+@token_required
+def create_dealer_info_request(current_user, dealer_id):
+    """Admin creates a request asking a dealer to upload additional documents."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        body = request.get_json(silent=True) or {}
+        documents_raw = body.get("documents") or []
+        if not isinstance(documents_raw, list):
+            return jsonify({"error": "documents must be a list of strings"}), 400
+        documents = [str(d).strip() for d in documents_raw if str(d).strip()][:20]
+        if not documents:
+            return jsonify({"error": "At least one document label is required"}), 400
+        message = (body.get("message") or "").strip()[:2000] or None
+
+        # Resolve dealer email
+        dealer_resp, dealer_status = supabase_request(
+            "get",
+            f"/rest/v1/users",
+            params={"select": "email,first_name,last_name,company_name", "id": f"eq.{dealer_id}", "limit": 1},
+            use_service_role=True,
+        )
+        if dealer_status >= 400 or not dealer_resp:
+            return jsonify({"error": "Dealer not found"}), 404
+        dealer = dealer_resp[0]
+        dealer_email = dealer.get("email")
+        dealer_name = (
+            dealer.get("company_name")
+            or " ".join(filter(None, [dealer.get("first_name"), dealer.get("last_name")])).strip()
+            or None
+        )
+
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=DEALER_INFO_REQUEST_TTL_DAYS)
+        insert_payload = {
+            "dealer_user_id": dealer_id,
+            "requested_by": current_user,
+            "requested_documents": documents,
+            "message": message,
+            "token": token,
+            "status": "pending",
+            "expires_at": _isoformat_utc(expires_at),
+        }
+        created_resp, created_status = supabase_request(
+            "post",
+            "/rest/v1/dealer_info_requests",
+            data=insert_payload,
+            use_service_role=True,
+        )
+        if created_status >= 400 or not created_resp:
+            logger.error(f"Failed to create info request: {created_status} - {created_resp}")
+            return jsonify({"error": "Failed to create info request"}), 500
+        created = created_resp[0] if isinstance(created_resp, list) else created_resp
+
+        base_url = _get_safe_frontend_origin(request.headers.get("Origin")).rstrip("/")
+        link_url = f"{base_url}/dealer-info-request/{token}"
+
+        if dealer_email:
+            _, email_error = _send_info_request_email(
+                dealer_email, dealer_name, documents, message, link_url
+            )
+            if email_error:
+                logger.error(f"Info-request email failed for dealer {dealer_id}: {email_error}")
+
+        logger.info(f"Admin {current_user} created info request {created.get('id')} for dealer {dealer_id}")
+        return jsonify({
+            "id": created.get("id"),
+            "token": token,
+            "link_url": link_url,
+            "documents": documents,
+            "message": message,
+            "expires_at": created.get("expires_at"),
+            "status": created.get("status"),
+            "created_at": created.get("created_at"),
+        }), 201
+    except Exception as e:
+        logger.exception("Error creating dealer info request")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/dealers/<dealer_id>/info-requests", methods=["GET"])
+@token_required
+def list_dealer_info_requests(current_user, dealer_id):
+    """List all info requests for a dealer (admin only)."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        reqs_resp, reqs_status = supabase_request(
+            "get",
+            "/rest/v1/dealer_info_requests",
+            params={
+                "select": "*,dealer_info_request_uploads(*)",
+                "dealer_user_id": f"eq.{dealer_id}",
+                "order": "created_at.desc",
+            },
+            use_service_role=True,
+        )
+        if reqs_status >= 400:
+            return jsonify({"error": "Failed to fetch info requests"}), 500
+        return jsonify({"requests": reqs_resp or []}), 200
+    except Exception as e:
+        logger.exception("Error listing dealer info requests")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/info-requests/<request_id>/cancel", methods=["POST"])
+@token_required
+def cancel_dealer_info_request(current_user, request_id):
+    """Admin cancels a pending info request."""
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        update_resp, update_status = supabase_request(
+            "patch",
+            "/rest/v1/dealer_info_requests",
+            params={"id": f"eq.{request_id}", "status": "eq.pending"},
+            data={"status": "cancelled"},
+            use_service_role=True,
+        )
+        if update_status >= 400:
+            return jsonify({"error": "Failed to cancel info request"}), 500
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        logger.exception("Error cancelling info request")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/info-requests/<token>", methods=["GET"])
+def get_public_info_request(token):
+    """Public lookup of an info request by token. Returns the requested
+    document list, current uploads, and basic status. No auth required —
+    the token IS the authorization."""
+    try:
+        if not token or len(token) < 16:
+            return jsonify({"error": "Invalid token"}), 404
+
+        reqs_resp, reqs_status = supabase_request(
+            "get",
+            "/rest/v1/dealer_info_requests",
+            params={
+                "select": "id,requested_documents,message,status,expires_at,submitted_at,created_at,dealer_user_id,dealer_info_request_uploads(id,document_label,filename,file_type,url,uploaded_at)",
+                "token": f"eq.{token}",
+                "limit": 1,
+            },
+            use_service_role=True,
+        )
+        if reqs_status >= 400 or not reqs_resp:
+            return jsonify({"error": "Not found"}), 404
+        req = reqs_resp[0]
+
+        # Auto-expire
+        try:
+            exp = datetime.datetime.fromisoformat(
+                str(req["expires_at"]).replace("Z", "+00:00")
+            )
+            if exp < datetime.datetime.now(datetime.timezone.utc) and req["status"] == "pending":
+                supabase_request(
+                    "patch",
+                    "/rest/v1/dealer_info_requests",
+                    params={"id": f"eq.{req['id']}"},
+                    data={"status": "expired"},
+                    use_service_role=True,
+                )
+                req["status"] = "expired"
+        except Exception:
+            pass
+
+        # Resolve dealer display name (don't leak email)
+        dealer_resp, dealer_status = supabase_request(
+            "get",
+            "/rest/v1/users",
+            params={
+                "select": "first_name,company_name",
+                "id": f"eq.{req['dealer_user_id']}",
+                "limit": 1,
+            },
+            use_service_role=True,
+        )
+        dealer_name = None
+        if dealer_status < 400 and dealer_resp:
+            dealer = dealer_resp[0]
+            dealer_name = dealer.get("company_name") or dealer.get("first_name") or None
+
+        return jsonify({
+            "id": req["id"],
+            "documents": req.get("requested_documents") or [],
+            "message": req.get("message"),
+            "status": req.get("status"),
+            "expires_at": req.get("expires_at"),
+            "submitted_at": req.get("submitted_at"),
+            "dealer_name": dealer_name,
+            "uploads": req.get("dealer_info_request_uploads") or [],
+        }), 200
+    except Exception as e:
+        logger.exception("Error fetching public info request")
+        return jsonify({"error": "Failed to load request"}), 500
+
+
+@app.route("/api/info-requests/<token>/upload", methods=["POST"])
+def upload_public_info_request(token):
+    """Public file upload against an info request token. Multipart with
+    'document_label' (str) and 'file'. Marks the request as 'submitted'
+    once at least one file exists for every requested document label."""
+    try:
+        if not token or len(token) < 16:
+            return jsonify({"error": "Invalid token"}), 404
+
+        reqs_resp, reqs_status = supabase_request(
+            "get",
+            "/rest/v1/dealer_info_requests",
+            params={
+                "select": "id,dealer_user_id,requested_documents,status,expires_at",
+                "token": f"eq.{token}",
+                "limit": 1,
+            },
+            use_service_role=True,
+        )
+        if reqs_status >= 400 or not reqs_resp:
+            return jsonify({"error": "Not found"}), 404
+        req = reqs_resp[0]
+
+        if req["status"] not in ("pending", "submitted"):
+            return jsonify({"error": f"Request is {req['status']}"}), 409
+
+        try:
+            exp = datetime.datetime.fromisoformat(
+                str(req["expires_at"]).replace("Z", "+00:00")
+            )
+            if exp < datetime.datetime.now(datetime.timezone.utc):
+                supabase_request(
+                    "patch",
+                    "/rest/v1/dealer_info_requests",
+                    params={"id": f"eq.{req['id']}"},
+                    data={"status": "expired"},
+                    use_service_role=True,
+                )
+                return jsonify({"error": "This request has expired"}), 410
+        except Exception:
+            pass
+
+        document_label = (request.form.get("document_label") or "").strip()
+        if not document_label:
+            return jsonify({"error": "document_label is required"}), 400
+        if document_label not in (req.get("requested_documents") or []):
+            return jsonify({"error": "document_label is not part of this request"}), 400
+
+        if "file" not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+        file = request.files["file"]
+        if not file or not file.filename:
+            return jsonify({"error": "No file selected"}), 400
+
+        content_type = (file.content_type or "").lower()
+        if content_type not in DEALER_DOCUMENT_ALLOWED_MIME_TYPES:
+            return jsonify({"error": "Invalid file type. Allowed: JPG, PNG, PDF"}), 400
+
+        file.seek(0, 2)
+        size = file.tell()
+        file.seek(0)
+        if size > DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES:
+            return jsonify({
+                "error": f"File too large. Maximum size: {DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES // (1024 * 1024)}MB"
+            }), 400
+
+        if not ensure_storage_bucket("dealer-documents"):
+            return jsonify({"error": "Storage bucket not available"}), 500
+
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
+        safe_dealer_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(req["dealer_user_id"]))
+        object_path = f"{safe_dealer_id}/info-requests/{req['id']}/{uuid.uuid4().hex}.{ext}"
+
+        upload_url = f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{object_path}"
+        upload_response = requests.post(
+            upload_url,
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": content_type,
+                "x-upsert": "true",
+            },
+            data=file.read(),
+            timeout=30,
+        )
+        if upload_response.status_code not in (200, 201):
+            logger.error(
+                f"Info-request upload failed: {upload_response.status_code} - {upload_response.text[:300]}"
+            )
+            return jsonify({"error": "Failed to upload file"}), 500
+
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/dealer-documents/{object_path}"
+        record_resp, record_status = supabase_request(
+            "post",
+            "/rest/v1/dealer_info_request_uploads",
+            data={
+                "request_id": req["id"],
+                "document_label": document_label,
+                "filename": secure_filename(file.filename),
+                "file_type": content_type,
+                "storage_path": object_path,
+                "url": public_url,
+            },
+            use_service_role=True,
+        )
+        if record_status >= 400:
+            logger.error(f"Failed to record info-request upload: {record_resp}")
+            return jsonify({"error": "Upload recorded partially. Please retry."}), 500
+
+        # If every requested document has at least one upload, mark submitted.
+        uploads_resp, uploads_status = supabase_request(
+            "get",
+            "/rest/v1/dealer_info_request_uploads",
+            params={"select": "document_label", "request_id": f"eq.{req['id']}"},
+            use_service_role=True,
+        )
+        if uploads_status < 400 and isinstance(uploads_resp, list):
+            uploaded_labels = {row.get("document_label") for row in uploads_resp}
+            required_labels = set(req.get("requested_documents") or [])
+            if required_labels and required_labels.issubset(uploaded_labels):
+                supabase_request(
+                    "patch",
+                    "/rest/v1/dealer_info_requests",
+                    params={"id": f"eq.{req['id']}"},
+                    data={
+                        "status": "submitted",
+                        "submitted_at": _isoformat_utc(_utc_now()),
+                    },
+                    use_service_role=True,
+                )
+
+        return jsonify({
+            "success": True,
+            "url": public_url,
+            "filename": file.filename,
+        }), 201
+    except Exception as e:
+        logger.exception("Error handling info-request upload")
+        return jsonify({"error": "Failed to upload"}), 500
 
 
 def _send_document_denial_email(email, doc_type_name, reason, fix_hint, origin=None):

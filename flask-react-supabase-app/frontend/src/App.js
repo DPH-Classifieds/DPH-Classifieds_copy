@@ -23,6 +23,7 @@ import DealerListingDiagnostic from './components/dealer/DealerListingDiagnostic
 import DealerTeam from './components/dealer/DealerTeam';
 import DealerSettings from './components/dealer/DealerSettings';
 import DealerInviteAccept from './components/dealer/DealerInviteAccept';
+import DealerInfoRequest from './components/dealer/DealerInfoRequest';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
@@ -146,6 +147,7 @@ const AdminDealershipDetail = lazy(() => import('./components/admin/AdminDealers
 const AdminDealerAuditLog = lazy(() => import('./components/admin/AdminDealerAuditLog'));
 const AdminReports = lazy(() => import('./components/AdminReports'));
 const AdminMetrics = lazy(() => import('./components/AdminMetrics'));
+const AdminTools = lazy(() => import('./components/AdminTools'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
 const ExplorePage = lazy(() => import('./components/ExplorePage'));
@@ -333,10 +335,12 @@ function App() {
                 <Route path="dealerships/:id" element={<AdminDealershipDetail />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="metrics" element={<AdminMetrics />} />
+                <Route path="tools" element={<AdminTools />} />
               </Route>
 
               {/* Dealer routes */}
               <Route path="/dealer/invite/accept" element={<DealerInviteAccept />} />
+              <Route path="/dealer-info-request/:token" element={<DealerInfoRequest />} />
               <Route path="/dealer" element={
                 <DealerProvider>
                   <DealerRoute>
