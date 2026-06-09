@@ -1583,6 +1583,172 @@ def get_listing_overview(item_type, item_id):
         return jsonify({"error": str(e)}), 500
 
 
+@admin_bp.route(
+    "/listings/<item_type>/<item_id>/send-renewal-nudge", methods=["POST"]
+)
+@admin_required
+def send_listing_renewal_nudge(item_type, item_id):
+    """Email + SMS the listing owner asking them to renew (or mark sold).
+
+    Stamps `renewal_nudge_sent_at`, increments `renewal_nudge_count`, and records
+    which channels actually delivered. Throttled to one nudge per 6 hours per
+    listing so a stuck admin doesn't spam owners.
+    """
+    try:
+        config = _admin_listing_config(item_type)
+        if not config:
+            return jsonify({"error": "Invalid listing type"}), 400
+
+        listing_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/{config['table']}",
+            headers=_admin_headers(),
+            params={"id": f"eq.{item_id}", "select": "*", "limit": "1"},
+            timeout=15,
+        )
+        listing_rows = listing_resp.json() if listing_resp.status_code == 200 else []
+        if not listing_rows:
+            return jsonify({"error": "Listing not found"}), 404
+        listing = listing_rows[0]
+
+        owner_row = (
+            _admin_fetch_user(listing.get("user_id"))
+            if listing.get("user_id")
+            else None
+        ) or {}
+
+        # 6-hour throttle to avoid spamming owners.
+        last_sent_raw = listing.get("renewal_nudge_sent_at")
+        if last_sent_raw and not (request.json or {}).get("force"):
+            try:
+                last_sent = datetime.fromisoformat(
+                    str(last_sent_raw).replace("Z", "+00:00")
+                )
+                from datetime import timezone as _tz
+
+                now = datetime.now(_tz.utc)
+                if last_sent.tzinfo is None:
+                    last_sent = last_sent.replace(tzinfo=_tz.utc)
+                if (now - last_sent) < timedelta(hours=6):
+                    return jsonify(
+                        {
+                            "error": "Renewal nudge was sent recently. Pass force=true to resend.",
+                            "renewal_nudge_sent_at": last_sent_raw,
+                        }
+                    ), 429
+            except Exception:
+                pass
+
+        owner_email = (
+            listing.get("user_email")
+            or listing.get("contact_email")
+            or owner_row.get("email")
+        )
+        owner_phone = (
+            listing.get("car_owner_phone_number")
+            or listing.get("contact_phone")
+            or listing.get("whatsapp_number")
+            or owner_row.get("phone")
+        )
+        owner_country_code = (
+            listing.get("country_code") or owner_row.get("country_code") or "+971"
+        )
+
+        listing_title = (
+            listing.get("listing_title")
+            or listing.get("title")
+            or listing.get("item_name")
+            or listing.get("car_model")
+            or listing.get("bike_model")
+            or listing.get("name")
+            or "Your listing"
+        )
+
+        # Call helpers defined in app.py via lazy import to avoid circular import.
+        from app import (
+            _send_renewal_nudge_email,
+            _send_renewal_nudge_sms,
+            _send_renewal_nudge_whatsapp,
+            _invalidate_public_inventory_cache,
+        )
+
+        results = {"email": False, "sms": False, "whatsapp": False}
+        errors = {}
+
+        if owner_email:
+            email_ok, email_err = _send_renewal_nudge_email(
+                owner_email, listing_title, item_type, item_id
+            )
+            results["email"] = bool(email_ok)
+            if not email_ok:
+                errors["email"] = email_err
+        else:
+            errors["email"] = "No email on file"
+
+        if owner_phone:
+            sms_ok, sms_resp = _send_renewal_nudge_sms(
+                owner_phone, item_type, item_id, owner_country_code
+            )
+            results["sms"] = bool(sms_ok)
+            if not sms_ok:
+                errors["sms"] = sms_resp
+            # WhatsApp stub: best-effort if you wire it up later.
+            wa_ok, wa_resp = _send_renewal_nudge_whatsapp(
+                owner_phone, item_type, item_id, owner_country_code
+            )
+            results["whatsapp"] = bool(wa_ok)
+            if not wa_ok and wa_resp and wa_resp.get("message") not in (
+                "WhatsApp channel not configured",
+            ):
+                errors["whatsapp"] = wa_resp
+        else:
+            errors["sms"] = "No phone on file"
+
+        if not any(results.values()):
+            return jsonify(
+                {
+                    "error": "Could not deliver renewal nudge",
+                    "channels": results,
+                    "details": errors,
+                }
+            ), 502
+
+        now_iso = datetime.utcnow().isoformat() + "Z"
+        patch_payload = {
+            "renewal_nudge_sent_at": now_iso,
+            "renewal_nudge_sent_by": getattr(request, "user_id", None),
+            "renewal_nudge_count": int(listing.get("renewal_nudge_count") or 0) + 1,
+            "renewal_nudge_channels": results,
+        }
+        patch_resp = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/{config['table']}?id=eq.{item_id}",
+            headers=_admin_headers(),
+            json=patch_payload,
+            timeout=15,
+        )
+        if patch_resp.status_code >= 400:
+            logger.warning(
+                f"Failed to stamp renewal_nudge_sent_at for {config['table']}/{item_id}: "
+                f"{patch_resp.status_code} {patch_resp.text}"
+            )
+
+        try:
+            _invalidate_public_inventory_cache(config["table"])
+        except Exception as cache_err:
+            logger.warning(f"Cache invalidation failed after renewal nudge: {cache_err}")
+
+        return jsonify(
+            {
+                "message": "Renewal nudge sent",
+                "channels": results,
+                "errors": errors,
+                "renewal_nudge_sent_at": now_iso,
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error sending renewal nudge: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # View tracking endpoint
 @admin_bp.route("/views/<listing_type>/<listing_id>", methods=["GET"])
 @admin_required

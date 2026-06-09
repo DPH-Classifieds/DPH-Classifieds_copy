@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   XCircle,
   Trash2,
+  Send,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { GlassCard, EmptyState } from './ui/dashboard';
@@ -311,6 +312,42 @@ const AdminListings = () => {
     return map[listingType] || 'car';
   };
 
+  const handleSendNudge = async (listing) => {
+    if (!listing) return;
+    const lt = listing.listing_type || 'cars';
+    try {
+      setActionLoading(true);
+      const resp = await apiClient.post(
+        `/api/admin/listings/${lt}/${listing.id}/send-renewal-nudge`
+      );
+      const ch = resp?.channels || {};
+      const sent = ['email', 'sms', 'whatsapp'].filter((k) => ch[k]);
+      if (sent.length === 0) {
+        showToast('Nudge attempted, but no channel delivered. Check owner contact info.', 'error');
+      } else {
+        showToast(`Renewal nudge sent via ${sent.join(' + ')}.`, 'success');
+      }
+      setListings((prev) =>
+        prev.map((l) =>
+          l.id === listing.id
+            ? { ...l, renewal_nudge_sent_at: resp?.renewal_nudge_sent_at || new Date().toISOString() }
+            : l
+        )
+      );
+    } catch (error) {
+      const status = error?.response?.status || error?.status;
+      const detail = error?.response?.data || error?.data;
+      if (status === 429) {
+        showToast('A nudge was already sent in the last 6 hours. Please wait before resending.', 'error');
+      } else {
+        console.error('Failed to send renewal nudge:', error);
+        showToast(detail?.error || 'Failed to send renewal nudge. Please try again.', 'error');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDeleteListing = async () => {
     if (!selectedListing) return;
     if (!deleteReason.trim()) {
@@ -524,6 +561,9 @@ const AdminListings = () => {
                     const displayStatus = listing.display_status || listing.listing_state || listing.status || 'pending';
                     const lt = listing.listing_type || 'cars';
                     const isPending = (listing._table_status || listing.status) === 'pending';
+                    const ds = String(displayStatus || '').toLowerCase();
+                    const showNudge = ds === 'expired' || ds === 'deleted';
+                    const lastNudgeAt = listing.renewal_nudge_sent_at;
 
                     return (
                       <motion.tr
@@ -582,6 +622,18 @@ const AdminListings = () => {
                             >
                               <BarChart3 size={15} />
                             </button>
+                            {showNudge && (
+                              <button
+                                title={lastNudgeAt
+                                  ? `Send renewal nudge (last sent ${relTime(lastNudgeAt)})`
+                                  : 'Send renewal nudge to owner'}
+                                onClick={() => handleSendNudge(listing)}
+                                className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
+                                disabled={actionLoading}
+                              >
+                                <Send size={15} />
+                              </button>
+                            )}
                             {isPending && (
                               <>
                                 <button

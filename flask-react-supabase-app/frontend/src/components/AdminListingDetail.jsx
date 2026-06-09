@@ -17,6 +17,7 @@ import {
   CheckCircle,
   XCircle,
   ShieldCheck,
+  Send,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { GlassCard, KpiTile, EmptyState } from './ui/dashboard';
@@ -166,6 +167,7 @@ const AdminListingDetail = () => {
   const [rejectReasonIndex, setRejectReasonIndex] = useState('');
   const [activeTab, setActiveTab] = useState('Details');
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [nudgeFeedback, setNudgeFeedback] = useState('');
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -198,6 +200,38 @@ const AdminListingDetail = () => {
     : primaryRouteType === 'buying_request' ? 'buying_requests'
     : `${primaryRouteType}s`;
   const listingTypeLabel = getListingTypeLabel(itemType);
+
+  const handleSendRenewalNudge = async (force = false) => {
+    try {
+      setActionLoading(true);
+      setNudgeFeedback('');
+      const resp = await apiClient.post(
+        `/api/admin/listings/${itemType}/${itemId}/send-renewal-nudge`,
+        force ? { force: true } : undefined
+      );
+      const ch = resp?.channels || {};
+      const sent = ['email', 'sms', 'whatsapp'].filter((k) => ch[k]);
+      const stamped = resp?.renewal_nudge_sent_at;
+      if (sent.length === 0) {
+        setNudgeFeedback('Nudge attempted, but no channel delivered. Check owner email/phone on file.');
+      } else {
+        setNudgeFeedback(`Renewal nudge sent via ${sent.join(' + ')}.`);
+      }
+      if (stamped && data?.listing) {
+        setData({ ...data, listing: { ...data.listing, renewal_nudge_sent_at: stamped } });
+      }
+    } catch (sendError) {
+      const status = sendError?.response?.status || sendError?.status;
+      const detail = sendError?.response?.data || sendError?.data;
+      if (status === 429) {
+        setNudgeFeedback('Nudged within the last 6 hours — open the action again to force-resend.');
+      } else {
+        setNudgeFeedback(detail?.error || sendError?.message || 'Failed to send renewal nudge.');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleModerationAction = async (action, extraPayload) => {
     try {
@@ -889,6 +923,40 @@ const AdminListingDetail = () => {
                   <RotateCcw size={15} />
                   Restore listing
                 </button>
+              )}
+
+              {/* Renewal nudge (expired or deleted listings) */}
+              {(['expired', 'deleted'].includes(String(listing.status || '').toLowerCase())
+                || listing.expired_at
+                || listing.auto_removed_at) && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleSendRenewalNudge(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl px-4 py-3 text-sm transition font-semibold disabled:opacity-50"
+                  >
+                    <Send size={15} />
+                    {actionLoading ? 'Sending…' : 'Send renewal nudge to owner'}
+                  </button>
+                  {listing.renewal_nudge_sent_at && (
+                    <p className="text-[11px] text-white/40 text-center">
+                      Last sent {new Date(listing.renewal_nudge_sent_at).toLocaleString()}
+                      {' · '}
+                      <button
+                        type="button"
+                        onClick={() => handleSendRenewalNudge(true)}
+                        disabled={actionLoading}
+                        className="underline hover:text-white/70"
+                      >
+                        Resend now
+                      </button>
+                    </p>
+                  )}
+                  {nudgeFeedback && (
+                    <p className="text-[12px] text-emerald-300/80 text-center">{nudgeFeedback}</p>
+                  )}
+                </div>
               )}
 
               {/* Delete permanently */}

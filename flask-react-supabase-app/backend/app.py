@@ -1297,6 +1297,9 @@ def _build_renewed_listing_updates(listing, *, now=None):
         ),
         "sold_response_deadline": None,
         "auto_removed_at": None,
+        # Clear deleted_at so a system auto-removal (sold_response_deadline lapsed)
+        # is reversed when the owner explicitly says "not sold, renew it."
+        "deleted_at": None,
         "reminder_job_id": (
             f"listing:{(listing or {}).get('id')}:reminder:"
             f"{int(new_expires_at.timestamp() * 1000)}"
@@ -1330,10 +1333,21 @@ def _fetch_listing_by_id(table_name, listing_id, *, current_user=None, use_servi
 
 
 def _renew_listing_and_verify(table_name, listing_id, listing, *, current_user=None):
+    # System auto-removed listings (sold_response_deadline lapsed, no owner action)
+    # are recoverable: clearing deleted_at + auto_removed_at brings them back live.
+    # Owner-intended sold/rejected outcomes and admin-initiated deletes are not.
+    record = listing or {}
+    auto_removed = bool(record.get("auto_removed_at"))
+    is_recoverable_auto_delete = (
+        auto_removed
+        and record.get("status") == "deleted"
+        and record.get("sold_status") in (None, "sold_elsewhere", "not_sold_renew")
+    )
+
     if (
         _is_listing_deleted(listing)
-        or (listing or {}).get("status") in LISTING_TERMINAL_STATUSES
-    ):
+        or record.get("status") in LISTING_TERMINAL_STATUSES
+    ) and not is_recoverable_auto_delete:
         return None, 400, {"error": "This listing cannot be renewed"}
 
     renewal_updates = _build_renewed_listing_updates(listing)
@@ -1600,6 +1614,92 @@ def _listing_display_title(record):
         or record.get("name")
         or "Your listing"
     )
+
+
+_RENEW_PATH_MAP = {
+    "cars": "cars",
+    "bikes": "bikes",
+    "car_parts": "parts",
+    "license_plates": "plates",
+    "car": "cars",
+    "bike": "bikes",
+    "part": "parts",
+    "plate": "plates",
+    "parts": "parts",
+    "plates": "plates",
+}
+
+
+def _renewal_landing_url(item_type, item_id):
+    slug = _RENEW_PATH_MAP.get(item_type, item_type)
+    return f"{SITE_URL}/listings/{slug}/{item_id}/renew?utm_source=admin_nudge"
+
+
+def _send_renewal_nudge_email(user_email, listing_title, item_type, item_id):
+    if not user_email:
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    renew_url = _renewal_landing_url(item_type, item_id)
+    subject = "Your listing has expired — please renew it"
+
+    html_content = f"""
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #041008; color: #f0fdf4; border-radius: 24px; border: 1px solid rgba(139, 214, 180, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 28px; font-weight: 800; color: #8bd6b4; letter-spacing: -0.02em;">DPH<span style="color: #ffffff;">CLASSIFIEDS</span></div>
+        </div>
+        <div style="background: rgba(255, 255, 255, 0.03); border-radius: 20px; padding: 32px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
+            <h2 style="margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 16px;">Hey — your listing has expired</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 16px;">
+                Your listing <strong style="color: #f0fdf4;">"{listing_title}"</strong> is no longer visible to buyers.
+            </p>
+            <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
+                Please tap below to renew it — or let us know if you've already sold it.
+            </p>
+            <a href="{renew_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">Renew my listing</a>
+            <p style="color: #64748b; font-size: 12px; margin-top: 20px;">If the button doesn't work, paste this link into your browser:<br/><a href="{renew_url}" style="color: #8bd6b4; word-break: break-all;">{renew_url}</a></p>
+        </div>
+        <div style="text-align: center; color: #64748b; font-size: 14px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>
+        </div>
+    </div>
+    """
+
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    return _send_resend_email(payload)
+
+
+def _send_renewal_nudge_sms(phone, item_type, item_id, country_code=None):
+    if not phone:
+        return False, {"message": "Missing phone"}
+    renew_url = _renewal_landing_url(item_type, item_id)
+    body = (
+        f"Hey — your DPH Classifieds listing has expired. "
+        f"Please renew it (or let us know if you sold it): {renew_url}"
+    )
+    normalized = _normalize_phone_number(phone, country_code) or phone
+    return _send_infobip_sms(normalized, body)
+
+
+def _send_renewal_nudge_whatsapp(phone, item_type, item_id, country_code=None):
+    # Placeholder: WhatsApp channel is not configured yet. Wire up Infobip WA or
+    # Twilio here once a sender is approved, and surface the result the same way
+    # _send_infobip_sms does (returns (ok: bool, response: dict)).
+    return False, {"message": "WhatsApp channel not configured"}
 
 
 def _resolve_listing_owner_email(record, fallback_user_id=None):

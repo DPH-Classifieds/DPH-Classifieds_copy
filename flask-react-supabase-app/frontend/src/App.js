@@ -128,6 +128,7 @@ const AuthCallback = lazy(() => import('./components/AuthCallback'));
 const Profile = lazy(() => import('./components/Profile'));
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const MyListings = lazy(() => import('./components/MyListings'));
+const RenewListing = lazy(() => import('./components/RenewListing'));
 const PostCar = lazy(() => import('./components/PostCar'));
 const PostBike = lazy(() => import('./components/PostBike'));
 const PostPlate = lazy(() => import('./components/PostPlate'));
@@ -297,6 +298,7 @@ function App() {
                 <Route path="/settings" element={<AccountSettings />} />
                 <Route path="/account-settings" element={<AccountSettings />} />
                 <Route path="/my-listings" element={<MyListings />} />
+                <Route path="/listings/:type/:id/renew" element={<RenewListing />} />
                 <Route path="/create-listing" element={<Navigate to="/post-car" replace />} />
                 <Route path="/edit-listing/:id" element={<Navigate to="/my-listings" replace />} />
                 <Route path="/edit/car/:id" element={<PostCar />} />
