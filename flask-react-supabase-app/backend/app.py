@@ -15751,6 +15751,51 @@ def admin_listings_search(current_user):
                 scan_err,
             )
 
+        # Batch-fetch images so the admin table can render thumbnails. One
+        # round-trip per image table instead of N+1.
+        try:
+            _IMAGE_TABLES = {
+                "cars": ("car_images", "car_id"),
+                "bikes": ("bike_images", "bike_id"),
+                "car_parts": ("part_images", "part_id"),
+                "license_plates": ("plate_images", "plate_id"),
+            }
+            ids_by_table = defaultdict(list)
+            for lst in listings:
+                normalized_type = (lst.get("listing_type") or "").rstrip("s")
+                table_name = (LISTING_TABLE_CONFIG.get(normalized_type) or {}).get("table")
+                if table_name in _IMAGE_TABLES and lst.get("id"):
+                    ids_by_table[table_name].append(lst["id"])
+            images_by_listing = defaultdict(list)
+            for table_name, listing_ids in ids_by_table.items():
+                image_table, fk = _IMAGE_TABLES[table_name]
+                for chunk_start in range(0, len(listing_ids), 100):
+                    chunk = listing_ids[chunk_start : chunk_start + 100]
+                    img_rows, img_status = supabase_request(
+                        "get",
+                        f"/rest/v1/{image_table}",
+                        params={
+                            "select": "*",
+                            fk: f"in.({','.join(chunk)})",
+                            "order": "uploaded_at.asc",
+                        },
+                        use_service_role=True,
+                    )
+                    if img_status >= 400:
+                        continue
+                    for img in img_rows or []:
+                        owner_id = img.get(fk)
+                        if not img.get("image_url") and img.get("url"):
+                            img["image_url"] = img["url"]
+                        if owner_id:
+                            images_by_listing[owner_id].append(img)
+            for lst in listings:
+                lst["images"] = images_by_listing.get(lst.get("id"), [])
+        except Exception as img_err:
+            logger.exception(
+                "admin_listings_search: image hydration failed — %s", img_err
+            )
+
         return jsonify({"listings": listings, "metadata": dict(counts)}), 200
     except Exception as e:
         logger.exception("Error searching admin listings: %s", e)

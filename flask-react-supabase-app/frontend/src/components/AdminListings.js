@@ -575,7 +575,8 @@ const AdminListings = () => {
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                             <button
-                              title="Public detail page"
+                              title="Open public listing in a new tab"
+                              aria-label="Open public listing in a new tab"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const typeMap = { cars: 'cars', bikes: 'bikes', parts: 'car-parts', plates: 'plates' };
@@ -587,7 +588,8 @@ const AdminListings = () => {
                               <Eye size={15} />
                             </button>
                             <button
-                              title="Admin detail"
+                              title="Open admin detail view"
+                              aria-label="Open admin detail view"
                               onClick={(e) => { e.stopPropagation(); navigate(`/admin/listings/${lt}/${listing.id}`); }}
                               className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                             >
@@ -596,8 +598,9 @@ const AdminListings = () => {
                             {showNudge && (
                               <button
                                 title={lastNudgeAt
-                                  ? `Send renewal nudge (last sent ${relTime(lastNudgeAt)})`
-                                  : 'Send renewal nudge to owner'}
+                                  ? `Send renewal nudge to owner (last sent ${relTime(lastNudgeAt)})`
+                                  : 'Send renewal nudge to owner (email + SMS)'}
+                                aria-label="Send renewal nudge to owner"
                                 onClick={(e) => { e.stopPropagation(); handleSendNudge(listing); }}
                                 className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
                                 disabled={actionLoading}
@@ -608,7 +611,8 @@ const AdminListings = () => {
                             {isPending && (
                               <>
                                 <button
-                                  title="Approve"
+                                  title="Approve listing"
+                                  aria-label="Approve listing"
                                   onClick={(e) => { e.stopPropagation(); setSelectedListing(listing); setShowApproveConfirm(true); }}
                                   className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
                                   disabled={actionLoading}
@@ -616,7 +620,8 @@ const AdminListings = () => {
                                   <CheckCircle2 size={15} />
                                 </button>
                                 <button
-                                  title="Reject"
+                                  title="Reject listing (notify seller)"
+                                  aria-label="Reject listing"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedListing(listing);
@@ -631,7 +636,8 @@ const AdminListings = () => {
                                   <XCircle size={15} />
                                 </button>
                                 <button
-                                  title="Delete"
+                                  title="Delete listing permanently"
+                                  aria-label="Delete listing permanently"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedListing(listing);
