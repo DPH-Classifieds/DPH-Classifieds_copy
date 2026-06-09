@@ -26,7 +26,7 @@ const ADMIN_DELETE_REASONS = [
 ];
 
 const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates', 'buying_requests'];
-const ALL_STATUSES = ['all', 'pending', 'approved', 'rejected', 'expired'];
+const ALL_STATUSES = ['all', 'pending', 'approved', 'rejected', 'expired', 'deleted'];
 const STATUS_OPTIONS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
@@ -127,7 +127,6 @@ const AdminListings = () => {
     : selectedTypes.length > 0 ? selectedTypes : ['all'];
   const selectedStatuses = parseParamList(searchParams.get('statuses'), ALL_STATUSES);
   const effectiveStatuses = selectedStatuses.includes('all') ? ['all'] : (selectedStatuses.length > 0 ? selectedStatuses : ['all']);
-  const hasDeleted = searchParams.get('statuses')?.includes('deleted');
   const [searchText, setSearchText] = useState('');
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -166,64 +165,34 @@ const AdminListings = () => {
         : effectiveTypes;
       const statusesToFetch = effectiveStatuses.includes('all') ? [] : effectiveStatuses;
 
-      const promises = [];
-      const nonDeletedStatuses = statusesToFetch.filter((s) => s !== 'deleted');
-      const mainQuery = nonDeletedStatuses.length > 0
-        ? `/api/admin/listings-search?statuses=${nonDeletedStatuses.join(',')}&types=${typesToFetch.join(',')}`
+      // listings-search natively supports status=deleted and status=expired
+      // (see backend/app.py:_admin_listing_matches_status). We used to strip
+      // 'deleted' here and then synthesize fake rows from /deleted-listings,
+      // but those stubs had no owner email / title / nudge timestamp — which
+      // broke the "Send renewal nudge" button and the detail page. Just ask
+      // the search endpoint directly so each row is a real listing record.
+      const mainQuery = statusesToFetch.length > 0
+        ? `/api/admin/listings-search?statuses=${statusesToFetch.join(',')}&types=${typesToFetch.join(',')}`
         : `/api/admin/listings-search?types=${typesToFetch.join(',')}`;
 
-      promises.push(
-        apiClient.get(mainQuery).catch(() => {
-          const fallbackPromises = [];
-          const fallbackStatuses = nonDeletedStatuses.length > 0
-            ? nonDeletedStatuses
-            : ['pending', 'approved', 'rejected', 'expired'];
-          for (const type of typesToFetch) {
-            for (const status of fallbackStatuses) {
-              fallbackPromises.push(
-                apiClient.get(`/api/admin/approve/${type}?status=${status}`).catch(() => [])
-              );
-            }
+      const mainResponse = await apiClient.get(mainQuery).catch(() => {
+        const fallbackPromises = [];
+        const fallbackStatuses = statusesToFetch.length > 0
+          ? statusesToFetch.filter((s) => s !== 'deleted')
+          : ['pending', 'approved', 'rejected', 'expired'];
+        for (const type of typesToFetch) {
+          for (const status of fallbackStatuses) {
+            fallbackPromises.push(
+              apiClient.get(`/api/admin/approve/${type}?status=${status}`).catch(() => [])
+            );
           }
-          return Promise.all(fallbackPromises).then((results) => results.flat());
-        })
-      );
+        }
+        return Promise.all(fallbackPromises).then((results) => results.flat());
+      });
 
-      if (hasDeleted || statusesToFetch.includes('deleted')) {
-        const deletedPromises = typesToFetch.map((type) => {
-          const typeSingular = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate', buying_requests: 'buying_request' }[type] || 'car';
-          return apiClient.get(`/api/admin/deleted-listings?type=${typeSingular}&limit=100`).catch(() => ({ events: [] }));
-        });
-        promises.push(Promise.all(deletedPromises));
-      } else {
-        promises.push(Promise.resolve([]));
-      }
-
-      promises.push(Promise.resolve([]));
-
-      const [mainResponse, deletedResponses] = await Promise.all(promises);
-
-      let allListings = Array.isArray(mainResponse)
+      const allListings = Array.isArray(mainResponse)
         ? mainResponse
         : (Array.isArray(mainResponse?.listings) ? mainResponse.listings : []);
-
-      const deletedArrays = Array.isArray(deletedResponses) ? deletedResponses : [deletedResponses];
-      for (const resp of deletedArrays) {
-        const events = Array.isArray(resp?.events) ? resp.events : Array.isArray(resp) ? resp : [];
-        for (const evt of events) {
-          allListings.push({
-            id: evt.listing_id,
-            listing_type: evt.listing_type,
-            title: `${evt.listing_type} ${evt.listing_id ? evt.listing_id.slice(0, 8) : ''}`,
-            status: 'deleted',
-            deleted_reason: evt.reason,
-            deleted_by_role: evt.deleted_by_role,
-            deleted_at: evt.created_at,
-            created_at: evt.created_at,
-            user_email: evt.deleted_by || 'N/A',
-          });
-        }
-      }
 
       setListings(allListings);
     } catch (error) {
@@ -233,7 +202,7 @@ const AdminListings = () => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveTypes.join(','), effectiveStatuses.join(','), hasDeleted]);
+  }, [effectiveTypes.join(','), effectiveStatuses.join(',')]);
 
   useEffect(() => {
     fetchListings();
@@ -522,9 +491,9 @@ const AdminListings = () => {
           <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Status</p>
           <ChipFilter
             options={STATUS_OPTIONS}
-            activeKeys={effectiveStatuses.concat(hasDeleted ? ['deleted'] : [])}
+            activeKeys={effectiveStatuses}
             paramKey="statuses"
-            allowed={ALL_STATUSES.concat(['deleted'])}
+            allowed={ALL_STATUSES}
           />
         </div>
       </GlassCard>

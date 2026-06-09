@@ -1492,6 +1492,38 @@ def get_listing_overview(item_type, item_id):
             return jsonify({"error": "Listing not found"}), 404
         listing = listing_rows[0]
 
+        # Lifecycle-sync so the detail page sees the same state as the listings
+        # table: expired_at, listing_state, sold_response_deadline, etc. — and so
+        # the renewal-nudge button (which gates on `expired`/`deleted`/`auto_removed_at`)
+        # has all the fields it needs. Service-role import avoids circular import.
+        try:
+            from app import (
+                _sync_listing_lifecycle,
+                _admin_listing_display_status,
+                _admin_attach_latest_verification_scan,
+            )
+
+            synced = _sync_listing_lifecycle(
+                config["table"], dict(listing), hard_delete_archived=False
+            )
+            if synced:
+                listing = synced
+            listing.setdefault(
+                "listing_type",
+                {
+                    "cars": "cars",
+                    "bikes": "bikes",
+                    "car_parts": "parts",
+                    "license_plates": "plates",
+                }.get(config["table"], config["table"]),
+            )
+            listing["display_status"] = _admin_listing_display_status(listing)
+            _admin_attach_latest_verification_scan(listing)
+        except Exception as enrich_err:
+            logger.warning(
+                f"Failed to enrich listing overview for {config['table']}/{item_id}: {enrich_err}"
+            )
+
         owner_row = (
             _admin_fetch_user(listing.get("user_id"))
             if listing.get("user_id")
@@ -1563,6 +1595,11 @@ def get_listing_overview(item_type, item_id):
                 "listing": listing,
                 "owner": owner_row,
                 "images": images_rows or [],
+                # Mirror verification + lifecycle fields at the top level too —
+                # AdminListingDetail.jsx reads them from either spot.
+                "latest_verification_scan": listing.get("latest_verification_scan"),
+                "verification_status": listing.get("verification_status"),
+                "display_status": listing.get("display_status"),
                 "summary": {
                     "view_count": int(listing.get("view_count") or 0),
                     "call_clicks": int(lead_totals.get("call_click", 0)),
