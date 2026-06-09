@@ -15699,46 +15699,61 @@ def admin_listings_search(current_user):
                 continue
 
             for row in rows or []:
-                synced = _sync_listing_lifecycle(
-                    config["table"], dict(row), hard_delete_archived=False
-                )
-                if not synced:
+                # Defensively isolate per-row work so a single malformed listing
+                # cannot 500 the whole admin page.
+                try:
+                    synced = _sync_listing_lifecycle(
+                        config["table"], dict(row), hard_delete_archived=False
+                    )
+                    if not synced:
+                        continue
+
+                    display_status = _admin_listing_display_status(synced)
+                    synced["display_status"] = display_status
+                    synced["listing_type"] = f"{listing_type}s" if listing_type != "part" else "parts"
+                    synced["_table_status"] = synced.get("status")
+
+                    if requested_statuses and not any(
+                        _admin_listing_matches_status(synced, status)
+                        for status in requested_statuses
+                    ):
+                        continue
+
+                    counts["total"] += 1
+                    counts[synced.get("_table_status") or "unknown"] += 1
+                    if synced.get("listing_state") == "active":
+                        counts["active"] += 1
+                    if synced.get("listing_state") == "expired":
+                        counts["expired"] += 1
+                    if synced.get("status") == "pending":
+                        counts["pending"] += 1
+
+                    listings.append(synced)
+                except Exception as row_err:
+                    logger.exception(
+                        "admin_listings_search: failed processing %s/%s — %s",
+                        config["table"], (row or {}).get("id"), row_err,
+                    )
                     continue
 
-                display_status = _admin_listing_display_status(synced)
-                synced["display_status"] = display_status
-                synced["listing_type"] = f"{listing_type}s" if listing_type != "part" else "parts"
-                synced["_table_status"] = synced.get("status")
-
-                if requested_statuses and not any(
-                    _admin_listing_matches_status(synced, status)
-                    for status in requested_statuses
-                ):
-                    continue
-
-                counts["total"] += 1
-                counts[synced.get("_table_status") or "unknown"] += 1
-                if synced.get("listing_state") == "active":
-                    counts["active"] += 1
-                if synced.get("listing_state") == "expired":
-                    counts["expired"] += 1
-                if synced.get("status") == "pending":
-                    counts["pending"] += 1
-
-                listings.append(synced)
-
-        latest_scan_map = _admin_fetch_latest_verification_scans(
-            [
-                (listing.get("listing_type"), listing.get("id"))
-                for listing in listings
-            ]
-        )
-        for listing in listings:
-            _admin_attach_latest_verification_scan(listing, latest_scan_map)
+        try:
+            latest_scan_map = _admin_fetch_latest_verification_scans(
+                [
+                    (listing.get("listing_type"), listing.get("id"))
+                    for listing in listings
+                ]
+            )
+            for listing in listings:
+                _admin_attach_latest_verification_scan(listing, latest_scan_map)
+        except Exception as scan_err:
+            logger.exception(
+                "admin_listings_search: verification scan enrichment failed — %s",
+                scan_err,
+            )
 
         return jsonify({"listings": listings, "metadata": dict(counts)}), 200
     except Exception as e:
-        logger.error(f"Error searching admin listings: {e}")
+        logger.exception("Error searching admin listings: %s", e)
         return jsonify({"error": "Failed to search listings"}), 500
 
 
