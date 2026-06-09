@@ -220,7 +220,7 @@ PROFANITY_BLOCKLIST_COLLAPSED = {
 LISTING_EXPIRY_DAYS = 15
 LISTING_RETENTION_DAYS = 30
 LISTING_SOLD_RESPONSE_WINDOW_HOURS = int(
-    os.getenv("LISTING_SOLD_RESPONSE_WINDOW_HOURS", "48")
+    os.getenv("LISTING_SOLD_RESPONSE_WINDOW_HOURS", "168")
 )
 LISTING_DISPLAY_WIDTH = int(os.getenv("LISTING_DISPLAY_WIDTH", "1600"))
 LISTING_DISPLAY_HEIGHT = int(os.getenv("LISTING_DISPLAY_HEIGHT", "1000"))
@@ -1117,10 +1117,15 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
             if updates.get("status") == "deleted" and updates.get("auto_removed_at"):
                 listing_type = _listing_type_for_table(table_name)
                 if listing_type:
+                    window_label = (
+                        f"{LISTING_SOLD_RESPONSE_WINDOW_HOURS // 24} days"
+                        if LISTING_SOLD_RESPONSE_WINDOW_HOURS % 24 == 0
+                        else f"{LISTING_SOLD_RESPONSE_WINDOW_HOURS} hours"
+                    )
                     _record_listing_deletion_event(
                         listing_id=record.get("id"),
                         listing_type=listing_type,
-                        reason="No listing outcome selected within 48 hours of expiry",
+                        reason=f"No listing outcome selected within {window_label} of expiry",
                         deleted_by_role="system",
                         metadata={
                             "expired_at": record.get("expired_at"),
@@ -15898,9 +15903,9 @@ def _admin_listing_matches_status(listing, status_filter):
 
     if normalized == "expired":
         # Surface every listing whose lifecycle is past its expiry, including
-        # those auto-removed after the 48hr sold-response window and those
-        # archived past the 30-day retention window. Otherwise admins lose
-        # sight of expired listings within hours of expiry.
+        # those auto-removed after the sold-response window and those archived
+        # past the 30-day retention window. Otherwise admins lose sight of
+        # expired listings within hours of expiry.
         return (
             listing_state in {"expired", "archived"}
             or (auto_removed and is_expired)

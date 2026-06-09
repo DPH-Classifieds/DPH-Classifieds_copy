@@ -448,7 +448,7 @@ const MyListings = () => {
           <p className="my-listing-lifecycle">{getLifecycleCopy(listing)}</p>
           {isDeleted && wasAutoRemoved && (
             <p className="my-listing-lifecycle">
-              Auto-removed because no outcome was selected within 48 hours of expiry.
+              Auto-removed because no outcome was selected within 7 days of expiry.
             </p>
           )}
           {listing.rejection_note && (
