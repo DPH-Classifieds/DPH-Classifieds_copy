@@ -3994,7 +3994,7 @@ def _enforce_listing_limit(user_id):
     return None
 
 
-_DEFAULT_DEALER_LISTING_LIMIT = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "25"))
+_DEFAULT_DEALER_LISTING_LIMIT = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "20"))
 _DEALER_REQUIRED_DOCS = ("trade_license",)
 
 

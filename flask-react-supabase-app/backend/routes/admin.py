@@ -927,7 +927,7 @@ def set_dealer_listing_limit(user_id):
             )
             return jsonify({"error": "Failed to set listing limit"}), response.status_code
 
-        default_limit = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "25"))
+        default_limit = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "20"))
         effective = new_limit if new_limit is not None else default_limit
         return jsonify({
             "message": "Listing limit updated",

@@ -22,7 +22,7 @@ This spec defines the changes required to:
 ## Decisions locked in during brainstorming
 
 - **Document timing:** collected at signup, in the same form. Account is created immediately but cannot post listings until admin verifies. (Other options — wizard after email confirmation, optional at signup — were rejected for higher admin-queue churn or in-limbo accounts.)
-- **Ad limit semantics:** one number per dealer counting *active (non-deleted, non-archived) listings* across cars + bikes + parts + plates. Admin-controlled, NULL = use `DEFAULT_DEALER_LISTING_LIMIT` (env, default 25).
+- **Ad limit semantics:** one number per dealer counting *active (non-deleted, non-archived) listings* across cars + bikes + parts + plates. Admin-controlled, NULL = use `DEFAULT_DEALER_LISTING_LIMIT` (env, default 20).
 - **TRN format:** exactly 15 digits. Frontend rejects anything else; backend re-validates. UNIQUE index on `users.trn`.
 - **Document expiry:** dealer enters `expires_at` at upload time. Dashboard banner warns 30 days before expiry, blocks new posting after. Worker emails + SMSes 30/14/3 days before expiry.
 

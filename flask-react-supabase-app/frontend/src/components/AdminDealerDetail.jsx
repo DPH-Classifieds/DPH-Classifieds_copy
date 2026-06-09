@@ -500,7 +500,7 @@ const AdminDealerDetail = () => {
       });
       setAdLimitMessage(
         payload.limit === null
-          ? `Cleared. Dealer now uses default (${resp?.default_limit ?? 25}).`
+          ? `Cleared. Dealer now uses default (${resp?.default_limit ?? 20}).`
           : `Saved. Dealer can post up to ${resp?.effective_limit ?? payload.limit} active listings.`
       );
       await refreshData();
