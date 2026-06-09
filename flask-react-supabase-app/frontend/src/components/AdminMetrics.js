@@ -473,13 +473,34 @@ const AdminMetrics = () => {
                   />
                 </div>
                 <div>
-                  <SectionTitle>Platform totals</SectionTitle>
+                  <div className="flex items-center justify-between mb-2">
+                    <SectionTitle>Platform totals</SectionTitle>
+                    {userMetrics.data_source === 'cloudflare' ? (
+                      <span
+                        className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/30"
+                        title="Visitor counts come from Cloudflare GraphQL Analytics API (edge data). Bounce rate and conversion sessions still come from platform_events, which is the only source that knows which page each visitor actually engaged with."
+                      >
+                        Source: Cloudflare
+                      </span>
+                    ) : (
+                      <span
+                        className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/40 border border-white/10"
+                        title={userMetrics.data_source_note || 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID on the backend to switch to Cloudflare edge data.'}
+                      >
+                        Source: in-app tracker
+                      </span>
+                    )}
+                  </div>
                   <KvList
                     items={[
-                      { label: 'Sessions', value: formatNumber(userMetrics.sessions), note: 'Tracked journeys in the window' },
-                      { label: 'Page views', value: formatNumber(userMetrics.page_views), note: 'Sitewide route views' },
-                      { label: 'Bounce rate', value: formatPercent(userMetrics.bounce_rate_percent), note: 'Single-page / short-lived sessions' },
-                      { label: 'Conversion sessions', value: formatNumber(userMetrics.conversion_sessions), note: 'Sessions with lead or form intent' },
+                      { label: 'Sessions', value: formatNumber(userMetrics.sessions), note: 'Daily uniques summed over the window' },
+                      { label: 'Page views', value: formatNumber(userMetrics.page_views), note: 'Sitewide page loads at the edge' },
+                      { label: 'Bounce rate', value: formatPercent(userMetrics.bounce_rate_percent), note: 'From in-app tracker (CF can’t see this)' },
+                      { label: 'Conversion sessions', value: formatNumber(userMetrics.conversion_sessions), note: 'From in-app tracker (lead/form intent)' },
+                      ...(userMetrics.data_source === 'cloudflare' ? [
+                        { label: 'Edge requests', value: formatNumber(userMetrics.edge_requests), note: 'Total HTTP requests at the edge (incl. bots/assets)' },
+                        { label: 'Threats blocked', value: formatNumber(userMetrics.edge_threats), note: 'Bots / WAF rules / DDoS' },
+                      ] : []),
                     ]}
                   />
                 </div>

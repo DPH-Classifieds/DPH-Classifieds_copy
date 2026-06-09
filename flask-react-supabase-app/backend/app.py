@@ -14256,6 +14256,47 @@ def get_admin_metrics_overview(current_user):
         metrics["live_users"] = len(live_visitor_ids)
         metrics.setdefault("user_metrics", {})["live_users"] = len(live_visitor_ids)
 
+        # When Cloudflare is configured, override the headline traffic numbers
+        # with what the edge sees. Per-listing engagement (view_count, lead
+        # events) and the bounce / conversion fields stay on platform_events
+        # because Cloudflare can't tell us which listing got viewed. Admins
+        # will see a "Source: Cloudflare" badge on the affected tiles.
+        try:
+            from services.cloudflare_analytics import (
+                fetch_zone_metrics as _cf_fetch,
+                is_enabled as _cf_enabled,
+            )
+
+            user_metrics = metrics.setdefault("user_metrics", {})
+            if _cf_enabled():
+                cf = _cf_fetch(days)
+                if cf:
+                    user_metrics["unique_visitors"] = cf["unique_visitors"]
+                    user_metrics["page_views"] = cf["page_views"]
+                    user_metrics["sessions"] = cf["unique_visitors"]
+                    user_metrics["edge_requests"] = cf["requests"]
+                    user_metrics["edge_threats"] = cf["threats"]
+                    user_metrics["edge_cached_requests"] = cf["cached_requests"]
+                    user_metrics["edge_bytes"] = cf["bytes"]
+                    user_metrics["peak_daily_uniques"] = cf["peak_daily_uniques"]
+                    user_metrics["data_source"] = "cloudflare"
+                    # Daily chart series — preserve the platform_events one as
+                    # `daily_trends_platform` in case the frontend wants both.
+                    if user_metrics.get("daily_trends"):
+                        user_metrics["daily_trends_platform"] = user_metrics["daily_trends"]
+                    user_metrics["daily_trends"] = cf["daily_trends"]
+                else:
+                    user_metrics["data_source"] = "platform_events"
+                    user_metrics["data_source_note"] = (
+                        "Cloudflare configured but the API call failed; "
+                        "showing platform_events numbers."
+                    )
+            else:
+                user_metrics["data_source"] = "platform_events"
+        except Exception as cf_err:
+            logger.warning("Cloudflare metrics override skipped: %s", cf_err)
+            metrics.setdefault("user_metrics", {})["data_source"] = "platform_events"
+
         return jsonify(metrics), 200
     except Exception as e:
         logger.error(f"Error fetching admin metrics overview: {str(e)}")
