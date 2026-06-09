@@ -49,6 +49,11 @@ const Signup = () => {
     isDealer: false,
     companyName: '',
     companyRegistrationNumber: '',
+    legalBusinessName: '',
+    trn: '',
+    tradeLicenseNumber: '',
+    tradeLicenseExpiresAt: '',
+    tradeLicenseFile: null,
     
     // Preferences
     emailNotifications: true,
@@ -159,6 +164,32 @@ const Signup = () => {
     if (name === 'companyName' && data.isDealer && !value) {
       return 'Company name is required for dealer accounts';
     }
+    if (name === 'legalBusinessName' && data.isDealer) {
+      if (!value || String(value).trim().length < 3) {
+        return 'Legal business name is required';
+      }
+    }
+    if (name === 'trn' && data.isDealer) {
+      if (!value) return 'TRN is required';
+      if (!/^\d{15}$/.test(String(value))) return 'TRN must be exactly 15 digits';
+    }
+    if (name === 'tradeLicenseExpiresAt' && data.isDealer) {
+      if (!value) return 'Trade license expiry date is required';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime()) || d <= new Date()) {
+        return 'Expiry date must be in the future';
+      }
+    }
+    if (name === 'tradeLicenseFile' && data.isDealer) {
+      if (!value) return 'Please upload a copy of your trade license';
+      const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (value && !allowed.includes(value.type)) {
+        return 'Trade license must be a PDF, JPG, or PNG';
+      }
+      if (value && value.size > 10 * 1024 * 1024) {
+        return 'Trade license file must be 10 MB or smaller';
+      }
+    }
     if (name === 'acceptTerms' && !value) {
       return 'You must accept the Terms of Service to continue';
     }
@@ -250,6 +281,16 @@ const Signup = () => {
     if (name === 'isDealer' && !checked) {
       nextData.companyName = '';
       nextData.companyRegistrationNumber = '';
+      nextData.legalBusinessName = '';
+      nextData.trn = '';
+      nextData.tradeLicenseNumber = '';
+      nextData.tradeLicenseExpiresAt = '';
+      nextData.tradeLicenseFile = null;
+    }
+
+    // TRN: digits only, max 15
+    if (name === 'trn') {
+      nextData.trn = String(value || '').replace(/\D/g, '').slice(0, 15);
     }
 
     setFormData(nextData);
@@ -319,6 +360,9 @@ const Signup = () => {
       'username',
       'phone',
       'companyName',
+      ...(formData.isDealer
+        ? ['legalBusinessName', 'trn', 'tradeLicenseExpiresAt', 'tradeLicenseFile']
+        : []),
       'acceptTerms',
       'acceptPrivacy'
     ];
@@ -408,6 +452,10 @@ const Signup = () => {
         isDealer: formData.isDealer,
         companyName: formData.companyName,
         companyRegistrationNumber: formData.companyRegistrationNumber,
+        legalBusinessName: formData.legalBusinessName,
+        trn: formData.trn,
+        tradeLicenseNumber: formData.tradeLicenseNumber,
+        tradeLicenseExpiresAt: formData.tradeLicenseExpiresAt,
         displayName: formData.firstName && formData.lastName
           ? `${formData.firstName} ${formData.lastName}`
           : formData.username,
@@ -436,6 +484,7 @@ const Signup = () => {
       }
 
       // Save authentication tokens if present in response
+      let dealerJwt = null;
       if (data.access_token || data.session?.access_token) {
         const authData = {
           access_token: data.access_token || data.session?.access_token,
@@ -444,6 +493,34 @@ const Signup = () => {
         };
         saveAuthData(authData);
         setAuthHeader(authData.access_token);
+        dealerJwt = authData.access_token;
+      }
+
+      // Dealer flow: upload the trade license now, then submit the application.
+      // Both calls are best-effort: if they fail we still land the user on the
+      // verify/check-email screen, and the resume banner picks them up next login.
+      if (formData.isDealer && formData.tradeLicenseFile && dealerJwt) {
+        try {
+          const uploadForm = new FormData();
+          uploadForm.append('document_type', 'trade_license');
+          uploadForm.append('file', formData.tradeLicenseFile);
+          uploadForm.append('expires_at', formData.tradeLicenseExpiresAt);
+          await fetch(`${API_URL}/api/auth/upload-dealer-document`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${dealerJwt}` },
+            body: uploadForm,
+          });
+          await fetch(`${API_URL}/api/auth/dealer-submit-application`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${dealerJwt}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          });
+        } catch (dealerErr) {
+          console.warn('Dealer document upload failed, resume banner will handle it:', dealerErr);
+        }
       }
 
       const verification = data.phone_verification;
@@ -620,7 +697,7 @@ const Signup = () => {
             <div className="form-section dealer-section">
               <h3 className="form-section-title">Business Information</h3>
               <div className="form-group">
-                <label htmlFor="companyName">Company Name <span className="required">*</span></label>
+                <label htmlFor="companyName">Trading Name <span className="required">*</span></label>
                 <input
                   type="text"
                   id="companyName"
@@ -628,22 +705,103 @@ const Signup = () => {
                   value={formData.companyName}
                   onChange={handleInputChange}
                   required={formData.isDealer}
-                  placeholder="Your company or dealership name"
+                  placeholder="Your dealership name as customers know it"
                   className={touchedFields.companyName && fieldErrors.companyName ? 'error-input' : ''}
                 />
                 {renderFieldError('companyName')}
               </div>
               <div className="form-group">
-                <label htmlFor="companyRegistrationNumber">Trade License / Registration Number (Optional)</label>
+                <label htmlFor="legalBusinessName">Legal Business Name <span className="required">*</span></label>
+                <input
+                  type="text"
+                  id="legalBusinessName"
+                  name="legalBusinessName"
+                  value={formData.legalBusinessName}
+                  onChange={handleInputChange}
+                  required={formData.isDealer}
+                  placeholder="Name as shown on your trade license"
+                  className={touchedFields.legalBusinessName && fieldErrors.legalBusinessName ? 'error-input' : ''}
+                />
+                {renderFieldError('legalBusinessName')}
+              </div>
+              <div className="form-group">
+                <label htmlFor="trn">TRN (Tax Registration Number) <span className="required">*</span></label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{15}"
+                  maxLength={15}
+                  id="trn"
+                  name="trn"
+                  value={formData.trn}
+                  onChange={handleInputChange}
+                  required={formData.isDealer}
+                  placeholder="15 digits"
+                  className={touchedFields.trn && fieldErrors.trn ? 'error-input' : ''}
+                />
+                <small className="form-hint">UAE Federal Tax Authority TRN, exactly 15 digits</small>
+                {renderFieldError('trn')}
+              </div>
+              <div className="form-group">
+                <label htmlFor="tradeLicenseNumber">Trade License Number</label>
+                <input
+                  type="text"
+                  id="tradeLicenseNumber"
+                  name="tradeLicenseNumber"
+                  value={formData.tradeLicenseNumber}
+                  onChange={handleInputChange}
+                  placeholder="Number printed on your trade license"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="tradeLicenseExpiresAt">Trade License Valid Until <span className="required">*</span></label>
+                <input
+                  type="date"
+                  id="tradeLicenseExpiresAt"
+                  name="tradeLicenseExpiresAt"
+                  value={formData.tradeLicenseExpiresAt}
+                  onChange={handleInputChange}
+                  required={formData.isDealer}
+                  min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                  className={touchedFields.tradeLicenseExpiresAt && fieldErrors.tradeLicenseExpiresAt ? 'error-input' : ''}
+                />
+                {renderFieldError('tradeLicenseExpiresAt')}
+              </div>
+              <div className="form-group">
+                <label htmlFor="tradeLicenseFile">Trade License Document <span className="required">*</span></label>
+                <input
+                  type="file"
+                  id="tradeLicenseFile"
+                  name="tradeLicenseFile"
+                  accept="application/pdf,image/png,image/jpeg"
+                  onChange={(e) => {
+                    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                    setFormData((prev) => ({ ...prev, tradeLicenseFile: file }));
+                    setTouchedFields((prev) => ({ ...prev, tradeLicenseFile: true }));
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      const err = validateSingleField('tradeLicenseFile', file, { ...formData, tradeLicenseFile: file });
+                      if (err) next.tradeLicenseFile = err; else delete next.tradeLicenseFile;
+                      return next;
+                    });
+                  }}
+                  required={formData.isDealer}
+                  className={touchedFields.tradeLicenseFile && fieldErrors.tradeLicenseFile ? 'error-input' : ''}
+                />
+                <small className="form-hint">PDF, JPG, or PNG — up to 10 MB</small>
+                {renderFieldError('tradeLicenseFile')}
+              </div>
+              <div className="form-group">
+                <label htmlFor="companyRegistrationNumber">Company Registration Number (Optional)</label>
                 <input
                   type="text"
                   id="companyRegistrationNumber"
                   name="companyRegistrationNumber"
                   value={formData.companyRegistrationNumber}
                   onChange={handleInputChange}
-                  placeholder="Company registration or trade license number"
+                  placeholder="Mainland or freezone registration number"
                 />
-                <small className="form-hint">This helps speed up verification</small>
+                <small className="form-hint">Speeds up verification when provided</small>
               </div>
             </div>
           )}

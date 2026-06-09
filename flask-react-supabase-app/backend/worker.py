@@ -153,6 +153,7 @@ def main():
         from app import (
             _run_listing_expiry_reminders_once,
             _run_listing_lifecycle_sweep_once,
+            _run_dealer_doc_expiry_reminders_once,
         )
         from workers.inventory_import_worker import run as _run_inventory_import_once
         from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
@@ -194,6 +195,9 @@ def main():
     )
     listing_sweep_interval_seconds = int(
         os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))
+    )
+    dealer_doc_expiry_interval_seconds = int(
+        os.getenv("DEALER_DOC_EXPIRY_INTERVAL_SECONDS", str(60 * 60 * 24))
     )
     dealer_lead_agg_interval_seconds = int(
         os.getenv("DEALER_LEAD_AGG_INTERVAL_SECONDS", "30")
@@ -264,6 +268,16 @@ def main():
         name="listing-lifecycle-sweep",
         daemon=True,
     )
+    dealer_doc_expiry_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "Dealer document expiry reminders",
+            _run_dealer_doc_expiry_reminders_once,
+            dealer_doc_expiry_interval_seconds,
+        ),
+        name="dealer-doc-expiry-reminders",
+        daemon=True,
+    )
     dealer_lead_agg_thread = threading.Thread(
         target=scheduled_loop,
         args=(
@@ -306,14 +320,16 @@ def main():
     )
     reminder_thread.start()
     sweep_thread.start()
+    dealer_doc_expiry_thread.start()
     dealer_lead_agg_thread.start()
     inventory_import_thread.start()
     dealer_api_poll_thread.start()
     webhook_delivery_thread.start()
     logger.info(
-        "Listing lifecycle jobs started (reminders=%ss sweep=%ss)",
+        "Listing lifecycle jobs started (reminders=%ss sweep=%ss dealer_doc_expiry=%ss)",
         listing_reminder_interval_seconds,
         listing_sweep_interval_seconds,
+        dealer_doc_expiry_interval_seconds,
     )
     logger.info(
         "Webhook delivery worker started (interval=%ss)",

@@ -882,6 +882,64 @@ def reject_dealer(user_id):
         return jsonify({"error": str(e)}), 500
 
 
+@admin_bp.route("/dealers/<user_id>/listing-limit", methods=["PATCH"])
+@admin_required
+def set_dealer_listing_limit(user_id):
+    """Set or clear the per-dealer active-listing cap.
+
+    Body: {"limit": <int|null>}
+        - int >= 0  → store as users.dealer_listing_limit, takes effect next post
+        - null      → clear, dealer falls back to DEFAULT_DEALER_LISTING_LIMIT env
+
+    Returns the effective limit so the UI can display "(default)" when null.
+    """
+    try:
+        body = request.json or {}
+        if "limit" not in body:
+            return jsonify({"error": "Missing 'limit' field"}), 400
+
+        raw_limit = body.get("limit")
+        if raw_limit is None:
+            new_limit = None
+        else:
+            try:
+                new_limit = int(raw_limit)
+            except (TypeError, ValueError):
+                return jsonify({"error": "'limit' must be an integer or null"}), 400
+            if new_limit < 0 or new_limit > 10000:
+                return jsonify({"error": "'limit' must be between 0 and 10000"}), 400
+
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            json={"dealer_listing_limit": new_limit},
+            timeout=10,
+        )
+        if response.status_code not in (200, 204):
+            logger.warning(
+                f"Failed to set dealer_listing_limit for {user_id}: "
+                f"{response.status_code} {response.text}"
+            )
+            return jsonify({"error": "Failed to set listing limit"}), response.status_code
+
+        default_limit = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "25"))
+        effective = new_limit if new_limit is not None else default_limit
+        return jsonify({
+            "message": "Listing limit updated",
+            "dealer_listing_limit": new_limit,
+            "effective_limit": effective,
+            "default_limit": default_limit,
+        }), 200
+    except Exception as e:
+        logger.error(f"Error setting dealer listing limit: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # User Management
 @admin_bp.route("/users", methods=["GET"])
 @admin_required

@@ -3892,10 +3892,11 @@ def _get_user_listing_count(user_id):
     return total, None
 
 
-def _get_user_listing_counts_by_table(user_id):
+def _get_user_listing_counts_by_table(user_id, limit=None):
     """Counts listings per core listing table, excluding deleted rows when possible."""
     tables = ["cars", "bikes", "license_plates", "car_parts"]
     counts = {}
+    effective_limit = limit if limit is not None else MAX_LISTINGS_PER_USER_PER_TYPE + 50
 
     for table in tables:
         data, status_code = supabase_request(
@@ -3905,7 +3906,7 @@ def _get_user_listing_counts_by_table(user_id):
                 "select": "id",
                 "user_id": f"eq.{user_id}",
                 "deleted_at": "is.null",
-                "limit": MAX_LISTINGS_PER_USER_PER_TYPE + 50,
+                "limit": effective_limit,
             },
             use_service_role=True,
         )
@@ -3921,7 +3922,7 @@ def _get_user_listing_counts_by_table(user_id):
                 params={
                     "select": "id",
                     "user_id": f"eq.{user_id}",
-                    "limit": MAX_LISTINGS_PER_USER_PER_TYPE + 50,
+                    "limit": effective_limit,
                 },
                 use_service_role=True,
             )
@@ -3934,6 +3935,40 @@ def _get_user_listing_counts_by_table(user_id):
 
 def _enforce_listing_limit(user_id):
     if _is_super_admin_user(user_id):
+        return None
+
+    # Verified dealers use the per-dealer cap (active listings across all four
+    # tables). Non-dealers and unverified dealers continue to use the per-type
+    # cap. Unverified dealers also have a separate verification gate elsewhere.
+    dealer_info = _fetch_dealer_listing_policy(user_id)
+    if dealer_info and dealer_info.get("verified"):
+        counts, error = _get_user_listing_counts_by_table(user_id, limit=2000)
+        if error is not None or counts is None:
+            return jsonify({"error": "Failed to verify listing limit"}), 500
+        total_active = sum(counts.values())
+        limit = dealer_info["limit"]
+        if total_active >= limit:
+            return jsonify({
+                "error": (
+                    f"You've reached your ad limit ({limit} active listings). "
+                    "Contact us to request an increase."
+                ),
+                "code": "dealer_listing_limit",
+                "limit": limit,
+                "total_active": total_active,
+                "counts": counts,
+            }), 403
+        # Block posting if a required dealer document has expired.
+        expired_docs = _dealer_expired_required_documents(user_id)
+        if expired_docs:
+            return jsonify({
+                "error": (
+                    f"Your {expired_docs[0]} has expired. "
+                    "Please re-upload it before posting new listings."
+                ),
+                "code": "dealer_doc_expired",
+                "expired_documents": expired_docs,
+            }), 403
         return None
 
     counts, error = _get_user_listing_counts_by_table(user_id)
@@ -3957,6 +3992,56 @@ def _enforce_listing_limit(user_id):
             }
         ), 403
     return None
+
+
+_DEFAULT_DEALER_LISTING_LIMIT = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "25"))
+_DEALER_REQUIRED_DOCS = ("trade_license",)
+
+
+def _fetch_dealer_listing_policy(user_id):
+    """Return {verified: bool, limit: int} for a dealer user, or None for non-dealers."""
+    try:
+        user_resp, user_status = supabase_request(
+            "get",
+            f"/rest/v1/users?id=eq.{user_id}&select=is_dealer,dealer_verified,dealer_listing_limit",
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning(f"dealer policy fetch failed for {user_id}: {exc}")
+        return None
+    if user_status >= 400 or not user_resp:
+        return None
+    row = user_resp[0]
+    if not row.get("is_dealer"):
+        return None
+    limit = row.get("dealer_listing_limit")
+    if limit is None:
+        limit = _DEFAULT_DEALER_LISTING_LIMIT
+    return {"verified": bool(row.get("dealer_verified")), "limit": int(limit)}
+
+
+def _dealer_expired_required_documents(user_id):
+    """Return human-readable names of required dealer documents that are expired."""
+    today_iso = datetime.datetime.utcnow().date().isoformat()
+    expired = []
+    for doc_type in _DEALER_REQUIRED_DOCS:
+        rows, status = supabase_request(
+            "get",
+            (
+                f"/rest/v1/dealer_documents?user_id=eq.{user_id}"
+                f"&document_type=eq.{doc_type}"
+                f"&replaced_at=is.null"
+                f"&select=expires_at"
+                f"&order=uploaded_at.desc&limit=1"
+            ),
+            use_service_role=True,
+        )
+        if status >= 400 or not rows:
+            continue
+        exp = rows[0].get("expires_at")
+        if exp and str(exp) <= today_iso:
+            expired.append(doc_type.replace("_", " "))
+    return expired
 
 
 def _require_dealer_verified(user_id):
@@ -7855,7 +7940,12 @@ def get_dealer_documents(current_user):
 @app.route("/api/user/dealer-documents", methods=["POST"])
 @token_required
 def upload_dealer_document(current_user):
-    """Upload a dealer document (trade_license, company_registration, or tax_registration)"""
+    """Upload a dealer document (trade_license, company_registration, or tax_registration).
+
+    Accepts an optional `expires_at` form field (ISO date, e.g. 2027-04-15) which
+    is stored on the dealer_documents row so the expiry-reminder worker and the
+    listing-create gate can check whether the doc is still valid.
+    """
     try:
         document_type = request.form.get("document_type")
         if document_type not in (
@@ -7888,6 +7978,23 @@ def upload_dealer_document(current_user):
                 {
                     "error": f"File too large. Maximum size: {DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES // (1024 * 1024)}MB"
                 }
+            ), 400
+
+        # Optional expiry date. Trade license is the one we strictly require
+        # an expiry for; the others are nice-to-have.
+        raw_expires_at = (request.form.get("expires_at") or "").strip()
+        expires_at_iso = None
+        if raw_expires_at:
+            try:
+                expires_at_dt = datetime.datetime.fromisoformat(raw_expires_at)
+                if expires_at_dt.date() <= datetime.datetime.utcnow().date():
+                    return jsonify({"error": "Expiry date must be in the future"}), 400
+                expires_at_iso = expires_at_dt.date().isoformat()
+            except ValueError:
+                return jsonify({"error": "Invalid expiry date"}), 400
+        elif document_type == "trade_license":
+            return jsonify(
+                {"error": "Trade license requires an expiry date"}
             ), 400
 
         if not ensure_storage_bucket("dealer-documents"):
@@ -7926,80 +8033,50 @@ def upload_dealer_document(current_user):
             "Content-Type": "application/json",
         }
 
+        # Soft-replace: mark any active row of the same doc_type as
+        # `replaced_at=now()` rather than deleting, so admins keep an audit
+        # trail of every license the dealer has ever uploaded.
         existing_resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{current_user}&document_type=eq.{document_type}&select=id,storage_path",
+            (
+                f"{SUPABASE_URL}/rest/v1/dealer_documents"
+                f"?user_id=eq.{current_user}"
+                f"&document_type=eq.{document_type}"
+                f"&replaced_at=is.null"
+                f"&select=id"
+            ),
             headers=headers,
             timeout=10,
         )
-
         if existing_resp.status_code == 200 and existing_resp.json():
-            existing_doc = existing_resp.json()[0]
-            old_path = existing_doc.get("storage_path")
-            if old_path:
-                del_url = (
-                    f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{old_path}"
-                )
-                requests.delete(
-                    del_url,
-                    headers={
-                        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    },
+            for prev in existing_resp.json():
+                requests.patch(
+                    f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{prev['id']}",
+                    headers=headers,
+                    json={"replaced_at": "now()"},
                     timeout=10,
                 )
 
-            update_resp = requests.patch(
-                f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{existing_doc['id']}",
-                headers={**headers, "Prefer": "return=representation"},
-                json={
-                    "url": public_url,
-                    "filename": file.filename,
-                    "file_type": content_type,
-                    "storage_path": object_path,
-                    "status": "pending",
-                    "denial_reason": None,
-                    "denial_fix": None,
-                    "reviewed_at": None,
-                    "reviewed_by": None,
-                    "uploaded_at": "now()",
-                },
-                timeout=10,
-            )
-            if update_resp.status_code not in [200, 204]:
-                logger.error(f"Failed to update document record: {update_resp.text}")
-                return jsonify({"error": "Failed to save document"}), 500
-
-            doc_data = (
-                update_resp.json()[0]
-                if update_resp.status_code == 200
-                else {
-                    "id": existing_doc["id"],
-                    "url": public_url,
-                    "filename": file.filename,
-                    "document_type": document_type,
-                    "status": "pending",
-                    "storage_path": object_path,
-                }
-            )
-        else:
-            insert_resp = requests.post(
-                f"{SUPABASE_URL}/rest/v1/dealer_documents",
-                headers={**headers, "Prefer": "return=representation"},
-                json={
-                    "user_id": current_user,
-                    "document_type": document_type,
-                    "url": public_url,
-                    "filename": file.filename,
-                    "file_type": content_type,
-                    "storage_path": object_path,
-                    "status": "pending",
-                },
-                timeout=10,
-            )
-            if insert_resp.status_code not in [200, 201]:
-                logger.error(f"Failed to insert document record: {insert_resp.text}")
-                return jsonify({"error": "Failed to save document"}), 500
-            doc_data = insert_resp.json()[0]
+        insert_payload = {
+            "user_id": current_user,
+            "document_type": document_type,
+            "url": public_url,
+            "filename": file.filename,
+            "file_type": content_type,
+            "storage_path": object_path,
+            "status": "pending",
+        }
+        if expires_at_iso:
+            insert_payload["expires_at"] = expires_at_iso
+        insert_resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/dealer_documents",
+            headers={**headers, "Prefer": "return=representation"},
+            json=insert_payload,
+            timeout=10,
+        )
+        if insert_resp.status_code not in [200, 201]:
+            logger.error(f"Failed to insert document record: {insert_resp.text}")
+            return jsonify({"error": "Failed to save document"}), 500
+        doc_data = insert_resp.json()[0]
 
         all_docs_resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/dealer_documents?user_id=eq.{current_user}&select=*&order=uploaded_at.desc",
@@ -8021,6 +8098,111 @@ def upload_dealer_document(current_user):
     except Exception as e:
         logger.error(f"Error uploading dealer document: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to upload document"}), 500
+
+
+@app.route("/api/auth/dealer-submit-application", methods=["POST"])
+@token_required
+def dealer_submit_application(current_user):
+    """Mark the dealer's KYC application as submitted and notify admins.
+
+    Called by the frontend after the dealer has uploaded the trade license at
+    signup (or on the resume-flow /dealer/onboarding page). Idempotent: a
+    second call from an already-submitted account is a no-op.
+    """
+    try:
+        # Fetch the user row so we know what we're transitioning from.
+        user_resp, user_status = supabase_request(
+            "get",
+            f"/rest/v1/users?id=eq.{current_user}&select=id,email,first_name,last_name,legal_business_name,company_name,trn,is_dealer,dealer_verified,dealer_application_status",
+            use_service_role=True,
+        )
+        if user_status >= 400 or not user_resp:
+            return jsonify({"error": "User not found"}), 404
+        user_row = user_resp[0]
+
+        if not user_row.get("is_dealer"):
+            return jsonify({"error": "Only dealer accounts can submit an application"}), 400
+
+        # Require the trade license to be on file before we accept submission.
+        docs_resp, docs_status = supabase_request(
+            "get",
+            (
+                f"/rest/v1/dealer_documents?user_id=eq.{current_user}"
+                f"&document_type=eq.trade_license"
+                f"&replaced_at=is.null"
+                f"&select=id,expires_at"
+                f"&order=uploaded_at.desc&limit=1"
+            ),
+            use_service_role=True,
+        )
+        if docs_status >= 400 or not docs_resp:
+            return jsonify({
+                "error": "Trade license must be uploaded before submitting",
+                "code": "trade_license_missing",
+            }), 400
+
+        current_status = user_row.get("dealer_application_status") or "draft"
+        if current_status == "submitted":
+            return jsonify({
+                "message": "Application already submitted",
+                "dealer_application_status": "submitted",
+            }), 200
+        if current_status == "approved":
+            return jsonify({
+                "message": "Application already approved",
+                "dealer_application_status": "approved",
+            }), 200
+
+        patch_resp, patch_status = supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{current_user}",
+            data={
+                "dealer_application_status": "submitted",
+                "verification_documents_submitted": True,
+            },
+            use_service_role=True,
+        )
+        if patch_status >= 400:
+            logger.warning(
+                f"Failed to mark dealer application submitted for {current_user}: {patch_resp}"
+            )
+            return jsonify({"error": "Failed to submit application"}), 500
+
+        # Best-effort admin notification email. The actual review happens in
+        # the admin Dealers page.
+        try:
+            admin_email = os.getenv("RESEND_ADMIN_NOTIFICATION_EMAIL") or os.getenv(
+                "RESEND_REPLY_TO_EMAIL"
+            )
+            from_email = os.getenv("RESEND_FROM_EMAIL")
+            if admin_email and from_email:
+                biz_name = (
+                    user_row.get("legal_business_name")
+                    or user_row.get("company_name")
+                    or "(no name)"
+                )
+                _send_resend_email({
+                    "from": from_email,
+                    "to": [admin_email],
+                    "subject": f"DPH Admin: New dealer application — {biz_name}",
+                    "html": (
+                        f"<p>A new dealer application is waiting for review.</p>"
+                        f"<p><strong>Business:</strong> {biz_name}<br/>"
+                        f"<strong>TRN:</strong> {user_row.get('trn') or '(none)'}<br/>"
+                        f"<strong>Email:</strong> {user_row.get('email')}</p>"
+                        f"<p>Review in the admin panel under Dealers → Pending.</p>"
+                    ),
+                })
+        except Exception as notify_err:
+            logger.warning(f"Admin notification email failed: {notify_err}")
+
+        return jsonify({
+            "message": "Application submitted",
+            "dealer_application_status": "submitted",
+        }), 200
+    except Exception as e:
+        logger.error(f"Error submitting dealer application: {e}", exc_info=True)
+        return jsonify({"error": "Failed to submit application"}), 500
 
 
 @app.route("/api/user/dealer-documents", methods=["DELETE"])
@@ -8650,6 +8832,64 @@ def signup():
             }
         ), 400
 
+    # Validate dealer-specific fields when isDealer is true. The form will
+    # collect TRN + legal business name + trade license file; the file is
+    # uploaded in a second request after this one returns a session token.
+    is_dealer_signup = bool(data.get("isDealer"))
+    trn_raw = (data.get("trn") or "").strip()
+    legal_business_name = (data.get("legalBusinessName") or "").strip()
+    trade_license_expires_at = (data.get("tradeLicenseExpiresAt") or "").strip()
+
+    if is_dealer_signup:
+        if not legal_business_name or len(legal_business_name) < 3:
+            return jsonify({
+                "message": "Legal business name is required",
+                "code": "legal_business_name_required",
+                "field": "legalBusinessName",
+            }), 400
+        trn_digits = re.sub(r"[^\d]", "", trn_raw)
+        if len(trn_digits) != 15:
+            return jsonify({
+                "message": "TRN must be exactly 15 digits",
+                "code": "trn_invalid_format",
+                "field": "trn",
+            }), 400
+        # Uniqueness check before we create the auth user.
+        existing, exists_status = supabase_request(
+            "get",
+            f"/rest/v1/users?select=id&trn=eq.{trn_digits}&limit=1",
+            use_service_role=True,
+        )
+        if exists_status < 400 and existing:
+            return jsonify({
+                "message": "This TRN is already registered with another account",
+                "code": "trn_in_use",
+                "field": "trn",
+            }), 409
+        if not trade_license_expires_at:
+            return jsonify({
+                "message": "Trade license expiry date is required",
+                "code": "trade_license_expires_at_required",
+                "field": "tradeLicenseExpiresAt",
+            }), 400
+        try:
+            tlx_date = datetime.datetime.fromisoformat(trade_license_expires_at)
+            if tlx_date.date() <= datetime.datetime.utcnow().date():
+                return jsonify({
+                    "message": "Trade license expiry date must be in the future",
+                    "code": "trade_license_expires_at_invalid",
+                    "field": "tradeLicenseExpiresAt",
+                }), 400
+        except ValueError:
+            return jsonify({
+                "message": "Trade license expiry date is invalid",
+                "code": "trade_license_expires_at_invalid",
+                "field": "tradeLicenseExpiresAt",
+            }), 400
+        trn_normalized = trn_digits
+    else:
+        trn_normalized = ""
+
     # Extract additional user metadata
     user_metadata = {
         "first_name": data.get("firstName", ""),
@@ -8660,14 +8900,19 @@ def signup():
         "city": data.get("city", ""),
         "area": data.get("area", ""),
         "emirate": data.get("emirate", ""),
-        "is_dealer": data.get("isDealer", False),
+        "is_dealer": is_dealer_signup,
         "company_name": data.get("companyName", ""),
         "company_registration_number": data.get("companyRegistrationNumber", ""),
+        "legal_business_name": legal_business_name,
+        "trn": trn_normalized,
+        "trade_license_number": data.get("tradeLicenseNumber", ""),
         "display_name": data.get("displayName", ""),
         "email_notifications": data.get("emailNotifications", True),
         "sms_notifications": data.get("smsNotifications", True),
         "marketing_emails": data.get("marketingEmails", False),
     }
+    if is_dealer_signup:
+        user_metadata["dealer_application_status"] = "draft"
 
     # Remove empty strings so unique constraints (e.g., username) are not violated by blank values
     cleaned_metadata = {}
@@ -17560,6 +17805,107 @@ def sitemap_xml():
     response.headers["Content-Type"] = "application/xml; charset=utf-8"
     response.headers["Cache-Control"] = "public, max-age=900"
     return response
+
+
+def _run_dealer_doc_expiry_reminders_once(reminder_days_before=30):
+    """Nudge dealers whose trade license (or other required docs) expires soon.
+
+    Runs once per call. Designed to be invoked from a daily worker thread.
+    Idempotent: a row is re-reminded at most once per week thanks to the
+    expiry_reminder_sent_at stamp.
+    """
+    try:
+        today = datetime.datetime.now(datetime.timezone.utc).date()
+        cutoff = today + datetime.timedelta(days=reminder_days_before)
+        # Pull active docs expiring within the window.
+        params = {
+            "select": "id,user_id,document_type,expires_at,expiry_reminder_sent_at",
+            "replaced_at": "is.null",
+            "expires_at": f"lte.{cutoff.isoformat()}",
+        }
+        rows, status = supabase_request(
+            "get", "/rest/v1/dealer_documents", params=params, use_service_role=True
+        )
+        if status >= 400:
+            logger.warning(f"dealer doc reminder query failed: {status} {rows}")
+            return 0
+        sent = 0
+        for row in rows or []:
+            try:
+                expires_at = row.get("expires_at")
+                if not expires_at:
+                    continue
+                exp_date = datetime.datetime.fromisoformat(str(expires_at)).date()
+                days_left = (exp_date - today).days
+                last_sent = _parse_datetime(row.get("expiry_reminder_sent_at"))
+                if last_sent and (
+                    datetime.datetime.now(datetime.timezone.utc) - last_sent
+                ).days < 7:
+                    continue
+                # Look up owner contact.
+                owner_resp, owner_status = supabase_request(
+                    "get",
+                    f"/rest/v1/users?id=eq.{row['user_id']}&select=email,phone,country_code,first_name,legal_business_name,company_name",
+                    use_service_role=True,
+                )
+                if owner_status >= 400 or not owner_resp:
+                    continue
+                owner = owner_resp[0]
+                business_name = (
+                    owner.get("legal_business_name")
+                    or owner.get("company_name")
+                    or owner.get("first_name")
+                    or "your business"
+                )
+                doc_label = (row.get("document_type") or "document").replace("_", " ")
+                if days_left < 0:
+                    headline = f"Your {doc_label} expired {abs(days_left)} day(s) ago"
+                elif days_left == 0:
+                    headline = f"Your {doc_label} expires today"
+                else:
+                    headline = f"Your {doc_label} expires in {days_left} day(s)"
+                renew_url = f"{SITE_URL}/dealer/settings"
+                # Email
+                from_email = os.getenv("RESEND_FROM_EMAIL")
+                if owner.get("email") and from_email and EMAIL_REGEX.match(owner["email"]):
+                    _send_resend_email({
+                        "from": from_email,
+                        "to": [owner["email"]],
+                        "subject": f"DPH Classifieds: {headline}",
+                        "html": (
+                            f"<p>Hi {business_name},</p>"
+                            f"<p><strong>{headline}</strong>. Please upload a current "
+                            f"{doc_label} from your dealer dashboard to keep posting new listings.</p>"
+                            f'<p><a href="{renew_url}" style="background:#8bd6b4;color:#041008;'
+                            f'padding:10px 20px;border-radius:8px;text-decoration:none;'
+                            f'font-weight:600">Upload new {doc_label}</a></p>'
+                        ),
+                    })
+                # SMS
+                if owner.get("phone"):
+                    _send_infobip_sms(
+                        _normalize_phone_number(owner.get("phone"), owner.get("country_code")),
+                        f"DPH Classifieds: {headline}. Re-upload at {renew_url}",
+                    )
+                # Stamp reminder so we don't spam.
+                supabase_request(
+                    "patch",
+                    f"/rest/v1/dealer_documents?id=eq.{row['id']}",
+                    data={"expiry_reminder_sent_at": _isoformat_utc(_utc_now())},
+                    use_service_role=True,
+                )
+                sent += 1
+            except Exception as row_err:
+                logger.warning(
+                    f"dealer doc reminder skipped one row: {row_err}", exc_info=False
+                )
+                continue
+        if sent:
+            logger.info(f"dealer doc expiry reminders sent: {sent}")
+        return sent
+    except Exception as exc:
+        logger.error(f"dealer doc expiry reminder sweep failed: {exc}", exc_info=True)
+        return 0
 
 
 def _run_listing_expiry_reminders_once(reminder_days_before=2):

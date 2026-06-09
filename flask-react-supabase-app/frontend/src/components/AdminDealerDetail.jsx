@@ -60,7 +60,7 @@ const SectionLabel = ({ children }) => (
   <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">{children}</p>
 );
 
-const InfoRow = ({ icon: Icon, label, value }) => {
+const InfoRow = ({ icon: Icon, label, value, mono = false }) => {
   if (!value) return null;
   return (
     <div className="flex items-start gap-3 py-2.5 border-b border-white/[0.05] last:border-0">
@@ -69,7 +69,7 @@ const InfoRow = ({ icon: Icon, label, value }) => {
       </div>
       <div className="min-w-0">
         <p className="text-[10px] uppercase tracking-[0.12em] text-white/30 font-medium">{label}</p>
-        <p className="text-sm text-white/70 mt-0.5 break-all">{value}</p>
+        <p className={`text-sm text-white/70 mt-0.5 break-all${mono ? ' font-mono' : ''}`}>{value}</p>
       </div>
     </div>
   );
@@ -369,11 +369,16 @@ const AdminDealerDetail = () => {
   const [showInfoRequestModal, setShowInfoRequestModal] = useState(false);
   const [infoRequests, setInfoRequests] = useState([]);
   const [sendingInfoRequest, setSendingInfoRequest] = useState(false);
+  const [adLimitDraft, setAdLimitDraft] = useState('');
+  const [adLimitSaving, setAdLimitSaving] = useState(false);
+  const [adLimitMessage, setAdLimitMessage] = useState('');
   const [cancellingRequestId, setCancellingRequestId] = useState(null);
 
   const refreshData = async () => {
     const response = await apiClient.get(`/api/admin/dealers/${dealerId}/overview`);
     setData(response || null);
+    const currentLimit = response?.dealer?.dealer_listing_limit;
+    setAdLimitDraft(currentLimit === null || currentLimit === undefined ? '' : String(currentLimit));
     const docsResp = await apiClient.get(`/api/admin/dealers/${dealerId}/documents`);
     setDealerDocs(docsResp?.documents || []);
     try {
@@ -470,6 +475,39 @@ const AdminDealerDetail = () => {
       setError(actionError.message || 'Failed to verify dealer');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSaveAdLimit = async () => {
+    setAdLimitMessage('');
+    let payload;
+    if (adLimitDraft === '' || adLimitDraft === null) {
+      payload = { limit: null };
+    } else {
+      const parsed = Number.parseInt(adLimitDraft, 10);
+      if (Number.isNaN(parsed) || parsed < 0 || parsed > 10000) {
+        setAdLimitMessage('Enter a whole number between 0 and 10000, or leave blank for default.');
+        return;
+      }
+      payload = { limit: parsed };
+    }
+    try {
+      setAdLimitSaving(true);
+      const resp = await apiClient.request(`/api/admin/dealers/${dealerId}/listing-limit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      });
+      setAdLimitMessage(
+        payload.limit === null
+          ? `Cleared. Dealer now uses default (${resp?.default_limit ?? 25}).`
+          : `Saved. Dealer can post up to ${resp?.effective_limit ?? payload.limit} active listings.`
+      );
+      await refreshData();
+    } catch (saveError) {
+      setAdLimitMessage(saveError?.message || 'Failed to save ad limit.');
+    } finally {
+      setAdLimitSaving(false);
     }
   };
 
@@ -653,6 +691,16 @@ const AdminDealerDetail = () => {
                   <div className="text-xs text-white/40 space-y-0.5">
                     <p className="truncate">{doc.filename}</p>
                     {doc.uploaded_at && <p>Uploaded {formatDateTime(doc.uploaded_at)}</p>}
+                    {doc.expires_at && (() => {
+                      const exp = new Date(doc.expires_at);
+                      const today = new Date(); today.setHours(0,0,0,0);
+                      const days = Math.floor((exp - today) / (1000 * 60 * 60 * 24));
+                      let tone = 'text-emerald-300';
+                      let label = `Expires ${doc.expires_at}`;
+                      if (days < 0) { tone = 'text-rose-300'; label = `Expired ${Math.abs(days)} day(s) ago`; }
+                      else if (days <= 30) { tone = 'text-amber-300'; label = `Expires in ${days} day(s) (${doc.expires_at})`; }
+                      return <p className={tone}>{label}</p>;
+                    })()}
                   </div>
 
                   {/* Denial info */}
@@ -903,9 +951,11 @@ const AdminDealerDetail = () => {
           <GlassCard>
             <SectionLabel>Applicant info</SectionLabel>
             <InfoRow icon={Building2} label="Dealership name" value={dealer.company_name} />
-            <InfoRow icon={Building2} label="Legal name" value={dealer.legal_name || (dealer.first_name ? `${dealer.first_name} ${dealer.last_name || ''}`.trim() : null)} />
+            <InfoRow icon={Building2} label="Legal business name" value={dealer.legal_business_name || dealer.legal_name || (dealer.first_name ? `${dealer.first_name} ${dealer.last_name || ''}`.trim() : null)} />
+            <InfoRow icon={FileText} label="TRN" value={dealer.trn} mono />
             <InfoRow icon={FileText} label="Trade license no." value={dealer.trade_license_number} />
             <InfoRow icon={FileText} label="Company reg. no." value={dealer.company_registration_number} />
+            <InfoRow icon={FileText} label="Application status" value={dealer.dealer_application_status || (dealer.dealer_verified ? 'approved' : 'draft')} />
             <InfoRow icon={MapPin} label="Emirate" value={dealer.emirate} />
             <InfoRow icon={MapPin} label="City" value={dealer.city} />
             <InfoRow icon={MapPin} label="Address" value={dealer.address} />
@@ -954,6 +1004,43 @@ const AdminDealerDetail = () => {
                 ))
               )}
             </div>
+          </GlassCard>
+
+          {/* Ad limit */}
+          <GlassCard className="mt-5">
+            <SectionLabel>Ad limit</SectionLabel>
+            <p className="text-xs text-white/40 mb-3">
+              Total active listings this dealer can post across cars, bikes, parts, and plates.
+              Leave blank to use the platform default.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max="10000"
+                value={adLimitDraft}
+                onChange={(e) => setAdLimitDraft(e.target.value)}
+                placeholder="Default"
+                className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                disabled={adLimitSaving}
+              />
+              <button
+                type="button"
+                onClick={handleSaveAdLimit}
+                disabled={adLimitSaving}
+                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-2 text-sm transition disabled:opacity-50"
+              >
+                {adLimitSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            {adLimitMessage && (
+              <p className="mt-2 text-[12px] text-emerald-300/80">{adLimitMessage}</p>
+            )}
+            {dealer.dealer_listing_limit != null && (
+              <p className="mt-2 text-[11px] text-white/40">
+                Currently set to {dealer.dealer_listing_limit}. Takes effect on next post.
+              </p>
+            )}
           </GlassCard>
 
           {/* Info requests history */}
