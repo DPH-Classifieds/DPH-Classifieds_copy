@@ -1691,10 +1691,15 @@ def _send_renewal_nudge_email(user_email, listing_title, item_type, item_id):
 def _send_renewal_nudge_sms(phone, item_type, item_id, country_code=None):
     if not phone:
         return False, {"message": "Missing phone"}
-    renew_url = _renewal_landing_url(item_type, item_id)
+    # Strictly ASCII (no em-dash) so the message stays in GSM-7 encoding (160
+    # chars/segment) instead of UCS-2 (70 chars/segment) which triples cost
+    # and segment count. Also drop the utm_source query param: UAE carriers
+    # (Etisalat in particular) filter SMS with long tracker URLs aggressively.
+    # The landing page reads the unmarked URL just fine.
+    landing_url = _renewal_landing_url(item_type, item_id).split("?", 1)[0]
     body = (
-        f"Hey — your DPH Classifieds listing has expired. "
-        f"Please renew it (or let us know if you sold it): {renew_url}"
+        f"DPH Classifieds: your listing has expired. "
+        f"Renew or mark sold: {landing_url}"
     )
     normalized = _normalize_phone_number(phone, country_code) or phone
     return _send_infobip_sms(normalized, body)
