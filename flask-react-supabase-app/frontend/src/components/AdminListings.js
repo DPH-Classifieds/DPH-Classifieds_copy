@@ -540,7 +540,8 @@ const AdminListings = () => {
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03 }}
-                        className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors group"
+                        onClick={() => navigate(`/admin/listings/${lt}/${listing.id}`)}
+                        className="border-b border-white/[0.04] hover:bg-white/[0.04] transition-colors group cursor-pointer"
                       >
                         <td className="px-4 py-3">
                           {thumb ? (
@@ -571,11 +572,12 @@ const AdminListings = () => {
                         <td className="px-4 py-3">
                           <p className="text-white/40 text-xs whitespace-nowrap">{relTime(listing.created_at)}</p>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                             <button
                               title="Public detail page"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 const typeMap = { cars: 'cars', bikes: 'bikes', parts: 'car-parts', plates: 'plates' };
                                 const pub = typeMap[lt] || lt;
                                 window.open(`/${pub}/${listing.id}`, '_blank', 'noopener');
@@ -586,7 +588,7 @@ const AdminListings = () => {
                             </button>
                             <button
                               title="Admin detail"
-                              onClick={() => navigate(`/admin/listings/${lt}/${listing.id}`)}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/admin/listings/${lt}/${listing.id}`); }}
                               className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                             >
                               <BarChart3 size={15} />
@@ -596,7 +598,7 @@ const AdminListings = () => {
                                 title={lastNudgeAt
                                   ? `Send renewal nudge (last sent ${relTime(lastNudgeAt)})`
                                   : 'Send renewal nudge to owner'}
-                                onClick={() => handleSendNudge(listing)}
+                                onClick={(e) => { e.stopPropagation(); handleSendNudge(listing); }}
                                 className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
                                 disabled={actionLoading}
                               >
@@ -607,7 +609,7 @@ const AdminListings = () => {
                               <>
                                 <button
                                   title="Approve"
-                                  onClick={() => { setSelectedListing(listing); setShowApproveConfirm(true); }}
+                                  onClick={(e) => { e.stopPropagation(); setSelectedListing(listing); setShowApproveConfirm(true); }}
                                   className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
                                   disabled={actionLoading}
                                 >
@@ -615,7 +617,8 @@ const AdminListings = () => {
                                 </button>
                                 <button
                                   title="Reject"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedListing(listing);
                                     setRejectionNote('');
                                     setSelectedRejectIndex('');
@@ -629,7 +632,8 @@ const AdminListings = () => {
                                 </button>
                                 <button
                                   title="Delete"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedListing(listing);
                                     setDeleteReason('');
                                     setDeleteReasonDetails('');
