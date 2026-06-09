@@ -15914,10 +15914,11 @@ def _admin_listing_matches_status(listing, status_filter):
     if normalized == "rejected":
         return listing_status == "rejected"
     if normalized == "deleted":
-        # Restrict "Deleted" to admin/seller deletions; auto-removed-for-expiry
-        # rows belong under "Expired" instead.
-        if auto_removed and is_expired:
-            return False
+        # Anything currently in the deleted state — admin/seller delete OR the
+        # auto-removed-for-expiry sweep. Auto-removed rows still also match the
+        # Expired chip via the listing_state check above, so they show in both
+        # places, which matches admins' intuition that a deleted listing is a
+        # deleted listing.
         return listing_status == "deleted"
     return listing_status == normalized or listing_state == normalized
 
