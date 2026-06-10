@@ -855,18 +855,19 @@ const Signup = () => {
             <div className="form-group">
               <label htmlFor="phone">Phone Number <span className="required">*</span></label>
               <div className="phone-input-group">
-                <SearchableSelect
+                <select
                   name="countryCode"
                   value={formData.countryCode}
                   onChange={handleInputChange}
                   className="country-code-select"
+                  aria-label="Country code"
                 >
                   {COUNTRY_CODES.map(({ code, country }) => (
                     <option key={code} value={code}>
-                      {code} ({country})
+                      {code} {country}
                     </option>
                   ))}
-                </SearchableSelect>
+                </select>
                 <input
                   type="tel"
                   id="phone"

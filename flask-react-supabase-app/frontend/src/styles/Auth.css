@@ -759,11 +759,24 @@
 
 .country-code-select {
   flex: 0 0 auto;
-  width: 152px;
+  width: 138px;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23b1e4b6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='1.5 2 6 6.5 10.5 2'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.country-code-select option {
+  background: #0e1f15;
+  color: var(--auth-text);
 }
 
 .phone-number-input {
   flex: 1;
+  min-width: 0;
 }
 
 .password-strength {
