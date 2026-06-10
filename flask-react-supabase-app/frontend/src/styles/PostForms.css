@@ -254,6 +254,27 @@
   min-width: 0;
 }
 
+.phone-input-group > .country-code-select {
+  flex: 0 0 150px;
+  min-width: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='1.5 2 6 6.5 10.5 2'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  box-shadow: none;
+}
+
+.phone-input-group > .country-code-select option {
+  background: var(--pf-input);
+  color: var(--pf-text);
+}
+
 .phone-input-group > .phone-number-input {
   flex: 1 1 auto;
   min-width: 0;
@@ -1152,6 +1173,7 @@
   }
 
   .phone-input-group > .searchable-select-wrapper,
+  .phone-input-group > .country-code-select,
   .phone-input-group > .phone-number-input {
     width: 100%;
     flex: 1 1 auto;

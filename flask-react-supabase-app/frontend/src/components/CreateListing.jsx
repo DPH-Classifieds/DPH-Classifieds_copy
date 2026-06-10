@@ -481,18 +481,19 @@ const CreateListing = () => {
             <div className="form-group">
               <label htmlFor="contact_phone">Phone Number *</label>
               <div className="phone-input-group">
-                <SearchableSelect 
+                <select
                   className="country-code-select"
                   name="country_code"
                   value={formData.country_code}
                   onChange={handleChange}
+                  aria-label="Country code"
                 >
                   {countryCodes.map((country) => (
                     <option key={country.code} value={country.code}>
                       {country.code}
                     </option>
                   ))}
-                </SearchableSelect>
+                </select>
                 <input 
                   type="tel" 
                   id="contact_phone" 

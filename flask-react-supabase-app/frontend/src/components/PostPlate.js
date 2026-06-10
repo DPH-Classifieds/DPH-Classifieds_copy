@@ -734,13 +734,20 @@ const PostPlate = () => {
                   <div className="form-group">
                     <label htmlFor="contact_phone">Contact phone</label>
                     <div className="phone-input-group">
-                      <SearchableSelect id="country_code" name="country_code" value={formData.country_code} onChange={handleChange}>
+                      <select
+                        id="country_code"
+                        name="country_code"
+                        className="country-code-select"
+                        value={formData.country_code}
+                        onChange={handleChange}
+                        aria-label="Country code"
+                      >
                         {countryCodes.map((country) => (
                           <option key={country.code} value={country.code}>
                             {country.code}
                           </option>
                         ))}
-                      </SearchableSelect>
+                      </select>
                       <input id="contact_phone" name="contact_phone" value={formData.contact_phone} onChange={handleChange} required placeholder="501234567" className="phone-number-input" />
                     </div>
                   </div>
@@ -750,19 +757,21 @@ const PostPlate = () => {
                   <div className="form-group">
                     <label htmlFor="whatsapp_number">WhatsApp Number</label>
                     <div className="phone-input-group">
-                      <SearchableSelect
+                      <select
                         id="whatsapp_country_code"
                         name="whatsapp_country_code"
+                        className="country-code-select"
                         value={formData.whatsapp_country_code}
                         onChange={handleChange}
                         disabled={whatsappSameAsPhone}
+                        aria-label="WhatsApp country code"
                       >
                         {countryCodes.map((country) => (
                           <option key={country.code} value={country.code}>
                             {country.code}
                           </option>
                         ))}
-                      </SearchableSelect>
+                      </select>
                       <input
                         id="whatsapp_number"
                         name="whatsapp_number"

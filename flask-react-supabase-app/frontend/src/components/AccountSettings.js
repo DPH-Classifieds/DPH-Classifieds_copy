@@ -938,18 +938,19 @@ const AccountSettings = () => {
                 <div className="form-group">
                   <label htmlFor="phone">Phone Number</label>
                   <div className="phone-input-group">
-                    <SearchableSelect
+                    <select
                       name="countryCode"
                       value={profileData.countryCode}
                       onChange={handleProfileInputChange}
                       className="country-code-select"
+                      aria-label="Country code"
                     >
                       {COUNTRY_CODES.map(({ code, country }) => (
                         <option key={code} value={code}>
                           {code} ({country})
                         </option>
                       ))}
-                    </SearchableSelect>
+                    </select>
                     <input
                       type="tel"
                       id="phone"
@@ -971,19 +972,20 @@ const AccountSettings = () => {
                 <div className="form-group">
                   <label htmlFor="whatsappNumber">WhatsApp Number (Optional)</label>
                   <div className="phone-input-group">
-                    <SearchableSelect
+                    <select
                       id="whatsappCountryCode"
                       name="whatsappCountryCode"
                       className="country-code-select"
                       value={profileData.whatsappCountryCode}
                       onChange={handleProfileInputChange}
+                      aria-label="WhatsApp country code"
                     >
                       {COUNTRY_CODES.map((country) => (
                         <option key={country.code} value={country.code}>
                           {country.code}
                         </option>
                       ))}
-                    </SearchableSelect>
+                    </select>
                     <input
                       type="tel"
                       id="whatsappNumber"

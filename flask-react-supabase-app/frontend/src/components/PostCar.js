@@ -2220,7 +2220,7 @@ const PostCar = () => {
           >
             <div className="form-group full-width">
               <label htmlFor="registration_ocr_file" style={{ fontWeight: 700, fontSize: '1rem', color: '#1e3a8a' }}>
-                📄 Scan your Mulkiya — auto-fills Make, Model, Year & VIN
+                Scan your Mulkiya — auto-fills Make, Model, Year &amp; VIN <span style={{ fontSize: '0.75em', color: '#f59e0b', fontWeight: 400 }}>(beta — still in testing)</span>
               </label>
               <div className="form-text" style={{ marginTop: 4 }}>
                 Skip the manual entry. Upload a clear photo of your car registration and we'll fill in the next few fields for you.
@@ -2604,19 +2604,20 @@ const PostCar = () => {
             <div className="form-group">
               <label htmlFor="car_owner_phone_number">Phone Number <RequiredMark /></label>
               <div className="phone-input-group">
-                <SearchableSelect
+                <select
                   id="country_code"
                   name="country_code"
-                  className="form-control country-code-select"
+                  className="country-code-select"
                   value={formData.country_code}
                   onChange={handleChange}
+                  aria-label="Country code"
                 >
                   {countryCodes.map((country) => (
                     <option key={country.code} value={country.code}>
                       {country.code}
                     </option>
                   ))}
-                </SearchableSelect>
+                </select>
                 <input
                   type="tel"
                   id="car_owner_phone_number"
@@ -3126,19 +3127,21 @@ const PostCar = () => {
             <div className="form-group">
               <label htmlFor="whatsapp_number">WhatsApp Number <RequiredMark /></label>
               <div className="phone-input-group">
-                <SearchableSelect
+                <select
                   id="whatsapp_country_code"
                   name="whatsapp_country_code"
-                  className="form-control country-code-select"
+                  className="country-code-select"
                   value={formData.whatsapp_country_code}
                   onChange={handleChange}
+                  disabled={whatsappSameAsPhone}
+                  aria-label="WhatsApp country code"
                 >
                   {countryCodes.map((country) => (
                     <option key={country.code} value={country.code}>
                       {country.code}
                     </option>
                   ))}
-                </SearchableSelect>
+                </select>
                 <input
                   type="tel"
                   id="whatsapp_number"
