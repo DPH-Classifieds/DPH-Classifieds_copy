@@ -944,9 +944,9 @@ const AccountSettings = () => {
                       onChange={handleProfileInputChange}
                       className="country-code-select"
                     >
-                      {COUNTRY_CODES.map(({ code, country, flag }) => (
+                      {COUNTRY_CODES.map(({ code, country }) => (
                         <option key={code} value={code}>
-                          {flag} {code} ({country})
+                          {code} ({country})
                         </option>
                       ))}
                     </SearchableSelect>
@@ -980,7 +980,7 @@ const AccountSettings = () => {
                     >
                       {COUNTRY_CODES.map((country) => (
                         <option key={country.code} value={country.code}>
-                          {country.flag} {country.code}
+                          {country.code}
                         </option>
                       ))}
                     </SearchableSelect>

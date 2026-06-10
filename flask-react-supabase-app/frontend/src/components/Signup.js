@@ -786,9 +786,36 @@ const Signup = () => {
                     });
                   }}
                   required={formData.isDealer}
-                  className={touchedFields.tradeLicenseFile && fieldErrors.tradeLicenseFile ? 'error-input' : ''}
+                  className="upload-card-input"
                 />
-                <small className="form-hint">PDF, JPG, or PNG — up to 10 MB</small>
+                <label
+                  htmlFor="tradeLicenseFile"
+                  className={`upload-card ${formData.tradeLicenseFile ? 'has-file' : ''} ${
+                    touchedFields.tradeLicenseFile && fieldErrors.tradeLicenseFile ? 'error' : ''
+                  }`}
+                >
+                  {formData.tradeLicenseFile ? (
+                    <>
+                      <span className="upload-card-icon" aria-hidden="true">
+                        {formData.tradeLicenseFile.type === 'application/pdf' ? 'PDF' : 'IMG'}
+                      </span>
+                      <span className="upload-card-body">
+                        <span className="upload-card-title">{formData.tradeLicenseFile.name}</span>
+                        <span className="upload-card-meta">
+                          {(formData.tradeLicenseFile.size / (1024 * 1024)).toFixed(2)} MB · Click to replace
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="upload-card-icon" aria-hidden="true">↑</span>
+                      <span className="upload-card-body">
+                        <span className="upload-card-title">Click to upload your trade license</span>
+                        <span className="upload-card-meta">PDF, JPG, or PNG — up to 10 MB</span>
+                      </span>
+                    </>
+                  )}
+                </label>
                 {renderFieldError('tradeLicenseFile')}
               </div>
               <div className="form-group">
@@ -834,9 +861,9 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="country-code-select"
                 >
-                  {COUNTRY_CODES.map(({ code, country, flag }) => (
+                  {COUNTRY_CODES.map(({ code, country }) => (
                     <option key={code} value={code}>
-                      {flag} {code} ({country})
+                      {code} ({country})
                     </option>
                   ))}
                 </SearchableSelect>

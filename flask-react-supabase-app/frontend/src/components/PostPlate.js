@@ -737,7 +737,7 @@ const PostPlate = () => {
                       <SearchableSelect id="country_code" name="country_code" value={formData.country_code} onChange={handleChange}>
                         {countryCodes.map((country) => (
                           <option key={country.code} value={country.code}>
-                            {country.flag} {country.code}
+                            {country.code}
                           </option>
                         ))}
                       </SearchableSelect>
@@ -759,7 +759,7 @@ const PostPlate = () => {
                       >
                         {countryCodes.map((country) => (
                           <option key={country.code} value={country.code}>
-                            {country.flag} {country.code}
+                            {country.code}
                           </option>
                         ))}
                       </SearchableSelect>

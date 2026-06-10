@@ -315,7 +315,7 @@ export default function PostBuyingRequest() {
             >
               {countryCodes.map((country) => (
                 <option key={country.code} value={country.code}>
-                  {country.flag} {country.code}
+                  {country.code}
                 </option>
               ))}
             </select>
