@@ -48,6 +48,20 @@ const getDisplayStatus = (item, activeTabValue) => {
 
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
+// Backend endpoints use plural ('cars', 'bikes', 'plates', 'parts');
+// PostListingScreen's edit form uses singular ('car', 'bike', 'plate', 'parts').
+// API listing_type can arrive in either shape — normalize to both forms.
+const PLURAL_TYPE = {
+  car: 'cars', bike: 'bikes', plate: 'plates', part: 'parts',
+  cars: 'cars', bikes: 'bikes', plates: 'plates', parts: 'parts',
+};
+const SINGULAR_TYPE = {
+  car: 'car', bike: 'bike', plate: 'plate', part: 'parts', parts: 'parts',
+  cars: 'car', bikes: 'bike', plates: 'plate',
+};
+const toPluralType = (t) => PLURAL_TYPE[t] || 'cars';
+const toSingularType = (t) => SINGULAR_TYPE[t] || 'car';
+
 export default function MyListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState('Active');
@@ -92,7 +106,7 @@ export default function MyListingsScreen({ navigation }) {
         style: 'destructive',
         onPress: async () => {
           try {
-            const type = item.listing_type || 'cars';
+            const type = toPluralType(item.listing_type);
             await apiClient.delete(`/api/user/listings/${type}/${item.id}`);
             setListings((prev) => prev.filter((l) => l.id !== item.id));
           } catch (err) {
@@ -105,7 +119,7 @@ export default function MyListingsScreen({ navigation }) {
 
   const handleExtend = async (item) => {
     try {
-      const type = item.listing_type || 'cars';
+      const type = toPluralType(item.listing_type);
       await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
         outcome: 'not_sold_renew',
       });
@@ -118,7 +132,7 @@ export default function MyListingsScreen({ navigation }) {
 
   const handleMoveToDraft = async (item) => {
     try {
-      const type = item.listing_type || 'cars';
+      const type = toPluralType(item.listing_type);
       await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, {
         outcome: 'move_to_draft',
       });
@@ -130,7 +144,7 @@ export default function MyListingsScreen({ navigation }) {
   };
 
   const handleOutcome = (item) => {
-    const type = item.listing_type || 'cars';
+    const type = toPluralType(item.listing_type);
     const actions = [
       {
         text: 'Sold on DPH',
@@ -205,7 +219,7 @@ export default function MyListingsScreen({ navigation }) {
         text: 'Confirm',
         onPress: async () => {
           try {
-            const type = item.listing_type || 'cars';
+            const type = toPluralType(item.listing_type);
             await apiClient.post(`/api/user/listings/${type}/${item.id}/outcome`, { outcome: 'sold' });
             fetchListings();
           } catch (err) {
@@ -239,13 +253,14 @@ export default function MyListingsScreen({ navigation }) {
     : listings;
 
   const renderListing = ({ item }) => {
-    const type = item.listing_type || 'cars';
+    const pluralType = toPluralType(item.listing_type);
+    const singularType = toSingularType(item.listing_type);
     const isSaved = activeTab === 'Saved';
     return (
       <FadeInView delay={0}>
         <View style={styles.card}>
           <AnimatedCard
-            onPress={() => navigation.navigate(DETAIL_ROUTES[type], { listingId: item.id })}
+            onPress={() => navigation.navigate(DETAIL_ROUTES[pluralType], { listingId: item.id })}
             style={styles.cardContent}
           >
             {getListingImage(item) ? (
@@ -278,7 +293,7 @@ export default function MyListingsScreen({ navigation }) {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => navigation.navigate('EditListing', { listingId: item.id, listingType: item.listing_type || 'cars', editMode: true })}
+                onPress={() => navigation.navigate('EditListing', { listingId: item.id, listingType: singularType, editMode: true })}
                 activeOpacity={0.7}
               >
                 <Ionicons name="create-outline" size={18} color={COLORS.accent} />
