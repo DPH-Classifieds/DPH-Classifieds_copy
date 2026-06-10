@@ -119,18 +119,11 @@ export const getCurrentUser = async () => {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        const errorData = await response.clone().json().catch(() => ({}));
-        const message = String(errorData?.message || '').toLowerCase();
-        if (
-          message.includes('expired') ||
-          message.includes('invalid') ||
-          message.includes('unauthorized')
-        ) {
-          await clearAuthData();
-          setAuthHeader(null);
-        }
-      }
+      // Don't clear auth on a 401 here. The apiClient already refreshes expired
+      // tokens transparently, and Supabase's onAuthStateChange handles real
+      // sign-outs. Clearing on every transient 401 caused pull-to-refresh on
+      // gated tabs (Saved, Sell) to flip the user state to null and bounce to
+      // the login screen.
       return { user: null, error: 'Failed to get user information' };
     }
 
