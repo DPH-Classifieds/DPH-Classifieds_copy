@@ -9,6 +9,7 @@ import {
   Linking,
   Alert,
   AppState,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -70,6 +71,9 @@ const clamp = (value) => {
 
 export default function AdminDashboardScreen({ navigation }) {
   const { user } = useAuth();
+  const { width: windowWidth } = useWindowDimensions();
+  // Sparkline width = window minus section + surface paddings (16 + 16 on each side).
+  const sparklineWidth = Math.max(200, windowWidth - SPACING.md * 2 - SPACING.md * 2);
   const [stats, setStats] = useState({});
   const [leadMetrics, setLeadMetrics] = useState(null);
   const [dealers, setDealers] = useState([]);
@@ -376,7 +380,7 @@ export default function AdminDashboardScreen({ navigation }) {
             </View>
           </View>
           <View style={styles.surface}>
-            <LiveVisitorsSparkline points={liveUsersHistory} width={300} height={64} />
+            <LiveVisitorsSparkline points={liveUsersHistory} width={sparklineWidth} height={64} />
             <Text style={styles.liveVisitorsCaption}>Rolling 30 min · refreshes every 30 s</Text>
           </View>
         </View>
@@ -416,9 +420,9 @@ export default function AdminDashboardScreen({ navigation }) {
           <View style={styles.surface}>
             {pendingByType.map((item) => (
               <View key={item.label} style={styles.queueRow}>
-                <View>
-                  <Text style={styles.queueLabel}>{item.label}</Text>
-                  <Text style={styles.queueSub}>Listings waiting for moderation</Text>
+                <View style={styles.queueRowText}>
+                  <Text style={styles.queueLabel} numberOfLines={1}>{item.label}</Text>
+                  <Text style={styles.queueSub} numberOfLines={1}>Listings waiting for moderation</Text>
                 </View>
                 <Text style={[styles.badge, styles.badgeWarning]}>{formatNumber(item.value)}</Text>
               </View>
@@ -437,9 +441,9 @@ export default function AdminDashboardScreen({ navigation }) {
                 const company = dealer.company_name || dealer.company_registration_number || 'No company';
                 return (
                   <View key={dealer.id} style={styles.queueRow}>
-                    <View>
-                      <Text style={styles.queueLabel}>{name}</Text>
-                      <Text style={styles.queueSub}>{company}</Text>
+                    <View style={styles.queueRowText}>
+                      <Text style={styles.queueLabel} numberOfLines={1}>{name}</Text>
+                      <Text style={styles.queueSub} numberOfLines={1}>{company}</Text>
                     </View>
                     <Text style={[styles.badge, dealer.dealer_verified ? styles.badgeSuccess : styles.badgeWarning]}>
                       {dealer.dealer_verified ? 'Verified' : 'Pending'}
@@ -459,9 +463,9 @@ export default function AdminDashboardScreen({ navigation }) {
             ) : (
               recentReports.slice(0, 5).map((report) => (
                 <View key={report.id} style={styles.queueRow}>
-                  <View>
-                    <Text style={styles.queueLabel}>{(report.listing_type || 'listing').toUpperCase()} - {report.reason || 'Report'}</Text>
-                    <Text style={styles.queueSub}>{report.details || report.status || 'Pending review'}</Text>
+                  <View style={styles.queueRowText}>
+                    <Text style={styles.queueLabel} numberOfLines={1}>{(report.listing_type || 'listing').toUpperCase()} - {report.reason || 'Report'}</Text>
+                    <Text style={styles.queueSub} numberOfLines={2}>{report.details || report.status || 'Pending review'}</Text>
                   </View>
                   <Text style={[styles.badge, styles.badgeWarning]}>{report.status || 'pending'}</Text>
                 </View>
@@ -566,7 +570,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: COLORS.white },
   timeRangeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
-  timeRangePill: { flex: 1, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: COLORS.surface },
+  timeRangePill: { flex: 1, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: COLORS.surface, minHeight: 44, justifyContent: 'center' },
   timeRangePillActive: { backgroundColor: COLORS.accent },
   timeRangeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.textSecondary },
   timeRangeTextActive: { color: COLORS.white },
@@ -594,14 +598,15 @@ const styles = StyleSheet.create({
   kpiValue: { fontSize: 24, fontWeight: '700', color: COLORS.white, marginBottom: 4 },
   kpiLabel: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
   section: { paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
-  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.white, marginBottom: SPACING.sm, paddingHorizontal: SPACING.sm },
+  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.white, marginBottom: SPACING.sm },
   surface: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md },
   barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   barLabel: { width: 90, fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
   barTrack: { flex: 1, height: 8, backgroundColor: '#333', borderRadius: 4, marginHorizontal: 8 },
   barFill: { height: 8, backgroundColor: COLORS.accent, borderRadius: 4 },
   barValue: { width: 40, fontSize: FONT_SIZES.sm, fontWeight: '600', color: COLORS.white, textAlign: 'right' },
-  queueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333' },
+  queueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333', gap: 8 },
+  queueRowText: { flex: 1, minWidth: 0 },
   queueLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.white },
   queueSub: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
   badge: { fontSize: FONT_SIZES.xs, fontWeight: '600', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, overflow: 'hidden' },
