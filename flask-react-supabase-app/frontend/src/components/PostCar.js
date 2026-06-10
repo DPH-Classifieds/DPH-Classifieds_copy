@@ -59,6 +59,15 @@ const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/we
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_DESCRIPTION_WORDS = 300;
 const DEFAULT_MAP_POSITION = [25.276987, 55.296249];
+const EMIRATE_CENTERS = {
+  'Dubai': [25.276987, 55.296249],
+  'Abu Dhabi': [24.453884, 54.377343],
+  'Sharjah': [25.346255, 55.420932],
+  'Ajman': [25.405216, 55.513641],
+  'Umm Al Quwain': [25.564716, 55.553237],
+  'Ras Al Khaimah': [25.789295, 55.942478],
+  'Fujairah': [25.128526, 56.326584],
+};
 const CAR_DRAFT_STORAGE_KEY = 'dph_post_car_draft_v2';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('car');
@@ -80,7 +89,7 @@ const PostCar = () => {
   const [availableModels, setAvailableModels] = useState([]);
   const formRef = useRef(null);
   const locationInputRef = useRef(null);
-  const [showExtras, setShowExtras] = useState(true);
+  const [showExtras, setShowExtras] = useState(false);
   const [otherFuelType, setOtherFuelType] = useState('');
   const [existingImages, setExistingImages] = useState([]);
   const [pendingCropFiles, setPendingCropFiles] = useState(null);
@@ -112,7 +121,7 @@ const PostCar = () => {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geoError, setGeoError] = useState(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(false);
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
 
   const [formData, setFormData] = useState({
     car_manufacturer: '',
@@ -149,12 +158,9 @@ const PostCar = () => {
     vehicle_type: 'Used',
     vin_number: '',
     is_dealer: false,
-    featured_listing: false,
     ownership_status: '',
     drivetrain: '',
     fuel_efficiency: '',
-    top_speed: '',
-    zero_to_hundred: '',
     torque: '',
     interior_color: '',
     seller_name: '',
@@ -191,6 +197,35 @@ const PostCar = () => {
       seller_name: username,
     }));
   }, [user?.username]);
+
+  // Prefill emirate/area/location from the user's profile on first load (non-edit only).
+  // Centers the map on the user's emirate so they only have to drop a precise pin.
+  const profileLocationPrefilledRef = useRef(false);
+  useEffect(() => {
+    if (isEdit || profileLocationPrefilledRef.current || !user) return;
+    const profileEmirate = String(user.emirate || user.car_city || '').trim();
+    const profileArea = String(user.area || '').trim();
+    if (!profileEmirate && !profileArea) return;
+
+    profileLocationPrefilledRef.current = true;
+    const validEmirate = UAE_EMIRATES.includes(profileEmirate) ? profileEmirate : null;
+    const validAreas = validEmirate ? getAreasForEmirate(validEmirate) : [];
+    const validArea = validAreas.includes(profileArea) ? profileArea : (validAreas.length === 0 ? profileArea : '');
+    const center = (validEmirate && EMIRATE_CENTERS[validEmirate]) || DEFAULT_MAP_POSITION;
+    const label = [validArea, validEmirate].filter(Boolean).join(', ');
+
+    setFormData((prev) => ({
+      ...prev,
+      car_city: validEmirate || prev.car_city,
+      emirate: validEmirate || prev.emirate,
+      area: validArea || prev.area,
+      car_location: prev.car_location || label,
+      latitude: center[0],
+      longitude: center[1],
+    }));
+    setMarker(center);
+    setMapPosition(center);
+  }, [user, isEdit]);
 
   const normalizeOcrToken = useCallback((value) => {
     return String(value || '')
@@ -1068,12 +1103,9 @@ const PostCar = () => {
           vehicle_type: data.vehicle_type || 'Used',
           vin_number: data.vin_number || '',
           is_dealer: Boolean(data.is_dealer),
-          featured_listing: Boolean(data.featured_listing),
           ownership_status: data.ownership_status || '',
           drivetrain: data.drivetrain || '',
           fuel_efficiency: data.fuel_efficiency || '',
-          top_speed: data.top_speed || '',
-          zero_to_hundred: data.zero_to_hundred || '',
           torque: data.torque || '',
           interior_color: data.interior_color || '',
           seller_name: data.seller_name || '',
@@ -1102,6 +1134,20 @@ const PostCar = () => {
         setMapPosition([latitude, longitude]);
         setTitleManuallyEdited(Boolean(data.listing_title));
         setExistingImages(Array.isArray(data.images) ? data.images : []);
+
+        const phoneCountry = data.country_code || defaultCountryCode;
+        const phoneNumberOnly = splitPhoneNumberForInput(
+          data.car_owner_phone_number || data.contact_phone || '',
+          phoneCountry
+        ).phoneNumber;
+        const whatsappMatches = Boolean(
+          whatsappNumber &&
+            phoneNumberOnly &&
+            whatsappCountryCode === phoneCountry &&
+            whatsappNumber === phoneNumberOnly
+        );
+        const noWhatsappYet = !whatsappNumber && Boolean(phoneNumberOnly);
+        setWhatsappSameAsPhone(whatsappMatches || noWhatsappYet);
       } catch (fetchError) {
         setError(fetchError.message || 'Failed to load car listing');
       } finally {
@@ -2160,7 +2206,144 @@ const PostCar = () => {
         
         <div className="form-section">
           <h2>Basic Details</h2>
-          
+
+          <div
+            className="form-row"
+            style={{
+              background: 'linear-gradient(135deg, rgba(37,99,235,0.06), rgba(37,99,235,0.02))',
+              border: '1px solid #2563eb',
+              borderRadius: 12,
+              padding: '16px 18px',
+              marginBottom: 18,
+              boxShadow: '0 1px 4px rgba(37,99,235,0.08)',
+            }}
+          >
+            <div className="form-group full-width">
+              <label htmlFor="registration_ocr_file" style={{ fontWeight: 700, fontSize: '1rem', color: '#1e3a8a' }}>
+                📄 Scan your Mulkiya — auto-fills Make, Model, Year & VIN
+              </label>
+              <div className="form-text" style={{ marginTop: 4 }}>
+                Skip the manual entry. Upload a clear photo of your car registration and we'll fill in the next few fields for you.
+              </div>
+              <div
+                className="upload-area"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    document.getElementById('registration_ocr_file')?.click();
+                  }
+                }}
+                onClick={() => document.getElementById('registration_ocr_file')?.click()}
+                style={{ marginTop: 10 }}
+              >
+                <div className="upload-icon" aria-hidden="true" />
+                <h4>{registrationOcrFile ? registrationOcrFile.name : 'Upload registration document'}</h4>
+                <p>PNG, JPG, WEBP, or PDF (page 1)</p>
+                <input
+                  id="registration_ocr_file"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                  className="file-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setRegistrationOcrFile(file);
+                    resetRegistrationOcrState();
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    className="browse-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      document.getElementById('registration_ocr_file')?.click();
+                    }}
+                  >
+                    Browse
+                  </button>
+                  <button
+                    type="button"
+                    className="browse-btn"
+                    disabled={!registrationOcrFile || registrationOcrStatus === 'Scanning…' || registrationOcrStatus === 'Preparing…'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      runRegistrationOcr();
+                    }}
+                  >
+                    {registrationOcrStatus === 'Preparing…'
+                      ? 'Preparing…'
+                      : registrationOcrStatus === 'Scanning…'
+                        ? `Scanning… ${registrationOcrProgress}%`
+                        : 'Scan'}
+                  </button>
+                  {registrationOcrFile && (
+                    <button
+                      type="button"
+                      className="browse-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRegistrationOcrFile(null);
+                        resetRegistrationOcrState();
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              {registrationOcrError && (
+                <div className="alert alert-danger mt-3" role="alert">
+                  {registrationOcrError}
+                </div>
+              )}
+              {registrationOcrSuggestions && (
+                <div className="alert alert-success mt-3" role="status">
+                  <div style={{ fontWeight: 700, marginBottom: '6px' }}>Detected</div>
+                  <div>
+                    Make: {registrationOcrSuggestions.fields?.make || registrationOcrSuggestions.make || '—'} {registrationOcrSuggestions.verifiedMake ? '(verified)' : '(review)'}
+                  </div>
+                  <div>
+                    Model: {registrationOcrSuggestions.fields?.model || registrationOcrSuggestions.model || '—'} {registrationOcrSuggestions.verifiedModel ? '(verified)' : '(review)'}
+                  </div>
+                  <div>
+                    Year: {registrationOcrSuggestions.fields?.year || registrationOcrSuggestions.year || '—'} {registrationOcrSuggestions.verifiedYear ? '(verified)' : '(review)'}
+                  </div>
+                  <div>
+                    VIN: {registrationOcrSuggestions.fields?.vin || registrationOcrSuggestions.vin || '—'} {registrationOcrSuggestions.verifiedVin ? '(verified)' : '(review)'}
+                  </div>
+                  <div>
+                    Confidence: {Math.round(((registrationOcrSuggestions.confidence?.overall || 0) * 100))}%
+                  </div>
+                  <div>
+                    VIN validation: {registrationOcrSuggestions.vinValidation?.valid ? 'Valid' : 'Needs review'}
+                  </div>
+                  {registrationOcrSuggestions.reviewReasons?.length > 0 && (
+                    <div style={{ marginTop: '8px', opacity: 0.85 }}>
+                      Review reasons: {registrationOcrSuggestions.reviewReasons.join(', ')}
+                    </div>
+                  )}
+                  {registrationOcrDebugInfo && (
+                    <div style={{ marginTop: '8px', opacity: 0.75, fontSize: 12 }}>
+                      Best pass: {registrationOcrDebugInfo.source}/{registrationOcrDebugInfo.pass}
+                    </div>
+                  )}
+                  <div style={{ marginTop: '8px', opacity: 0.9 }}>
+                    {registrationOcrSuggestions.shouldAutoFill
+                      ? 'Verified fields are auto-filled and locked. Use Clear if you need to change them manually.'
+                      : 'Scan needs review, so fields stay editable until you confirm them manually.'}
+                  </div>
+                  {registrationOcrPreparedImage?.source === 'pdf' && (
+                    <div style={{ marginTop: '8px', opacity: 0.85 }}>
+                      PDF note: scanned from page 1 only.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="car_city">Emirate <RequiredMark /></label>
@@ -2208,131 +2391,6 @@ const PostCar = () => {
             </div>
 	          </div>
 	          
-	          <div className="form-row">
-	            <div className="form-group full-width">
-	              <label htmlFor="registration_ocr_file">Scan Car Registration (OCR) <span style={{ fontSize: '0.75em', color: '#f59e0b', fontWeight: 400 }}>(beta — still in testing)</span></label>
-	              <div className="form-text">
-	                Upload a clear photo of your car registration (Mulkiya). We'll try to detect and verify the <strong>make</strong>, <strong>model</strong>, and <strong>year</strong>.
-	              </div>
-	              <div
-	                className="upload-area"
-	                role="button"
-	                tabIndex={0}
-	                onKeyDown={(e) => {
-	                  if (e.key === 'Enter' || e.key === ' ') {
-	                    e.preventDefault();
-	                    document.getElementById('registration_ocr_file')?.click();
-	                  }
-	                }}
-	                onClick={() => document.getElementById('registration_ocr_file')?.click()}
-	                style={{ marginTop: 10 }}
-	              >
-	                <div className="upload-icon" aria-hidden="true" />
-	                <h4>{registrationOcrFile ? registrationOcrFile.name : 'Upload registration document'}</h4>
-	                <p>PNG, JPG, WEBP, or PDF (page 1)</p>
-	                <input
-	                  id="registration_ocr_file"
-	                  type="file"
-	                  accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-	                  className="file-input"
-	                  onChange={(e) => {
-	                    const file = e.target.files?.[0] || null;
-	                    setRegistrationOcrFile(file);
-	                    resetRegistrationOcrState();
-	                  }}
-	                />
-	                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-	                  <button
-	                    type="button"
-	                    className="browse-btn"
-	                    onClick={(e) => {
-	                      e.stopPropagation();
-	                      document.getElementById('registration_ocr_file')?.click();
-	                    }}
-	                  >
-	                    Browse
-	                  </button>
-	                  <button
-	                    type="button"
-	                    className="browse-btn"
-	                    disabled={!registrationOcrFile || registrationOcrStatus === 'Scanning…' || registrationOcrStatus === 'Preparing…'}
-	                    onClick={(e) => {
-	                      e.stopPropagation();
-	                      runRegistrationOcr();
-	                    }}
-	                  >
-	                    {registrationOcrStatus === 'Preparing…'
-	                      ? 'Preparing…'
-	                      : registrationOcrStatus === 'Scanning…'
-	                        ? `Scanning… ${registrationOcrProgress}%`
-	                        : 'Scan'}
-	                  </button>
-	                  {registrationOcrFile && (
-	                    <button
-	                      type="button"
-	                      className="browse-btn"
-	                      onClick={(e) => {
-	                        e.stopPropagation();
-	                        setRegistrationOcrFile(null);
-	                        resetRegistrationOcrState();
-	                      }}
-	                    >
-	                      Clear
-	                    </button>
-	                  )}
-	                </div>
-	              </div>
-	              {registrationOcrError && (
-	                <div className="alert alert-danger mt-3" role="alert">
-	                  {registrationOcrError}
-	                </div>
-	              )}
-	              {registrationOcrSuggestions && (
-	                <div className="alert alert-success mt-3" role="status">
-	                  <div style={{ fontWeight: 700, marginBottom: '6px' }}>Detected</div>
-	                  <div>
-	                    Make: {registrationOcrSuggestions.fields?.make || registrationOcrSuggestions.make || '—'} {registrationOcrSuggestions.verifiedMake ? '(verified)' : '(review)'}
-	                  </div>
-	                  <div>
-	                    Model: {registrationOcrSuggestions.fields?.model || registrationOcrSuggestions.model || '—'} {registrationOcrSuggestions.verifiedModel ? '(verified)' : '(review)'}
-	                  </div>
-	                  <div>
-	                    Year: {registrationOcrSuggestions.fields?.year || registrationOcrSuggestions.year || '—'} {registrationOcrSuggestions.verifiedYear ? '(verified)' : '(review)'}
-	                  </div>
-	                  <div>
-	                    VIN: {registrationOcrSuggestions.fields?.vin || registrationOcrSuggestions.vin || '—'} {registrationOcrSuggestions.verifiedVin ? '(verified)' : '(review)'}
-	                  </div>
-	                  <div>
-	                    Confidence: {Math.round(((registrationOcrSuggestions.confidence?.overall || 0) * 100))}%
-	                  </div>
-	                  <div>
-	                    VIN validation: {registrationOcrSuggestions.vinValidation?.valid ? 'Valid' : 'Needs review'}
-	                  </div>
-	                  {registrationOcrSuggestions.reviewReasons?.length > 0 && (
-	                    <div style={{ marginTop: '8px', opacity: 0.85 }}>
-	                      Review reasons: {registrationOcrSuggestions.reviewReasons.join(', ')}
-	                    </div>
-	                  )}
-	                  {registrationOcrDebugInfo && (
-	                    <div style={{ marginTop: '8px', opacity: 0.75, fontSize: 12 }}>
-	                      Best pass: {registrationOcrDebugInfo.source}/{registrationOcrDebugInfo.pass}
-	                    </div>
-	                  )}
-	                  <div style={{ marginTop: '8px', opacity: 0.9 }}>
-	                    {registrationOcrSuggestions.shouldAutoFill
-	                      ? 'Verified fields are auto-filled and locked. Use Clear if you need to change them manually.'
-	                      : 'Scan needs review, so fields stay editable until you confirm them manually.'}
-	                  </div>
-	                  {registrationOcrPreparedImage?.source === 'pdf' && (
-	                    <div style={{ marginTop: '8px', opacity: 0.85 }}>
-	                      PDF note: scanned from page 1 only.
-	                    </div>
-	                  )}
-	                </div>
-	              )}
-	            </div>
-	          </div>
-
 	          <div className="form-row">
 	            <div className="form-group">
 	              <label htmlFor="car_manufacturer">Make <RequiredMark /></label>
@@ -2596,7 +2654,7 @@ const PostCar = () => {
           </p>
 
           <div className="form-row">
-            <div className="form-group">
+            <div className="form-group full-width">
               <label htmlFor="listing_title">Listing Title <RequiredMark /></label>
               <input
                 type="text"
@@ -2608,24 +2666,35 @@ const PostCar = () => {
                 placeholder="2021 BMW M3 Competition"
                 className="form-control"
               />
-            </div>
-            <div className="form-group">
-              <label htmlFor="featured_listing">Featured Listing</label>
-              <SearchableSelect
-                id="featured_listing"
-                name="featured_listing"
-                value={formData.featured_listing ? 'true' : 'false'}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    featured_listing: event.target.value === 'true',
-                  }))
+              {(() => {
+                const suggested = formData.car_manufacturer && formData.car_model && formData.make_year
+                  ? `${formData.make_year} ${formData.car_manufacturer} ${formData.car_model}${formData.trim ? ` ${formData.trim}` : ''}`
+                  : '';
+                if (!titleManuallyEdited || !suggested || suggested === formData.listing_title) {
+                  return null;
                 }
-                className="form-control form-select"
-              >
-                <option value="false">Standard listing</option>
-                <option value="true">Featured listing</option>
-              </SearchableSelect>
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTitleManuallyEdited(false);
+                      setFormData((prev) => ({ ...prev, listing_title: suggested }));
+                    }}
+                    style={{
+                      marginTop: 6,
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: '#2563eb',
+                      fontSize: '0.85em',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    ↻ Regenerate from car details ({suggested})
+                  </button>
+                );
+              })()}
             </div>
           </div>
 
@@ -2870,33 +2939,6 @@ const PostCar = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="top_speed">Top Speed</label>
-              <input
-                type="text"
-                id="top_speed"
-                name="top_speed"
-                value={formData.top_speed}
-                onChange={handleChange}
-                placeholder="e.g. 280 km/h"
-                className="form-control"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="zero_to_hundred">0 - 100 km/h</label>
-              <input
-                type="text"
-                id="zero_to_hundred"
-                name="zero_to_hundred"
-                value={formData.zero_to_hundred}
-                onChange={handleChange}
-                placeholder="e.g. 4.3 sec"
-                className="form-control"
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
               <label htmlFor="doors">Doors <RequiredMark /></label>
               <SearchableSelect
                 id="doors"
@@ -2991,7 +3033,7 @@ const PostCar = () => {
             <div className="form-group full-width">
               <label htmlFor="extras">Extra Features</label>
               <button type="button" className="text-danger extras-toggle" onClick={toggleExtras}>
-                {showExtras ? 'Show less ▲' : 'Show all ▼'}
+                {showExtras ? 'Hide features ▲' : 'Add features (optional) ▼'}
               </button>
               <div className="form-text">Choose all applicable add-ons so buyers can quickly see your car's key features.</div>
               
