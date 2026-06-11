@@ -46,13 +46,9 @@ function LiveVisitorsSparkline({ points = [], width = 280, height = 60 }) {
   );
 }
 
-const QUICK_ACTIONS = [
-  { label: 'Review Users', icon: 'people-outline', route: 'AdminUsers' },
-  { label: 'Review Listings', icon: 'list-outline', route: 'AdminListings' },
-  { label: 'Review Dealers', icon: 'business-outline', route: 'AdminDealers' },
-  { label: 'Open Reports', icon: 'flag-outline', route: 'AdminReports' },
-  { label: 'View Metrics', icon: 'stats-chart-outline', route: 'AdminMetrics' },
-];
+// Quick Actions removed — the Inbox row at the top of the page now hosts the
+// only actions an operator clicks regularly (approvals, reports, dealer
+// reviews). View Metrics is exposed via the "Show all metrics" expander.
 
 const TIME_RANGE_OPTIONS = [
   { label: '24h', days: 1 },
@@ -74,6 +70,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const { width: windowWidth } = useWindowDimensions();
   // Sparkline width = window minus section + surface paddings (16 + 16 on each side).
   const sparklineWidth = Math.max(200, windowWidth - SPACING.md * 2 - SPACING.md * 2);
+  const [showAllMetrics, setShowAllMetrics] = useState(false);
   const [stats, setStats] = useState({});
   const [leadMetrics, setLeadMetrics] = useState(null);
   const [dealers, setDealers] = useState([]);
@@ -319,6 +316,49 @@ export default function AdminDashboardScreen({ navigation }) {
           <Text style={styles.title}>Operator Console</Text>
         </View>
 
+        {/* Inbox — actionable items first. These replace the old bottom
+            Quick Actions section and the buried Pending Approvals KPI. */}
+        <View style={styles.inboxRow}>
+          <InboxCard
+            label="Pending"
+            sub="Approvals"
+            value={pendingApprovals}
+            color={COLORS.warning}
+            icon="time-outline"
+            onPress={() => navigation.navigate('AdminListings', { initialFilter: 'pending' })}
+          />
+          <InboxCard
+            label="Open"
+            sub="Reports"
+            value={totalReports}
+            color={COLORS.error}
+            icon="flag-outline"
+            onPress={() => navigation.navigate('AdminReports')}
+          />
+          <InboxCard
+            label="Dealer"
+            sub="Reviews"
+            value={Math.max(0, totalDealers - verifiedDealers)}
+            color={COLORS.info || COLORS.accent}
+            icon="business-outline"
+            onPress={() => navigation.navigate('AdminDealers')}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.liveVisitorsHeader}>
+            <Text style={styles.sectionTitle}>Live Visitors</Text>
+            <View style={styles.liveVisitorsPill}>
+              <Ionicons name="radio" size={10} color="#10b981" />
+              <Text style={styles.liveVisitorsPillText}>Now: {formatNumber(liveVisitorsCount)}</Text>
+            </View>
+          </View>
+          <View style={styles.surface}>
+            <LiveVisitorsSparkline points={liveUsersHistory} width={sparklineWidth} height={64} />
+            <Text style={styles.liveVisitorsCaption}>Rolling 30 min · refreshes every 30 s</Text>
+          </View>
+        </View>
+
         <View style={styles.timeRangeRow}>
           {TIME_RANGE_OPTIONS.map((option) => {
             const isActive = days === option.days;
@@ -348,42 +388,51 @@ export default function AdminDashboardScreen({ navigation }) {
             </Text>
           </View>
         )}
+
+        {/* Headline KPIs — 4 cards visible by default, rest behind a tap. */}
         <View style={styles.kpiGrid}>
-          <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" />
           <KpiCard icon="people" label="Total Users" value={formatNumber(totalUsers)} color={COLORS.accent} />
-          <KpiCard icon="car" label="Total Cars" value={formatNumber(clamp(stats.cars_total))} color={COLORS.accent} />
-          <KpiCard icon="bicycle" label="Total Bikes" value={formatNumber(clamp(stats.bikes_total))} color={COLORS.accent} />
-          <KpiCard icon="construct" label="Total Parts" value={formatNumber(clamp(stats.parts_total))} color={COLORS.accent} />
-          <KpiCard icon="key" label="Total Plates" value={formatNumber(clamp(stats.plates_total))} color={COLORS.accent} />
-          <KpiCard icon="call" label="Total Leads" value={formatNumber(totalLeads)} color={COLORS.accent} />
-          <KpiCard icon="logo-whatsapp" label={`Unique WhatsApp (${selectedRangeLabel})`} value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
-          <KpiCard icon="phone-portrait" label={`Unique Callers (${selectedRangeLabel})`} value={formatNumber(totalCalls)} color={COLORS.accent} />
-          <KpiCard icon="eye" label="Total Views" value={formatNumber(totalViews)} color={COLORS.accent} />
           <KpiCard
-            icon="globe-outline"
-            label={`Site Visitors (${selectedRangeLabel})`}
-            value={formatNumber(uniqueVisitors)}
+            icon="albums-outline"
+            label="Total Listings"
+            value={formatNumber(
+              clamp(stats.cars_total) + clamp(stats.bikes_total) +
+              clamp(stats.parts_total) + clamp(stats.plates_total)
+            )}
             color={COLORS.accent}
           />
-          <KpiCard icon="time" label="Pending Approvals" value={formatNumber(pendingApprovals)} color={COLORS.warning} />
-          <KpiCard icon="flag" label="Reports" value={formatNumber(totalReports)} color={COLORS.error} />
-          <KpiCard icon="radio" label="Live Users" value={formatNumber(liveVisitorsCount)} color={COLORS.accent} />
-          <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={COLORS.accent} />
+          <KpiCard icon="call" label="Total Leads" value={formatNumber(totalLeads)} color={COLORS.accent} />
+          <KpiCard icon="eye" label="Total Views" value={formatNumber(totalViews)} color={COLORS.accent} />
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.liveVisitorsHeader}>
-            <Text style={styles.sectionTitle}>Live Visitors</Text>
-            <View style={styles.liveVisitorsPill}>
-              <Ionicons name="radio" size={10} color="#10b981" />
-              <Text style={styles.liveVisitorsPillText}>Now: {formatNumber(liveVisitorsCount)}</Text>
-            </View>
+        <TouchableOpacity
+          style={styles.expanderRow}
+          onPress={() => setShowAllMetrics((s) => !s)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.expanderText}>
+            {showAllMetrics ? 'Hide detailed metrics' : 'Show all metrics'}
+          </Text>
+          <Ionicons
+            name={showAllMetrics ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={COLORS.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {showAllMetrics && (
+          <View style={styles.kpiGrid}>
+            <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" />
+            <KpiCard icon="car" label="Total Cars" value={formatNumber(clamp(stats.cars_total))} color={COLORS.accent} />
+            <KpiCard icon="bicycle" label="Total Bikes" value={formatNumber(clamp(stats.bikes_total))} color={COLORS.accent} />
+            <KpiCard icon="construct" label="Total Parts" value={formatNumber(clamp(stats.parts_total))} color={COLORS.accent} />
+            <KpiCard icon="key" label="Total Plates" value={formatNumber(clamp(stats.plates_total))} color={COLORS.accent} />
+            <KpiCard icon="logo-whatsapp" label={`WhatsApp (${selectedRangeLabel})`} value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
+            <KpiCard icon="phone-portrait" label={`Callers (${selectedRangeLabel})`} value={formatNumber(totalCalls)} color={COLORS.accent} />
+            <KpiCard icon="globe-outline" label={`Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={COLORS.accent} />
+            <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={COLORS.accent} />
           </View>
-          <View style={styles.surface}>
-            <LiveVisitorsSparkline points={liveUsersHistory} width={sparklineWidth} height={64} />
-            <Text style={styles.liveVisitorsCaption}>Rolling 30 min · refreshes every 30 s</Text>
-          </View>
-        </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Lead Mix ({selectedRangeLabel})</Text>
@@ -474,82 +523,72 @@ export default function AdminDashboardScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>External Analytics</Text>
-          <ExternalAnalyticsCard
-            title="Open GA4 Dashboard"
-            subtitle="Active users, sessions, conversions"
-            icon="stats-chart-outline"
-            envVarName="EXPO_PUBLIC_GA4_MEASUREMENT_ID"
-            // Without a property number we can only deep-link to the property
-            // picker — that's still useful (one click to the right account).
-            url="https://analytics.google.com/analytics/web/"
-            enabled={!!process.env.EXPO_PUBLIC_GA4_MEASUREMENT_ID}
-          />
-          <ExternalAnalyticsCard
-            title="Open Clarity Dashboard"
-            subtitle="Heatmaps and session recordings"
-            icon="eye-outline"
-            envVarName="EXPO_PUBLIC_CLARITY_PROJECT_ID"
-            url={process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID
-              ? `https://clarity.microsoft.com/projects/view/${process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID}/dashboard`
-              : 'https://clarity.microsoft.com'}
-            enabled={!!process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID}
-          />
-        </View>
+        {(process.env.EXPO_PUBLIC_GA4_MEASUREMENT_ID || process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>External Analytics</Text>
+            {process.env.EXPO_PUBLIC_GA4_MEASUREMENT_ID && (
+              <ExternalAnalyticsCard
+                title="Open GA4 Dashboard"
+                subtitle="Active users, sessions, conversions"
+                icon="stats-chart-outline"
+                url="https://analytics.google.com/analytics/web/"
+              />
+            )}
+            {process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID && (
+              <ExternalAnalyticsCard
+                title="Open Clarity Dashboard"
+                subtitle="Heatmaps and session recordings"
+                icon="eye-outline"
+                url={`https://clarity.microsoft.com/projects/view/${process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID}/dashboard`}
+              />
+            )}
+          </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          {QUICK_ACTIONS.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.actionCard}
-              onPress={() => navigation.navigate(action.route)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.actionLeft}>
-                <Ionicons name={action.icon} size={20} color={COLORS.white} />
-                <Text style={styles.actionLabel}>{action.label}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TouchableOpacity
+          style={styles.metricsLinkRow}
+          onPress={() => navigation.navigate('AdminMetrics')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="stats-chart-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.metricsLinkText}>View full metrics</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function ExternalAnalyticsCard({ title, subtitle, icon, envVarName, url, enabled }) {
+function InboxCard({ label, sub, value, color, icon, onPress }) {
+  return (
+    <TouchableOpacity style={styles.inboxCard} onPress={onPress} activeOpacity={0.8}>
+      <View style={[styles.inboxIconWrap, { backgroundColor: `${color}26` }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <Text style={styles.inboxValue}>{formatNumber(value || 0)}</Text>
+      <Text style={styles.inboxLabel}>{label}</Text>
+      <Text style={styles.inboxSub}>{sub}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ExternalAnalyticsCard({ title, subtitle, icon, url }) {
   const handlePress = () => {
-    if (!enabled) {
-      Alert.alert(
-        'Configure analytics',
-        `Set ${envVarName} in mobile/.env, then rebuild. See docs/ANALYTICS_SETUP.md.`,
-      );
-      return;
-    }
     Linking.openURL(url).catch(() => {
       Alert.alert('Could not open', 'No browser available to open the dashboard.');
     });
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.actionCard, !enabled && styles.actionCardDisabled]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
+    <TouchableOpacity style={styles.actionCard} onPress={handlePress} activeOpacity={0.7}>
       <View style={styles.actionLeft}>
-        <Ionicons name={icon} size={20} color={enabled ? COLORS.accent : COLORS.textMuted} />
+        <Ionicons name={icon} size={20} color={COLORS.accent} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.actionLabel, !enabled && { color: COLORS.textMuted }]}>{title}</Text>
-          <Text style={styles.actionSubtitle}>
-            {enabled ? subtitle : `Add ${envVarName} to env`}
-          </Text>
+          <Text style={styles.actionLabel}>{title}</Text>
+          <Text style={styles.actionSubtitle}>{subtitle}</Text>
         </View>
       </View>
-      <Ionicons name="open-outline" size={18} color={enabled ? COLORS.textSecondary : COLORS.textMuted} />
+      <Ionicons name="open-outline" size={18} color={COLORS.textSecondary} />
     </TouchableOpacity>
   );
 }
@@ -569,6 +608,41 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 40 },
   header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: COLORS.white },
+  inboxRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  inboxCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    alignItems: 'flex-start',
+    minHeight: 92,
+  },
+  inboxIconWrap: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 6,
+  },
+  inboxValue: { fontSize: 22, fontWeight: '800', color: COLORS.white },
+  inboxLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 4 },
+  inboxSub: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontWeight: '600' },
+  expanderRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 8, marginHorizontal: SPACING.md, marginBottom: SPACING.md,
+  },
+  expanderText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  metricsLinkRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
+    paddingVertical: 14, paddingHorizontal: SPACING.md,
+    marginHorizontal: SPACING.md, marginTop: SPACING.sm,
+  },
+  metricsLinkText: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '500' },
   timeRangeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
   timeRangePill: { flex: 1, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: COLORS.surface, minHeight: 44, justifyContent: 'center' },
   timeRangePillActive: { backgroundColor: COLORS.accent },

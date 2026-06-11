@@ -108,13 +108,9 @@ export default function AdminDealersScreen({ navigation }) {
       <View style={styles.dealerHeader}>
         <View style={styles.dealerInfo}>
           <Text style={styles.companyName} numberOfLines={1}>
-            {item.company_name || 'Unknown Company'}
-          </Text>
-          <Text style={styles.userName} numberOfLines={1}>
-            {item.first_name} {item.last_name}
+            {item.company_name || `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Unknown'}
           </Text>
           <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
-          <Text style={styles.joinDate}>Joined {formatDate(item.created_at)}</Text>
         </View>
         <View
           style={[

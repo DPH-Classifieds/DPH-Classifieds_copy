@@ -155,66 +155,44 @@ export default function AdminUsersScreen({ navigation }) {
     return (first + last).toUpperCase() || user.email?.[0]?.toUpperCase() || '?';
   };
 
-  const renderUser = ({ item }) => (
-    <TouchableOpacity
-      style={styles.userCard}
-      onPress={() => navigation.navigate('AdminUserDetail', { userId: item.id })}
-      activeOpacity={0.7}
-    >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitials(item)}</Text>
-      </View>
-      <View style={styles.userInfo}>
-        <View style={styles.userRow}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {item.first_name} {item.last_name}
-          </Text>
-          <View style={styles.badges}>
-            {item.is_admin && (
-              <View style={[styles.badge, styles.adminBadge]}>
-                <Text style={styles.badgeText}>Admin</Text>
-              </View>
-            )}
-            {item.is_dealer && (
-              <View style={[styles.badge, styles.dealerBadge]}>
-                <Text style={styles.badgeText}>Dealer</Text>
-              </View>
-            )}
-            {item.email_verified && (
-              <View style={[styles.badge, styles.verifiedBadge]}>
-                <Ionicons name="mail-open" size={10} color="#fff" />
-                <Text style={styles.badgeText}>Email</Text>
-              </View>
-            )}
-            {item.phone_verified && (
-              <View style={[styles.badge, styles.phoneVerifiedBadge]}>
-                <Ionicons name="call" size={10} color="#fff" />
-                <Text style={styles.badgeText}>Phone</Text>
-              </View>
-            )}
-          </View>
+  const renderUser = ({ item }) => {
+    const fullName = `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.email?.split('@')[0] || 'User';
+    return (
+      <TouchableOpacity
+        style={styles.userCard}
+        onPress={() => navigation.navigate('AdminUserDetail', { userId: item.id })}
+        activeOpacity={0.7}
+      >
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{getInitials(item)}</Text>
         </View>
-        <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
-        {item.phone && (
-          <Text style={styles.userPhone} numberOfLines={1}>{item.phone}</Text>
-        )}
-        <View style={styles.metaRow}>
-          <Text style={styles.userMeta}>
-            Joined {formatDate(item.created_at)}
-          </Text>
-          {item.status === 'banned' && (
-            <View style={[styles.badge, styles.bannedBadge]}>
-              <Text style={styles.badgeText}>Banned</Text>
+        <View style={styles.userInfo}>
+          <View style={styles.userRow}>
+            <Text style={styles.userName} numberOfLines={1}>{fullName}</Text>
+            <View style={styles.badges}>
+              {item.is_admin && (
+                <View style={[styles.badge, styles.adminBadge]}>
+                  <Text style={styles.badgeText}>Admin</Text>
+                </View>
+              )}
+              {item.is_dealer && (
+                <View style={[styles.badge, styles.dealerBadge]}>
+                  <Text style={styles.badgeText}>Dealer</Text>
+                </View>
+              )}
+              {item.status === 'banned' && (
+                <View style={[styles.badge, styles.bannedBadge]}>
+                  <Text style={styles.badgeText}>Banned</Text>
+                </View>
+              )}
             </View>
-          )}
-          {item.last_login && (
-            <Text style={styles.lastLogin}>Last login {formatDate(item.last_login)}</Text>
-          )}
+          </View>
+          <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
         </View>
-      </View>
-      <Ionicons name="ellipsis-vertical" size={18} color={COLORS.textMuted} />
-    </TouchableOpacity>
-  );
+        <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>

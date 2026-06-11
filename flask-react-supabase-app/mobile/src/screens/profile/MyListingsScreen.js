@@ -21,6 +21,7 @@ import FadeInImage from '../../components/ui/FadeInImage';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { resolveMediaUrl } from '../../utils/media';
+import { toPluralType, toSingularType } from '../../utils/listingType';
 
 const TABS = ['Active', 'Drafts', 'Saved', 'Review', 'Sold'];
 
@@ -47,20 +48,6 @@ const getDisplayStatus = (item, activeTabValue) => {
 };
 
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
-
-// Backend endpoints use plural ('cars', 'bikes', 'plates', 'parts');
-// PostListingScreen's edit form uses singular ('car', 'bike', 'plate', 'parts').
-// API listing_type can arrive in either shape — normalize to both forms.
-const PLURAL_TYPE = {
-  car: 'cars', bike: 'bikes', plate: 'plates', part: 'parts',
-  cars: 'cars', bikes: 'bikes', plates: 'plates', parts: 'parts',
-};
-const SINGULAR_TYPE = {
-  car: 'car', bike: 'bike', plate: 'plate', part: 'parts', parts: 'parts',
-  cars: 'car', bikes: 'bike', plates: 'plate',
-};
-const toPluralType = (t) => PLURAL_TYPE[t] || 'cars';
-const toSingularType = (t) => SINGULAR_TYPE[t] || 'car';
 
 export default function MyListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);

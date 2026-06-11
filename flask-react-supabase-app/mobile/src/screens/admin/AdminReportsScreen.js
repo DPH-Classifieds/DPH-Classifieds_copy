@@ -120,27 +120,20 @@ export default function AdminReportsScreen() {
         </View>
       </View>
 
-      <Text style={styles.reason} numberOfLines={2}>
+      <Text style={styles.reason} numberOfLines={1}>
         {item.reason || 'No reason provided'}
       </Text>
 
       {item.details && (
-        <Text style={styles.details} numberOfLines={3}>
+        <Text style={styles.details} numberOfLines={1}>
           {item.details}
         </Text>
       )}
 
       <View style={styles.reportMeta}>
-        {item.reporter_name && (
-          <View style={styles.metaItem}>
-            <Ionicons name="person-outline" size={12} color={COLORS.textMuted} />
-            <Text style={styles.metaText}>{item.reporter_name}</Text>
-          </View>
-        )}
-        <View style={styles.metaItem}>
-          <Ionicons name="time-outline" size={12} color={COLORS.textMuted} />
-          <Text style={styles.metaText}>{formatDate(item.created_at)}</Text>
-        </View>
+        <Text style={styles.metaText} numberOfLines={1}>
+          {[item.reporter_name, formatDate(item.created_at)].filter(Boolean).join(' · ')}
+        </Text>
       </View>
 
       {(!item.status || item.status === 'pending') && (

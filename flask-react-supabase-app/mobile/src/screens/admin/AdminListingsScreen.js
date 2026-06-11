@@ -242,13 +242,10 @@ export default function AdminListingsScreen({ navigation }) {
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
                 <Text style={styles.statusBadgeText}>{displayStatus}</Text>
               </View>
-              <Text style={styles.cardDate}>{formatDate(item.created_at)}</Text>
-            </View>
-            {item.seller_name && (
-              <Text style={styles.sellerName} numberOfLines={1}>
-                by {item.seller_name}
+              <Text style={styles.cardDate} numberOfLines={1}>
+                {[formatDate(item.created_at), item.seller_name].filter(Boolean).join(' · ')}
               </Text>
-            )}
+            </View>
           </View>
         </View>
 
