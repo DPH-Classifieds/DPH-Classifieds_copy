@@ -30,6 +30,10 @@ import FadeInImage from '../../components/ui/FadeInImage';
 import BottomSheet from '../../components/ui/BottomSheet';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { resolveMediaUrl } from '../../utils/media';
+import { swrGet, swrSet } from '../../utils/swrCache';
+
+// Cache key for the no-filter initial Explore payload.
+const EXPLORE_INITIAL_CACHE_KEY = 'explore:initial:v1';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -481,6 +485,12 @@ export default function ExploreScreen({ navigation }) {
 
       setAllItems({ cars, bikes, plates, parts });
       setCounts({ cars: cars.length, bikes: bikes.length, plates: plates.length, parts: parts.length });
+
+      // Persist the no-filter payload so the next cold start / tab switch
+      // can paint listings before the network responds.
+      if (!qs) {
+        swrSet(EXPLORE_INITIAL_CACHE_KEY, { cars, bikes, plates, parts });
+      }
     } catch (err) {
       // Failed to fetch
     } finally {
@@ -488,6 +498,22 @@ export default function ExploreScreen({ navigation }) {
       setRefreshing(false);
     }
   }, [buildFilterParams]);
+
+  // Hydrate from cache before the network resolves. Skeleton only shows on
+  // a true cold first-ever load (no cache and no fetch result yet).
+  useEffect(() => {
+    let cancelled = false;
+    swrGet(EXPLORE_INITIAL_CACHE_KEY).then((hit) => {
+      if (cancelled || !hit?.value) return;
+      const { cars = [], bikes = [], plates = [], parts = [] } = hit.value;
+      if (cars.length || bikes.length || plates.length || parts.length) {
+        setAllItems({ cars, bikes, plates, parts });
+        setCounts({ cars: cars.length, bikes: bikes.length, plates: plates.length, parts: parts.length });
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => { fetchAllListings(); }, [fetchAllListings]);
 

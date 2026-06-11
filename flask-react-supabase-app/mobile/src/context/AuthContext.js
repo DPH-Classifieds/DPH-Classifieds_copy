@@ -9,6 +9,27 @@ import { trackEvent } from '../utils/analytics';
 // this many seconds of the OAuth completion. Used to fire sign_up vs login.
 const NEW_USER_WINDOW_SECONDS = 120;
 
+// Persisted snapshot of the last-known user, used to render authed UI
+// immediately on cold start. Only safe public fields — no tokens here.
+const CACHED_USER_KEY = 'cached_user_v1';
+const CACHED_USER_FIELDS = [
+  'id', 'email', 'first_name', 'last_name', 'username', 'display_name',
+  'full_name', 'profile_photo', 'avatar_url', 'phone_verified', 'is_dealer',
+  'is_admin', 'created_at',
+];
+
+const persistUserSnapshot = (u) => {
+  if (!u) {
+    AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => {});
+    return;
+  }
+  const snapshot = {};
+  CACHED_USER_FIELDS.forEach((k) => {
+    if (u[k] !== undefined) snapshot[k] = u[k];
+  });
+  AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(snapshot)).catch(() => {});
+};
+
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
@@ -18,6 +39,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const isAuthCheckingRef = useRef(false);
+  const backendDisagreedOnceRef = useRef(false);
 
   const syncWithSupabase = async ({ forceBackendCheck = false } = {}) => {
     if (isAuthCheckingRef.current) return false;
@@ -60,13 +82,36 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     authService.initializeAuth();
+
+    // Step 1 — synchronously rehydrate from AsyncStorage so authed users see
+    // their tab content on the very first paint. The backend check below runs
+    // in parallel and overwrites if it disagrees.
+    AsyncStorage.getItem(CACHED_USER_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        try {
+          const cached = JSON.parse(raw);
+          if (cached?.id) setUser((prev) => prev || cached);
+        } catch {}
+      })
+      .catch(() => {});
+
     const checkSession = async () => {
       try {
         const { user: backendUser } = await authService.getCurrentUser();
         if (backendUser) {
           setUser(backendUser);
+          backendDisagreedOnceRef.current = false;
         } else {
-          await syncWithSupabase();
+          // Backend says no user. Don't immediately drop a cached session —
+          // a single transient failure shouldn't kick the user out. Sign out
+          // only on the second consecutive failure.
+          if (backendDisagreedOnceRef.current) {
+            setUser(null);
+          } else {
+            backendDisagreedOnceRef.current = true;
+            await syncWithSupabase();
+          }
         }
       } catch (err) {
         await syncWithSupabase();
@@ -88,6 +133,12 @@ export const AuthProvider = ({ children }) => {
     });
     return () => subscription?.unsubscribe();
   }, []);
+
+  // Mirror every user state change into the cache so the next cold start
+  // can rehydrate instantly.
+  useEffect(() => {
+    persistUserSnapshot(user);
+  }, [user]);
 
   const signIn = async (email, password) => {
     try {

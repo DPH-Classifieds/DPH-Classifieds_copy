@@ -6,8 +6,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import RequireAuth from '../components/ui/RequireAuth';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
@@ -53,6 +51,10 @@ const screenOptions = {
   headerTitleStyle: { fontWeight: '600', fontSize: 17 },
   contentStyle: { backgroundColor: '#000000' },
   animation: 'slide_from_right',
+  // Without this, native-stack falls back to the previous screen's route
+  // name (e.g. "ExploreMain", "ProfileMain") as the iOS back label.
+  headerBackTitle: '',
+  headerBackTitleVisible: false,
 };
 
 function AuthStack() {
@@ -132,32 +134,26 @@ function ProfileStack() {
   );
 }
 
-function AuthGatePostStack() {
-  const navigation = useNavigation();
-  return (
-    <RequireAuth navigation={navigation} redirectRoute="Post">
-      <PostStack />
-    </RequireAuth>
-  );
+// Render the gated stack only when authenticated. When the user is logged
+// out and lands on this tab, push the Auth modal directly (no intermediate
+// "Sign in Required" page) and render an empty placeholder behind the modal.
+function makeAuthGatedStack(StackComponent, redirectRoute) {
+  return function GatedStack() {
+    const navigation = useNavigation();
+    const { user } = useAuth();
+    React.useEffect(() => {
+      if (user) return;
+      const rootNav = navigation.getParent()?.getParent() || navigation.getParent() || navigation;
+      rootNav.navigate('Auth', { screen: 'Login', params: { redirect: redirectRoute } });
+    }, [user, navigation]);
+    if (!user) return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
+    return <StackComponent />;
+  };
 }
 
-function AuthGateSavedStack() {
-  const navigation = useNavigation();
-  return (
-    <RequireAuth navigation={navigation} redirectRoute="Saved">
-      <SavedStack />
-    </RequireAuth>
-  );
-}
-
-function AuthGateProfileStack() {
-  const navigation = useNavigation();
-  return (
-    <RequireAuth navigation={navigation} redirectRoute="Profile">
-      <ProfileStack />
-    </RequireAuth>
-  );
-}
+const AuthGatePostStack = makeAuthGatedStack(PostStack, 'Post');
+const AuthGateSavedStack = makeAuthGatedStack(SavedStack, 'Saved');
+const AuthGateProfileStack = makeAuthGatedStack(ProfileStack, 'Profile');
 
 function MainTabs() {
   return (
@@ -193,17 +189,15 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { isLoading } = useAuth();
   const navigationRef = useRef(null);
   const handleStateChange = useMemo(
     () => buildNavigationStateChangeHandler(navigationRef),
     []
   );
 
-  if (isLoading) {
-    return <LoadingSpinner message="Loading..." />;
-  }
-
+  // No isLoading gate. AuthContext rehydrates from AsyncStorage synchronously
+  // (or near-synchronously) so authed users see their tab on the first paint;
+  // unauthenticated users see Explore immediately.
   return (
     <NavigationContainer ref={navigationRef} onStateChange={handleStateChange}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
