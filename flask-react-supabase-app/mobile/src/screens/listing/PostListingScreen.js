@@ -613,7 +613,7 @@ export default function PostListingScreen({ navigation, route }) {
     if (cat === 'car') return ['car_basic', 'car_specs', 'car_extras', 'car_location', 'car_images'];
     if (cat === 'bike') return ['bike_details', 'bike_contact', 'bike_images'];
     if (cat === 'plate') return ['plate_details', 'plate_contact', 'plate_images'];
-    return ['parts_details', 'parts_contact', 'parts_images'];
+    return ['parts_details', 'parts_compatibility', 'parts_contact', 'parts_images'];
   };
 
   const visibleSections = useMemo(
