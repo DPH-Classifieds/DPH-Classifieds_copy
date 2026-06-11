@@ -346,7 +346,8 @@ function ToggleRow({ label, value, onValueChange }) {
   );
 }
 
-function CollapsibleSection({ title, expanded, onToggle, children }) {
+function CollapsibleSection({ title, expanded, onToggle, children, hidden }) {
+  if (hidden) return null;
   return (
     <View style={styles.section}>
       <TouchableOpacity style={styles.sectionHeader} onPress={onToggle} activeOpacity={0.7}>
@@ -565,6 +566,75 @@ export default function PostListingScreen({ navigation, route }) {
   const toggleSection = (key) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  // Smart defaults: rehydrate last-used Emirate/Area on first mount when
+  // the user hasn't already overridden them. New post flow only.
+  useEffect(() => {
+    if (isEditMode) return;
+    AsyncStorage.getItem('last_listing_location').then((raw) => {
+      if (!raw) return;
+      try {
+        const { emirate, area } = JSON.parse(raw) || {};
+        if (emirate) {
+          setCarEmirate((v) => v || emirate);
+          setBikeEmirate((v) => v || emirate);
+          setPlateCity((v) => v || emirate);
+          setPartsEmirate((v) => v || emirate);
+        }
+        if (area) {
+          setCarArea((v) => v || area);
+          setBikeArea((v) => v || area);
+          setPlateArea((v) => v || area);
+          setPartsArea((v) => v || area);
+        }
+      } catch {}
+    }).catch(() => {});
+  }, []);
+
+  // Wizard step: 1 = Photos, 2 = Essentials (Basic Details), 3 = Details + Review.
+  // Skipped entirely in edit mode (single-screen edit). Reset to 1 when the
+  // user picks or changes the category, so re-entering Sell starts over clean.
+  const [wizardStep, setWizardStep] = useState(1);
+  useEffect(() => { if (!isEditMode) setWizardStep(1); }, [category, isEditMode]);
+
+  // Per-step decide which sections render (and force-expand the active one).
+  // Keys mirror those in expandedSections above.
+  const sectionsForStep = (cat, step) => {
+    if (isEditMode) return null; // null = render everything (single-screen edit)
+    if (step === 1) return [`${cat === 'parts' ? 'parts' : cat}_images`];
+    if (step === 2) {
+      if (cat === 'car') return ['car_basic'];
+      if (cat === 'bike') return ['bike_details'];
+      if (cat === 'plate') return ['plate_details'];
+      return ['parts_details'];
+    }
+    // step 3 = everything except the section already shown in step 1
+    // (Images stays visible too — useful for the review summary).
+    if (cat === 'car') return ['car_basic', 'car_specs', 'car_extras', 'car_location', 'car_images'];
+    if (cat === 'bike') return ['bike_details', 'bike_contact', 'bike_images'];
+    if (cat === 'plate') return ['plate_details', 'plate_contact', 'plate_images'];
+    return ['parts_details', 'parts_contact', 'parts_images'];
+  };
+
+  const visibleSections = useMemo(
+    () => sectionsForStep(category, wizardStep),
+    [category, wizardStep, isEditMode]
+  );
+
+  // Force the active step's section to be expanded.
+  useEffect(() => {
+    if (!visibleSections || visibleSections.length === 0) return;
+    setExpandedSections((prev) => {
+      const next = { ...prev };
+      visibleSections.forEach((k) => { next[k] = true; });
+      return next;
+    });
+  }, [visibleSections]);
+
+  const isSectionVisible = useCallback(
+    (key) => !visibleSections || visibleSections.includes(key),
+    [visibleSections]
+  );
 
   const pickImages = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -1093,6 +1163,19 @@ export default function PostListingScreen({ navigation, route }) {
       }
       await AsyncStorage.removeItem(DRAFT_KEY);
       if (!isEditMode) {
+        // Persist last-used location for the next listing — saves the seller
+        // from re-picking the same Emirate/Area on every post.
+        const lastEmirate = category === 'car' ? carEmirate
+          : category === 'bike' ? bikeEmirate
+          : category === 'plate' ? plateCityName
+          : partsEmirate;
+        const lastArea = category === 'car' ? carArea
+          : category === 'bike' ? bikeArea
+          : category === 'plate' ? plateArea
+          : partsArea;
+        AsyncStorage.setItem('last_listing_location', JSON.stringify({
+          emirate: lastEmirate, area: lastArea,
+        })).catch(() => {});
         trackEvent('post_listing_success', {
           listing_type: category,
           platform: 'mobile',
@@ -1145,7 +1228,7 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== CAR FORM ====================
   const renderCarForm = () => (
     <View>
-      <CollapsibleSection title="Basic Details" expanded={expandedSections.car_basic} onToggle={() => toggleSection('car_basic')}>
+      <CollapsibleSection title="Basic Details" expanded={expandedSections.car_basic} onToggle={() => toggleSection('car_basic')} hidden={!isSectionVisible('car_basic')}>
         <Text style={styles.fieldLabel}>Emirate *</Text>
         <Picker
           value={carEmirate}
@@ -1417,7 +1500,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Specifications" expanded={expandedSections.car_specs} onToggle={() => toggleSection('car_specs')}>
+      <CollapsibleSection title="Specifications" expanded={expandedSections.car_specs} onToggle={() => toggleSection('car_specs')} hidden={!isSectionVisible('car_specs')}>
         <Text style={styles.fieldLabel}>Fuel Type *</Text>
         <Picker
           value={carForm.fuel_type}
@@ -1563,7 +1646,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Extra Features" expanded={expandedSections.car_extras} onToggle={() => toggleSection('car_extras')}>
+      <CollapsibleSection title="Extra Features" expanded={expandedSections.car_extras} onToggle={() => toggleSection('car_extras')} hidden={!isSectionVisible('car_extras')}>
         {Object.entries(CAR_EXTRAS).map(([cat, extras]) => (
           <View key={cat} style={styles.extrasCategory}>
             <Text style={styles.extrasCategoryTitle}>{cat}</Text>
@@ -1579,7 +1662,7 @@ export default function PostListingScreen({ navigation, route }) {
         ))}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Location" expanded={expandedSections.car_location} onToggle={() => toggleSection('car_location')}>
+      <CollapsibleSection title="Location" expanded={expandedSections.car_location} onToggle={() => toggleSection('car_location')} hidden={!isSectionVisible('car_location')}>
         <TouchableOpacity
           style={styles.locationPickerTrigger}
           onPress={() => setShowMapPicker(true)}
@@ -1607,7 +1690,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.car_images} onToggle={() => toggleSection('car_images')}>
+      <CollapsibleSection title="Images" expanded={expandedSections.car_images} onToggle={() => toggleSection('car_images')} hidden={!isSectionVisible('car_images')}>
         <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
@@ -1616,7 +1699,7 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== BIKE FORM ====================
   const renderBikeForm = () => (
     <View>
-      <CollapsibleSection title="Bike Details" expanded={expandedSections.bike_details} onToggle={() => toggleSection('bike_details')}>
+      <CollapsibleSection title="Bike Details" expanded={expandedSections.bike_details} onToggle={() => toggleSection('bike_details')} hidden={!isSectionVisible('bike_details')}>
         <Text style={styles.fieldLabel}>Brand *</Text>
         <Picker
           value={bikeForm.bike_brand}
@@ -1710,7 +1793,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Contact & Location" expanded={expandedSections.bike_contact} onToggle={() => toggleSection('bike_contact')}>
+      <CollapsibleSection title="Contact & Location" expanded={expandedSections.bike_contact} onToggle={() => toggleSection('bike_contact')} hidden={!isSectionVisible('bike_contact')}>
         <Text style={styles.fieldLabel}>Emirate *</Text>
         <Picker
           value={bikeEmirate}
@@ -1778,7 +1861,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.bike_images} onToggle={() => toggleSection('bike_images')}>
+      <CollapsibleSection title="Images" expanded={expandedSections.bike_images} onToggle={() => toggleSection('bike_images')} hidden={!isSectionVisible('bike_images')}>
         <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
@@ -1787,7 +1870,7 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== PLATE FORM ====================
   const renderPlateForm = () => (
     <View>
-      <CollapsibleSection title="Plate Details" expanded={expandedSections.plate_details} onToggle={() => toggleSection('plate_details')}>
+      <CollapsibleSection title="Plate Details" expanded={expandedSections.plate_details} onToggle={() => toggleSection('plate_details')} hidden={!isSectionVisible('plate_details')}>
         <Text style={styles.fieldLabel}>City *</Text>
         <Picker
           value={plateCity}
@@ -1845,7 +1928,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Contact & Location" expanded={expandedSections.plate_contact} onToggle={() => toggleSection('plate_contact')}>
+      <CollapsibleSection title="Contact & Location" expanded={expandedSections.plate_contact} onToggle={() => toggleSection('plate_contact')} hidden={!isSectionVisible('plate_contact')}>
         {plateAreaOptions.length > 0 ? (
           <Picker
             label="Area *"
@@ -1897,7 +1980,7 @@ export default function PostListingScreen({ navigation, route }) {
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.plate_images} onToggle={() => toggleSection('plate_images')}>
+      <CollapsibleSection title="Images" expanded={expandedSections.plate_images} onToggle={() => toggleSection('plate_images')} hidden={!isSectionVisible('plate_images')}>
         <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
@@ -1906,7 +1989,7 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== PARTS FORM ====================
   const renderPartsForm = () => (
     <View>
-      <CollapsibleSection title="Part Details" expanded={expandedSections.parts_details} onToggle={() => toggleSection('parts_details')}>
+      <CollapsibleSection title="Part Details" expanded={expandedSections.parts_details} onToggle={() => toggleSection('parts_details')} hidden={!isSectionVisible('parts_details')}>
         <Input
           label="Part Name *"
           value={partsForm.name}
@@ -1957,7 +2040,7 @@ export default function PostListingScreen({ navigation, route }) {
         </View>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Compatibility" expanded={expandedSections.parts_compatibility} onToggle={() => toggleSection('parts_compatibility')}>
+      <CollapsibleSection title="Compatibility" expanded={expandedSections.parts_compatibility} onToggle={() => toggleSection('parts_compatibility')} hidden={!isSectionVisible('parts_compatibility')}>
         <Input
           label="Compatible Makes"
           value={partsForm.compatible_makes}
@@ -1981,7 +2064,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Contact & Location" expanded={expandedSections.parts_contact} onToggle={() => toggleSection('parts_contact')}>
+      <CollapsibleSection title="Contact & Location" expanded={expandedSections.parts_contact} onToggle={() => toggleSection('parts_contact')} hidden={!isSectionVisible('parts_contact')}>
         <Text style={styles.fieldLabel}>Emirate *</Text>
         <Picker
           value={partsEmirate}
@@ -2041,7 +2124,7 @@ export default function PostListingScreen({ navigation, route }) {
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.parts_images} onToggle={() => toggleSection('parts_images')}>
+      <CollapsibleSection title="Images" expanded={expandedSections.parts_images} onToggle={() => toggleSection('parts_images')} hidden={!isSectionVisible('parts_images')}>
         <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
       </CollapsibleSection>
     </View>
@@ -2148,6 +2231,25 @@ export default function PostListingScreen({ navigation, route }) {
           )}
           <View style={{ width: 24 }} />
         </View>
+        {!isEditMode && (
+          <View style={styles.stepRow}>
+            {[1, 2, 3].map((n) => (
+              <View
+                key={n}
+                style={[
+                  styles.stepDot,
+                  n === wizardStep && styles.stepDotActive,
+                  n < wizardStep && styles.stepDotDone,
+                ]}
+              />
+            ))}
+            <Text style={styles.stepLabel}>
+              {wizardStep === 1 && 'Step 1 of 3 · Photos'}
+              {wizardStep === 2 && 'Step 2 of 3 · Essentials'}
+              {wizardStep === 3 && 'Step 3 of 3 · Details & review'}
+            </Text>
+          </View>
+        )}
         <ScrollView
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={false}
@@ -2158,12 +2260,40 @@ export default function PostListingScreen({ navigation, route }) {
           {category === 'plate' && renderPlateForm()}
           {category === 'parts' && renderPartsForm()}
 
-          <Button
-            title={isEditMode ? 'Update Listing' : 'Post Listing'}
-            onPress={handleSubmit}
-            loading={loading}
-            style={styles.submitBtn}
-          />
+          {(isEditMode || wizardStep === 3) && (
+            <Button
+              title={isEditMode ? 'Update Listing' : 'Post Listing'}
+              onPress={handleSubmit}
+              loading={loading}
+              style={styles.submitBtn}
+            />
+          )}
+          {!isEditMode && wizardStep < 3 && (
+            <View style={styles.wizardNavRow}>
+              {wizardStep > 1 && (
+                <TouchableOpacity
+                  style={[styles.wizardNavBtn, styles.wizardNavBtnSecondary]}
+                  onPress={() => setWizardStep((s) => Math.max(1, s - 1))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.wizardNavBtnSecondaryText}>Back</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[
+                  styles.wizardNavBtn,
+                  styles.wizardNavBtnPrimary,
+                  wizardStep === 1 && images.length === 0 && styles.wizardNavBtnDisabled,
+                ]}
+                disabled={wizardStep === 1 && images.length === 0}
+                onPress={() => setWizardStep((s) => Math.min(3, s + 1))}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.wizardNavBtnPrimaryText}>Continue</Text>
+                <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -2191,6 +2321,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
   },
   formHeaderTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+  stepRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
+  },
+  stepDot: { width: 24, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)' },
+  stepDotActive: { backgroundColor: COLORS.accent },
+  stepDotDone: { backgroundColor: 'rgba(76,175,80,0.6)' },
+  stepLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600', marginLeft: 8 },
+  wizardNavRow: {
+    flexDirection: 'row', gap: 10, marginTop: SPACING.lg, paddingHorizontal: SPACING.md,
+  },
+  wizardNavBtn: {
+    flex: 1, paddingVertical: 14, borderRadius: BORDER_RADIUS.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    minHeight: 48,
+  },
+  wizardNavBtnPrimary: { backgroundColor: COLORS.accent },
+  wizardNavBtnSecondary: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  wizardNavBtnDisabled: { opacity: 0.4 },
+  wizardNavBtnPrimaryText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.md },
+  wizardNavBtnSecondaryText: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.md },
   formContent: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
   section: { marginBottom: 8 },
   sectionHeader: {
