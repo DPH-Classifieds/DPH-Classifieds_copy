@@ -21,6 +21,19 @@ const formatDecimal = (value, digits = 2) => {
 const formatMoney = (value) =>
   new Intl.NumberFormat('en-AE', { style: 'currency', currency: 'AED', maximumFractionDigits: 0 }).format(Number(value ?? 0));
 
+const formatBytes = (value) => {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
+};
+
 function MetricRow({ label, value, note }) {
   return (
     <View style={styles.metricRow}>
@@ -211,12 +224,58 @@ export default function AdminMetricsScreen() {
 
         <SectionHeader label="USER METRICS" title="Engagement and retention" subtitle="How users interact with the platform." />
 
+        <View style={styles.sourceBadgeRow}>
+          <View style={[styles.sourceBadge, userMetrics.data_source === 'cloudflare' ? styles.sourceBadgeCloudflare : styles.sourceBadgeInternal]}>
+            <Ionicons
+              name={userMetrics.data_source === 'cloudflare' ? 'cloud' : 'analytics-outline'}
+              size={12}
+              color={userMetrics.data_source === 'cloudflare' ? '#fb923c' : 'rgba(255,255,255,0.55)'}
+            />
+            <Text style={[styles.sourceBadgeText, userMetrics.data_source === 'cloudflare' && { color: '#fb923c' }]}>
+              {userMetrics.data_source === 'cloudflare' ? 'Source: Cloudflare' : 'Source: in-app tracker'}
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.surface}>
           <MetricRow label="Repeat Rate" value={formatPercent(repeatRate)} />
           <MetricRow label="Avg Time on Site" value={`${formatDecimal((userMetrics.avg_time_on_site_seconds || 0) / 3600)}h`} />
           <MetricRow label="Pages / Session" value={formatDecimal(userMetrics.avg_pages_per_session || 0)} />
           <MetricRow label="Conversion Rate" value={formatPercent(userMetrics.conversion_rate_percent || 0)} />
         </View>
+
+        {userMetrics.data_source === 'cloudflare' && (
+          <>
+            <Text style={styles.subSectionTitle}>Edge (Cloudflare)</Text>
+            <View style={styles.surface}>
+              <MetricRow
+                label="Edge Requests"
+                value={formatNumber(userMetrics.edge_requests)}
+                note="Total HTTP requests at the edge (incl. bots/assets)"
+              />
+              <MetricRow
+                label="Threats Blocked"
+                value={formatNumber(userMetrics.edge_threats)}
+                note="Bots / WAF rules / DDoS"
+              />
+              <MetricRow
+                label="Cached Requests"
+                value={formatNumber(userMetrics.edge_cached_requests)}
+                note="Served from CF cache (no origin hit)"
+              />
+              <MetricRow
+                label="Bandwidth"
+                value={formatBytes(userMetrics.edge_bytes)}
+                note="Total bytes Cloudflare delivered"
+              />
+              <MetricRow
+                label="Peak Daily Uniques"
+                value={formatNumber(userMetrics.peak_daily_uniques)}
+                note="Highest single-day uniques in window"
+              />
+            </View>
+          </>
+        )}
 
         <Text style={styles.subSectionTitle}>Cohort Retention</Text>
         <View style={styles.surface}>
@@ -388,4 +447,9 @@ const styles = StyleSheet.create({
   chartFill: { height: 6, backgroundColor: COLORS.accent, borderRadius: 3 },
   chartValue: { width: 36, fontSize: 10, fontWeight: '600', color: COLORS.white, textAlign: 'right' },
   emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: 12 },
+  sourceBadgeRow: { flexDirection: 'row', marginBottom: 8 },
+  sourceBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
+  sourceBadgeInternal: { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.12)' },
+  sourceBadgeCloudflare: { backgroundColor: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.4)' },
+  sourceBadgeText: { fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
 });

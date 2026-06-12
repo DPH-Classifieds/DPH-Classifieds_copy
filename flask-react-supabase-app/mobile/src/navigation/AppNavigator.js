@@ -1,5 +1,6 @@
 import React, { useRef, useMemo } from 'react';
-import { View } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { buildNavigationStateChangeHandler } from '../utils/platformTracker';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -134,26 +135,52 @@ function ProfileStack() {
   );
 }
 
-// Render the gated stack only when authenticated. When the user is logged
-// out and lands on this tab, push the Auth modal directly (no intermediate
-// "Sign in Required" page) and render an empty placeholder behind the modal.
-function makeAuthGatedStack(StackComponent, redirectRoute) {
+// Inline "Sign in required" placeholder shown for auth-gated tabs when the
+// user is logged out. Previously this stack would auto-navigate to the Auth
+// modal on every render where `user` was null, which created a loop on iOS:
+// the user would dismiss the modal by swiping/pulling it down, and the
+// useEffect would slam it right back up before the dismissal animation
+// settled. Render an inline screen instead and let the user opt in.
+function SignInRequiredScreen({ redirectRoute, label }) {
+  const navigation = useNavigation();
+  const goToLogin = () => {
+    const rootNav = navigation.getParent()?.getParent() || navigation.getParent() || navigation;
+    rootNav.navigate('Auth', { screen: 'Login', params: { redirect: redirectRoute } });
+  };
+  return (
+    <SafeAreaView style={signInStyles.container} edges={['top']}>
+      <View style={signInStyles.inner}>
+        <Ionicons name="lock-closed-outline" size={48} color="#4CAF50" />
+        <Text style={signInStyles.title}>Sign in required</Text>
+        <Text style={signInStyles.subtitle}>{label}</Text>
+        <TouchableOpacity style={signInStyles.btn} onPress={goToLogin} activeOpacity={0.8}>
+          <Text style={signInStyles.btnText}>Sign In</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const signInStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000000' },
+  inner: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 12 },
+  title: { color: '#ffffff', fontSize: 22, fontWeight: '700', marginTop: 8 },
+  subtitle: { color: 'rgba(255,255,255,0.65)', fontSize: 15, textAlign: 'center' },
+  btn: { backgroundColor: '#4CAF50', paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12, marginTop: 16 },
+  btnText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+});
+
+function makeAuthGatedStack(StackComponent, redirectRoute, label) {
   return function GatedStack() {
-    const navigation = useNavigation();
     const { user } = useAuth();
-    React.useEffect(() => {
-      if (user) return;
-      const rootNav = navigation.getParent()?.getParent() || navigation.getParent() || navigation;
-      rootNav.navigate('Auth', { screen: 'Login', params: { redirect: redirectRoute } });
-    }, [user, navigation]);
-    if (!user) return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
+    if (!user) return <SignInRequiredScreen redirectRoute={redirectRoute} label={label} />;
     return <StackComponent />;
   };
 }
 
-const AuthGatePostStack = makeAuthGatedStack(PostStack, 'Post');
-const AuthGateSavedStack = makeAuthGatedStack(SavedStack, 'Saved');
-const AuthGateProfileStack = makeAuthGatedStack(ProfileStack, 'Profile');
+const AuthGatePostStack = makeAuthGatedStack(PostStack, 'Post', 'Sign in to post a listing.');
+const AuthGateSavedStack = makeAuthGatedStack(SavedStack, 'Saved', 'Sign in to see your saved listings.');
+const AuthGateProfileStack = makeAuthGatedStack(ProfileStack, 'Profile', 'Sign in to manage your profile.');
 
 function MainTabs() {
   return (

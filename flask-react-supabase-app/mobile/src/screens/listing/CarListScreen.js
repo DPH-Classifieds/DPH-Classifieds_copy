@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -65,19 +65,18 @@ export default function CarListScreen({ navigation }) {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const buildQuery = useCallback((pageNum, searchVal, filters) => {
-    let params = [`page=${pageNum}`, `per_page=${PAGE_SIZE}`];
-    if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
-    if (filters.make) params.push(`make=${encodeURIComponent(filters.make)}`);
-    if (filters.year) params.push(`year=${filters.year}`);
+  const buildQuery = useCallback((pageNum, _searchVal, filters) => {
+    const offset = (pageNum - 1) * PAGE_SIZE;
+    const params = [`limit=${PAGE_SIZE}`, `offset=${offset}`];
+    if (filters.make) params.push(`car_manufacturer=${encodeURIComponent(filters.make)}`);
+    if (filters.year) {
+      params.push(`make_year_from=${filters.year}`, `make_year_to=${filters.year}`);
+    }
     if (filters.fuel) params.push(`fuel_type=${encodeURIComponent(filters.fuel)}`);
-    if (filters.transmission) params.push(`transmission=${encodeURIComponent(filters.transmission)}`);
+    if (filters.transmission) params.push(`transmission_type=${encodeURIComponent(filters.transmission)}`);
     if (filters.priceRange) {
-      if (filters.priceRange.max > 0) {
-        params.push(`min_price=${filters.priceRange.min}`, `max_price=${filters.priceRange.max}`);
-      } else if (filters.priceRange.min > 0) {
-        params.push(`min_price=${filters.priceRange.min}`);
-      }
+      if (filters.priceRange.min > 0) params.push(`price_from=${filters.priceRange.min}`);
+      if (filters.priceRange.max > 0) params.push(`price_to=${filters.priceRange.max}`);
     }
     return `/api/cars?${params.join('&')}`;
   }, []);
@@ -115,8 +114,7 @@ export default function CarListScreen({ navigation }) {
 
   const handleSearch = useCallback((text) => {
     setSearch(text);
-    fetchCars(1, text, activeFilters);
-  }, [fetchCars, activeFilters]);
+  }, []);
 
   const handleRefresh = useCallback(() => {
     fetchCars(1, search, activeFilters, true);
@@ -143,6 +141,22 @@ export default function CarListScreen({ navigation }) {
   };
 
   const hasActiveFilters = Object.values(activeFilters).some(v => v !== '' && v !== null);
+
+  const visibleCars = useMemo(() => {
+    if (!search.trim()) return cars;
+    const q = search.toLowerCase();
+    return cars.filter((c) => {
+      const haystack = [
+        c.listing_title,
+        c.car_manufacturer,
+        c.car_model,
+        c.trim,
+        c.make_year != null ? String(c.make_year) : '',
+        c.car_city,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [cars, search]);
 
   const renderFilterChip = (label, key, isActive) => (
     <TouchableOpacity
@@ -301,7 +315,7 @@ export default function CarListScreen({ navigation }) {
         </View>
       ) : (
         <FlatList
-          data={cars}
+          data={visibleCars}
           renderItem={renderCarCard}
           keyExtractor={(item, idx) => String(item.id || idx)}
           contentContainerStyle={styles.listContent}

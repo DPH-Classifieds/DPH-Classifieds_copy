@@ -30,12 +30,27 @@ export default function AdminListingDetailScreen({ route, navigation }) {
     }
   };
 
+  const listingTypeForEdit = () => {
+    const t = (itemType || '').replace(/s$/, '');
+    if (t === 'plate') return 'plate';
+    if (t === 'part') return 'parts';
+    return t;
+  };
+
+  const handleEdit = () => {
+    navigation.navigate('EditListing', {
+      editMode: true,
+      listingType: listingTypeForEdit(),
+      listingId: itemId,
+    });
+  };
+
   const handleApprove = async () => {
     try {
       await apiClient.post(`/api/admin/approve/${itemType}/${itemId}/approve`);
       Alert.alert('Approved', 'Listing has been approved.');
       navigation.goBack();
-    } catch (err) { Alert.alert('Error', err.message); }
+    } catch (err) { Alert.alert('Error', err?.message || 'Failed to approve.'); }
   };
 
   const handleReject = async () => {
@@ -44,10 +59,10 @@ export default function AdminListingDetailScreen({ route, navigation }) {
         text: reason,
         onPress: async () => {
           try {
-            await apiClient.post(`/api/admin/approve/${itemType}/${itemId}/reject`, { reason });
+            await apiClient.post(`/api/admin/approve/${itemType}/${itemId}/reject`, { rejection_note: reason });
             Alert.alert('Rejected', 'Listing has been rejected.');
             navigation.goBack();
-          } catch (err) { Alert.alert('Error', err.message); }
+          } catch (err) { Alert.alert('Error', err?.message || 'Failed to reject.'); }
         },
       })),
       { text: 'Cancel', style: 'cancel' },
@@ -58,8 +73,10 @@ export default function AdminListingDetailScreen({ route, navigation }) {
     Alert.alert('Delete', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await apiClient.delete(`/${itemType}/${itemId}/delete`); navigation.goBack(); }
-        catch (err) { Alert.alert('Error', err.message); }
+        try {
+          await apiClient.delete(`/api/admin/listings/${itemId}/delete?type=${encodeURIComponent(itemType)}`);
+          navigation.goBack();
+        } catch (err) { Alert.alert('Error', err?.message || 'Failed to delete.'); }
       }},
     ]);
   };
@@ -154,6 +171,10 @@ export default function AdminListingDetailScreen({ route, navigation }) {
               <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
               <Text style={styles.approveBtnText}>Approve</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.editBtn} onPress={handleEdit} activeOpacity={0.7}>
+              <Ionicons name="create-outline" size={18} color={COLORS.white} />
+              <Text style={styles.editBtnText}>Edit</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.7}>
               <Ionicons name="close-circle" size={18} color={COLORS.error} />
               <Text style={styles.rejectBtnText}>Reject</Text>
@@ -185,6 +206,8 @@ const styles = StyleSheet.create({
   actions: { gap: SPACING.sm, marginTop: SPACING.lg },
   approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, paddingHorizontal: SPACING.md, justifyContent: 'center' },
   approveBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+  editBtnText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
   rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
   rejectBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },

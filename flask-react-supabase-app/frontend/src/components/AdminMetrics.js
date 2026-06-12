@@ -48,6 +48,19 @@ const formatMoney = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value ?? 0));
 
+const formatBytes = (value) => {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
+};
+
 // ─── shared primitives ───────────────────────────────────────────────────────
 
 /** Underline-tab bar */
@@ -485,7 +498,7 @@ const AdminMetrics = () => {
                     ) : (
                       <span
                         className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/40 border border-white/10"
-                        title={userMetrics.data_source_note || 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID on the backend to switch to Cloudflare edge data.'}
+                        title={userMetrics.data_source_note || 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN plus CLOUDFLARE_ACCOUNT_ID (or CLOUDFLARE_ZONE_ID) on the backend to switch to Cloudflare edge data.'}
                       >
                         Source: in-app tracker
                       </span>
@@ -500,6 +513,9 @@ const AdminMetrics = () => {
                       ...(userMetrics.data_source === 'cloudflare' ? [
                         { label: 'Edge requests', value: formatNumber(userMetrics.edge_requests), note: 'Total HTTP requests at the edge (incl. bots/assets)' },
                         { label: 'Threats blocked', value: formatNumber(userMetrics.edge_threats), note: 'Bots / WAF rules / DDoS' },
+                        { label: 'Cached requests', value: formatNumber(userMetrics.edge_cached_requests), note: 'Served from Cloudflare cache (no origin hit)' },
+                        { label: 'Bandwidth', value: formatBytes(userMetrics.edge_bytes), note: 'Total bytes Cloudflare delivered for this window' },
+                        { label: 'Peak daily uniques', value: formatNumber(userMetrics.peak_daily_uniques), note: 'Highest single-day uniques in the window' },
                       ] : []),
                     ]}
                   />

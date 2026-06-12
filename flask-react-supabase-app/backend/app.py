@@ -14548,6 +14548,75 @@ def get_admin_metrics_overview(current_user):
         return jsonify({"error": "Failed to fetch admin metrics"}), 500
 
 
+@app.route("/api/admin/cloudflare/status", methods=["GET"])
+@token_required
+def get_admin_cloudflare_status(current_user):
+    """Diagnostic: report what the Cloudflare integration sees right now.
+
+    Admins call this after deploying env vars to confirm the wiring works
+    end-to-end without waiting for the metrics page to render.
+    """
+    try:
+        user_details = _get_user_details_with_admin_status(current_user)
+        if not user_details or not user_details.get("is_admin"):
+            return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        from services.cloudflare_analytics import (
+            fetch_zone_metrics as _cf_fetch,
+            is_enabled as _cf_enabled,
+            _resolve_zone_id as _cf_resolve_zone,
+        )
+
+        payload = {
+            "token_present": bool(os.getenv("CLOUDFLARE_API_TOKEN")),
+            "account_id_present": bool(os.getenv("CLOUDFLARE_ACCOUNT_ID")),
+            "zone_id_present": bool(os.getenv("CLOUDFLARE_ZONE_ID")),
+            "enabled": _cf_enabled(),
+        }
+        if not _cf_enabled():
+            payload["status"] = "disabled"
+            payload["reason"] = (
+                "Set CLOUDFLARE_API_TOKEN plus either CLOUDFLARE_ZONE_ID "
+                "or CLOUDFLARE_ACCOUNT_ID."
+            )
+            return jsonify(payload), 200
+
+        resolved_zone = _cf_resolve_zone()
+        payload["resolved_zone_id"] = resolved_zone
+        if not resolved_zone:
+            payload["status"] = "zone_unresolved"
+            payload["reason"] = (
+                "Token + ACCOUNT_ID present but no zones returned. The token "
+                "needs Zone:Read on the account, or set CLOUDFLARE_ZONE_ID."
+            )
+            return jsonify(payload), 200
+
+        sample = _cf_fetch(7)
+        if not sample:
+            payload["status"] = "fetch_failed"
+            payload["reason"] = (
+                "Zone resolved but the GraphQL Analytics call failed. The "
+                "token needs Zone Analytics:Read on this zone."
+            )
+            return jsonify(payload), 200
+
+        payload["status"] = "ok"
+        payload["sample_7d"] = {
+            "unique_visitors": sample.get("unique_visitors"),
+            "page_views": sample.get("page_views"),
+            "requests": sample.get("requests"),
+            "threats": sample.get("threats"),
+            "cached_requests": sample.get("cached_requests"),
+            "bytes": sample.get("bytes"),
+            "peak_daily_uniques": sample.get("peak_daily_uniques"),
+            "days_returned": len(sample.get("daily_trends") or []),
+        }
+        return jsonify(payload), 200
+    except Exception as e:
+        logger.error(f"Error fetching Cloudflare status: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/admin/live-users", methods=["GET"])
 @token_required
 def get_admin_live_users(current_user):

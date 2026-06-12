@@ -159,23 +159,23 @@ export default function AdminListingsScreen({ navigation }) {
   const handleApprove = async (item) => {
     try {
       const typeKey = item.listing_type || 'cars';
-      await apiClient.post(`/${typeKey}/${item.id}/approve`);
+      await apiClient.post(`/api/admin/approve/${typeKey}/${item.id}/approve`);
       setListings((prev) => prev.filter((l) => l.id !== item.id));
     } catch (err) {
-      Alert.alert('Error', 'Failed to approve listing.');
+      Alert.alert('Error', err?.message || 'Failed to approve listing.');
     }
   };
 
   const handleReject = async (item) => {
     const reasonButtons = REJECTION_REASONS.map((reason) => ({
       text: reason,
-      onPress: async (reasonText) => {
+      onPress: async () => {
         try {
           const typeKey = item.listing_type || 'cars';
-          await apiClient.post(`/${typeKey}/${item.id}/reject`, { reason: reasonText || reason });
+          await apiClient.post(`/api/admin/approve/${typeKey}/${item.id}/reject`, { rejection_note: reason });
           setListings((prev) => prev.filter((l) => l.id !== item.id));
         } catch (err) {
-          Alert.alert('Error', 'Failed to reject listing.');
+          Alert.alert('Error', err?.message || 'Failed to reject listing.');
         }
       },
     }));
