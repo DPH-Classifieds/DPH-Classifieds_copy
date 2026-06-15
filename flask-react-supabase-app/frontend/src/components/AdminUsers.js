@@ -1,10 +1,11 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Eye, Users, ShieldCheck, Store } from 'lucide-react';
+import { Eye, Users, ShieldCheck, Store, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { GlassCard, EmptyState } from './ui/dashboard';
+import ReasonModal from './admin/ReasonModal';
 
 const PRIMARY_SUPER_ADMIN_EMAIL = 'admin@dphclassifieds.com';
 const PRIMARY_SUPER_ADMIN_USERNAME = 'dphclassifieds';
@@ -64,8 +65,8 @@ const StatusBadge = ({ status }) => {
   const s = String(status || 'active').toLowerCase();
   const map = {
     active: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-    suspended: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
-    banned: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
+    suspended: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+    banned: 'bg-rose-600/15 text-rose-300 border-rose-600/30',
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[s] || 'bg-white/5 text-white/40 border-white/10'}`}>
@@ -95,7 +96,16 @@ const STATUS_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'active', label: 'Active' },
   { key: 'suspended', label: 'Suspended' },
+  { key: 'banned', label: 'Banned' },
 ];
+
+const summarizeArchiveCounts = (counts) => {
+  if (!counts || typeof counts !== 'object') return '';
+  const parts = Object.entries(counts)
+    .filter(([, n]) => Number(n) > 0)
+    .map(([type, n]) => `${n} ${type}${Number(n) === 1 ? '' : 's'}`);
+  return parts.length ? ` (archived ${parts.join(', ')})` : '';
+};
 
 const AdminUsers = () => {
   const { user } = useAuth();
@@ -107,31 +117,42 @@ const AdminUsers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [modalState, setModalState] = useState({ open: false, action: null, user: null });
+  const [modalBusy, setModalBusy] = useState(false);
+
+  const flashSuccess = useCallback((msg) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(null), 4000);
+  }, []);
+
+  const fetchUsers = useCallback(async ({ withSpinner = false } = {}) => {
+    try {
+      if (withSpinner) setLoading(true);
+      const response = await apiClient.get('/api/admin/users');
+      // Backend now returns {users, total, limit, offset}; tolerate the legacy flat array too.
+      setUsers(
+        Array.isArray(response?.users)
+          ? response.users
+          : (Array.isArray(response) ? response : [])
+      );
+      setError(null);
+    } catch (err) {
+      setError('Failed to fetch users');
+      console.error('Error fetching users:', err);
+    } finally {
+      if (withSpinner) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const response = await apiClient.get('/api/admin/users');
-        setUsers(Array.isArray(response) ? response : []);
-        setError(null);
-      } catch (err) {
-        setError('Failed to fetch users');
-        console.error('Error fetching users:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUsers();
-  }, []);
+    fetchUsers({ withSpinner: true });
+  }, [fetchUsers]);
 
   const handleMakeAdmin = async (userId) => {
     try {
       await apiClient.post(`/api/admin/users/${userId}/make-admin`);
-      setSuccess('User has been made an admin successfully');
-      const response = await apiClient.get('/api/admin/users');
-      setUsers(Array.isArray(response) ? response : []);
-      setTimeout(() => setSuccess(null), 3000);
+      flashSuccess('User has been made an admin successfully');
+      await fetchUsers();
     } catch (err) {
       setError('Failed to make user admin');
       console.error('Error making user admin:', err);
@@ -141,26 +162,67 @@ const AdminUsers = () => {
   const handleRemoveAdmin = async (userId) => {
     try {
       await apiClient.post(`/api/admin/users/${userId}/remove-admin`);
-      setSuccess('Admin privileges removed successfully');
-      const response = await apiClient.get('/api/admin/users');
-      setUsers(Array.isArray(response) ? response : []);
-      setTimeout(() => setSuccess(null), 3000);
+      flashSuccess('Admin privileges removed successfully');
+      await fetchUsers();
     } catch (err) {
       setError('Failed to remove admin privileges');
       console.error('Error removing admin:', err);
     }
   };
 
-  const handleStatusChange = async (userId, nextStatus) => {
+  const openActionModal = (action, userRecord) => {
+    setError(null);
+    setModalState({ open: true, action, user: userRecord });
+  };
+
+  const closeActionModal = () => {
+    if (modalBusy) return;
+    setModalState({ open: false, action: null, user: null });
+  };
+
+  const handleModalConfirm = async (reason) => {
+    const { action, user: target } = modalState;
+    if (!action || !target) return;
+    setModalBusy(true);
     try {
-      await apiClient.patch(`/api/admin/users/${userId}/status`, { status: nextStatus });
-      const response = await apiClient.get('/api/admin/users');
-      setUsers(Array.isArray(response) ? response : []);
-      setSuccess(`User ${nextStatus === 'suspended' ? 'suspended' : 'reactivated'} successfully`);
-      setTimeout(() => setSuccess(null), 3000);
+      let response;
+      if (action === 'suspend') {
+        response = await apiClient.patch(`/api/admin/users/${target.id}/status`, {
+          status: 'suspended',
+          reason,
+        });
+        flashSuccess(`User suspended${summarizeArchiveCounts(response?.archive_counts)}`);
+      } else if (action === 'ban') {
+        response = await apiClient.patch(`/api/admin/users/${target.id}/status`, {
+          status: 'banned',
+          reason,
+        });
+        flashSuccess(`User banned${summarizeArchiveCounts(response?.archive_counts)}`);
+      } else if (action === 'reactivate') {
+        response = await apiClient.patch(`/api/admin/users/${target.id}/status`, {
+          status: 'active',
+        });
+        flashSuccess('User reactivated');
+      } else if (action === 'delete') {
+        // apiClient.delete does not currently support a body — pass reason via querystring.
+        response = await apiClient.delete(
+          `/api/admin/users/${target.id}?reason=${encodeURIComponent(reason)}`
+        );
+        flashSuccess(`User deleted${summarizeArchiveCounts(response?.archive_counts)}`);
+      }
+      setModalState({ open: false, action: null, user: null });
+      await fetchUsers();
     } catch (err) {
-      setError('Failed to update user status');
-      console.error('Error updating user status:', err);
+      const fallback = {
+        suspend: 'Failed to suspend user',
+        ban: 'Failed to ban user',
+        reactivate: 'Failed to reactivate user',
+        delete: 'Failed to delete user',
+      }[action] || 'Action failed';
+      setError(err?.message || fallback);
+      console.error('Action failed:', err);
+    } finally {
+      setModalBusy(false);
     }
   };
 
@@ -168,9 +230,10 @@ const AdminUsers = () => {
     const total = users.length;
     const admins = users.filter((u) => u.is_admin).length;
     const dealers = users.filter((u) => u.is_dealer).length;
-    const suspended = users.filter((u) => (u.account_status || 'active') === 'suspended' || (u.account_status || 'active') === 'banned').length;
+    const suspended = users.filter((u) => (u.account_status || 'active') === 'suspended').length;
+    const banned = users.filter((u) => (u.account_status || 'active') === 'banned').length;
     const verified = users.filter((u) => u.email_verified && u.phone_verified).length;
-    return { total, admins, dealers, suspended, verified };
+    return { total, admins, dealers, suspended, banned, verified };
   }, [users]);
 
   const getDisplayName = (u) => {
@@ -205,10 +268,12 @@ const AdminUsers = () => {
         (roleFilter === 'admin' && u.is_admin) ||
         (roleFilter === 'dealer' && u.is_dealer) ||
         (roleFilter === 'regular' && !u.is_admin && !u.is_dealer);
+      const status = (u.account_status || 'active');
       const matchStatus =
         statusFilter === 'all' ||
-        (statusFilter === 'active' && (u.account_status || 'active') === 'active') ||
-        (statusFilter === 'suspended' && ((u.account_status || 'active') === 'suspended' || (u.account_status || 'active') === 'banned'));
+        (statusFilter === 'active' && status === 'active') ||
+        (statusFilter === 'suspended' && status === 'suspended') ||
+        (statusFilter === 'banned' && status === 'banned');
       return matchSearch && matchRole && matchStatus;
     });
   }, [users, searchQuery, roleFilter, statusFilter]);
@@ -248,12 +313,13 @@ const AdminUsers = () => {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: 'Total', value: userSummary.total, icon: Users },
           { label: 'Admins', value: userSummary.admins, icon: ShieldCheck },
           { label: 'Dealers', value: userSummary.dealers, icon: Store },
           { label: 'Suspended', value: userSummary.suspended, icon: null },
+          { label: 'Banned', value: userSummary.banned, icon: null },
         ].map((kpi) => (
           <GlassCard key={kpi.label} className="flex flex-col gap-1">
             <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{kpi.label}</p>
@@ -316,8 +382,12 @@ const AdminUsers = () => {
                     const displayName = getDisplayName(u);
                     const initials = getInitials(u);
                     const accountStatus = u.account_status || 'active';
-                    const isSuspended = accountStatus === 'suspended' || accountStatus === 'banned';
+                    const isSuspended = accountStatus === 'suspended';
+                    const isBanned = accountStatus === 'banned';
+                    const isInactive = isSuspended || isBanned;
                     const listingCount = u.listing_count ?? u.listings_count ?? null;
+                    const isSelf = u.id === user?.id;
+                    const isProtected = isSelf || isProtectedSuperAdmin(u);
 
                     return (
                       <motion.tr
@@ -373,7 +443,7 @@ const AdminUsers = () => {
                               <button
                                 title="Remove admin"
                                 onClick={() => handleRemoveAdmin(u.id)}
-                                disabled={u.id === user?.id || isProtectedSuperAdmin(u)}
+                                disabled={isProtected}
                                 className="px-2 py-1 rounded-full text-[10px] font-semibold border bg-white/5 text-white/50 border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                               >
                                 Remove Admin
@@ -388,17 +458,40 @@ const AdminUsers = () => {
                                 Make Admin
                               </button>
                             )}
+                            {isInactive ? (
+                              <button
+                                title="Reactivate user"
+                                onClick={() => openActionModal('reactivate', u)}
+                                disabled={isProtected}
+                                className="px-2 py-1 rounded-full text-[10px] font-semibold border bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              >
+                                Reactivate
+                              </button>
+                            ) : (
+                              <button
+                                title="Suspend user"
+                                onClick={() => openActionModal('suspend', u)}
+                                disabled={isProtected}
+                                className="px-2 py-1 rounded-full text-[10px] font-semibold border bg-amber-500/10 text-amber-300 border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              >
+                                Suspend
+                              </button>
+                            )}
                             <button
-                              title={isSuspended ? 'Activate' : 'Suspend'}
-                              onClick={() => handleStatusChange(u.id, isSuspended ? 'active' : 'suspended')}
-                              disabled={u.id === user?.id || isProtectedSuperAdmin(u)}
-                              className={`px-2 py-1 rounded-full text-[10px] font-semibold border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                                isSuspended
-                                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20'
-                                  : 'bg-rose-500/10 text-rose-300 border-rose-500/20 hover:bg-rose-500/20'
-                              }`}
+                              title="Ban user"
+                              onClick={() => openActionModal('ban', u)}
+                              disabled={isProtected || isBanned}
+                              className="px-2 py-1 rounded-full text-[10px] font-semibold border bg-rose-500/10 text-rose-300 border-rose-500/20 hover:bg-rose-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                             >
-                              {isSuspended ? 'Activate' : 'Suspend'}
+                              Ban
+                            </button>
+                            <button
+                              title="Delete user"
+                              onClick={() => openActionModal('delete', u)}
+                              disabled={isProtected}
+                              className="p-1.5 rounded-lg text-rose-300/70 hover:text-rose-300 hover:bg-rose-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
@@ -415,6 +508,15 @@ const AdminUsers = () => {
           </div>
         )}
       </GlassCard>
+
+      <ReasonModal
+        open={modalState.open}
+        action={modalState.action}
+        userLabel={modalState.user ? (getDisplayName(modalState.user) + (modalState.user.email ? ` · ${modalState.user.email}` : '')) : ''}
+        busy={modalBusy}
+        onClose={closeActionModal}
+        onConfirm={handleModalConfirm}
+      />
     </div>
   );
 };

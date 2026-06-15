@@ -10,6 +10,7 @@ import {
   XCircle,
   Trash2,
   Send,
+  RefreshCw,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { GlassCard, EmptyState } from './ui/dashboard';
@@ -111,7 +112,7 @@ const StatusBadge = ({ status }) => {
 
 const SkeletonRow = () => (
   <tr className="border-b border-white/[0.04] animate-pulse">
-    {[...Array(8)].map((_, i) => (
+    {[...Array(9)].map((_, i) => (
       <td key={i} className="px-4 py-3">
         <div className="h-3 bg-white/5 rounded-full w-full" />
       </td>
@@ -144,6 +145,11 @@ const AdminListings = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [toastType, setToastType] = useState('success');
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  const [renewReason, setRenewReason] = useState('');
+  const [showBulkRenewModal, setShowBulkRenewModal] = useState(false);
+  const [bulkRenewReason, setBulkRenewReason] = useState('');
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const navigate = useNavigate();
 
   const showToast = (message, type = 'success') => {
@@ -312,6 +318,89 @@ const AdminListings = () => {
         console.error('Failed to send renewal nudge:', error);
         showToast(detail?.error || 'Failed to send renewal nudge. Please try again.', 'error');
       }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const isRenewable = (listing) => {
+    if (!listing) return false;
+    const ds = String(
+      listing.display_status || listing.listing_state || listing.status || ''
+    ).toLowerCase();
+    if (ds === 'expired') return true;
+    const exp = listing.expires_at;
+    if (!exp) return false;
+    const ms = new Date(exp).getTime();
+    if (Number.isNaN(ms)) return false;
+    const diff = ms - Date.now();
+    // within next 7 days (and not already long-expired beyond a week into the past)
+    return diff <= 7 * 24 * 60 * 60 * 1000 && diff >= -30 * 24 * 60 * 60 * 1000;
+  };
+
+  const rowKey = (listing) => `${listing.listing_type || 'cars'}:${listing.id}`;
+
+  const toggleRowSelected = (listing) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const key = rowKey(listing);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleRenewSingle = async () => {
+    if (!selectedListing) return;
+    const lt = selectedListing.listing_type || 'cars';
+    try {
+      setActionLoading(true);
+      await apiClient.post(
+        `/api/admin/listings/${lt}/${selectedListing.id}/renew`,
+        { reason: renewReason.trim() || undefined }
+      );
+      showToast('Listing renewed successfully', 'success');
+      setShowRenewModal(false);
+      setRenewReason('');
+      setSelectedListing(null);
+      fetchListings();
+    } catch (error) {
+      console.error('Failed to renew listing:', error);
+      const detail = error?.response?.data || error?.data;
+      showToast(detail?.error || 'Failed to renew listing. Please try again.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkRenew = async () => {
+    const items = [];
+    for (const key of selectedIds) {
+      const [type, id] = key.split(':');
+      if (type && id) items.push({ type, id });
+    }
+    if (items.length === 0) return;
+    try {
+      setActionLoading(true);
+      const resp = await apiClient.post(
+        '/api/admin/listings/renew-bulk',
+        { items, reason: bulkRenewReason.trim() || undefined }
+      );
+      const total = Number(resp?.total ?? items.length);
+      const succeeded = Number(resp?.succeeded ?? 0);
+      const failed = Number(resp?.failed ?? Math.max(0, total - succeeded));
+      const msg = `Renewed ${succeeded} of ${total}. ${failed} failed.`;
+      showToast(msg, failed === 0 ? 'success' : 'error');
+      setShowBulkRenewModal(false);
+      setBulkRenewReason('');
+      clearSelection();
+      fetchListings();
+    } catch (error) {
+      console.error('Failed to bulk-renew listings:', error);
+      const detail = error?.response?.data || error?.data;
+      showToast(detail?.error || 'Bulk renew failed. Please try again.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -504,8 +593,8 @@ const AdminListings = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                {['Thumbnail', 'Listing', 'Type', 'Status', 'Seller', 'Views', 'Created', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium whitespace-nowrap">
+                {['', 'Thumbnail', 'Listing', 'Type', 'Status', 'Seller', 'Views', 'Created', 'Actions'].map((h, idx) => (
+                  <th key={`${h}-${idx}`} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -517,7 +606,7 @@ const AdminListings = () => {
                 : filtered.length === 0
                   ? (
                     <tr>
-                      <td colSpan={8} className="py-0">
+                      <td colSpan={9} className="py-0">
                         <EmptyState icon={Inbox} title="No listings match your filters." />
                       </td>
                     </tr>
@@ -533,6 +622,9 @@ const AdminListings = () => {
                     const ds = String(displayStatus || '').toLowerCase();
                     const showNudge = ds === 'expired' || ds === 'deleted';
                     const lastNudgeAt = listing.renewal_nudge_sent_at;
+                    const canRenew = isRenewable(listing);
+                    const key = rowKey(listing);
+                    const isSelected = selectedIds.has(key);
 
                     return (
                       <motion.tr
@@ -543,6 +635,19 @@ const AdminListings = () => {
                         onClick={() => navigate(`/admin/listings/${lt}/${listing.id}`)}
                         className="border-b border-white/[0.04] hover:bg-white/[0.04] transition-colors group cursor-pointer"
                       >
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          {canRenew ? (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleRowSelected(listing)}
+                              aria-label="Select listing for bulk renew"
+                              className="w-4 h-4 rounded border-white/20 bg-white/[0.04] accent-emerald-500 cursor-pointer"
+                            />
+                          ) : (
+                            <span className="inline-block w-4 h-4" />
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {thumb ? (
                             <img
@@ -606,6 +711,22 @@ const AdminListings = () => {
                                 disabled={actionLoading}
                               >
                                 <Send size={15} />
+                              </button>
+                            )}
+                            {canRenew && (
+                              <button
+                                title="Renew listing on behalf of owner"
+                                aria-label="Renew listing"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedListing(listing);
+                                  setRenewReason('');
+                                  setShowRenewModal(true);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
+                                disabled={actionLoading}
+                              >
+                                <RefreshCw size={15} />
                               </button>
                             )}
                             {isPending && (
@@ -780,6 +901,88 @@ const AdminListings = () => {
           </motion.div>
         )}
 
+        {/* Renew Modal (single) */}
+        {showRenewModal && selectedListing && (
+          <motion.div
+            key="renew-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <GlassCard className="w-full max-w-md space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-emerald-300">Renew Listing</h2>
+                <button onClick={() => { setShowRenewModal(false); setRenewReason(''); setSelectedListing(null); }} className="text-white/40 hover:text-white/80 transition-colors">
+                  <XCircle size={18} />
+                </button>
+              </div>
+              <p className="text-sm text-white/70">
+                Renew <strong className="text-white">{getListingTitle(selectedListing)}</strong> on behalf of the owner?
+              </p>
+              <div className="space-y-3">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Reason (optional)</label>
+                <textarea
+                  value={renewReason}
+                  onChange={(e) => setRenewReason(e.target.value)}
+                  placeholder="Internal note for the audit log…"
+                  rows={3}
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setShowRenewModal(false); setRenewReason(''); setSelectedListing(null); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                  Cancel
+                </button>
+                <button onClick={handleRenewSingle} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-2 text-sm">
+                  {actionLoading ? 'Renewing…' : 'Confirm Renew'}
+                </button>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {/* Bulk Renew Modal */}
+        {showBulkRenewModal && (
+          <motion.div
+            key="bulk-renew-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <GlassCard className="w-full max-w-md space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-emerald-300">Renew {selectedIds.size} Selected</h2>
+                <button onClick={() => { setShowBulkRenewModal(false); setBulkRenewReason(''); }} className="text-white/40 hover:text-white/80 transition-colors">
+                  <XCircle size={18} />
+                </button>
+              </div>
+              <p className="text-sm text-white/70">
+                Renew <strong className="text-white">{selectedIds.size}</strong> listing{selectedIds.size === 1 ? '' : 's'} on behalf of their owners?
+              </p>
+              <div className="space-y-3">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Reason (optional)</label>
+                <textarea
+                  value={bulkRenewReason}
+                  onChange={(e) => setBulkRenewReason(e.target.value)}
+                  placeholder="Internal note for the audit log…"
+                  rows={3}
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setShowBulkRenewModal(false); setBulkRenewReason(''); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                  Cancel
+                </button>
+                <button onClick={handleBulkRenew} disabled={actionLoading || selectedIds.size === 0} className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-50">
+                  {actionLoading ? 'Renewing…' : `Confirm Renew (${selectedIds.size})`}
+                </button>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
         {/* Delete Modal */}
         {showDeleteModal && selectedListing && (
           <motion.div
@@ -859,6 +1062,37 @@ const AdminListings = () => {
                 </>
               )}
             </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating bulk-action bar */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <motion.div
+            key="bulk-bar"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl bg-[rgba(15,25,20,0.95)] border border-emerald-500/30 backdrop-blur-md"
+          >
+            <span className="text-sm text-white/80 font-medium">
+              {selectedIds.size} selected
+            </span>
+            <button
+              onClick={() => setShowBulkRenewModal(true)}
+              disabled={actionLoading}
+              className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
+            >
+              <RefreshCw size={14} />
+              Renew {selectedIds.size} selected
+            </button>
+            <button
+              onClick={clearSelection}
+              className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-3 py-1.5 text-sm border border-white/10"
+            >
+              Clear
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

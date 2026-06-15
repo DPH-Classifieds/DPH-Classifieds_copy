@@ -9212,6 +9212,63 @@ def logout(current_user):
     return response
 
 
+@app.route("/api/user/drafts", methods=["GET"])
+@token_required
+def list_user_drafts(current_user):
+    """Return all in-progress wizard drafts for the user (for the Drafts tab)."""
+    try:
+        response, status = supabase_request(
+            "get",
+            "/rest/v1/listing_drafts",
+            params={
+                "user_id": f"eq.{current_user}",
+                "select": "id,draft_key,payload,updated_at,created_at",
+                "order": "updated_at.desc",
+            },
+            use_service_role=True,
+        )
+        if status >= 400:
+            if _looks_like_missing_table(response):
+                return jsonify({"drafts": []}), 200
+            return jsonify({"error": "Failed to load drafts"}), status
+
+        drafts = response or []
+        # Annotate each row with a friendly preview the UI can render directly,
+        # so the Drafts tab doesn't need draft-type-specific code to show summaries.
+        for draft in drafts:
+            payload = draft.get("payload") or {}
+            draft_type = draft.get("draft_key") or "car"
+            if draft_type in ("car", "bike"):
+                title_parts = [
+                    str(payload.get("year") or "").strip(),
+                    str(payload.get("make") or "").strip(),
+                    str(payload.get("model") or "").strip(),
+                ]
+                draft["display_title"] = " ".join(p for p in title_parts if p).strip() or f"Unfinished {draft_type}"
+            elif draft_type == "plate":
+                digits = str(payload.get("digits") or "").strip()
+                city = str(payload.get("city") or "").strip()
+                draft["display_title"] = f"{city} {digits}".strip() or "Unfinished plate"
+            elif draft_type == "part":
+                draft["display_title"] = str(payload.get("title") or payload.get("part_name") or "Unfinished part").strip()
+            else:
+                draft["display_title"] = f"Unfinished {draft_type}"
+            draft["display_subtitle"] = (
+                f"Last edited {draft.get('updated_at') or draft.get('created_at') or ''}"
+            )
+            draft["resume_path"] = {
+                "car": "/post-car",
+                "bike": "/post-bike",
+                "plate": "/post-plate",
+                "part": "/post-car-part",
+            }.get(draft_type, "/post-car")
+
+        return jsonify({"drafts": drafts}), 200
+    except Exception as exc:
+        logger.error(f"Failed to list user drafts: {exc}")
+        return jsonify({"error": "Failed to load drafts"}), 500
+
+
 @app.route("/api/user/drafts/<draft_key>", methods=["GET", "POST", "DELETE"])
 @token_required
 def manage_user_draft(current_user, draft_key):
@@ -10351,6 +10408,149 @@ def extend_user_listing(current_user, item_type, item_id):
             "listing": refreshed_listing,
         }
     ), 200
+
+
+def _log_admin_action_direct(admin_user_id, action, **kwargs):
+    """Best-effort admin audit log insert from app.py. Kept here (rather than imported
+    from routes/admin.py) to avoid a circular import. Mirrors the helper in admin.py."""
+    try:
+        payload = {
+            "admin_user_id": admin_user_id,
+            "action": action,
+            "target_user_id": kwargs.get("target_user_id"),
+            "target_listing_type": kwargs.get("target_listing_type"),
+            "target_listing_id": kwargs.get("target_listing_id"),
+            "reason": kwargs.get("reason") or None,
+            "metadata": kwargs.get("metadata") or {},
+        }
+        payload = {k: v for k, v in payload.items() if v is not None or k in ("reason", "metadata")}
+        supabase_request(
+            "post",
+            "/rest/v1/admin_actions",
+            data=payload,
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("Admin audit log insert failed (%s): %s", action, exc)
+
+
+def _admin_renew_one(item_type, item_id, *, admin_user_id, reason=None):
+    """Run a renewal as an admin (no user_id ownership check). Returns (payload, status).
+    On success, logs the action and invalidates the public inventory cache."""
+    config = LISTING_TABLE_CONFIG.get(item_type)
+    if not config:
+        return {"error": "Invalid listing type", "item_id": item_id}, 400
+
+    listing_data, listing_status = supabase_request(
+        "get",
+        f"/rest/v1/{config['table']}",
+        params={"select": "*", "id": f"eq.{item_id}", "limit": 1},
+        use_service_role=True,
+    )
+    if listing_status >= 400 or not listing_data:
+        return {"error": "Listing not found", "item_id": item_id}, 404
+
+    listing = listing_data[0]
+    target_user_id = listing.get("user_id")
+
+    # Bring lifecycle state up to date before renewing (mirrors user-side extend)
+    listing = _sync_listing_lifecycle(
+        config["table"], listing, hard_delete_archived=False
+    )
+    if not listing:
+        return {"error": "Listing is no longer available", "item_id": item_id}, 410
+
+    refreshed, refreshed_status, refresh_error = _renew_listing_and_verify(
+        config["table"], item_id, listing, current_user=target_user_id
+    )
+    if refreshed_status >= 400:
+        return refresh_error or {"error": "Failed to renew listing", "item_id": item_id}, refreshed_status
+
+    _invalidate_public_inventory_cache(config["table"])
+
+    _log_admin_action_direct(
+        admin_user_id=admin_user_id,
+        action="listing_renew",
+        target_user_id=target_user_id,
+        target_listing_type=item_type,
+        target_listing_id=item_id,
+        reason=reason,
+        metadata={"new_expires_at": refreshed.get("expires_at")},
+    )
+
+    return {"message": "Listing renewed", "listing": refreshed, "item_id": item_id}, 200
+
+
+@app.route("/api/admin/listings/<item_type>/<item_id>/renew", methods=["POST"])
+@token_required
+def admin_renew_listing(current_user, item_type, item_id):
+    """Renew a single listing on behalf of any user (admin only)."""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized - Admin access required"}), 403
+    data = request.get_json(silent=True) or {}
+    reason = (data.get("reason") or "").strip() or None
+    payload, status = _admin_renew_one(
+        item_type, item_id, admin_user_id=current_user, reason=reason
+    )
+    return jsonify(payload), status
+
+
+@app.route("/api/admin/listings/renew-bulk", methods=["POST"])
+@token_required
+def admin_renew_listings_bulk(current_user):
+    """Renew many listings in one call. Body: {items: [{type, id}, ...], reason?}"""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    items = data.get("items") or []
+    reason = (data.get("reason") or "").strip() or None
+
+    if not isinstance(items, list) or not items:
+        return jsonify({"error": "Provide a non-empty items array"}), 400
+    if len(items) > 200:
+        return jsonify({"error": "Bulk renew is capped at 200 listings per call"}), 400
+
+    results = []
+    for item in items:
+        if not isinstance(item, dict):
+            results.append({"ok": False, "error": "Invalid item shape"})
+            continue
+        item_type = (item.get("type") or item.get("item_type") or "").strip().lower()
+        item_id = (item.get("id") or item.get("item_id") or "").strip() if isinstance(item.get("id") or item.get("item_id"), str) else item.get("id") or item.get("item_id")
+        if not item_type or not item_id:
+            results.append({"ok": False, "error": "Missing type or id", "item": item})
+            continue
+        payload, status = _admin_renew_one(
+            item_type, str(item_id), admin_user_id=current_user, reason=reason
+        )
+        results.append({
+            "ok": status < 400,
+            "status": status,
+            "item_type": item_type,
+            "item_id": str(item_id),
+            **({"error": payload.get("error")} if status >= 400 else {"new_expires_at": (payload.get("listing") or {}).get("expires_at")}),
+        })
+
+    succeeded = sum(1 for r in results if r.get("ok"))
+
+    _log_admin_action_direct(
+        admin_user_id=current_user,
+        action="listing_bulk_renew",
+        reason=reason,
+        metadata={
+            "total": len(results),
+            "succeeded": succeeded,
+            "failed": len(results) - succeeded,
+        },
+    )
+
+    return jsonify({
+        "total": len(results),
+        "succeeded": succeeded,
+        "failed": len(results) - succeeded,
+        "results": results,
+    }), 200
 
 
 # Columns that should NOT be carried over when a listing is reposted as a new draft.

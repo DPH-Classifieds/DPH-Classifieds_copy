@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -14,6 +14,8 @@ import {
   Flag,
   CheckCircle,
   AlertTriangle,
+  Shield,
+  Trash2,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { GlassCard, KpiTile, EmptyState } from './ui/dashboard';
@@ -27,6 +29,7 @@ import {
   getListingTitle,
   getStatusTone,
 } from './admin/adminUtils';
+import ReasonModal from './admin/ReasonModal';
 
 /* ── constants ────────────────────────────────────────────────────────────── */
 const PRIMARY_SUPER_ADMIN_EMAIL = 'admin@dphclassifieds.com';
@@ -91,7 +94,38 @@ const Skeleton = () => (
   </div>
 );
 
-const USER_TABS = ['Listings', 'Activity', 'Reports'];
+const USER_TABS = ['Listings', 'Activity', 'Reports', 'Moderation'];
+
+/* Human-friendly labels for backend admin_action.action values. */
+const ACTION_LABELS = {
+  user_ban: 'Banned',
+  user_unban: 'Unbanned',
+  user_suspend: 'Suspended',
+  user_reactivate: 'Reactivated',
+  user_delete: 'Deleted',
+  user_make_admin: 'Granted admin',
+  user_remove_admin: 'Revoked admin',
+};
+
+const labelForAction = (raw) =>
+  ACTION_LABELS[raw] || String(raw || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+const summarizeArchiveCounts = (counts) => {
+  if (!counts || typeof counts !== 'object') return '';
+  const parts = Object.entries(counts)
+    .filter(([, n]) => Number(n) > 0)
+    .map(([type, n]) => `${n} ${type}${Number(n) === 1 ? '' : 's'}`);
+  return parts.length ? `Archived ${parts.join(', ')}` : '';
+};
+
+const actionToneClass = (raw) => {
+  if (raw === 'user_ban' || raw === 'user_delete') return 'bg-rose-500/10 border-rose-500/20 text-rose-300';
+  if (raw === 'user_suspend') return 'bg-amber-500/10 border-amber-500/20 text-amber-300';
+  if (raw === 'user_reactivate' || raw === 'user_unban') return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300';
+  if (raw === 'user_make_admin') return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300';
+  if (raw === 'user_remove_admin') return 'bg-white/5 border-white/10 text-white/60';
+  return 'bg-sky-500/10 border-sky-500/20 text-sky-300';
+};
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -114,6 +148,30 @@ const AdminUserDetail = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('Listings');
+  const [modalState, setModalState] = useState({ open: false, action: null });
+  const [modalBusy, setModalBusy] = useState(false);
+  const [moderationActions, setModerationActions] = useState([]);
+  const [moderationLoading, setModerationLoading] = useState(false);
+  const [moderationError, setModerationError] = useState('');
+
+  const fetchModerationHistory = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setModerationLoading(true);
+      setModerationError('');
+      const resp = await apiClient.get(`/api/admin/users/${userId}/actions?limit=50`);
+      setModerationActions(Array.isArray(resp?.actions) ? resp.actions : []);
+    } catch (err) {
+      console.error('Failed to load moderation history:', err);
+      setModerationError(err?.message || 'Failed to load moderation history');
+    } finally {
+      setModerationLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchModerationHistory();
+  }, [fetchModerationHistory]);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -191,6 +249,87 @@ const AdminUserDetail = () => {
       setError(saveError.message || 'Failed to update user profile');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const refetchOverview = useCallback(async () => {
+    try {
+      const refreshed = await apiClient.get(`/api/admin/users/${userId}/overview`);
+      setData(refreshed || null);
+      setProfileState((cur) => ({
+        ...cur,
+        account_status: refreshed?.user?.account_status || cur.account_status,
+        is_admin: Boolean(refreshed?.user?.is_admin),
+        is_dealer: Boolean(refreshed?.user?.is_dealer),
+        dealer_verified: Boolean(refreshed?.user?.dealer_verified),
+        email_verified: Boolean(refreshed?.user?.email_verified),
+        phone_verified: Boolean(refreshed?.user?.phone_verified),
+        rejection_note: refreshed?.user?.rejection_note || cur.rejection_note || '',
+      }));
+    } catch (refetchError) {
+      console.error('Failed to refresh user overview:', refetchError);
+    }
+  }, [userId]);
+
+  const openActionModal = (action) => {
+    setError('');
+    setMessage('');
+    setModalState({ open: true, action });
+  };
+
+  const closeActionModal = () => {
+    if (modalBusy) return;
+    setModalState({ open: false, action: null });
+  };
+
+  const handleModalConfirm = async (reason) => {
+    const { action } = modalState;
+    if (!action) return;
+    setModalBusy(true);
+    try {
+      let response;
+      if (action === 'suspend') {
+        response = await apiClient.patch(`/api/admin/users/${userId}/status`, {
+          status: 'suspended',
+          reason,
+        });
+        const extra = summarizeArchiveCounts(response?.archive_counts);
+        setMessage(`User suspended${extra ? ` · ${extra}` : ''}`);
+      } else if (action === 'ban') {
+        response = await apiClient.patch(`/api/admin/users/${userId}/status`, {
+          status: 'banned',
+          reason,
+        });
+        const extra = summarizeArchiveCounts(response?.archive_counts);
+        setMessage(`User banned${extra ? ` · ${extra}` : ''}`);
+      } else if (action === 'reactivate') {
+        response = await apiClient.patch(`/api/admin/users/${userId}/status`, {
+          status: 'active',
+        });
+        setMessage('User reactivated');
+      } else if (action === 'delete') {
+        response = await apiClient.delete(
+          `/api/admin/users/${userId}?reason=${encodeURIComponent(reason)}`
+        );
+        const extra = summarizeArchiveCounts(response?.archive_counts);
+        setMessage(`User deleted${extra ? ` · ${extra}` : ''}`);
+      }
+      setModalState({ open: false, action: null });
+      await Promise.all([refetchOverview(), fetchModerationHistory()]);
+      if (action === 'delete') {
+        // The user no longer exists in a meaningful sense — bounce back to the list.
+        navigate('/admin/users');
+      }
+    } catch (err) {
+      const fallback = {
+        suspend: 'Failed to suspend user',
+        ban: 'Failed to ban user',
+        reactivate: 'Failed to reactivate user',
+        delete: 'Failed to delete user',
+      }[action] || 'Action failed';
+      setError(err?.message || fallback);
+    } finally {
+      setModalBusy(false);
     }
   };
 
@@ -293,6 +432,50 @@ const AdminUserDetail = () => {
               }
             </div>
           </div>
+
+          {/* Destructive moderation actions */}
+          {!isSuperAdmin && (
+            <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium mr-1">
+                Moderation
+              </span>
+              {(user.account_status === 'suspended' || user.account_status === 'banned') ? (
+                <button
+                  type="button"
+                  onClick={() => openActionModal('reactivate')}
+                  disabled={modalBusy}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <CheckCircle size={12} /> Reactivate
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openActionModal('suspend')}
+                  disabled={modalBusy}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-amber-500/10 text-amber-300 border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <AlertTriangle size={12} /> Suspend
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => openActionModal('ban')}
+                disabled={modalBusy || user.account_status === 'banned'}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-rose-500/10 text-rose-300 border-rose-500/20 hover:bg-rose-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Shield size={12} /> Ban
+              </button>
+              <button
+                type="button"
+                onClick={() => openActionModal('delete')}
+                disabled={modalBusy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border bg-rose-600/15 text-rose-300 border-rose-600/30 hover:bg-rose-600/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Trash2 size={12} /> Delete
+              </button>
+            </div>
+          )}
         </GlassCard>
       </motion.div>
 
@@ -453,6 +636,70 @@ const AdminUserDetail = () => {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </GlassCard>
+          )}
+
+          {/* Moderation tab */}
+          {activeTab === 'Moderation' && (
+            <GlassCard>
+              <div className="flex items-center justify-between mb-3">
+                <SectionLabel>Moderation history</SectionLabel>
+                <button
+                  type="button"
+                  onClick={fetchModerationHistory}
+                  disabled={moderationLoading}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition disabled:opacity-40"
+                >
+                  {moderationLoading ? 'Loading…' : 'Refresh'}
+                </button>
+              </div>
+              {moderationError && (
+                <p className="mb-3 text-xs text-rose-300">{moderationError}</p>
+              )}
+              {moderationLoading && moderationActions.length === 0 ? (
+                <div className="space-y-2 animate-pulse">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-14 bg-white/[0.03] border border-white/[0.05] rounded-xl" />
+                  ))}
+                </div>
+              ) : moderationActions.length === 0 ? (
+                <EmptyState
+                  icon={Shield}
+                  title="No moderation actions"
+                  description="No suspend, ban, or delete actions have been recorded for this account."
+                />
+              ) : (
+                <ul className="space-y-2">
+                  {moderationActions.map((entry) => {
+                    const meta = entry.metadata || {};
+                    const archiveLine = summarizeArchiveCounts(meta.archive_counts);
+                    return (
+                      <li
+                        key={entry.id}
+                        className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-semibold rounded-full border px-2.5 py-0.5 ${actionToneClass(entry.action)}`}>
+                            {labelForAction(entry.action)}
+                          </span>
+                          <span className="text-xs text-white/40">
+                            by {entry.admin_display_name || 'Unknown admin'}
+                          </span>
+                          <span className="text-xs text-white/30 ml-auto">
+                            {formatDateTime(entry.created_at)}
+                          </span>
+                        </div>
+                        {entry.reason && (
+                          <p className="text-sm text-white/70 mt-1">{entry.reason}</p>
+                        )}
+                        {archiveLine && (
+                          <p className="text-xs text-white/40 mt-1">{archiveLine}</p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </GlassCard>
           )}
@@ -651,6 +898,15 @@ const AdminUserDetail = () => {
           </GlassCard>
         </div>
       </motion.div>
+
+      <ReasonModal
+        open={modalState.open}
+        action={modalState.action}
+        userLabel={displayName + (user.email ? ` · ${user.email}` : '')}
+        busy={modalBusy}
+        onClose={closeActionModal}
+        onConfirm={handleModalConfirm}
+      />
     </div>
   );
 };

@@ -32,7 +32,7 @@ const carModels = {
   'Borgward': ['BX5', 'BX7', 'BX9', 'BX6'],
   'Brilliance': ['FRV', 'FRV Cross', 'V5', 'H530', 'FSV', 'Zun'],
   'Bugatti': ['Chiron', 'Divo', 'Veyron', 'Tourbillon'],
-  'BYD': ['Atto 3', 'Dolphin', 'Seal', 'Seal 7', 'Sealion 7', 'Song Plus', 'Qin Plus', 'Han', 'Shark 6', 'Seagull', 'Yuan Up', 'Tang', 'E5', 'E6', 'S6', 'S7', 'F3', 'F5', 'F6', 'G5', 'G6'],
+  'BYD': ['Atto 3', 'Dolphin', 'Seal', 'Seal 7', 'Sealion 7', 'Song Plus', 'Qin Plus', 'Han', 'Shark 6', 'Seagull', 'Yuan Up', 'Tang', 'E5', 'E6', 'S6', 'S7', 'F3', 'F5', 'F6', 'G5', 'G6', 'Ti 7'],
   'Cadillac': ['Escalade', 'Escalade ESV', 'LYRIQ', 'XT4', 'XT5', 'XT6', 'CT4', 'CT5', 'CT6', 'Celestiq', 'Optiq', 'Lyriq'],
   'Caterham': ['Seven', 'Seven 270', 'Seven 310', 'Seven 420', 'Seven 485'],
   'Changan': ['Alsvin', 'CS35 Plus', 'CS55', 'CS75 Plus', 'CS85', 'CS95', 'Eado', 'Eado Plus', 'UNI-K', 'UNI-T', 'UNI-V', 'Hunter', 'Lumin'],

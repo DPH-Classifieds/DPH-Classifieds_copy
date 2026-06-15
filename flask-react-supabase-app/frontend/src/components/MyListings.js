@@ -130,7 +130,7 @@ const getPrimaryImage = (listing) => {
 const isDraftListing = (listing) => {
   const status = String(listing.status || '').toLowerCase();
   const state = String(listing.listing_state || '').toLowerCase();
-  return status === 'draft' || state === 'draft' || listing.moderation_status === 'rejected';
+  return status === 'draft' || status === 'pending' || state === 'draft' || listing.moderation_status === 'rejected';
 };
 
 const MyListings = () => {
@@ -150,15 +150,46 @@ const MyListings = () => {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [outcomePromptListing, setOutcomePromptListing] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
+  const [wizardDrafts, setWizardDrafts] = useState([]);
   const navigate = useNavigate();
   const { savedListings, loading: savedLoading, refreshSavedListings } = useSavedListings() || {};
 
   useEffect(() => {
-    fetchUserListings();
+    Promise.all([fetchUserListings(), fetchWizardDrafts()]);
     fetchLeadTotals();
     if (refreshSavedListings) refreshSavedListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchWizardDrafts = async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const response = await fetch(`${API_URL}/api/user/drafts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      setWizardDrafts(Array.isArray(payload.drafts) ? payload.drafts : []);
+    } catch (err) {
+      console.warn('Failed to fetch wizard drafts:', err);
+    }
+  };
+
+  const deleteWizardDraft = async (draftKey) => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const response = await fetch(`${API_URL}/api/user/drafts/${draftKey}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return;
+      await fetchWizardDrafts();
+    } catch (err) {
+      console.warn('Failed to delete wizard draft:', err);
+    }
+  };
 
   const fetchLeadTotals = async () => {
     try {
@@ -326,6 +357,7 @@ const MyListings = () => {
       } else {
         await fetchUserListings();
       }
+      fetchWizardDrafts();
       setOutcomePromptListing(null);
     } catch (err) {
       console.error('Listing outcome update error:', err);
@@ -777,7 +809,7 @@ const MyListings = () => {
           const count = tab.key === 'active'
             ? activeListings.length
             : tab.key === 'drafts'
-              ? draftListings.length
+              ? draftListings.length + wizardDrafts.length
               : (savedListings || []).length;
 
           return (
@@ -813,7 +845,7 @@ const MyListings = () => {
         )}
 
         {activeTab === 'drafts' && (
-          draftListings.length === 0 ? (
+          draftListings.length === 0 && wizardDrafts.length === 0 ? (
             <div className="empty-state">
               <h3>No Drafts</h3>
               <p>Drafts from rejected or incomplete listings will appear here.</p>
@@ -826,7 +858,60 @@ const MyListings = () => {
               </div>
             </div>
           ) : (
-            renderListingSection(draftListingsByType, 'No draft listings.')
+            <>
+              {wizardDrafts.length > 0 && (
+                <div className="listing-section">
+                  <div className="listing-section-head">
+                    <h2>Unfinished listings</h2>
+                    <span>{wizardDrafts.length}</span>
+                  </div>
+                  <div className="my-listings-grid">
+                    {wizardDrafts.map((draft) => (
+                      <div key={`wizard-draft-${draft.draft_key}`} className="my-listing-card">
+                        <div
+                          className="my-listing-details"
+                          role="button"
+                          tabIndex={0}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => draft.resume_path && navigate(draft.resume_path)}
+                          onKeyDown={(event) => {
+                            if ((event.key === 'Enter' || event.key === ' ') && draft.resume_path) {
+                              event.preventDefault();
+                              navigate(draft.resume_path);
+                            }
+                          }}
+                        >
+                          <h3>{draft.display_title || 'Untitled draft'}</h3>
+                          <p className="my-listing-subtitle-card">
+                            {draft.display_subtitle || 'Resume editing'}
+                          </p>
+                          {draft.updated_at && (
+                            <p className="my-listing-date">Updated {formatDate(draft.updated_at)}</p>
+                          )}
+                        </div>
+                        <div className="my-listing-actions">
+                          <button
+                            onClick={() => draft.resume_path && navigate(draft.resume_path)}
+                            className="btn btn-primary"
+                            aria-label="Resume editing draft"
+                          >
+                            Resume
+                          </button>
+                          <button
+                            onClick={() => deleteWizardDraft(draft.draft_key)}
+                            className="btn btn-danger"
+                            aria-label="Delete draft"
+                          >
+                            Delete draft
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {draftListings.length > 0 && renderListingSection(draftListingsByType, 'No draft listings.')}
+            </>
           )
         )}
 

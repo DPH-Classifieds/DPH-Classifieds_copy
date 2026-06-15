@@ -100,6 +100,109 @@ def _admin_headers():
     }
 
 
+# Lightweight per-process cache for admin list responses. Admin endpoints are not
+# under heavy load like public ones, so a small TTL + an "invalidate on write"
+# pattern avoids stale data while taking the worst hits off the DB. The in-process
+# dict is intentionally simple — Redis already covers the public API surface.
+import threading
+import time as _time
+
+_ADMIN_CACHE_LOCK = threading.Lock()
+_ADMIN_CACHE = {}
+ADMIN_CACHE_TTL_SECONDS = 30
+
+
+def _admin_cache_get(key):
+    if not key:
+        return None
+    with _ADMIN_CACHE_LOCK:
+        entry = _ADMIN_CACHE.get(key)
+        if entry and entry["expires_at"] > _time.time():
+            return entry["value"]
+        if entry:
+            _ADMIN_CACHE.pop(key, None)
+    return None
+
+
+def _admin_cache_set(key, value, ttl=ADMIN_CACHE_TTL_SECONDS):
+    if not key:
+        return
+    with _ADMIN_CACHE_LOCK:
+        _ADMIN_CACHE[key] = {"value": value, "expires_at": _time.time() + ttl}
+
+
+def _admin_cache_invalidate(prefix):
+    """Drop any cached entries whose key starts with `prefix`. Called on mutating ops."""
+    with _ADMIN_CACHE_LOCK:
+        for key in list(_ADMIN_CACHE.keys()):
+            if key.startswith(prefix):
+                _ADMIN_CACHE.pop(key, None)
+
+
+_PRIMARY_SUPER_ADMIN_EMAIL = (
+    os.getenv("PRIMARY_SUPER_ADMIN_EMAIL", "admin@dphclassifieds.com").strip().lower()
+)
+_PRIMARY_SUPER_ADMIN_USERNAME = (
+    os.getenv("PRIMARY_SUPER_ADMIN_USERNAME", "DPHClassifieds").strip().lower()
+)
+_PRIMARY_SUPER_ADMIN_USER_ID = os.getenv("PRIMARY_SUPER_ADMIN_USER_ID", "").strip()
+
+
+def _is_super_admin_target(user_id):
+    """Identify the protected super-admin so it can't be banned/deleted by another admin."""
+    if _PRIMARY_SUPER_ADMIN_USER_ID and str(user_id) == _PRIMARY_SUPER_ADMIN_USER_ID:
+        return True
+    user_row = _admin_fetch_user(user_id)
+    if not user_row:
+        return False
+    if user_row.get("is_super_admin"):
+        return True
+    email = (user_row.get("email") or "").strip().lower()
+    username = (user_row.get("username") or "").strip().lower()
+    return email == _PRIMARY_SUPER_ADMIN_EMAIL or username == _PRIMARY_SUPER_ADMIN_USERNAME
+
+
+def _protect_super_admin(user_id, action_label="perform this action on"):
+    if _is_super_admin_target(user_id):
+        return jsonify({
+            "error": f"The primary super-admin account cannot be used to {action_label}.",
+            "code": "super_admin_protected",
+        }), 403
+    return None
+
+
+def _log_admin_action(
+    admin_user_id,
+    action,
+    target_user_id=None,
+    target_listing_type=None,
+    target_listing_id=None,
+    reason=None,
+    metadata=None,
+):
+    """Insert a moderation audit row. Best-effort: errors are logged, never raised,
+    so a logging failure can't block the action itself."""
+    try:
+        payload = {
+            "admin_user_id": admin_user_id,
+            "action": action,
+            "target_user_id": target_user_id,
+            "target_listing_type": target_listing_type,
+            "target_listing_id": target_listing_id,
+            "reason": (reason or None),
+            "metadata": metadata or {},
+        }
+        payload = {k: v for k, v in payload.items() if v is not None or k in ("reason", "metadata")}
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/admin_actions",
+            headers={**_admin_headers(), "Prefer": "return=minimal"},
+            json=payload,
+            timeout=5,
+        )
+    except Exception as exc:
+        logger.warning("Failed to log admin action %s: %s", action, exc)
+
+
 def _admin_fetch_user(user_id):
     response = requests.get(
         f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=*",
@@ -944,30 +1047,81 @@ def set_dealer_listing_limit(user_id):
 @admin_bp.route("/users", methods=["GET"])
 @admin_required
 def get_users():
-    """Get all users"""
+    """Paginated user list. Supports search, role filter, status filter.
+    Returns {users, total, limit, offset} so the frontend can paginate cleanly."""
     try:
-        search = request.args.get("search", "")
+        search = (request.args.get("search") or "").strip()
+        role = (request.args.get("role") or "").strip().lower()
+        status_filter = (request.args.get("status") or "").strip().lower()
+        limit = max(min(int(request.args.get("limit", 50)), 200), 1)
+        offset = max(int(request.args.get("offset", 0)), 0)
 
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
+        # Narrow projection — strip fields the list view doesn't render to save bandwidth.
+        # Use the heavy /users/<id>/overview endpoint when full detail is needed.
+        select_cols = (
+            "id,email,username,first_name,last_name,phone,is_admin,account_status,"
+            "ban_reason,banned_at,user_type,is_dealer,email_verified,phone_verified,"
+            "avatar_url,created_at,last_login_at"
+        )
+        params = {
+            "select": select_cols,
+            "order": "created_at.desc",
+            "limit": str(limit),
+            "offset": str(offset),
         }
-
-        query = f"{SUPABASE_URL}/rest/v1/users?select=*&order=created_at.desc"
 
         if search:
             from urllib.parse import quote
-
             search_escaped = quote(search, safe="")
-            query += f"&or=(email.ilike.*{search_escaped}*,username.ilike.*{search_escaped}*,first_name.ilike.*{search_escaped}*,last_name.ilike.*{search_escaped}*)"
+            params["or"] = (
+                f"(email.ilike.*{search_escaped}*,username.ilike.*{search_escaped}*,"
+                f"first_name.ilike.*{search_escaped}*,last_name.ilike.*{search_escaped}*,"
+                f"phone.ilike.*{search_escaped}*)"
+            )
 
-        response = requests.get(query, headers=headers, timeout=10)
+        if role == "admin":
+            params["is_admin"] = "eq.true"
+        elif role == "dealer":
+            params["is_dealer"] = "eq.true"
+        elif role == "regular":
+            params["is_admin"] = "eq.false"
+            params["is_dealer"] = "eq.false"
 
-        if response.status_code == 200:
-            return jsonify(response.json()), 200
-        else:
+        if status_filter in ("active", "suspended", "banned", "pending_verification"):
+            params["account_status"] = f"eq.{status_filter}"
+
+        cache_key = f"admin:users:{search}:{role}:{status_filter}:{limit}:{offset}"
+        cached = _admin_cache_get(cache_key)
+        if cached is not None:
+            return jsonify(cached), 200
+
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users",
+            headers={**_admin_headers(), "Prefer": "count=exact"},
+            params=params,
+            timeout=10,
+        )
+
+        if response.status_code != 200:
             return jsonify({"error": "Failed to fetch users"}), response.status_code
+
+        users = response.json() or []
+        total = None
+        content_range = response.headers.get("Content-Range")
+        if content_range and "/" in content_range:
+            try:
+                total = int(content_range.split("/")[-1])
+            except ValueError:
+                total = None
+
+        payload = {
+            "users": users,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+        _admin_cache_set(cache_key, payload)
+        return jsonify(payload), 200
 
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
@@ -992,6 +1146,12 @@ def make_admin(user_id):
             timeout=5,
         )
         if response.status_code in [200, 204]:
+            _admin_cache_invalidate("admin:users:")
+            _log_admin_action(
+                admin_user_id=getattr(request, "user_id", None),
+                action="user_make_admin",
+                target_user_id=user_id,
+            )
             return jsonify(
                 {"success": True, "message": "User made admin successfully"}
             ), 200
@@ -1020,6 +1180,12 @@ def remove_admin(user_id):
             timeout=5,
         )
         if response.status_code in [200, 204]:
+            _admin_cache_invalidate("admin:users:")
+            _log_admin_action(
+                admin_user_id=getattr(request, "user_id", None),
+                action="user_remove_admin",
+                target_user_id=user_id,
+            )
             return jsonify(
                 {"success": True, "message": "Admin privileges removed successfully"}
             ), 200
@@ -1030,34 +1196,135 @@ def remove_admin(user_id):
         return jsonify({"error": str(e)}), 500
 
 
+_LISTING_TABLES_FOR_USER_ARCHIVE = (
+    ("car", "cars"),
+    ("bike", "bikes"),
+    ("part", "car_parts"),
+    ("plate", "license_plates"),
+)
+
+
+def _archive_user_listings(user_id):
+    """Soft-archive (status='archived') all of a user's active listings.
+    Returns the per-table counts so the action log records what was hidden."""
+    counts = {}
+    for label, table in _LISTING_TABLES_FOR_USER_ARCHIVE:
+        try:
+            resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/{table}"
+                f"?user_id=eq.{user_id}"
+                f"&status=in.(approved,active,pending)",
+                headers={**_admin_headers(), "Prefer": "return=representation"},
+                json={"status": "archived", "is_archived": True},
+                timeout=10,
+            )
+            if resp.status_code in (200, 204):
+                rows = resp.json() if resp.status_code == 200 else []
+                counts[label] = len(rows) if isinstance(rows, list) else 0
+            else:
+                logger.warning("Archive failed for %s/%s: %s", table, user_id, resp.text[:200])
+                counts[label] = 0
+        except Exception as exc:
+            logger.warning("Archive exception for %s/%s: %s", table, user_id, exc)
+            counts[label] = 0
+    return counts
+
+
+def _restore_user_listings(user_id):
+    """Reverse of _archive_user_listings on unban — flip archived rows back to 'pending'
+    so the user can review them. Active state requires re-approval."""
+    counts = {}
+    for label, table in _LISTING_TABLES_FOR_USER_ARCHIVE:
+        try:
+            resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/{table}"
+                f"?user_id=eq.{user_id}"
+                f"&status=eq.archived",
+                headers={**_admin_headers(), "Prefer": "return=representation"},
+                json={"status": "pending", "is_archived": False},
+                timeout=10,
+            )
+            if resp.status_code in (200, 204):
+                rows = resp.json() if resp.status_code == 200 else []
+                counts[label] = len(rows) if isinstance(rows, list) else 0
+        except Exception as exc:
+            logger.warning("Restore exception for %s/%s: %s", table, user_id, exc)
+            counts[label] = 0
+    return counts
+
+
 @admin_bp.route("/users/<user_id>/status", methods=["PATCH"])
 @admin_required
 def update_user_status(user_id):
-    """Update user account status (active/suspended)"""
+    """Update user account status (active/suspended/banned).
+    For 'banned': requires reason, records banned_by/banned_at, and archives the user's listings."""
     try:
         data = request.get_json() or {}
-        new_status = data.get("status", "").lower()
-        if new_status not in ("active", "suspended"):
-            return jsonify({"error": "Status must be 'active' or 'suspended'"}), 400
+        new_status = (data.get("status") or "").lower().strip()
+        reason = (data.get("reason") or "").strip()
 
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "return=representation",
-        }
+        if new_status not in ("active", "suspended", "banned"):
+            return jsonify({"error": "Status must be 'active', 'suspended', or 'banned'"}), 400
+
+        if new_status in ("suspended", "banned") and not reason:
+            return jsonify({"error": f"A reason is required to {new_status[:-2] if new_status.endswith('ed') else new_status} a user"}), 400
+
+        admin_user_id = getattr(request, "user_id", None)
+
+        if new_status in ("suspended", "banned") and admin_user_id == user_id:
+            return jsonify({"error": "You cannot change your own account status"}), 400
+
+        if new_status in ("suspended", "banned"):
+            label = "ban" if new_status == "banned" else "suspend"
+            protect = _protect_super_admin(user_id, label)
+            if protect:
+                return protect
+
+        update_payload = {"account_status": new_status}
+
+        if new_status == "banned":
+            update_payload["ban_reason"] = reason
+            update_payload["banned_at"] = datetime.utcnow().isoformat() + "Z"
+            update_payload["banned_by"] = admin_user_id
+        elif new_status == "active":
+            # Clear ban fields on reactivation
+            update_payload["ban_reason"] = None
+            update_payload["banned_at"] = None
+            update_payload["banned_by"] = None
+
         response = requests.patch(
             f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
-            headers=headers,
-            json={"account_status": new_status},
-            timeout=5,
+            headers={**_admin_headers(), "Prefer": "return=representation"},
+            json=update_payload,
+            timeout=10,
         )
-        if response.status_code in [200, 204]:
-            return jsonify(
-                {"success": True, "message": f"User status changed to {new_status}"}
-            ), 200
-        else:
+        if response.status_code not in (200, 204):
             return jsonify({"error": "Failed to update user status"}), 500
+
+        archive_counts = None
+        if new_status == "banned":
+            archive_counts = _archive_user_listings(user_id)
+        elif new_status == "active":
+            archive_counts = _restore_user_listings(user_id)
+
+        action_map = {"banned": "user_ban", "active": "user_unban", "suspended": "user_suspend"}
+        _log_admin_action(
+            admin_user_id=admin_user_id,
+            action=action_map.get(new_status, "user_suspend"),
+            target_user_id=user_id,
+            reason=reason or None,
+            metadata={"new_status": new_status, "archive_counts": archive_counts} if archive_counts else {"new_status": new_status},
+        )
+        _admin_cache_invalidate("admin:users:")
+        _admin_cache_invalidate("admin:list:")
+
+        return jsonify(
+            {
+                "success": True,
+                "message": f"User status changed to {new_status}",
+                "archive_counts": archive_counts,
+            }
+        ), 200
     except Exception as e:
         logger.error(f"Error updating user status: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1066,17 +1333,27 @@ def update_user_status(user_id):
 @admin_bp.route("/users/<user_id>", methods=["DELETE"])
 @admin_required
 def delete_user(user_id):
-    """Delete a user (admin only)"""
+    """Delete a user (admin only). Requires a reason for the audit log."""
     try:
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
+        # Reason can come from JSON body OR query string (DELETE bodies are flaky in some browsers)
+        body = request.get_json(silent=True) or {}
+        reason = (body.get("reason") or request.args.get("reason") or "").strip()
+        if not reason:
+            return jsonify({"error": "A reason is required to delete a user"}), 400
 
-        # First check if user exists
+        admin_user_id = getattr(request, "user_id", None)
+        if admin_user_id == user_id:
+            return jsonify({"error": "You cannot delete your own account"}), 400
+
+        protect = _protect_super_admin(user_id, "delete")
+        if protect:
+            return protect
+
+        headers = _admin_headers()
+
+        # Confirm user exists before doing anything irreversible
         check_response = requests.get(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=id,email",
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=id,email,username",
             headers=headers,
             timeout=5,
         )
@@ -1086,265 +1363,311 @@ def delete_user(user_id):
 
         user_data = check_response.json()[0]
 
-        # Delete from users table
+        # Archive their listings first so we have an accurate count in the audit log
+        archive_counts = _archive_user_listings(user_id)
+
         delete_response = requests.delete(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}", headers=headers, timeout=5
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}", headers=headers, timeout=10
         )
 
-        if delete_response.status_code in [200, 204]:
-            logger.info(f"User {user_id} ({user_data.get('email')}) deleted by admin")
-            return jsonify({"message": "User deleted successfully"}), 200
-        else:
-            logger.error(
-                f"Failed to delete user {user_id}: {delete_response.status_code} - {delete_response.text}"
+        if delete_response.status_code in (200, 204):
+            _log_admin_action(
+                admin_user_id=admin_user_id,
+                action="user_delete",
+                target_user_id=user_id,
+                reason=reason,
+                metadata={
+                    "email": user_data.get("email"),
+                    "username": user_data.get("username"),
+                    "archive_counts": archive_counts,
+                },
             )
-            return jsonify(
-                {"error": "Failed to delete user"}
-            ), delete_response.status_code
+            _admin_cache_invalidate("admin:users:")
+            _admin_cache_invalidate("admin:list:")
+            logger.info(f"User {user_id} ({user_data.get('email')}) deleted by admin {admin_user_id} reason={reason!r}")
+            return jsonify({"message": "User deleted successfully", "archive_counts": archive_counts}), 200
+
+        logger.error(
+            f"Failed to delete user {user_id}: {delete_response.status_code} - {delete_response.text}"
+        )
+        return jsonify({"error": "Failed to delete user"}), delete_response.status_code
 
     except Exception as e:
         logger.error(f"Error deleting user: {e}")
         return jsonify({"error": str(e)}), 500
 
 
-# Specific listing type endpoints
+@admin_bp.route("/users/<user_id>/actions", methods=["GET"])
+@admin_required
+def get_user_action_history(user_id):
+    """Return moderation actions taken against a single user, with admin display names."""
+    try:
+        limit = max(min(int(request.args.get("limit", 50)), 200), 1)
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/admin_actions",
+            headers=_admin_headers(),
+            params={
+                "select": "*",
+                "target_user_id": f"eq.{user_id}",
+                "order": "created_at.desc",
+                "limit": str(limit),
+            },
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": "Failed to fetch action history"}), resp.status_code
+        actions = resp.json() or []
+        # Hydrate admin display names
+        admin_ids = list({a.get("admin_user_id") for a in actions if a.get("admin_user_id")})
+        admin_names = _admin_fetch_user_display_map(admin_ids)
+        for action in actions:
+            action["admin_display_name"] = admin_names.get(action.get("admin_user_id"))
+        return jsonify({"actions": actions}), 200
+    except Exception as e:
+        logger.error(f"Error fetching action history for user {user_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/actions", methods=["GET"])
+@admin_required
+def get_action_log():
+    """Global moderation action feed for the admin dashboard."""
+    try:
+        limit = max(min(int(request.args.get("limit", 100)), 500), 1)
+        offset = max(int(request.args.get("offset", 0)), 0)
+        action_filter = (request.args.get("action") or "").strip()
+
+        params = {
+            "select": "*",
+            "order": "created_at.desc",
+            "limit": str(limit),
+            "offset": str(offset),
+        }
+        if action_filter:
+            params["action"] = f"eq.{action_filter}"
+
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/admin_actions",
+            headers={**_admin_headers(), "Prefer": "count=exact"},
+            params=params,
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": "Failed to fetch action log"}), resp.status_code
+
+        actions = resp.json() or []
+        admin_ids = list({a.get("admin_user_id") for a in actions if a.get("admin_user_id")})
+        target_ids = list({a.get("target_user_id") for a in actions if a.get("target_user_id")})
+        display_map = _admin_fetch_user_display_map(admin_ids + target_ids)
+        for action in actions:
+            action["admin_display_name"] = display_map.get(action.get("admin_user_id"))
+            action["target_display_name"] = display_map.get(action.get("target_user_id"))
+
+        total = None
+        content_range = resp.headers.get("Content-Range")
+        if content_range and "/" in content_range:
+            try:
+                total = int(content_range.split("/")[-1])
+            except ValueError:
+                total = None
+
+        return jsonify({"actions": actions, "total": total, "limit": limit, "offset": offset}), 200
+    except Exception as e:
+        logger.error(f"Error fetching action log: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Helpers for admin listing endpoints (cars/bikes/parts/plates).
+# Replaces per-row user + image fetches (N+1) with chunked batched queries.
+# ---------------------------------------------------------------------------
+
+_ADMIN_LISTING_TYPES = {
+    "cars": {
+        "table": "cars",
+        "images_table": "car_images",
+        "image_fk": "car_id",
+        "phone_field": "car_owner_phone_number",
+    },
+    "bikes": {
+        "table": "bikes",
+        "images_table": "bike_images",
+        "image_fk": "bike_id",
+        "phone_field": "contact_phone",
+    },
+    "parts": {
+        "table": "car_parts",
+        "images_table": "part_images",
+        "image_fk": "part_id",
+        "phone_field": "contact_phone",
+    },
+    "plates": {
+        "table": "license_plates",
+        "images_table": "plate_images",
+        "image_fk": "plate_id",
+        "phone_field": "contact_phone",
+    },
+}
+
+
+def _chunks(seq, size):
+    for i in range(0, len(seq), size):
+        yield seq[i : i + size]
+
+
+def _admin_batch_fetch_users(user_ids):
+    """Fetch user profile fields for many ids in chunks. Returns {id: row}."""
+    out = {}
+    unique_ids = list({uid for uid in user_ids if uid})
+    if not unique_ids:
+        return out
+    for chunk in _chunks(unique_ids, 100):
+        ids_in = ",".join(chunk)
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users",
+            headers=_admin_headers(),
+            params={
+                "select": "id,email,first_name,last_name,phone,account_status",
+                "id": f"in.({ids_in})",
+            },
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            for row in resp.json() or []:
+                out[row["id"]] = row
+    return out
+
+
+def _admin_batch_fetch_images(images_table, image_fk, listing_ids):
+    """Fetch images for many listings in chunks. Returns {listing_id: [images]}."""
+    out = {}
+    unique = list({lid for lid in listing_ids if lid})
+    if not unique:
+        return out
+    for chunk in _chunks(unique, 100):
+        ids_in = ",".join(chunk)
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/{images_table}",
+            headers=_admin_headers(),
+            params={"select": "*", image_fk: f"in.({ids_in})"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            for img in resp.json() or []:
+                lid = img.get(image_fk)
+                if not lid:
+                    continue
+                # Normalise url/image_url so the frontend can rely on one field
+                if "url" in img and "image_url" not in img:
+                    img["image_url"] = img["url"]
+                out.setdefault(lid, []).append(img)
+    return out
+
+
+def _admin_serve_listings(slug):
+    """Common paginated handler for cars/bikes/parts/plates admin lists."""
+    config = _ADMIN_LISTING_TYPES[slug]
+    try:
+        limit = max(min(int(request.args.get("limit", 50)), 200), 1)
+        offset = max(int(request.args.get("offset", 0)), 0)
+        status_filter = (request.args.get("status") or "").strip().lower()
+        search = (request.args.get("search") or "").strip()
+
+        cache_key = f"admin:list:{slug}:{status_filter}:{search}:{limit}:{offset}"
+        cached = _admin_cache_get(cache_key)
+        if cached is not None:
+            return jsonify(cached), 200
+
+        params = {
+            "select": "*",
+            "order": "created_at.desc",
+            "limit": str(limit),
+            "offset": str(offset),
+        }
+        if status_filter and status_filter != "all":
+            params["status"] = f"eq.{status_filter}"
+        if search:
+            from urllib.parse import quote
+            s = quote(search, safe="")
+            # Most listing tables expose title/description-like fields; fall back to id match too.
+            search_clauses = [f"title.ilike.*{s}*", f"description.ilike.*{s}*"]
+            if slug == "plates":
+                search_clauses = [f"digits.ilike.*{s}*", f"city.ilike.*{s}*"]
+            params["or"] = f"({','.join(search_clauses)})"
+
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/{config['table']}",
+            headers={**_admin_headers(), "Prefer": "count=exact"},
+            params=params,
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": f"Failed to fetch {slug}"}), resp.status_code
+
+        listings = resp.json() or []
+
+        # Batch user + image lookups
+        users_map = _admin_batch_fetch_users([row.get("user_id") for row in listings])
+        images_map = _admin_batch_fetch_images(
+            config["images_table"], config["image_fk"], [row.get("id") for row in listings]
+        )
+
+        for listing in listings:
+            user_info = users_map.get(listing.get("user_id")) or {}
+            listing["user_email"] = user_info.get("email") or "N/A"
+            full_name = " ".join(
+                p for p in [user_info.get("first_name"), user_info.get("last_name")] if p
+            ).strip()
+            listing["user_name"] = full_name or "Unknown"
+            listing["user_account_status"] = user_info.get("account_status")
+            listing[config["phone_field"]] = (
+                user_info.get("phone") or listing.get(config["phone_field"]) or "N/A"
+            )
+            listing["images"] = images_map.get(listing.get("id"), [])
+
+        total = None
+        content_range = resp.headers.get("Content-Range")
+        if content_range and "/" in content_range:
+            try:
+                total = int(content_range.split("/")[-1])
+            except ValueError:
+                total = None
+
+        payload = {
+            "listings": listings,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+        _admin_cache_set(cache_key, payload)
+        return jsonify(payload), 200
+    except Exception as exc:
+        logger.error(f"Error fetching admin {slug}: {exc}")
+        return jsonify({"error": str(exc)}), 500
+
+
 @admin_bp.route("/plates", methods=["GET"])
 @admin_required
 def get_plates():
-    """Get all license plate listings with user details"""
-    try:
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        # Fetch plates
-        query = f"{SUPABASE_URL}/rest/v1/license_plates?select=*&order=created_at.desc"
-        response = requests.get(query, headers=headers, timeout=10)
-
-        if response.status_code == 200:
-            listings = response.json()
-
-            # Enhance with user info and images
-            for listing in listings:
-                user_id = listing.get("user_id")
-
-                # Fetch user details
-                if user_id:
-                    user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
-                    user_response = requests.get(user_query, headers=headers, timeout=5)
-                    if user_response.status_code == 200 and user_response.json():
-                        user_info = user_response.json()[0]
-                        listing["user_email"] = user_info.get("email", "N/A")
-                        listing["user_name"] = (
-                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-                            or "Unknown"
-                        )
-                        listing["contact_phone"] = user_info.get(
-                            "phone"
-                        ) or listing.get("contact_phone", "N/A")
-                    else:
-                        listing["user_email"] = "N/A"
-                        listing["user_name"] = "Unknown"
-                        listing["contact_phone"] = listing.get("contact_phone", "N/A")
-
-                # Fetch images
-                img_query = f"{SUPABASE_URL}/rest/v1/plate_images?select=*&plate_id=eq.{listing['id']}"
-                img_response = requests.get(img_query, headers=headers, timeout=5)
-                if img_response.status_code == 200:
-                    listing["images"] = img_response.json()
-                else:
-                    listing["images"] = []
-
-            return jsonify(listings), 200
-        else:
-            return jsonify({"error": "Failed to fetch plates"}), response.status_code
-
-    except Exception as e:
-        logger.error(f"Error fetching plates: {e}")
-        return jsonify({"error": str(e)}), 500
+    return _admin_serve_listings("plates")
 
 
 @admin_bp.route("/cars", methods=["GET"])
 @admin_required
 def get_cars():
-    """Get all car listings with user details"""
-    try:
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        # Fetch cars
-        query = f"{SUPABASE_URL}/rest/v1/cars?select=*&order=created_at.desc"
-        response = requests.get(query, headers=headers, timeout=10)
-
-        if response.status_code == 200:
-            listings = response.json()
-
-            # Enhance with user info and images
-            for listing in listings:
-                user_id = listing.get("user_id")
-
-                # Fetch user details
-                if user_id:
-                    user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
-                    user_response = requests.get(user_query, headers=headers, timeout=5)
-                    if user_response.status_code == 200 and user_response.json():
-                        user_info = user_response.json()[0]
-                        listing["user_email"] = user_info.get("email", "N/A")
-                        listing["user_name"] = (
-                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-                            or "Unknown"
-                        )
-                        listing["car_owner_phone_number"] = user_info.get(
-                            "phone"
-                        ) or listing.get("car_owner_phone_number", "N/A")
-                    else:
-                        listing["user_email"] = "N/A"
-                        listing["user_name"] = "Unknown"
-                        listing["car_owner_phone_number"] = listing.get(
-                            "car_owner_phone_number", "N/A"
-                        )
-
-                # Fetch images
-                img_query = f"{SUPABASE_URL}/rest/v1/car_images?select=*&car_id=eq.{listing['id']}"
-                img_response = requests.get(img_query, headers=headers, timeout=5)
-                if img_response.status_code == 200:
-                    images = img_response.json()
-                    # Ensure both url and image_url fields
-                    for img in images:
-                        if "url" in img and "image_url" not in img:
-                            img["image_url"] = img["url"]
-                    listing["images"] = images
-                else:
-                    listing["images"] = []
-
-            return jsonify(listings), 200
-        else:
-            return jsonify({"error": "Failed to fetch cars"}), response.status_code
-
-    except Exception as e:
-        logger.error(f"Error fetching cars: {e}")
-        return jsonify({"error": str(e)}), 500
+    return _admin_serve_listings("cars")
 
 
 @admin_bp.route("/bikes", methods=["GET"])
 @admin_required
 def get_bikes():
-    """Get all bike listings with user details"""
-    try:
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        # Fetch bikes
-        query = f"{SUPABASE_URL}/rest/v1/bikes?select=*&order=created_at.desc"
-        response = requests.get(query, headers=headers, timeout=10)
-
-        if response.status_code == 200:
-            listings = response.json()
-
-            # Enhance with user info and images
-            for listing in listings:
-                user_id = listing.get("user_id")
-
-                # Fetch user details
-                if user_id:
-                    user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
-                    user_response = requests.get(user_query, headers=headers, timeout=5)
-                    if user_response.status_code == 200 and user_response.json():
-                        user_info = user_response.json()[0]
-                        listing["user_email"] = user_info.get("email", "N/A")
-                        listing["user_name"] = (
-                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-                            or "Unknown"
-                        )
-                        listing["contact_phone"] = user_info.get(
-                            "phone"
-                        ) or listing.get("contact_phone", "N/A")
-                    else:
-                        listing["user_email"] = "N/A"
-                        listing["user_name"] = "Unknown"
-                        listing["contact_phone"] = listing.get("contact_phone", "N/A")
-
-                # Fetch images
-                img_query = f"{SUPABASE_URL}/rest/v1/bike_images?select=*&bike_id=eq.{listing['id']}"
-                img_response = requests.get(img_query, headers=headers, timeout=5)
-                if img_response.status_code == 200:
-                    listing["images"] = img_response.json()
-                else:
-                    listing["images"] = []
-
-            return jsonify(listings), 200
-        else:
-            return jsonify({"error": "Failed to fetch bikes"}), response.status_code
-
-    except Exception as e:
-        logger.error(f"Error fetching bikes: {e}")
-        return jsonify({"error": str(e)}), 500
+    return _admin_serve_listings("bikes")
 
 
 @admin_bp.route("/parts", methods=["GET"])
 @admin_required
 def get_parts():
-    """Get all car parts listings with user details"""
-    try:
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        # Fetch parts
-        query = f"{SUPABASE_URL}/rest/v1/car_parts?select=*&order=created_at.desc"
-        response = requests.get(query, headers=headers, timeout=10)
-
-        if response.status_code == 200:
-            listings = response.json()
-
-            # Enhance with user info and images
-            for listing in listings:
-                user_id = listing.get("user_id")
-
-                # Fetch user details
-                if user_id:
-                    user_query = f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}&select=email,first_name,last_name,phone"
-                    user_response = requests.get(user_query, headers=headers, timeout=5)
-                    if user_response.status_code == 200 and user_response.json():
-                        user_info = user_response.json()[0]
-                        listing["user_email"] = user_info.get("email", "N/A")
-                        listing["user_name"] = (
-                            f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-                            or "Unknown"
-                        )
-                        listing["contact_phone"] = user_info.get(
-                            "phone"
-                        ) or listing.get("contact_phone", "N/A")
-                    else:
-                        listing["user_email"] = "N/A"
-                        listing["user_name"] = "Unknown"
-                        listing["contact_phone"] = listing.get("contact_phone", "N/A")
-
-                # Fetch images
-                img_query = f"{SUPABASE_URL}/rest/v1/part_images?select=*&part_id=eq.{listing['id']}"
-                img_response = requests.get(img_query, headers=headers, timeout=5)
-                if img_response.status_code == 200:
-                    listing["images"] = img_response.json()
-                else:
-                    listing["images"] = []
-
-            return jsonify(listings), 200
-        else:
-            return jsonify({"error": "Failed to fetch parts"}), response.status_code
-
-    except Exception as e:
-        logger.error(f"Error fetching parts: {e}")
-        return jsonify({"error": str(e)}), 500
+    return _admin_serve_listings("parts")
 
 
 @admin_bp.route("/listing-history", methods=["GET"])
