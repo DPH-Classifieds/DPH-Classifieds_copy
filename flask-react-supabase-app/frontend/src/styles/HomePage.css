@@ -375,7 +375,10 @@
 }
 
 .cn-explore-section {
-  padding: 84px 0 104px;
+  /* No padding-bottom: the dark CTA bar inside this section is the visual
+     terminator. The previous 104px left a strip of light-green section
+     background rendering below the bar, which read as empty whitespace. */
+  padding: 84px 0 0;
   background: linear-gradient(180deg, #eef5ef 0%, #f6faf5 100%);
   color: #0d1d14;
 }
