@@ -16634,12 +16634,23 @@ def _admin_listing_matches_status(listing, status_filter):
 
 
 def _admin_listing_display_status(listing):
+    # Moderation status takes priority over lifecycle. A pending/draft/rejected/
+    # sold/deleted listing should never show as "active" in the admin UI just
+    # because the expiry timer hasn't fired — that's how a "Pending" filter
+    # ended up surfacing rows with an "Active" badge. Only when the moderation
+    # status is 'approved' does the lifecycle decide active vs expired.
+    listing_status = str(listing.get("status") or "").strip().lower()
     listing_state = str(listing.get("listing_state") or "").strip().lower()
+
+    moderation_override = {"pending", "draft", "rejected", "sold", "deleted", "suspended"}
+    if listing_status in moderation_override:
+        return listing_status
+
     if listing.get("auto_removed_at") and listing.get("is_expired"):
         return "expired"
     if listing_state in {"active", "expired", "archived"}:
         return listing_state
-    return listing.get("status")
+    return listing_status or "pending"
 
 
 def _verification_scan_key(listing_type, listing_id):
