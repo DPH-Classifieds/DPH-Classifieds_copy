@@ -1056,18 +1056,12 @@ def get_users():
         limit = max(min(int(request.args.get("limit", 50)), 200), 1)
         offset = max(int(request.args.get("offset", 0)), 0)
 
-        # Narrow projection — strip fields the list view doesn't render to save bandwidth.
-        # Use the heavy /users/<id>/overview endpoint when full detail is needed.
-        # NOTE: column names must match the actual users table (profile_photo_url, not
-        # avatar_url; no user_type column — role is derived from is_admin / is_dealer).
-        select_cols = (
-            "id,email,username,first_name,last_name,display_name,phone,"
-            "is_admin,is_dealer,dealer_verified,account_status,"
-            "ban_reason,banned_at,email_verified,phone_verified,"
-            "profile_photo_url,created_at,last_login_at"
-        )
+        # select=* keeps us robust against missing migrations on prod (a single
+        # absent column would 400 the whole list). At sub-10k users the
+        # projection saving is negligible. Revisit if/when the users table
+        # picks up large JSONB columns we don't need in the list view.
         params = {
-            "select": select_cols,
+            "select": "*",
             "order": "created_at.desc",
             "limit": str(limit),
             "offset": str(offset),
@@ -1106,7 +1100,19 @@ def get_users():
         )
 
         if response.status_code != 200:
-            return jsonify({"error": "Failed to fetch users"}), response.status_code
+            # Surface PostgREST's actual message so the frontend can show a
+            # useful error instead of a generic 400. Common cause is a
+            # missing column on prod when the projection drifts ahead of
+            # the schema; logging both makes that diagnosis a one-step task.
+            try:
+                detail = response.json()
+            except ValueError:
+                detail = {"raw": response.text[:300]}
+            logger.error(
+                "Admin users fetch failed: status=%s detail=%s",
+                response.status_code, detail,
+            )
+            return jsonify({"error": "Failed to fetch users", "detail": detail}), response.status_code
 
         users = response.json() or []
         total = None
