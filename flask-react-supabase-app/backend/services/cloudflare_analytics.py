@@ -145,6 +145,54 @@ def _resolve_zone_id() -> str | None:
     return _discover_zone_id(token, account_id)
 
 
+def _fetch_rest_window_uniques(zone_id: str, token: str, since, until) -> int | None:
+    """Return the true window-deduped unique visitor count from Cloudflare's
+    REST Zone Analytics dashboard endpoint. This is what the CF UI shows.
+
+    Returns None on any failure so the caller can fall back to the per-day
+    aggregate. We deliberately don't log at error level — a transient REST
+    failure shouldn't spam the logs since the GraphQL path still gives the
+    headline charts.
+    """
+    base = os.getenv("CLOUDFLARE_REST_URL", _DEFAULT_REST_URL)
+    # Dashboard endpoint accepts negative-delta strings like "-30d" or absolute
+    # ISO timestamps. ISO is safer — avoids drift between our `days` math and CF's.
+    since_iso = f"{since.isoformat()}T00:00:00Z"
+    until_iso = f"{until.isoformat()}T23:59:59Z"
+    try:
+        resp = requests.get(
+            f"{base}/zones/{zone_id}/analytics/dashboard",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"since": since_iso, "until": until_iso, "continuous": "false"},
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        logger.info("Cloudflare REST window-uniques fetch failed: %s", exc)
+        return None
+
+    if resp.status_code >= 400:
+        logger.info(
+            "Cloudflare REST window-uniques HTTP %s: %s",
+            resp.status_code, resp.text[:200],
+        )
+        return None
+
+    try:
+        payload = resp.json() or {}
+    except ValueError:
+        return None
+
+    totals = (payload.get("result") or {}).get("totals") or {}
+    uniques_block = totals.get("uniques") or {}
+    window_uniques = uniques_block.get("all")
+    if window_uniques is None:
+        return None
+    try:
+        return int(window_uniques)
+    except (TypeError, ValueError):
+        return None
+
+
 def fetch_zone_metrics(days: int) -> dict | None:
     """Return aggregated Cloudflare zone metrics for the last `days` days.
 
@@ -254,10 +302,16 @@ def fetch_zone_metrics(days: int) -> dict | None:
             }
         )
 
-    # Approximate window-uniques as the SUM of daily uniques. This over-counts
-    # users who returned on multiple days, but it's directionally correct and
-    # matches what Cloudflare's own "Unique visitors" graph aggregates show.
-    unique_visitors_window = sum(daily_uniques)
+    # Window-deduped uniques: ask Cloudflare's REST analytics dashboard for
+    # the same number the CF UI shows ("6.65k unique visitors / 30d"). The
+    # GraphQL httpRequests1dGroups response only gives per-day uniques, and
+    # summing them double-counts return visitors heavily over longer windows
+    # (a person who visits 12/30 days inflates by 12x in the sum).
+    # If the REST call fails, fall back to max(daily_uniques) — a conservative
+    # lower bound (≥ any single day, ≤ the true window unique).
+    unique_visitors_window = _fetch_rest_window_uniques(zone_id, token, since, until)
+    if unique_visitors_window is None:
+        unique_visitors_window = max(daily_uniques) if daily_uniques else 0
 
     result = {
         "data_source": "cloudflare",
