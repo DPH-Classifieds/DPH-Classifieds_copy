@@ -124,12 +124,21 @@
     radial-gradient(circle at 18% 72%, rgba(21, 92, 45, 0.2), transparent 34%);
 }
 
-.cn-hero-image,
-.cn-cta-image {
+.cn-hero-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
   aspect-ratio: 16 / 9;
+}
+
+.cn-cta-image {
+  /* No aspect-ratio: the parent .cn-cta-media is absolutely positioned
+     to fill the section, so we want the image to cover the entire
+     section. Forcing 16:9 left a white strip above the image where the
+     parent's transparent background showed through the page bg. */
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .cn-hero-vignette {
@@ -375,9 +384,6 @@
 }
 
 .cn-explore-section {
-  /* No padding-bottom: the dark CTA bar inside this section is the visual
-     terminator. The previous 104px left a strip of light-green section
-     background rendering below the bar, which read as empty whitespace. */
   padding: 84px 0 0;
   background: linear-gradient(180deg, #eef5ef 0%, #f6faf5 100%);
   color: #0d1d14;
@@ -758,6 +764,10 @@
   position: relative;
   overflow: hidden;
   padding: 120px 0;
+  /* Fallback bg in the section colour so even if the hero image hasn't
+     loaded (or is the wrong aspect on a wide viewport), no white shows
+     between the green CTA bar above and the dark image content. */
+  background-color: #051110;
 }
 
 .cn-cta-overlay {
