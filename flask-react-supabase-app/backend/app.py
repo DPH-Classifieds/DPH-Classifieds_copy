@@ -12565,133 +12565,14 @@ def _require_admin_api_user(current_user):
     return user_details if user_details and user_details.get("is_admin") else None
 
 
-@app.route("/api/admin/users", methods=["GET"])
-@token_required
-def get_admin_users(current_user):
-    try:
-        if not _require_admin_api_user(current_user):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        query = (
-            "/rest/v1/users"
-            "?select=id,email,first_name,last_name,display_name,username,phone,city,emirate,"
-            "profile_photo_url,profile_completion_percentage,email_verified,phone_verified,"
-            "is_dealer,dealer_verified,is_admin,account_status,created_at"
-            "&order=created_at.desc"
-        )
-        response, status_code = supabase_request("get", query, use_service_role=True)
-
-        if status_code >= 400:
-            logger.error(f"Failed to fetch admin users: {response}")
-            return jsonify({"error": "Failed to fetch users"}), status_code
-
-        users_list = response if isinstance(response, list) else []
-
-        # Sync email_verified from Supabase Auth (users table may be stale)
-        try:
-            auth_headers = {
-                "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            }
-            auth_resp = requests.get(
-                f"{SUPABASE_URL}/auth/v1/admin/users",
-                headers=auth_headers,
-                params={"page": 1, "per_page": 1000},
-                timeout=15,
-            )
-            if auth_resp.status_code == 200:
-                auth_users = auth_resp.json().get("users", [])
-                auth_map = {u["id"]: u for u in auth_users}
-                for user in users_list:
-                    uid = user.get("id")
-                    if uid and uid in auth_map:
-                        auth_user = auth_map[uid]
-                        email_confirmed = bool(auth_user.get("email_confirmed_at"))
-                        user["email_verified"] = (
-                            user.get("email_verified") or email_confirmed
-                        )
-        except Exception as sync_err:
-            logger.warning(f"Could not sync email_verified from Auth: {sync_err}")
-
-        return jsonify(users_list), 200
-    except Exception as e:
-        logger.error(f"Error in get_admin_users: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching users"}), 500
-
-
-@app.route("/api/admin/users/<user_id>/status", methods=["PATCH"])
-@token_required
-def update_admin_user_status(current_user, user_id):
-    try:
-        if not _require_admin_api_user(current_user):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        if user_id == current_user:
-            return jsonify({"error": "You cannot change your own account status"}), 400
-
-        protected = _protect_super_admin_target(user_id, "change its status")
-        if protected:
-            return protected
-
-        data = request.get_json(silent=True) or {}
-        next_status = (data.get("status") or "").strip().lower()
-        if next_status not in {"active", "suspended", "banned"}:
-            return jsonify(
-                {"error": "Status must be active, suspended, or banned"}
-            ), 400
-
-        status_reason = (data.get("reason") or data.get("note") or "").strip()
-
-        update_data = {"account_status": next_status}
-        if status_reason:
-            update_data["rejection_note"] = status_reason
-
-        response, status_code = supabase_request(
-            "patch",
-            f"/rest/v1/users?id=eq.{user_id}",
-            data=update_data,
-            use_service_role=True,
-        )
-
-        if status_code not in [200, 204]:
-            logger.error(f"Failed updating user status for {user_id}: {response}")
-            return jsonify({"error": "Failed to update user status"}), status_code
-
-        payload = {"message": f"User marked as {next_status}", "status": next_status}
-        if status_reason:
-            payload["reason"] = status_reason
-        return jsonify(payload), 200
-    except Exception as e:
-        logger.error(f"Error updating admin user status: {str(e)}")
-        return jsonify({"error": "An error occurred while updating user status"}), 500
-
-
-@app.route("/api/admin/users/<user_id>/make-admin", methods=["POST"])
-@token_required
-def make_admin_user(current_user, user_id):
-    try:
-        if not _require_admin_api_user(current_user):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        protected = _protect_super_admin_target(user_id, "modify admin access for")
-        if protected:
-            return protected
-
-        response, status_code = supabase_request(
-            "patch",
-            f"/rest/v1/users?id=eq.{user_id}",
-            data={"is_admin": True, "account_status": "active"},
-            use_service_role=True,
-        )
-
-        if status_code not in [200, 204]:
-            logger.error(f"Failed promoting user {user_id}: {response}")
-            return jsonify({"error": "Failed to promote user"}), status_code
-
-        return jsonify({"message": "User promoted to admin"}), 200
-    except Exception as e:
-        logger.error(f"Error promoting user to admin: {str(e)}")
-        return jsonify({"error": "An error occurred while promoting the user"}), 500
+# NOTE: /api/admin/users (GET), /api/admin/users/<id>/status (PATCH), and
+# /api/admin/users/<id>/make-admin (POST) used to live here. Removed in favour
+# of the single source of truth in routes/admin.py — having duplicate URL rules
+# in two blueprints made dispatch non-deterministic (Werkzeug's URL map orders
+# by rule complexity, not registration), which is why the admin user list
+# silently broke when the wrong handler answered. Auth-user delete, status-
+# with-reason+archive, banned status, audit logging, and pagination all live
+# in routes/admin.py now. Restore from git if a feature was missed.
 
 
 @app.route("/api/admin/users/<user_id>/profile", methods=["PATCH"])
@@ -12876,52 +12757,11 @@ def update_admin_user_profile(current_user, user_id):
         return jsonify({"error": "An error occurred while updating user profile"}), 500
 
 
-@app.route("/api/admin/users/<user_id>", methods=["DELETE"])
-@token_required
-def delete_admin_user(current_user, user_id):
-    try:
-        if not _require_admin_api_user(current_user):
-            return jsonify({"error": "Unauthorized - Admin access required"}), 403
-
-        if user_id == current_user:
-            return jsonify({"error": "You cannot delete your own account"}), 400
-
-        protected = _protect_super_admin_target(user_id, "delete")
-        if protected:
-            return protected
-
-        headers = _get_service_role_headers()
-
-        auth_response = requests.delete(
-            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
-            headers=headers,
-            timeout=15,
-        )
-        if auth_response.status_code not in [200, 204, 404]:
-            logger.error(
-                f"Failed deleting auth user {user_id}: {auth_response.status_code} - {auth_response.text}"
-            )
-            return jsonify(
-                {"error": "Failed to delete auth user"}
-            ), auth_response.status_code
-
-        db_response = requests.delete(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
-            headers=headers,
-            timeout=15,
-        )
-        if db_response.status_code not in [200, 204]:
-            logger.error(
-                f"Failed deleting user row {user_id}: {db_response.status_code} - {db_response.text}"
-            )
-            return jsonify(
-                {"error": "Failed to delete user record"}
-            ), db_response.status_code
-
-        return jsonify({"message": "User deleted successfully"}), 200
-    except Exception as e:
-        logger.error(f"Error deleting admin user: {str(e)}")
-        return jsonify({"error": "An error occurred while deleting the user"}), 500
+# NOTE: DELETE /api/admin/users/<id> now lives in routes/admin.py — the
+# duplicate here clashed with the blueprint route and racing dispatch made
+# the wrong handler answer in some sessions. The auth-user delete logic
+# (calling /auth/v1/admin/users/<id>) was ported into the blueprint so the
+# Supabase Auth row is cleaned up alongside public.users.
 
 
 @app.route("/api/admin/cleanup-unverified-accounts", methods=["POST"])

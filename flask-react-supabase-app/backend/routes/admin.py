@@ -1148,10 +1148,12 @@ def make_admin(user_id):
             "Content-Type": "application/json",
             "Prefer": "return=representation",
         }
+        # Promoting also reactivates: a banned/suspended user being made admin
+        # implies the admin status is the source of truth now.
         response = requests.patch(
             f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
             headers=headers,
-            json={"is_admin": True},
+            json={"is_admin": True, "account_status": "active"},
             timeout=5,
         )
         if response.status_code in [200, 204]:
@@ -1374,6 +1376,26 @@ def delete_user(user_id):
 
         # Archive their listings first so we have an accurate count in the audit log
         archive_counts = _archive_user_listings(user_id)
+
+        # Delete the Supabase Auth user too — otherwise the auth row outlives
+        # the public.users row and the email/phone can never be re-registered.
+        # 404 is acceptable: means the auth user was already gone.
+        try:
+            auth_resp = requests.delete(
+                f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                headers={"apikey": SUPABASE_SERVICE_ROLE_KEY,
+                         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"},
+                timeout=15,
+            )
+            if auth_resp.status_code not in (200, 204, 404):
+                logger.error(
+                    "Failed deleting auth user %s: status=%s body=%s",
+                    user_id, auth_resp.status_code, auth_resp.text[:300],
+                )
+                return jsonify({"error": "Failed to delete auth user"}), auth_resp.status_code
+        except Exception as auth_err:
+            logger.error("Auth user delete exception for %s: %s", user_id, auth_err)
+            return jsonify({"error": "Failed to delete auth user"}), 500
 
         delete_response = requests.delete(
             f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}", headers=headers, timeout=10

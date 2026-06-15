@@ -324,18 +324,17 @@ const AdminListings = () => {
   };
 
   const isRenewable = (listing) => {
+    // Admin can renew any listing that isn't already terminal — sold,
+    // user-deleted, rejected, or auto-archived past retention. The previous
+    // "within 7 days of expiry" gate was a UX guess that hid the button on
+    // freshly posted listings, which surprised admins who expected to be
+    // able to extend any active listing on demand.
     if (!listing) return false;
-    const ds = String(
-      listing.display_status || listing.listing_state || listing.status || ''
-    ).toLowerCase();
-    if (ds === 'expired') return true;
-    const exp = listing.expires_at;
-    if (!exp) return false;
-    const ms = new Date(exp).getTime();
-    if (Number.isNaN(ms)) return false;
-    const diff = ms - Date.now();
-    // within next 7 days (and not already long-expired beyond a week into the past)
-    return diff <= 7 * 24 * 60 * 60 * 1000 && diff >= -30 * 24 * 60 * 60 * 1000;
+    const rawStatus = String(listing.status || '').toLowerCase();
+    const terminal = ['sold', 'deleted', 'rejected', 'archived'];
+    if (terminal.includes(rawStatus)) return false;
+    if (listing.deleted_at || listing.is_archived) return false;
+    return true;
   };
 
   const rowKey = (listing) => `${listing.listing_type || 'cars'}:${listing.id}`;
