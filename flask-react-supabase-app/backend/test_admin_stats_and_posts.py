@@ -100,15 +100,23 @@ class AdminStatsTests(unittest.TestCase):
             key = (table, frozenset((params or {}).items()) if params else None)
             return count_returns.get(key, 0)
 
+        # Cloudflare override would clobber the platform_events numbers we're
+        # actually testing here. Disable it for the duration of this test so we
+        # exercise the in-app aggregator, not the edge.
+        from unittest.mock import patch as _patch
         with backend.app.test_request_context("/api/admin/stats?days=30"):
             with patch.object(backend, "_require_admin_api_user", return_value=True):
                 with patch.object(backend, "supabase_request", side_effect=fake_supabase_request):
                     with patch.object(backend, "_supabase_count", side_effect=fake_count):
-                        response, status = backend.get_admin_stats.__wrapped__("admin-1")
+                        with _patch("services.cloudflare_analytics.is_enabled", return_value=False):
+                            response, status = backend.get_admin_stats.__wrapped__("admin-1")
 
         self.assertEqual(status, 200)
         payload = response.get_json()
         self.assertEqual(payload["unique_visitors"], 2)
+        # Cloudflare disabled in this test → data_source must fall back to the
+        # in-app tracker so the dashboard badge stays truthful.
+        self.assertEqual(payload["data_source"], "platform_events")
         self.assertEqual(payload["live_users"], 2)
         self.assertEqual(payload["cars_pending"], 1)
         self.assertEqual(payload["parts_pending"], 1)
@@ -156,7 +164,8 @@ class AdminStatsTests(unittest.TestCase):
              patch("app._fetch_rows", side_effect=fake_fetch), \
              patch("app._supabase_count", return_value=1), \
              patch("app._api_cache_get", return_value=None), \
-             patch("app._require_admin_api_user", return_value=True):
+             patch("app._require_admin_api_user", return_value=True), \
+             patch("services.cloudflare_analytics.is_enabled", return_value=False):
             with backend.app.test_request_context("/api/admin/stats?days=30"):
                 payload, status_code = backend.get_admin_stats.__wrapped__("admin-1")
                 self.assertEqual(status_code, 200)

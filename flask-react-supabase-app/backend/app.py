@@ -1363,7 +1363,45 @@ def _renew_listing_and_verify(table_name, listing_id, listing, *, current_user=N
         use_service_role=True,
     )
     if patch_status >= 400:
-        return None, patch_status, patch_response
+        logger.error(
+            "Renewal PATCH failed table=%s id=%s status=%s response=%s",
+            table_name, listing_id, patch_status, patch_response,
+        )
+        # PostgREST returns "PGRST204" / "column ... does not exist" when a column
+        # in our payload isn't present on the target table. Retry without optional
+        # idempotency columns so renewal still succeeds on older schemas; the worker
+        # backfills these on its next sweep.
+        message = ""
+        if isinstance(patch_response, dict):
+            message = str(patch_response.get("message") or patch_response.get("hint") or "")
+        elif isinstance(patch_response, str):
+            message = patch_response
+        message_lc = message.lower()
+
+        optional_keys = {
+            "renewed_at", "reminder_job_id", "expiration_job_id",
+            "expired_email_sent_at", "expiry_reminder_sent_at",
+            "auto_removed_at", "retention_expires_at", "sold_response_deadline",
+            "is_archived",
+        }
+        if patch_status == 400 and ("does not exist" in message_lc or "schema cache" in message_lc):
+            stripped = {k: v for k, v in renewal_updates.items() if k not in optional_keys}
+            logger.warning(
+                "Renewal retry without optional columns table=%s id=%s remaining=%s",
+                table_name, listing_id, list(stripped.keys()),
+            )
+            patch_response, patch_status = supabase_request(
+                "patch",
+                f"/rest/v1/{table_name}?id=eq.{listing_id}",
+                data=stripped,
+                use_service_role=True,
+            )
+        if patch_status >= 400:
+            error_payload = {
+                "error": "Failed to renew listing",
+                "detail": patch_response if isinstance(patch_response, (dict, str)) else None,
+            }
+            return None, patch_status, error_payload
 
     refreshed_listing, refreshed_status = _fetch_listing_by_id(
         table_name,
@@ -15288,6 +15326,48 @@ def get_admin_stats(current_user):
             logger.warning("cropped_at_pct calculation failed: %s", exc)
 
         stats["cropped_at_pct"] = cropped_at_pct
+
+        # Cloudflare override for the headline traffic tiles. Edge metrics are
+        # truth for "how many real humans hit the domain" — platform_events only
+        # sees clients that successfully loaded our JS, which under-counts.
+        # We override unique_visitors/total_views/page_views and tag the source
+        # so the dashboard can render a "Source: Cloudflare" badge. Per-listing
+        # views (cars_views/bikes_views/etc.) stay platform_events because the
+        # edge can't tell us which listing got viewed.
+        stats["data_source"] = "platform_events"
+        stats["data_source_note"] = None
+        try:
+            from services.cloudflare_analytics import (
+                fetch_zone_metrics as _cf_fetch,
+                is_enabled as _cf_enabled,
+            )
+            if _cf_enabled():
+                cf = _cf_fetch(days)
+                if cf:
+                    stats["site_visitors_platform"] = stats["unique_visitors"]
+                    stats["total_views_platform"] = stats["total_views"]
+                    stats["unique_visitors"] = cf["unique_visitors"]
+                    stats["page_views"] = cf["page_views"]
+                    stats["edge_requests"] = cf["requests"]
+                    stats["edge_threats"] = cf["threats"]
+                    stats["edge_cached_requests"] = cf["cached_requests"]
+                    stats["edge_bytes"] = cf["bytes"]
+                    stats["peak_daily_uniques"] = cf["peak_daily_uniques"]
+                    stats["data_source"] = "cloudflare"
+                else:
+                    stats["data_source_note"] = (
+                        "Cloudflare configured but the API call failed; "
+                        "showing in-app platform_events numbers. "
+                        "Hit /api/admin/cloudflare/status to debug."
+                    )
+            else:
+                stats["data_source_note"] = (
+                    "Cloudflare not configured. Set CLOUDFLARE_API_TOKEN plus "
+                    "CLOUDFLARE_ACCOUNT_ID (or CLOUDFLARE_ZONE_ID) to switch to "
+                    "edge-truth visitor numbers."
+                )
+        except Exception as cf_err:
+            logger.warning("Cloudflare override on admin stats skipped: %s", cf_err)
 
         _api_cache_set(cache_key, stats, ttl_seconds=60)
         return jsonify(stats), 200

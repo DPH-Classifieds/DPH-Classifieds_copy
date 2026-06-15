@@ -444,6 +444,24 @@ const AdminDashboard = () => {
               Updating…
             </span>
           )}
+          {/* Tells the operator whether the headline tiles are coming from
+              Cloudflare edge data or the in-app platform_events tracker. The
+              backend stamps stats.data_source ('cloudflare' | 'platform_events')
+              and an optional stats.data_source_note explaining how to switch. */}
+          {stats?.data_source && (
+            <span
+              title={stats.data_source_note || (stats.data_source === 'cloudflare'
+                ? 'Site visitors / page views are sourced from Cloudflare edge analytics for the selected window.'
+                : 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID on the backend to switch.')}
+              className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border ${
+                stats.data_source === 'cloudflare'
+                  ? 'border-orange-400/30 bg-orange-400/10 text-orange-200'
+                  : 'border-white/10 bg-white/[0.04] text-white/60'
+              }`}
+            >
+              Source: {stats.data_source === 'cloudflare' ? 'Cloudflare' : 'platform_events'}
+            </span>
+          )}
           <SegmentedControl options={WINDOW_OPTIONS} value={days} onChange={setDays} />
         </div>
       </motion.div>

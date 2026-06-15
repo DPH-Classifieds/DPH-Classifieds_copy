@@ -1058,10 +1058,13 @@ def get_users():
 
         # Narrow projection — strip fields the list view doesn't render to save bandwidth.
         # Use the heavy /users/<id>/overview endpoint when full detail is needed.
+        # NOTE: column names must match the actual users table (profile_photo_url, not
+        # avatar_url; no user_type column — role is derived from is_admin / is_dealer).
         select_cols = (
-            "id,email,username,first_name,last_name,phone,is_admin,account_status,"
-            "ban_reason,banned_at,user_type,is_dealer,email_verified,phone_verified,"
-            "avatar_url,created_at,last_login_at"
+            "id,email,username,first_name,last_name,display_name,phone,"
+            "is_admin,is_dealer,dealer_verified,account_status,"
+            "ban_reason,banned_at,email_verified,phone_verified,"
+            "profile_photo_url,created_at,last_login_at"
         )
         params = {
             "select": select_cols,

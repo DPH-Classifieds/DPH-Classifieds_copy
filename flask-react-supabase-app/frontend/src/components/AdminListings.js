@@ -616,7 +616,16 @@ const AdminListings = () => {
                     const title = getListingTitle(listing);
                     const seller = listing.user_email || listing.seller_email || '—';
                     const views = Number(listing.view_count ?? listing.views ?? 0);
-                    const displayStatus = listing.display_status || listing.listing_state || listing.status || 'pending';
+                    // Show the moderation status (pending/draft/rejected/sold/deleted) when it
+                    // overrides public visibility. Only fall through to listing_state ('active' /
+                    // 'expired') when the listing was approved — otherwise a not-yet-approved
+                    // listing reads as "Active" purely because its expiry timer hasn't fired.
+                    const rawStatus = String(listing.status || '').toLowerCase();
+                    const overrideStatuses = ['pending', 'draft', 'rejected', 'sold', 'deleted', 'archived', 'suspended'];
+                    const displayStatus = listing.display_status
+                      || (overrideStatuses.includes(rawStatus)
+                            ? rawStatus
+                            : (listing.listing_state || rawStatus || 'pending'));
                     const lt = listing.listing_type || 'cars';
                     const isPending = (listing._table_status || listing.status) === 'pending';
                     const ds = String(displayStatus || '').toLowerCase();

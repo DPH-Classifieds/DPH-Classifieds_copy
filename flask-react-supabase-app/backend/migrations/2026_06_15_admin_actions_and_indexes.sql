@@ -75,6 +75,32 @@ begin
 end$$;
 
 -- =====================================================================
+-- 2b. Defensive: ensure listing-renewal columns exist on every listing
+-- table. The user-facing renewal flow PATCHes these; if an older migration
+-- (add_listing_expiry_idempotency_columns.sql) hasn't run on a given env,
+-- renewals 400 out. Re-applying this migration heals that.
+-- =====================================================================
+do $$
+declare
+    tbl text;
+begin
+    foreach tbl in array array['cars', 'bikes', 'car_parts', 'license_plates']
+    loop
+        execute format('alter table public.%I add column if not exists renewed_at timestamptz', tbl);
+        execute format('alter table public.%I add column if not exists reminder_job_id text', tbl);
+        execute format('alter table public.%I add column if not exists expiration_job_id text', tbl);
+        execute format('alter table public.%I add column if not exists expiry_reminder_sent_at timestamptz', tbl);
+        execute format('alter table public.%I add column if not exists expired_email_sent_at timestamptz', tbl);
+        execute format('alter table public.%I add column if not exists auto_removed_at timestamptz', tbl);
+        execute format('alter table public.%I add column if not exists retention_expires_at timestamptz', tbl);
+        execute format('alter table public.%I add column if not exists sold_response_deadline timestamptz', tbl);
+        execute format('alter table public.%I add column if not exists is_archived boolean default false', tbl);
+        execute format('alter table public.%I add column if not exists extension_count integer default 0', tbl);
+        execute format('alter table public.%I add column if not exists last_extended_at timestamptz', tbl);
+    end loop;
+end$$;
+
+-- =====================================================================
 -- 3. Composite indexes for admin list views (the slow ones)
 -- =====================================================================
 create index if not exists idx_users_account_status_created
