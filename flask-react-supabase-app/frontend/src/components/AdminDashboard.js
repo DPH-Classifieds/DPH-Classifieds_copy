@@ -448,20 +448,37 @@ const AdminDashboard = () => {
               Cloudflare edge data or the in-app platform_events tracker. The
               backend stamps stats.data_source ('cloudflare' | 'platform_events')
               and an optional stats.data_source_note explaining how to switch. */}
-          {stats?.data_source && (
-            <span
-              title={stats.data_source_note || (stats.data_source === 'cloudflare'
-                ? 'Site visitors / page views are sourced from Cloudflare edge analytics for the selected window.'
-                : 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID on the backend to switch.')}
-              className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border ${
-                stats.data_source === 'cloudflare'
-                  ? 'border-orange-400/30 bg-orange-400/10 text-orange-200'
-                  : 'border-white/10 bg-white/[0.04] text-white/60'
-              }`}
-            >
-              Source: {stats.data_source === 'cloudflare' ? 'Cloudflare' : 'platform_events'}
-            </span>
-          )}
+          {stats?.data_source && (() => {
+            // Build a precise label + tooltip so it's obvious which pipeline
+            // produced the visitor number and how trustworthy it is:
+            //   cf_rest          → matches dash.cloudflare.com exactly
+            //   cf_graphql_estimate → linear-decay heuristic from per-day uniques
+            //   platform_events  → in-app tracker, doesn't see ad-blocked clients
+            const cfSource = stats.unique_visitors_source;
+            let label = 'platform_events';
+            let tooltip = stats.data_source_note ||
+              'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID on the backend to switch to edge truth.';
+            let tone = 'border-white/10 bg-white/[0.04] text-white/60';
+            if (stats.data_source === 'cloudflare') {
+              tone = 'border-orange-400/30 bg-orange-400/10 text-orange-200';
+              if (cfSource === 'cf_rest') {
+                label = 'Cloudflare (exact)';
+                tooltip = 'Site visitors come from Cloudflare REST Zone Analytics — same number dash.cloudflare.com shows.';
+              } else if (cfSource === 'cf_graphql_estimate') {
+                label = 'Cloudflare (estimated)';
+                tooltip = 'REST dashboard endpoint unavailable on this plan, so window-uniques are estimated from per-day GraphQL uniques (peak day floored, decays toward truth as the window grows). Page views / requests / threats are exact.';
+                tone = 'border-amber-400/30 bg-amber-400/10 text-amber-200';
+              } else {
+                label = 'Cloudflare';
+                tooltip = 'Headline traffic numbers from Cloudflare edge analytics.';
+              }
+            }
+            return (
+              <span title={tooltip} className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border ${tone}`}>
+                Source: {label}
+              </span>
+            );
+          })()}
           <SegmentedControl options={WINDOW_OPTIONS} value={days} onChange={setDays} />
         </div>
       </motion.div>

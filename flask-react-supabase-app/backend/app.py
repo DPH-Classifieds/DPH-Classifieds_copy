@@ -15354,6 +15354,11 @@ def get_admin_stats(current_user):
                     stats["edge_bytes"] = cf["bytes"]
                     stats["peak_daily_uniques"] = cf["peak_daily_uniques"]
                     stats["data_source"] = "cloudflare"
+                    # Which path produced unique_visitors: 'cf_rest' (truth),
+                    # 'cf_graphql_estimate' (heuristic from daily uniques),
+                    # 'none' (no data). Surfaced in the dashboard tooltip so
+                    # operators know how trustworthy the number is.
+                    stats["unique_visitors_source"] = cf.get("unique_visitors_source")
                 else:
                     stats["data_source_note"] = (
                         "Cloudflare configured but the API call failed; "

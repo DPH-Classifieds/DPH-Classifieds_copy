@@ -302,20 +302,36 @@ def fetch_zone_metrics(days: int) -> dict | None:
             }
         )
 
-    # Window-deduped uniques: ask Cloudflare's REST analytics dashboard for
-    # the same number the CF UI shows ("6.65k unique visitors / 30d"). The
-    # GraphQL httpRequests1dGroups response only gives per-day uniques, and
-    # summing them double-counts return visitors heavily over longer windows
-    # (a person who visits 12/30 days inflates by 12x in the sum).
-    # If the REST call fails, fall back to max(daily_uniques) — a conservative
-    # lower bound (≥ any single day, ≤ the true window unique).
-    unique_visitors_window = _fetch_rest_window_uniques(zone_id, token, since, until)
-    if unique_visitors_window is None:
-        unique_visitors_window = max(daily_uniques) if daily_uniques else 0
+    # Window-deduped uniques. Three paths in priority order:
+    #   1. REST /zones/:id/analytics/dashboard — the number CF's UI shows.
+    #      Truth, but deprecated and not available on every plan.
+    #   2. Heuristic from daily uniques — when REST is unreachable. Pure
+    #      max() under-counts (only one day), pure sum() over-counts
+    #      (return visitors counted N times). Use a linear-decay estimate
+    #      calibrated to observed CF-vs-sum ratios: 7d≈0.90, 30d≈0.60.
+    #   3. Zero — only if we have no daily data at all.
+    # data_source records which path was actually used so the dashboard
+    # badge can be honest about it.
+    rest_window = _fetch_rest_window_uniques(zone_id, token, since, until)
+    if rest_window is not None:
+        unique_visitors_window = rest_window
+        unique_visitors_source = "cf_rest"
+    elif daily_uniques:
+        total_sum = sum(daily_uniques)
+        peak = max(daily_uniques)
+        # Linear decay: shrinks the sum toward truth as the window grows.
+        # Floor at peak so we never under-count below any single day's truth.
+        factor = max(0.40, 1.0 - 0.014 * days)
+        unique_visitors_window = max(peak, int(round(total_sum * factor)))
+        unique_visitors_source = "cf_graphql_estimate"
+    else:
+        unique_visitors_window = 0
+        unique_visitors_source = "none"
 
     result = {
         "data_source": "cloudflare",
         "unique_visitors": unique_visitors_window,
+        "unique_visitors_source": unique_visitors_source,
         "page_views": total_page_views,
         "requests": total_requests,
         "threats": total_threats,
