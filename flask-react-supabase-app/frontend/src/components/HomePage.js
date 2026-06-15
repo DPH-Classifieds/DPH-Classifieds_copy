@@ -16,7 +16,29 @@ import './ExplorePage.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const HeroBackground = lazy(() => import('./HeroBackground'));
 
+const marketplaceInsights = [
+  {
+    id: 1,
+    title: 'Community members',
+    subtitle: '70k+ petrolheads connected through the broader DPH ecosystem.',
+    stat: '70k+',
+  },
+  {
+    id: 2,
+    title: 'Viewers',
+    subtitle: '25+ million viewers engaging with the platform and community reach.',
+    stat: '25M+',
+  },
+  {
+    id: 3,
+    title: 'Built by PetrolHeads',
+    subtitle: 'Created with a focus on the details that matter.',
+    stat: 'DPH-Classifieds',
+  },
+];
+
 const heroImage = '/hero.webp';
+const ctaImage = '/images/bottom-landing.jpg';
 const primaryHeroButtonClass =
   'group border-0 bg-gradient-to-r from-[#0b6b4c] via-[#0a5f47] to-[#004e37] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[#0b6b4c] hover:to-[#0a5f47]';
 const secondaryHeroButtonClass =
@@ -280,6 +302,44 @@ const HomePage = () => {
             <Link to="/post-car" className="cn-marketplace-cta-button">
               Click here
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="cn-cta-section">
+        <div className="cn-cta-media">
+          <img src={ctaImage} alt="Abstract performance silhouette" className="cn-cta-image" loading="lazy" decoding="async" width="1920" height="600" />
+          <div className="cn-cta-overlay" />
+        </div>
+        <div className="cn-shell cn-cta-content">
+          <span className="cn-kicker">Automotive Ecosystem</span>
+          <h2>Browse the full market or launch your next listing.</h2>
+          <p>
+            The landing page now routes directly into the same marketplace logic as Explore, so every
+            next click stays inside one coherent DPH flow.
+          </p>
+          <div className="cn-hero-actions">
+            <Button asChild className={primaryHeroButtonClass}>
+              <Link to="/explore">
+                Launch Explore
+                <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className={secondaryHeroButtonClass}>
+              <Link to="/post-car">
+                Start Selling
+                <ArrowRight className="-me-1 ms-2 opacity-80 transition-transform group-hover:translate-x-0.5" size={16} strokeWidth={2} aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
+          <div className="cn-cta-stats">
+            {marketplaceInsights.map((insight) => (
+              <article key={insight.id} className="cn-cta-stat-card">
+                <span className="cn-cta-stat-number">{insight.stat}</span>
+                <span className="cn-cta-stat-title">{insight.title}</span>
+                <span className="cn-cta-stat-desc">{insight.subtitle}</span>
+              </article>
+            ))}
           </div>
         </div>
       </section>
