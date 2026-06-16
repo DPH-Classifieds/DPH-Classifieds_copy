@@ -31,6 +31,12 @@ export default function useSwipe({
 
     const handlePointerDown = (event) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
+      if (event.target && typeof event.target.closest === 'function') {
+        const interactive = event.target.closest('button, a, input, textarea, select, [role="button"]');
+        if (interactive && interactive !== node && node.contains(interactive)) {
+          return;
+        }
+      }
       pointerId = event.pointerId;
       startX = event.clientX;
       startY = event.clientY;
