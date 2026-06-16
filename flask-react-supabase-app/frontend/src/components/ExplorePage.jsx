@@ -149,6 +149,23 @@ const getPrimaryImage = (item) => {
   return resolveMediaUrl(candidate);
 };
 
+const getGalleryImages = (item) => {
+  const rawImages = Array.isArray(item?.images) ? item.images : [];
+  const urls = rawImages
+    .map((entry) => {
+      if (!entry) return null;
+      if (typeof entry === 'string') return entry;
+      return entry.display_url || entry.image_url || entry.url || null;
+    })
+    .filter(Boolean)
+    .map(resolveMediaUrl)
+    .filter(Boolean);
+
+  if (urls.length) return urls;
+  const primary = getPrimaryImage(item);
+  return primary ? [primary] : [];
+};
+
 const toNumeric = (value) => {
   if (value === '' || value === null || value === undefined) {
     return null;
@@ -227,6 +244,7 @@ const normalizeCar = (car) => {
     route: `/cars/${car.id}`,
     routeState: buildListingRouteState(car),
     image: getPrimaryImage(car),
+    images: getGalleryImages(car),
     createdAt: car.created_at,
     searchableText: buildSearchableText([
       title,
@@ -265,6 +283,7 @@ const normalizeBike = (bike) => {
     route: `/bikes/${bike.id}`,
     routeState: buildListingRouteState(bike),
     image: getPrimaryImage(bike),
+    images: getGalleryImages(bike),
     createdAt: bike.created_at,
     searchableText: buildSearchableText([
       title,
@@ -297,6 +316,7 @@ const normalizePart = (part) => {
     route: `/car-parts/${part.id}`,
     routeState: buildListingRouteState(part),
     image: getPrimaryImage(part),
+    images: getGalleryImages(part),
     createdAt: part.created_at,
     searchableText: buildSearchableText([
       title,
@@ -331,6 +351,7 @@ const normalizePlate = (plate) => {
     route: `/plates/${plate.id}`,
     routeState: buildListingRouteState(plate),
     image: getPrimaryImage(plate),
+    images: getGalleryImages(plate),
     createdAt: plate.created_at,
     searchableText: buildSearchableText([
       title,

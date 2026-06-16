@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import SavedListingToggleButton from './SavedListingToggleButton';
+import useSwipe from '../hooks/useSwipe';
 
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
@@ -29,6 +30,31 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
       ].filter(Boolean)
     : [];
 
+  const galleryImages = useMemo(() => {
+    const arr = Array.isArray(item?.images) ? item.images.filter(Boolean) : [];
+    if (arr.length) return arr;
+    return item?.image ? [item.image] : [];
+  }, [item?.images, item?.image]);
+
+  const hasGallery = galleryImages.length > 1;
+  const [imageIndex, setImageIndex] = useState(0);
+
+  const stepImage = (direction) => {
+    if (!hasGallery) return;
+    setImageIndex((current) => {
+      const next = current + direction;
+      if (next < 0) return galleryImages.length - 1;
+      if (next >= galleryImages.length) return 0;
+      return next;
+    });
+  };
+
+  const swipeRef = useSwipe({
+    onSwipeLeft: () => stepImage(1),
+    onSwipeRight: () => stepImage(-1),
+    enabled: hasGallery,
+  });
+
   return (
     <article
       className="explore-v2-card"
@@ -45,18 +71,41 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           label="Save listing"
         />
       ) : null}
-      <Link to={item.route} state={item.routeState} className="explore-v2-card-media">
-        {item.image ? (
-          <img
-            src={item.image}
-            alt={item.title}
-            loading="lazy"
-            decoding="async"
-            onError={(event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
-            }}
-          />
+      <Link to={item.route} state={item.routeState} className="explore-v2-card-media" ref={swipeRef}>
+        {galleryImages.length > 0 ? (
+          hasGallery ? (
+            <div
+              className="explore-v2-card-track"
+              style={{ transform: `translateX(-${imageIndex * 100}%)` }}
+            >
+              {galleryImages.map((src, idx) => (
+                <img
+                  key={`${src}-${idx}`}
+                  src={src}
+                  alt={`${item.title} — view ${idx + 1}`}
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <img
+              src={galleryImages[0]}
+              alt={item.title}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+              }}
+            />
+          )
         ) : (
           <div className="explore-v2-card-fallback">
             <span>{item.categoryLabel}</span>
@@ -64,6 +113,11 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           </div>
         )}
         <span className="explore-v2-card-badge">{item.categoryLabel}</span>
+        {hasGallery ? (
+          <span className="explore-v2-card-photo-count">
+            {imageIndex + 1} / {galleryImages.length}
+          </span>
+        ) : null}
         </Link>
 
       <div className="explore-v2-card-copy">

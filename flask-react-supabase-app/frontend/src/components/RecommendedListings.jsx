@@ -65,6 +65,7 @@ const RecommendedListings = ({ limit = 8, className = '' }) => {
                 price: item.price,
                 location: item.location,
                 image: item.image,
+                images: item.images,
                 route: item.route,
               }}
               showMoreLink={false}

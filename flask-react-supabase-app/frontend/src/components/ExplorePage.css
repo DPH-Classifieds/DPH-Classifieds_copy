@@ -371,6 +371,9 @@
   aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.03);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .explore-v2-card-media img {
@@ -378,10 +381,48 @@
   height: 100%;
   object-fit: cover;
   transition: transform 650ms ease;
+  pointer-events: none;
 }
 
 .explore-v2-card:hover .explore-v2-card-media img {
   transform: scale(1.05);
+}
+
+.explore-v2-card-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 320ms ease;
+  will-change: transform;
+}
+
+.explore-v2-card-track img {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  transition: none;
+}
+
+.explore-v2-card:hover .explore-v2-card-track img {
+  transform: none;
+}
+
+.explore-v2-card-photo-count {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .explore-v2-card-fallback {

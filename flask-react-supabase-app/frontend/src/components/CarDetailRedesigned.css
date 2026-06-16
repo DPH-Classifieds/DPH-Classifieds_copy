@@ -135,6 +135,8 @@
   display: grid;
   place-items: center;
   border: 0.5px solid var(--cd-color-border-tertiary);
+  touch-action: pan-y;
+  user-select: none;
 }
 
 .cd-main-image img {

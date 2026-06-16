@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
 import { getCurrentUser } from '../utils/authService';
 import { resolveMediaUrl } from '../utils/media';
+import useSwipe from '../hooks/useSwipe';
 import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
@@ -445,6 +446,17 @@ const CarDetail = () => {
     setShowPhoneVerifyModal(true);
   };
 
+  const heroSwipeRef = useSwipe({
+    onSwipeLeft: () => stepLightbox(1),
+    onSwipeRight: () => stepLightbox(-1),
+    enabled: getGalleryImages().length > 1,
+  });
+  const lightboxSwipeRef = useSwipe({
+    onSwipeLeft: () => stepLightbox(1),
+    onSwipeRight: () => stepLightbox(-1),
+    enabled: lightboxOpen && getGalleryImages().length > 1,
+  });
+
   if (loading) {
     return <ListingSkeleton variant="detail" showHero />;
   }
@@ -517,7 +529,7 @@ const CarDetail = () => {
 
         <div className="cd-hero-grid">
           <div className="cd-hero-left">
-      <div className="cd-main-image">
+      <div className="cd-main-image" ref={heroSwipeRef}>
         {getMainImageUrl() ? (
           <img
             src={getMainImageUrl()}
@@ -669,11 +681,13 @@ const CarDetail = () => {
             }}
           >
             <div
+              ref={lightboxSwipeRef}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: 'relative',
                 width: 'min(1100px, 96vw)',
                 maxHeight: '90vh',
+                touchAction: 'pan-y',
               }}
             >
               <button

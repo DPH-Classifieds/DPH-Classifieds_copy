@@ -14,6 +14,7 @@ import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
 import { resolveMediaUrl } from '../utils/media';
+import useSwipe from '../hooks/useSwipe';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
@@ -235,6 +236,22 @@ const BikeDetailRedesigned = () => {
     navigate(-1);
   };
 
+  const stepHeroImage = (direction) => {
+    const images = getGalleryImages();
+    if (!images.length) return;
+    setActiveImageIndex((current) => {
+      const next = current + direction;
+      if (next < 0) return images.length - 1;
+      if (next >= images.length) return 0;
+      return next;
+    });
+  };
+  const heroSwipeRef = useSwipe({
+    onSwipeLeft: () => stepHeroImage(1),
+    onSwipeRight: () => stepHeroImage(-1),
+    enabled: getGalleryImages().length > 1,
+  });
+
   if (loading) {
     return <ListingSkeleton variant="detail" showHero />;
   }
@@ -306,10 +323,10 @@ const BikeDetailRedesigned = () => {
 
         <div className="cd-hero-grid">
           <div className="cd-hero-left">
-            <div className="cd-main-image">
+            <div className="cd-main-image" ref={heroSwipeRef}>
               {getMainImageUrl() ? (
-                <img 
-                  src={getMainImageUrl()} 
+                <img
+                  src={getMainImageUrl()}
                   alt={getDisplayTitle()}
                   onError={(e) => {
                     e.target.onerror = null;
