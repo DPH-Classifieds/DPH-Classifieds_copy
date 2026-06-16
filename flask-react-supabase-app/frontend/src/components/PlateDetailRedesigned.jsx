@@ -306,8 +306,32 @@ const PlateDetailRedesigned = () => {
                   <span className="cd-placeholder-title">{getDisplayTitle()}</span>
                 </div>
               )}
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="cd-hero-arrow cd-hero-arrow-prev"
+                    onClick={(e) => { e.stopPropagation(); stepHeroImage(-1); }}
+                    aria-label="Previous photo"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="cd-hero-arrow cd-hero-arrow-next"
+                    onClick={(e) => { e.stopPropagation(); stepHeroImage(1); }}
+                    aria-label="Next photo"
+                  >
+                    ›
+                  </button>
+                </>
+              )}
               {galleryImages.length > 0 && (
-                <div className="cd-photo-count">{galleryImages.length} photos</div>
+                <div className="cd-photo-count">
+                  {galleryImages.length > 1
+                    ? `${activeImageIndex + 1} / ${galleryImages.length}`
+                    : `${galleryImages.length} photo`}
+                </div>
               )}
             </div>
 
