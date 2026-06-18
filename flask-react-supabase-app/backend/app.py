@@ -5467,6 +5467,7 @@ def create_car(current_user):
         }
         car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
         car_data["user_email"] = get_user_email(current_user)
+        car_data["status"] = _initial_listing_status()
 
         if not images or len(images) == 0:
             return jsonify(
@@ -10910,7 +10911,7 @@ def create_bike(current_user):
 
         bike_data = request.json
         bike_data["user_id"] = current_user
-        bike_data["status"] = "pending"  # Set status as pending for admin approval
+        bike_data["status"] = _initial_listing_status()
         bike_data.update(_new_listing_lifecycle_fields())
 
         # Normalize legacy/alternate frontend keys.
@@ -11900,7 +11901,7 @@ def create_part(current_user):
 
         # Set required fields
         part_data["user_id"] = current_user
-        part_data["status"] = "pending"  # Set status as pending for admin approval
+        part_data["status"] = _initial_listing_status()
         part_data.update(_new_listing_lifecycle_fields())
         try:
             _require_whatsapp_prefill_and_phone_alignment(part_data, "parts")
@@ -12863,7 +12864,7 @@ def _create_plate_with_image_impl(current_user):
             "listing_title": f"{city} {code} {plate_number_str}".strip(),
             "user_id": current_user,
             "user_email": get_user_email(current_user),
-            "status": "pending",  # Set status as pending for admin approval
+            "status": _initial_listing_status(),
         }
         plate_data.update(_new_listing_lifecycle_fields())
         try:
@@ -13251,106 +13252,152 @@ def admin_get_plates(current_user):
         return jsonify({"error": str(e)}), 500
 
 
+def _initial_listing_status():
+    """Initial status for a freshly-submitted listing. If the auto-review
+    worker is enabled, lands at 'pending_auto_review' so the worker picks
+    it up; otherwise the historical 'pending' (straight to admin queue)."""
+    raw = (os.getenv("AUTO_REVIEW_WORKER_ENABLED") or "false").strip().lower()
+    if raw in ("1", "true", "yes", "on"):
+        return "pending_auto_review"
+    return "pending"
+
+
+_APPROVAL_TABLE_BY_ITEM_TYPE = {
+    "cars": "cars",
+    "bikes": "bikes",
+    "parts": "car_parts",
+    "plates": "license_plates",
+    "buying_requests": "buying_requests",
+    "buying_request": "buying_requests",
+}
+
+
+def _perform_approval(
+    item_type,
+    item_id,
+    *,
+    actor,
+    actor_id,
+    origin_header=None,
+    signals=None,
+    dry_run=False,
+):
+    """Shared implementation used by admin approval route and the auto-review
+    worker. Returns (ok: bool, payload: dict, http_status: int).
+
+    actor: 'admin' | 'auto'.
+    actor_id: user id (admin) or worker name (auto). Used only for logging.
+    """
+    table_name = _APPROVAL_TABLE_BY_ITEM_TYPE.get(item_type)
+    if not table_name:
+        return False, {"error": f"Invalid item type: {item_type}"}, 400
+
+    patch_data = {"status": "approved"}
+    if item_type == "cars":
+        patch_data["is_approved"] = True
+    if actor == "auto":
+        patch_data["auto_review_state"] = "auto_approved"
+        patch_data["auto_review_decided_at"] = _utc_now().isoformat()
+
+    if dry_run:
+        logger.info(
+            "dry-run approval: actor=%s actor_id=%s type=%s id=%s",
+            actor, actor_id, item_type, item_id,
+        )
+        return True, {"success": True, "dry_run": True}, 200
+
+    response, status_code = supabase_request(
+        "patch",
+        f"/rest/v1/{table_name}?id=eq.{item_id}",
+        data=patch_data,
+        use_service_role=True,
+    )
+
+    if not (200 <= status_code < 300):
+        logger.error(
+            f"Error approving {item_type} {item_id}: {status_code} - {response}"
+        )
+        return False, {"error": f"Failed to approve {item_type}"}, status_code
+
+    listing = None
+    if isinstance(response, list) and response:
+        listing = response[0]
+    elif isinstance(response, dict) and response.get("id"):
+        listing = response
+    if not listing:
+        listing_response, listing_status = supabase_request(
+            "get",
+            f"/rest/v1/{table_name}?id=eq.{item_id}&select=*",
+            use_service_role=True,
+        )
+        if listing_status < 400 and listing_response:
+            listing = listing_response[0]
+
+    email_sent = False
+    email_error = None
+    if listing:
+        user_email = listing.get("user_email") or listing.get("contact_email")
+        if not user_email:
+            user_id = listing.get("user_id")
+            if user_id:
+                user_email = get_user_email(user_id)
+        if user_email and EMAIL_REGEX.match(user_email):
+            _, email_error = _send_listing_status_email(
+                user_email,
+                item_type,
+                listing,
+                "approved",
+                origin_header,
+            )
+            if email_error:
+                logger.error(
+                    f"Approval email failed for {item_type} {item_id}: {email_error}"
+                )
+            else:
+                email_sent = True
+        else:
+            email_error = "Missing or invalid recipient email"
+            logger.warning(
+                f"Approval email skipped for {item_type} {item_id}: {email_error}"
+            )
+    else:
+        email_error = "Listing not found for email notification"
+        logger.warning(
+            f"Approval email skipped for {item_type} {item_id}: {email_error}"
+        )
+
+    logger.info(
+        "%s %s approved %s %s",
+        actor.capitalize(), actor_id, item_type, item_id,
+    )
+    _invalidate_public_inventory_cache(item_type)
+    payload = {
+        "success": True,
+        "message": f"{item_type} approved successfully",
+        "email_sent": email_sent,
+    }
+    if email_error:
+        payload["email_error"] = "Approval email was not sent"
+    return True, payload, 200
+
+
 # Generic API approval/rejection endpoints for admin dashboard
 @app.route("/api/<item_type>/<item_id>/approve", methods=["POST"])
 @token_required
 def api_approve_item(current_user, item_type, item_id):
     try:
-        # Check if user is admin
         user_details = _get_user_details_with_admin_status(current_user)
         if not user_details or not user_details.get("is_admin"):
             return jsonify({"error": "Admin access required"}), 403
 
-        # Map item types to table names
-        valid_item_types = {
-            "cars": "cars",
-            "bikes": "bikes",
-            "parts": "car_parts",
-            "plates": "license_plates",
-            "buying_requests": "buying_requests",
-            "buying_request": "buying_requests",
-        }
-
-        if item_type not in valid_item_types:
-            return jsonify({"error": f"Invalid item type: {item_type}"}), 400
-
-        table_name = valid_item_types[item_type]
-
-        # Update the item status to approved
-        patch_data = {"status": "approved"}
-        if item_type == "cars":
-            patch_data["is_approved"] = True
-
-        response, status_code = supabase_request(
-            "patch",
-            f"/rest/v1/{table_name}?id=eq.{item_id}",
-            data=patch_data,
-            use_service_role=True,
+        _ok, payload, status_code = _perform_approval(
+            item_type,
+            item_id,
+            actor="admin",
+            actor_id=current_user,
+            origin_header=request.headers.get("Origin"),
         )
-
-        if status_code >= 200 and status_code < 300:
-            listing = None
-            if isinstance(response, list) and response:
-                listing = response[0]
-            elif isinstance(response, dict) and response.get("id"):
-                listing = response
-            if not listing:
-                listing_response, listing_status = supabase_request(
-                    "get",
-                    f"/rest/v1/{table_name}?id=eq.{item_id}&select=*",
-                    use_service_role=True,
-                )
-                if listing_status < 400 and listing_response:
-                    listing = listing_response[0]
-
-            email_sent = False
-            email_error = None
-            if listing:
-                user_email = listing.get("user_email") or listing.get("contact_email")
-                if not user_email:
-                    user_id = listing.get("user_id")
-                    if user_id:
-                        user_email = get_user_email(user_id)
-                if user_email and EMAIL_REGEX.match(user_email):
-                    _, email_error = _send_listing_status_email(
-                        user_email,
-                        item_type,
-                        listing,
-                        "approved",
-                        request.headers.get("Origin"),
-                    )
-                    if email_error:
-                        logger.error(
-                            f"Approval email failed for {item_type} {item_id}: {email_error}"
-                        )
-                    else:
-                        email_sent = True
-                else:
-                    email_error = "Missing or invalid recipient email"
-                    logger.warning(
-                        f"Approval email skipped for {item_type} {item_id}: {email_error}"
-                    )
-            else:
-                email_error = "Listing not found for email notification"
-                logger.warning(
-                    f"Approval email skipped for {item_type} {item_id}: {email_error}"
-                )
-
-            logger.info(f"Admin {current_user} approved {item_type} {item_id}")
-            _invalidate_public_inventory_cache(item_type)
-            payload = {
-                "success": True,
-                "message": f"{item_type} approved successfully",
-                "email_sent": email_sent,
-            }
-            if email_error:
-                payload["email_error"] = "Approval email was not sent"
-            return jsonify(payload), 200
-        else:
-            logger.error(
-                f"Error approving {item_type} {item_id}: {status_code} - {response}"
-            )
-            return jsonify({"error": f"Failed to approve {item_type}"}), status_code
+        return jsonify(payload), status_code
 
     except Exception as e:
         logger.error(f"Exception in api_approve_item: {str(e)}")

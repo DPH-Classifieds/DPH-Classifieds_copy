@@ -158,6 +158,7 @@ def main():
         from workers.inventory_import_worker import run as _run_inventory_import_once
         from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
         from workers.webhook_delivery_worker import run as _run_webhook_delivery_once
+        from workers.auto_review_worker import run as _run_auto_review_once
         from health_monitoring import (
             HEALTH_CHECK_INTERVAL_SECONDS,
             WORKER_HEARTBEAT_INTERVAL_SECONDS,
@@ -210,6 +211,9 @@ def main():
     )
     webhook_delivery_interval_seconds = int(
         os.getenv("WEBHOOK_DELIVERY_INTERVAL_SECONDS", "5")
+    )
+    auto_review_interval_seconds = int(
+        os.getenv("AUTO_REVIEW_INTERVAL_SECONDS", "15")
     )
 
     health_server_thread = threading.Thread(
@@ -318,6 +322,16 @@ def main():
         name="webhook-delivery",
         daemon=True,
     )
+    auto_review_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "auto_review_worker",
+            _run_auto_review_once,
+            auto_review_interval_seconds,
+        ),
+        name="auto-review",
+        daemon=True,
+    )
     reminder_thread.start()
     sweep_thread.start()
     dealer_doc_expiry_thread.start()
@@ -325,6 +339,7 @@ def main():
     inventory_import_thread.start()
     dealer_api_poll_thread.start()
     webhook_delivery_thread.start()
+    auto_review_thread.start()
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss sweep=%ss dealer_doc_expiry=%ss)",
         listing_reminder_interval_seconds,
@@ -377,6 +392,7 @@ def main():
         inventory_import_thread.join(timeout=5)
         dealer_api_poll_thread.join(timeout=5)
         webhook_delivery_thread.join(timeout=5)
+        auto_review_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 

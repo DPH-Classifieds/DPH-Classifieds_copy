@@ -1,0 +1,377 @@
+from __future__ import annotations
+
+import logging
+import os
+from datetime import datetime, timezone
+
+logger = logging.getLogger("dph-auto-review")
+
+LISTING_TYPES = ("cars", "bikes", "parts", "plates")
+
+ITEM_TYPE_TO_TABLE = {
+    "cars": "cars",
+    "bikes": "bikes",
+    "parts": "car_parts",
+    "plates": "license_plates",
+}
+
+ITEM_TYPE_TO_IMAGES_TABLE = {
+    "cars": "car_images",
+    "bikes": "bike_images",
+    "parts": "car_part_images",
+    "plates": "license_plate_images",
+}
+
+
+# ---------------------------------------------------------------------------
+# Pure orchestration — all I/O is passed in as callables.
+# ---------------------------------------------------------------------------
+
+def process_once(
+    *,
+    fetch_pending,
+    build_signals,
+    evaluate,
+    approve=None,
+    record_decision=None,
+    downgrade_to_pending=None,
+    dry_run=False,
+    limit_per_type=20,
+):
+    """One worker tick. Returns the number of rows handled.
+
+    fetch_pending(type_label) -> list[dict]
+    build_signals(listing_kind, row) -> dict (passed to evaluate)
+    evaluate(listing_kind, listing, signals) -> Decision
+    approve(...) -> tuple[bool, dict, int] (only called when decision.approved)
+    record_decision(type_label, row, decision) -> None (always called)
+    downgrade_to_pending(type_label, row, decision) -> None (called when queued)
+    """
+    handled = 0
+    for type_label in LISTING_TYPES:
+        try:
+            rows = list(fetch_pending(type_label) or [])[:limit_per_type]
+        except Exception:
+            logger.exception("auto-review fetch failed: type=%s", type_label)
+            continue
+        listing_kind = type_label.rstrip("s")  # car | bike | part | plate
+        for row in rows:
+            try:
+                signals = build_signals(listing_kind, row)
+                decision = _call_evaluate(evaluate, listing_kind, row, signals)
+                if record_decision is not None:
+                    try:
+                        record_decision(type_label, row, decision)
+                    except Exception:
+                        logger.exception(
+                            "auto-review decision recording failed: type=%s id=%s",
+                            type_label, row.get("id"),
+                        )
+                if dry_run:
+                    handled += 1
+                    continue
+                if decision.approved and approve is not None:
+                    approve(
+                        item_type=type_label,
+                        item_id=str(row.get("id")),
+                        actor="auto",
+                        actor_id="auto_review_worker",
+                        signals=decision.signals,
+                    )
+                elif not decision.approved and downgrade_to_pending is not None:
+                    downgrade_to_pending(type_label, row, decision)
+                handled += 1
+            except Exception:
+                logger.exception(
+                    "auto-review row failed: type=%s id=%s",
+                    type_label, row.get("id"),
+                )
+    return handled
+
+
+def _call_evaluate(evaluate, listing_kind, row, signals):
+    """Support both production signature evaluate(kind, listing=row, signals=signals)
+    and test mocks with arbitrary positional signatures."""
+    try:
+        return evaluate(listing_kind, listing=row, signals=signals)
+    except TypeError:
+        return evaluate(listing_kind, row, signals)
+
+
+# ---------------------------------------------------------------------------
+# I/O wiring used by run().
+# ---------------------------------------------------------------------------
+
+def _env_bool(name, default):
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_float(name, default):
+    try:
+        return float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _supabase_request():
+    import app as backend
+    return backend.supabase_request
+
+
+def _approver():
+    import app as backend
+    return backend._perform_approval
+
+
+def fetch_pending_for_type(type_label):
+    sb = _supabase_request()
+    table = ITEM_TYPE_TO_TABLE[type_label]
+    rows, status = sb(
+        "get",
+        f"/rest/v1/{table}",
+        params={
+            "select": "*",
+            "status": "eq.pending_auto_review",
+            "auto_review_decided_at": "is.null",
+            "order": "created_at.asc",
+            "limit": "20",
+        },
+        use_service_role=True,
+    )
+    if status >= 400:
+        logger.warning(
+            "auto-review fetch failed: type=%s status=%s body=%s",
+            type_label, status, rows,
+        )
+        return []
+    return rows or []
+
+
+def _fetch_image_urls(type_label, row):
+    sb = _supabase_request()
+    images_table = ITEM_TYPE_TO_IMAGES_TABLE[type_label]
+    rows, status = sb(
+        "get",
+        f"/rest/v1/{images_table}",
+        params={
+            "select": "image_url",
+            "listing_id": f"eq.{row.get('id')}",
+            "limit": "20",
+        },
+        use_service_role=True,
+    )
+    if status >= 400 or not rows:
+        return []
+    return [r.get("image_url") for r in rows if r.get("image_url")]
+
+
+def _fetch_image_bytes(urls):
+    import requests
+    blobs = []
+    for url in urls:
+        try:
+            resp = requests.get(url, timeout=8)
+            if resp.status_code < 400 and resp.content:
+                blobs.append(resp.content)
+        except requests.RequestException:
+            logger.warning("auto-review image fetch failed: %s", url)
+    return blobs
+
+
+def _dealer_verified(user_id):
+    sb = _supabase_request()
+    rows, _ = sb(
+        "get",
+        "/rest/v1/dealer_verification_documents",
+        params={
+            "select": "document_type,status",
+            "user_id": f"eq.{user_id}",
+            "status": "eq.approved",
+        },
+        use_service_role=True,
+    )
+    approved_types = {r.get("document_type") for r in (rows or [])}
+    required = {"trade_license", "vat_certificate", "owner_id"}
+    return required.issubset(approved_types)
+
+
+def _approved_listing_count(user_id):
+    sb = _supabase_request()
+    total = 0
+    for table in ("cars", "bikes", "car_parts", "license_plates"):
+        rows, _ = sb(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "select": "id",
+                "user_id": f"eq.{user_id}",
+                "status": "eq.approved",
+            },
+            use_service_role=True,
+        )
+        total += len(rows or [])
+    return total
+
+
+def _trust_context_for(user_id):
+    from services.auto_review.trust import TrustContext
+    sb = _supabase_request()
+    if not user_id:
+        return TrustContext(False, False, 0, 0, 0, False)
+    user_rows, status = sb(
+        "get",
+        "/rest/v1/users",
+        params={
+            "select": "id,is_admin,email_verified,is_banned",
+            "id": f"eq.{user_id}",
+            "limit": "1",
+        },
+        use_service_role=True,
+    )
+    if status >= 400 or not user_rows:
+        return TrustContext(False, False, 0, 0, 0, False)
+    u = user_rows[0]
+    if u.get("is_banned"):
+        return TrustContext(False, False, 0, 0, 0, False)
+    return TrustContext(
+        is_admin=bool(u.get("is_admin")),
+        dealer_verified=_dealer_verified(user_id),
+        approved_listings_count=_approved_listing_count(user_id),
+        rejections_last_90d=0,  # plumbed later
+        reports_last_90d=0,
+        email_verified=bool(u.get("email_verified")),
+    )
+
+
+def build_signals_for(listing_kind, row):
+    from services.auto_review.hard_blockers import (
+        evaluate_image_blockers,
+        evaluate_profanity,
+    )
+    from services.auto_review.trust import evaluate_trust
+    from services.auto_review.vin_gate import evaluate_vin
+    from services.auto_review.vision import select_vision_provider
+
+    provider = select_vision_provider()
+    face_threshold = _env_float("AUTO_REVIEW_FACE_CONFIDENCE_THRESHOLD", 0.6)
+
+    type_label = listing_kind + "s"
+    image_urls = _fetch_image_urls(type_label, row)
+    image_bytes = _fetch_image_bytes(image_urls)
+    image_analysis = evaluate_image_blockers(
+        image_bytes, provider, face_confidence_threshold=face_threshold,
+    )
+
+    profanity = evaluate_profanity(
+        [
+            row.get("description") or row.get("car_description") or "",
+            row.get("whatsapp_prefill_text") or "",
+        ]
+    )
+
+    vin_signal = None
+    if listing_kind in ("car", "bike"):
+        try:
+            from services.vin_decoder import VINDecoder
+            decoder = VINDecoder()
+            form_make = row.get("make") or row.get("bike_brand") or ""
+            form_model = row.get("model") or row.get("bike_model") or ""
+            form_year = row.get("make_year") or 0
+            vin_signal = evaluate_vin(
+                row.get("vin") or "",
+                form_make=form_make,
+                form_model=form_model,
+                form_year=form_year,
+                decoder=decoder,
+            )
+        except Exception:
+            logger.exception("vin evaluation failed for row id=%s", row.get("id"))
+
+    trust = evaluate_trust(_trust_context_for(row.get("user_id")))
+
+    return {
+        "trust": trust,
+        "image_analysis": image_analysis,
+        "vin": vin_signal,
+        "profanity": profanity,
+        "duplicate": None,
+        "price_outlier": None,
+        "user_under_review": False,
+    }
+
+
+def record_decision_for(type_label, row, decision):
+    sb = _supabase_request()
+    sb(
+        "post",
+        "/rest/v1/auto_review_decisions",
+        data={
+            "listing_type": type_label,
+            "listing_id": str(row.get("id")),
+            "decision": "approved" if decision.approved else "queued",
+            "reasons": decision.as_label_list(),
+            "signals": decision.signals or {},
+        },
+        use_service_role=True,
+    )
+    table = ITEM_TYPE_TO_TABLE[type_label]
+    sb(
+        "patch",
+        f"/rest/v1/{table}?id=eq.{row.get('id')}",
+        data={
+            "auto_review_reasons": decision.as_label_list(),
+            "auto_review_state": "auto_approved" if decision.approved else "auto_queued",
+            "auto_review_decided_at": _now_iso(),
+        },
+        use_service_role=True,
+    )
+
+
+def downgrade_to_pending_for(type_label, row, decision):
+    sb = _supabase_request()
+    table = ITEM_TYPE_TO_TABLE[type_label]
+    sb(
+        "patch",
+        f"/rest/v1/{table}?id=eq.{row.get('id')}",
+        data={"status": "pending"},
+        use_service_role=True,
+    )
+
+
+def _approve_via_helper(*, item_type, item_id, actor, actor_id, signals):
+    return _approver()(
+        item_type=item_type,
+        item_id=item_id,
+        actor=actor,
+        actor_id=actor_id,
+        signals=signals,
+    )
+
+
+def run():
+    """Worker entrypoint, called by worker.py::scheduled_loop. Returns the
+    number of rows handled this tick (used by adaptive backoff)."""
+    if not _env_bool("AUTO_REVIEW_WORKER_ENABLED", False):
+        return 0
+    dry_run = _env_bool("AUTO_REVIEW_DRY_RUN", True)
+
+    from services.auto_review.rules import evaluate as rules_evaluate
+
+    return process_once(
+        fetch_pending=fetch_pending_for_type,
+        build_signals=build_signals_for,
+        evaluate=lambda kind, listing, signals: rules_evaluate(
+            kind, listing=listing, signals=signals
+        ),
+        approve=_approve_via_helper,
+        record_decision=record_decision_for,
+        downgrade_to_pending=downgrade_to_pending_for,
+        dry_run=dry_run,
+    )
