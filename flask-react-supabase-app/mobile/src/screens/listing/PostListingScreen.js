@@ -76,7 +76,15 @@ const PHONE_CODES = ['+971', '+966', '+973', '+974', '+965', '+968', '+92', '+91
 
 const MAX_DESCRIPTION_WORDS = 300;
 
-const DRAFT_KEY = 'listing_draft';
+const DRAFT_STORAGE_KEYS = {
+  car: 'listing_draft_car',
+  bike: 'listing_draft_bike',
+  plate: 'listing_draft_plate',
+  parts: 'listing_draft_parts',
+};
+const DRAFT_META_KEY = 'listing_draft_meta';
+
+const getDraftStorageKey = (category) => DRAFT_STORAGE_KEYS[category] || DRAFT_STORAGE_KEYS.car;
 
 const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
@@ -662,48 +670,191 @@ export default function PostListingScreen({ navigation, route }) {
     });
   };
 
+  const buildDraftSnapshot = useCallback(() => ({
+    category,
+    savedAt: Date.now(),
+    images,
+    carForm,
+    bikeForm,
+    plateForm,
+    partsForm,
+    carEmirate,
+    carArea,
+    bikeEmirate,
+    bikeArea,
+    plateCity,
+    plateArea,
+    partsEmirate,
+    partsArea,
+    selectedLocation,
+    titleManuallyEdited,
+    whatsappSameAsPhone,
+  }), [
+    category,
+    images,
+    carForm,
+    bikeForm,
+    plateForm,
+    partsForm,
+    carEmirate,
+    carArea,
+    bikeEmirate,
+    bikeArea,
+    plateCity,
+    plateArea,
+    partsEmirate,
+    partsArea,
+    selectedLocation,
+    titleManuallyEdited,
+    whatsappSameAsPhone,
+  ]);
+
+  const applyDraftSnapshot = useCallback((draft) => {
+    if (!draft || typeof draft !== 'object') return false;
+
+    const payload = draft.payload || draft.draft_payload || draft;
+    const draftCategory = String(draft.category || draft.draft_key || payload.category || payload.draft_key || '').toLowerCase();
+    if (!draftCategory) return false;
+
+    setCategory(draftCategory);
+    if (Array.isArray(payload.images)) {
+      setImages(payload.images);
+    }
+    if (draftCategory === 'car') {
+      const carDraft = payload.carForm || payload.formData || payload;
+      if (carDraft && typeof carDraft === 'object') {
+        setCarForm((prev) => ({ ...prev, ...carDraft }));
+      }
+      if (payload.carEmirate) setCarEmirate(payload.carEmirate);
+      if (payload.carArea) setCarArea(payload.carArea);
+      if (payload.selectedLocation && typeof payload.selectedLocation === 'object') {
+        setSelectedLocation(payload.selectedLocation);
+      }
+    } else if (draftCategory === 'bike') {
+      const bikeDraft = payload.bikeForm || payload.formData || payload;
+      if (bikeDraft && typeof bikeDraft === 'object') {
+        setBikeForm((prev) => ({ ...prev, ...bikeDraft }));
+      }
+      if (payload.bikeEmirate) setBikeEmirate(payload.bikeEmirate);
+      if (payload.bikeArea) setBikeArea(payload.bikeArea);
+    } else if (draftCategory === 'plate') {
+      const plateDraft = payload.plateForm || payload.formData || payload;
+      if (plateDraft && typeof plateDraft === 'object') {
+        setPlateForm((prev) => ({ ...prev, ...plateDraft }));
+      }
+      if (payload.plateCity) setPlateCity(payload.plateCity);
+      if (payload.plateArea) setPlateArea(payload.plateArea);
+    } else if (draftCategory === 'parts') {
+      const partsDraft = payload.partsForm || payload.formData || payload;
+      if (partsDraft && typeof partsDraft === 'object') {
+        setPartsForm((prev) => ({ ...prev, ...partsDraft }));
+      }
+      if (payload.partsEmirate) setPartsEmirate(payload.partsEmirate);
+      if (payload.partsArea) setPartsArea(payload.partsArea);
+    }
+
+    if (typeof payload.titleManuallyEdited === 'boolean') {
+      setTitleManuallyEdited(payload.titleManuallyEdited);
+    }
+    if (typeof payload.whatsappSameAsPhone === 'boolean') {
+      setWhatsappSameAsPhone(payload.whatsappSameAsPhone);
+    }
+    if (payload.savedAt) {
+      setLastDraftSave(new Date(payload.savedAt));
+    }
+    return true;
+  }, []);
+
   // Draft auto-save
   useEffect(() => {
     if (category && !isEditMode) {
       const timer = setTimeout(() => {
-        AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ category, carForm, bikeForm, plateForm, partsForm, images, savedAt: Date.now() }));
+        const key = getDraftStorageKey(category);
+        const snapshot = buildDraftSnapshot();
+        AsyncStorage.multiSet([
+          [key, JSON.stringify(snapshot)],
+          [DRAFT_META_KEY, JSON.stringify({ category, savedAt: snapshot.savedAt })],
+        ]).catch(() => {});
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [category, carForm, bikeForm, plateForm, partsForm, images]);
+  }, [category, buildDraftSnapshot, isEditMode]);
 
-  // Backend auto-save draft (debounced 5s for car listings)
+  // Backend auto-save draft for the active category.
   useEffect(() => {
-    if (category === 'car' && carForm.car_manufacturer) {
+    const hasMeaningfulDraft =
+      (category === 'car' && (carForm.car_manufacturer || carForm.car_model || carForm.listing_title)) ||
+      (category === 'bike' && (bikeForm.bike_brand || bikeForm.bike_model || bikeForm.price)) ||
+      (category === 'plate' && (plateCityName || plateForm.code || plateForm.number || plateForm.price)) ||
+      (category === 'parts' && (partsForm.name || partsForm.part_type || partsForm.price));
+
+    if (category && hasMeaningfulDraft && !isEditMode) {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
       draftTimerRef.current = setTimeout(saveDraft, 5000);
     }
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
-  }, [carForm, carEmirate, carArea, category, selectedLocation]);
+  }, [
+    category,
+    carForm,
+    carEmirate,
+    carArea,
+    bikeForm,
+    bikeEmirate,
+    bikeArea,
+    plateForm,
+    plateCity,
+    plateArea,
+    partsForm,
+    partsEmirate,
+    partsArea,
+    selectedLocation,
+    isEditMode,
+  ]);
 
   // Restore draft on mount
   useEffect(() => {
     if (!isEditMode) {
-      AsyncStorage.getItem(DRAFT_KEY).then(raw => {
-        if (raw) {
+      let cancelled = false;
+
+      const loadDraft = async () => {
+        try {
+          const remote = await apiClient.get('/api/user/drafts');
+          const remoteDraft = Array.isArray(remote?.drafts) ? remote.drafts[0] : null;
+          if (!cancelled && remoteDraft && applyDraftSnapshot(remoteDraft)) {
+            return;
+          }
+        } catch (remoteErr) {
+          // Remote drafts are best-effort; fall back to local storage.
+        }
+
+        try {
+          const metaRaw = await AsyncStorage.getItem(DRAFT_META_KEY);
+          if (!metaRaw || cancelled) return;
+          const meta = JSON.parse(metaRaw);
+          const key = getDraftStorageKey(meta.category);
+          const raw = await AsyncStorage.getItem(key);
+          if (!raw || cancelled) return;
           const draft = JSON.parse(raw);
           if (draft.savedAt > Date.now() - 86400000) {
             Alert.alert('Restore Draft', 'You have an unsaved listing. Restore it?', [
-              { text: 'No', onPress: () => AsyncStorage.removeItem(DRAFT_KEY) },
+              { text: 'No', onPress: async () => {
+                await AsyncStorage.multiRemove([key, DRAFT_META_KEY]);
+              } },
               { text: 'Yes', onPress: () => {
-                setCategory(draft.category);
-                if (draft.category === 'car' && draft.carForm) setCarForm(draft.carForm);
-                if (draft.category === 'bike' && draft.bikeForm) setBikeForm(draft.bikeForm);
-                if (draft.category === 'plate' && draft.plateForm) setPlateForm(draft.plateForm);
-                if (draft.category === 'parts' && draft.partsForm) setPartsForm(draft.partsForm);
-                if (draft.images) setImages(draft.images);
-              }},
+                applyDraftSnapshot(draft);
+              } },
             ]);
           }
+        } catch (draftErr) {
+          // Ignore parse errors and continue with a clean form.
         }
-      });
+      };
+
+      loadDraft();
+
+      return () => { cancelled = true; };
     }
-  }, []);
+  }, [applyDraftSnapshot, isEditMode]);
 
   const updateCarForm = (key, value) => setCarForm(prev => ({ ...prev, [key]: value }));
   const updateBikeForm = (key, value) => setBikeForm(prev => ({ ...prev, [key]: value }));
@@ -726,20 +877,18 @@ export default function PostListingScreen({ navigation, route }) {
 
   const saveDraft = async () => {
     try {
-      const payload = {
-        ...carForm,
-        emirate: carEmirate,
-        area: carArea,
-        latitude: selectedLocation?.latitude || null,
-        longitude: selectedLocation?.longitude || null,
-        is_draft: true,
-      };
-      if (isEditMode && listingId) {
-        await apiClient.put(`/api/user/listings/cars/${listingId}`, payload);
-      } else {
-        await apiClient.post('/api/user/drafts/car', payload);
-      }
-      setLastDraftSave(new Date());
+      if (!category || isEditMode) return;
+
+      const snapshot = buildDraftSnapshot();
+      const key = getDraftStorageKey(category);
+      await AsyncStorage.multiSet([
+        [key, JSON.stringify(snapshot)],
+        [DRAFT_META_KEY, JSON.stringify({ category, savedAt: snapshot.savedAt })],
+      ]);
+      await apiClient.post(`/api/user/drafts/${category}`, {
+        payload: snapshot,
+      });
+      setLastDraftSave(new Date(snapshot.savedAt));
     } catch (err) {
       // Silent fail for drafts
     }
@@ -1161,7 +1310,10 @@ export default function PostListingScreen({ navigation, route }) {
       } else {
         await apiClient.post(endpoint, payload);
       }
-      await AsyncStorage.removeItem(DRAFT_KEY);
+      if (category) {
+        await AsyncStorage.multiRemove([getDraftStorageKey(category), DRAFT_META_KEY]);
+        apiClient.delete(`/api/user/drafts/${category}`).catch(() => {});
+      }
       if (!isEditMode) {
         // Persist last-used location for the next listing — saves the seller
         // from re-picking the same Emirate/Area on every post.

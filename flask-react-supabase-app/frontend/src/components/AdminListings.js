@@ -26,11 +26,12 @@ const ADMIN_DELETE_REASONS = [
   'Price manipulation',
 ];
 
-const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates', 'buying_requests'];
-const ALL_STATUSES = ['all', 'pending', 'approved', 'rejected', 'expired', 'deleted'];
+const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates', 'drafts', 'buying_requests'];
+const ALL_STATUSES = ['all', 'pending', 'draft', 'approved', 'rejected', 'expired', 'deleted'];
 const STATUS_OPTIONS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
+  { key: 'draft', label: 'Draft' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'expired', label: 'Expired' },
@@ -43,6 +44,7 @@ const TYPE_OPTIONS = [
   { key: 'bikes', label: 'Bikes' },
   { key: 'plates', label: 'Plates' },
   { key: 'parts', label: 'Parts' },
+  { key: 'drafts', label: 'Drafts' },
   { key: 'buying_requests', label: 'Requests' },
 ];
 
@@ -76,10 +78,13 @@ const TypeBadge = ({ type }) => {
     parts: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
     buying_request: 'bg-white/5 text-white/60 border-white/10',
     buying_requests: 'bg-white/5 text-white/60 border-white/10',
+    draft: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+    drafts: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
   };
   const labelMap = {
     car: 'Car', cars: 'Car', bike: 'Bike', bikes: 'Bike',
     plate: 'Plate', plates: 'Plate', part: 'Part', parts: 'Part',
+    draft: 'Draft', drafts: 'Draft',
     buying_request: 'Request', buying_requests: 'Request',
   };
   const cls = map[t] || 'bg-white/5 text-white/50 border-white/10';
@@ -442,12 +447,17 @@ const AdminListings = () => {
     if (listing.listing_title) return listing.listing_title;
     if (listing.title) return listing.title;
     if (listing.item_name) return listing.item_name;
+    if (listing.draft_payload) {
+      const payload = listing.draft_payload || {};
+      return payload.listing_title || payload.title || payload.name || payload.item_name || `Draft #${listing.id ? listing.id.slice(0, 8) : 'Unknown'}`;
+    }
     return `#${listing.id ? listing.id.slice(0, 8) : 'Unknown'}`;
   };
 
   const getListingImage = (listing) => {
     if (!listing.images || listing.images.length === 0) return null;
     const img = listing.images[0];
+    if (typeof img === 'string') return img;
     return img.display_url || img.image_url || img.url || null;
   };
 
@@ -626,6 +636,7 @@ const AdminListings = () => {
                       ? rawStatus
                       : (listing.display_status || listing.listing_state || rawStatus || 'pending');
                     const lt = listing.listing_type || 'cars';
+                    const isDraftRow = lt === 'drafts' || String(listing.status || '').toLowerCase() === 'draft';
                     const isPending = (listing._table_status || listing.status) === 'pending';
                     const ds = String(displayStatus || '').toLowerCase();
                     const showNudge = ds === 'expired' || ds === 'deleted';
@@ -640,8 +651,8 @@ const AdminListings = () => {
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03 }}
-                        onClick={() => navigate(`/admin/listings/${lt}/${listing.id}`)}
-                        className="border-b border-white/[0.04] hover:bg-white/[0.04] transition-colors group cursor-pointer"
+                        onClick={isDraftRow ? undefined : () => navigate(`/admin/listings/${lt}/${listing.id}`)}
+                        className={`border-b border-white/[0.04] transition-colors group ${isDraftRow ? '' : 'hover:bg-white/[0.04] cursor-pointer'}`}
                       >
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           {canRenew ? (
@@ -687,58 +698,60 @@ const AdminListings = () => {
                         </td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                            <button
-                              title="Open public listing in a new tab"
-                              aria-label="Open public listing in a new tab"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const typeMap = { cars: 'cars', bikes: 'bikes', parts: 'car-parts', plates: 'plates' };
-                                const pub = typeMap[lt] || lt;
-                                window.open(`/${pub}/${listing.id}`, '_blank', 'noopener');
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                            >
-                              <Eye size={15} />
-                            </button>
-                            <button
-                              title="Open admin detail view"
-                              aria-label="Open admin detail view"
-                              onClick={(e) => { e.stopPropagation(); navigate(`/admin/listings/${lt}/${listing.id}`); }}
-                              className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                            >
-                              <BarChart3 size={15} />
-                            </button>
-                            {showNudge && (
-                              <button
-                                title={lastNudgeAt
-                                  ? `Send renewal nudge to owner (last sent ${relTime(lastNudgeAt)})`
-                                  : 'Send renewal nudge to owner (email + SMS)'}
+                            {!isDraftRow && (
+                              <>
+                                <button
+                                  title="Open public listing in a new tab"
+                                  aria-label="Open public listing in a new tab"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const typeMap = { cars: 'cars', bikes: 'bikes', parts: 'car-parts', plates: 'plates' };
+                                    const pub = typeMap[lt] || lt;
+                                    window.open(`/${pub}/${listing.id}`, '_blank', 'noopener');
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                >
+                                  <Eye size={15} />
+                                </button>
+                                <button
+                                  title="Open admin detail view"
+                                  aria-label="Open admin detail view"
+                                  onClick={(e) => { e.stopPropagation(); navigate(`/admin/listings/${lt}/${listing.id}`); }}
+                                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                >
+                                  <BarChart3 size={15} />
+                                </button>
+                                {showNudge && (
+                                <button
+                                  title={lastNudgeAt
+                                    ? `Send renewal nudge to owner (last sent ${relTime(lastNudgeAt)})`
+                                    : 'Send renewal nudge to owner (email + SMS)'}
                                 aria-label="Send renewal nudge to owner"
                                 onClick={(e) => { e.stopPropagation(); handleSendNudge(listing); }}
                                 className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
-                                disabled={actionLoading}
-                              >
-                                <Send size={15} />
-                              </button>
-                            )}
-                            {canRenew && (
-                              <button
-                                title="Renew listing on behalf of owner"
-                                aria-label="Renew listing"
-                                onClick={(e) => {
+                                  disabled={actionLoading}
+                                >
+                                  <Send size={15} />
+                                </button>
+                                )}
+                                {canRenew && (
+                                <button
+                                  title="Renew listing on behalf of owner"
+                                  aria-label="Renew listing"
+                                  onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedListing(listing);
                                   setRenewReason('');
                                   setShowRenewModal(true);
                                 }}
                                 className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-white/50 hover:text-emerald-300 transition-colors"
-                                disabled={actionLoading}
-                              >
-                                <RefreshCw size={15} />
-                              </button>
-                            )}
-                            {isPending && (
-                              <>
+                                  disabled={actionLoading}
+                                >
+                                  <RefreshCw size={15} />
+                                </button>
+                                )}
+                                {isPending && (
+                                  <>
                                 <button
                                   title="Approve listing"
                                   aria-label="Approve listing"
@@ -780,6 +793,8 @@ const AdminListings = () => {
                                 >
                                   <Trash2 size={15} />
                                 </button>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
