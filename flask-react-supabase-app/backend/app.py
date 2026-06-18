@@ -9277,19 +9277,27 @@ def list_user_drafts(current_user):
         for draft in drafts:
             payload = draft.get("payload") or {}
             draft_type = draft.get("draft_key") or "car"
+            source = (
+                payload.get("carForm")
+                or payload.get("bikeForm")
+                or payload.get("plateForm")
+                or payload.get("partsForm")
+                or payload
+            )
             if draft_type in ("car", "bike"):
                 title_parts = [
-                    str(payload.get("year") or "").strip(),
-                    str(payload.get("make") or "").strip(),
-                    str(payload.get("model") or "").strip(),
+                    str(source.get("year") or source.get("make_year") or "").strip(),
+                    str(source.get("make") or source.get("car_manufacturer") or source.get("bike_brand") or "").strip(),
+                    str(source.get("model") or source.get("car_model") or source.get("bike_model") or "").strip(),
                 ]
                 draft["display_title"] = " ".join(p for p in title_parts if p).strip() or f"Unfinished {draft_type}"
             elif draft_type == "plate":
-                digits = str(payload.get("digits") or "").strip()
-                city = str(payload.get("city") or "").strip()
-                draft["display_title"] = f"{city} {digits}".strip() or "Unfinished plate"
+                digits = str(source.get("digits") or source.get("number") or "").strip()
+                city = str(payload.get("plateCity") or payload.get("city") or payload.get("emirate") or "").strip()
+                code = str(source.get("code") or "").strip()
+                draft["display_title"] = " ".join(p for p in [city, code, digits] if p).strip() or "Unfinished plate"
             elif draft_type == "part":
-                draft["display_title"] = str(payload.get("title") or payload.get("part_name") or "Unfinished part").strip()
+                draft["display_title"] = str(source.get("title") or source.get("name") or source.get("part_name") or "Unfinished part").strip()
             else:
                 draft["display_title"] = f"Unfinished {draft_type}"
             draft["display_subtitle"] = (
@@ -9306,6 +9314,65 @@ def list_user_drafts(current_user):
     except Exception as exc:
         logger.error(f"Failed to list user drafts: {exc}")
         return jsonify({"error": "Failed to load drafts"}), 500
+
+
+def _build_draft_listing_summary(draft_row, owner_row=None):
+    payload = draft_row.get("payload") or {}
+    draft_type = str(draft_row.get("draft_key") or "car").strip().lower()
+    source = (
+        payload.get("carForm")
+        or payload.get("bikeForm")
+        or payload.get("plateForm")
+        or payload.get("partsForm")
+        or payload
+    )
+
+    if draft_type in ("car", "bike"):
+        title_parts = [
+            str(source.get("year") or source.get("make_year") or "").strip(),
+            str(source.get("make") or source.get("car_manufacturer") or source.get("bike_brand") or "").strip(),
+            str(source.get("model") or source.get("car_model") or source.get("bike_model") or "").strip(),
+        ]
+        display_title = " ".join(part for part in title_parts if part).strip() or f"Unfinished {draft_type}"
+    elif draft_type == "plate":
+        digits = str(source.get("digits") or source.get("number") or "").strip()
+        city = str(payload.get("plateCity") or payload.get("city") or payload.get("emirate") or "").strip()
+        code = str(source.get("code") or "").strip()
+        display_title = " ".join(part for part in [city, code, digits] if part).strip() or "Unfinished plate"
+    elif draft_type == "part":
+        display_title = str(source.get("title") or source.get("name") or source.get("part_name") or "Unfinished part").strip()
+    else:
+        display_title = f"Unfinished {draft_type}"
+
+    user_email = (owner_row or {}).get("email") or draft_row.get("user_email")
+    owner_name = _admin_display_name_from_user_row(owner_row) if owner_row else None
+    summary = dict(draft_row)
+    summary.update(
+        {
+            "draft_key": draft_type,
+            "listing_type": "drafts",
+            "status": "draft",
+            "listing_state": "draft",
+            "display_status": "draft",
+            "display_title": display_title,
+            "title": display_title,
+            "listing_title": display_title,
+            "display_subtitle": f"Last edited {draft_row.get('updated_at') or draft_row.get('created_at') or ''}",
+            "resume_path": {
+                "car": "/post-car",
+                "bike": "/post-bike",
+                "plate": "/post-plate",
+                "part": "/post-car-parts",
+            }.get(draft_type, "/post-car"),
+            "user_email": user_email,
+            "owner_email": user_email,
+            "owner_name": owner_name,
+            "draft_payload": payload,
+            "payload": payload,
+            "images": payload.get("images") or payload.get("existingImages") or payload.get("existing_image_urls") or [],
+        }
+    )
+    return summary
 
 
 @app.route("/api/user/drafts/<draft_key>", methods=["GET", "POST", "DELETE"])
@@ -16197,6 +16264,8 @@ def admin_listings_search(current_user):
             "parts": "part",
             "plate": "plate",
             "plates": "plate",
+            "draft": "drafts",
+            "drafts": "drafts",
             "buying_request": "buying_request",
             "buying_requests": "buying_request",
         }
@@ -16205,7 +16274,7 @@ def admin_listings_search(current_user):
                 type_map[value] for value in requested_types if value in type_map
             ]
         else:
-            normalized_types = list(LISTING_TABLE_CONFIG.keys())
+            normalized_types = list(LISTING_TABLE_CONFIG.keys()) + ["drafts"]
 
         if not requested_statuses or "all" in requested_statuses:
             requested_statuses = []
@@ -16214,6 +16283,47 @@ def admin_listings_search(current_user):
         counts = defaultdict(int)
 
         for listing_type in normalized_types:
+            if listing_type == "drafts":
+                rows, status_code = supabase_request(
+                    "get",
+                    "/rest/v1/listing_drafts",
+                    params={
+                        "select": "id,user_id,draft_key,payload,created_at,updated_at",
+                        "order": "updated_at.desc",
+                        "limit": "500",
+                    },
+                    use_service_role=True,
+                )
+                if status_code >= 400:
+                    logger.warning("Failed to fetch admin drafts: %s", rows)
+                    continue
+
+                draft_rows = rows or []
+                owner_map = _admin_fetch_user_display_map(
+                    [row.get("user_id") for row in draft_rows if row.get("user_id")]
+                )
+
+                for row in draft_rows:
+                    try:
+                        owner_row = owner_map.get(str(row.get("user_id"))) if row.get("user_id") else None
+                        draft_listing = _build_draft_listing_summary(row, owner_row=owner_row)
+                        if requested_statuses and not any(
+                            _admin_listing_matches_status(draft_listing, status)
+                            for status in requested_statuses
+                        ):
+                            continue
+                        counts["total"] += 1
+                        counts["draft"] += 1
+                        listings.append(draft_listing)
+                    except Exception as draft_err:
+                        logger.exception(
+                            "admin_listings_search: failed processing draft %s — %s",
+                            (row or {}).get("id"),
+                            draft_err,
+                        )
+                        continue
+                continue
+
             config = LISTING_TABLE_CONFIG.get(listing_type)
             if not config:
                 continue
