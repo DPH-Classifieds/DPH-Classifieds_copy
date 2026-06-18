@@ -9275,7 +9275,7 @@ def list_user_drafts(current_user):
         # Annotate each row with a friendly preview the UI can render directly,
         # so the Drafts tab doesn't need draft-type-specific code to show summaries.
         for draft in drafts:
-            payload = draft.get("payload") or {}
+            payload = draft.get("payload") or draft.get("draft_payload") or {}
             draft_type = draft.get("draft_key") or "car"
             source = (
                 payload.get("carForm")
@@ -9317,7 +9317,7 @@ def list_user_drafts(current_user):
 
 
 def _build_draft_listing_summary(draft_row, owner_row=None):
-    payload = draft_row.get("payload") or {}
+    payload = draft_row.get("payload") or draft_row.get("draft_payload") or {}
     draft_type = str(draft_row.get("draft_key") or "car").strip().lower()
     source = (
         payload.get("carForm")
@@ -15472,7 +15472,8 @@ def set_listing_outcome(current_user, item_type, item_id):
         )
         updates.update(
             {
-                "status": "pending",
+                "status": "draft",
+                "listing_state": "draft",
                 "sold_status": None,
                 "sold_status_set_at": None,
                 "expired_at": None,

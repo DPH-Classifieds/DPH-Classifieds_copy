@@ -80,6 +80,36 @@ class DraftAdminTests(unittest.TestCase):
         self.assertEqual(draft["display_title"], "2024 Toyota Land Cruiser")
         self.assertEqual(draft["owner_email"], "suhaylindubai@gmail.com")
 
+    @patch.object(backend, "supabase_request")
+    def test_move_to_draft_sets_draft_status(self, mock_supabase_request):
+        listing = {
+            "id": "car-1",
+            "user_id": "user-1",
+            "status": "expired",
+            "listing_state": "expired",
+            "expires_at": "2026-06-10T00:00:00+00:00",
+        }
+
+        def side_effect(method, path, params=None, data=None, use_service_role=False, user_id=None):
+            if method == "get":
+                return ([listing], 200)
+            if method == "patch":
+                self.assertEqual(data.get("status"), "draft")
+                self.assertEqual(data.get("listing_state"), "draft")
+                return ([{**listing, **data}], 200)
+            return ([], 200)
+
+        mock_supabase_request.side_effect = side_effect
+
+        with backend.app.test_request_context(
+            "/api/user/listings/cars/car-1/outcome",
+            json={"outcome": "move_to_draft"},
+        ):
+            response, status = backend.set_listing_outcome.__wrapped__("user-1", "car", "car-1")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response.get_json()["listing"]["status"], "draft")
+
 
 if __name__ == "__main__":
     unittest.main()
