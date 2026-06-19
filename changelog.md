@@ -45,6 +45,7 @@
 - Added explicit verification badges to the admin users table so email, phone, and dealer verification status is visible without opening each profile.
 - Kept the user-detail page verification controls intact and reused the same backend payload fields already returned by `/api/admin/users`.
 - Normalized the paginated `/api/admin/users` response so Supabase `206 Partial Content` is treated as a valid page instead of an error, which keeps the admin user list rendering when the page is truncated.
+- Hardened the legacy `/api/users` handler against Supabase `206` pages as well, so stale admin/web paths do not convert a valid user page into a failure envelope.
 
 ### Automated Emails
 - Added worker jobs for draft reminder emails after 24 hours and saved-car reminder emails after 24 hours.

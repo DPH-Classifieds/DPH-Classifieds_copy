@@ -13296,11 +13296,15 @@ def get_users(current_user):
             f"{SUPABASE_URL}/rest/v1/users?select=*", headers=headers
         )
 
-        if response.status_code != 200:
+        if response.status_code not in (200, 206):
             logger.error(f"Failed to get users: {response.text}")
             return jsonify({"error": "Failed to fetch users"}), response.status_code
 
-        return jsonify(response.json()), 200
+        payload = response.json()
+        if response.status_code == 206:
+            return jsonify({"users": payload, "partial_content": True}), 200
+
+        return jsonify(payload), 200
 
     except Exception as e:
         logger.error(f"Error getting users: {str(e)}")
