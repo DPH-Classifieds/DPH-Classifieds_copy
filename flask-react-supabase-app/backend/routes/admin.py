@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request
 from functools import wraps
 from collections import defaultdict
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import requests
 import os
@@ -266,6 +267,54 @@ def _admin_fetch_user_display_map(user_ids):
             user_map[str(row.get("id"))] = row
 
     return user_map
+
+
+def _admin_fetch_auth_email_confirmation_map(user_ids):
+    normalized_ids = []
+    seen_ids = set()
+
+    for user_id in user_ids or []:
+        if not user_id:
+            continue
+        user_id = str(user_id)
+        if user_id in seen_ids:
+            continue
+        seen_ids.add(user_id)
+        normalized_ids.append(user_id)
+
+    if not normalized_ids:
+        return {}
+
+    def fetch_confirmation(user_id):
+        response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            },
+            timeout=10,
+        )
+        if response.status_code != 200:
+            return user_id, None
+        try:
+            payload = response.json()
+        except ValueError:
+            return user_id, None
+
+        auth_user = payload.get("user") if isinstance(payload, dict) else payload
+        if not isinstance(auth_user, dict):
+            return user_id, None
+
+        confirmed_at = auth_user.get("email_confirmed_at")
+        return user_id, confirmed_at or None
+
+    confirmations = {}
+    max_workers = min(8, len(normalized_ids))
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for user_id, confirmed_at in pool.map(fetch_confirmation, normalized_ids):
+            confirmations[str(user_id)] = confirmed_at
+
+    return confirmations
 
 
 def _admin_enrich_activity_rows(rows, user_field="user_id"):
@@ -1115,6 +1164,15 @@ def get_users():
             return jsonify({"error": "Failed to fetch users", "detail": detail}), response.status_code
 
         users = response.json() or []
+        auth_email_confirmations = _admin_fetch_auth_email_confirmation_map(
+            [row.get("id") for row in users]
+        )
+        for row in users:
+            user_id = str(row.get("id") or "")
+            confirmed_at = auth_email_confirmations.get(user_id)
+            if confirmed_at and not bool(row.get("email_verified")):
+                row["email_verified"] = True
+                row["email_verified_at"] = confirmed_at
         total = None
         content_range = response.headers.get("Content-Range")
         if content_range and "/" in content_range:

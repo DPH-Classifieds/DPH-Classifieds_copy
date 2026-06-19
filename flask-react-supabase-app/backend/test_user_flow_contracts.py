@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import app as backend
+import routes.admin as admin_routes
 
 
 class UserFlowContractsTests(unittest.TestCase):
@@ -63,6 +64,84 @@ class UserFlowContractsTests(unittest.TestCase):
         self.assertEqual(saved_rows[0]["query_text"], "land cruiser")
         self.assertEqual(saved_rows[0]["filters"], {"make": "Toyota", "maxPrice": 200000})
         self.assertTrue(saved_rows[0]["search_key"])
+
+    @patch.object(backend, "requests")
+    def test_auth_me_syncs_email_verification_from_supabase_auth(self, mock_requests):
+        auth_response = Mock()
+        auth_response.status_code = 200
+        auth_response.json.return_value = {
+            "user": {
+                "id": "user-1",
+                "email": "verified@example.com",
+                "email_confirmed_at": "2026-06-19T10:00:00+00:00",
+            }
+        }
+
+        user_response = Mock()
+        user_response.status_code = 200
+        user_response.json.return_value = [
+            {
+                "id": "user-1",
+                "email": "verified@example.com",
+                "email_verified": False,
+                "phone_verified": False,
+            }
+        ]
+
+        patch_response = Mock()
+        patch_response.status_code = 200
+        patch_response.json.return_value = [{"id": "user-1", "email_verified": True}]
+
+        mock_requests.get.side_effect = [auth_response, user_response]
+        mock_requests.patch.return_value = patch_response
+
+        with patch.object(backend, "SUPABASE_URL", "https://example.supabase.co"), patch.object(
+            backend, "SUPABASE_KEY", "anon-key"
+        ), patch.object(backend, "SUPABASE_SERVICE_ROLE_KEY", "service-key"):
+            details = backend._get_user_details_with_admin_status("user-1")
+
+        self.assertTrue(details["email_verified"])
+        self.assertEqual(details["phone_verified"], False)
+        mock_requests.patch.assert_called()
+
+    @patch.object(admin_routes, "requests")
+    def test_admin_user_list_uses_supabase_auth_email_confirmation(self, mock_requests):
+        public_users_response = Mock()
+        public_users_response.status_code = 200
+        public_users_response.headers = {"Content-Range": "0-0/1"}
+        public_users_response.json.return_value = [
+            {
+                "id": "user-1",
+                "email": "verified@example.com",
+                "email_verified": False,
+                "phone_verified": False,
+                "is_admin": False,
+                "account_status": "active",
+                "created_at": "2026-06-19T00:00:00+00:00",
+            }
+        ]
+
+        auth_user_response = Mock()
+        auth_user_response.status_code = 200
+        auth_user_response.json.return_value = {
+            "user": {
+                "id": "user-1",
+                "email_confirmed_at": "2026-06-19T10:00:00+00:00",
+            }
+        }
+
+        mock_requests.get.side_effect = [public_users_response, auth_user_response]
+
+        with backend.app.test_request_context("/api/admin/users?limit=50"):
+            with patch.object(admin_routes, "_admin_cache_get", return_value=None), patch.object(
+                admin_routes, "_admin_cache_set"
+            ):
+                response, status = admin_routes.get_users.__wrapped__()
+
+        payload = response.get_json()
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["users"][0]["email_verified"])
+        self.assertEqual(payload["users"][0]["email_verified_at"], "2026-06-19T10:00:00+00:00")
 
     @patch.object(backend, "_apply_listing_lifecycle_metadata")
     @patch.object(backend, "supabase_request")

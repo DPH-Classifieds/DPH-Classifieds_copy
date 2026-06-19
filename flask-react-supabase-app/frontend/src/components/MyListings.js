@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getAccessToken } from '../utils/supabaseClient';
 import { resolveMediaUrl } from '../utils/media';
 import { useSavedListings } from '../context/SavedListingsContext';
@@ -58,6 +58,7 @@ const TABS = [
   { key: 'active', label: 'Active' },
   { key: 'drafts', label: 'Drafts' },
   { key: 'saved', label: 'Saved' },
+  { key: 'searches', label: 'Saved Searches' },
 ];
 
 const formatMoney = (value) => {
@@ -151,15 +152,26 @@ const MyListings = () => {
   const [outcomePromptListing, setOutcomePromptListing] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
   const [wizardDrafts, setWizardDrafts] = useState([]);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { savedListings, loading: savedLoading, refreshSavedListings } = useSavedListings() || {};
 
   useEffect(() => {
     Promise.all([fetchUserListings(), fetchWizardDrafts()]);
     fetchLeadTotals();
+    fetchSavedSearches();
     if (refreshSavedListings) refreshSavedListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(location.search).get('tab');
+    if (requestedTab && TABS.some((tab) => tab.key === requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [location.search]);
 
   const fetchWizardDrafts = async () => {
     try {
@@ -188,6 +200,41 @@ const MyListings = () => {
       await fetchWizardDrafts();
     } catch (err) {
       console.warn('Failed to delete wizard draft:', err);
+    }
+  };
+
+  const fetchSavedSearches = async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      setSavedSearchesLoading(true);
+      const response = await fetch(`${API_URL}/api/user/saved-searches`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      setSavedSearches(Array.isArray(payload.searches) ? payload.searches : []);
+    } catch (err) {
+      console.warn('Failed to fetch saved searches:', err);
+    } finally {
+      setSavedSearchesLoading(false);
+    }
+  };
+
+  const deleteSavedSearch = async (search) => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const identifier = search?.id || search?.search_key;
+      if (!identifier) return;
+      const response = await fetch(`${API_URL}/api/user/saved-searches/${identifier}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return;
+      await fetchSavedSearches();
+    } catch (err) {
+      console.warn('Failed to delete saved search:', err);
     }
   };
 
@@ -629,6 +676,57 @@ const MyListings = () => {
     );
   };
 
+  const buildSavedSearchTitle = (search) => {
+    if (search?.name) return search.name;
+    if (search?.query_text) return search.query_text;
+    if (search?.category) return `${search.category} search`;
+    return 'Saved search';
+  };
+
+  const buildSavedSearchSubtitle = (search) => {
+    const parts = [];
+    if (search?.category) parts.push(search.category);
+    if (search?.route_path) parts.push(search.route_path);
+    if (search?.query_text) parts.push(`"${search.query_text}"`);
+    return parts.join(' • ');
+  };
+
+  const renderSavedSearchCard = (search) => {
+    const searchUrl = search?.route_path || '/explore';
+    const filterCount = search?.filters && typeof search.filters === 'object'
+      ? Object.keys(search.filters).length
+      : 0;
+
+    return (
+      <div key={search.id || search.search_key} className="my-listing-card">
+        <div className="my-listing-details">
+          <h3>{buildSavedSearchTitle(search)}</h3>
+          <p className="my-listing-subtitle-card">{buildSavedSearchSubtitle(search) || 'Saved from Explore'}</p>
+          {search.result_count !== undefined && search.result_count !== null && (
+            <p className="my-listing-price">{search.result_count} results when saved</p>
+          )}
+          <p className="my-listing-date">
+            {filterCount > 0 ? `${filterCount} filter${filterCount === 1 ? '' : 's'}` : 'No extra filters'}
+          </p>
+        </div>
+        <div className="my-listing-actions">
+          <button
+            onClick={() => navigate(searchUrl)}
+            className="btn btn-secondary"
+          >
+            Open search
+          </button>
+          <button
+            onClick={() => deleteSavedSearch(search)}
+            className="btn btn-danger"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderListingSection = (typeListingsByType, emptyMessage) => {
     const hasAny = Object.values(typeListingsByType).some((list) => list.length > 0);
     if (!hasAny) {
@@ -929,6 +1027,24 @@ const MyListings = () => {
           ) : (
             <div className="my-listings-grid">
               {(savedListings || []).map((item) => renderSavedCard(item))}
+            </div>
+          )
+        )}
+
+        {activeTab === 'searches' && (
+          savedSearchesLoading ? (
+            <LoadingSpinner message="Loading saved searches..." size="small" />
+          ) : savedSearches.length === 0 ? (
+            <div className="empty-state">
+              <h3>No Saved Searches</h3>
+              <p>Save a search from Explore and it will appear here.</p>
+              <div className="empty-state-actions">
+                <Link to="/explore" className="btn btn-primary">Go to Explore</Link>
+              </div>
+            </div>
+          ) : (
+            <div className="my-listings-grid">
+              {savedSearches.map((search) => renderSavedSearchCard(search))}
             </div>
           )
         )}

@@ -10402,6 +10402,31 @@ def _get_user_details_with_admin_status(user_id_from_token):
     email_verified = email_verified or bool(auth_email_confirmed)
     phone_verified = phone_verified or False
 
+    if (
+        db_user_data
+        and auth_email_confirmed
+        and not bool(db_user_data.get("email_verified", False))
+    ):
+        try:
+            sync_resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id_from_token}",
+                headers=headers,
+                json={
+                    "email_verified": True,
+                    "email_verified_at": auth_email_confirmed,
+                },
+                timeout=5,
+            )
+            if sync_resp.status_code in (200, 204):
+                db_user_data["email_verified"] = True
+                db_user_data["email_verified_at"] = auth_email_confirmed
+        except requests.exceptions.RequestException as sync_err:
+            logger.warning(
+                "Failed to sync auth email verification for %s: %s",
+                user_id_from_token,
+                sync_err,
+            )
+
     final_user_details = {}
     if db_user_data:
         final_user_details.update(db_user_data)
@@ -16207,7 +16232,6 @@ def set_listing_outcome(current_user, item_type, item_id):
         updates.update(
             {
                 "status": "draft",
-                "listing_state": "draft",
                 "sold_status": None,
                 "sold_status_set_at": None,
                 "expired_at": None,

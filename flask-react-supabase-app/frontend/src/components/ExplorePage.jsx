@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import ListingSkeleton from './ListingSkeleton';
 import SeoMeta from './SeoMeta';
@@ -844,6 +844,12 @@ const ExplorePage = () => {
             >
               {savingSearch ? 'Saving...' : 'Save Search'}
             </button>
+            <Link
+              to="/my-listings?tab=searches"
+              className="explore-v2-button explore-v2-button-secondary"
+            >
+              View Saved Searches
+            </Link>
             {savedSearchNotice ? <span className="explore-v2-save-search-note">{savedSearchNotice}</span> : null}
           </div>
         </div>

@@ -47,6 +47,11 @@
 - Normalized the paginated `/api/admin/users` response so Supabase `206 Partial Content` is treated as a valid page instead of an error, which keeps the admin user list rendering when the page is truncated.
 - Hardened the legacy `/api/users` handler against Supabase `206` pages as well, so stale admin/web paths do not convert a valid user page into a failure envelope.
 
+### Email Verification And Saved Searches
+- Synced `email_verified` from Supabase Auth confirmation into the local `public.users` row when the current user profile is loaded, so confirmed emails stop showing as unverified in the app.
+- Added auth-backed email confirmation to the admin users list so the panel reflects Supabase confirmation state even if the local row is stale.
+- Added a dedicated `Saved Searches` tab in `My Listings` plus a direct shortcut from Explore, so users can actually view, reopen, and delete saved searches.
+
 ### Automated Emails
 - Added worker jobs for draft reminder emails after 24 hours and saved-car reminder emails after 24 hours.
 - Added claim/sent/error columns so reminder jobs are idempotent and do not repeatedly email the same row.
