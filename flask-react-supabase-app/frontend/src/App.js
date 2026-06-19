@@ -26,6 +26,7 @@ import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
 import AnnouncementBanner from './components/AnnouncementBanner';
+import { ChunkLoadErrorBoundary, ChunkLoadRecovery } from './components/ChunkLoadGuard';
 import './App.css';
 import './styles/UAELicensePlate.css';
 import './components/cropper/unifiedCropper.css';
@@ -251,6 +252,7 @@ function App() {
     <AuthProvider>
       <SavedListingsProvider>
         <Router>
+          <ChunkLoadRecovery />
           <AuthHashHandler />
           <ScrollToTop />
           <PlatformAnalyticsTracker />
@@ -264,8 +266,9 @@ function App() {
               <SavedListingsNotice />
             </SiteChrome>
             <MainArea>
-              <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
-                <Routes>
+              <ChunkLoadErrorBoundary>
+                <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
+                  <Routes>
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/cars" element={<CarList />} />
@@ -367,8 +370,9 @@ function App() {
 
               {/* 404 route */}
               <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
+                  </Routes>
+                </Suspense>
+              </ChunkLoadErrorBoundary>
             </MainArea>
             <SiteChrome>
               <Footer />

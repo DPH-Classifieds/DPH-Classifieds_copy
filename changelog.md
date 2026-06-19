@@ -35,6 +35,12 @@
 - Save Draft now works on edit pages too; when a user saves an existing bike, plate, or part as a draft, the listing is explicitly moved to draft state through the backend outcome route.
 - Saved-favourites errors now surface the backend message instead of only the generic support copy, which makes the failure mode actionable.
 
+### Runtime Recovery And View Tracking
+- Added a chunk-load recovery guard around the lazy route shell so stale `vendors-node_modules_prop-types_index_js` failures auto-reload once and then fall back to a manual reload screen.
+- Added legacy `/view` tracking on car, bike, plate, and part detail pages so row-level listing views increment again instead of staying stuck at the old undercounted values.
+- Added the missing backend `/api/parts/<id>/view` route so part views track the same way as cars, bikes, and plates.
+- Kept Cloudflare and platform analytics separate: Cloudflare remains the source for site-wide visitor totals, while the app tracks listing-detail engagement in `platform_events` and the legacy `view_count` columns.
+
 ### Automated Emails
 - Added worker jobs for draft reminder emails after 24 hours and saved-car reminder emails after 24 hours.
 - Added claim/sent/error columns so reminder jobs are idempotent and do not repeatedly email the same row.

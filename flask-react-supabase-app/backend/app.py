@@ -5611,6 +5611,13 @@ def track_plate_view(plate_id):
     return jsonify({"message": "Unable to update view count"}), 400
 
 
+@app.route("/api/parts/<string:part_id>/view", methods=["POST"])
+def track_part_view(part_id):
+    if _increment_listing_view_count("car_parts", part_id):
+        return jsonify({"message": "View count updated"}), 200
+    return jsonify({"message": "Unable to update view count"}), 400
+
+
 # Get user's own cars (authenticated)
 @app.route("/api/user/cars", methods=["GET"])
 @token_required

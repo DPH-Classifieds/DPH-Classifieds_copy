@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -44,6 +44,7 @@ const BikeDetailRedesigned = () => {
     totalInterest: 0,
     totalCost: 0
   });
+  const viewTrackedRef = useRef(false);
   const seoData = useMemo(
     () =>
       buildListingSeo('bike', bike || preloadedBike || {}, {
@@ -116,6 +117,26 @@ const BikeDetailRedesigned = () => {
   useEffect(() => {
     setActiveImageIndex(0);
   }, [id]);
+
+  useEffect(() => {
+    viewTrackedRef.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    const trackView = async () => {
+      if (!bike?.id || viewTrackedRef.current) {
+        return;
+      }
+      viewTrackedRef.current = true;
+      try {
+        await fetch(`${API_URL}/api/bikes/${id}/view`, { method: 'POST' });
+      } catch (error) {
+        console.warn('Failed to record bike view:', error);
+      }
+    };
+
+    trackView();
+  }, [bike?.id, id]);
 
   const handleLoanChange = (field, value) => {
     setLoanCalculator(prev => ({
