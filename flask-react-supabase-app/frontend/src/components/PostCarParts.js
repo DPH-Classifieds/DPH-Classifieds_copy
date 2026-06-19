@@ -11,6 +11,7 @@ import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
+import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import '../styles/PostForms.css';
 
@@ -19,6 +20,7 @@ const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
 const MAX_DESCRIPTION_WORDS = 300;
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const PART_DRAFT_STORAGE_KEY = 'dph_post_part_draft_v1';
 const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
 const COUNTRY_CODES = ['+971', '+973', '+965', '+968', '+974', '+966'];
 const PART_TYPES = [
@@ -59,9 +61,11 @@ const PostCarParts = () => {
   const fileInputRef = useRef(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDraftSaving, setIsDraftSaving] = useState(false);
   const [isLoadingListing, setIsLoadingListing] = useState(isEdit);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [draftNotice, setDraftNotice] = useState(null);
   const [pendingCropFiles, setPendingCropFiles] = useState(null);
   const [croppedImages, setCroppedImages] = useState([]); // Array<{croppedFile, originalFile, previewUrl}>
   const [existingImageUrls, setExistingImageUrls] = useState([]);
@@ -160,6 +164,37 @@ const PostCarParts = () => {
 
     fetchListing();
   }, [isEdit, listingId]);
+
+  useEffect(() => {
+    if (isEdit || !user?.id) {
+      return;
+    }
+
+    let cancelled = false;
+    const restoreDraft = async () => {
+      const draft = await loadListingDraft('part', PART_DRAFT_STORAGE_KEY);
+      if (cancelled || !draft) {
+        return;
+      }
+
+      const draftForm = draft.partsForm || draft.formData;
+      if (draftForm) {
+        setFormData((prev) => ({ ...prev, ...draftForm }));
+      }
+      if (Array.isArray(draft.existingImageUrls)) {
+        setExistingImageUrls(draft.existingImageUrls);
+      }
+      if (typeof draft.whatsappSameAsPhone === 'boolean') {
+        setWhatsappSameAsPhone(draft.whatsappSameAsPhone);
+      }
+      setDraftNotice('Draft restored.');
+    };
+
+    restoreDraft();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit, user?.id]);
 
   // Revoke cropped preview blob URLs on unmount to avoid memory leaks.
   useEffect(() => {
@@ -315,6 +350,34 @@ const PostCarParts = () => {
     setExistingImageUrls((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   };
 
+  const handleSaveDraft = async () => {
+    if (isEdit || !user) return;
+
+    const draftPayload = {
+      partsForm: formData,
+      formData,
+      existingImageUrls,
+      whatsappSameAsPhone,
+      savedAt: new Date().toISOString(),
+    };
+
+    setIsDraftSaving(true);
+    setError(null);
+    setDraftNotice('Saving draft...');
+    try {
+      await saveListingDraft('part', PART_DRAFT_STORAGE_KEY, draftPayload);
+      setDraftNotice('Draft saved.');
+      trackEvent('save_listing_draft', { listing_type: 'part', platform: 'web' });
+    } catch (draftError) {
+      setError('Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
+    } finally {
+      setIsDraftSaving(false);
+      window.setTimeout(() => {
+        setDraftNotice((current) => (current && current !== 'Saving draft...' ? null : current));
+      }, 2500);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -381,6 +444,7 @@ const PostCarParts = () => {
         await apiClient.post('/api/parts', payload);
       }
       if (!isEdit) {
+        await clearListingDraft('part', PART_DRAFT_STORAGE_KEY);
         trackEvent('post_listing_success', { listing_type: 'part', platform: 'web' });
       }
       setSuccess(true);
@@ -802,6 +866,12 @@ const PostCarParts = () => {
                     <span className="submit-loading-bar-fill" />
                   </div>
                 </div>
+              ) : null}
+              {draftNotice ? <div className="draft-success-message">{draftNotice}</div> : null}
+              {!isEdit ? (
+                <button type="button" className="btn-secondary" onClick={handleSaveDraft} disabled={isSubmitting || isDraftSaving}>
+                  {isDraftSaving ? 'Saving Draft...' : 'Save Draft'}
+                </button>
               ) : null}
               <button type="submit" className="submit-btn" disabled={isSubmitting}>
                 {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Part Listing' : 'Submit Part Listing')}

@@ -304,6 +304,14 @@ const AdminDashboard = () => {
   const totalWhatsapp = clampNumber(stats.total_whatsapp || totals.whatsapp_click || 0);
   const totalDealers  = clampNumber(stats.total_dealers  || dealers.length);
   const totalReports  = clampNumber(stats.total_reports  || reports.length);
+  const savedSearchesTotal = clampNumber(stats.saved_searches_total);
+  const savedSearchesWindow = clampNumber(stats.saved_searches_window);
+  const lifecycleTotals = stats.listing_lifecycle?.totals || {};
+  const activeListingsTotal = clampNumber(stats.active_listings_total ?? lifecycleTotals.active);
+  const draftListingsTotal = clampNumber(stats.draft_listings_total ?? lifecycleTotals.draft);
+  const expiredListingsTotal = clampNumber(stats.expired_listings_total ?? lifecycleTotals.expired);
+  const soldOnDphTotal = clampNumber(stats.sold_on_dph_total ?? lifecycleTotals.sold_on_dph);
+  const soldElsewhereTotal = clampNumber(stats.sold_elsewhere_total ?? lifecycleTotals.sold_elsewhere);
 
   const pendingDealers = dealers.filter((d) => !d.dealer_verified);
   const pendingReports = reports.filter((r) => (r.status || 'pending') === 'pending');
@@ -493,6 +501,7 @@ const AdminDashboard = () => {
           { label: 'WhatsApp',          value: totalWhatsapp,                     icon: MessageSquare                   },
           { label: 'Total dealers',     value: totalDealers,                      icon: Store                           },
           { label: 'Active listing views', value: totalListingViews,              icon: Activity                        },
+          { label: 'Saved searches',    value: savedSearchesTotal,                icon: Target, delta: savedSearchesWindow },
           {
             label: pendingReports.length > 0
               ? `Reports (${pendingReports.length} pending)`
@@ -527,10 +536,10 @@ const AdminDashboard = () => {
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: 'Cars pending',   value: clampNumber(stats.cars_pending),   icon: Car,   href: '/admin/listings?type=car&status=pending'   },
-            { label: 'Bikes pending',  value: clampNumber(stats.bikes_pending),  icon: Bike,  href: '/admin/listings?type=bike&status=pending'  },
-            { label: 'Parts pending',  value: clampNumber(stats.parts_pending),  icon: Wrench,href: '/admin/listings?type=part&status=pending'  },
-            { label: 'Plates pending', value: clampNumber(stats.plates_pending), icon: Hash,  href: '/admin/listings?type=plate&status=pending' },
+            { label: 'Cars pending',   value: clampNumber(stats.cars_pending),   icon: Car,   href: '/admin/listings?types=cars&statuses=pending'   },
+            { label: 'Bikes pending',  value: clampNumber(stats.bikes_pending),  icon: Bike,  href: '/admin/listings?types=bikes&statuses=pending'  },
+            { label: 'Parts pending',  value: clampNumber(stats.parts_pending),  icon: Wrench,href: '/admin/listings?types=parts&statuses=pending'  },
+            { label: 'Plates pending', value: clampNumber(stats.plates_pending), icon: Hash,  href: '/admin/listings?types=plates&statuses=pending' },
           ].map(({ label, value, icon: Icon, href }, i) => (
             <motion.div
               key={label}
@@ -552,6 +561,42 @@ const AdminDashboard = () => {
                 {value > 0 && (
                   <p className="text-[11px] text-amber-300/70 mt-1">Needs review</p>
                 )}
+              </GlassCard>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* ── 3b. Listing lifecycle outcomes ──────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
+        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
+          Listing lifecycle
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          {[
+            { label: 'Active', value: activeListingsTotal, icon: Activity, href: '/admin/listings?statuses=approved' },
+            { label: 'Drafts', value: draftListingsTotal, icon: Wrench, href: '/admin/listings?statuses=draft' },
+            { label: 'Expired', value: expiredListingsTotal, icon: AlertTriangle, href: '/admin/listings?statuses=expired' },
+            { label: 'Sold on DPH', value: soldOnDphTotal, icon: Car, href: '/admin/listings?statuses=sold' },
+            { label: 'Sold elsewhere', value: soldElsewhereTotal, icon: ExternalLink, href: '/admin/listings?statuses=sold' },
+          ].map(({ label, value, icon: Icon, href }, i) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.26 + i * 0.04 }}
+            >
+              <GlassCard
+                className="cursor-pointer hover:bg-white/[0.06] transition-colors"
+                onClick={() => navigate(href)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">{label}</p>
+                  <Icon size={14} className="text-white/30" />
+                </div>
+                <p className="text-2xl font-semibold tabular-nums text-white">
+                  {value.toLocaleString('en-AE')}
+                </p>
               </GlassCard>
             </motion.div>
           ))}

@@ -222,6 +222,26 @@
   max-width: 460px;
 }
 
+.explore-v2-results-meta {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 620px;
+}
+
+.explore-v2-results-meta p {
+  flex: 1 1 100%;
+  text-align: right;
+}
+
+.explore-v2-save-search-note {
+  color: var(--ex-text-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .explore-v2-filter-panel,
 .explore-v2-state-card,
 .explore-v2-card {
@@ -682,6 +702,16 @@
   .explore-v2-card-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .explore-v2-results-meta {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .explore-v2-results-meta p {
+    text-align: left;
   }
 
   .explore-v2-button,

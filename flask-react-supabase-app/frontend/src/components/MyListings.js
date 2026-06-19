@@ -130,7 +130,7 @@ const getPrimaryImage = (listing) => {
 const isDraftListing = (listing) => {
   const status = String(listing.status || '').toLowerCase();
   const state = String(listing.listing_state || '').toLowerCase();
-  return status === 'draft' || status === 'pending' || state === 'draft' || listing.moderation_status === 'rejected';
+  return status === 'draft' || state === 'draft' || listing.moderation_status === 'rejected';
 };
 
 const MyListings = () => {

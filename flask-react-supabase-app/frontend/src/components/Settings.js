@@ -113,7 +113,7 @@ const Settings = () => {
         
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.message || 'Failed to delete account');
+          throw new Error(data.error || data.message || 'Failed to delete account');
         }
         
         // Sign out user after successful deletion

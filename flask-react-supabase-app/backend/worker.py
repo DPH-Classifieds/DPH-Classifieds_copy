@@ -151,8 +151,10 @@ def main():
 
     try:
         from app import (
+            _run_listing_draft_reminders_once,
             _run_listing_expiry_reminders_once,
             _run_listing_lifecycle_sweep_once,
+            _run_saved_car_reminders_once,
             _run_dealer_doc_expiry_reminders_once,
         )
         from workers.inventory_import_worker import run as _run_inventory_import_once
@@ -193,6 +195,12 @@ def main():
     )
     listing_reminder_interval_seconds = int(
         os.getenv("LISTING_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
+    )
+    draft_reminder_interval_seconds = int(
+        os.getenv("DRAFT_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
+    )
+    saved_car_reminder_interval_seconds = int(
+        os.getenv("SAVED_CAR_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
     )
     listing_sweep_interval_seconds = int(
         os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))
@@ -260,6 +268,26 @@ def main():
             listing_reminder_interval_seconds,
         ),
         name="listing-expiry-reminders",
+        daemon=True,
+    )
+    draft_reminder_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "Draft listing reminders",
+            _run_listing_draft_reminders_once,
+            draft_reminder_interval_seconds,
+        ),
+        name="listing-draft-reminders",
+        daemon=True,
+    )
+    saved_car_reminder_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "Saved car reminders",
+            _run_saved_car_reminders_once,
+            saved_car_reminder_interval_seconds,
+        ),
+        name="saved-car-reminders",
         daemon=True,
     )
     sweep_thread = threading.Thread(
@@ -333,6 +361,8 @@ def main():
         daemon=True,
     )
     reminder_thread.start()
+    draft_reminder_thread.start()
+    saved_car_reminder_thread.start()
     sweep_thread.start()
     dealer_doc_expiry_thread.start()
     dealer_lead_agg_thread.start()
@@ -341,8 +371,10 @@ def main():
     webhook_delivery_thread.start()
     auto_review_thread.start()
     logger.info(
-        "Listing lifecycle jobs started (reminders=%ss sweep=%ss dealer_doc_expiry=%ss)",
+        "Listing lifecycle jobs started (reminders=%ss draft_reminders=%ss saved_car_reminders=%ss sweep=%ss dealer_doc_expiry=%ss)",
         listing_reminder_interval_seconds,
+        draft_reminder_interval_seconds,
+        saved_car_reminder_interval_seconds,
         listing_sweep_interval_seconds,
         dealer_doc_expiry_interval_seconds,
     )
@@ -387,6 +419,8 @@ def main():
         heartbeat_thread.join(timeout=5)
         monitor_thread.join(timeout=5)
         reminder_thread.join(timeout=5)
+        draft_reminder_thread.join(timeout=5)
+        saved_car_reminder_thread.join(timeout=5)
         sweep_thread.join(timeout=5)
         dealer_lead_agg_thread.join(timeout=5)
         inventory_import_thread.join(timeout=5)

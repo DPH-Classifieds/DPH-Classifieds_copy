@@ -609,7 +609,7 @@ class ListingOutcomeTransitionTests(unittest.TestCase):
     @patch.object(backend, "_sync_listing_lifecycle")
     @patch.object(backend, "_send_listing_status_email")
     @patch.object(backend, "supabase_request")
-    def test_move_to_draft_resets_expired_listing_into_pending_review(
+    def test_move_to_draft_resets_expired_listing_into_draft(
         self,
         mock_supabase_request,
         mock_send_listing_status_email,
@@ -658,7 +658,8 @@ class ListingOutcomeTransitionTests(unittest.TestCase):
 
         self.assertEqual(status_code, 200)
         self.assertEqual(response.get_json()["message"], "Listing outcome saved")
-        self.assertEqual(captured["data"]["status"], "pending")
+        self.assertEqual(captured["data"]["status"], "draft")
+        self.assertEqual(captured["data"]["listing_state"], "draft")
         self.assertEqual(captured["data"]["is_approved"], False)
         self.assertIsNone(captured["data"]["expired_at"])
         self.assertGreater(

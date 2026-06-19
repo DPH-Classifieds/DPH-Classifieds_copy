@@ -9,6 +9,8 @@ import { buildStaticSeo } from '../utils/seo';
 import BrowseSellCta from './BrowseSellCta';
 import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import { useAuth } from '../context/AuthContext';
+import apiClient from '../utils/apiClient';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const INVENTORY_CACHE_TTL_MS = 60 * 1000;
@@ -403,6 +405,7 @@ const scoreAllMatch = (item, query) => {
 
 const ExplorePage = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const [inventory, setInventory] = useState({
     cars: [],
     bikes: [],
@@ -418,6 +421,8 @@ const ExplorePage = () => {
   const [plateFilters, setPlateFilters] = useState(plateInitialFilters);
   const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
   const [heroQuery, setHeroQuery] = useState('');
+  const [savingSearch, setSavingSearch] = useState(false);
+  const [savedSearchNotice, setSavedSearchNotice] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -701,6 +706,37 @@ const ExplorePage = () => {
         : `${filteredItems.length} live listings across cars, car parts, plates, and bikes.`
       : `${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'} in ${exploreModes.find((mode) => mode.key === activeMode)?.label || 'this category'}.`;
 
+  const activeSearchPayload = useMemo(() => {
+    const filtersByMode = {
+      all: { query: globalQuery },
+      cars: carFilters,
+      'car-parts': partsFilters,
+      plates: plateFilters,
+      bikes: bikeFilters,
+    };
+    const filters = filtersByMode[activeMode] || {};
+    const query = filters.query || globalQuery || heroQuery || '';
+    const hasSpecificSignal =
+      activeMode !== 'all' ||
+      Object.entries(filters).some(([key, value]) => key !== 'sortBy' && String(value || '').trim());
+    return {
+      category: activeMode,
+      query,
+      filters,
+      result_count: filteredItems.length,
+      hasSpecificSignal,
+    };
+  }, [
+    activeMode,
+    bikeFilters,
+    carFilters,
+    filteredItems.length,
+    globalQuery,
+    heroQuery,
+    partsFilters,
+    plateFilters,
+  ]);
+
   const handleModeChange = (modeKey) => {
     setActiveMode(modeKey);
   };
@@ -718,6 +754,35 @@ const ExplorePage = () => {
     }
   };
 
+  const handleSaveSearch = async () => {
+    if (!user) {
+      setSavedSearchNotice('Log in to save this search.');
+      return;
+    }
+    if (!activeSearchPayload.hasSpecificSignal) {
+      setSavedSearchNotice('Add a query or choose a category first.');
+      return;
+    }
+
+    setSavingSearch(true);
+    setSavedSearchNotice('');
+    try {
+      const label = exploreModes.find((mode) => mode.key === activeMode)?.label || 'Marketplace';
+      await apiClient.post('/api/user/saved-searches', {
+        ...activeSearchPayload,
+        route_path: `${window.location.pathname}${window.location.search}`,
+        name: `${label}${activeSearchPayload.query ? `: ${activeSearchPayload.query}` : ''}`,
+      });
+      setSavedSearchNotice('Search saved.');
+    } catch (saveError) {
+      setSavedSearchNotice(saveError?.message || 'Could not save this search.');
+    } finally {
+      setSavingSearch(false);
+      window.setTimeout(() => {
+        setSavedSearchNotice('');
+      }, 3000);
+    }
+  };
 
 
   return (
@@ -769,7 +834,18 @@ const ExplorePage = () => {
             <span className="explore-v2-kicker">Live Inventory</span>
             <h2>{exploreModes.find((mode) => mode.key === activeMode)?.label}</h2>
           </div>
-          <p>{resultsDescription}</p>
+          <div className="explore-v2-results-meta">
+            <p>{resultsDescription}</p>
+            <button
+              type="button"
+              className="explore-v2-button explore-v2-button-secondary"
+              onClick={handleSaveSearch}
+              disabled={savingSearch || loading || !activeSearchPayload.hasSpecificSignal}
+            >
+              {savingSearch ? 'Saving...' : 'Save Search'}
+            </button>
+            {savedSearchNotice ? <span className="explore-v2-save-search-note">{savedSearchNotice}</span> : null}
+          </div>
         </div>
 
         {loading ? (

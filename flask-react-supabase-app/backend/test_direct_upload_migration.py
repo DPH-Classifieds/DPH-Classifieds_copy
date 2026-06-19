@@ -18,44 +18,60 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
         mock_get_user_email.return_value = "seller@example.com"
         mock_send_listing_status_email.return_value = (True, None)
 
-        mock_supabase_request.side_effect = [
-            ([{"user_id": "user-123"}], 200),
-            ([{"id": "car-123"}], 200),
-            ({}, 204),
-            (
-                [
-                    {
-                        "id": "img-1",
-                        "car_id": "car-123",
-                        "image_url": "https://example.com/original.jpg",
-                        "display_url": "https://example.com/display.jpg",
-                        "focal_x": 35,
-                        "focal_y": 62,
-                        "crop_meta": {"width": 1600, "height": 1000},
-                    }
-                ],
-                201,
-            ),
-            ([{"id": "car-123", "listing_title": "Updated title"}], 200),
-            (
-                [
-                    {
-                        "id": "img-1",
-                        "car_id": "car-123",
-                        "url": "https://example.com/original.jpg",
-                        "image_url": "https://example.com/original.jpg",
-                        "display_url": "https://example.com/display.jpg",
-                        "focal_x": 35,
-                        "focal_y": 62,
-                        "crop_meta": {"width": 1600, "height": 1000},
-                    }
-                ],
-                200,
-            ),
-        ]
+        def fake_supabase_request(method, path, data=None, params=None, user_id=None, **_kwargs):
+            if method == "get" and path == "/rest/v1/cars" and params.get("select") == "user_id":
+                return ([{"user_id": "user-123"}], 200)
+            if method == "patch" and path == "/rest/v1/cars":
+                return ([{"id": "car-123"}], 200)
+            if method == "get" and path == "/rest/v1/car_images" and params == {
+                "select": "id",
+                "car_id": "eq.car-123",
+            }:
+                return ([{"id": "old-img-1", "car_id": "car-123"}], 200)
+            if method == "post" and path == "/rest/v1/car_images":
+                return (
+                    [
+                        {
+                            "id": "img-1",
+                            "car_id": "car-123",
+                            "image_url": "https://example.com/original.jpg",
+                            "display_url": "https://example.com/display.jpg",
+                            "focal_x": 35,
+                            "focal_y": 62,
+                            "crop_meta": {"width": 1600, "height": 1000},
+                        }
+                    ],
+                    201,
+                )
+            if method == "delete" and path == "/rest/v1/car_images":
+                return ({}, 204)
+            if method == "get" and path == "/rest/v1/cars":
+                return ([{"id": "car-123", "listing_title": "Updated title"}], 200)
+            if method == "get" and path == "/rest/v1/car_images":
+                return (
+                    [
+                        {
+                            "id": "img-1",
+                            "car_id": "car-123",
+                            "url": "https://example.com/original.jpg",
+                            "image_url": "https://example.com/original.jpg",
+                            "display_url": "https://example.com/display.jpg",
+                            "focal_x": 35,
+                            "focal_y": 62,
+                            "crop_meta": {"width": 1600, "height": 1000},
+                        }
+                    ],
+                    200,
+                )
+            return ([], 200)
+
+        mock_supabase_request.side_effect = fake_supabase_request
 
         payload = {
             "listing_title": "Updated title",
+            "country_code": "+971",
+            "car_owner_phone_number": "501234567",
+            "whatsapp_number": "501234567",
             "images": [
                 {
                     "image_url": "https://example.com/original.jpg",
@@ -78,16 +94,29 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(body["images"][0]["display_url"], "https://example.com/display.jpg")
 
-        delete_call = mock_supabase_request.call_args_list[2]
-        self.assertEqual(delete_call.args[0], "delete")
-        self.assertEqual(delete_call.args[1], "/rest/v1/car_images")
-        self.assertEqual(delete_call.kwargs["params"], {"car_id": "eq.car-123"})
+        snapshot_call = next(
+            call
+            for call in mock_supabase_request.call_args_list
+            if call.args[0] == "get"
+            and call.args[1] == "/rest/v1/car_images"
+            and call.kwargs["params"] == {"select": "id", "car_id": "eq.car-123"}
+        )
+        self.assertEqual(snapshot_call.args[0], "get")
+        self.assertEqual(snapshot_call.args[1], "/rest/v1/car_images")
+        self.assertEqual(snapshot_call.kwargs["params"], {"select": "id", "car_id": "eq.car-123"})
 
-        insert_call = mock_supabase_request.call_args_list[3]
+        insert_call = next(
+            call
+            for call in mock_supabase_request.call_args_list
+            if call.args[0] == "post" and call.args[1] == "/rest/v1/car_images"
+        )
         self.assertEqual(insert_call.args[0], "post")
         self.assertEqual(insert_call.args[1], "/rest/v1/car_images")
+        inserted_rows = insert_call.kwargs["data"]
+        self.assertEqual(len(inserted_rows), 1)
+        inserted_rows[0].pop("cropped_at", None)
         self.assertEqual(
-            insert_call.kwargs["data"],
+            inserted_rows,
             [
                 {
                     "car_id": "car-123",
@@ -100,6 +129,15 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
                 }
             ],
         )
+
+        delete_call = next(
+            call
+            for call in mock_supabase_request.call_args_list
+            if call.args[0] == "delete" and call.args[1] == "/rest/v1/car_images"
+        )
+        self.assertEqual(delete_call.args[0], "delete")
+        self.assertEqual(delete_call.args[1], "/rest/v1/car_images")
+        self.assertEqual(delete_call.kwargs["params"], {"id": 'in.("old-img-1")'})
 
 
 class SignedUploadUrlTests(unittest.TestCase):

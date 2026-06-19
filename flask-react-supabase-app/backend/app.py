@@ -2289,6 +2289,10 @@ def _saved_listing_config(listing_type):
 def _format_saved_listing_price(value):
     if value in (None, ""):
         return "Price on request"
+    try:
+        return f"AED {int(float(value)):,}"
+    except (TypeError, ValueError):
+        return f"AED {value}"
 
 
 def _looks_like_missing_table(response_payload):
@@ -2305,10 +2309,18 @@ def _looks_like_missing_table(response_payload):
         or "does not exist" in details
         or "does not exist" in hint
     )
-    try:
-        return f"AED {int(float(value)):,}"
-    except (TypeError, ValueError):
-        return f"AED {value}"
+
+
+def _looks_like_missing_column(response_payload, *columns):
+    if not isinstance(response_payload, dict):
+        return False
+    haystack = " ".join(
+        str(response_payload.get(key) or "")
+        for key in ("message", "details", "hint", "code")
+    ).lower()
+    if "schema cache" in haystack or "column" in haystack or "pgrst" in haystack:
+        return any(str(column).lower() in haystack for column in columns)
+    return False
 
 
 def _saved_listing_route_prefix(listing_type):
@@ -3073,6 +3085,384 @@ def delete_user_saved_listing(current_user, listing_type, listing_id):
     return jsonify(
         {"saved": False, "listing_type": normalized_type, "listing_id": listing_id}
     ), 200
+
+
+SAVED_SEARCH_CATEGORIES = {
+    "all",
+    "cars",
+    "car",
+    "bikes",
+    "bike",
+    "parts",
+    "part",
+    "car-parts",
+    "plates",
+    "plate",
+}
+
+
+def _normalize_saved_search_category(value):
+    normalized = str(value or "all").strip().lower()
+    mapping = {
+        "car": "cars",
+        "bike": "bikes",
+        "part": "parts",
+        "car-parts": "parts",
+        "plate": "plates",
+    }
+    normalized = mapping.get(normalized, normalized)
+    return normalized if normalized in SAVED_SEARCH_CATEGORIES else "all"
+
+
+def _clean_saved_search_filters(value):
+    if not isinstance(value, dict):
+        return {}
+    cleaned = {}
+    for key, raw_value in value.items():
+        if raw_value in (None, ""):
+            continue
+        if isinstance(raw_value, dict):
+            nested = _clean_saved_search_filters(raw_value)
+            if nested:
+                cleaned[str(key)] = nested
+            continue
+        if isinstance(raw_value, list):
+            nested_list = [
+                item
+                for item in raw_value
+                if item not in (None, "", [], {})
+            ]
+            if nested_list:
+                cleaned[str(key)] = nested_list
+            continue
+        cleaned[str(key)] = raw_value
+    return cleaned
+
+
+def _build_saved_search_key(category, route_path, query_text, filters):
+    normalized_payload = {
+        "category": _normalize_saved_search_category(category),
+        "route_path": str(route_path or "").strip()[:300],
+        "query_text": str(query_text or "").strip().lower(),
+        "filters": _clean_saved_search_filters(filters),
+    }
+    encoded = json.dumps(normalized_payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _saved_search_missing_table_response():
+    return (
+        jsonify(
+            {
+                "error": "Supabase table saved_searches is missing. Run backend migration: flask-react-supabase-app/backend/migrations/add_saved_searches_and_reminders_20260618.sql"
+            }
+        ),
+        501,
+    )
+
+
+@app.route("/api/user/saved-searches", methods=["GET"])
+@token_required
+def get_user_saved_searches(current_user):
+    response, status_code = supabase_request(
+        "get",
+        "/rest/v1/saved_searches",
+        params={
+            "select": "*",
+            "user_id": f"eq.{current_user}",
+            "order": "updated_at.desc",
+            "limit": "100",
+        },
+        user_id=current_user,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_table(response):
+            return _saved_search_missing_table_response()
+        return jsonify({"error": "Failed to load saved searches"}), status_code
+    return jsonify({"searches": response or []}), 200
+
+
+@app.route("/api/user/saved-searches", methods=["POST"])
+@token_required
+def save_user_search(current_user):
+    payload = request.get_json(silent=True) or {}
+    category = _normalize_saved_search_category(payload.get("category"))
+    route_path = str(payload.get("route_path") or payload.get("routePath") or "").strip()[:300]
+    query_text = str(
+        payload.get("query")
+        or payload.get("query_text")
+        or payload.get("search")
+        or ""
+    ).strip()[:300]
+    filters = _clean_saved_search_filters(payload.get("filters") or {})
+    result_count = payload.get("result_count", payload.get("resultCount"))
+    try:
+        result_count = int(result_count) if result_count not in (None, "") else None
+    except (TypeError, ValueError):
+        result_count = None
+
+    search_key = _build_saved_search_key(category, route_path, query_text, filters)
+    now_iso = _isoformat_utc(_utc_now())
+    record = {
+        "user_id": current_user,
+        "search_key": search_key,
+        "category": category,
+        "route_path": route_path,
+        "query_text": query_text,
+        "filters": filters,
+        "result_count": result_count,
+        "last_result_count": result_count,
+        "updated_at": now_iso,
+        "last_used_at": now_iso,
+    }
+    name = str(payload.get("name") or "").strip()[:120]
+    if name:
+        record["name"] = name
+
+    delete_response, delete_status = supabase_request(
+        "delete",
+        "/rest/v1/saved_searches",
+        params={"user_id": f"eq.{current_user}", "search_key": f"eq.{search_key}"},
+        user_id=current_user,
+    )
+    if delete_status >= 400 and _looks_like_missing_table(delete_response):
+        return _saved_search_missing_table_response()
+
+    insert_response, insert_status = supabase_request(
+        "post",
+        "/rest/v1/saved_searches",
+        data=record,
+        user_id=current_user,
+    )
+    if insert_status >= 400:
+        if _looks_like_missing_table(insert_response):
+            return _saved_search_missing_table_response()
+        return jsonify({"error": "Failed to save search"}), insert_status
+
+    saved_record = (
+        insert_response[0]
+        if isinstance(insert_response, list) and insert_response
+        else insert_response
+    )
+    return jsonify({"saved": True, "search": saved_record}), 200
+
+
+@app.route("/api/user/saved-searches/<string:search_id_or_key>", methods=["DELETE"])
+@token_required
+def delete_user_saved_search(current_user, search_id_or_key):
+    identifier = str(search_id_or_key or "").strip()
+    if not identifier:
+        return jsonify({"error": "Missing saved search id"}), 400
+    params = {"user_id": f"eq.{current_user}"}
+    if re.match(r"^[0-9a-fA-F-]{32,36}$", identifier):
+        params["id"] = f"eq.{identifier}"
+    else:
+        params["search_key"] = f"eq.{identifier}"
+    response, status_code = supabase_request(
+        "delete",
+        "/rest/v1/saved_searches",
+        params=params,
+        user_id=current_user,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_table(response):
+            return _saved_search_missing_table_response()
+        return jsonify({"error": "Failed to delete saved search"}), status_code
+    return jsonify({"deleted": True}), 200
+
+
+def _soft_delete_user_listing_table(table_name, user_id):
+    now_iso = _isoformat_utc(_utc_now())
+    full_payload = {
+        "status": "deleted",
+        "listing_state": "deleted",
+        "deleted_at": now_iso,
+        "is_approved": False,
+        "is_archived": True,
+        "auto_removed_at": now_iso,
+    }
+    path = f"/rest/v1/{table_name}?user_id=eq.{user_id}"
+    response, status_code = supabase_request(
+        "patch",
+        path,
+        data=full_payload,
+        use_service_role=True,
+    )
+    if status_code < 400:
+        return True, None
+
+    if _looks_like_missing_column(
+        response,
+        "listing_state",
+        "deleted_at",
+        "is_approved",
+        "is_archived",
+        "auto_removed_at",
+    ):
+        fallback_response, fallback_status = supabase_request(
+            "patch",
+            path,
+            data={"status": "deleted"},
+            use_service_role=True,
+        )
+        if fallback_status < 400:
+            return True, None
+        return False, fallback_response
+    return False, response
+
+
+def _delete_user_scoped_table_rows(table_name, user_id, column_name="user_id"):
+    response, status_code = supabase_request(
+        "delete",
+        f"/rest/v1/{table_name}",
+        params={column_name: f"eq.{user_id}"},
+        use_service_role=True,
+    )
+    if status_code < 400 or _looks_like_missing_table(response):
+        return True, None
+    return False, response
+
+
+def _delete_supabase_auth_user(user_id):
+    service_key = SUPABASE_SERVICE_ROLE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not SUPABASE_URL or not service_key:
+        return False, "Supabase service role is not configured"
+    response = requests.delete(
+        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+        headers={
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+        },
+        timeout=15,
+    )
+    if response.status_code in (200, 202, 204):
+        return True, None
+    return False, response.text[:500]
+
+
+@app.route("/api/user/delete-account", methods=["DELETE"])
+@token_required
+def delete_user_account(current_user):
+    cleanup_errors = []
+    for table_name in ("cars", "bikes", "car_parts", "license_plates"):
+        ok, error = _soft_delete_user_listing_table(table_name, current_user)
+        if not ok:
+            cleanup_errors.append({"table": table_name, "error": error})
+
+    for table_name in (
+        "saved_listings",
+        "listing_drafts",
+        "saved_searches",
+        "notifications",
+        "user_verification",
+    ):
+        ok, error = _delete_user_scoped_table_rows(table_name, current_user)
+        if not ok:
+            cleanup_errors.append({"table": table_name, "error": error})
+
+    for column_name in ("follower_id", "following_id"):
+        ok, error = _delete_user_scoped_table_rows(
+            "user_followers", current_user, column_name=column_name
+        )
+        if not ok:
+            cleanup_errors.append({"table": "user_followers", "error": error})
+
+    if cleanup_errors:
+        logger.error("Account deletion cleanup failed for %s: %s", current_user, cleanup_errors)
+        return jsonify({"deleted": False, "error": "Failed to clean up account data"}), 500
+
+    public_user_response, public_user_status = supabase_request(
+        "delete",
+        "/rest/v1/users",
+        params={"id": f"eq.{current_user}"},
+        use_service_role=True,
+    )
+    if public_user_status >= 400 and not _looks_like_missing_table(public_user_response):
+        logger.error(
+            "Failed to delete public user row for %s: %s",
+            current_user,
+            public_user_response,
+        )
+        return jsonify({"deleted": False, "error": "Failed to delete profile"}), 500
+
+    auth_deleted, auth_error = _delete_supabase_auth_user(current_user)
+    if not auth_deleted:
+        logger.error("Failed to delete auth user %s: %s", current_user, auth_error)
+        return (
+            jsonify(
+                {
+                    "deleted": False,
+                    "error": "Profile cleanup completed but auth deletion failed",
+                    "details": auth_error,
+                }
+            ),
+            502,
+        )
+
+    response = make_response(jsonify({"deleted": True}), 200)
+    response.set_cookie("access_token", "", expires=0)
+    response.set_cookie("refresh_token", "", expires=0)
+    return response, 200
+
+
+@app.route("/api/admin/saved-searches", methods=["GET"])
+@token_required
+def get_admin_saved_searches(current_user):
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+    days = max(min(int(request.args.get("days", 30)), 365), 1)
+    limit = max(min(int(request.args.get("limit", 200)), 1000), 1)
+    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+    rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/saved_searches",
+        params={
+            "select": "*",
+            "created_at": f"gte.{cutoff}",
+            "order": "updated_at.desc",
+            "limit": str(limit),
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_table(rows):
+            return _saved_search_missing_table_response()
+        return jsonify({"error": "Failed to load saved searches"}), status_code
+
+    rows = rows or []
+    user_ids = sorted({str(row.get("user_id")) for row in rows if row.get("user_id")})
+    owner_map = {}
+    if user_ids:
+        users, users_status = supabase_request(
+            "get",
+            "/rest/v1/users",
+            params={
+                "select": "id,email,username,display_name,first_name,last_name",
+                "id": f"in.({','.join(user_ids)})",
+            },
+            use_service_role=True,
+        )
+        if users_status < 400:
+            owner_map = {str(user.get("id")): user for user in users or []}
+
+    categories = defaultdict(int)
+    for row in rows:
+        category = _normalize_saved_search_category(row.get("category"))
+        categories[category] += 1
+        owner = owner_map.get(str(row.get("user_id")))
+        if owner:
+            row["owner_email"] = owner.get("email")
+            row["owner_name"] = _admin_display_name_from_user_row(owner)
+
+    summary = {
+        "total": len(rows),
+        "unique_users": len(user_ids),
+        "categories": dict(categories),
+        "days": days,
+    }
+    return jsonify({"summary": summary, "searches": rows}), 200
 
 
 def _to_int(value, field_name, *, minimum=None, maximum=None, allow_empty=True):
@@ -9251,6 +9641,92 @@ def logout(current_user):
     return response
 
 
+def _draft_payload_from_row(draft_row):
+    if not isinstance(draft_row, dict):
+        return {}
+    payload = draft_row.get("payload")
+    if payload in (None, ""):
+        payload = draft_row.get("draft_payload")
+    return payload if isinstance(payload, dict) else {}
+
+
+def _draft_type_from_row(draft_row):
+    return str((draft_row or {}).get("draft_key") or "car").strip().lower() or "car"
+
+
+def _draft_source_from_payload(payload):
+    if not isinstance(payload, dict):
+        return {}
+    return (
+        payload.get("carForm")
+        or payload.get("bikeForm")
+        or payload.get("plateForm")
+        or payload.get("partsForm")
+        or payload.get("formData")
+        or payload
+    )
+
+
+def _draft_resume_path(draft_type):
+    return {
+        "car": "/post-car",
+        "bike": "/post-bike",
+        "plate": "/post-plate",
+        "part": "/post-car-parts",
+    }.get(str(draft_type or "").strip().lower(), "/post-car")
+
+
+def _draft_display_title(draft_type, payload):
+    draft_type = str(draft_type or "car").strip().lower()
+    source = _draft_source_from_payload(payload)
+
+    if draft_type in ("car", "bike"):
+        title_parts = [
+            str(source.get("year") or source.get("make_year") or "").strip(),
+            str(
+                source.get("make")
+                or source.get("car_manufacturer")
+                or source.get("bike_brand")
+                or ""
+            ).strip(),
+            str(
+                source.get("model")
+                or source.get("car_model")
+                or source.get("bike_model")
+                or ""
+            ).strip(),
+        ]
+        return " ".join(part for part in title_parts if part).strip() or f"Unfinished {draft_type}"
+    if draft_type == "plate":
+        digits = str(source.get("digits") or source.get("number") or "").strip()
+        city = str(
+            payload.get("plateCity") or payload.get("city") or payload.get("emirate") or ""
+        ).strip()
+        code = str(source.get("code") or "").strip()
+        return " ".join(part for part in [city, code, digits] if part).strip() or "Unfinished plate"
+    if draft_type == "part":
+        return str(
+            source.get("title")
+            or source.get("name")
+            or source.get("part_name")
+            or "Unfinished part"
+        ).strip()
+    return f"Unfinished {draft_type}"
+
+
+def _annotate_draft_row(draft):
+    payload = _draft_payload_from_row(draft)
+    draft_type = _draft_type_from_row(draft)
+    draft["payload"] = payload
+    draft["draft_payload"] = payload
+    draft["display_title"] = _draft_display_title(draft_type, payload)
+    draft["display_subtitle"] = (
+        f"Last edited {draft.get('updated_at') or draft.get('created_at') or ''}"
+    )
+    draft["resume_path"] = _draft_resume_path(draft_type)
+    return draft
+
+
 @app.route("/api/user/drafts", methods=["GET"])
 @token_required
 def list_user_drafts(current_user):
@@ -9261,7 +9737,7 @@ def list_user_drafts(current_user):
             "/rest/v1/listing_drafts",
             params={
                 "user_id": f"eq.{current_user}",
-                "select": "id,draft_key,payload,updated_at,created_at",
+                "select": "*",
                 "order": "updated_at.desc",
             },
             use_service_role=True,
@@ -9275,40 +9751,7 @@ def list_user_drafts(current_user):
         # Annotate each row with a friendly preview the UI can render directly,
         # so the Drafts tab doesn't need draft-type-specific code to show summaries.
         for draft in drafts:
-            payload = draft.get("payload") or draft.get("draft_payload") or {}
-            draft_type = draft.get("draft_key") or "car"
-            source = (
-                payload.get("carForm")
-                or payload.get("bikeForm")
-                or payload.get("plateForm")
-                or payload.get("partsForm")
-                or payload
-            )
-            if draft_type in ("car", "bike"):
-                title_parts = [
-                    str(source.get("year") or source.get("make_year") or "").strip(),
-                    str(source.get("make") or source.get("car_manufacturer") or source.get("bike_brand") or "").strip(),
-                    str(source.get("model") or source.get("car_model") or source.get("bike_model") or "").strip(),
-                ]
-                draft["display_title"] = " ".join(p for p in title_parts if p).strip() or f"Unfinished {draft_type}"
-            elif draft_type == "plate":
-                digits = str(source.get("digits") or source.get("number") or "").strip()
-                city = str(payload.get("plateCity") or payload.get("city") or payload.get("emirate") or "").strip()
-                code = str(source.get("code") or "").strip()
-                draft["display_title"] = " ".join(p for p in [city, code, digits] if p).strip() or "Unfinished plate"
-            elif draft_type == "part":
-                draft["display_title"] = str(source.get("title") or source.get("name") or source.get("part_name") or "Unfinished part").strip()
-            else:
-                draft["display_title"] = f"Unfinished {draft_type}"
-            draft["display_subtitle"] = (
-                f"Last edited {draft.get('updated_at') or draft.get('created_at') or ''}"
-            )
-            draft["resume_path"] = {
-                "car": "/post-car",
-                "bike": "/post-bike",
-                "plate": "/post-plate",
-                "part": "/post-car-part",
-            }.get(draft_type, "/post-car")
+            _annotate_draft_row(draft)
 
         return jsonify({"drafts": drafts}), 200
     except Exception as exc:
@@ -9317,32 +9760,9 @@ def list_user_drafts(current_user):
 
 
 def _build_draft_listing_summary(draft_row, owner_row=None):
-    payload = draft_row.get("payload") or draft_row.get("draft_payload") or {}
-    draft_type = str(draft_row.get("draft_key") or "car").strip().lower()
-    source = (
-        payload.get("carForm")
-        or payload.get("bikeForm")
-        or payload.get("plateForm")
-        or payload.get("partsForm")
-        or payload
-    )
-
-    if draft_type in ("car", "bike"):
-        title_parts = [
-            str(source.get("year") or source.get("make_year") or "").strip(),
-            str(source.get("make") or source.get("car_manufacturer") or source.get("bike_brand") or "").strip(),
-            str(source.get("model") or source.get("car_model") or source.get("bike_model") or "").strip(),
-        ]
-        display_title = " ".join(part for part in title_parts if part).strip() or f"Unfinished {draft_type}"
-    elif draft_type == "plate":
-        digits = str(source.get("digits") or source.get("number") or "").strip()
-        city = str(payload.get("plateCity") or payload.get("city") or payload.get("emirate") or "").strip()
-        code = str(source.get("code") or "").strip()
-        display_title = " ".join(part for part in [city, code, digits] if part).strip() or "Unfinished plate"
-    elif draft_type == "part":
-        display_title = str(source.get("title") or source.get("name") or source.get("part_name") or "Unfinished part").strip()
-    else:
-        display_title = f"Unfinished {draft_type}"
+    payload = _draft_payload_from_row(draft_row)
+    draft_type = _draft_type_from_row(draft_row)
+    display_title = _draft_display_title(draft_type, payload)
 
     user_email = (owner_row or {}).get("email") or draft_row.get("user_email")
     owner_name = _admin_display_name_from_user_row(owner_row) if owner_row else None
@@ -9358,12 +9778,7 @@ def _build_draft_listing_summary(draft_row, owner_row=None):
             "title": display_title,
             "listing_title": display_title,
             "display_subtitle": f"Last edited {draft_row.get('updated_at') or draft_row.get('created_at') or ''}",
-            "resume_path": {
-                "car": "/post-car",
-                "bike": "/post-bike",
-                "plate": "/post-plate",
-                "part": "/post-car-parts",
-            }.get(draft_type, "/post-car"),
+            "resume_path": _draft_resume_path(draft_type),
             "user_email": user_email,
             "owner_email": user_email,
             "owner_name": owner_name,
@@ -9373,6 +9788,275 @@ def _build_draft_listing_summary(draft_row, owner_row=None):
         }
     )
     return summary
+
+
+def _save_listing_draft_record(current_user, draft_key, draft_payload):
+    draft_table = "listing_drafts"
+    now_iso = _isoformat_utc(_utc_now())
+    supabase_request(
+        "delete",
+        f"/rest/v1/{draft_table}?user_id=eq.{current_user}&draft_key=eq.{draft_key}",
+        use_service_role=True,
+    )
+
+    base_record = {
+        "user_id": current_user,
+        "draft_key": draft_key,
+        "updated_at": now_iso,
+    }
+    attempts = [
+        {**base_record, "payload": draft_payload, "draft_payload": draft_payload},
+        {**base_record, "payload": draft_payload},
+        {**base_record, "draft_payload": draft_payload},
+    ]
+    last_response = None
+    last_status = 500
+
+    for record in attempts:
+        response, status = supabase_request(
+            "post",
+            f"/rest/v1/{draft_table}",
+            data=record,
+            use_service_role=True,
+        )
+        if status < 400:
+            return response, status
+        last_response, last_status = response, status
+        if _looks_like_missing_table(response):
+            break
+        if not _looks_like_missing_column(response, "payload", "draft_payload"):
+            break
+
+    return last_response, last_status
+
+
+def _send_listing_draft_reminder_email(user_email, draft_type, draft_row):
+    if not user_email or user_email == "unknown@example.com":
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    payload = _draft_payload_from_row(draft_row)
+    listing_title = _draft_display_title(draft_type, payload)
+    my_listings_url = f"{SITE_URL.rstrip('/')}/my-listings"
+    subject = f"Finish your {draft_type or 'listing'} draft on DPH Classifieds"
+    html_content = f"""
+    <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #041008; color: #f0fdf4; border-radius: 20px;">
+      <h2 style="margin-top:0;">Your draft is waiting</h2>
+      <p style="color:#b7c8bd; line-height:1.6;">You saved <strong>{xml_escape(listing_title)}</strong> as a draft. Finish it when you're ready and it will stay out of search results until you submit it.</p>
+      <a href="{my_listings_url}" style="display:inline-block; margin-top:16px; background:#8bd6b4; color:#041008; padding:12px 22px; border-radius:12px; text-decoration:none; font-weight:700;">Resume draft</a>
+    </div>
+    """
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+    return _send_resend_email(payload)
+
+
+def _claim_email_row(table_name, row_id, sent_field, claim_field):
+    now_iso = _isoformat_utc(_utc_now())
+    response, status_code = supabase_request(
+        "patch",
+        f"/rest/v1/{table_name}?id=eq.{row_id}&{sent_field}=is.null",
+        data={claim_field: now_iso},
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        return False, response
+    return bool(response), None
+
+
+def _mark_email_row_result(table_name, row_id, sent_field, error_field, error=None):
+    payload = {error_field: str(error)[:500] if error else None}
+    if not error:
+        payload[sent_field] = _isoformat_utc(_utc_now())
+    supabase_request(
+        "patch",
+        f"/rest/v1/{table_name}?id=eq.{row_id}",
+        data=payload,
+        use_service_role=True,
+    )
+
+
+def _run_listing_draft_reminders_once(age_hours=24, limit=100):
+    cutoff = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+    rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/listing_drafts",
+        params={
+            "select": "*",
+            "updated_at": f"lte.{cutoff}",
+            "reminder_email_sent_at": "is.null",
+            "order": "updated_at.asc",
+            "limit": str(limit),
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_table(rows) or _looks_like_missing_column(
+            rows, "reminder_email_sent_at", "reminder_email_claimed_at"
+        ):
+            return {"processed": 0, "sent": 0, "skipped": 0, "error": "draft reminders not migrated"}
+        return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
+
+    sent = 0
+    skipped = 0
+    for draft in rows or []:
+        row_id = draft.get("id")
+        user_id = draft.get("user_id")
+        if not row_id or not user_id:
+            skipped += 1
+            continue
+        claimed, claim_error = _claim_email_row(
+            "listing_drafts",
+            row_id,
+            "reminder_email_sent_at",
+            "reminder_email_claimed_at",
+        )
+        if not claimed:
+            skipped += 1
+            if claim_error:
+                logger.info("Draft reminder claim skipped for %s: %s", row_id, claim_error)
+            continue
+        email = get_user_email(user_id)
+        _, send_error = _send_listing_draft_reminder_email(
+            email,
+            _draft_type_from_row(draft),
+            draft,
+        )
+        if send_error:
+            skipped += 1
+            _mark_email_row_result(
+                "listing_drafts",
+                row_id,
+                "reminder_email_sent_at",
+                "reminder_email_last_error",
+                send_error,
+            )
+            continue
+        sent += 1
+        _mark_email_row_result(
+            "listing_drafts",
+            row_id,
+            "reminder_email_sent_at",
+            "reminder_email_last_error",
+        )
+
+    return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
+
+
+def _send_saved_car_reminder_email(user_email, listing):
+    if not user_email or user_email == "unknown@example.com":
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    listing = listing or {}
+    title = _build_listing_title("cars", listing)
+    listing_url = _build_listing_url("cars", listing.get("id")) or f"{SITE_URL.rstrip('/')}/saved"
+    subject = f"Still interested in {title}?"
+    html_content = f"""
+    <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #041008; color: #f0fdf4; border-radius: 20px;">
+      <h2 style="margin-top:0;">Your saved car is still here</h2>
+      <p style="color:#b7c8bd; line-height:1.6;">You saved <strong>{xml_escape(title)}</strong>. Open it again to check availability or contact the seller.</p>
+      <a href="{listing_url}" style="display:inline-block; margin-top:16px; background:#8bd6b4; color:#041008; padding:12px 22px; border-radius:12px; text-decoration:none; font-weight:700;">View saved car</a>
+    </div>
+    """
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+    return _send_resend_email(payload)
+
+
+def _run_saved_car_reminders_once(age_hours=24, limit=100):
+    cutoff = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+    rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/saved_listings",
+        params={
+            "select": "*",
+            "listing_type": "eq.car",
+            "created_at": f"lte.{cutoff}",
+            "saved_email_sent_at": "is.null",
+            "order": "created_at.asc",
+            "limit": str(limit),
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_table(rows) or _looks_like_missing_column(
+            rows, "saved_email_sent_at", "saved_email_claimed_at"
+        ):
+            return {"processed": 0, "sent": 0, "skipped": 0, "error": "saved car reminders not migrated"}
+        return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
+
+    sent = 0
+    skipped = 0
+    for saved in rows or []:
+        row_id = saved.get("id")
+        user_id = saved.get("user_id")
+        listing_id = saved.get("listing_id")
+        if not row_id or not user_id or not listing_id:
+            skipped += 1
+            continue
+        claimed, claim_error = _claim_email_row(
+            "saved_listings",
+            row_id,
+            "saved_email_sent_at",
+            "saved_email_claimed_at",
+        )
+        if not claimed:
+            skipped += 1
+            if claim_error:
+                logger.info("Saved car reminder claim skipped for %s: %s", row_id, claim_error)
+            continue
+
+        listing_rows, listing_status = supabase_request(
+            "get",
+            "/rest/v1/cars",
+            params={"select": "*", "id": f"eq.{listing_id}", "limit": 1},
+            use_service_role=True,
+        )
+        listing = listing_rows[0] if listing_status < 400 and listing_rows else {"id": listing_id}
+        email = get_user_email(user_id)
+        _, send_error = _send_saved_car_reminder_email(email, listing)
+        if send_error:
+            skipped += 1
+            _mark_email_row_result(
+                "saved_listings",
+                row_id,
+                "saved_email_sent_at",
+                "saved_email_last_error",
+                send_error,
+            )
+            continue
+        sent += 1
+        _mark_email_row_result(
+            "saved_listings",
+            row_id,
+            "saved_email_sent_at",
+            "saved_email_last_error",
+        )
+
+    return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
 
 
 @app.route("/api/user/drafts/<draft_key>", methods=["GET", "POST", "DELETE"])
@@ -9421,7 +10105,7 @@ def manage_user_draft(current_user, draft_key):
                     )
                 return jsonify({"error": "Failed to load draft"}), response.status_code
             drafts = response.json() or []
-            return jsonify({"draft": drafts[0] if drafts else None}), 200
+            return jsonify({"draft": _annotate_draft_row(drafts[0]) if drafts else None}), 200
 
         if request.method == "DELETE":
             response, status_code = supabase_request(
@@ -9440,23 +10124,8 @@ def manage_user_draft(current_user, draft_key):
 
         payload = request.get_json(silent=True) or {}
         draft_payload = payload.get("payload", payload)
-        record = {
-            "user_id": current_user,
-            "draft_key": normalized_key,
-            "payload": draft_payload,
-            "updated_at": _isoformat_utc(_utc_now()),
-        }
-        # Replace any existing draft for this user/key pair so the latest edit wins.
-        supabase_request(
-            "delete",
-            f"/rest/v1/{draft_table}?user_id=eq.{current_user}&draft_key=eq.{normalized_key}",
-            use_service_role=True,
-        )
-        insert_response, insert_status = supabase_request(
-            "post",
-            f"/rest/v1/{draft_table}",
-            data=record,
-            use_service_role=True,
+        insert_response, insert_status = _save_listing_draft_record(
+            current_user, normalized_key, draft_payload
         )
         if insert_status >= 400:
             logger.error(
@@ -10464,11 +11133,9 @@ def extend_user_listing(current_user, item_type, item_id):
             {"error": "You do not have permission to extend this listing"}
         ), 403
 
-    listing = _sync_listing_lifecycle(
-        config["table"], listing, hard_delete_archived=False
-    )
-    if not listing:
+    if _is_listing_deleted(listing):
         return jsonify({"error": "Listing is no longer available"}), 410
+    _apply_listing_lifecycle_metadata(listing)
 
     if listing.get("is_archived"):
         _delete_listing_with_assets(config["table"], item_id)
@@ -15073,6 +15740,34 @@ def _fetch_rows(path, params):
     return rows or [] if status < 400 else []
 
 
+LIFECYCLE_SUMMARY_TABLES = {
+    "cars": "cars",
+    "bikes": "bikes",
+    "parts": "car_parts",
+    "plates": "license_plates",
+}
+
+
+def _build_listing_lifecycle_summary():
+    totals = defaultdict(int)
+    by_type = {}
+    for label, table in LIFECYCLE_SUMMARY_TABLES.items():
+        counts = {
+            "active": _supabase_count(table, {"status": "eq.approved"}),
+            "pending": _supabase_count(table, {"status": "eq.pending"}),
+            "draft": _supabase_count(table, {"listing_state": "eq.draft"}),
+            "expired": _supabase_count(table, {"listing_state": "eq.expired"}),
+            "sold_on_dph": _supabase_count(table, {"sold_status": "eq.sold_on_dph"}),
+            "sold_elsewhere": _supabase_count(table, {"sold_status": "eq.sold_elsewhere"}),
+            "deleted": _supabase_count(table, {"status": "eq.deleted"}),
+        }
+        counts["sold_total"] = counts["sold_on_dph"] + counts["sold_elsewhere"]
+        by_type[label] = counts
+        for key, value in counts.items():
+            totals[key] += value
+    return {"totals": dict(totals), "by_type": by_type}
+
+
 @app.route("/api/admin/stats", methods=["GET"])
 @token_required
 def get_admin_stats(current_user):
@@ -15145,6 +15840,11 @@ def get_admin_stats(current_user):
         bikes_pending = _supabase_count("bikes", {"status": "eq.pending"})
         parts_pending = _supabase_count("car_parts", {"status": "eq.pending"})
         plates_pending = _supabase_count("license_plates", {"status": "eq.pending"})
+        listing_lifecycle = _build_listing_lifecycle_summary()
+        saved_searches_total = _supabase_count("saved_searches")
+        saved_searches_window = _supabase_count(
+            "saved_searches", {"created_at": f"gte.{cutoff}"}
+        )
 
         # Views are now derived from platform_events in the active window
         # rather than the cumulative `view_count` columns on each listing
@@ -15255,6 +15955,15 @@ def get_admin_stats(current_user):
             "bikes_total": _supabase_count("bikes"),
             "parts_total": _supabase_count("car_parts"),
             "plates_total": _supabase_count("license_plates"),
+            "saved_searches_total": saved_searches_total,
+            "saved_searches_window": saved_searches_window,
+            "listing_lifecycle": listing_lifecycle,
+            "sold_listings_total": listing_lifecycle.get("totals", {}).get("sold_total", 0),
+            "sold_on_dph_total": listing_lifecycle.get("totals", {}).get("sold_on_dph", 0),
+            "sold_elsewhere_total": listing_lifecycle.get("totals", {}).get("sold_elsewhere", 0),
+            "expired_listings_total": listing_lifecycle.get("totals", {}).get("expired", 0),
+            "draft_listings_total": listing_lifecycle.get("totals", {}).get("draft", 0),
+            "active_listings_total": listing_lifecycle.get("totals", {}).get("active", 0),
             "verified_dealers": _supabase_count(
                 "users",
                 {"is_dealer": "eq.true", "dealer_verified": "eq.true"},
@@ -15419,11 +16128,9 @@ def set_listing_outcome(current_user, item_type, item_id):
             {"error": "You do not have permission to update this listing"}
         ), 403
 
-    listing = _sync_listing_lifecycle(
-        config["table"], listing, hard_delete_archived=False
-    )
-    if not listing:
+    if _is_listing_deleted(listing):
         return jsonify({"error": "Listing is no longer available"}), 410
+    _apply_listing_lifecycle_metadata(listing)
 
     now = _utc_now()
     updates = {
@@ -15506,6 +16213,14 @@ def set_listing_outcome(current_user, item_type, item_id):
 
     _invalidate_public_inventory_cache(config["table"])
 
+    if isinstance(patch_resp, list) and patch_resp:
+        refreshed = patch_resp[0]
+        _apply_listing_lifecycle_metadata(refreshed)
+        return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
+    if isinstance(patch_resp, dict) and patch_resp:
+        _apply_listing_lifecycle_metadata(patch_resp)
+        return jsonify({"message": "Listing outcome saved", "listing": patch_resp}), 200
+
     refreshed_resp, refreshed_status = supabase_request(
         "get",
         f"/rest/v1/{config['table']}",
@@ -15513,9 +16228,8 @@ def set_listing_outcome(current_user, item_type, item_id):
         use_service_role=True,
     )
     if refreshed_status < 400 and refreshed_resp:
-        refreshed = _sync_listing_lifecycle(
-            config["table"], refreshed_resp[0], hard_delete_archived=False
-        )
+        refreshed = refreshed_resp[0]
+        _apply_listing_lifecycle_metadata(refreshed)
 
         return jsonify({"message": "Listing outcome saved", "listing": refreshed}), 200
 
