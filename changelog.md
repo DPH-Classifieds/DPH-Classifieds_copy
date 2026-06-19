@@ -41,6 +41,10 @@
 - Added the missing backend `/api/parts/<id>/view` route so part views track the same way as cars, bikes, and plates.
 - Kept Cloudflare and platform analytics separate: Cloudflare remains the source for site-wide visitor totals, while the app tracks listing-detail engagement in `platform_events` and the legacy `view_count` columns.
 
+### Admin Users
+- Added explicit verification badges to the admin users table so email, phone, and dealer verification status is visible without opening each profile.
+- Kept the user-detail page verification controls intact and reused the same backend payload fields already returned by `/api/admin/users`.
+
 ### Automated Emails
 - Added worker jobs for draft reminder emails after 24 hours and saved-car reminder emails after 24 hours.
 - Added claim/sent/error columns so reminder jobs are idempotent and do not repeatedly email the same row.

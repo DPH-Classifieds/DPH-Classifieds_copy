@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Eye, Users, ShieldCheck, Store, Trash2 } from 'lucide-react';
+import { Eye, Users, ShieldCheck, Store, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { GlassCard, EmptyState } from './ui/dashboard';
@@ -75,9 +75,22 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const VerificationBadge = ({ label, verified }) => (
+  <span
+    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+      verified
+        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+        : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+    }`}
+  >
+    {verified ? <ShieldCheck size={10} /> : <AlertTriangle size={10} />}
+    {label}
+  </span>
+);
+
 const SkeletonRow = () => (
   <tr className="border-b border-white/[0.04] animate-pulse">
-    {[...Array(7)].map((_, i) => (
+    {[...Array(8)].map((_, i) => (
       <td key={i} className="px-4 py-3">
         <div className="h-3 bg-white/5 rounded-full w-full" />
       </td>
@@ -360,7 +373,7 @@ const AdminUsers = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                {['User', 'Role', 'Status', 'Listings', 'Joined', 'Actions'].map((h) => (
+                {['User', 'Role', 'Status', 'Verification', 'Listings', 'Joined', 'Actions'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium whitespace-nowrap">
                     {h}
                   </th>
@@ -386,6 +399,7 @@ const AdminUsers = () => {
                     const isBanned = accountStatus === 'banned';
                     const isInactive = isSuspended || isBanned;
                     const listingCount = u.listing_count ?? u.listings_count ?? null;
+                    const fullyVerified = Boolean(u.email_verified && u.phone_verified);
                     const isSelf = u.id === user?.id;
                     const isProtected = isSelf || isProtectedSuperAdmin(u);
 
@@ -418,6 +432,19 @@ const AdminUsers = () => {
                         </td>
                         <td className="px-4 py-3"><RoleBadge u={u} /></td>
                         <td className="px-4 py-3"><StatusBadge status={accountStatus} /></td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1.5">
+                            <VerificationBadge label="Email" verified={Boolean(u.email_verified)} />
+                            <VerificationBadge label="Phone" verified={Boolean(u.phone_verified)} />
+                            <VerificationBadge label="Dealer" verified={Boolean(u.dealer_verified)} />
+                            {fullyVerified && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-sky-500/10 text-sky-300 border-sky-500/20">
+                                <ShieldCheck size={10} />
+                                Fully verified
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           {listingCount !== null ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-white/5 text-white/50 border-white/10">
