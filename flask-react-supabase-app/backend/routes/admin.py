@@ -1099,7 +1099,7 @@ def get_users():
             timeout=10,
         )
 
-        if response.status_code != 200:
+        if response.status_code not in (200, 206):
             # Surface PostgREST's actual message so the frontend can show a
             # useful error instead of a generic 400. Common cause is a
             # missing column on prod when the projection drifts ahead of
@@ -1128,6 +1128,7 @@ def get_users():
             "total": total,
             "limit": limit,
             "offset": offset,
+            "partial_content": response.status_code == 206,
         }
         _admin_cache_set(cache_key, payload)
         return jsonify(payload), 200
