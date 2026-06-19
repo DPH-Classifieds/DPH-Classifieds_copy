@@ -1,4 +1,6 @@
--- 48-hour repeatable reminder system: schema additions
+-- 48-hour repeatable reminder system
+-- Safe to re-run: all statements use IF NOT EXISTS / IF NOT EXISTS guards.
+-- NOTE: email_events already exists with a different schema — we use outbound_emails instead.
 
 -- listing_drafts: repeatable reminder columns
 ALTER TABLE public.listing_drafts
@@ -41,8 +43,8 @@ ALTER TABLE public.license_plates
   ADD COLUMN IF NOT EXISTS draft_reminder_claimed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS draft_reminder_count      INTEGER NOT NULL DEFAULT 0;
 
--- Email events: records every email sent + Resend webhook updates (open/click/bounce)
-CREATE TABLE IF NOT EXISTS public.email_events (
+-- outbound_emails: tracks every email sent + Resend webhook updates
+CREATE TABLE IF NOT EXISTS public.outbound_emails (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   resend_email_id TEXT,
   email_type      TEXT        NOT NULL,
@@ -61,13 +63,15 @@ CREATE TABLE IF NOT EXISTS public.email_events (
   error_message   TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_email_events_sent_at     ON public.email_events (sent_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_events_type        ON public.email_events (email_type, sent_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_events_user        ON public.email_events (user_id, sent_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_events_resend_id   ON public.email_events (resend_email_id) WHERE resend_email_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_outbound_emails_sent_at   ON public.outbound_emails (sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_outbound_emails_type      ON public.outbound_emails (email_type, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_outbound_emails_user      ON public.outbound_emails (user_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_outbound_emails_resend_id ON public.outbound_emails (resend_email_id)
+  WHERE resend_email_id IS NOT NULL;
 
 -- Performance indexes for reminder job queries (plain B-tree — no NOW() in predicate)
-CREATE INDEX IF NOT EXISTS idx_listing_drafts_last_reminder   ON public.listing_drafts  (last_reminder_sent_at);
-CREATE INDEX IF NOT EXISTS idx_saved_listings_reminder        ON public.saved_listings   (reminder_sent_at);
-CREATE INDEX IF NOT EXISTS idx_saved_searches_alert           ON public.saved_searches   (alert_sent_at);
-CREATE INDEX IF NOT EXISTS idx_cars_draft_reminder            ON public.cars             (draft_reminder_sent_at) WHERE status = 'draft' AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_listing_drafts_last_reminder ON public.listing_drafts  (last_reminder_sent_at);
+CREATE INDEX IF NOT EXISTS idx_saved_listings_reminder      ON public.saved_listings   (reminder_sent_at);
+CREATE INDEX IF NOT EXISTS idx_saved_searches_alert         ON public.saved_searches   (alert_sent_at);
+CREATE INDEX IF NOT EXISTS idx_cars_draft_reminder          ON public.cars             (draft_reminder_sent_at)
+  WHERE status = 'draft' AND deleted_at IS NULL;

@@ -7309,11 +7309,11 @@ def _send_resend_email(payload, email_type=None, user_id=None):
 
 def _log_email_event(email_type, to_email, subject=None, resend_email_id=None,
                      user_id=None, error_message=None):
-    """Insert a row into email_events. Best-effort — never raises."""
+    """Insert a row into outbound_emails. Best-effort — never raises."""
     try:
         supabase_request(
             "post",
-            "/rest/v1/email_events",
+            "/rest/v1/outbound_emails",
             data={
                 "email_type": str(email_type or "unknown"),
                 "user_id": str(user_id) if user_id else None,
@@ -16114,7 +16114,7 @@ def track_platform_event():
 
 @app.route("/api/webhooks/resend", methods=["POST"])
 def resend_webhook():
-    """Receive Resend email lifecycle events and update email_events table."""
+    """Receive Resend email lifecycle events and update outbound_emails table."""
     import hmac
     import hashlib
 
@@ -16153,7 +16153,7 @@ def resend_webhook():
         update["opened_at"] = created_at
         # Increment open_count via read-then-write (acceptable — single writer for open events)
         existing, _ = supabase_request(
-            "get", "/rest/v1/email_events",
+            "get", "/rest/v1/outbound_emails",
             params={"resend_email_id": f"eq.{resend_email_id}", "select": "id,open_count", "limit": "1"},
             use_service_role=True,
         )
@@ -16162,7 +16162,7 @@ def resend_webhook():
     elif event_type == "email.clicked":
         update["clicked_at"] = created_at
         existing, _ = supabase_request(
-            "get", "/rest/v1/email_events",
+            "get", "/rest/v1/outbound_emails",
             params={"resend_email_id": f"eq.{resend_email_id}", "select": "id,click_count", "limit": "1"},
             use_service_role=True,
         )
@@ -16178,7 +16178,7 @@ def resend_webhook():
     if update:
         supabase_request(
             "patch",
-            f"/rest/v1/email_events?resend_email_id=eq.{resend_email_id}",
+            f"/rest/v1/outbound_emails?resend_email_id=eq.{resend_email_id}",
             data=update,
             use_service_role=True,
         )
@@ -16203,7 +16203,7 @@ def get_email_metrics(current_user):
 
     rows, status_code = supabase_request(
         "get",
-        "/rest/v1/email_events",
+        "/rest/v1/outbound_emails",
         params={
             "select": "email_type,sent_at,delivered_at,opened_at,clicked_at,bounced_at,unsubscribed_at,open_count,click_count,error_message",
             "sent_at": f"gte.{cutoff}",
@@ -16214,7 +16214,7 @@ def get_email_metrics(current_user):
     )
     if status_code >= 400:
         if _looks_like_missing_table(rows):
-            return jsonify({"error": "email_events table not migrated yet", "summary": {}, "by_type": [], "daily": []}), 200
+            return jsonify({"error": "outbound_emails table not migrated yet", "summary": {}, "by_type": [], "daily": []}), 200
         return jsonify({"error": "Failed to fetch email events"}), status_code
 
     rows = rows or []
