@@ -2641,7 +2641,15 @@ def _fetch_saved_listing_cards(current_user):
 
         for record_id, record in record_map.items():
             record["images"] = images_by_listing.get(record_id, [])
-            _sync_listing_lifecycle(config["table"], record, hard_delete_archived=False)
+            try:
+                _apply_listing_lifecycle_metadata(record)
+            except Exception as lifecycle_err:
+                logger.warning(
+                    "Failed to annotate saved listing lifecycle for %s/%s: %s",
+                    config["table"],
+                    record_id,
+                    lifecycle_err,
+                )
 
         records_by_type[listing_type] = record_map
 
@@ -2702,7 +2710,15 @@ def _load_saved_listing_card(current_user, listing_type, listing_id, saved_row=N
     else:
         listing = {}
 
-    _sync_listing_lifecycle(config["table"], listing, hard_delete_archived=False)
+    try:
+        _apply_listing_lifecycle_metadata(listing)
+    except Exception as lifecycle_err:
+        logger.warning(
+            "Failed to annotate saved listing lifecycle for %s/%s: %s",
+            config["table"],
+            listing_id,
+            lifecycle_err,
+        )
     return _build_saved_listing_card(normalized_type, listing, saved_row), None, 200
 
 

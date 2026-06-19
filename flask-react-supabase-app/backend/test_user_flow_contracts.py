@@ -64,6 +64,59 @@ class UserFlowContractsTests(unittest.TestCase):
         self.assertEqual(saved_rows[0]["filters"], {"make": "Toyota", "maxPrice": 200000})
         self.assertTrue(saved_rows[0]["search_key"])
 
+    @patch.object(backend, "_apply_listing_lifecycle_metadata")
+    @patch.object(backend, "supabase_request")
+    def test_saved_listings_loader_survives_lifecycle_annotation_errors(
+        self, mock_supabase, mock_apply_lifecycle
+    ):
+        mock_apply_lifecycle.side_effect = RuntimeError("stale lifecycle row")
+
+        def side_effect(method, path, params=None, data=None, **kwargs):
+            if path == "/rest/v1/saved_listings":
+                return (
+                    [
+                        {
+                            "id": "saved-1",
+                            "user_id": "user-1",
+                            "listing_id": "car-1",
+                            "listing_type": "car",
+                            "created_at": "2026-06-18T10:00:00+00:00",
+                        }
+                    ],
+                    200,
+                )
+            if path == "/rest/v1/cars":
+                return (
+                    [
+                        {
+                            "id": "car-1",
+                            "listing_title": "Toyota Land Cruiser",
+                            "status": "approved",
+                        }
+                    ],
+                    200,
+                )
+            if path == "/rest/v1/car_images":
+                return (
+                    [
+                        {
+                            "id": "img-1",
+                            "car_id": "car-1",
+                            "display_url": "https://example.com/car.jpg",
+                        }
+                    ],
+                    200,
+                )
+            return ([], 200)
+
+        mock_supabase.side_effect = side_effect
+
+        payload, status = backend._fetch_saved_listing_cards("user-1")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(payload["items"][0]["title"], "Toyota Land Cruiser")
+
     @patch.object(backend, "_require_admin_api_user", return_value=True)
     @patch.object(backend, "supabase_request")
     def test_admin_saved_searches_summary_counts_recent_rows(self, mock_supabase, _admin):

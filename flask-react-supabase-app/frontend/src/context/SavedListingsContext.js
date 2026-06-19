@@ -74,7 +74,13 @@ export const SavedListingsProvider = ({ children }) => {
       return items;
     } catch (error) {
       console.error('Failed to load saved listings:', error);
-      showNotice('We could not load your favourites right now. Please try again or contact support.', 'error');
+      const details = error?.details?.error || error?.details?.message || error?.message;
+      showNotice(
+        details
+          ? `We could not load your favourites right now: ${details}`
+          : 'We could not load your favourites right now. Please try again or contact support.',
+        'error'
+      );
       setSavedListings([]);
       return [];
     } finally {

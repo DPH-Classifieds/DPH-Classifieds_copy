@@ -392,7 +392,7 @@ const PostBike = () => {
   };
 
   const handleSaveDraft = async () => {
-    if (isEdit || !user) return;
+    if (!user) return;
 
     const draftPayload = {
       bikeForm: formData,
@@ -407,10 +407,15 @@ const PostBike = () => {
     setDraftNotice('Saving draft...');
     try {
       await saveListingDraft('bike', BIKE_DRAFT_STORAGE_KEY, draftPayload);
+      if (isEdit && listingId) {
+        await apiClient.post(`/api/user/listings/bikes/${listingId}/outcome`, {
+          outcome: 'move_to_draft',
+        });
+      }
       setDraftNotice('Draft saved.');
       trackEvent('save_listing_draft', { listing_type: 'bike', platform: 'web' });
     } catch (draftError) {
-      setError('Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
+      setError(draftError?.message || 'Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
     } finally {
       setIsDraftSaving(false);
       window.setTimeout(() => {

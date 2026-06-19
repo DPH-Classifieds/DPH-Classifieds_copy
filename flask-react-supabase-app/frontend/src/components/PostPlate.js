@@ -394,7 +394,7 @@ const PostPlate = () => {
   };
 
   const handleSaveDraft = async () => {
-    if (isEdit || !user) return;
+    if (!user) return;
 
     const draftPayload = {
       plateForm: formData,
@@ -409,10 +409,15 @@ const PostPlate = () => {
     setDraftNotice('Saving draft...');
     try {
       await saveListingDraft('plate', PLATE_DRAFT_STORAGE_KEY, draftPayload);
+      if (isEdit && listingId) {
+        await apiClient.post(`/api/user/listings/plates/${listingId}/outcome`, {
+          outcome: 'move_to_draft',
+        });
+      }
       setDraftNotice('Draft saved.');
       trackEvent('save_listing_draft', { listing_type: 'plate', platform: 'web' });
     } catch (draftError) {
-      setError('Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
+      setError(draftError?.message || 'Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
     } finally {
       setIsDraftSaving(false);
       window.setTimeout(() => {

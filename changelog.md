@@ -30,6 +30,11 @@
 - Explore saves the current search only when the user clicks "Save Search"; it does not add an automatic request to every search/filter change.
 - Admin lifecycle counts run through the existing cached `/api/admin/stats` path instead of adding a separate dashboard-wide scan.
 
+### Follow-up Fixes
+- Favourites now fail soft if one saved listing has bad lifecycle metadata, instead of taking down the entire favourites panel.
+- Save Draft now works on edit pages too; when a user saves an existing bike, plate, or part as a draft, the listing is explicitly moved to draft state through the backend outcome route.
+- Saved-favourites errors now surface the backend message instead of only the generic support copy, which makes the failure mode actionable.
+
 ### Automated Emails
 - Added worker jobs for draft reminder emails after 24 hours and saved-car reminder emails after 24 hours.
 - Added claim/sent/error columns so reminder jobs are idempotent and do not repeatedly email the same row.
