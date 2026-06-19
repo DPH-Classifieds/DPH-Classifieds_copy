@@ -104,6 +104,7 @@ HTTP_DEFAULT_TIMEOUT_SECONDS = float(os.getenv("HTTP_DEFAULT_TIMEOUT_SECONDS", "
 HTTP_RETRY_TOTAL = int(os.getenv("HTTP_RETRY_TOTAL", "2"))
 DEFAULT_LIST_LIMIT = max(1, int(os.getenv("DEFAULT_LIST_LIMIT", "50")))
 MAX_LIST_LIMIT = max(DEFAULT_LIST_LIMIT, int(os.getenv("MAX_LIST_LIMIT", "100")))
+CSP_ALLOW_UNSAFE_EVAL = os.getenv("CSP_ALLOW_UNSAFE_EVAL", "false").lower() == "true"
 STORAGE_BUCKET_CACHE_TTL_SECONDS = int(
     os.getenv("STORAGE_BUCKET_CACHE_TTL_SECONDS", "300")
 )
@@ -156,6 +157,50 @@ PRIMARY_SUPER_ADMIN_USERNAME = (
     os.getenv("PRIMARY_SUPER_ADMIN_USERNAME", "DPHClassifieds").strip().lower()
 )
 PRIMARY_SUPER_ADMIN_USER_ID = os.getenv("PRIMARY_SUPER_ADMIN_USER_ID", "").strip()
+
+
+def _build_content_security_policy():
+    script_sources = ["'self'", "'unsafe-inline'"]
+    if os.getenv("FLASK_ENV", "").lower() != "production" or CSP_ALLOW_UNSAFE_EVAL:
+        script_sources.append("'unsafe-eval'")
+    script_sources.extend(
+        [
+            "https://challenges.cloudflare.com",
+            "https://www.googletagmanager.com",
+        ]
+    )
+    return (
+        "default-src 'self'; "
+        f"script-src {' '.join(script_sources)}; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: blob: https://*.supabase.co https://*.railway.app; "
+        "connect-src 'self' https://*.supabase.co https://dph-classifieds-production.up.railway.app "
+        "https://dphclassifieds.com https://www.dphclassifieds.com https://challenges.cloudflare.com; "
+        "frame-src https://challenges.cloudflare.com;"
+    )
+
+
+def _redis_rate_limit_key(prefix, client_ip, window_seconds):
+    normalized_ip = str(client_ip or "").replace(":", "_")
+    window_bucket = int(time.time() // max(1, window_seconds))
+    return f"rate_limit:{prefix}:{normalized_ip}:{window_bucket}"
+
+
+def _redis_fixed_window_rate_limited(prefix, client_ip, window_seconds, max_attempts):
+    redis_client = _get_redis_cache_client()
+    if redis_client is None or not client_ip:
+        return None
+
+    key = _redis_rate_limit_key(prefix, client_ip, window_seconds)
+    try:
+        count = redis_client.incr(key)
+        if count == 1:
+            redis_client.expire(key, window_seconds + 5)
+        return count > max_attempts
+    except Exception as exc:
+        logger.warning("Redis rate limit check failed for %s: %s", prefix, exc)
+        return None
 
 
 def _normalize_base_url(value, default_scheme="https"):
@@ -1588,7 +1633,7 @@ def _send_listing_expiry_reminder(
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="listing_expiry_reminder")
 
 
 def _send_listing_expired_email(
@@ -1645,7 +1690,7 @@ def _send_listing_expired_email(
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="listing_expired")
 
 
 def _listing_display_title(record):
@@ -1723,7 +1768,7 @@ def _send_renewal_nudge_email(user_email, listing_title, item_type, item_id):
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="renewal_nudge")
 
 
 def _send_renewal_nudge_sms(phone, item_type, item_id, country_code=None):
@@ -3676,6 +3721,11 @@ def _redact_headers(headers):
 def _contact_rate_limited(client_ip):
     if not client_ip:
         return False
+    redis_limited = _redis_fixed_window_rate_limited(
+        "contact", client_ip, CONTACT_RATE_LIMIT_WINDOW_SEC, CONTACT_RATE_LIMIT_MAX
+    )
+    if redis_limited is not None:
+        return redis_limited
     now = time.time()
     window_start = now - CONTACT_RATE_LIMIT_WINDOW_SEC
     entries = CONTACT_RATE_LIMIT[client_ip]
@@ -3691,6 +3741,11 @@ def _auth_rate_limited(client_ip):
     """Rate limiter for authentication endpoints (login, signup, reset, etc.)"""
     if not client_ip:
         return False
+    redis_limited = _redis_fixed_window_rate_limited(
+        "auth", client_ip, AUTH_RATE_LIMIT_WINDOW_SEC, AUTH_RATE_LIMIT_MAX
+    )
+    if redis_limited is not None:
+        return redis_limited
     now = time.time()
     window_start = now - AUTH_RATE_LIMIT_WINDOW_SEC
     entries = AUTH_RATE_LIMIT[client_ip]
@@ -4272,10 +4327,7 @@ def add_security_headers(response):
     response.headers.setdefault(
         "Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload"
     )
-    response.headers.setdefault(
-        "Content-Security-Policy",
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.railway.app; connect-src 'self' https://*.supabase.co https://dph-classifieds-production.up.railway.app https://dphclassifieds.com https://www.dphclassifieds.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com;",
-    )
+    response.headers.setdefault("Content-Security-Policy", _build_content_security_policy())
     started_at = _request_start_time.get()
     if started_at is not None:
         total_ms = (time.perf_counter() - started_at) * 1000
@@ -7218,7 +7270,7 @@ def get_advertisements():
         return jsonify({"error": str(e)}), 500
 
 
-def _send_resend_email(payload):
+def _send_resend_email(payload, email_type=None, user_id=None):
     resend_api_key = os.getenv("RESEND_API_KEY")
     if not resend_api_key:
         return None, "Missing RESEND_API_KEY"
@@ -7234,8 +7286,46 @@ def _send_resend_email(payload):
     )
 
     if response.status_code >= 400:
+        _log_email_event(
+            email_type=email_type or "unknown",
+            user_id=user_id,
+            to_email=(payload.get("to") or [""])[0] if isinstance(payload.get("to"), list) else str(payload.get("to", "")),
+            subject=payload.get("subject"),
+            resend_email_id=None,
+            error_message=response.text[:500],
+        )
         return None, response.text
-    return response.json(), None
+
+    data = response.json()
+    _log_email_event(
+        email_type=email_type or "unknown",
+        user_id=user_id,
+        to_email=(payload.get("to") or [""])[0] if isinstance(payload.get("to"), list) else str(payload.get("to", "")),
+        subject=payload.get("subject"),
+        resend_email_id=data.get("id"),
+    )
+    return data, None
+
+
+def _log_email_event(email_type, to_email, subject=None, resend_email_id=None,
+                     user_id=None, error_message=None):
+    """Insert a row into email_events. Best-effort — never raises."""
+    try:
+        supabase_request(
+            "post",
+            "/rest/v1/email_events",
+            data={
+                "email_type": str(email_type or "unknown"),
+                "user_id": str(user_id) if user_id else None,
+                "to_email": str(to_email or ""),
+                "subject": str(subject or "")[:500] if subject else None,
+                "resend_email_id": str(resend_email_id) if resend_email_id else None,
+                "error_message": str(error_message)[:500] if error_message else None,
+            },
+            use_service_role=True,
+        )
+    except Exception:
+        pass
 
 
 def _format_auth_email_error(error_data, fallback_message):
@@ -7441,7 +7531,7 @@ def _send_listing_status_email(
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="listing_status")
 
 
 def _send_dealer_status_email(
@@ -7508,7 +7598,7 @@ def _send_dealer_status_email(
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="dealer_status")
 
 
 def _send_new_listing_admin_notification(item_type, listing, user_email):
@@ -7564,7 +7654,7 @@ def _send_new_listing_admin_notification(item_type, listing, user_email):
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="admin_new_listing")
 
 
 def _send_new_listing_user_confirmation(user_email, item_type, listing):
@@ -7627,7 +7717,7 @@ def _send_new_listing_user_confirmation(user_email, item_type, listing):
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="listing_confirmation")
 
 
 def _build_public_listing_url(listing_type, listing_id):
@@ -7727,7 +7817,7 @@ def _send_report_admin_notification(report, reporter_email=None):
     if reply_to:
         payload["reply_to"] = reply_to
 
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="admin_report")
 
 
 def _send_listing_deleted_email(
@@ -9704,6 +9794,12 @@ def _draft_display_title(draft_type, payload):
     source = _draft_source_from_payload(payload)
 
     if draft_type in ("car", "bike"):
+        # Prefer the stored listing_title if available (listing-table drafts have this)
+        direct_title = str(
+            source.get("listing_title") or payload.get("listing_title") or ""
+        ).strip()
+        if direct_title:
+            return direct_title
         title_parts = [
             str(source.get("year") or source.get("make_year") or "").strip(),
             str(
@@ -9853,7 +9949,337 @@ def _save_listing_draft_record(current_user, draft_key, draft_payload):
     return last_response, last_status
 
 
-def _send_listing_draft_reminder_email(user_email, draft_type, draft_row):
+# ---------------------------------------------------------------------------
+# 48-hour repeatable reminder system — subject pools, helpers, new functions
+# ---------------------------------------------------------------------------
+
+_DRAFT_REMINDER_SUBJECTS = [
+    "Your listing draft is waiting — finish it in 2 minutes",
+    "Don't lose your progress — your draft is ready to publish",
+    "One step away from selling — complete your listing",
+    "Buyers are looking — your draft needs you",
+    "Ready when you are: your saved draft",
+    "Your listing is almost live — just needs your final touch",
+]
+
+_SAVED_CAR_REMINDER_SUBJECTS = [
+    "Still thinking about it? The car you saved is waiting",
+    "Your saved car — still available, still interested?",
+    "Don't miss out on your saved listing",
+    "You saved this car — want to make an offer?",
+    "Your wishlist car is still here",
+    "The car you saved — check in before it's gone",
+]
+
+_SAVED_SEARCH_ALERT_SUBJECTS = [
+    "{count} listing{s} match your saved search",
+    "New matches found for your {category} search",
+    "We found {count} result{s} matching your criteria",
+    "Your saved search has {count} result{s} right now",
+    "{count} car{s} match what you're looking for",
+    "Check out the latest matches for your search",
+]
+
+
+def _rotate_subject(pool, **kwargs):
+    """Pick a subject from pool using ISO week number as the rotation seed.
+    Same user sees a different subject each week. Falls back gracefully."""
+    week = _utc_now().isocalendar()[1]
+    template = pool[week % len(pool)]
+    try:
+        return template.format(**kwargs)
+    except (KeyError, IndexError):
+        return pool[0]
+
+
+def _count_listings_for_saved_search(search):
+    """Re-run a saved search against current inventory and return a result count."""
+    category   = str(search.get("category") or "all").lower()
+    query_text = str(search.get("query_text") or "").strip()
+    filters    = search.get("filters") or {}
+
+    TABLE_MAP = {
+        "cars":   ["cars"],
+        "bikes":  ["bikes"],
+        "parts":  ["car_parts"],
+        "plates": ["license_plates"],
+        "all":    ["cars", "bikes", "car_parts", "license_plates"],
+    }
+    tables = TABLE_MAP.get(category, TABLE_MAP["cars"])
+
+    total = 0
+    for table in tables:
+        params = {
+            "status": "in.(approved,active)",
+            "deleted_at": "is.null",
+            "is_archived": "eq.false",
+            "select": "id",
+            "limit": "500",
+        }
+        if query_text:
+            title_col = "listing_title" if table == "cars" else "name" if table == "car_parts" else "title"
+            params[title_col] = f"ilike.*{query_text}*"
+        if filters.get("make"):
+            params["car_manufacturer" if table == "cars" else "make"] = f"ilike.{filters['make']}"
+        if filters.get("model"):
+            params["car_model" if table == "cars" else "model"] = f"ilike.{filters['model']}"
+        if filters.get("price_max"):
+            price_col = "expected_selling_price" if table == "cars" else "price"
+            params[price_col] = f"lte.{filters['price_max']}"
+        rows, status_code = supabase_request(
+            "get", f"/rest/v1/{table}", params=params, use_service_role=True
+        )
+        if status_code < 400:
+            total += len(rows or [])
+    return total
+
+
+# ---------------------------------------------------------------------------
+# Email listing card helpers — fetch image + build rich HTML card for emails
+# ---------------------------------------------------------------------------
+
+_IMAGE_TABLE_MAP = {
+    "car":   ("car_images",      "car_id"),
+    "cars":  ("car_images",      "car_id"),
+    "bike":  ("bike_images",     "bike_id"),
+    "bikes": ("bike_images",     "bike_id"),
+    "part":  ("part_images",     "part_id"),
+    "parts": ("part_images",     "part_id"),
+    "plate": ("plate_images",    "plate_id"),
+    "plates":("plate_images",    "plate_id"),
+}
+
+
+def _fetch_listing_primary_image_url(listing_type, listing_id):
+    """Fetch the first image URL for a listing. Returns None if unavailable."""
+    cfg = _IMAGE_TABLE_MAP.get(str(listing_type or "").lower())
+    if not cfg or not listing_id:
+        return None
+    images_table, fk = cfg
+    rows, status = supabase_request(
+        "get",
+        f"/rest/v1/{images_table}",
+        params={
+            "select": "display_url,image_url,url",
+            fk: f"eq.{listing_id}",
+            "order": "uploaded_at.asc",
+            "limit": "1",
+        },
+        use_service_role=True,
+    )
+    if status < 400 and rows:
+        img = rows[0]
+        return img.get("display_url") or img.get("image_url") or img.get("url")
+    return None
+
+
+def _fetch_listing_top_images(listing_type, listing_id, limit=3):
+    """Fetch the first N image URLs for a listing. Returns list."""
+    cfg = _IMAGE_TABLE_MAP.get(str(listing_type or "").lower())
+    if not cfg or not listing_id:
+        return []
+    images_table, fk = cfg
+    rows, status = supabase_request(
+        "get",
+        f"/rest/v1/{images_table}",
+        params={
+            "select": "display_url,image_url,url",
+            fk: f"eq.{listing_id}",
+            "order": "uploaded_at.asc",
+            "limit": str(limit),
+        },
+        use_service_role=True,
+    )
+    if status < 400 and rows:
+        return [r.get("display_url") or r.get("image_url") or r.get("url") for r in rows if r]
+    return []
+
+
+def _fmt_price(value):
+    if not value and value != 0:
+        return "Price on request"
+    try:
+        return f"AED {int(value):,}"
+    except (ValueError, TypeError):
+        return f"AED {value}"
+
+
+def _build_email_listing_card_html(listing_type, listing, image_url=None, listing_url=None,
+                                   cta_label="View Listing", cta_color="#8bd6b4"):
+    """Build a self-contained HTML table card for use inside email bodies.
+    Works in Gmail, Apple Mail, and Outlook (table-based layout, inline CSS only)."""
+    lt = str(listing_type or "car").lower().rstrip("s")  # normalise to singular
+
+    # ── Title ──
+    title = xml_escape(
+        listing.get("listing_title") or
+        listing.get("title") or
+        listing.get("name") or
+        _build_listing_title(f"{lt}s", listing)
+    )
+
+    # ── Price ──
+    price_val = (
+        listing.get("expected_selling_price") or
+        listing.get("price") or
+        listing.get("asking_price")
+    )
+    price = xml_escape(_fmt_price(price_val))
+
+    # ── Subtitle / key details ──
+    detail_parts = []
+    if lt == "car":
+        if listing.get("make_year"):    detail_parts.append(str(listing["make_year"]))
+        if listing.get("body_type"):    detail_parts.append(str(listing["body_type"]))
+        if listing.get("kilometer_driven"):
+            detail_parts.append(f"{int(listing['kilometer_driven']):,} km")
+        if listing.get("transmission_type"): detail_parts.append(str(listing["transmission_type"]))
+    elif lt == "bike":
+        if listing.get("make_year"):    detail_parts.append(str(listing["make_year"]))
+        if listing.get("bike_type"):    detail_parts.append(str(listing["bike_type"]))
+        if listing.get("mileage"):      detail_parts.append(f"{int(listing['mileage']):,} km")
+    elif lt == "part":
+        if listing.get("part_type"):    detail_parts.append(str(listing["part_type"]))
+        if listing.get("condition"):    detail_parts.append(str(listing["condition"]))
+    elif lt == "plate":
+        if listing.get("city"):         detail_parts.append(str(listing["city"]))
+        if listing.get("digits"):       detail_parts.append(f"{listing['digits']}-digit")
+        if listing.get("code"):         detail_parts.append(str(listing["code"]))
+
+    subtitle = xml_escape(" · ".join(str(p) for p in detail_parts if p))
+
+    # ── Image HTML ──
+    if image_url:
+        img_html = f'''<a href="{listing_url or '#'}" style="display:block;text-decoration:none;">
+          <img src="{image_url}" alt="{title}"
+               width="560" style="width:100%;max-width:560px;height:200px;object-fit:cover;
+                                  display:block;border-radius:12px 12px 0 0;border:0;" />
+        </a>'''
+    else:
+        img_html = f'''<div style="width:100%;height:120px;background:#0d2318;
+                               border-radius:12px 12px 0 0;display:flex;align-items:center;
+                               justify-content:center;">
+          <span style="color:#3d6b52;font-size:14px;">No image available</span>
+        </div>'''
+
+    # ── CTA button ──
+    cta_html = ""
+    if listing_url and cta_label:
+        cta_html = f'''<tr>
+          <td style="padding:0 20px 20px;">
+            <a href="{listing_url}"
+               style="display:inline-block;background:{cta_color};color:#041008;
+                      font-weight:700;font-size:14px;padding:11px 24px;
+                      border-radius:10px;text-decoration:none;white-space:nowrap;">
+              {xml_escape(cta_label)}
+            </a>
+          </td>
+        </tr>'''
+
+    return f'''<!--[if mso]><table><tr><td width="560"><![endif]-->
+<table width="560" cellpadding="0" cellspacing="0"
+       style="max-width:560px;width:100%;background:#0a1f14;
+              border-radius:12px;border:1px solid #1a3328;
+              margin:0 auto 24px auto;border-collapse:separate;">
+  <tr><td style="padding:0;">{img_html}</td></tr>
+  <tr>
+    <td style="padding:16px 20px 4px;">
+      <p style="margin:0;font-size:17px;font-weight:700;color:#f0fdf4;
+                line-height:1.3;">{title}</p>
+    </td>
+  </tr>
+  {f'<tr><td style="padding:2px 20px 8px;"><p style="margin:0;font-size:13px;color:#6dac8e;">{subtitle}</p></td></tr>' if subtitle else ""}
+  <tr>
+    <td style="padding:4px 20px 14px;">
+      <p style="margin:0;font-size:18px;font-weight:800;color:#8bd6b4;">{price}</p>
+    </td>
+  </tr>
+  {cta_html}
+</table>
+<!--[if mso]></td></tr></table><![endif]-->'''
+
+
+def _email_outer_wrapper(subject, body_html, footer_text=""):
+    """Wrap card HTML in a full email-safe outer shell."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{xml_escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#041008;font-family:Inter,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0"
+         style="background-color:#041008;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;">
+
+        <!-- Header -->
+        <tr><td style="padding-bottom:24px;text-align:center;">
+          <p style="margin:0;font-size:13px;font-weight:700;letter-spacing:2px;
+                    color:#3d6b52;text-transform:uppercase;">DPH Classifieds</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td>
+          {body_html}
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding-top:32px;border-top:1px solid #1a3328;margin-top:8px;">
+          <p style="margin:0;font-size:12px;color:#3d6b52;text-align:center;line-height:1.6;">
+            {footer_text or "You&rsquo;re receiving this from DPH Classifieds."}
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _fetch_search_preview_listings(search, limit=3):
+    """Fetch top N active listings matching a saved search for email preview cards."""
+    category   = str(search.get("category") or "all").lower()
+    query_text = str(search.get("query_text") or "").strip()
+    filters    = search.get("filters") or {}
+
+    TABLE_MAP = {
+        "cars":   [("cars",           "car")],
+        "bikes":  [("bikes",          "bike")],
+        "parts":  [("car_parts",      "part")],
+        "plates": [("license_plates", "plate")],
+        "all":    [("cars",           "car"), ("bikes", "bike")],
+    }
+    tables = TABLE_MAP.get(category, TABLE_MAP["cars"])
+
+    results = []
+    for table, lt in tables:
+        if len(results) >= limit:
+            break
+        params = {
+            "status": "in.(approved,active)",
+            "deleted_at": "is.null",
+            "is_archived": "eq.false",
+            "select": "*",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        }
+        if query_text:
+            title_col = "listing_title" if table == "cars" else "name" if table == "car_parts" else "title"
+            params[title_col] = f"ilike.*{query_text}*"
+        if filters.get("make"):
+            params["car_manufacturer" if table == "cars" else "make"] = f"ilike.{filters['make']}"
+        rows, status = supabase_request("get", f"/rest/v1/{table}", params=params, use_service_role=True)
+        if status < 400 and rows:
+            for r in rows[:limit - len(results)]:
+                results.append((lt, r))
+    return results
+
+
+def _send_saved_search_alert_email(user_email, search, result_count, subject_override=None):
     if not user_email or user_email == "unknown@example.com":
         return None, "Missing recipient email"
     if not EMAIL_REGEX.match(user_email):
@@ -9862,17 +10288,62 @@ def _send_listing_draft_reminder_email(user_email, draft_type, draft_row):
     if not from_email:
         return None, "Missing RESEND_FROM_EMAIL"
 
-    payload = _draft_payload_from_row(draft_row)
-    listing_title = _draft_display_title(draft_type, payload)
-    my_listings_url = f"{SITE_URL.rstrip('/')}/my-listings"
-    subject = f"Finish your {draft_type or 'listing'} draft on DPH Classifieds"
-    html_content = f"""
-    <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #041008; color: #f0fdf4; border-radius: 20px;">
-      <h2 style="margin-top:0;">Your draft is waiting</h2>
-      <p style="color:#b7c8bd; line-height:1.6;">You saved <strong>{xml_escape(listing_title)}</strong> as a draft. Finish it when you're ready and it will stay out of search results until you submit it.</p>
-      <a href="{my_listings_url}" style="display:inline-block; margin-top:16px; background:#8bd6b4; color:#041008; padding:12px 22px; border-radius:12px; text-decoration:none; font-weight:700;">Resume draft</a>
-    </div>
-    """
+    search     = search or {}
+    category   = search.get("category") or "listings"
+    name       = search.get("name") or f"{category} search"
+    route_path = search.get("route_path") or "/explore"
+    query_text = search.get("query_text") or ""
+    s_plural   = "s" if result_count != 1 else ""
+    subject    = subject_override or _rotate_subject(
+        _SAVED_SEARCH_ALERT_SUBJECTS,
+        count=result_count, s=s_plural, category=category,
+    )
+    search_url = f"{SITE_URL.rstrip('/')}{route_path}"
+
+    # Fetch up to 2 preview listings to show as cards
+    preview_listings = _fetch_search_preview_listings(search, limit=3)
+    cards_html = ""
+    for lt, listing in preview_listings:
+        lid = listing.get("id")
+        img_url     = _fetch_listing_primary_image_url(lt, lid)
+        listing_url = _build_listing_url(f"{lt}s", lid)
+        cards_html += _build_email_listing_card_html(lt, listing, img_url, listing_url, "View Car")
+
+    shown_count   = len(preview_listings)
+    remaining     = result_count - shown_count
+    more_label    = (
+        f"View {remaining} more result{'' if remaining == 1 else 's'} &rarr;"
+        if remaining > 0
+        else f"View all {result_count} result{s_plural} &rarr;"
+    )
+
+    body = f"""
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td style="padding-bottom:20px;">
+    <h2 style="margin:0;font-size:22px;font-weight:700;color:#f0fdf4;line-height:1.3;">
+      {xml_escape(str(result_count))} result{xml_escape(s_plural)} for your saved search
+    </h2>
+    <p style="margin:8px 0 0;color:#6dac8e;font-size:14px;">
+      {xml_escape(name)}{f" &mdash; &ldquo;{xml_escape(query_text)}&rdquo;" if query_text else ""}
+    </p>
+  </td></tr>
+</table>
+{cards_html}
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td style="padding:8px 0 20px;">
+    <a href="{search_url}"
+       style="display:inline-block;background:#8bd6b4;color:#041008;font-weight:700;
+              font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+      {more_label}
+    </a>
+  </td></tr>
+</table>
+"""
+    footer = (
+        "You&rsquo;re receiving this because you saved a search on DPH Classifieds. "
+        "To stop these alerts, disable Email Notifications in your account settings."
+    )
+    html_content = _email_outer_wrapper(subject, body, footer)
     payload = {
         "from": from_email,
         "to": [user_email],
@@ -9882,7 +10353,67 @@ def _send_listing_draft_reminder_email(user_email, draft_type, draft_row):
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
     if reply_to:
         payload["reply_to"] = reply_to
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="saved_search_alert")
+
+
+def _send_listing_draft_reminder_email(user_email, draft_type, draft_row, subject_override=None):
+    if not user_email or user_email == "unknown@example.com":
+        return None, "Missing recipient email"
+    if not EMAIL_REGEX.match(user_email):
+        return None, "Invalid recipient email"
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    draft_payload = _draft_payload_from_row(draft_row)
+    listing_title = _draft_display_title(draft_type, draft_payload)
+    # For listing-table drafts link to the edit form; for wizard drafts link to My Listings
+    listing_id = draft_payload.get("id") if isinstance(draft_payload, dict) else None
+    _edit_paths = {"car": "car", "bike": "bike", "part": "part", "plate": "plate"}
+    if listing_id and draft_type in _edit_paths:
+        cta_url   = f"{SITE_URL.rstrip('/')}/edit/{_edit_paths[draft_type]}/{listing_id}"
+        cta_label = "Edit & Post"
+    else:
+        cta_url   = f"{SITE_URL.rstrip('/')}/my-listings"
+        cta_label = "Resume Draft"
+    subject = subject_override or f"Finish your {draft_type or 'listing'} draft on DPH Classifieds"
+
+    # Fetch the listing's primary image if we have an ID
+    img_url = None
+    if listing_id and draft_type in _edit_paths:
+        img_url = _fetch_listing_primary_image_url(draft_type, listing_id)
+
+    card_html = _build_email_listing_card_html(
+        draft_type, draft_payload, img_url, cta_url, cta_label, cta_color="#8bd6b4",
+    )
+
+    body = f"""
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td style="padding-bottom:20px;">
+    <h2 style="margin:0;font-size:22px;font-weight:700;color:#f0fdf4;">Your draft is waiting</h2>
+    <p style="margin:8px 0 0;color:#a0b8ae;font-size:14px;line-height:1.5;">
+      Your listing is saved as a draft. Finish and post it when you&rsquo;re ready
+      &mdash; it won&rsquo;t appear in search results until you submit it.
+    </p>
+  </td></tr>
+</table>
+{card_html}
+"""
+    footer = (
+        "You&rsquo;re receiving this because you have a draft listing on DPH Classifieds. "
+        "To stop these reminders, disable Email Notifications in your account settings."
+    )
+    html_content = _email_outer_wrapper(subject, body, footer)
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+    return _send_resend_email(payload, email_type="draft_reminder")
 
 
 def _claim_email_row(table_name, row_id, sent_field, claim_field):
@@ -9910,74 +10441,200 @@ def _mark_email_row_result(table_name, row_id, sent_field, error_field, error=No
     )
 
 
-def _run_listing_draft_reminders_once(age_hours=24, limit=100):
-    cutoff = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+def _send_draft_listing_reminder(user_id, listing_type, listing, table, now_iso):
+    """Send a draft reminder for a listing-table row (cars/bikes/parts/plates with status=draft).
+    Returns True on success, False on failure. Handles claim release internally."""
+    row_id = listing.get("id")
+    email  = get_user_email(user_id)
+    # Normalise alternative title column names into listing_title so _draft_display_title picks it up
+    normalised = dict(listing)
+    for alt_col in ("title", "name", "number", "code"):
+        if alt_col in normalised and "listing_title" not in normalised:
+            normalised["listing_title"] = normalised[alt_col]
+    # Build a synthetic draft_row so _send_listing_draft_reminder_email can build the title
+    draft_row = {
+        "draft_key": listing_type,
+        "payload": normalised,
+        "draft_payload": normalised,
+    }
+    subject = _rotate_subject(_DRAFT_REMINDER_SUBJECTS)
+    _, send_error = _send_listing_draft_reminder_email(
+        email, listing_type, draft_row, subject_override=subject,
+    )
+    if send_error:
+        supabase_request("patch", f"/rest/v1/{table}?id=eq.{row_id}",
+                         data={"draft_reminder_claimed_at": None}, use_service_role=True)
+        logger.warning("Draft listing reminder error user=%s id=%s: %s", user_id, row_id, send_error)
+        return False
+    supabase_request(
+        "patch", f"/rest/v1/{table}?id=eq.{row_id}",
+        data={
+            "draft_reminder_sent_at": now_iso,
+            "draft_reminder_claimed_at": None,
+            "draft_reminder_count": int(listing.get("draft_reminder_count") or 0) + 1,
+        },
+        use_service_role=True,
+    )
+    logger.info("Draft listing reminder sent user=%s type=%s id=%s subject=%r",
+                user_id, listing_type, row_id, subject)
+    return True
+
+
+def _run_listing_draft_reminders_once(age_hours=48, limit=100):
+    """Send draft reminders every 48h.
+
+    Covers two sources:
+      1. listing_drafts — in-progress wizard saves (Save Draft button before first submit)
+      2. cars/bikes/car_parts/license_plates with status='draft' — previously submitted
+         listings that were moved back to draft via Move to Drafts.
+    """
+    cutoff  = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+    sent    = 0
+    skipped = 0
+    total   = 0
+
+    # ── Source 1: listing_drafts wizard saves ──────────────────────────────
     rows, status_code = supabase_request(
         "get",
         "/rest/v1/listing_drafts",
         params={
             "select": "*",
-            "updated_at": f"lte.{cutoff}",
-            "reminder_email_sent_at": "is.null",
+            "or": f"(last_reminder_sent_at.is.null,last_reminder_sent_at.lt.{cutoff})",
+            "reminder_email_claimed_at": "is.null",
             "order": "updated_at.asc",
             "limit": str(limit),
         },
         use_service_role=True,
     )
     if status_code >= 400:
-        if _looks_like_missing_table(rows) or _looks_like_missing_column(
-            rows, "reminder_email_sent_at", "reminder_email_claimed_at"
-        ):
-            return {"processed": 0, "sent": 0, "skipped": 0, "error": "draft reminders not migrated"}
-        return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
+        if _looks_like_missing_column(rows, "last_reminder_sent_at"):
+            rows, status_code = supabase_request(
+                "get",
+                "/rest/v1/listing_drafts",
+                params={
+                    "select": "*",
+                    "updated_at": f"lte.{cutoff}",
+                    "reminder_email_sent_at": "is.null",
+                    "order": "updated_at.asc",
+                    "limit": str(limit),
+                },
+                use_service_role=True,
+            )
+        if status_code >= 400 and not _looks_like_missing_table(rows):
+            logger.warning("Draft wizard reminder query failed: %s", rows)
 
-    sent = 0
-    skipped = 0
     for draft in rows or []:
-        row_id = draft.get("id")
+        row_id  = draft.get("id")
         user_id = draft.get("user_id")
         if not row_id or not user_id:
             skipped += 1
             continue
+        total += 1
         claimed, claim_error = _claim_email_row(
-            "listing_drafts",
-            row_id,
-            "reminder_email_sent_at",
-            "reminder_email_claimed_at",
+            "listing_drafts", row_id, "reminder_email_sent_at", "reminder_email_claimed_at",
         )
         if not claimed:
             skipped += 1
-            if claim_error:
-                logger.info("Draft reminder claim skipped for %s: %s", row_id, claim_error)
             continue
-        email = get_user_email(user_id)
+        email   = get_user_email(user_id)
+        subject = _rotate_subject(_DRAFT_REMINDER_SUBJECTS)
         _, send_error = _send_listing_draft_reminder_email(
-            email,
-            _draft_type_from_row(draft),
-            draft,
+            email, _draft_type_from_row(draft), draft, subject_override=subject,
         )
+        now_iso = _isoformat_utc(_utc_now())
         if send_error:
             skipped += 1
             _mark_email_row_result(
-                "listing_drafts",
-                row_id,
-                "reminder_email_sent_at",
-                "reminder_email_last_error",
-                send_error,
+                "listing_drafts", row_id, "reminder_email_sent_at", "reminder_email_last_error", send_error,
             )
+            supabase_request("patch", f"/rest/v1/listing_drafts?id=eq.{row_id}",
+                             data={"reminder_email_claimed_at": None}, use_service_role=True)
             continue
         sent += 1
-        _mark_email_row_result(
-            "listing_drafts",
-            row_id,
-            "reminder_email_sent_at",
-            "reminder_email_last_error",
+        supabase_request(
+            "patch", f"/rest/v1/listing_drafts?id=eq.{row_id}",
+            data={
+                "reminder_email_sent_at": now_iso,
+                "reminder_email_last_error": None,
+                "last_reminder_sent_at": now_iso,
+                "reminder_count": int(draft.get("reminder_count") or 0) + 1,
+                "reminder_email_claimed_at": None,
+            },
+            use_service_role=True,
         )
+        logger.info("Draft wizard reminder sent user=%s draft=%s subject=%r", user_id, row_id, subject)
 
-    return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
+    # ── Source 2: listing tables with status='draft' ───────────────────────
+    # title_col: the column that holds the display title in each listing table
+    DRAFT_TABLE_CONFIG = [
+        ("cars",           "car",   "listing_title"),
+        ("bikes",          "bike",  "title"),
+        ("car_parts",      "part",  "name"),
+        ("license_plates", "plate", "number"),
+    ]
+    for table, listing_type, title_col in DRAFT_TABLE_CONFIG:
+        # Try with draft_reminder columns (post-migration)
+        lt_rows, lt_status = supabase_request(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "status": "eq.draft",
+                "deleted_at": "is.null",
+                "draft_reminder_claimed_at": "is.null",
+                "or": f"(draft_reminder_sent_at.is.null,draft_reminder_sent_at.lt.{cutoff})",
+                "select": f"id,user_id,{title_col},draft_reminder_sent_at,draft_reminder_count",
+                "order": "updated_at.asc",
+                "limit": str(limit),
+            },
+            use_service_role=True,
+        )
+        if lt_status >= 400:
+            if _looks_like_missing_column(lt_rows, "draft_reminder_sent_at", "draft_reminder_claimed_at"):
+                # Migration not yet applied — fall back: query without reminder columns
+                lt_rows, lt_status = supabase_request(
+                    "get",
+                    f"/rest/v1/{table}",
+                    params={
+                        "status": "eq.draft",
+                        "deleted_at": "is.null",
+                        "select": f"id,user_id,{title_col}",
+                        "order": "updated_at.asc",
+                        "limit": str(limit),
+                    },
+                    use_service_role=True,
+                )
+            if lt_status >= 400:
+                logger.warning("Draft listing reminder query failed for %s: %s", table, lt_rows)
+                continue
+
+        for listing in lt_rows or []:
+            row_id  = listing.get("id")
+            user_id = listing.get("user_id")
+            if not row_id or not user_id:
+                skipped += 1
+                continue
+            total += 1
+            now_iso = _isoformat_utc(_utc_now())
+            # Atomic claim (only if migration applied, otherwise just send)
+            if listing.get("draft_reminder_sent_at") is not None or "draft_reminder_claimed_at" in listing:
+                claim_resp, claim_st = supabase_request(
+                    "patch",
+                    f"/rest/v1/{table}?id=eq.{row_id}&draft_reminder_claimed_at=is.null",
+                    data={"draft_reminder_claimed_at": now_iso},
+                    use_service_role=True,
+                )
+                if claim_st >= 400 or not claim_resp:
+                    skipped += 1
+                    continue
+            if _send_draft_listing_reminder(user_id, listing_type, listing, table, now_iso):
+                sent += 1
+            else:
+                skipped += 1
+
+    return {"processed": total, "sent": sent, "skipped": skipped}
 
 
-def _send_saved_car_reminder_email(user_email, listing):
+def _send_saved_car_reminder_email(user_email, listing, subject_override=None):
     if not user_email or user_email == "unknown@example.com":
         return None, "Missing recipient email"
     if not EMAIL_REGEX.match(user_email):
@@ -9986,17 +10643,33 @@ def _send_saved_car_reminder_email(user_email, listing):
     if not from_email:
         return None, "Missing RESEND_FROM_EMAIL"
 
-    listing = listing or {}
-    title = _build_listing_title("cars", listing)
-    listing_url = _build_listing_url("cars", listing.get("id")) or f"{SITE_URL.rstrip('/')}/saved"
-    subject = f"Still interested in {title}?"
-    html_content = f"""
-    <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #041008; color: #f0fdf4; border-radius: 20px;">
-      <h2 style="margin-top:0;">Your saved car is still here</h2>
-      <p style="color:#b7c8bd; line-height:1.6;">You saved <strong>{xml_escape(title)}</strong>. Open it again to check availability or contact the seller.</p>
-      <a href="{listing_url}" style="display:inline-block; margin-top:16px; background:#8bd6b4; color:#041008; padding:12px 22px; border-radius:12px; text-decoration:none; font-weight:700;">View saved car</a>
-    </div>
-    """
+    listing     = listing or {}
+    listing_id  = listing.get("id")
+    title       = _build_listing_title("cars", listing)
+    listing_url = _build_listing_url("cars", listing_id) or f"{SITE_URL.rstrip('/')}/saved"
+    subject     = subject_override or f"Still interested in {title}?"
+
+    # Fetch the primary image for the card
+    img_url = _fetch_listing_primary_image_url("car", listing_id)
+
+    card_html = _build_email_listing_card_html("car", listing, img_url, listing_url, "View Listing")
+
+    body = f"""
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td style="padding-bottom:20px;">
+    <h2 style="margin:0;font-size:22px;font-weight:700;color:#f0fdf4;">Your saved car is still here</h2>
+    <p style="margin:8px 0 0;color:#a0b8ae;font-size:14px;line-height:1.5;">
+      Check availability or contact the seller before it&rsquo;s gone.
+    </p>
+  </td></tr>
+</table>
+{card_html}
+"""
+    footer = (
+        "You saved this listing on DPH Classifieds. "
+        "To stop reminders, disable Email Notifications in your account settings."
+    )
+    html_content = _email_outer_wrapper(subject, body, footer)
     payload = {
         "from": from_email,
         "to": [user_email],
@@ -10006,78 +10679,223 @@ def _send_saved_car_reminder_email(user_email, listing):
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
     if reply_to:
         payload["reply_to"] = reply_to
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="saved_car_reminder")
 
 
-def _run_saved_car_reminders_once(age_hours=24, limit=100):
+def _run_saved_car_reminders_once(age_hours=48, limit=100):
+    """Send saved car reminders every 48h. Falls back gracefully if migration not applied."""
     cutoff = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
     rows, status_code = supabase_request(
         "get",
         "/rest/v1/saved_listings",
         params={
-            "select": "*",
             "listing_type": "eq.car",
-            "created_at": f"lte.{cutoff}",
-            "saved_email_sent_at": "is.null",
+            "or": f"(reminder_sent_at.is.null,reminder_sent_at.lt.{cutoff})",
+            "reminder_claimed_at": "is.null",
+            "select": "*",
             "order": "created_at.asc",
             "limit": str(limit),
         },
         use_service_role=True,
     )
     if status_code >= 400:
-        if _looks_like_missing_table(rows) or _looks_like_missing_column(
-            rows, "saved_email_sent_at", "saved_email_claimed_at"
-        ):
+        if _looks_like_missing_column(rows, "reminder_sent_at"):
+            # Migration not applied — fall back to one-shot
+            rows, status_code = supabase_request(
+                "get",
+                "/rest/v1/saved_listings",
+                params={
+                    "listing_type": "eq.car",
+                    "created_at": f"lte.{cutoff}",
+                    "saved_email_sent_at": "is.null",
+                    "select": "*",
+                    "order": "created_at.asc",
+                    "limit": str(limit),
+                },
+                use_service_role=True,
+            )
+            if status_code >= 400:
+                return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
+        elif _looks_like_missing_table(rows):
             return {"processed": 0, "sent": 0, "skipped": 0, "error": "saved car reminders not migrated"}
-        return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
+        else:
+            return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
 
     sent = 0
     skipped = 0
     for saved in rows or []:
-        row_id = saved.get("id")
-        user_id = saved.get("user_id")
+        row_id     = saved.get("id")
+        user_id    = saved.get("user_id")
         listing_id = saved.get("listing_id")
         if not row_id or not user_id or not listing_id:
             skipped += 1
             continue
-        claimed, claim_error = _claim_email_row(
-            "saved_listings",
-            row_id,
-            "saved_email_sent_at",
-            "saved_email_claimed_at",
-        )
-        if not claimed:
-            skipped += 1
-            if claim_error:
-                logger.info("Saved car reminder claim skipped for %s: %s", row_id, claim_error)
-            continue
+        now_iso = _isoformat_utc(_utc_now())
+        # Atomic claim on reminder_claimed_at (only when migration applied)
+        migration_cols_present = "reminder_claimed_at" in saved or "reminder_sent_at" in saved
+        claimed_ok = True
+        if migration_cols_present:
+            claim_resp, claim_status = supabase_request(
+                "patch",
+                f"/rest/v1/saved_listings?id=eq.{row_id}&reminder_claimed_at=is.null",
+                data={"reminder_claimed_at": now_iso},
+                use_service_role=True,
+            )
+            if claim_status >= 400 or not claim_resp:
+                skipped += 1
+                continue
 
         listing_rows, listing_status = supabase_request(
-            "get",
-            "/rest/v1/cars",
+            "get", "/rest/v1/cars",
             params={"select": "*", "id": f"eq.{listing_id}", "limit": 1},
             use_service_role=True,
         )
-        listing = listing_rows[0] if listing_status < 400 and listing_rows else {"id": listing_id}
-        email = get_user_email(user_id)
-        _, send_error = _send_saved_car_reminder_email(email, listing)
+        listing = listing_rows[0] if listing_status < 400 and listing_rows else None
+        # Skip deleted or inactive cars
+        if not listing or listing.get("deleted_at") or listing.get("status") not in ("approved", "active"):
+            if migration_cols_present:
+                supabase_request("patch", f"/rest/v1/saved_listings?id=eq.{row_id}",
+                                 data={"reminder_claimed_at": None}, use_service_role=True)
+            skipped += 1
+            continue
+
+        email   = get_user_email(user_id)
+        title   = _build_listing_title("cars", listing)
+        subject = _rotate_subject(_SAVED_CAR_REMINDER_SUBJECTS, title=title)
+        _, send_error = _send_saved_car_reminder_email(email, listing, subject_override=subject)
+
         if send_error:
             skipped += 1
-            _mark_email_row_result(
-                "saved_listings",
-                row_id,
-                "saved_email_sent_at",
-                "saved_email_last_error",
-                send_error,
-            )
+            if migration_cols_present:
+                supabase_request(
+                    "patch", f"/rest/v1/saved_listings?id=eq.{row_id}",
+                    data={"reminder_claimed_at": None, "reminder_last_error": str(send_error)[:500]},
+                    use_service_role=True,
+                )
             continue
         sent += 1
-        _mark_email_row_result(
-            "saved_listings",
-            row_id,
-            "saved_email_sent_at",
-            "saved_email_last_error",
+        mark_data = {"saved_email_sent_at": saved.get("saved_email_sent_at") or now_iso}
+        if migration_cols_present:
+            mark_data.update({
+                "reminder_sent_at": now_iso,
+                "reminder_last_error": None,
+                "reminder_count": int(saved.get("reminder_count") or 0) + 1,
+                "reminder_claimed_at": None,
+            })
+        supabase_request("patch", f"/rest/v1/saved_listings?id=eq.{row_id}",
+                         data=mark_data, use_service_role=True)
+        logger.info("Saved car reminder sent user=%s save=%s subject=%r", user_id, row_id, subject)
+
+    return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
+
+
+def _run_saved_search_alerts_once(age_hours=48, limit=100):
+    """Alert users about their saved searches every 48h when there are matching results."""
+    cutoff = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+    rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/saved_searches",
+        params={
+            "or": f"(alert_sent_at.is.null,alert_sent_at.lt.{cutoff})",
+            "alert_claimed_at": "is.null",
+            "select": "id,user_id,name,category,route_path,query_text,filters,alert_count,alert_sent_at",
+            "order": "updated_at.asc",
+            "limit": str(limit),
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_column(rows, "alert_sent_at", "alert_claimed_at", "alert_count"):
+            # Migration not applied — fall back: query all saved searches (no cooldown guard)
+            rows, status_code = supabase_request(
+                "get",
+                "/rest/v1/saved_searches",
+                params={
+                    "select": "id,user_id,name,category,route_path,query_text,filters,result_count",
+                    "order": "updated_at.asc",
+                    "limit": str(limit),
+                },
+                use_service_role=True,
+            )
+            if status_code >= 400:
+                return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
+        else:
+            return {"processed": 0, "sent": 0, "skipped": 0, "error": rows}
+
+    sent = 0
+    skipped = 0
+    for search in rows or []:
+        row_id  = search.get("id")
+        user_id = search.get("user_id")
+        if not row_id or not user_id:
+            skipped += 1
+            continue
+        now_iso = _isoformat_utc(_utc_now())
+        # Atomic claim — only if migration columns exist (present in search dict)
+        migration_applied = "alert_claimed_at" in search or "alert_sent_at" in search
+        if migration_applied:
+            claim_resp, claim_status = supabase_request(
+                "patch",
+                f"/rest/v1/saved_searches?id=eq.{row_id}&alert_claimed_at=is.null",
+                data={"alert_claimed_at": now_iso},
+                use_service_role=True,
+            )
+            if claim_status >= 400 or not claim_resp:
+                skipped += 1
+                continue
+
+        try:
+            result_count = _count_listings_for_saved_search(search)
+        except Exception as count_err:
+            logger.exception("search alert count failed search=%s: %s", row_id, count_err)
+            if migration_applied:
+                supabase_request("patch", f"/rest/v1/saved_searches?id=eq.{row_id}",
+                                 data={"alert_claimed_at": None}, use_service_role=True)
+            skipped += 1
+            continue
+
+        if result_count == 0:
+            if migration_applied:
+                supabase_request(
+                    "patch", f"/rest/v1/saved_searches?id=eq.{row_id}",
+                    data={"alert_claimed_at": None, "alert_last_result_count": 0},
+                    use_service_role=True,
+                )
+            skipped += 1
+            continue
+
+        email    = get_user_email(user_id)
+        s_plural = "s" if result_count != 1 else ""
+        subject  = _rotate_subject(
+            _SAVED_SEARCH_ALERT_SUBJECTS,
+            count=result_count, s=s_plural, category=search.get("category") or "listings",
         )
+        _, send_error = _send_saved_search_alert_email(email, search, result_count, subject_override=subject)
+
+        if send_error:
+            skipped += 1
+            if migration_applied:
+                supabase_request(
+                    "patch", f"/rest/v1/saved_searches?id=eq.{row_id}",
+                    data={"alert_claimed_at": None, "alert_last_error": str(send_error)[:500]},
+                    use_service_role=True,
+                )
+            continue
+        sent += 1
+        if migration_applied:
+            supabase_request(
+                "patch", f"/rest/v1/saved_searches?id=eq.{row_id}",
+                data={
+                    "alert_sent_at": now_iso,
+                    "alert_last_error": None,
+                    "alert_count": int(search.get("alert_count") or 0) + 1,
+                    "alert_last_result_count": result_count,
+                    "alert_claimed_at": None,
+                },
+                use_service_role=True,
+            )
+        logger.info("Search alert sent user=%s search=%s count=%d subject=%r",
+                    user_id, row_id, result_count, subject)
 
     return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
 
@@ -15290,6 +16108,172 @@ def track_platform_event():
         return jsonify({"error": "Failed to track event"}), 500
 
 
+# ---------------------------------------------------------------------------
+# Resend webhook — receives email events (open / click / bounce / unsubscribe)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/webhooks/resend", methods=["POST"])
+def resend_webhook():
+    """Receive Resend email lifecycle events and update email_events table."""
+    import hmac
+    import hashlib
+
+    webhook_secret = os.getenv("RESEND_WEBHOOK_SECRET", "")
+    if webhook_secret:
+        sig_header = request.headers.get("Resend-Signature") or request.headers.get("svix-signature", "")
+        ts_header  = request.headers.get("svix-timestamp", "")
+        raw_body   = request.get_data()
+        expected   = hmac.new(
+            webhook_secret.encode(),
+            f"{ts_header}.{raw_body.decode()}".encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        if not any(part.split(",", 1)[-1] == expected for part in sig_header.split(" ")):
+            logger.warning("Resend webhook signature mismatch")
+            return jsonify({"error": "Invalid signature"}), 401
+
+    try:
+        event = request.get_json(silent=True) or {}
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    event_type    = str(event.get("type") or "").lower()
+    data          = event.get("data") or {}
+    resend_email_id = str(data.get("email_id") or data.get("id") or "")
+    created_at    = data.get("created_at") or _isoformat_utc(_utc_now())
+
+    if not resend_email_id:
+        return jsonify({"ok": True}), 200
+
+    # Map Resend event types to email_events columns
+    update = {}
+    if event_type == "email.delivered":
+        update["delivered_at"] = created_at
+    elif event_type == "email.opened":
+        update["opened_at"] = created_at
+        # Increment open_count via read-then-write (acceptable — single writer for open events)
+        existing, _ = supabase_request(
+            "get", "/rest/v1/email_events",
+            params={"resend_email_id": f"eq.{resend_email_id}", "select": "id,open_count", "limit": "1"},
+            use_service_role=True,
+        )
+        if existing:
+            update["open_count"] = int((existing[0].get("open_count") or 0)) + 1
+    elif event_type == "email.clicked":
+        update["clicked_at"] = created_at
+        existing, _ = supabase_request(
+            "get", "/rest/v1/email_events",
+            params={"resend_email_id": f"eq.{resend_email_id}", "select": "id,click_count", "limit": "1"},
+            use_service_role=True,
+        )
+        if existing:
+            update["click_count"] = int((existing[0].get("click_count") or 0)) + 1
+    elif event_type in ("email.bounced", "email.delivery_delayed"):
+        update["bounced_at"] = created_at
+    elif event_type == "email.complained":
+        update["spam_at"] = created_at
+    elif event_type == "email.unsubscribed":
+        update["unsubscribed_at"] = created_at
+
+    if update:
+        supabase_request(
+            "patch",
+            f"/rest/v1/email_events?resend_email_id=eq.{resend_email_id}",
+            data=update,
+            use_service_role=True,
+        )
+        logger.info("Resend webhook %s → email %s updated", event_type, resend_email_id)
+
+    return jsonify({"ok": True}), 200
+
+
+# ---------------------------------------------------------------------------
+# Admin: email metrics endpoint
+# ---------------------------------------------------------------------------
+
+@app.route("/api/admin/metrics/email", methods=["GET"])
+@token_required
+def get_email_metrics(current_user):
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    days   = max(min(int(request.args.get("days", 30)), 365), 1)
+    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+
+    rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/email_events",
+        params={
+            "select": "email_type,sent_at,delivered_at,opened_at,clicked_at,bounced_at,unsubscribed_at,open_count,click_count,error_message",
+            "sent_at": f"gte.{cutoff}",
+            "order": "sent_at.desc",
+            "limit": "5000",
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_table(rows):
+            return jsonify({"error": "email_events table not migrated yet", "summary": {}, "by_type": [], "daily": []}), 200
+        return jsonify({"error": "Failed to fetch email events"}), status_code
+
+    rows = rows or []
+    total         = len(rows)
+    delivered     = sum(1 for r in rows if r.get("delivered_at"))
+    opened        = sum(1 for r in rows if r.get("opened_at"))
+    clicked       = sum(1 for r in rows if r.get("clicked_at"))
+    bounced       = sum(1 for r in rows if r.get("bounced_at"))
+    unsubscribed  = sum(1 for r in rows if r.get("unsubscribed_at"))
+    errored       = sum(1 for r in rows if r.get("error_message"))
+
+    # Per-type breakdown
+    from collections import defaultdict
+    by_type_map = defaultdict(lambda: {"sent": 0, "opened": 0, "clicked": 0, "bounced": 0})
+    for r in rows:
+        t = r.get("email_type") or "unknown"
+        by_type_map[t]["sent"]    += 1
+        by_type_map[t]["opened"]  += 1 if r.get("opened_at") else 0
+        by_type_map[t]["clicked"] += 1 if r.get("clicked_at") else 0
+        by_type_map[t]["bounced"] += 1 if r.get("bounced_at") else 0
+    by_type = [
+        {
+            "type":       k,
+            "sent":       v["sent"],
+            "opened":     v["opened"],
+            "clicked":    v["clicked"],
+            "bounced":    v["bounced"],
+            "open_rate":  round(v["opened"] / v["sent"] * 100, 1) if v["sent"] else 0,
+            "click_rate": round(v["clicked"] / v["sent"] * 100, 1) if v["sent"] else 0,
+        }
+        for k, v in sorted(by_type_map.items(), key=lambda x: -x[1]["sent"])
+    ]
+
+    # Daily trend (sent count per day)
+    daily_map = defaultdict(int)
+    for r in rows:
+        day = str(r.get("sent_at") or "")[:10]
+        if day:
+            daily_map[day] += 1
+    daily = [{"date": d, "count": c} for d, c in sorted(daily_map.items())]
+
+    return jsonify({
+        "summary": {
+            "total_sent":       total,
+            "delivered":        delivered,
+            "opened":           opened,
+            "clicked":          clicked,
+            "bounced":          bounced,
+            "unsubscribed":     unsubscribed,
+            "errored":          errored,
+            "open_rate":        round(opened  / total * 100, 1) if total else 0,
+            "click_rate":       round(clicked / total * 100, 1) if total else 0,
+            "bounce_rate":      round(bounced / total * 100, 1) if total else 0,
+        },
+        "by_type": by_type,
+        "daily":   daily,
+    }), 200
+
+
 @app.route("/api/admin/metrics/overview", methods=["GET"])
 @token_required
 def get_admin_metrics_overview(current_user):
@@ -16154,6 +17138,8 @@ def track_listing_lead_event(item_type, item_id):
 @token_required
 def set_listing_outcome(current_user, item_type, item_id):
     """Handle listing outcome popup action after expiry."""
+    _PLURAL_TO_SINGULAR = {"cars": "car", "bikes": "bike", "parts": "part", "plates": "plate"}
+    item_type = _PLURAL_TO_SINGULAR.get(item_type, item_type)
     config = LISTING_TABLE_CONFIG.get(item_type)
     if not config:
         return jsonify({"error": "Invalid listing type"}), 400
@@ -18140,7 +19126,7 @@ def _send_info_request_email(email, dealer_name, documents, message, link_url):
     reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
     if reply_to:
         payload["reply_to"] = reply_to
-    return _send_resend_email(payload)
+    return _send_resend_email(payload, email_type="info_request")
 
 
 @app.route("/api/admin/dealers/<dealer_id>/info-requests", methods=["POST"])

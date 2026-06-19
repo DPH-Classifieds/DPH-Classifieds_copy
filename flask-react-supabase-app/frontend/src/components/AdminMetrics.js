@@ -145,7 +145,7 @@ const BarRow = ({ label, value, maxValue }) => {
 
 // ─── main component ──────────────────────────────────────────────────────────
 
-const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Health'];
+const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Health', 'Email'];
 const WINDOW_OPTIONS = [
   { label: '24h', value: 1  },
   { label: '7d',  value: 7  },
@@ -161,6 +161,7 @@ const AdminMetrics = () => {
   const [days, setDays]         = useState(30);
   const [metrics, setMetrics]   = useState(null);
   const [health, setHealth]     = useState(null);
+  const [emailMetrics, setEmailMetrics] = useState(null);
   const [activeTab, setActiveTab] = useState('Engagement');
 
   // ── API: metrics overview (re-fetches on window change) ─────────────────
@@ -184,6 +185,23 @@ const AdminMetrics = () => {
     };
 
     fetchMetrics();
+    return () => { active = false; };
+  }, [days]);
+
+  // ── API: email metrics (re-fetches on window change) ──────────────────────
+  useEffect(() => {
+    let active = true;
+    const fetchEmail = async () => {
+      try {
+        const response = await apiClient.get(`/api/admin/metrics/email?days=${days}`);
+        if (!active) return;
+        setEmailMetrics(response || null);
+      } catch (e) {
+        if (!active) return;
+        setEmailMetrics({ error: e.message || 'Failed to load email metrics' });
+      }
+    };
+    fetchEmail();
     return () => { active = false; };
   }, [days]);
 
@@ -712,6 +730,110 @@ const AdminMetrics = () => {
               </div>
             </div>
           )}
+        </GlassCard>
+      </motion.div>
+
+      {/* ── EMAIL tab ─────────────────────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
+        <GlassCard>
+          {activeTab === 'Email' && (() => {
+            const em = emailMetrics || {};
+            const summary = em.summary || {};
+            const byType  = em.by_type || [];
+            const daily   = em.daily   || [];
+
+            if (em.error) return (
+              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-rose-300 text-sm">
+                Email metrics unavailable — run the reminder system migration first.
+              </div>
+            );
+
+            return (
+              <div className="space-y-6">
+                {/* ── Summary cards ── */}
+                <SectionTitle>Email overview — last {days} day{days !== 1 ? 's' : ''}</SectionTitle>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {[
+                    { label: 'Sent',          value: summary.total_sent    ?? '—' },
+                    { label: 'Delivered',      value: summary.delivered     ?? '—' },
+                    { label: 'Opened',         value: summary.opened        ?? '—' },
+                    { label: 'Clicked',        value: summary.clicked       ?? '—' },
+                    { label: 'Open rate',      value: summary.open_rate     != null ? `${summary.open_rate}%` : '—' },
+                    { label: 'Click rate',     value: summary.click_rate    != null ? `${summary.click_rate}%` : '—' },
+                    { label: 'Bounce rate',    value: summary.bounce_rate   != null ? `${summary.bounce_rate}%` : '—' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-xl bg-white/[0.04] border border-white/10 p-4 text-center">
+                      <p className="text-2xl font-bold text-emerald-400 tabular-nums">{value}</p>
+                      <p className="text-xs text-white/50 mt-1">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Daily trend ── */}
+                {daily.length > 0 && (
+                  <div>
+                    <SectionTitle>Daily sends</SectionTitle>
+                    <div className="flex items-end gap-1 h-24">
+                      {(() => {
+                        const max = Math.max(...daily.map(d => d.count), 1);
+                        return daily.slice(-30).map(d => (
+                          <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group relative">
+                            <div
+                              className="w-full bg-emerald-500/60 rounded-sm transition-all group-hover:bg-emerald-400"
+                              style={{ height: `${Math.max((d.count / max) * 88, 2)}px` }}
+                            />
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white/70 bg-black/70 px-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">
+                              {d.date}: {d.count}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Per-type breakdown ── */}
+                {byType.length > 0 && (
+                  <div>
+                    <SectionTitle>Breakdown by type</SectionTitle>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-white/40 text-xs border-b border-white/10">
+                            <th className="text-left py-2 pr-4">Email type</th>
+                            <th className="text-right py-2 px-3">Sent</th>
+                            <th className="text-right py-2 px-3">Opened</th>
+                            <th className="text-right py-2 px-3">Clicked</th>
+                            <th className="text-right py-2 px-3">Open %</th>
+                            <th className="text-right py-2 pl-3">Click %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {byType.map(row => (
+                            <tr key={row.type} className="border-b border-white/5 hover:bg-white/[0.03]">
+                              <td className="py-2 pr-4 text-white/80 font-mono text-xs">{row.type}</td>
+                              <td className="text-right py-2 px-3 text-white tabular-nums">{row.sent}</td>
+                              <td className="text-right py-2 px-3 text-emerald-400 tabular-nums">{row.opened}</td>
+                              <td className="text-right py-2 px-3 text-emerald-400 tabular-nums">{row.clicked}</td>
+                              <td className="text-right py-2 px-3 text-white/60 tabular-nums">{row.open_rate}%</td>
+                              <td className="text-right py-2 pl-3 text-white/60 tabular-nums">{row.click_rate}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {byType.length === 0 && (
+                  <p className="text-white/40 text-sm text-center py-8">
+                    No email data yet for this period. Run the migration then send some emails.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+          {activeTab !== 'Email' && null}
         </GlassCard>
       </motion.div>
 

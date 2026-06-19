@@ -410,7 +410,7 @@ const PostPlate = () => {
     try {
       await saveListingDraft('plate', PLATE_DRAFT_STORAGE_KEY, draftPayload);
       if (isEdit && listingId) {
-        await apiClient.post(`/api/user/listings/plates/${listingId}/outcome`, {
+        await apiClient.post(`/api/user/listings/plate/${listingId}/outcome`, {
           outcome: 'move_to_draft',
         });
       }
@@ -937,11 +937,9 @@ const PostPlate = () => {
                 </div>
               ) : null}
               {draftNotice ? <div className="draft-success-message">{draftNotice}</div> : null}
-              {!isEdit ? (
-                <button type="button" className="btn-secondary" onClick={handleSaveDraft} disabled={isSubmitting || isDraftSaving}>
-                  {isDraftSaving ? 'Saving Draft...' : 'Save Draft'}
-                </button>
-              ) : null}
+              <button type="button" className="btn-secondary" onClick={handleSaveDraft} disabled={isSubmitting || isDraftSaving}>
+                {isDraftSaving ? 'Saving Draft...' : 'Save Draft'}
+              </button>
               <button type="submit" className="submit-btn" disabled={isSubmitting}>
                 {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Plate Listing' : 'Submit Plate Listing')}
               </button>

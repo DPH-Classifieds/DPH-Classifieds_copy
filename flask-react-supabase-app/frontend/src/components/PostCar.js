@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import Tesseract from 'tesseract.js';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import SearchableSelect from './ui/searchable-select';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -24,8 +22,6 @@ import {
 	  FUEL_EFFICIENCY_OPTIONS,
 	  TAG_OPTIONS,
 	} from '../utils/listingConstants';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
@@ -33,27 +29,6 @@ import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
 import { normalizeRegistrationScanResponse } from '../utils/registrationScan';
-// Fix Leaflet default icon issue
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-// pdfjs-dist 4.x no longer honors `disableWorker: true` on getDocument —
-// it always reads GlobalWorkerOptions.workerSrc and throws if unset. Pin
-// the worker to a version-matched CDN copy so PDF rendering works for the
-// local OCR fallback path. Set once at module load.
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/legacy/build/pdf.worker.min.mjs`;
-}
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
@@ -111,6 +86,8 @@ const PostCar = () => {
   // eslint-disable-next-line no-unused-vars
   const [uploadingRegistrationDoc, setUploadingRegistrationDoc] = useState(false);
   const [useUsernameAsSellerName, setUseUsernameAsSellerName] = useState(false);
+  const [mapModules, setMapModules] = useState(null);
+  const [mapModulesError, setMapModulesError] = useState(null);
   const locationSearchTimeoutRef = useRef(null);
   const locationSearchAbortRef = useRef(null);
   const skipNextLocationSearchRef = useRef(false);
@@ -226,6 +203,54 @@ const PostCar = () => {
     setMarker(center);
     setMapPosition(center);
   }, [user, isEdit]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMapModules = async () => {
+      try {
+        const [leafletModule, reactLeafletModule] = await Promise.all([
+          import('leaflet'),
+          import('react-leaflet'),
+        ]);
+        const [iconModule, shadowModule] = await Promise.all([
+          import('leaflet/dist/images/marker-icon.png'),
+          import('leaflet/dist/images/marker-shadow.png'),
+        ]);
+        if (cancelled) return;
+
+        const leafletNamespace = leafletModule.default || leafletModule;
+        const iconUrl = iconModule.default || iconModule;
+        const shadowUrl = shadowModule.default || shadowModule;
+        const defaultIcon = leafletNamespace.icon({
+          iconUrl,
+          shadowUrl,
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+        });
+        leafletNamespace.Marker.prototype.options.icon = defaultIcon;
+
+        setMapModules({
+          MapContainer: reactLeafletModule.MapContainer,
+          TileLayer: reactLeafletModule.TileLayer,
+          Marker: reactLeafletModule.Marker,
+          useMap: reactLeafletModule.useMap,
+        });
+        setMapModulesError(null);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('Failed to load map modules lazily:', err);
+          setMapModulesError(err);
+        }
+      }
+    };
+
+    loadMapModules();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const normalizeOcrToken = useCallback((value) => {
     return String(value || '')
@@ -405,6 +430,11 @@ const PostCar = () => {
 
   const renderPdfPageToPngFile = useCallback(async ({ file, pageNumber = 1, scale = 3 } = {}) => {
     const data = await file.arrayBuffer();
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/legacy/build/pdf.worker.min.mjs`;
+    }
     const pdf = await pdfjsLib.getDocument({ data }).promise;
     const page = await pdf.getPage(pageNumber);
     const viewport = page.getViewport({ scale });
@@ -693,6 +723,7 @@ const PostCar = () => {
         setRegistrationOcrStatus(`Scanning… (${idx + 1}/${attempts.length})`);
         setRegistrationOcrProgress(0);
 
+        const { default: Tesseract } = await import('tesseract.js');
         const result = await Tesseract.recognize(attempt.image, 'eng', {
           logger: (m) => {
             if (m?.status === 'recognizing text' && typeof m.progress === 'number') {
@@ -1313,35 +1344,56 @@ const PostCar = () => {
     setGeoError(null);
   };
 
-  // Map click handler component
-  const MapClickHandler = () => {
-    const map = useMap();
-    
-    useEffect(() => {
-      if (!map) return;
-      
-      const handleMapClick = (e) => {
-        const { lat, lng } = e.latlng;
-        setMarker([lat, lng]);
-        reverseGeocode(lat, lng);
+  const reverseGeocode = useCallback(async (lat, lng) => {
+    setIsGeocoding(false);
+    setGeoError(null);
+    setFormData((prev) => ({
+      ...prev,
+      car_location: prev.car_location || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      latitude: lat,
+      longitude: lng,
+    }));
+  }, []);
+
+  const MapSection = useMemo(() => {
+    if (!mapModules) {
+      return function MapLoadingState() {
+        return (
+          <div className="map-loading-overlay" style={{ position: 'relative', minHeight: 320 }}>
+            <LoadingSpinner size="small" message="Loading map..." compact />
+          </div>
+        );
       };
-      
-      map.on('click', handleMapClick);
-      
-      return () => {
-        map.off('click', handleMapClick);
-      };
-    }, [map]);
-    
-    return null;
-  };
-  
-  // Update marker position when map position changes
-  const MarkerWithDrag = useCallback(() => {
-    return (
-      <Marker 
-        position={marker} 
-        draggable={true}
+    }
+
+    const { MapContainer, TileLayer, Marker, useMap } = mapModules;
+
+    const MapClickHandler = () => {
+      const map = useMap();
+
+      useEffect(() => {
+        if (!map) return undefined;
+
+        const handleMapClick = (e) => {
+          const { lat, lng } = e.latlng;
+          setMarker([lat, lng]);
+          reverseGeocode(lat, lng);
+        };
+
+        map.on('click', handleMapClick);
+
+        return () => {
+          map.off('click', handleMapClick);
+        };
+      }, [map]);
+
+      return null;
+    };
+
+    const MarkerWithDrag = () => (
+      <Marker
+        position={marker}
+        draggable
         eventHandlers={{
           dragend: (e) => {
             const { lat, lng } = e.target.getLatLng();
@@ -1351,19 +1403,25 @@ const PostCar = () => {
         }}
       />
     );
-  }, [marker]);
 
-  // Reverse geocoding disabled; just capture coordinates if provided
-  const reverseGeocode = async (lat, lng) => {
-    setIsGeocoding(false);
-    setGeoError(null);
-    setFormData(prev => ({
-      ...prev,
-      car_location: prev.car_location || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-      latitude: lat,
-      longitude: lng
-    }));
-  };
+    return function MapReadyState() {
+      return (
+        <MapContainer
+          center={mapPosition}
+          zoom={13}
+          scrollWheelZoom={false}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
+          <MapClickHandler />
+          <MarkerWithDrag />
+        </MapContainer>
+      );
+    };
+  }, [mapModules, mapPosition, marker, reverseGeocode]);
 
   // Fallback geolocation using IP-based service
   const getIPLocation = async () => {
@@ -1793,8 +1851,8 @@ const PostCar = () => {
     setShowExtras(!showExtras);
   };
 
-  const handleSaveDraft = () => {
-    if (isEdit) return;
+  const handleSaveDraft = async () => {
+    if (!user) return;
     const draftPayload = {
       formData,
       otherFuelType,
@@ -1804,35 +1862,34 @@ const PostCar = () => {
       savedAt: new Date().toISOString(),
     };
 
-    const persistDraft = async () => {
-      setIsDraftSaving(true);
-      setError(null);
-      setDraftNotice('Saving draft...');
-      try {
-        localStorage.setItem(CAR_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
-        await apiClient.request('/api/user/drafts/car', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: {
-            draft_key: 'car',
-            payload: draftPayload,
-          },
+    setIsDraftSaving(true);
+    setError(null);
+    setDraftNotice('Saving draft...');
+    try {
+      localStorage.setItem(CAR_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+      await apiClient.request('/api/user/drafts/car', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: {
+          draft_key: 'car',
+          payload: draftPayload,
+        },
+      });
+      if (isEdit && listingId) {
+        await apiClient.post(`/api/user/listings/car/${listingId}/outcome`, {
+          outcome: 'move_to_draft',
         });
-        setDraftNotice('Draft saved.');
-      } catch (draftError) {
-        console.error('Failed to save car draft:', draftError);
-        setError(
-          'Could not sync your draft right now. It was saved in this browser, but please contact support if the issue continues.'
-        );
-      } finally {
-        setIsDraftSaving(false);
-        window.setTimeout(() => {
-          setDraftNotice((current) => (current && current !== 'Saving draft...' ? null : current));
-        }, 2500);
       }
-    };
-
-    persistDraft();
+      setDraftNotice('Draft saved.');
+    } catch (draftError) {
+      console.error('Failed to save car draft:', draftError);
+      setError(draftError?.message || 'Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
+    } finally {
+      setIsDraftSaving(false);
+      window.setTimeout(() => {
+        setDraftNotice((current) => (current && current !== 'Saving draft...' ? null : current));
+      }, 2500);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -3280,19 +3337,13 @@ const PostCar = () => {
                     <LoadingSpinner size="small" message="Loading location..." compact />
                   </div>
                 )}
-                <MapContainer 
-                  center={mapPosition} 
-                  zoom={13} 
-                  scrollWheelZoom={false}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer
-                    attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  />
-                  <MapClickHandler />
-                  <MarkerWithDrag />
-                </MapContainer>
+                {mapModulesError ? (
+                  <div className="map-error-message" style={{ padding: 16 }}>
+                    Map unavailable right now. You can still enter coordinates manually.
+                  </div>
+                ) : (
+                  <MapSection />
+                )}
               </div>
             </div>
           </div>

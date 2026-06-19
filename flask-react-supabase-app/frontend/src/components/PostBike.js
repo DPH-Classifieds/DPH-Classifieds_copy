@@ -408,7 +408,7 @@ const PostBike = () => {
     try {
       await saveListingDraft('bike', BIKE_DRAFT_STORAGE_KEY, draftPayload);
       if (isEdit && listingId) {
-        await apiClient.post(`/api/user/listings/bikes/${listingId}/outcome`, {
+        await apiClient.post(`/api/user/listings/bike/${listingId}/outcome`, {
           outcome: 'move_to_draft',
         });
       }
@@ -976,11 +976,9 @@ const PostBike = () => {
               </div>
             ) : null}
             {draftNotice ? <div className="draft-success-message">{draftNotice}</div> : null}
-            {!isEdit ? (
-              <button type="button" className="btn-secondary" onClick={handleSaveDraft} disabled={isSubmitting || isDraftSaving}>
-                {isDraftSaving ? 'Saving Draft...' : 'Save Draft'}
-              </button>
-            ) : null}
+            <button type="button" className="btn-secondary" onClick={handleSaveDraft} disabled={isSubmitting || isDraftSaving}>
+              {isDraftSaving ? 'Saving Draft...' : 'Save Draft'}
+            </button>
             <button type="submit" className="submit-btn" disabled={isSubmitting}>
               {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Bike Listing' : 'Submit Bike Listing')}
             </button>
