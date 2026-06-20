@@ -13,10 +13,13 @@ import './CarList.css';
 import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const LIST_PAGE_SIZE = 12;
 
 const CarList = () => {
   const [cars, setCarsState] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
   const seoData = buildStaticSeo({
     title: 'Used Cars for Sale in UAE | DPH Classifieds',
@@ -28,6 +31,10 @@ const CarList = () => {
   
   // Safe wrapper to ensure cars is always an array
   const setCars = (data) => {
+    if (typeof data === 'function') {
+      setCarsState(data);
+      return;
+    }
     if (Array.isArray(data)) {
       setCarsState(data);
     } else {
@@ -170,9 +177,15 @@ const CarList = () => {
     };
   };
 
-  const fetchCars = useCallback(async (filterParams = {}) => {
-    setLoading(true);
-    setError(null);
+  const fetchCars = useCallback(async ({ filterParams = {}, reset = true, offset = 0 } = {}) => {
+    if (reset) {
+      setLoading(true);
+      setError(null);
+      setHasMore(false);
+      setCars([]);
+    } else {
+      setLoadingMore(true);
+    }
     
     try {
       // Build query parameters from filters
@@ -180,6 +193,8 @@ const CarList = () => {
       
       // Add sort option
       params.append('order', sortOption);
+      params.append('limit', String(LIST_PAGE_SIZE));
+      params.append('offset', String(Math.max(0, offset)));
       
       // Add all active filters, excluding empty values
       const activeFilters = { ...filters, ...filterParams };
@@ -202,19 +217,27 @@ const CarList = () => {
       }
 
       const carsData = Array.isArray(response.data) ? response.data : [];
-      setCars(carsData);
+      setHasMore(carsData.length === LIST_PAGE_SIZE);
+      if (reset) {
+        setCars(carsData);
+      } else {
+        setCars((prev) => [...prev, ...carsData]);
+      }
       
     } catch (err) {
       console.error('Error fetching cars:', err);
       setError('Failed to load cars. Please try again later.');
-      setCars([]);
+      if (reset) {
+        setCars([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [filters, sortOption]);
   
   useEffect(() => {
-    fetchCars();
+    fetchCars({ reset: true, offset: 0 });
   }, [sortOption, fetchCars]);
   
   const handleFilterChange = (e) => {
@@ -258,11 +281,11 @@ const CarList = () => {
   
   const applyFilters = (e) => {
     e.preventDefault();
-    fetchCars();
+    fetchCars({ reset: true, offset: 0 });
   };
   
   const resetFilters = () => {
-    setFilters({
+    const clearedFilters = {
       car_manufacturer: '',
       car_model: '',
       car_trim: '',
@@ -282,30 +305,15 @@ const CarList = () => {
       horsepower: '',
       engine_capacity: '',
       extras: []
-    });
+    };
+    setFilters(clearedFilters);
     setAvailableModels([]);
     setAvailableTrims([]);
     setCustomTrim(false);
     fetchCars({
-      car_manufacturer: '',
-      car_model: '',
-      car_trim: '',
-      car_city: '',
-      make_year_from: '',
-      make_year_to: '',
-      price_from: '',
-      price_to: '',
-      body_type: '',
-      fuel_type: '',
-      transmission_type: '',
-      regional_spec: '',
-      kilometer_from: '',
-      kilometer_to: '',
-      steering_side: '',
-      seating_capacity: '',
-      horsepower: '',
-      engine_capacity: '',
-      extras: []
+      reset: true,
+      offset: 0,
+      filterParams: clearedFilters
     });
   };
   
@@ -778,7 +786,7 @@ const CarList = () => {
       {error && (
         <div className="error-message">
           <p>{error}</p>
-          <button type="button" onClick={() => fetchCars()}>Retry</button>
+          <button type="button" onClick={() => fetchCars({ reset: true, offset: 0 })}>Retry</button>
         </div>
       )}
       
@@ -788,22 +796,34 @@ const CarList = () => {
       ) : (
 	        <>
 	          {/* Car Listings */}
-	          <div className="explore-v2-grid">
-	            {cars.length > 0 ? (
-	              cars.map(car => (
-	                <MarketplaceListingCard
+          <div className="explore-v2-grid">
+            {cars.length > 0 ? (
+              cars.map(car => (
+                <MarketplaceListingCard
 	                  key={car.id}
 	                  item={normalizeMarketplaceItem(car)}
 	                  showMoreLink={false}
 	                />
-	              ))
-	            ) : (
+              ))
+            ) : (
               <div className="no-cars-message">
                 <p>No cars found matching your criteria.</p>
                 <button type="button" onClick={resetFilters}>Reset Filters</button>
               </div>
             )}
           </div>
+          {hasMore && cars.length > 0 && (
+            <div className="load-more-wrapper" style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={loadingMore}
+                onClick={() => fetchCars({ reset: false, offset: cars.length })}
+              >
+                {loadingMore ? 'Loading more...' : 'Load more cars'}
+              </button>
+            </div>
+          )}
           <BrowseSellCta category="cars" />
         </>
       )}
