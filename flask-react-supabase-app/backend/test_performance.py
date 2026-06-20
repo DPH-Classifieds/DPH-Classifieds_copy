@@ -138,5 +138,48 @@ class TestAdminAuthCaching(unittest.TestCase):
         redis_mock.setex.assert_not_called()
 
 
+class TestAdminListingsLimit(unittest.TestCase):
+    """admin_listings_search must respect the limit param and default to 100."""
+
+    def _admin_user(self):
+        return {"id": "admin-1", "email": "a@b.com", "is_admin": True}
+
+    def test_default_limit_is_100(self):
+        """When no limit param given, Supabase query uses limit=100."""
+        with backend.app.test_request_context("/api/admin/listings-search?types=cars"):
+            with patch.object(backend, "_require_admin_api_user", return_value=self._admin_user()), \
+                 patch.object(backend, "supabase_request", return_value=([], 200)) as mock_supabase, \
+                 patch.object(backend, "_admin_fetch_latest_verification_scans", return_value={}):
+
+                backend.admin_listings_search.__wrapped__("admin-1")
+
+        call_params = mock_supabase.call_args_list[0][1]["params"]
+        self.assertEqual(call_params["limit"], "100")
+
+    def test_custom_limit_is_respected(self):
+        """limit=25 in query string must be passed to Supabase."""
+        with backend.app.test_request_context("/api/admin/listings-search?types=cars&limit=25"):
+            with patch.object(backend, "_require_admin_api_user", return_value=self._admin_user()), \
+                 patch.object(backend, "supabase_request", return_value=([], 200)) as mock_supabase, \
+                 patch.object(backend, "_admin_fetch_latest_verification_scans", return_value={}):
+
+                backend.admin_listings_search.__wrapped__("admin-1")
+
+        call_params = mock_supabase.call_args_list[0][1]["params"]
+        self.assertEqual(call_params["limit"], "25")
+
+    def test_limit_capped_at_200(self):
+        """limit=9999 must be capped at 200."""
+        with backend.app.test_request_context("/api/admin/listings-search?types=cars&limit=9999"):
+            with patch.object(backend, "_require_admin_api_user", return_value=self._admin_user()), \
+                 patch.object(backend, "supabase_request", return_value=([], 200)) as mock_supabase, \
+                 patch.object(backend, "_admin_fetch_latest_verification_scans", return_value={}):
+
+                backend.admin_listings_search.__wrapped__("admin-1")
+
+        call_params = mock_supabase.call_args_list[0][1]["params"]
+        self.assertEqual(call_params["limit"], "200")
+
+
 if __name__ == "__main__":
     unittest.main()

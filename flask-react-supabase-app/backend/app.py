@@ -18045,6 +18045,12 @@ def admin_listings_search(current_user):
         if not requested_statuses or "all" in requested_statuses:
             requested_statuses = []
 
+        try:
+            _req_limit = int(request.args.get("limit", "100"))
+        except (ValueError, TypeError):
+            _req_limit = 100
+        per_type_limit = min(max(_req_limit, 1), 200)
+
         listings = []
         counts = defaultdict(int)
 
@@ -18056,7 +18062,7 @@ def admin_listings_search(current_user):
                     params={
                         "select": "id,user_id,draft_key,payload,created_at,updated_at",
                         "order": "updated_at.desc",
-                        "limit": "500",
+                        "limit": str(per_type_limit),
                     },
                     use_service_role=True,
                 )
@@ -18097,7 +18103,7 @@ def admin_listings_search(current_user):
             rows, status_code = supabase_request(
                 "get",
                 f"/rest/v1/{config['table']}",
-                params={"select": "*", "order": "created_at.desc", "limit": "500"},
+                params={"select": "*", "order": "created_at.desc", "limit": str(per_type_limit)},
                 use_service_role=True,
             )
             if status_code >= 400:
