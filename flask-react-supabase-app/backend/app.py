@@ -5389,9 +5389,9 @@ def get_cars():
             "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
             "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
             "status,is_approved,view_count,lady_driven,"
-            "whatsapp_number,whatsapp_prefill_text,vin_number,car_images("
-            + LISTING_IMAGE_SELECTS["cars"]
-            + ")"
+            "whatsapp_number,whatsapp_prefill_text,vin_number,"
+            "users(id,username,first_name,last_name,profile_photo_url,is_dealer),"
+            "car_images(" + LISTING_IMAGE_SELECTS["cars"] + ")"
         )
 
         # Use service role for public fetches to ensure all approved listings and images are visible
@@ -5424,15 +5424,10 @@ def get_cars():
                     img["url"] = img["image_url"]
             car["images"] = car_images
 
-        # Fetch seller info for each car
-        try:
-            seller_map = _batch_fetch_seller_map(
-                [car.get("user_id") for car in response]
-            )
-            for car in response:
-                _apply_seller_to_listing(car, seller_map.get(car.get("user_id")))
-        except Exception as e:
-            logger.warning(f"Error fetching seller info: {e}")
+        # Apply seller info from the embedded users join
+        for car in response:
+            user_info = car.pop("users", None) or {}
+            _apply_seller_to_listing(car, user_info)
 
         logger.info(f"Successfully fetched {len(response)} cars")
         _api_cache_set(cache_key, response)
