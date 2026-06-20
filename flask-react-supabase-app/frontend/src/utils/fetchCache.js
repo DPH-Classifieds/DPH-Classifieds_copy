@@ -62,7 +62,7 @@ export const fetchJsonWithCache = async (url, { ttlMs = DEFAULT_TTL_MS, signal, 
       _fetchFromNetwork(url, { ttlMs, signal })
         .then((fresh) => {
           if (fresh.ok && JSON.stringify(fresh.data) !== JSON.stringify(cached)) {
-            onUpdate(fresh);
+            onUpdate({ ...fresh, _sourceUrl: url });
           }
         })
         .catch(() => {});

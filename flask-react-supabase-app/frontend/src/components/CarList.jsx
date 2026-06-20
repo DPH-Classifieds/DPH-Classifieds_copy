@@ -211,9 +211,11 @@ const CarList = () => {
         setLoading(false);
       }
 
+      const requestUrl = url;
       const response = await fetchJsonWithCache(url, {
         onUpdate: reset
           ? (fresh) => {
+              if (fresh._sourceUrl !== requestUrl) return;
               const freshCars = Array.isArray(fresh.data) ? fresh.data : [];
               if (freshCars.length > 0) {
                 setCars(freshCars);
