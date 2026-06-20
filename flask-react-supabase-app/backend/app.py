@@ -14161,7 +14161,26 @@ def _get_service_role_headers():
 
 
 def _require_admin_api_user(current_user):
+    redis_client = _get_redis_cache_client()
+    cache_key = f"admin-auth-status:{current_user}"
+
+    if redis_client:
+        try:
+            cached = redis_client.get(cache_key)
+            if cached is not None:
+                data = json.loads(cached)
+                return data if data and data.get("is_admin") else None
+        except Exception:
+            pass
+
     user_details = _get_user_details_with_admin_status(current_user)
+
+    if redis_client and user_details and user_details.get("is_admin"):
+        try:
+            redis_client.setex(cache_key, 300, json.dumps(user_details, default=str))
+        except Exception:
+            pass
+
     return user_details if user_details and user_details.get("is_admin") else None
 
 

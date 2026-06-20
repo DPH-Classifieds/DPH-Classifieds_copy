@@ -77,5 +77,66 @@ class TestGetCarsSellerJoin(unittest.TestCase):
         self.assertNotIn("users", car)  # must be popped, not left in response
 
 
+class TestAdminAuthCaching(unittest.TestCase):
+    """_require_admin_api_user must use Redis cache on repeat calls."""
+
+    def _make_admin_user(self, user_id="admin-1"):
+        return {
+            "id": user_id,
+            "email": "admin@example.com",
+            "is_admin": True,
+            "is_super_admin": False,
+            "is_dealer": False,
+            "dealer_verified": False,
+            "email_verified": True,
+            "phone_verified": False,
+        }
+
+    def test_second_call_uses_cache_and_skips_http(self):
+        """On cache hit, _get_user_details_with_admin_status must not be called."""
+        user_details = self._make_admin_user()
+        redis_mock = MagicMock()
+        redis_mock.get.return_value = json.dumps(user_details).encode()
+
+        with patch.object(backend, "_get_redis_cache_client", return_value=redis_mock), \
+             patch.object(backend, "_get_user_details_with_admin_status") as mock_details:
+
+            result = backend._require_admin_api_user("admin-1")
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result["is_admin"])
+        mock_details.assert_not_called()
+
+    def test_cache_miss_calls_supabase_then_stores_in_redis(self):
+        """On cache miss, must call _get_user_details_with_admin_status and then cache."""
+        user_details = self._make_admin_user()
+        redis_mock = MagicMock()
+        redis_mock.get.return_value = None  # cache miss
+
+        with patch.object(backend, "_get_redis_cache_client", return_value=redis_mock), \
+             patch.object(backend, "_get_user_details_with_admin_status", return_value=user_details):
+
+            result = backend._require_admin_api_user("admin-1")
+
+        self.assertIsNotNone(result)
+        redis_mock.setex.assert_called_once()
+        call_args = redis_mock.setex.call_args
+        self.assertEqual(call_args[0][0], "admin-auth-status:admin-1")
+        self.assertEqual(call_args[0][1], 300)
+
+    def test_non_admin_user_not_cached(self):
+        """Non-admin users must return None and must NOT be cached."""
+        redis_mock = MagicMock()
+        redis_mock.get.return_value = None
+
+        with patch.object(backend, "_get_redis_cache_client", return_value=redis_mock), \
+             patch.object(backend, "_get_user_details_with_admin_status", return_value={"id": "u1", "is_admin": False}):
+
+            result = backend._require_admin_api_user("u1")
+
+        self.assertIsNone(result)
+        redis_mock.setex.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
