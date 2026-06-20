@@ -48,6 +48,8 @@ const TYPE_OPTIONS = [
   { key: 'buying_requests', label: 'Requests' },
 ];
 
+const ADMIN_PAGE_SIZE = 25;
+
 const parseParamList = (val, allowed) => {
   if (!val) return [];
   return val.split(',').map((s) => s.trim()).filter((s) => allowed.includes(s));
@@ -134,6 +136,7 @@ const AdminListings = () => {
   const selectedStatuses = parseParamList(searchParams.get('statuses'), ALL_STATUSES);
   const effectiveStatuses = selectedStatuses.includes('all') ? ['all'] : (selectedStatuses.length > 0 ? selectedStatuses : ['all']);
   const [searchText, setSearchText] = useState('');
+  const [page, setPage] = useState(0);
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -205,6 +208,7 @@ const AdminListings = () => {
         ? mainResponse
         : (Array.isArray(mainResponse?.listings) ? mainResponse.listings : []);
 
+      setPage(0);
       setListings(allListings);
     } catch (error) {
       console.error('Failed to fetch listings:', error);
@@ -486,6 +490,9 @@ const AdminListings = () => {
     }).slice(0, 100);
   }, [listings, searchText]);
 
+  const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE);
+  const pagedListings = filtered.slice(page * ADMIN_PAGE_SIZE, (page + 1) * ADMIN_PAGE_SIZE);
+
   const ChipFilter = ({ options, activeKeys, paramKey, allowed }) => (
     <div className="flex flex-wrap gap-1.5">
       {options.map((opt) => {
@@ -620,7 +627,7 @@ const AdminListings = () => {
                       </td>
                     </tr>
                   )
-                  : filtered.map((listing, i) => {
+                  : pagedListings.map((listing, i) => {
                     const thumb = getListingImage(listing);
                     const title = getListingTitle(listing);
                     const seller = listing.user_email || listing.seller_email || '—';
@@ -806,9 +813,25 @@ const AdminListings = () => {
             </tbody>
           </table>
         </div>
-        {!loading && listings.length > 100 && (
-          <div className="px-4 py-3 border-t border-white/[0.06]">
-            <p className="text-xs text-white/30">Showing 100 of {listings.length} listings</p>
+        {!loading && totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 0', justifyContent: 'center' }}>
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid #ccc', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.5 : 1 }}
+            >
+              ← Prev
+            </button>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              Showing {page * ADMIN_PAGE_SIZE + 1}–{Math.min((page + 1) * ADMIN_PAGE_SIZE, filtered.length)} of {filtered.length}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid #ccc', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page >= totalPages - 1 ? 0.5 : 1 }}
+            >
+              Next →
+            </button>
           </div>
         )}
       </GlassCard>
