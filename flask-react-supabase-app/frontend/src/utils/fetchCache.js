@@ -1,58 +1,36 @@
-const DEFAULT_TTL_MS = 60 * 1000;
+const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const inflightRequests = new Map();
 
 const buildCacheKey = (url) => `json-cache:${url}`;
 
 export const readJsonSessionCache = (url) => {
-  if (typeof window === 'undefined' || !url) {
-    return null;
-  }
-
+  if (typeof window === 'undefined' || !url) return null;
   try {
     const raw = window.sessionStorage.getItem(buildCacheKey(url));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
-    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-      return null;
-    }
+    if (parsed.expiresAt && Date.now() > parsed.expiresAt) return null;
     return parsed.data ?? null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
 
 export const writeJsonSessionCache = (url, data, ttlMs = DEFAULT_TTL_MS) => {
-  if (typeof window === 'undefined' || !url) {
-    return;
-  }
-
+  if (typeof window === 'undefined' || !url) return;
   try {
     window.sessionStorage.setItem(
       buildCacheKey(url),
-      JSON.stringify({
-        expiresAt: Date.now() + (ttlMs || DEFAULT_TTL_MS),
-        data,
-      })
+      JSON.stringify({ expiresAt: Date.now() + (ttlMs || DEFAULT_TTL_MS), data })
     );
-  } catch (error) {
-    // Ignore storage errors (private mode / quota).
+  } catch {
+    // Ignore storage errors (private mode / quota exceeded).
   }
 };
 
-export const fetchJsonWithCache = async (url, { ttlMs = DEFAULT_TTL_MS, signal } = {}) => {
-  if (!url) {
-    throw new Error('Missing url');
-  }
-
-  if (inflightRequests.has(url)) {
-    return inflightRequests.get(url);
-  }
-
-  const fetchPromise = fetch(url, {
-    headers: { Accept: 'application/json' },
-    signal,
-  })
+async function _fetchFromNetwork(url, { ttlMs = DEFAULT_TTL_MS, signal } = {}) {
+  const fetchPromise = fetch(url, { headers: { Accept: 'application/json' }, signal })
     .then(async (response) => {
       const data = await response.json();
       writeJsonSessionCache(url, data, ttlMs);
@@ -61,8 +39,37 @@ export const fetchJsonWithCache = async (url, { ttlMs = DEFAULT_TTL_MS, signal }
     .finally(() => {
       inflightRequests.delete(url);
     });
-
   inflightRequests.set(url, fetchPromise);
   return fetchPromise;
-};
+}
 
+/**
+ * Fetch JSON with session-storage cache.
+ *
+ * When `onUpdate` is provided and stale data exists in the cache:
+ *   - Returns the cached data immediately (no network wait)
+ *   - Fetches fresh data in the background
+ *   - Calls onUpdate(freshResponse) if the data changed
+ */
+export const fetchJsonWithCache = async (url, { ttlMs = DEFAULT_TTL_MS, signal, onUpdate } = {}) => {
+  if (!url) throw new Error('Missing url');
+
+  const cached = readJsonSessionCache(url);
+
+  if (cached !== null && onUpdate) {
+    // Return stale immediately; fire background refresh
+    if (!inflightRequests.has(url)) {
+      _fetchFromNetwork(url, { ttlMs, signal })
+        .then((fresh) => {
+          if (fresh.ok && JSON.stringify(fresh.data) !== JSON.stringify(cached)) {
+            onUpdate(fresh);
+          }
+        })
+        .catch(() => {});
+    }
+    return { ok: true, status: 200, data: cached };
+  }
+
+  if (inflightRequests.has(url)) return inflightRequests.get(url);
+  return _fetchFromNetwork(url, { ttlMs, signal });
+};

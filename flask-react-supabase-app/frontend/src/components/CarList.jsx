@@ -211,7 +211,17 @@ const CarList = () => {
         setLoading(false);
       }
 
-      const response = await fetchJsonWithCache(url);
+      const response = await fetchJsonWithCache(url, {
+        onUpdate: reset
+          ? (fresh) => {
+              const freshCars = Array.isArray(fresh.data) ? fresh.data : [];
+              if (freshCars.length > 0) {
+                setCars(freshCars);
+                setHasMore(freshCars.length >= LIST_PAGE_SIZE);
+              }
+            }
+          : undefined,
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch cars: ${response.status}`);
       }
