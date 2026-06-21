@@ -9870,6 +9870,30 @@ def _draft_display_title(draft_type, payload):
     return f"Unfinished {draft_type}"
 
 
+def _draft_thumbnail_url(payload):
+    """Pick the first usable image URL out of a draft payload.
+
+    Handles both PostCar's `existingImages` (array of strings or objects with
+    `display_url`/`image_url`/`url`) and PostBike/PostCarParts/PostPlate's
+    `existingImageUrls` (array of strings). Returns None if nothing usable.
+    """
+    if not isinstance(payload, dict):
+        return None
+    candidates = []
+    for key in ("existingImages", "existingImageUrls", "images"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            candidates.extend(value)
+    for item in candidates:
+        if isinstance(item, str) and item.strip():
+            return item.strip()
+        if isinstance(item, dict):
+            url = item.get("display_url") or item.get("image_url") or item.get("url")
+            if isinstance(url, str) and url.strip():
+                return url.strip()
+    return None
+
+
 def _annotate_draft_row(draft):
     payload = _draft_payload_from_row(draft)
     draft_type = _draft_type_from_row(draft)
@@ -9880,6 +9904,7 @@ def _annotate_draft_row(draft):
         f"Last edited {draft.get('updated_at') or draft.get('created_at') or ''}"
     )
     draft["resume_path"] = _draft_resume_path(draft_type)
+    draft["display_image_url"] = _draft_thumbnail_url(payload)
     return draft
 
 
@@ -9934,6 +9959,7 @@ def _build_draft_listing_summary(draft_row, owner_row=None):
             "title": display_title,
             "listing_title": display_title,
             "display_subtitle": f"Last edited {draft_row.get('updated_at') or draft_row.get('created_at') or ''}",
+            "display_image_url": _draft_thumbnail_url(payload),
             "resume_path": _draft_resume_path(draft_type),
             "user_email": user_email,
             "owner_email": user_email,

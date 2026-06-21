@@ -1002,6 +1002,23 @@ const MyListings = () => {
                   <div className="my-listings-grid">
                     {wizardDrafts.map((draft) => (
                       <div key={`wizard-draft-${draft.draft_key}`} className="my-listing-card">
+                        <div className="my-listing-image">
+                          {draft.display_image_url ? (
+                            <img
+                              src={draft.display_image_url}
+                              alt={draft.display_title || 'Draft preview'}
+                              onError={(event) => {
+                                event.currentTarget.onerror = null;
+                                event.currentTarget.src = LISTING_PLACEHOLDER_IMAGE;
+                              }}
+                            />
+                          ) : (
+                            <div className="no-image">No Image</div>
+                          )}
+                          <div className="my-listing-top-tags">
+                            <span className="listing-state-tag state-draft">Draft</span>
+                          </div>
+                        </div>
                         <div
                           className="my-listing-details"
                           role="button"
