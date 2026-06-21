@@ -1931,7 +1931,7 @@ const PostCar = () => {
     }
     clearFieldHighlights();
 
-    if (!isEdit && croppedImages.length === 0) {
+    if (!isEdit && existingImages.length + croppedImages.length === 0) {
       setError('You must upload at least one image of your car.');
       focusAndHighlightField('images');
       return;
@@ -1963,54 +1963,56 @@ const PostCar = () => {
         registration_document_url: registrationDocumentUrl || null,
       };
 
-      if (isEdit) {
-        const uploadedImages = croppedImages.length > 0 ? await uploadImages() : [];
-        const persistedImages = existingImages
-          .map((image, index) => {
-            if (!image) {
-              return null;
-            }
+      const uploadedImages = croppedImages.length > 0 ? await uploadImages() : [];
+      const persistedImages = existingImages
+        .map((image, index) => {
+          if (!image) {
+            return null;
+          }
 
-            if (typeof image === 'string') {
-              return {
-                url: image,
-                image_url: image,
-                display_url: image,
-                focal_x: 50,
-                focal_y: 50,
-                crop_meta: null,
-              };
-            }
-
-            const imageUrl = image.image_url || image.url;
-            if (!imageUrl) {
-              return null;
-            }
-
+          if (typeof image === 'string') {
             return {
-              url: imageUrl,
-              image_url: imageUrl,
-              display_url: image.display_url || imageUrl,
-              focal_x: Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50,
-              focal_y: Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50,
-              crop_meta: {
-                ...(image.crop_meta || {}),
-                sort_index: index,
-              },
+              url: image,
+              image_url: image,
+              display_url: image,
+              focal_x: 50,
+              focal_y: 50,
+              crop_meta: null,
             };
-          })
-          .filter(Boolean);
+          }
 
-        if (persistedImages.length === 0 && croppedImages.length > 0 && uploadedImages.length === 0) {
-          // uploadImages already sets a user-facing error; abort early so we don't send an empty
-          // image payload that forces a backend rollback.
-          focusAndHighlightField('images');
-          return;
-        }
+          const imageUrl = image.image_url || image.url;
+          if (!imageUrl) {
+            return null;
+          }
 
+          return {
+            url: imageUrl,
+            image_url: imageUrl,
+            display_url: image.display_url || imageUrl,
+            focal_x: Number.isFinite(Number(image.focal_x)) ? Number(image.focal_x) : 50,
+            focal_y: Number.isFinite(Number(image.focal_y)) ? Number(image.focal_y) : 50,
+            crop_meta: {
+              ...(image.crop_meta || {}),
+              sort_index: index,
+            },
+          };
+        })
+        .filter(Boolean);
+
+      if (persistedImages.length === 0 && croppedImages.length > 0 && uploadedImages.length === 0) {
+        // uploadImages already sets a user-facing error; abort early so we don't send an empty
+        // image payload that forces a backend rollback.
+        focusAndHighlightField('images');
+        return;
+      }
+
+      const finalImages = [...persistedImages, ...uploadedImages];
+
+      if (isEdit) {
         const updatePayload = {
           ...submissionData,
-          images: [...persistedImages, ...uploadedImages],
+          images: finalImages,
         };
 
         const updateAttempts = [
@@ -2042,14 +2044,7 @@ const PostCar = () => {
           throw lastError;
         }
       } else {
-        const uploadedImages = await uploadImages();
-        if (uploadedImages.length === 0) {
-          // If we reached this point, the user selected files already; this indicates an upload failure.
-          // uploadImages sets a more specific error (auth/storage/etc), so just focus the field.
-          focusAndHighlightField('images');
-          return;
-        }
-        submissionData.images = uploadedImages;
+        submissionData.images = finalImages;
         const response = await apiClient.post('/api/cars', submissionData);
         console.log('Car listing created:', response);
         localStorage.removeItem(CAR_DRAFT_STORAGE_KEY);
