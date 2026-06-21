@@ -6,7 +6,13 @@ import app as backend
 
 
 class TestGetCarsSellerJoin(unittest.TestCase):
-    """get_cars() must resolve seller info without a second Supabase call."""
+    """get_cars() resolves seller info via a batched users fetch.
+
+    The previous attempt at a PostgREST users(...) embed returned HTTP 400 in
+    production (relationship not resolvable from PostgREST's schema cache), so
+    we keep the batched _batch_fetch_seller_map round trip. Tests pin that
+    behavior end-to-end without touching the live DB.
+    """
 
     def _make_car_row(self):
         return {
@@ -30,51 +36,63 @@ class TestGetCarsSellerJoin(unittest.TestCase):
             "whatsapp_number": "+971501234567",
             "whatsapp_prefill_text": "",
             "vin_number": None,
-            "users": {
-                "id": "user-1",
-                "username": "seller123",
-                "first_name": "Ahmed",
-                "last_name": "Al Mansoori",
-                "profile_photo_url": None,
-                "is_dealer": False,
-            },
             "car_images": [],
         }
 
-    def test_get_cars_uses_single_supabase_call(self):
-        """After the fix, get_cars must not call _batch_fetch_seller_map."""
+    def _make_seller_row(self):
+        return {
+            "id": "user-1",
+            "username": "seller123",
+            "first_name": "Ahmed",
+            "last_name": "Al Mansoori",
+            "profile_photo_url": None,
+            "is_dealer": False,
+        }
+
+    def test_get_cars_omits_users_embed_from_select(self):
+        """The select string must NOT include a users(...) PostgREST embed.
+
+        That embed caused a 400 in production because PostgREST could not
+        resolve the cars→users relationship. Pin via a captured params dict.
+        """
         car_row = self._make_car_row()
+        captured = {}
+
+        def fake_supabase_request(method, path, **kwargs):
+            captured["params"] = kwargs.get("params", {})
+            return [car_row], 200
 
         with backend.app.test_request_context("/api/cars"):
-            with patch.object(backend, "supabase_request", return_value=([car_row], 200)) as mock_supabase, \
+            with patch.object(backend, "supabase_request", side_effect=fake_supabase_request), \
                  patch.object(backend, "_api_cache_get", return_value=None), \
                  patch.object(backend, "_api_cache_set"), \
-                 patch.object(backend, "_batch_fetch_seller_map") as mock_seller_map:
+                 patch.object(backend, "_batch_fetch_seller_map", return_value={"user-1": self._make_seller_row()}):
+                backend.get_cars()
 
-                response, status = backend.get_cars()
+        select_str = captured["params"].get("select", "")
+        self.assertNotIn("users(", select_str)
+        self.assertNotIn("users!", select_str)
 
-        self.assertEqual(status, 200)
-        mock_seller_map.assert_not_called()
-        data = json.loads(response.data)
-        self.assertEqual(data[0]["seller_name"], "seller123")
-
-    def test_get_cars_seller_fields_populated_from_joined_users(self):
-        """Seller fields must be populated from the embedded users row."""
+    def test_get_cars_seller_fields_populated_from_batch_fetch(self):
+        """Seller fields must be populated from _batch_fetch_seller_map."""
         car_row = self._make_car_row()
 
         with backend.app.test_request_context("/api/cars"):
             with patch.object(backend, "supabase_request", return_value=([car_row], 200)), \
                  patch.object(backend, "_api_cache_get", return_value=None), \
-                 patch.object(backend, "_api_cache_set"):
+                 patch.object(backend, "_api_cache_set"), \
+                 patch.object(backend, "_batch_fetch_seller_map", return_value={"user-1": self._make_seller_row()}) as mock_seller_map:
 
                 response, status = backend.get_cars()
 
+        self.assertEqual(status, 200)
+        mock_seller_map.assert_called_once()
         data = json.loads(response.data)
         car = data[0]
         self.assertEqual(car["seller_name"], "seller123")
         self.assertIn("seller_id", car)
         self.assertIn("seller_verified", car)
-        self.assertNotIn("users", car)  # must be popped, not left in response
+        self.assertNotIn("users", car)
 
 
 class TestAdminAuthCaching(unittest.TestCase):

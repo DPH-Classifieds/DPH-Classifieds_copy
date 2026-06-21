@@ -5418,9 +5418,9 @@ def get_cars():
             "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
             "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
             "status,is_approved,view_count,lady_driven,"
-            "whatsapp_number,whatsapp_prefill_text,vin_number,"
-            "users(id,username,first_name,last_name,profile_photo_url,is_dealer),"
-            "car_images(" + LISTING_IMAGE_SELECTS["cars"] + ")"
+            "whatsapp_number,whatsapp_prefill_text,vin_number,car_images("
+            + LISTING_IMAGE_SELECTS["cars"]
+            + ")"
         )
 
         # Use service role for public fetches to ensure all approved listings and images are visible
@@ -5429,9 +5429,17 @@ def get_cars():
         )
 
         if status_code >= 400:
-            logger.error(f"Error response from Supabase: {response}")
+            err_message = ""
+            err_code = ""
+            if isinstance(response, dict):
+                err_message = response.get("message") or response.get("error") or ""
+                err_code = response.get("code") or ""
+            logger.error(
+                "get_cars_supabase_error status=%s code=%s msg=%s raw=%s",
+                status_code, err_code, err_message, response,
+            )
             return jsonify(
-                {"error": response.get("error", "Unknown error"), "data": []}
+                {"error": err_message or "Unknown error", "data": []}
             ), status_code
 
         # Ensure we always return a list
@@ -5453,10 +5461,15 @@ def get_cars():
                     img["url"] = img["image_url"]
             car["images"] = car_images
 
-        # Apply seller info from the embedded users join
-        for car in response:
-            user_info = car.pop("users", None) or {}
-            _apply_seller_to_listing(car, user_info)
+        # Fetch seller info for each car in a single batched request
+        try:
+            seller_map = _batch_fetch_seller_map(
+                [car.get("user_id") for car in response]
+            )
+            for car in response:
+                _apply_seller_to_listing(car, seller_map.get(car.get("user_id")))
+        except Exception as e:
+            logger.warning(f"Error fetching seller info: {e}")
 
         logger.info(f"Successfully fetched {len(response)} cars")
         _api_cache_set(cache_key, response)
