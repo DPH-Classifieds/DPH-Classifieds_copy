@@ -396,24 +396,44 @@ const PostPlate = () => {
   const handleSaveDraft = async () => {
     if (!user) return;
 
-    const draftPayload = {
-      plateForm: formData,
-      formData,
-      existingImageUrls,
-      whatsappSameAsPhone,
-      savedAt: new Date().toISOString(),
-    };
-
     setIsDraftSaving(true);
     setError(null);
     setDraftNotice('Saving draft...');
     try {
+      // Upload any newly cropped images before persisting the draft, so the
+      // photos survive a reload and the previewed blobs don't end up as a
+      // duplicate batch when the user later submits.
+      let mergedExisting = [...existingImageUrls];
+      let uploadedNow = [];
+      if (croppedImages.length > 0) {
+        const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
+        uploadedNow = await uploadListingImagesDirect(croppedFiles, { userId: user.id });
+        mergedExisting = [...mergedExisting, ...uploadedNow];
+      }
+
+      const draftPayload = {
+        plateForm: formData,
+        formData,
+        existingImageUrls: mergedExisting,
+        whatsappSameAsPhone,
+        savedAt: new Date().toISOString(),
+      };
+
       await saveListingDraft('plate', PLATE_DRAFT_STORAGE_KEY, draftPayload);
       if (isEdit && listingId) {
         await apiClient.post(`/api/user/listings/plate/${listingId}/outcome`, {
           outcome: 'move_to_draft',
         });
       }
+
+      if (uploadedNow.length > 0) {
+        croppedImages.forEach(({ previewUrl }) => {
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+        });
+        setCroppedImages([]);
+        setExistingImageUrls(mergedExisting);
+      }
+
       setDraftNotice('Draft saved.');
       trackEvent('save_listing_draft', { listing_type: 'plate', platform: 'web' });
     } catch (draftError) {

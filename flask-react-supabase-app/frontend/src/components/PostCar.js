@@ -1861,10 +1861,11 @@ const PostCar = () => {
       // Upload any newly selected (cropped) images before saving the draft,
       // so pictures survive across sessions and devices.
       let savedImages = [...existingImages];
+      let uploadedNow = [];
       if (croppedImages.length > 0) {
         const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
-        const uploaded = await uploadListingImagesDirect(croppedFiles, { userId: user.id });
-        savedImages = [...savedImages, ...uploaded];
+        uploadedNow = await uploadListingImagesDirect(croppedFiles, { userId: user.id });
+        savedImages = [...savedImages, ...uploadedNow];
       }
 
       const draftPayload = {
@@ -1890,6 +1891,17 @@ const PostCar = () => {
           outcome: 'move_to_draft',
         });
       }
+
+      // Move just-uploaded photos out of the cropped grid into existingImages
+      // so a same-session submit doesn't re-upload them as duplicates.
+      if (uploadedNow.length > 0) {
+        croppedImages.forEach(({ previewUrl }) => {
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+        });
+        setCroppedImages([]);
+        setExistingImages(savedImages);
+      }
+
       setDraftNotice('Draft saved.');
     } catch (draftError) {
       setError(draftError?.message || 'Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
