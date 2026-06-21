@@ -1853,19 +1853,29 @@ const PostCar = () => {
 
   const handleSaveDraft = async () => {
     if (!user) return;
-    const draftPayload = {
-      formData,
-      otherFuelType,
-      marker,
-      whatsappSameAsPhone,
-      existingImages,
-      savedAt: new Date().toISOString(),
-    };
 
     setIsDraftSaving(true);
     setError(null);
     setDraftNotice('Saving draft...');
     try {
+      // Upload any newly selected (cropped) images before saving the draft,
+      // so pictures survive across sessions and devices.
+      let savedImages = [...existingImages];
+      if (croppedImages.length > 0) {
+        const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
+        const uploaded = await uploadListingImagesDirect(croppedFiles, { userId: user.id });
+        savedImages = [...savedImages, ...uploaded];
+      }
+
+      const draftPayload = {
+        formData,
+        otherFuelType,
+        marker,
+        whatsappSameAsPhone,
+        existingImages: savedImages,
+        savedAt: new Date().toISOString(),
+      };
+
       localStorage.setItem(CAR_DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
       await apiClient.request('/api/user/drafts/car', {
         method: 'POST',
@@ -1882,7 +1892,6 @@ const PostCar = () => {
       }
       setDraftNotice('Draft saved.');
     } catch (draftError) {
-      console.error('Failed to save car draft:', draftError);
       setError(draftError?.message || 'Could not sync your draft right now. It was saved in this browser, but please try again before switching devices.');
     } finally {
       setIsDraftSaving(false);
@@ -2048,12 +2057,6 @@ const PostCar = () => {
         navigate('/my-listings');
       }, 2000);
     } catch (err) {
-      console.error('Error creating car listing:', err);
-      console.error('Error details:', {
-        status: err.status,
-        message: err.message,
-        details: err.details
-      });
       setError({
         message:
           err?.response?.data?.error ||

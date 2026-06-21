@@ -1547,6 +1547,35 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
     return supabase_request("post", path, data=fallback_payload, user_id=user_id)
 
 
+def _friendly_db_error(raw_data, status_code, listing_type="listing"):
+    """Translate a raw PostgREST error into a user-safe message and log the original."""
+    if isinstance(raw_data, dict):
+        raw_message = raw_data.get("message") or raw_data.get("error") or str(raw_data)
+        raw_code = str(raw_data.get("code") or "")
+    else:
+        raw_message = str(raw_data)
+        raw_code = ""
+
+    logger.error(
+        "listing_create_failed type=%s status=%s code=%s msg=%s",
+        listing_type, status_code, raw_code, raw_message[:500],
+    )
+
+    msg = raw_message.lower()
+    if raw_code == "42501" or "row-level security" in msg or "rls" in msg:
+        friendly = "We could not save your listing due to a permissions issue. Please try again or contact support."
+    elif raw_code == "23505" or "duplicate" in msg or "unique" in msg:
+        friendly = "A similar listing already exists."
+    elif raw_code == "23502" or "null value" in msg or "not-null" in msg:
+        friendly = "Some required information is missing. Please check all fields and try again."
+    elif raw_code in ("42P01", "42703"):
+        friendly = "A configuration error prevented saving. Please contact support."
+    else:
+        friendly = "We could not save your listing. Please try again."
+
+    return {"error": friendly}, status_code
+
+
 SITE_NAME = os.getenv("SITE_NAME", "UAE Classifieds")
 SITE_URL = os.getenv("SITE_URL", "https://www.dphclassifieds.com")
 
@@ -5944,8 +5973,8 @@ def create_car(current_user):
         logger.info(f"Database insert result: status={status_code}, data={data}")
 
         if status_code >= 400:
-            logger.error(f"Database insert failed: {data}")
-            return jsonify(data), status_code
+            friendly_data, friendly_status = _friendly_db_error(data, status_code, "car")
+            return jsonify(friendly_data), friendly_status
 
         car_id = data[0]["id"]
 
@@ -12616,7 +12645,8 @@ def create_bike(current_user):
         )
 
         if status_code >= 400:
-            return jsonify(data), status_code
+            friendly_data, friendly_status = _friendly_db_error(data, status_code, "bike")
+            return jsonify(friendly_data), friendly_status
 
         bike_id = data[0]["id"]
 
@@ -13560,8 +13590,8 @@ def create_part(current_user):
         )
 
         if status_code >= 400:
-            logger.error(f"Error creating part: {data}")
-            return jsonify(data), status_code
+            friendly_data, friendly_status = _friendly_db_error(data, status_code, "part")
+            return jsonify(friendly_data), friendly_status
 
         part_id = data[0]["id"]
         logger.info(f"Created part with ID: {part_id}")
@@ -14498,8 +14528,8 @@ def _create_plate_with_image_impl(current_user):
         )
 
         if status_code >= 400:
-            logger.error(f"Error creating plate: {response}")
-            return jsonify(response), status_code
+            friendly_data, friendly_status = _friendly_db_error(response, status_code, "plate")
+            return jsonify(friendly_data), friendly_status
 
         plate_id = response[0]["id"]
         logger.info(f"Created plate with ID: {plate_id}")
