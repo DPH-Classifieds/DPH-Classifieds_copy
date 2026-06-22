@@ -35,7 +35,7 @@ const buildLoginRedirect = () => {
 };
 
 export const SavedListingsProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [savedListings, setSavedListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingKeys, setSavingKeys] = useState({});
@@ -91,8 +91,12 @@ export const SavedListingsProvider = ({ children }) => {
   }, [showNotice, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // Wait until auth has finished initializing so we always have a valid
+    // Supabase token before making the first request.
+    if (authLoading) return;
+    if (!user?.id) { setSavedListings([]); return; }
     refreshSavedListings();
-  }, [refreshSavedListings, user?.id]);
+  }, [refreshSavedListings, user?.id, authLoading]);
 
   const savedLookup = useMemo(() => {
     return new Set(

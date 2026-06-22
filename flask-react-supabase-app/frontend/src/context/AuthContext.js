@@ -209,12 +209,13 @@ export const AuthProvider = ({ children }) => {
         if (backendUser) {
           console.log('Backend user found:', backendUser.email);
           setUser(backendUser);
+          // Refresh the Supabase token so downstream API calls (saved-listings,
+          // dealer/me, etc.) have a valid JWT by the time isLoading goes false.
+          await syncWithSupabase();
         } else if (userError) {
           console.error('Error checking backend user:', userError);
-          // If backend check fails, try Supabase directly
           await syncWithSupabase();
         } else {
-          // If no backend user, try Supabase directly
           await syncWithSupabase();
         }
       } catch (err) {
