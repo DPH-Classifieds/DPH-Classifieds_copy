@@ -86,7 +86,9 @@ export const SavedListingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [showNotice, user]);
+  // Depend on user?.id only so a token refresh (same user, new access_token)
+  // doesn't create a new callback reference and re-trigger the fetch effect.
+  }, [showNotice, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     refreshSavedListings();

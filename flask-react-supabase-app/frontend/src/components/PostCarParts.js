@@ -94,7 +94,7 @@ const PostCarParts = () => {
 
   useEffect(() => {
     syncWithSupabase();
-  }, [syncWithSupabase]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const fetchListing = async () => {

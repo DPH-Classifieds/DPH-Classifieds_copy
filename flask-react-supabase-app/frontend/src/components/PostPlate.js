@@ -128,7 +128,7 @@ const PostPlate = () => {
 
   useEffect(() => {
     syncWithSupabase();
-  }, [syncWithSupabase]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const username = String(user?.username || '').trim();

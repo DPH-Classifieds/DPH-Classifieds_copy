@@ -233,11 +233,18 @@ export const AuthProvider = ({ children }) => {
     // Set up Supabase auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Supabase auth state changed:', event);
+        if (event === 'TOKEN_REFRESHED') {
+          // Just update the stored token — no backend round-trip needed.
+          if (session?.access_token) {
+            authService.setAuthHeader(session.access_token);
+            setUser(prev => prev ? { ...prev, access_token: session.access_token, session } : prev);
+          }
+          return;
+        }
+
         if (session && session.user) {
           authService.setAuthHeader(session.access_token);
 
-          // Only check backend if we have a valid token
           const { user: backendUser, error: userError } = await authService.getCurrentUser();
           if (backendUser) {
             setUser({
@@ -246,7 +253,6 @@ export const AuthProvider = ({ children }) => {
               session
             });
           } else if (!userError || userError !== 'Token has expired or is invalid') {
-            // Only set Supabase user if backend error is not a token expiration
             setUser({
               ...session.user,
               access_token: session.access_token,
