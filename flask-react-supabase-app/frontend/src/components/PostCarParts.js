@@ -422,7 +422,7 @@ const PostCarParts = () => {
         condition: formData.condition,
         compatible_makes: parsedCompatibility.makes,
         compatible_models: parsedCompatibility.models,
-        compatible_years: formData.compatible_years === 'Any' ? [] : [formData.compatible_years],
+        compatible_years: formData.compatible_years === 'Any' ? '' : formData.compatible_years,
         price: Number(formData.price),
         location: (formData.area || formData.location).trim(),
         area: formData.area.trim(),

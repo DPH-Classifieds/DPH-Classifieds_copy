@@ -352,7 +352,9 @@ LISTING_IMAGE_SELECTS = {
     "cars": "id,car_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
     "bikes": "id,bike_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
     "car_parts": "id,part_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
-    "license_plates": "id,plate_id,image_url,url,display_url,focal_x,focal_y,crop_meta,created_at,updated_at,uploaded_at",
+    # plate_images may only have url/is_primary/uploaded_at in older DB setups;
+    # image_url, display_url, focal_* are added by add_plate_images_columns migration.
+    "license_plates": "id,plate_id,url,uploaded_at",
 }
 
 
@@ -1539,18 +1541,34 @@ def _strip_lifecycle_fields(payload):
     if not isinstance(payload, dict):
         return payload
     lifecycle_keys = {
+        # Original lifecycle columns (add_lifecycle_columns.sql)
         "expires_at",
         "expired_at",
         "retention_expires_at",
         "last_extended_at",
+        "extension_count",
+        "is_archived",
+        # Expiry/idempotency columns (add_listing_expiry_idempotency_columns.sql)
         "renewed_at",
         "deleted_at",
-        "extension_count",
         "expiry_reminder_sent_at",
         "expired_email_sent_at",
         "reminder_job_id",
         "expiration_job_id",
-        "is_archived",
+        # Lead-tracking / sold-outcome columns (add_lead_tracking_and_listing_outcomes)
+        "sold_status",
+        "sold_status_set_at",
+        "sold_response_deadline",
+        "auto_removed_at",
+        # Auto-review columns (add_auto_review_columns.sql)
+        "auto_review_state",
+        "auto_review_reasons",
+        "auto_review_decided_at",
+        # Draft-reminder columns (add_reminder_system_48h_20260619.sql)
+        "draft_reminder_sent_at",
+        "draft_reminder_claimed_at",
+        "draft_reminder_count",
+        # Other fields that newer schemas add
         "extras",
         "user_email",
     }
@@ -1565,14 +1583,17 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
         return response, status_code
 
     error_text = json.dumps(response).lower()
-    # Check for any lifecycle column errors
+    # Any column that lives in _strip_lifecycle_fields is a lifecycle column.
+    # If the DB is missing one (migration not yet applied), the insert fails with
+    # 42703 and we retry without it rather than surfacing a config error.
     lifecycle_error_keywords = [
-        "expires_at",
-        "retention_expires_at",
-        "expired_at",
-        "last_extended_at",
-        "extension_count",
-        "is_archived",
+        "expires_at", "retention_expires_at", "expired_at", "last_extended_at",
+        "extension_count", "is_archived",
+        "renewed_at", "deleted_at", "expiry_reminder_sent_at", "expired_email_sent_at",
+        "reminder_job_id", "expiration_job_id",
+        "sold_status", "sold_status_set_at", "sold_response_deadline", "auto_removed_at",
+        "auto_review_state", "auto_review_reasons", "auto_review_decided_at",
+        "draft_reminder_sent_at", "draft_reminder_claimed_at", "draft_reminder_count",
         "user_email",
     ]
     has_lifecycle_error = any(
@@ -11811,9 +11832,9 @@ def get_bikes():
             # Build query with join for images
             url = (
                 f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}"
-                "&select=id,user_id,bike_brand,bike_model,make_year,bike_category,engine_capacity,"
-                "expected_selling_price,kilometer_driven,description,created_at,updated_at,image_url,url,"
-                "display_url,status,is_approved,featured,views,bike_images("
+                "&select=id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
+                "color,price,location,area,emirate,description,contact_number,country_code,"
+                "status,is_approved,created_at,updated_at,bike_images("
                 + LISTING_IMAGE_SELECTS["bikes"]
                 + ")"
             )
@@ -11881,9 +11902,9 @@ def get_bikes():
             fallback_params = {
                 **params,
                 "select": (
-                    "id,user_id,bike_brand,bike_model,make_year,bike_category,engine_capacity,"
-                    "expected_selling_price,kilometer_driven,description,created_at,updated_at,image_url,url,"
-                    "display_url,status,is_approved,featured,views,bike_images("
+                    "id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
+                    "color,price,location,area,emirate,description,contact_number,country_code,"
+                    "status,is_approved,created_at,updated_at,bike_images("
                     + LISTING_IMAGE_SELECTS["bikes"]
                     + ")"
                 ),
@@ -13137,7 +13158,7 @@ def get_plates():
         url = (
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
-            "description,created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+            "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at,"
             "plate_images(" + LISTING_IMAGE_SELECTS["license_plates"] + ")"
         )
 
@@ -13444,8 +13465,9 @@ def get_parts():
             # Build query with join for images
             url = (
                 f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}"
-                "&select=id,user_id,category,part_type,brand,model,condition,price,description,city,"
-                "created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+                "&select=id,user_id,name,part_type,condition,price,location,area,emirate,"
+                "description,contact_number,country_code,status,is_approved,created_at,updated_at,"
+                "compatible_makes,compatible_models,compatible_years,"
                 "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
             )
 
@@ -13505,8 +13527,9 @@ def get_parts():
             fallback_params = {
                 **params,
                 "select": (
-                    "id,user_id,category,part_type,brand,model,condition,price,description,city,"
-                    "created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
+                    "id,user_id,name,part_type,condition,price,location,area,emirate,"
+                    "description,contact_number,country_code,status,is_approved,created_at,updated_at,"
+                    "compatible_makes,compatible_models,compatible_years,"
                     "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
                 ),
             }
@@ -14691,9 +14714,8 @@ def _create_plate_with_image_impl(current_user):
             image_data = {
                 "plate_id": plate_id,
                 "url": image_url,
-                "image_url": image_url,
+                "image_url": image_url,  # present in 00_COMPLETE_SCHEMA; ignored if column absent
                 "is_primary": True,
-                "cropped_at": _isoformat_utc(_utc_now()),
             }
 
             image_response, image_status = supabase_request(
