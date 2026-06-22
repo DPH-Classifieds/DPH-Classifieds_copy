@@ -13,8 +13,6 @@ ALTER TABLE public.plate_images
   ADD COLUMN IF NOT EXISTS is_primary  BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMPTZ DEFAULT NOW();
 
--- Backfill image_url from url where image_url is null
-UPDATE public.plate_images SET image_url = url WHERE image_url IS NULL AND url IS NOT NULL;
 
 -- ── bikes: add columns the POST handler writes ────────────────────────────
 ALTER TABLE public.bikes
