@@ -10,17 +10,12 @@ import { getAreasForEmirate } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
-import UnifiedCropper from './cropper/UnifiedCropper';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
 
-const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const SUPPORTED_PROOF_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
-const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
-const MAX_IMAGES = 10;
 const MAX_PROOF_SIZE_BYTES = 20 * 1024 * 1024;
 
 const RequiredMark = () => <span className="required-asterisk">*</span>;
@@ -97,18 +92,12 @@ const PostPlate = () => {
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
 
-  const fileInputRef = useRef(null);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDraftSaving, setIsDraftSaving] = useState(false);
   const [isLoadingListing, setIsLoadingListing] = useState(isEdit);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [draftNotice, setDraftNotice] = useState(null);
-  const [pendingCropFiles, setPendingCropFiles] = useState(null);
-  const [croppedImages, setCroppedImages] = useState([]); // Array<{croppedFile, originalFile, previewUrl}>
-  const [existingImageUrls, setExistingImageUrls] = useState([]);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [proofFile, setProofFile] = useState(null);
   const [proofDocumentUrl, setProofDocumentUrl] = useState('');
   const [isUploadingProof, setIsUploadingProof] = useState(false);
@@ -203,12 +192,6 @@ const PostPlate = () => {
             normalizedWhatsapp.localNumber === normalizedContact.localNumber
         );
 
-        const urls = Array.isArray(data.images)
-          ? data.images
-              .map((img) => img?.display_url || img?.image_url || img?.url)
-              .filter(Boolean)
-          : [];
-        setExistingImageUrls(urls);
       } catch (fetchError) {
         setError(fetchError.message || 'Failed to load plate listing');
       } finally {
@@ -235,9 +218,6 @@ const PostPlate = () => {
       if (draftForm) {
         setFormData((prev) => ({ ...prev, ...draftForm }));
       }
-      if (Array.isArray(draft.existingImageUrls)) {
-        setExistingImageUrls(draft.existingImageUrls);
-      }
       if (typeof draft.whatsappSameAsPhone === 'boolean') {
         setWhatsappSameAsPhone(draft.whatsappSameAsPhone);
       }
@@ -249,16 +229,6 @@ const PostPlate = () => {
       cancelled = true;
     };
   }, [isEdit, user?.id]);
-
-  // Revoke cropped preview blob URLs on unmount to avoid memory leaks.
-  useEffect(() => {
-    return () => {
-      croppedImages.forEach(({ previewUrl }) => {
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-      });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const isUnauthed = !isLoading && !user;
   const codeOptions = useMemo(() => getCodeOptions(formData.city), [formData.city]);
@@ -370,37 +340,6 @@ const PostPlate = () => {
     });
   };
 
-  const onPickImages = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    const validFiles = [];
-    for (const file of files) {
-      if (croppedImages.length + validFiles.length >= MAX_IMAGES) {
-        setError(`Maximum ${MAX_IMAGES} images allowed`);
-        break;
-      }
-      if (!SUPPORTED_IMAGE_TYPES.includes((file.type || '').toLowerCase())) {
-        setError(`Unsupported file type: ${file.name}`);
-        continue;
-      }
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        setError(`File too large: ${file.name}. Max size is 20MB.`);
-        continue;
-      }
-      validFiles.push(file);
-    }
-
-    if (!validFiles.length) return;
-    setError(null);
-    setPendingCropFiles(validFiles);
-    e.target.value = '';
-  };
-
-  const removeExistingImage = (index) => {
-    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const handleProofFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -447,21 +386,9 @@ const PostPlate = () => {
     setError(null);
     setDraftNotice('Saving draft...');
     try {
-      // Upload any newly cropped images before persisting the draft, so the
-      // photos survive a reload and the previewed blobs don't end up as a
-      // duplicate batch when the user later submits.
-      let mergedExisting = [...existingImageUrls];
-      let uploadedNow = [];
-      if (croppedImages.length > 0) {
-        const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
-        uploadedNow = await uploadListingImagesDirect(croppedFiles, { userId: user.id });
-        mergedExisting = [...mergedExisting, ...uploadedNow];
-      }
-
       const draftPayload = {
         plateForm: formData,
         formData,
-        existingImageUrls: mergedExisting,
         whatsappSameAsPhone,
         savedAt: new Date().toISOString(),
       };
@@ -471,14 +398,6 @@ const PostPlate = () => {
         await apiClient.post(`/api/user/listings/plate/${listingId}/outcome`, {
           outcome: 'move_to_draft',
         });
-      }
-
-      if (uploadedNow.length > 0) {
-        croppedImages.forEach(({ previewUrl }) => {
-          if (previewUrl) URL.revokeObjectURL(previewUrl);
-        });
-        setCroppedImages([]);
-        setExistingImageUrls(mergedExisting);
       }
 
       setDraftNotice('Draft saved.');
@@ -994,18 +913,6 @@ const PostPlate = () => {
           </form>
         </div>
       </section>
-      {pendingCropFiles && (
-        <UnifiedCropper
-          kind="plate"
-          images={pendingCropFiles}
-          isOpen
-          onClose={() => setPendingCropFiles(null)}
-          onComplete={(results) => {
-            setCroppedImages((prev) => [...prev, ...results]);
-            setPendingCropFiles(null);
-          }}
-        />
-      )}
     </div>
   );
 };
