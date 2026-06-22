@@ -1635,6 +1635,8 @@ def _friendly_db_error(raw_data, status_code, listing_type="listing"):
         friendly = "A configuration error prevented saving. Please contact support."
     elif raw_code == "23514" or "violates check constraint" in msg:
         friendly = "One of the submitted values is not allowed. Please contact support if this persists."
+    elif raw_code == "22P02" or "malformed array literal" in msg or "invalid input syntax" in msg:
+        friendly = "One of the submitted values has an unexpected format. Please check your inputs and try again."
     else:
         friendly = "We could not save your listing. Please try again."
 
@@ -13691,6 +13693,13 @@ def create_part(current_user):
         part_data = {k: v for k, v in part_data.items() if k in part_allowed_fields}
         part_data["user_email"] = get_user_email(current_user)
 
+        # compatible_years is TEXT[] in the DB — coerce string values to array/null
+        cy = part_data.get("compatible_years")
+        if not cy:
+            part_data["compatible_years"] = None
+        elif isinstance(cy, str):
+            part_data["compatible_years"] = [cy]
+
         # Validate required fields
         required_fields = ["name", "part_type", "price"]
         for field in required_fields:
@@ -13922,6 +13931,15 @@ def update_part(current_user, part_id):
             "is_dealer",
         }
         update_data = {k: v for k, v in update_data.items() if k in part_allowed_fields}
+
+        # compatible_years is TEXT[] in the DB — coerce string values to array/null
+        if "compatible_years" in update_data:
+            cy = update_data["compatible_years"]
+            if not cy:
+                update_data["compatible_years"] = None
+            elif isinstance(cy, str):
+                update_data["compatible_years"] = [cy]
+
         try:
             _require_whatsapp_prefill_and_phone_alignment(update_data, "parts")
         except ValueError as validation_error:
