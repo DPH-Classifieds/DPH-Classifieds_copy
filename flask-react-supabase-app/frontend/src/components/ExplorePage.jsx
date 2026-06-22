@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const LIST_PAGE_SIZE = 24;
 const INVENTORY_CACHE_TTL_MS = 60 * 1000;
 const inflightInventoryRequests = new Map();
 
@@ -473,10 +474,10 @@ const ExplorePage = () => {
       setError('');
 
       const requests = await Promise.allSettled([
-        fetchJsonWithCache(`${API_URL}/api/cars?limit=60&order=created_at.desc`),
-        fetchJsonWithCache(`${API_URL}/api/bikes?limit=60&order=created_at.desc`),
-        fetchJsonWithCache(`${API_URL}/api/parts?limit=60&order=created_at.desc`),
-        fetchJsonWithCache(`${API_URL}/api/plates?limit=60&order=created_at.desc`),
+        fetchJsonWithCache(`${API_URL}/api/cars?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
+        fetchJsonWithCache(`${API_URL}/api/bikes?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
+        fetchJsonWithCache(`${API_URL}/api/parts?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
+        fetchJsonWithCache(`${API_URL}/api/plates?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
       ]);
 
       if (!isMounted) {

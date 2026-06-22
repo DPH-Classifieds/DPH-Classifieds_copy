@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from services.dealer_market import compute_snapshot, upsert_snapshot
+from services.dealer_market import compute_snapshot
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = (
@@ -28,6 +28,9 @@ def _svc():
             "Accept": "application/json"}
 
 
+_SNAPSHOT_CHUNK = 100
+
+
 def run():
     # Active cars under any dealership (v1 limits to 'car' type).
     r = requests.get(
@@ -39,10 +42,24 @@ def run():
                 "limit": 5000},
         timeout=30,
     )
+
+    # Compute all snapshots, then batch-insert in chunks to cut round trips
+    # from up to 5000 individual POSTs down to ceil(n/100).
+    snaps = []
     for row in (r.json() if r.status_code == 200 else []):
         snap = compute_snapshot("car", row["id"], row["dealership_id"])
         if snap and not snap.get("insufficient_comps"):
-            upsert_snapshot(snap, row["dealership_id"])
+            snaps.append({**snap, "dealership_id": row["dealership_id"]})
+
+    for i in range(0, len(snaps), _SNAPSHOT_CHUNK):
+        chunk = snaps[i : i + _SNAPSHOT_CHUNK]
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/dealer_market_snapshots",
+            headers={**_svc(), "Content-Type": "application/json",
+                     "Prefer": "return=minimal,resolution=ignore-duplicates"},
+            json=chunk,
+            timeout=30,
+        )
 
     # Purge snapshots > 90 days.
     cutoff = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()

@@ -9,10 +9,13 @@ import './PlatesRedesigned.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const LIST_PAGE_SIZE = 24;
 
 const PlatesRedesigned = () => {
   const [plates, setPlates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     city: 'All cities',
@@ -73,16 +76,14 @@ const PlatesRedesigned = () => {
   ];
 
   useEffect(() => {
-    const fetchPlates = async () => {
+    const fetchPlates = async ({ reset = true, offset = 0 } = {}) => {
       try {
-        const url = `${API_URL}/api/plates`;
+        const url = `${API_URL}/api/plates?limit=${LIST_PAGE_SIZE}&offset=${Math.max(0, offset)}&order=created_at.desc`;
         const cached = readJsonSessionCache(url);
         if (Array.isArray(cached)) {
           const cachedApproved = cached.filter((plate) => plate.status === 'approved');
-          setPlates(cachedApproved);
-          setLoading(false);
-        } else {
-          setLoading(true);
+          setHasMore(cachedApproved.length === LIST_PAGE_SIZE);
+          setPlates((prev) => (reset ? cachedApproved : [...prev, ...cachedApproved]));
         }
 
         const response = await fetchJsonWithCache(url);
@@ -97,17 +98,19 @@ const PlatesRedesigned = () => {
         }
         
         const approvedPlates = data.filter((plate) => plate.status === 'approved');
-        setPlates(approvedPlates);
+        setHasMore(approvedPlates.length === LIST_PAGE_SIZE);
+        setPlates((prev) => (reset ? approvedPlates : [...prev, ...approvedPlates]));
         setError(null);
       } catch (err) {
         console.error('Error fetching plates:', err);
         setError('Failed to load plates. Please try again later.');
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     };
 
-    fetchPlates();
+    fetchPlates({ reset: true, offset: 0 });
   }, []);
 
   const handleFilterChange = (e) => {
@@ -403,8 +406,8 @@ const PlatesRedesigned = () => {
           <span className="platesd-results-count">{sortedPlates.length} license plates</span>
         </div>
 
-        <div className="platesd-grid">
-          {sortedPlates.length > 0 ? (
+      <div className="platesd-grid">
+        {sortedPlates.length > 0 ? (
             sortedPlates.map(plate => (
               <Link
                 key={plate.id}
@@ -439,10 +442,43 @@ const PlatesRedesigned = () => {
               <p>No license plates match your current filters. Please try different criteria.</p>
             </div>
           )}
-        </div>
-
-        <BrowseSellCta category="plates" />
       </div>
+
+      {hasMore && plates.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+          <button
+            type="button"
+            className="platesd-back-button"
+            disabled={loadingMore}
+            onClick={() => {
+              const nextOffset = plates.length;
+              setLoadingMore(true);
+              fetchJsonWithCache(
+                `${API_URL}/api/plates?limit=${LIST_PAGE_SIZE}&offset=${nextOffset}&order=created_at.desc`
+              )
+                .then((response) => {
+                  if (!response.ok) {
+                    throw new Error(`Failed to fetch plates: ${response.status}`);
+                  }
+                  const data = Array.isArray(response.data) ? response.data : [];
+                  const approvedPlates = data.filter((plate) => plate.status === 'approved');
+                  setHasMore(approvedPlates.length === LIST_PAGE_SIZE);
+                  setPlates((prev) => [...prev, ...approvedPlates]);
+                })
+                .catch((err) => {
+                  console.error('Error fetching more plates:', err);
+                  setError('Failed to load plates. Please try again later.');
+                })
+                .finally(() => setLoadingMore(false));
+            }}
+          >
+            {loadingMore ? 'Loading more...' : 'Load more plates'}
+          </button>
+        </div>
+      )}
+
+      <BrowseSellCta category="plates" />
+    </div>
     </div>
   );
 };

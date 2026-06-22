@@ -47,7 +47,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "postinstall": "node scripts/ensure-mediapipe-sourcemap.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

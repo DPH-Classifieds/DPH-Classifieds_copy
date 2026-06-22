@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-06-19
+
+### Security And Performance Pass
+- Hardened the backend CSP so `unsafe-eval` is no longer included in production unless `CSP_ALLOW_UNSAFE_EVAL=true` is explicitly set.
+- Disabled CRA sourcemap emission in the production frontend build path and Vercel config so production bundles no longer ship `.map` files.
+- Moved contact and auth rate limiting onto Redis-backed fixed windows with the existing in-memory deque fallback preserved for local/dev.
+- Split the heavy seller-form dependencies out of the initial `PostCar` bundle by lazy-loading PDF rendering, Tesseract OCR, and the Leaflet map stack.
+- Reduced the car listing initial fetch size and added a load-more flow so the page no longer pulls the entire first result set on load.
+- Applied the same initial-fetch reduction to the shared explore page plus the bikes, plates, and car-parts browse pages so the other categories no longer bootstrap with full collections.
+
+### Verification
+- Passed: `cd flask-react-supabase-app/backend && ./.venv/bin/python -m unittest test_user_flow_contracts -v`
+- Passed: `cd flask-react-supabase-app/backend && ./.venv/bin/python -m py_compile app.py test_user_flow_contracts.py`
+- Passed: `cd flask-react-supabase-app/frontend && npm run build`
+- Confirmed: `find flask-react-supabase-app/frontend/build/static -name '*.map' | wc -l` returned `0` after the production build script change.
+
 ## 2026-06-18
 
 ### User Listing Flows

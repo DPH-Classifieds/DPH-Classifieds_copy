@@ -511,10 +511,10 @@ def _invalidate_api_cache_prefixes(prefixes):
 
 def _invalidate_public_inventory_cache(item_type):
     public_prefixes = {
-        "cars": ["/api/cars", "/api/homepage/preview", "/api/recommendations"],
-        "bikes": ["/api/bikes"],
-        "parts": ["/api/parts"],
-        "plates": ["/api/plates"],
+        "cars": ["/api/cars", "/api/homepage/preview", "/api/recommendations", "/api/sitemap.xml"],
+        "bikes": ["/api/bikes", "/api/sitemap.xml"],
+        "parts": ["/api/parts", "/api/sitemap.xml"],
+        "plates": ["/api/plates", "/api/sitemap.xml"],
         "buying_requests": ["/api/buying-requests"],
     }
     _invalidate_api_cache_prefixes(public_prefixes.get(item_type, [f"/api/{item_type}"]))
@@ -524,6 +524,48 @@ def _cached_json_response(payload, status_code=200, ttl_seconds=API_CACHE_TTL_SE
     response = make_response(jsonify(payload), status_code)
     response.headers["Cache-Control"] = f"public, max-age={ttl_seconds}"
     return response
+
+
+def _cache_lock_acquire(cache_key, ttl_seconds=5):
+    """Try to acquire a short-lived Redis recompute lock (SETNX).
+
+    Returns True if the lock was acquired (caller should compute).
+    Returns False if another worker holds the lock (caller should wait then re-read).
+    Always returns True when Redis is unavailable so callers never deadlock.
+    """
+    redis_client = _get_redis_cache_client()
+    if not redis_client:
+        return True
+    try:
+        return bool(redis_client.set(f"{cache_key}:lock", "1", nx=True, ex=ttl_seconds))
+    except Exception:
+        return True
+
+
+def _with_cache(cache_key, compute_fn, ttl_seconds):
+    """Cache-aside helper with stampede protection.
+
+    compute_fn() must return a JSON-serialisable value (dict or list).
+    Returns the cached value, or the freshly-computed one after storing it.
+    Does not cache None — callers that need to cache 'no result' should return
+    an explicit sentinel dict instead.
+    """
+    cached = _api_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not _cache_lock_acquire(cache_key):
+        # Another worker is recomputing; wait briefly then re-read.
+        time.sleep(0.15)
+        cached = _api_cache_get(cache_key)
+        if cached is not None:
+            return cached
+        # Lock holder may have died — fall through and compute.
+
+    result = compute_fn()
+    if result is not None:
+        _api_cache_set(cache_key, result, ttl_seconds)
+    return result
 
 
 def _parse_pagination_args():
@@ -3685,14 +3727,33 @@ CORS(
     app, resources={r"/*": {"origins": _get_cors_origins()}}, supports_credentials=True
 )
 
-# Enable compression for better performance
+# Enable compression for better performance.
+# - Algorithm order: brotli first (smaller), gzip fallback.
+# - Only text/JSON types are listed; image/* and other binary types are
+#   intentionally absent so already-compressed payloads are never recompressed.
+# - The library also skips responses that already carry Content-Encoding,
+#   providing a second guard against double-compression.
+# - Vary: Accept-Encoding is injected automatically by flask-compress.
 try:
     from flask_compress import Compress
 
-    app.config.setdefault("COMPRESS_LEVEL", 6)
+    app.config.setdefault("COMPRESS_MIMETYPES", [
+        "application/json",
+        "text/css",
+        "text/javascript",  # RFC 9239 canonical type (application/javascript is obsolete)
+        "text/plain",
+        "text/xml",
+    ])
     app.config.setdefault("COMPRESS_ALGORITHM", ["br", "gzip"])
+    app.config.setdefault("COMPRESS_MIN_SIZE", 500)   # bytes; skip tiny responses
+    app.config.setdefault("COMPRESS_LEVEL", 6)        # gzip compression level
+    app.config.setdefault("COMPRESS_BR_LEVEL", 4)     # brotli quality (0-11)
     Compress(app)
-    logger.info("Flask-Compress enabled with Gzip and Brotli")
+    logger.info(
+        "Flask-Compress enabled: algorithms=%s min_size=%dB",
+        app.config["COMPRESS_ALGORITHM"],
+        app.config["COMPRESS_MIN_SIZE"],
+    )
 except ImportError:
     logger.warning("flask-compress not installed, skipping compression")
 except Exception as e:
@@ -8627,13 +8688,13 @@ def upload_dealer_document(current_user):
             timeout=10,
         )
         if existing_resp.status_code == 200 and existing_resp.json():
-            for prev in existing_resp.json():
-                requests.patch(
-                    f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{prev['id']}",
-                    headers=headers,
-                    json={"replaced_at": "now()"},
-                    timeout=10,
-                )
+            prev_ids = ",".join(str(p["id"]) for p in existing_resp.json())
+            requests.patch(
+                f"{SUPABASE_URL}/rest/v1/dealer_documents?id=in.({prev_ids})",
+                headers=headers,
+                json={"replaced_at": "now()"},
+                timeout=10,
+            )
 
         insert_payload = {
             "user_id": current_user,
@@ -16284,6 +16345,17 @@ def get_email_metrics(current_user):
     days   = max(min(int(request.args.get("days", 30)), 365), 1)
     cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
 
+    _EMAIL_METRICS_TTL = 60
+    _email_cache_key = f"api-cache:/api/admin/metrics/email?days={days}"
+    _email_cached = _api_cache_get(_email_cache_key)
+    if _email_cached is not None:
+        return jsonify(_email_cached), 200
+    if not _cache_lock_acquire(_email_cache_key):
+        time.sleep(0.15)
+        _email_cached = _api_cache_get(_email_cache_key)
+        if _email_cached is not None:
+            return jsonify(_email_cached), 200
+
     rows, status_code = supabase_request(
         "get",
         "/rest/v1/outbound_emails",
@@ -16339,7 +16411,7 @@ def get_email_metrics(current_user):
             daily_map[day] += 1
     daily = [{"date": d, "count": c} for d, c in sorted(daily_map.items())]
 
-    return jsonify({
+    _email_result = {
         "summary": {
             "total_sent":       total,
             "delivered":        delivered,
@@ -16354,7 +16426,9 @@ def get_email_metrics(current_user):
         },
         "by_type": by_type,
         "daily":   daily,
-    }), 200
+    }
+    _api_cache_set(_email_cache_key, _email_result, _EMAIL_METRICS_TTL)
+    return jsonify(_email_result), 200
 
 
 @app.route("/api/admin/metrics/overview", methods=["GET"])
@@ -16368,6 +16442,17 @@ def get_admin_metrics_overview(current_user):
 
         days = max(min(int(request.args.get("days", 30)), 365), 1)
         cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+
+        _OVERVIEW_METRICS_TTL = 60
+        _overview_cache_key = f"api-cache:/api/admin/metrics/overview?days={days}"
+        _overview_cached = _api_cache_get(_overview_cache_key)
+        if _overview_cached is not None:
+            return jsonify(_overview_cached), 200
+        if not _cache_lock_acquire(_overview_cache_key):
+            time.sleep(0.15)
+            _overview_cached = _api_cache_get(_overview_cache_key)
+            if _overview_cached is not None:
+                return jsonify(_overview_cached), 200
 
         events_resp, events_status = supabase_request(
             "get",
@@ -16520,6 +16605,7 @@ def get_admin_metrics_overview(current_user):
             logger.warning("Cloudflare metrics override skipped: %s", cf_err)
             metrics.setdefault("user_metrics", {})["data_source"] = "platform_events"
 
+        _api_cache_set(_overview_cache_key, metrics, _OVERVIEW_METRICS_TTL)
         return jsonify(metrics), 200
     except Exception as e:
         logger.error(f"Error fetching admin metrics overview: {str(e)}")
@@ -20003,10 +20089,12 @@ def beta_verify():
 @app.route("/api/sitemap.xml", methods=["GET"])
 @app.route("/sitemap.xml", methods=["GET"])
 def sitemap_xml():
-    sitemap_body = _build_sitemap_xml()
+    _SITEMAP_TTL = 900
+    _sitemap_cache_key = "api-cache:/api/sitemap.xml"
+    sitemap_body = _with_cache(_sitemap_cache_key, _build_sitemap_xml, _SITEMAP_TTL)
     response = make_response(sitemap_body, 200)
     response.headers["Content-Type"] = "application/xml; charset=utf-8"
-    response.headers["Cache-Control"] = "public, max-age=900"
+    response.headers["Cache-Control"] = f"public, max-age={_SITEMAP_TTL}"
     return response
 
 

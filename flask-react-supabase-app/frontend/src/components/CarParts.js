@@ -10,6 +10,7 @@ import '../styles/CarParts.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
+const LIST_PAGE_SIZE = 24;
 
 const getListingImageUrl = (part) => {
   const candidate =
@@ -26,6 +27,8 @@ const getListingImageUrl = (part) => {
 const CarParts = () => {
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     query: '',
@@ -34,15 +37,13 @@ const CarParts = () => {
   });
 
   useEffect(() => {
-    const fetchCarParts = async () => {
+    const fetchCarParts = async ({ reset = true, offset = 0 } = {}) => {
       try {
-        const url = `${API_URL}/api/parts`;
+        const url = `${API_URL}/api/parts?limit=${LIST_PAGE_SIZE}&offset=${Math.max(0, offset)}&order=created_at.desc`;
         const cached = readJsonSessionCache(url);
         if (Array.isArray(cached)) {
-          setParts(cached);
-          setLoading(false);
-        } else {
-          setLoading(true);
+          setHasMore(cached.length === LIST_PAGE_SIZE);
+          setParts((prev) => (reset ? cached : [...prev, ...cached]));
         }
 
         const response = await fetchJsonWithCache(url);
@@ -54,16 +55,18 @@ const CarParts = () => {
         if (!Array.isArray(data)) {
           throw new Error('Unexpected response for parts list.');
         }
-        setParts(data);
+        setHasMore(data.length === LIST_PAGE_SIZE);
+        setParts((prev) => (reset ? data : [...prev, ...data]));
       } catch (err) {
         setError('Failed to load car parts. Please try again later.');
         console.error('Error fetching car parts:', err);
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     };
 
-    fetchCarParts();
+    fetchCarParts({ reset: true, offset: 0 });
   }, []);
 
   const handleFilterChange = (event) => {
@@ -214,6 +217,38 @@ const CarParts = () => {
           </div>
         ))}
       </div>
+
+      {hasMore && parts.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+          <button
+            type="button"
+            className="view-details-btn"
+            disabled={loadingMore}
+            onClick={() => {
+              const nextOffset = parts.length;
+              setLoadingMore(true);
+              fetchJsonWithCache(
+                `${API_URL}/api/parts?limit=${LIST_PAGE_SIZE}&offset=${nextOffset}&order=created_at.desc`
+              )
+                .then((response) => {
+                  if (!response.ok) {
+                    throw new Error(`Failed to fetch car parts: ${response.status}`);
+                  }
+                  const data = Array.isArray(response.data) ? response.data : [];
+                  setHasMore(data.length === LIST_PAGE_SIZE);
+                  setParts((prev) => [...prev, ...data]);
+                })
+                .catch((err) => {
+                  console.error('Error fetching more car parts:', err);
+                  setError('Failed to load car parts. Please try again later.');
+                })
+                .finally(() => setLoadingMore(false));
+            }}
+          >
+            {loadingMore ? 'Loading more...' : 'Load more parts'}
+          </button>
+        </div>
+      )}
       
       {filteredParts.length === 0 && (
         <div className="no-parts">

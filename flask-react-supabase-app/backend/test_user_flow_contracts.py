@@ -244,6 +244,34 @@ class UserFlowContractsTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["categories"]["cars"], 1)
         self.assertEqual(payload["searches"][0]["owner_email"], "one@example.com")
 
+    def test_production_csp_omits_unsafe_eval(self):
+        with patch.dict(
+            backend.os.environ,
+            {"FLASK_ENV": "production", "CSP_ALLOW_UNSAFE_EVAL": "false"},
+            clear=False,
+        ):
+            policy = backend._build_content_security_policy()
+
+        self.assertNotIn("'unsafe-eval'", policy)
+
+    @patch.object(backend, "_get_redis_cache_client")
+    def test_auth_rate_limit_uses_redis_counter(self, mock_get_redis):
+        redis_client = Mock()
+        redis_client.incr.return_value = backend.AUTH_RATE_LIMIT_MAX + 1
+        mock_get_redis.return_value = redis_client
+
+        self.assertTrue(backend._auth_rate_limited("203.0.113.10"))
+        redis_client.incr.assert_called()
+
+    @patch.object(backend, "_get_redis_cache_client")
+    def test_contact_rate_limit_sets_redis_expiry(self, mock_get_redis):
+        redis_client = Mock()
+        redis_client.incr.return_value = 1
+        mock_get_redis.return_value = redis_client
+
+        self.assertFalse(backend._contact_rate_limited("203.0.113.10"))
+        redis_client.expire.assert_called_once()
+
     @patch.object(backend, "requests")
     @patch.object(backend, "supabase_request")
     def test_delete_account_deactivates_owned_data_and_deletes_auth_user(self, mock_supabase, mock_requests):

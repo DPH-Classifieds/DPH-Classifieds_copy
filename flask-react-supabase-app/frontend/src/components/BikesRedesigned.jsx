@@ -10,10 +10,13 @@ import './BikesRedesigned.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
+const LIST_PAGE_SIZE = 24;
 
 const BikesRedesigned = () => {
   const [bikes, setBikes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     type: 'all',
@@ -41,15 +44,13 @@ const BikesRedesigned = () => {
   };
 
   useEffect(() => {
-    const fetchBikes = async () => {
+    const fetchBikes = async ({ reset = true, offset = 0 } = {}) => {
       try {
-        const url = `${API_URL}/api/bikes`;
+        const url = `${API_URL}/api/bikes?limit=${LIST_PAGE_SIZE}&offset=${Math.max(0, offset)}&order=created_at.desc`;
         const cached = readJsonSessionCache(url);
         if (Array.isArray(cached)) {
-          setBikes(cached);
-          setLoading(false);
-        } else {
-          setLoading(true);
+          setHasMore(cached.length === LIST_PAGE_SIZE);
+          setBikes((prev) => (reset ? cached : [...prev, ...cached]));
         }
 
         const response = await fetchJsonWithCache(url);
@@ -59,17 +60,19 @@ const BikesRedesigned = () => {
         if (!Array.isArray(response.data)) {
           throw new Error('Unexpected response for bikes list.');
         }
-        setBikes(response.data);
+        setHasMore(response.data.length === LIST_PAGE_SIZE);
+        setBikes((prev) => (reset ? response.data : [...prev, ...response.data]));
         setError(null);
       } catch (err) {
         console.error('Error fetching bikes:', err);
         setError('Failed to load bikes. Please try again later.');
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     };
 
-    fetchBikes();
+    fetchBikes({ reset: true, offset: 0 });
   }, []);
 
   const handleFilterChange = (e) => {
@@ -423,6 +426,40 @@ const BikesRedesigned = () => {
             </div>
           )}
         </div>
+
+        {hasMore && bikes.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+            <button
+              type="button"
+              className="biked-view-button"
+              disabled={loadingMore}
+              onClick={() => {
+                const nextOffset = bikes.length;
+                setLoadingMore(true);
+                fetchJsonWithCache(
+                  `${API_URL}/api/bikes?limit=${LIST_PAGE_SIZE}&offset=${nextOffset}&order=created_at.desc`
+                )
+                  .then((response) => {
+                    if (!response.ok) {
+                      throw new Error(`Failed to fetch bikes: ${response.status}`);
+                    }
+                    if (!Array.isArray(response.data)) {
+                      throw new Error('Unexpected response for bikes list.');
+                    }
+                    setHasMore(response.data.length === LIST_PAGE_SIZE);
+                    setBikes((prev) => [...prev, ...response.data]);
+                  })
+                  .catch((err) => {
+                    console.error('Error fetching more bikes:', err);
+                    setError('Failed to load bikes. Please try again later.');
+                  })
+                  .finally(() => setLoadingMore(false));
+              }}
+            >
+              {loadingMore ? 'Loading more...' : 'Load more bikes'}
+            </button>
+          </div>
+        )}
 
         <BrowseSellCta category="bikes" />
       </div>

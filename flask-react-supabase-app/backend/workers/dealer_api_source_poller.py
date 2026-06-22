@@ -147,39 +147,69 @@ def _build_car_payload(dealership_id, coerced):
     return {k: v for k, v in payload.items() if v is not None}
 
 
-def _upsert_car(dealership_id, coerced):
-    """Returns ('created'|'updated', car_id) or raises."""
-    ext_id = coerced.get("external_id")
-    if ext_id:
+_UPSERT_CHUNK = 50
+
+
+def _bulk_upsert_cars(dealership_id, rows_with_ext, rows_without_ext, counts):
+    """Batch-upsert rows into cars, mutating counts in-place.
+
+    Strategy: one batch GET per 50 external_ids to resolve existing rows,
+    then chunked bulk INSERT for new ones and individual PATCH for existing.
+    """
+    # Resolve existing external_ids in batches.
+    existing_id_map = {}  # external_id -> car_id
+    all_ext_ids = [c["external_id"] for c in rows_with_ext]
+    for i in range(0, len(all_ext_ids), _UPSERT_CHUNK):
+        chunk_ids = all_ext_ids[i : i + _UPSERT_CHUNK]
         r = requests.get(
             f"{SUPABASE_URL}/rest/v1/cars",
             headers=_svc(prefer=""),
             params={
-                "select": "id",
+                "select": "id,external_id",
                 "dealership_id": f"eq.{dealership_id}",
-                "external_id": f"eq.{ext_id}",
-                "limit": 1,
+                "external_id": f"in.({','.join(chunk_ids)})",
             },
-            timeout=10,
+            timeout=15,
         )
-        if r.status_code == 200 and r.json():
-            car_id = r.json()[0]["id"]
-            requests.patch(
+        if r.status_code == 200:
+            for row in r.json():
+                existing_id_map[row["external_id"]] = row["id"]
+
+    to_insert = [c for c in rows_with_ext if c["external_id"] not in existing_id_map]
+    to_update = [(c, existing_id_map[c["external_id"]]) for c in rows_with_ext
+                 if c["external_id"] in existing_id_map]
+
+    # Bulk INSERT new rows (with and without external_id), chunked.
+    for batch in (to_insert, rows_without_ext):
+        for i in range(0, len(batch), _UPSERT_CHUNK):
+            chunk = batch[i : i + _UPSERT_CHUNK]
+            resp = requests.post(
+                f"{SUPABASE_URL}/rest/v1/cars",
+                headers=_svc(prefer="return=minimal"),
+                json=[_build_car_payload(dealership_id, c) for c in chunk],
+                timeout=30,
+            )
+            if resp.status_code in (200, 201, 204):
+                counts["created"] += len(chunk)
+            else:
+                counts["failed"] += len(chunk)
+
+    # Individual PATCH for existing rows (payloads differ per row).
+    for coerced, car_id in to_update:
+        try:
+            r = requests.patch(
                 f"{SUPABASE_URL}/rest/v1/cars?id=eq.{car_id}",
                 headers=_svc(prefer="return=minimal"),
                 json=_build_car_payload(dealership_id, coerced),
                 timeout=10,
             )
-            return ("updated", car_id)
-    cr = requests.post(
-        f"{SUPABASE_URL}/rest/v1/cars",
-        headers=_svc(prefer="return=representation"),
-        json=_build_car_payload(dealership_id, coerced),
-        timeout=10,
-    )
-    if cr.status_code in (200, 201) and cr.json():
-        return ("created", cr.json()[0]["id"])
-    raise RuntimeError(f"insert failed: {cr.status_code} {cr.text[:200]}")
+            if r.status_code in (200, 204):
+                counts["updated"] += 1
+            else:
+                counts["failed"] += 1
+        except Exception as exc:
+            logger.warning("dealer_api_source_poller: update failed car=%s: %s", car_id, exc)
+            counts["failed"] += 1
 
 
 def _update_source(source_id, last_status, last_error=None):
@@ -227,6 +257,8 @@ def _process_source(source):
 
     # --- Import rows ---
     counts = {"created": 0, "updated": 0, "failed": 0}
+    valid_with_ext = []
+    valid_without_ext = []
     for raw in rows:
         mapped = apply_column_mapping(raw, field_mapping) if field_mapping else raw
         ok, err = validate_row(mapped)
@@ -234,13 +266,11 @@ def _process_source(source):
             counts["failed"] += 1
             continue
         coerced = coerce_row(mapped)
-        try:
-            action, _ = _upsert_car(dealership_id, coerced)
-            counts["created" if action == "created" else "updated"] += 1
-        except Exception as exc:
-            logger.warning("dealer_api_source_poller: upsert failed for source %s: %s",
-                           source_id, exc)
-            counts["failed"] += 1
+        if coerced.get("external_id"):
+            valid_with_ext.append(coerced)
+        else:
+            valid_without_ext.append(coerced)
+    _bulk_upsert_cars(dealership_id, valid_with_ext, valid_without_ext, counts)
 
     # --- Determine final status ---
     total_good = counts["created"] + counts["updated"]

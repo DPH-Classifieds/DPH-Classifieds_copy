@@ -4,6 +4,9 @@
   "devCommand": "npm start",
   "installCommand": "npm install",
   "framework": "create-react-app",
+  "env": {
+    "GENERATE_SOURCEMAP": "false"
+  },
   "rewrites": [
     {
       "source": "/sitemap.xml",
