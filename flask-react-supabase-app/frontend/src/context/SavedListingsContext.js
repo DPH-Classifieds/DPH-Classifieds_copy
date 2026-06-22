@@ -207,7 +207,7 @@ export const SavedListingsProvider = ({ children }) => {
         });
       }
     },
-    [savedListings, savedLookup, showNotice, user]
+    [savedListings, savedLookup, showNotice, !!user] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const value = useMemo(

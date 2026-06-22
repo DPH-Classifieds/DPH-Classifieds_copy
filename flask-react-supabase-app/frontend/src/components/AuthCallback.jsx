@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,8 @@ const NEW_USER_WINDOW_SECONDS = 120;
 const AuthCallback = () => {
   const navigate = useNavigate();
   const { syncWithSupabase } = useAuth();
+  const syncRef = useRef(syncWithSupabase);
+  useEffect(() => { syncRef.current = syncWithSupabase; });
   const [message, setMessage] = useState('Processing authentication...');
   const [hasError, setHasError] = useState(false);
 
@@ -74,7 +76,7 @@ const AuthCallback = () => {
       // public.users row for first-time OAuth users (see
       // _get_user_details_with_admin_status in backend/app.py).
       try {
-        await syncWithSupabase({ forceBackendCheck: true });
+        await syncRef.current({ forceBackendCheck: true });
       } catch (_) { /* fall through — we'll surface phone state below */ }
 
       // Re-read fresh user state to decide where to send them. We pull from
@@ -115,7 +117,7 @@ const AuthCallback = () => {
     };
 
     completeOAuth();
-  }, [navigate, syncWithSupabase]);
+  }, [navigate]); // syncWithSupabase accessed via ref — must not be a dep or the OAuth flow re-fires on every token refresh
 
   return (
     <div className="auth-container">
