@@ -18,8 +18,12 @@ import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+const SUPPORTED_PROOF_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
+const MAX_PROOF_SIZE_BYTES = 20 * 1024 * 1024;
+
+const RequiredMark = () => <span className="required-asterisk">*</span>;
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const DEFAULT_WHATSAPP_PREFILL = getWhatsappPrefillTemplate('plate');
@@ -105,6 +109,10 @@ const PostPlate = () => {
   const [croppedImages, setCroppedImages] = useState([]); // Array<{croppedFile, originalFile, previewUrl}>
   const [existingImageUrls, setExistingImageUrls] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [proofFile, setProofFile] = useState(null);
+  const [proofDocumentUrl, setProofDocumentUrl] = useState('');
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const proofInputRef = useRef(null);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [useUsernameAsContactName, setUseUsernameAsContactName] = useState(false);
   const [formData, setFormData] = useState({
@@ -393,6 +401,45 @@ const PostPlate = () => {
     setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleProofFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!SUPPORTED_PROOF_TYPES.includes(file.type)) {
+      setError({ message: 'Proof document must be a JPG, PNG, WEBP, or PDF file.' });
+      return;
+    }
+    if (file.size > MAX_PROOF_SIZE_BYTES) {
+      setError({ message: 'Proof document must be under 20 MB.' });
+      return;
+    }
+    setProofFile(file);
+    setIsUploadingProof(true);
+    setError(null);
+    try {
+      const ext = file.name.includes('.') ? file.name.split('.').pop() : 'pdf';
+      const objectPath = `plate-proofs/${user.id}/${Date.now()}.${ext}`;
+      const signed = await apiClient.post('/api/storage/signed-upload-url', {
+        bucket_name: 'listing-images',
+        object_path: objectPath,
+        upsert: false,
+      });
+      const { supabase: supabaseClient } = await import('../utils/supabaseClient');
+      await supabaseClient.storage.from('listing-images').uploadToSignedUrl(
+        objectPath,
+        signed.token,
+        file,
+        { cacheControl: '31536000', contentType: file.type }
+      );
+      const { data: urlData } = supabaseClient.storage.from('listing-images').getPublicUrl(objectPath);
+      setProofDocumentUrl(urlData.publicUrl);
+    } catch (uploadErr) {
+      setError({ message: 'Failed to upload proof document. Please try again.' });
+      setProofFile(null);
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!user) return;
 
@@ -457,13 +504,11 @@ const PostPlate = () => {
     setIsSubmitting(true);
 
     try {
-      // Upload any new cropped images before building the payload
-      let uploadedImages = [];
-      if (croppedImages.length > 0) {
-        const croppedFiles = croppedImages.map(({ croppedFile }) => croppedFile);
-        uploadedImages = await uploadListingImagesDirect(croppedFiles, { userId: user.id });
+      if (!isEdit && !proofDocumentUrl) {
+        setError({ message: 'Please upload proof of ownership before submitting.' });
+        setIsSubmitting(false);
+        return;
       }
-      const mergedImages = [...existingImageUrls, ...uploadedImages];
 
       const payload = {
         city: formData.city,
@@ -483,7 +528,7 @@ const PostPlate = () => {
         emirate: formData.emirate || formData.city,
         description: formData.description.trim(),
         is_dealer: formData.is_dealer,
-        ...(mergedImages.length > 0 && { images: mergedImages }),
+        ...(proofDocumentUrl && { proof_document_url: proofDocumentUrl }),
       };
 
       if (isEdit) {
@@ -591,84 +636,65 @@ const PostPlate = () => {
           <form onSubmit={handleSubmit} className="post-form">
             <div className="form-section-layout">
               <div className="form-section-sidebar">
-                <h2 className="form-section-title">Gallery</h2>
+                <h2 className="form-section-title">Proof of ownership <RequiredMark /></h2>
                 <p className="form-section-desc">
-                  Upload optional supplementary plate photos. Each image is cropped to 4:1 banner format before upload.
+                  Upload a document proving you own this plate (e.g. Mulkiya, registration card, or bill of sale).
+                </p>
+                <p className="form-section-desc" style={{ marginTop: 8, fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
+                  🔒 This document is for our verification only and will <strong>not</strong> be shown publicly.
                 </p>
               </div>
               <div className="form-section-content">
                 <div
-                  className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={(event) => {
-                    event.preventDefault();
-                    setIsDragOver(false);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setIsDragOver(false);
-                    const droppedFiles = Array.from(event.dataTransfer.files || []);
-                    if (!droppedFiles.length) return;
-                    const validFiles = droppedFiles.filter((f) =>
-                      SUPPORTED_IMAGE_TYPES.includes((f.type || '').toLowerCase()) &&
-                      f.size <= MAX_IMAGE_SIZE_BYTES
-                    );
-                    if (validFiles.length) {
-                      setError(null);
-                      setPendingCropFiles(validFiles);
-                    }
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
+                  className={`image-upload-area${proofDocumentUrl ? ' upload-success' : ''}`}
+                  onClick={() => !proofDocumentUrl && proofInputRef.current?.click()}
                   role="button"
                   tabIndex={0}
+                  style={{ cursor: proofDocumentUrl ? 'default' : 'pointer' }}
                 >
-                  <div className="upload-icon-wrapper">
-                    <span className="material-symbols-outlined">upload</span>
-                  </div>
-                  <p className="upload-text-main">Drop plate photos here or click to browse</p>
-                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 20MB each</p>
-                  <input
-                    ref={fileInputRef}
-                    className="file-input"
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.gif"
-                    multiple
-                    onChange={onPickImages}
-                  />
-                </div>
-
-                {croppedImages.length > 0 && (
-                  <div className="image-previews-grid">
-                    {croppedImages.map((img, index) => (
-                      <div className="preview-item" key={index}>
-                        <img src={img.previewUrl} alt={`Plate preview ${index + 1}`} />
+                  {proofDocumentUrl ? (
+                    <>
+                      <div className="upload-icon-wrapper">
+                        <span className="material-symbols-outlined" style={{ color: 'var(--color-success, #22c55e)' }}>check_circle</span>
+                      </div>
+                      <p className="upload-text-main" style={{ color: 'var(--color-success, #22c55e)' }}>
+                        {proofFile?.name || 'Document uploaded'}
+                      </p>
+                      <p className="upload-text-sub">
                         <button
                           type="button"
-                          className="remove-btn"
-                          onClick={() => setCroppedImages((prev) => prev.filter((_, j) => j !== index))}
+                          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', textDecoration: 'underline', fontSize: 13, padding: 0 }}
+                          onClick={(e) => { e.stopPropagation(); setProofDocumentUrl(''); setProofFile(null); proofInputRef.current && (proofInputRef.current.value = ''); }}
                         >
-                          ×
+                          Remove and re-upload
                         </button>
+                      </p>
+                    </>
+                  ) : isUploadingProof ? (
+                    <>
+                      <div className="upload-icon-wrapper">
+                        <span className="material-symbols-outlined">hourglass_top</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {existingImageUrls.length > 0 && (
-                  <div className="image-previews-grid">
-                    {existingImageUrls.map((imageUrl, index) => (
-                      <div className="preview-item" key={`${imageUrl}-${index}`}>
-                        <img src={imageUrl} alt={`Existing plate ${index + 1}`} />
-                        <button type="button" className="remove-btn" onClick={() => removeExistingImage(index)}>
-                          ×
-                        </button>
+                      <p className="upload-text-main">Uploading…</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="upload-icon-wrapper">
+                        <span className="material-symbols-outlined">upload_file</span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <p className="upload-text-main">Click to upload proof of ownership</p>
+                      <p className="upload-text-sub">JPG, PNG, WEBP, or PDF up to 20 MB</p>
+                    </>
+                  )}
+                  <input
+                    ref={proofInputRef}
+                    className="file-input"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.pdf"
+                    onChange={handleProofFileChange}
+                    style={{ display: 'none' }}
+                  />
+                </div>
               </div>
             </div>
 
@@ -682,7 +708,7 @@ const PostPlate = () => {
               <div className="form-section-content">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="city">City</label>
+                    <label htmlFor="city">City <RequiredMark /></label>
                     <SearchableSelect id="city" name="city" value={formData.city} onChange={handleChange} required>
                       <option value="">Select city</option>
                       <option value="Dubai">Dubai</option>
@@ -695,7 +721,7 @@ const PostPlate = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="code">Plate code</label>
+                    <label htmlFor="code">Plate code <RequiredMark /></label>
                     <SearchableSelect id="code" name="code" value={formData.code} onChange={handleChange} required disabled={!formData.city}>
                       <option value="">Select code</option>
                       {codeOptions.map((code) => (
@@ -709,11 +735,11 @@ const PostPlate = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="number">Plate number</label>
+                    <label htmlFor="number">Plate number <RequiredMark /></label>
                     <input id="number" name="number" value={formData.number} onChange={handleChange} required inputMode="numeric" placeholder="12345" />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="digits">Digits</label>
+                    <label htmlFor="digits">Digits <RequiredMark /></label>
                     <SearchableSelect id="digits" name="digits" value={formData.digits} onChange={handleChange} required>
                       <option value="">Select digits</option>
                       <option value="1">1 digit</option>
@@ -727,7 +753,7 @@ const PostPlate = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="plate_format">Plate format</label>
+                    <label htmlFor="plate_format">Plate format <RequiredMark /></label>
                     <SearchableSelect id="plate_format" name="plate_format" value={formData.plate_format} onChange={handleChange} required>
                       {PLATE_FORMAT_OPTIONS.map((format) => (
                         <option key={format} value={format}>
@@ -737,7 +763,7 @@ const PostPlate = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="price">Price (AED)</label>
+                    <label htmlFor="price">Price (AED) <RequiredMark /></label>
                     <input id="price" name="price" type="number" min="0" value={formData.price} onChange={handleChange} required placeholder="15000" />
                   </div>
                 </div>
@@ -779,7 +805,7 @@ const PostPlate = () => {
               <div className="form-section-content">
 	                <div className="form-row">
 	                  <div className="form-group">
-	                    <label htmlFor="contact_name">Contact name</label>
+	                    <label htmlFor="contact_name">Contact name <RequiredMark /></label>
 	                    <input
 	                      id="contact_name"
 	                      name="contact_name"
@@ -821,7 +847,7 @@ const PostPlate = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="contact_phone">Contact phone</label>
+                    <label htmlFor="contact_phone">Contact phone <RequiredMark /></label>
                     <div className="phone-input-group">
                       <select
                         id="country_code"
@@ -893,7 +919,7 @@ const PostPlate = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="area">Area</label>
+                    <label htmlFor="area">Area <RequiredMark /></label>
                     {areaOptions.length > 0 ? (
                       <SearchableSelect id="area" name="area" value={formData.area} onChange={handleChange} required>
                         <option value="">Select Area</option>

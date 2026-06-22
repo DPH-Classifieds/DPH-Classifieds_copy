@@ -23,6 +23,8 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PART_DRAFT_STORAGE_KEY = 'dph_post_part_draft_v1';
 const PHONE_SPLIT_RE = /^(\+\d+)(\d+)$/;
 const COUNTRY_CODES = ['+971', '+973', '+965', '+968', '+974', '+966'];
+
+const RequiredMark = () => <span className="required-asterisk">*</span>;
 const PART_TYPES = [
   'Engine',
   'Transmission',
@@ -638,11 +640,11 @@ const PostCarParts = () => {
               <div className="form-section-content">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="name">Part name</label>
+                    <label htmlFor="name">Part name <RequiredMark /></label>
                     <input id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="OEM LED headlight assembly" />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="part_type">Part type</label>
+                    <label htmlFor="part_type">Part type <RequiredMark /></label>
                     <SearchableSelect id="part_type" name="part_type" value={formData.part_type} onChange={handleChange} required>
                       <option value="">Select part type</option>
                       {PART_TYPES.map((type) => (
@@ -665,7 +667,7 @@ const PostCarParts = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="price">Price (AED)</label>
+                    <label htmlFor="price">Price (AED) <RequiredMark /></label>
                     <input id="price" name="price" type="number" min="0" value={formData.price} onChange={handleChange} required placeholder="850" />
                   </div>
                 </div>
@@ -753,7 +755,7 @@ const PostCarParts = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="area">Area</label>
+                    <label htmlFor="area">Area <RequiredMark /></label>
                     {areaOptions.length > 0 ? (
                       <SearchableSelect id="area" name="area" value={formData.area} onChange={handleChange} required>
                         <option value="">Select Area</option>
@@ -793,7 +795,7 @@ const PostCarParts = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="contact_number">Phone number</label>
+                    <label htmlFor="contact_number">Phone number <RequiredMark /></label>
                     <input id="contact_number" name="contact_number" value={formData.contact_number} onChange={handleChange} required placeholder="501234567" />
                   </div>
                 </div>

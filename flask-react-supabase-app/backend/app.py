@@ -1571,6 +1571,9 @@ def _strip_lifecycle_fields(payload):
         # Other fields that newer schemas add
         "extras",
         "user_email",
+        # Plates-specific columns added by later migrations
+        "listing_title",
+        "whatsapp_number",
     }
     return {key: value for key, value in payload.items() if key not in lifecycle_keys}
 
@@ -1595,6 +1598,8 @@ def _create_listing_with_lifecycle_fallback(path, payload, *, user_id):
         "auto_review_state", "auto_review_reasons", "auto_review_decided_at",
         "draft_reminder_sent_at", "draft_reminder_claimed_at", "draft_reminder_count",
         "user_email",
+        # Plates/bikes columns added by later migrations — strip on fallback if missing
+        "listing_title", "whatsapp_number",
     ]
     has_lifecycle_error = any(
         keyword in error_text for keyword in lifecycle_error_keywords
@@ -12735,12 +12740,14 @@ def create_bike(current_user):
             "mileage",
             "engine_size",
             "color",
+            "condition",
             "price",
             "location",
             "area",
             "emirate",
             "contact_number",
             "contact_phone",
+            "country_code",
             "vin_number",
             "whatsapp_number",
             "whatsapp_prefill_text",
@@ -12763,6 +12770,12 @@ def create_bike(current_user):
         }
         bike_data = {k: v for k, v in bike_data.items() if k in bike_allowed_fields}
         bike_data["user_email"] = get_user_email(current_user)
+
+        # make/model are required NOT NULL in the bikes table; populate from bike_brand/bike_model
+        bike_data["make"] = bike_data.get("make") or bike_data.get("bike_brand") or ""
+        bike_data["model"] = bike_data.get("model") or bike_data.get("bike_model") or ""
+        # auto_review_reasons is NOT NULL in the bikes table — default to empty array
+        bike_data.setdefault("auto_review_reasons", [])
 
         # Create the bike
         data, status_code = _create_listing_with_lifecycle_fallback(
@@ -14636,6 +14649,7 @@ def _create_plate_with_image_impl(current_user):
 
         # Create plate entry
         plate_number_str = str(number).strip() if number is not None else ""
+        proof_document_url = payload.get("proof_document_url") or None
         plate_data = {
             "city": city,
             "code": code,
@@ -14656,6 +14670,7 @@ def _create_plate_with_image_impl(current_user):
             "user_id": current_user,
             "user_email": get_user_email(current_user),
             "status": _initial_listing_status(),
+            **({"proof_document_url": proof_document_url} if proof_document_url else {}),
         }
         plate_data.update(_new_listing_lifecycle_fields())
         try:

@@ -19,6 +19,8 @@ import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/
 import UnifiedCropper from './cropper/UnifiedCropper';
 import '../styles/PostForms.css';
 
+const RequiredMark = () => <span className="required-asterisk">*</span>;
+
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
 const MAX_IMAGES = 10;
@@ -684,18 +686,18 @@ const PostBike = () => {
               <div className="form-section-content">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="bike_brand">Brand</label>
+                    <label htmlFor="bike_brand">Brand <RequiredMark /></label>
                     <input id="bike_brand" name="bike_brand" value={formData.bike_brand} onChange={handleChange} required placeholder="Yamaha" />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="bike_model">Model</label>
+                    <label htmlFor="bike_model">Model <RequiredMark /></label>
                     <input id="bike_model" name="bike_model" value={formData.bike_model} onChange={handleChange} required placeholder="MT-09" />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="year">Year</label>
+                    <label htmlFor="year">Year <RequiredMark /></label>
                     <SearchableSelect id="year" name="year" value={formData.year} onChange={handleChange} required>
                       <option value="">Select Year</option>
                       {yearOptions.map((year) => (
@@ -704,7 +706,7 @@ const PostBike = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="bike_category">Category</label>
+                    <label htmlFor="bike_category">Category <RequiredMark /></label>
                     <SearchableSelect id="bike_category" name="bike_category" value={formData.bike_category} onChange={handleChange} required>
                       <option value="">Select category</option>
                       {BIKE_CATEGORIES.map((category) => (
@@ -728,7 +730,7 @@ const PostBike = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="color">Color</label>
+                    <label htmlFor="color">Color <RequiredMark /></label>
                     <input id="color" name="color" value={formData.color} onChange={handleChange} required placeholder="Matte Black" />
                   </div>
                 </div>
@@ -745,11 +747,11 @@ const PostBike = () => {
               <div className="form-section-content">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="engine_capacity">Engine capacity</label>
+                    <label htmlFor="engine_capacity">Engine capacity <RequiredMark /></label>
                     <input id="engine_capacity" name="engine_capacity" value={formData.engine_capacity} onChange={handleChange} required placeholder="890cc" />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="mileage">Mileage (km)</label>
+                    <label htmlFor="mileage">Mileage (km) <RequiredMark /></label>
                     <input id="mileage" name="mileage" type="number" min="0" value={formData.mileage} onChange={handleChange} required placeholder="3500" />
                   </div>
                 </div>
@@ -796,7 +798,7 @@ const PostBike = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="price">Price (AED)</label>
+                    <label htmlFor="price">Price (AED) <RequiredMark /></label>
                     <input id="price" name="price" type="number" min="0" value={formData.price} onChange={handleChange} required placeholder="25000" />
                   </div>
                 </div>
@@ -813,7 +815,7 @@ const PostBike = () => {
               <div className="form-section-content">
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="emirate">Emirate</label>
+                    <label htmlFor="emirate">Emirate <RequiredMark /></label>
                     <SearchableSelect id="emirate" name="emirate" value={formData.emirate} onChange={handleChange} required>
                       {UAE_EMIRATES.map((emirate) => (
                         <option key={emirate} value={emirate}>{emirate}</option>
@@ -821,7 +823,7 @@ const PostBike = () => {
                     </SearchableSelect>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="area">Area</label>
+                    <label htmlFor="area">Area <RequiredMark /></label>
                     {areaOptions.length > 0 ? (
                       <SearchableSelect id="area" name="area" value={formData.area} onChange={handleChange} required>
                         <option value="">Select Area</option>
@@ -843,7 +845,7 @@ const PostBike = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="description">Description</label>
+                  <label htmlFor="description">Description <RequiredMark /></label>
                   <textarea
                     id="description"
                     name="description"
@@ -860,7 +862,7 @@ const PostBike = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="contact_number">Phone Number</label>
+                    <label htmlFor="contact_number">Phone Number <RequiredMark /></label>
                     <div className="phone-input-group">
                       <select
                         id="country_code"
