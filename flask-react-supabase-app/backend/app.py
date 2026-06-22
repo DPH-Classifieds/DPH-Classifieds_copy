@@ -2281,6 +2281,28 @@ def _collect_user_listing_records(current_user, item_type):
         user_id=current_user,
     )
 
+    # If the query failed because user_dismissed_at doesn't exist yet (migration
+    # not yet applied), retry without that filter so existing listings are shown.
+    if status_code >= 400 and isinstance(records, dict):
+        error_hint = json.dumps(records).lower()
+        if "user_dismissed_at" in error_hint or str(records.get("code", "")) in {
+            "PGRST116", "42703", "PGRST204",
+        }:
+            logger.warning(
+                "[listings] user_dismissed_at filter failed for %s (migration pending), retrying without it",
+                config["table"],
+            )
+            records, status_code = supabase_request(
+                "get",
+                f"/rest/v1/{config['table']}",
+                params={
+                    "select": "*",
+                    "user_id": f"eq.{current_user}",
+                    "order": "created_at.desc",
+                },
+                user_id=current_user,
+            )
+
     if status_code >= 400:
         return records, status_code
 
@@ -2299,9 +2321,19 @@ def _collect_user_listing_records(current_user, item_type):
             # Keep rejected listings editable in the user's account view.
             record["moderation_status"] = "rejected"
             record["status"] = "draft"
-        synced = _sync_listing_lifecycle(
-            config["table"], record, hard_delete_archived=False
-        )
+        try:
+            synced = _sync_listing_lifecycle(
+                config["table"], record, hard_delete_archived=False
+            )
+        except Exception as sync_err:
+            logger.error(
+                "[listings] _sync_listing_lifecycle failed for %s/%s: %s",
+                config["table"],
+                listing_id,
+                sync_err,
+                exc_info=True,
+            )
+            synced = record
         if synced:
             hydrated_records.append(synced)
 
@@ -12096,11 +12128,26 @@ def get_all_user_listings(current_user):
     flattened = []
 
     for item_type in ["car", "bike", "part", "plate"]:
-        category_items, status_code = _collect_user_listing_records(
-            current_user, item_type
-        )
-        if status_code >= 400:
-            return jsonify(category_items), status_code
+        try:
+            category_items, status_code = _collect_user_listing_records(
+                current_user, item_type
+            )
+            if status_code >= 400:
+                logger.warning(
+                    "[user/listings] %s query failed (%s): %s",
+                    item_type,
+                    status_code,
+                    category_items,
+                )
+                category_items = []
+        except Exception as exc:
+            logger.error(
+                "[user/listings] unhandled exception collecting %s records: %s",
+                item_type,
+                exc,
+                exc_info=True,
+            )
+            category_items = []
 
         for item in category_items:
             item["listing_type"] = item_type
