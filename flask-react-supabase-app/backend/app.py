@@ -1612,6 +1612,8 @@ def _friendly_db_error(raw_data, status_code, listing_type="listing"):
         friendly = "Some required information is missing. Please check all fields and try again."
     elif raw_code in ("42P01", "42703"):
         friendly = "A configuration error prevented saving. Please contact support."
+    elif raw_code == "23514" or "violates check constraint" in msg:
+        friendly = "One of the submitted values is not allowed. Please contact support if this persists."
     else:
         friendly = "We could not save your listing. Please try again."
 

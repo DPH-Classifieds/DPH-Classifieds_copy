@@ -213,7 +213,27 @@ def _admin_fetch_user(user_id):
     if response.status_code != 200:
         return None
     rows = response.json() or []
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    row = rows[0]
+    # Overlay email_confirmed_at from auth if the DB column is stale
+    if not bool(row.get("email_verified")):
+        confirmations = _admin_fetch_auth_email_confirmation_map([user_id])
+        confirmed_at = confirmations.get(str(user_id))
+        if confirmed_at:
+            row["email_verified"] = True
+            row["email_verified_at"] = confirmed_at
+            # Persist the fix so subsequent reads are consistent
+            try:
+                requests.patch(
+                    f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+                    headers=_admin_headers(),
+                    json={"email_verified": True, "email_verified_at": confirmed_at},
+                    timeout=5,
+                )
+            except Exception:
+                pass
+    return row
 
 
 def _admin_display_name_from_user_row(user_row):
