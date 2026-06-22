@@ -28,9 +28,9 @@ ALTER TABLE public.bikes
 -- Every new INSERT must supply it; give it an empty-array default so existing
 -- rows and future INSERTs that omit it don't violate the constraint.
 ALTER TABLE public.bikes
-  ALTER COLUMN auto_review_reasons SET DEFAULT '{}'::text[];
+  ALTER COLUMN auto_review_reasons SET DEFAULT '[]'::jsonb;
 UPDATE public.bikes
-  SET auto_review_reasons = '{}'
+  SET auto_review_reasons = '[]'::jsonb
   WHERE auto_review_reasons IS NULL;
 
 -- ── license_plates: missing listing_title, whatsapp_number ────────────────
