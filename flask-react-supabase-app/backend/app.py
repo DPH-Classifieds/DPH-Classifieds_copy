@@ -10032,6 +10032,11 @@ def _annotate_draft_row(draft):
     )
     draft["resume_path"] = _draft_resume_path(draft_type)
     draft["display_image_url"] = _draft_thumbnail_url(payload)
+    if draft_type == "plate":
+        source = _draft_source_from_payload(payload)
+        draft["plate_city"] = str(source.get("city") or payload.get("plateCity") or "").strip()
+        draft["plate_code"] = str(source.get("code") or "").strip()
+        draft["plate_number"] = str(source.get("number") or "").strip()
     return draft
 
 

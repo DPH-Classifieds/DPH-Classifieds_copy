@@ -6,7 +6,7 @@ import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
 import { trackEvent } from '../utils/analytics';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
-import { getAreasForEmirate } from '../utils/listingConstants';
+import { getAreasForEmirate, UAE_EMIRATES } from '../utils/listingConstants';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
@@ -856,7 +856,12 @@ const PostPlate = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="emirate">Emirate</label>
-                    <input id="emirate" name="emirate" value={formData.emirate || formData.city} readOnly />
+                    <SearchableSelect id="emirate" name="emirate" value={formData.emirate || formData.city} onChange={handleChange}>
+                      <option value="">Select emirate</option>
+                      {UAE_EMIRATES.map((e) => (
+                        <option key={e} value={e}>{e}</option>
+                      ))}
+                    </SearchableSelect>
                   </div>
                 </div>
 
