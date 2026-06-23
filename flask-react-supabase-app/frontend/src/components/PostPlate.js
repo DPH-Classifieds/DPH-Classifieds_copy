@@ -192,6 +192,10 @@ const PostPlate = () => {
             normalizedWhatsapp.localNumber === normalizedContact.localNumber
         );
 
+        if (data.proof_document_url) {
+          setProofDocumentUrl(data.proof_document_url);
+        }
+
       } catch (fetchError) {
         setError(fetchError.message || 'Failed to load plate listing');
       } finally {

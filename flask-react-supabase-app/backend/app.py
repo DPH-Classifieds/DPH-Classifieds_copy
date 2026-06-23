@@ -13402,6 +13402,7 @@ def update_plate(current_user, plate_id):
             "area",
             "emirate",
             "is_dealer",
+            "proof_document_url",
         }
 
         for key in allowed_fields:
@@ -13430,13 +13431,14 @@ def update_plate(current_user, plate_id):
         # Sanitize
         update_data.pop("id", None)
 
-        # Update
+        # Update — include user_id filter so the query is a no-op if the caller
+        # does not own this plate (belt-and-suspenders alongside RLS).
         data, status_code = supabase_request(
             "patch",
             f"/rest/v1/license_plates",
-            params={"id": f"eq.{plate_id}"},
+            params={"id": f"eq.{plate_id}", "user_id": f"eq.{current_user}"},
             data=update_data,
-            user_id=current_user,
+            use_service_role=True,
         )
 
         if status_code >= 400:
@@ -14758,76 +14760,65 @@ def _create_plate_with_image_impl(current_user):
         plate_id = response[0]["id"]
         logger.info(f"Created plate with ID: {plate_id}")
 
-        # Generate and save the plate image
-        import os
-        from PIL import Image, ImageDraw, ImageFont
-        import uuid
-
-        # Create directory for this plate if it doesn't exist
-        plate_dir = os.path.join("static", "uploads", "plates", str(plate_id))
-        os.makedirs(plate_dir, exist_ok=True)
-
-        # Create a simple plate image
-        plate_width, plate_height = 600, 200
-        plate_img = Image.new("RGB", (plate_width, plate_height), color=(255, 255, 255))
-        draw = ImageDraw.Draw(plate_img)
-
-        # Add border
-        draw.rectangle(
-            [(0, 0), (plate_width - 1, plate_height - 1)], outline=(0, 0, 0), width=5
-        )
-
-        # Try to use a font, or fall back to default
+        # Attempt to generate a legacy static plate image. This is optional —
+        # the frontend now renders plates via the UAELicensePlate React component
+        # so a failure here must never prevent the listing from being created.
         try:
-            font_path = os.path.join("static", "fonts", "arial.ttf")
-            if not os.path.exists(font_path):
-                import matplotlib.font_manager as fm
+            import os
+            from PIL import Image, ImageDraw, ImageFont
 
-                font_path = fm.findfont(fm.FontProperties(family="Arial"))
-            font = ImageFont.truetype(font_path, 50)
-        except Exception as e:
-            logger.error(f"Error loading font: {str(e)}")
-            font = ImageFont.load_default()
+            plate_dir = os.path.join("static", "uploads", "plates", str(plate_id))
+            os.makedirs(plate_dir, exist_ok=True)
 
-        # Add text
-        text = f"{city} {code} {plate_number_str}"
-        text_width = draw.textlength(text, font=font)
-        draw.text(
-            ((plate_width - text_width) / 2, plate_height / 3),
-            text,
-            fill=(0, 0, 0),
-            font=font,
-        )
-
-        # Save the image
-        image_filename = f"plate_{city}_{code}_{plate_number_str}.png"
-        image_path = os.path.join(plate_dir, image_filename)
-        plate_img.save(image_path)
-        logger.info(f"Saved plate preview image to: {image_path}")
-
-        # Get the URL for the saved image
-        image_url = f"/static/uploads/plates/{plate_id}/{image_filename}"
-
-        # Add the image to the plate_images table
-        try:
-            image_data = {
-                "plate_id": plate_id,
-                "url": image_url,
-                "image_url": image_url,  # present in 00_COMPLETE_SCHEMA; ignored if column absent
-                "is_primary": True,
-            }
-
-            image_response, image_status = supabase_request(
-                "post", "/rest/v1/plate_images", data=image_data, user_id=current_user
+            plate_width, plate_height = 600, 200
+            plate_img = Image.new("RGB", (plate_width, plate_height), color=(255, 255, 255))
+            draw = ImageDraw.Draw(plate_img)
+            draw.rectangle(
+                [(0, 0), (plate_width - 1, plate_height - 1)], outline=(0, 0, 0), width=5
             )
 
-            if image_status >= 400:
-                logger.error(f"Failed to add image: {image_response}")
-        except Exception as img_err:
-            logger.error(f"Error adding image: {str(img_err)}")
+            try:
+                font_path = os.path.join("static", "fonts", "arial.ttf")
+                if not os.path.exists(font_path):
+                    import matplotlib.font_manager as fm
+                    font_path = fm.findfont(fm.FontProperties(family="Arial"))
+                font = ImageFont.truetype(font_path, 50)
+            except Exception:
+                font = ImageFont.load_default()
 
-        # Return the created plate
-        response[0]["image_url"] = image_url
+            text = f"{city} {code} {plate_number_str}"
+            text_width = draw.textlength(text, font=font)
+            draw.text(
+                ((plate_width - text_width) / 2, plate_height / 3),
+                text,
+                fill=(0, 0, 0),
+                font=font,
+            )
+
+            image_filename = f"plate_{city}_{code}_{plate_number_str}.png"
+            image_path = os.path.join(plate_dir, image_filename)
+            plate_img.save(image_path)
+
+            image_url = f"/static/uploads/plates/{plate_id}/{image_filename}"
+            response[0]["image_url"] = image_url
+
+            try:
+                image_data = {
+                    "plate_id": plate_id,
+                    "url": image_url,
+                    "image_url": image_url,
+                    "is_primary": True,
+                }
+                image_response, image_status = supabase_request(
+                    "post", "/rest/v1/plate_images", data=image_data, user_id=current_user
+                )
+                if image_status >= 400:
+                    logger.error(f"Failed to add plate image record: {image_response}")
+            except Exception as img_db_err:
+                logger.error(f"Error saving plate image record: {img_db_err}")
+
+        except Exception as pil_err:
+            logger.warning(f"Plate PIL image generation skipped (non-fatal): {pil_err}")
 
         # Send email notifications
         try:
