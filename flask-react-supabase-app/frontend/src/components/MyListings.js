@@ -4,6 +4,7 @@ import { getAccessToken } from '../utils/supabaseClient';
 import { resolveMediaUrl } from '../utils/media';
 import { useSavedListings } from '../context/SavedListingsContext';
 import LoadingSpinner from './LoadingSpinner';
+import UAELicensePlate from './UAELicensePlate';
 import '../styles/MyListings.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -509,8 +510,15 @@ const MyListings = () => {
 
     return (
       <div key={`${listing.listing_type}-${listing.id}`} className={`my-listing-card ${cardModifier}`}>
-        <div className="my-listing-image">
-          {imageUrl ? (
+        <div className={`my-listing-image${listing.listing_type === 'plate' ? ' my-listing-plate' : ''}`}>
+          {listing.listing_type === 'plate' ? (
+            <UAELicensePlate
+              city={listing.city || 'Dubai'}
+              code={listing.code || ''}
+              number={String(listing.number || '')}
+              className={listing.status === 'sold' ? 'sold' : ''}
+            />
+          ) : imageUrl ? (
             <img
               src={imageUrl}
               alt={buildListingTitle(listing)}
