@@ -624,6 +624,25 @@ const AdminListingDetail = () => {
                   </p>
                 </div>
               )}
+
+              {/* Plate ownership proof document */}
+              {listing.proof_document_url && (
+                <div>
+                  <SectionLabel>Ownership Proof (Plate)</SectionLabel>
+                  <a href={listing.proof_document_url} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={listing.proof_document_url}
+                      alt="Plate ownership proof"
+                      className="w-full rounded-xl border border-purple-500/20 hover:border-purple-500/40 transition cursor-zoom-in"
+                      style={{ maxHeight: '180px', objectFit: 'cover' }}
+                      onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                    />
+                  </a>
+                  <p className="text-[10px] text-amber-400 mt-1.5">
+                    Verify plate ownership before approving.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </GlassCard>

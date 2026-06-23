@@ -26,6 +26,9 @@ const ADMIN_DELETE_REASONS = [
   'Price manipulation',
 ];
 
+const STATUS_SORT_ORDER = { pending: 0, draft: 1, active: 2, approved: 2, expired: 3, suspended: 4, rejected: 5, sold: 6, deleted: 7, archived: 8, removed: 9 };
+const statusRank = (l) => STATUS_SORT_ORDER[l._table_status || l.status] ?? 10;
+
 const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates', 'drafts', 'buying_requests'];
 const ALL_STATUSES = ['all', 'pending', 'draft', 'approved', 'rejected', 'expired', 'deleted'];
 const STATUS_OPTIONS = [
@@ -481,13 +484,15 @@ const AdminListings = () => {
   }, [listings]);
 
   const filtered = useMemo(() => {
-    if (!searchText.trim()) return listings.slice(0, 100);
-    const q = searchText.toLowerCase();
-    return listings.filter((l) => {
-      const title = getListingTitle(l).toLowerCase();
-      const id = (l.id || '').toLowerCase();
-      return title.includes(q) || id.includes(q);
-    }).slice(0, 100);
+    const base = searchText.trim()
+      ? listings.filter((l) => {
+          const title = getListingTitle(l).toLowerCase();
+          const id = (l.id || '').toLowerCase();
+          const q = searchText.toLowerCase();
+          return title.includes(q) || id.includes(q);
+        })
+      : listings;
+    return base.slice().sort((a, b) => statusRank(a) - statusRank(b)).slice(0, 100);
   }, [listings, searchText]);
 
   const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE);

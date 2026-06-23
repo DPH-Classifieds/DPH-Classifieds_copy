@@ -15,6 +15,7 @@ import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
 import { resolveMediaUrl } from '../utils/media';
 import useSwipe from '../hooks/useSwipe';
+import UAELicensePlate from './UAELicensePlate';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
@@ -308,52 +309,13 @@ const PlateDetailRedesigned = () => {
 
         <div className="cd-hero-grid">
           <div className="cd-hero-left">
-            <div className="cd-main-image" ref={heroSwipeRef}>
-              {getMainImageUrl() ? (
-                <img
-                  src={getMainImageUrl()}
-                  alt={getDisplayTitle()}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = PLACEHOLDER_IMAGE;
-                  }}
-                />
-              ) : (
-                <div className="cd-image-placeholder">
-                  <svg className="cd-car-silhouette" viewBox="0 0 120 50" fill="currentColor">
-                    <path d="M10,35 L15,25 L25,25 L30,15 L90,15 L95,25 L105,25 L110,35 L10,35 Z" opacity="0.18"/>
-                  </svg>
-                  <span className="cd-placeholder-kicker"><span className="cd-placeholder-kicker-dph">DPH</span> <span className="cd-placeholder-kicker-classifieds">Classifieds</span></span>
-                  <span className="cd-placeholder-title">{getDisplayTitle()}</span>
-                </div>
-              )}
-              {galleryImages.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    className="cd-hero-arrow cd-hero-arrow-prev"
-                    onClick={(e) => { e.stopPropagation(); stepHeroImage(-1); }}
-                    aria-label="Previous photo"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    className="cd-hero-arrow cd-hero-arrow-next"
-                    onClick={(e) => { e.stopPropagation(); stepHeroImage(1); }}
-                    aria-label="Next photo"
-                  >
-                    ›
-                  </button>
-                </>
-              )}
-              {galleryImages.length > 0 && (
-                <div className="cd-photo-count">
-                  {galleryImages.length > 1
-                    ? `${activeImageIndex + 1} / ${galleryImages.length}`
-                    : `${galleryImages.length} photo`}
-                </div>
-              )}
+            <div className="cd-main-image cd-plate-hero">
+              <UAELicensePlate
+                city={plate.city}
+                code={plate.code}
+                number={plate.number}
+                className={plate.status === 'sold' ? 'sold' : ''}
+              />
             </div>
 
             <div className="cd-card cd-description-card">

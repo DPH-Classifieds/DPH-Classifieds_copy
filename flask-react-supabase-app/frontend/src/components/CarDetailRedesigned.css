@@ -147,6 +147,12 @@
   background-color: rgba(0, 0, 0, 0.2);
 }
 
+.cd-plate-hero {
+  aspect-ratio: unset !important;
+  height: auto;
+  padding: 2.5rem 1.5rem;
+}
+
 .cd-image-placeholder {
   display: flex;
   flex-direction: column;
