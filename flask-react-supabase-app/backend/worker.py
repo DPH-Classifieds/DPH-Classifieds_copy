@@ -198,13 +198,13 @@ def main():
         os.getenv("LISTING_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 24))
     )
     draft_reminder_interval_seconds = int(
-        os.getenv("DRAFT_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 48))
+        os.getenv("DRAFT_REMINDER_INTERVAL_SECONDS", str(60 * 60))
     )
     saved_car_reminder_interval_seconds = int(
-        os.getenv("SAVED_CAR_REMINDER_INTERVAL_SECONDS", str(60 * 60 * 48))
+        os.getenv("SAVED_CAR_REMINDER_INTERVAL_SECONDS", str(60 * 60))
     )
     saved_search_alert_interval_seconds = int(
-        os.getenv("SAVED_SEARCH_ALERT_INTERVAL_SECONDS", str(60 * 60 * 48))
+        os.getenv("SAVED_SEARCH_ALERT_INTERVAL_SECONDS", str(60 * 60))
     )
     listing_sweep_interval_seconds = int(
         os.getenv("LISTING_SWEEP_INTERVAL_SECONDS", str(15 * 60))

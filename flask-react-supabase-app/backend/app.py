@@ -7558,9 +7558,9 @@ def _build_listing_title(item_type, listing):
             or " ".join(
                 part
                 for part in [
-                    str(listing.get("make_year", "")).strip(),
-                    str(listing.get("make", "")).strip(),
-                    str(listing.get("model", "")).strip(),
+                    str(listing.get("year") or listing.get("make_year", "")).strip(),
+                    str(listing.get("bike_brand") or listing.get("make", "")).strip(),
+                    str(listing.get("bike_model") or listing.get("model", "")).strip(),
                 ]
                 if part
             )
@@ -7614,6 +7614,10 @@ def _send_listing_status_email(
     from_email = os.getenv("RESEND_FROM_EMAIL")
     if not from_email:
         return None, "Missing RESEND_FROM_EMAIL"
+
+    # Normalize singular → plural so callers can pass either form.
+    _to_plural = {"car": "cars", "bike": "bikes", "plate": "plates", "part": "parts"}
+    item_type = _to_plural.get(item_type, item_type)
 
     item_label_map = {
         "cars": "Car",
@@ -10666,15 +10670,22 @@ def _send_draft_listing_reminder(user_id, listing_type, listing, table, now_iso)
     return True
 
 
-def _run_listing_draft_reminders_once(age_hours=48, limit=100):
-    """Send draft reminders every 48h.
+def _run_listing_draft_reminders_once(first_age_hours=24, repeat_age_hours=48, age_hours=None, limit=100):
+    """Send draft reminders: first at 24h, then every 48h.
 
     Covers two sources:
       1. listing_drafts — in-progress wizard saves (Save Draft button before first submit)
       2. cars/bikes/car_parts/license_plates with status='draft' — previously submitted
          listings that were moved back to draft via Move to Drafts.
+
+    age_hours: legacy override — sets both cutoffs (used in tests with age_hours=0).
     """
-    cutoff  = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+    if age_hours is not None:
+        first_age_hours = age_hours
+        repeat_age_hours = age_hours
+    first_cutoff  = (_utc_now() - datetime.timedelta(hours=first_age_hours)).isoformat()
+    repeat_cutoff = (_utc_now() - datetime.timedelta(hours=repeat_age_hours)).isoformat()
+    cutoff = first_cutoff  # kept for fallback paths
     sent    = 0
     skipped = 0
     total   = 0
@@ -10685,7 +10696,7 @@ def _run_listing_draft_reminders_once(age_hours=48, limit=100):
         "/rest/v1/listing_drafts",
         params={
             "select": "*",
-            "or": f"(last_reminder_sent_at.is.null,last_reminder_sent_at.lt.{cutoff})",
+            "or": f"(and(last_reminder_sent_at.is.null,updated_at.lt.{first_cutoff}),last_reminder_sent_at.lt.{repeat_cutoff})",
             "reminder_email_claimed_at": "is.null",
             "order": "updated_at.asc",
             "limit": str(limit),
@@ -10767,8 +10778,8 @@ def _run_listing_draft_reminders_once(age_hours=48, limit=100):
                 "status": "eq.draft",
                 "deleted_at": "is.null",
                 "draft_reminder_claimed_at": "is.null",
-                "or": f"(draft_reminder_sent_at.is.null,draft_reminder_sent_at.lt.{cutoff})",
-                "select": f"id,user_id,{title_col},draft_reminder_sent_at,draft_reminder_count",
+                "or": f"(and(draft_reminder_sent_at.is.null,updated_at.lt.{first_cutoff}),draft_reminder_sent_at.lt.{repeat_cutoff})",
+                "select": f"id,user_id,{title_col},draft_reminder_sent_at,draft_reminder_count,updated_at",
                 "order": "updated_at.asc",
                 "limit": str(limit),
             },
@@ -10868,15 +10879,19 @@ def _send_saved_car_reminder_email(user_email, listing, subject_override=None):
     return _send_resend_email(payload, email_type="saved_car_reminder")
 
 
-def _run_saved_car_reminders_once(age_hours=48, limit=100):
-    """Send saved car reminders every 48h. Falls back gracefully if migration not applied."""
-    cutoff = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+def _run_saved_car_reminders_once(first_age_hours=24, repeat_age_hours=48, age_hours=None, limit=100):
+    """Send saved car reminders: first at 24h, then every 48h. Falls back gracefully if migration not applied."""
+    if age_hours is not None:
+        first_age_hours = age_hours
+        repeat_age_hours = age_hours
+    first_cutoff  = (_utc_now() - datetime.timedelta(hours=first_age_hours)).isoformat()
+    repeat_cutoff = (_utc_now() - datetime.timedelta(hours=repeat_age_hours)).isoformat()
     rows, status_code = supabase_request(
         "get",
         "/rest/v1/saved_listings",
         params={
             "listing_type": "eq.car",
-            "or": f"(reminder_sent_at.is.null,reminder_sent_at.lt.{cutoff})",
+            "or": f"(and(reminder_sent_at.is.null,created_at.lt.{first_cutoff}),reminder_sent_at.lt.{repeat_cutoff})",
             "reminder_claimed_at": "is.null",
             "select": "*",
             "order": "created_at.asc",
@@ -10892,7 +10907,7 @@ def _run_saved_car_reminders_once(age_hours=48, limit=100):
                 "/rest/v1/saved_listings",
                 params={
                     "listing_type": "eq.car",
-                    "created_at": f"lte.{cutoff}",
+                    "created_at": f"lte.{first_cutoff}",
                     "saved_email_sent_at": "is.null",
                     "select": "*",
                     "order": "created_at.asc",
@@ -10975,16 +10990,20 @@ def _run_saved_car_reminders_once(age_hours=48, limit=100):
     return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
 
 
-def _run_saved_search_alerts_once(age_hours=48, limit=100):
-    """Alert users about their saved searches every 48h when there are matching results."""
-    cutoff = (_utc_now() - datetime.timedelta(hours=age_hours)).isoformat()
+def _run_saved_search_alerts_once(first_age_hours=24, repeat_age_hours=48, age_hours=None, limit=100):
+    """Alert users about their saved searches: first at 24h, then every 48h when there are matching results."""
+    if age_hours is not None:
+        first_age_hours = age_hours
+        repeat_age_hours = age_hours
+    first_cutoff  = (_utc_now() - datetime.timedelta(hours=first_age_hours)).isoformat()
+    repeat_cutoff = (_utc_now() - datetime.timedelta(hours=repeat_age_hours)).isoformat()
     rows, status_code = supabase_request(
         "get",
         "/rest/v1/saved_searches",
         params={
-            "or": f"(alert_sent_at.is.null,alert_sent_at.lt.{cutoff})",
+            "or": f"(and(alert_sent_at.is.null,created_at.lt.{first_cutoff}),alert_sent_at.lt.{repeat_cutoff})",
             "alert_claimed_at": "is.null",
-            "select": "id,user_id,name,category,route_path,query_text,filters,alert_count,alert_sent_at",
+            "select": "id,user_id,name,category,route_path,query_text,filters,alert_count,alert_sent_at,created_at",
             "order": "updated_at.asc",
             "limit": str(limit),
         },
@@ -15509,6 +15528,8 @@ def api_admin_list_items(current_user, item_type):
                 "vin_reveal": vin_reveal,
                 "qualified_leads": call_click + whatsapp_click,
             }
+            # Mirror listings-search: inject listing_type so frontend approve/reject uses correct table.
+            item_copy.setdefault("listing_type", item_type)
             enriched_listings.append(item_copy)
 
         return jsonify(enriched_listings), 200

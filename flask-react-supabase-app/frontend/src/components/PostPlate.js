@@ -356,7 +356,7 @@ const PostPlate = () => {
     setError(null);
     try {
       const ext = file.name.includes('.') ? file.name.split('.').pop() : 'pdf';
-      const objectPath = `plate-proofs/${user.id}/${Date.now()}.${ext}`;
+      const objectPath = `${user.id}/plate-proofs/${Date.now()}.${ext}`;
       const signed = await apiClient.post('/api/storage/signed-upload-url', {
         bucket_name: 'listing-images',
         object_path: objectPath,
