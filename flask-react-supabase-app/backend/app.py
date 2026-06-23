@@ -13235,12 +13235,11 @@ def get_plates():
         }
 
         # Build query - only get approved plates
-        # Build query with join for images
+        # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
-            "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at,"
-            "plate_images(" + LISTING_IMAGE_SELECTS["license_plates"] + ")"
+            "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at"
         )
 
         logger.info(f"Fetching plates from: {url}")
@@ -13336,8 +13335,8 @@ def get_plate_details(plate_id):
             "Authorization": f"Bearer {service_role_key}",
         }
 
-        # Use join for images
-        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?id=eq.{plate_id}&select=*,plate_images(*)"
+        # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
+        url = f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?id=eq.{plate_id}&select=*"
         response = requests.get(url, headers=headers)
 
         if response.status_code == 200:

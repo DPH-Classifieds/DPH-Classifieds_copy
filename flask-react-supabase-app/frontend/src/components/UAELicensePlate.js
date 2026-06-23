@@ -2,9 +2,8 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 const UAELicensePlate = ({ city, code, number, className }) => {
-  // Function to render different plate styles based on the city
   const renderPlate = () => {
-    const cityLower = city.toLowerCase();
+    const cityLower = (city || '').toLowerCase();
     
     switch(cityLower) {
       case 'dubai':
