@@ -13,13 +13,10 @@ import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
-import { resolveMediaUrl } from '../utils/media';
-import useSwipe from '../hooks/useSwipe';
 import UAELicensePlate from './UAELicensePlate';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
-const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
 const PlateDetailRedesigned = () => {
   const { id } = useParams();
@@ -30,7 +27,6 @@ const PlateDetailRedesigned = () => {
   const [plate, setPlate] = useState(() => preloadedPlate);
   const [loading, setLoading] = useState(() => !preloadedPlate);
   const [error, setError] = useState(null);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [loanCalculator, setLoanCalculator] = useState({
     platePrice: 0,
@@ -116,10 +112,6 @@ const PlateDetailRedesigned = () => {
   }, [loanCalculator]);
 
   useEffect(() => {
-    setActiveImageIndex(0);
-  }, [id]);
-
-  useEffect(() => {
     viewTrackedRef.current = false;
   }, [id]);
 
@@ -196,25 +188,6 @@ const PlateDetailRedesigned = () => {
     }
   };
 
-  const getGalleryImages = () => {
-    if (!plate?.images?.length) {
-      return [];
-    }
-    return plate.images
-      .map((image) => {
-        if (typeof image === 'string') return image;
-        return image?.display_url || image?.image_url || image?.url || null;
-      })
-      .filter(Boolean)
-      .map((imageUrl) => resolveMediaUrl(imageUrl));
-  };
-
-  const getMainImageUrl = () => {
-    const images = getGalleryImages();
-    if (!images.length) return null;
-    return images[activeImageIndex] || images[0];
-  };
-
   const getDisplayTitle = () => {
     return `${plate?.city || ''} ${plate?.code || ''} ${plate?.number || ''}`.trim() || plate?.listing_title || 'Untitled listing';
   };
@@ -222,22 +195,6 @@ const PlateDetailRedesigned = () => {
   const goBack = () => {
     navigate(-1);
   };
-
-  const stepHeroImage = (direction) => {
-    const images = getGalleryImages();
-    if (!images.length) return;
-    setActiveImageIndex((current) => {
-      const next = current + direction;
-      if (next < 0) return images.length - 1;
-      if (next >= images.length) return 0;
-      return next;
-    });
-  };
-  const heroSwipeRef = useSwipe({
-    onSwipeLeft: () => stepHeroImage(1),
-    onSwipeRight: () => stepHeroImage(-1),
-    enabled: getGalleryImages().length > 1,
-  });
 
   if (loading) {
     return <ListingSkeleton variant="detail" showHero />;
@@ -263,7 +220,6 @@ const PlateDetailRedesigned = () => {
     );
   }
 
-  const galleryImages = getGalleryImages();
   const listingArea = plate?.area || null;
 
   return (
