@@ -11,7 +11,7 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 export const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.warn('EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY must be set in .env');
+  if (__DEV__) console.warn('EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY must be set in .env');
 }
 
 export const APP_NAME = 'DPH Classifieds';

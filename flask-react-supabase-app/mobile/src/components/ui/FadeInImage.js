@@ -1,36 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../../constants/theme';
 
 export default function FadeInImage({ source, style, resizeMode = 'cover', ...props }) {
   const opacity = useSharedValue(0);
+  const [hasError, setHasError] = useState(false);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-  const onLoad = () => {
-    opacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
+  const handleLoad = () => {
+    opacity.value = withTiming(1, { duration: 300 });
   };
 
+  const handleError = () => {
+    setHasError(true);
+    opacity.value = withTiming(1, { duration: 150 });
+  };
+
+  if (hasError) {
+    return (
+      <View style={[styles.errorContainer, style]}>
+        <Ionicons name="image-outline" size={32} color={COLORS.textMuted} />
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, style]}>
-      <Animated.Image
-        source={source}
-        style={[style, animatedStyle]}
-        resizeMode={resizeMode}
-        onLoad={onLoad}
-        {...props}
-      />
-    </View>
+    <Animated.Image
+      source={source}
+      style={[style, animatedStyle]}
+      resizeMode={resizeMode}
+      onLoad={handleLoad}
+      onError={handleError}
+      {...props}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { overflow: 'hidden' },
+  errorContainer: {
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

@@ -90,7 +90,7 @@ export const scanCarRegistration = async ({
     const data = await apiClient.post('/api/ocr/scan-registration', formData);
     return normalizeRegistrationScanResponse(data);
   } catch (err) {
-    console.error('OCR scan error:', err);
+    if (__DEV__) console.error('OCR scan error:', err);
     throw err;
   }
 };
