@@ -51,7 +51,11 @@
     "react-native-worklets": "^0.5.1"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^12.9.0",
     "@types/react": "~19.1.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~54.0.0",
     "typescript": "~5.9.2"
   },
   "private": true
