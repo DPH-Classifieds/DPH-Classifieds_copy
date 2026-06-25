@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   Alert,
   StyleSheet,
@@ -10,12 +9,63 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
+import { useStaggeredEntrance } from '../../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../../components/ui/ScreenEntrance';
+import PressableScale from '../../../components/ui/PressableScale';
+import { toastApiError } from '../../../utils/toast';
 import apiClient from '../../utils/apiClient';
 import { formatDate } from '../../utils/formatters';
 import SearchBar from '../../components/ui/SearchBar';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+
+function AdminUserCard({ item, index, onPress }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  const getInitials = (user) => {
+    const first = user.first_name?.[0] || '';
+    const last = user.last_name?.[0] || '';
+    return (first + last).toUpperCase() || user.email?.[0]?.toUpperCase() || '?';
+  };
+  const fullName = `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.email?.split('@')[0] || 'User';
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <View style={styles.userCard}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(item)}</Text>
+          </View>
+          <View style={styles.userInfo}>
+            <View style={styles.userRow}>
+              <Text style={styles.userName} numberOfLines={1}>{fullName}</Text>
+              <View style={styles.badges}>
+                {item.is_admin && (
+                  <View style={[styles.badge, styles.adminBadge]}>
+                    <Text style={styles.badgeText}>Admin</Text>
+                  </View>
+                )}
+                {item.is_dealer && (
+                  <View style={[styles.badge, styles.dealerBadge]}>
+                    <Text style={styles.badgeText}>Dealer</Text>
+                  </View>
+                )}
+                {item.status === 'banned' && (
+                  <View style={[styles.badge, styles.bannedBadge]}>
+                    <Text style={styles.badgeText}>Banned</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
 
 export default function AdminUsersScreen({ navigation }) {
   const [users, setUsers] = useState([]);
@@ -149,80 +199,46 @@ export default function AdminUsersScreen({ navigation }) {
     ]);
   };
 
-  const getInitials = (user) => {
-    const first = user.first_name?.[0] || '';
-    const last = user.last_name?.[0] || '';
-    return (first + last).toUpperCase() || user.email?.[0]?.toUpperCase() || '?';
-  };
-
-  const renderUser = ({ item }) => {
-    const fullName = `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.email?.split('@')[0] || 'User';
-    return (
-      <TouchableOpacity
-        style={styles.userCard}
-        onPress={() => navigation.navigate('AdminUserDetail', { userId: item.id })}
-        activeOpacity={0.7}
-      >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(item)}</Text>
-        </View>
-        <View style={styles.userInfo}>
-          <View style={styles.userRow}>
-            <Text style={styles.userName} numberOfLines={1}>{fullName}</Text>
-            <View style={styles.badges}>
-              {item.is_admin && (
-                <View style={[styles.badge, styles.adminBadge]}>
-                  <Text style={styles.badgeText}>Admin</Text>
-                </View>
-              )}
-              {item.is_dealer && (
-                <View style={[styles.badge, styles.dealerBadge]}>
-                  <Text style={styles.badgeText}>Dealer</Text>
-                </View>
-              )}
-              {item.status === 'banned' && (
-                <View style={[styles.badge, styles.bannedBadge]}>
-                  <Text style={styles.badgeText}>Banned</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
-      </TouchableOpacity>
-    );
-  };
+  const renderUser = ({ item, index }) => (
+    <AdminUserCard
+      item={item}
+      index={index}
+      onPress={() => navigation.navigate('AdminUserDetail', { userId: item.id })}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.searchSection}>
-        <SearchBar
-          value={searchText}
-          onChangeText={setSearchText}
-          placeholder="Search users..."
-        />
-      </View>
+      <ScreenEntrance>
+        <View style={styles.searchSection}>
+          <SearchBar
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Search users..."
+          />
+        </View>
 
-      {loading && users.length === 0 ? (
-        <LoadingSpinner message="Loading users..." />
-      ) : (
-        <FlatList
-          data={users}
-          renderItem={renderUser}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
-          }
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.5}
-          ListEmptyComponent={
-            <EmptyState icon="people-outline" title="No users found" message="No users match your search." />
-          }
-        />
-      )}
+        {loading && users.length === 0 ? (
+          <LoadingSpinner message="Loading users..." />
+        ) : (
+          <FlashList
+            estimatedItemSize={260}
+            data={users}
+            renderItem={renderUser}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+            }
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListEmptyComponent={
+              <EmptyState icon="people-outline" title="No users found" message="No users match your search." />
+            }
+          />
+        )}
+      </ScreenEntrance>
     </SafeAreaView>
   );
 }

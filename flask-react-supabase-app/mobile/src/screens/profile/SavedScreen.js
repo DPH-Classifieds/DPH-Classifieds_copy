@@ -2,14 +2,18 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
-  Image,
   StyleSheet,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
+import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import PressableScale from '../../components/ui/PressableScale';
+import { toastApiError } from '../../utils/toast';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { formatPrice } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -42,6 +46,38 @@ const getItemPrice = (item) => item.expected_selling_price || item.price || 0;
 
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
+function SavedCard({ item, index, onPress, onUnsave }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <AnimatedCard style={styles.card}>
+          {getImageUri(item) ? (
+            <FadeInImage source={{ uri: getImageUri(item) }} style={styles.cardImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.cardImage, styles.imagePlaceholder]}>
+              <Ionicons name="image-outline" size={32} color={COLORS.textMuted} />
+            </View>
+          )}
+          <View style={styles.cardOverlay}>
+            <TouchableOpacity
+              style={styles.heartButton}
+              onPress={onUnsave}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="heart" size={20} color={COLORS.error} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.cardInfo}>
+            <Text style={styles.cardTitle} numberOfLines={1}>{getItemTitle(item)}</Text>
+            <Text style={styles.cardPrice}>{formatPrice(getItemPrice(item))}</Text>
+          </View>
+        </AnimatedCard>
+      </PressableScale>
+    </Animated.View>
+  );
+}
+
 export default function SavedScreen({ navigation }) {
   const { savedListings, loading, toggleSaveListing, savedCounts, loadSavedListings } = useSavedListings();
   const [activeTab, setActiveTab] = useState('Cars');
@@ -64,34 +100,13 @@ export default function SavedScreen({ navigation }) {
     await toggleSaveListing(type, item);
   };
 
-  const renderListing = ({ item }) => (
-    <FadeInView delay={0}>
-      <AnimatedCard
-        onPress={() => navigation.navigate(DETAIL_ROUTES[activeKey], { listingId: item.id || item.listing_id })}
-        style={styles.card}
-      >
-        {getImageUri(item) ? (
-          <FadeInImage source={{ uri: getImageUri(item) }} style={styles.cardImage} resizeMode="cover" />
-        ) : (
-          <View style={[styles.cardImage, styles.imagePlaceholder]}>
-            <Ionicons name="image-outline" size={32} color={COLORS.textMuted} />
-          </View>
-        )}
-        <View style={styles.cardOverlay}>
-          <TouchableOpacity
-            style={styles.heartButton}
-            onPress={() => handleUnsave(item)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="heart" size={20} color={COLORS.error} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{getItemTitle(item)}</Text>
-          <Text style={styles.cardPrice}>{formatPrice(getItemPrice(item))}</Text>
-        </View>
-      </AnimatedCard>
-    </FadeInView>
+  const renderListing = ({ item, index }) => (
+    <SavedCard
+      item={item}
+      index={index}
+      onPress={() => navigation.navigate(DETAIL_ROUTES[activeKey], { listingId: item.id || item.listing_id })}
+      onUnsave={() => handleUnsave(item)}
+    />
   );
 
   if (loading) {
@@ -104,48 +119,50 @@ export default function SavedScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Saved</Text>
-      </View>
+      <ScreenEntrance>
+        <View style={styles.header}>
+          <Text style={styles.title}>Saved</Text>
+        </View>
 
-      <View style={styles.tabBar}>
-        {TABS.map((tab, index) => {
-          const key = TAB_KEYS[index];
-          const count = savedCounts[key] || 0;
-          return (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.activeTab]}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                {tab}{count > 0 ? ` (${count})` : ''}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        <View style={styles.tabBar}>
+          {TABS.map((tab, index) => {
+            const key = TAB_KEYS[index];
+            const count = savedCounts[key] || 0;
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab, activeTab === tab && styles.activeTab]}
+                onPress={() => setActiveTab(tab)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                  {tab}{count > 0 ? ` (${count})` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      <FlatList
-        data={items}
-        renderItem={renderListing}
-        keyExtractor={(item) => String(item.id || item.listing_id)}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="heart-outline"
-            title={`No saved ${activeTab.toLowerCase()}`}
-            message="Items you save will appear here."
-          />
-        }
-      />
+        <FlashList
+          estimatedItemSize={260}
+          data={items}
+          renderItem={renderListing}
+          keyExtractor={(item) => String(item.id || item.listing_id)}
+          numColumns={2}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="heart-outline"
+              title={`No saved ${activeTab.toLowerCase()}`}
+              message="Items you save will appear here."
+            />
+          }
+        />
+      </ScreenEntrance>
     </SafeAreaView>
   );
 }

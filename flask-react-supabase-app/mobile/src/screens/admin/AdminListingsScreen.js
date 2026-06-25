@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   Image,
   Alert,
@@ -12,6 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
+import { useStaggeredEntrance } from '../../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../../components/ui/ScreenEntrance';
+import PressableScale from '../../../components/ui/PressableScale';
+import { toastApiError } from '../../../utils/toast';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -74,6 +79,75 @@ const getDisplayPrice = (item) => {
   if (item.listing_type === 'buying_requests') return item.budget || 0;
   return item.price || item.expected_selling_price || 0;
 };
+
+function AdminListingCard({ item, index, onPress, onApprove, onReject }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  const imageUri = getImageUri(item);
+  const title = getTitle(item);
+  const displayStatus = item.listing_state || item.status || 'pending';
+  const rawStatus = item._table_status || item.status || 'pending';
+  const isBuyingRequest = item.listing_type === 'buying_requests';
+  const isPending = rawStatus === 'pending' && !isBuyingRequest;
+  const placeholderIcon = isBuyingRequest ? 'cart-outline' : 'image-outline';
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <View style={styles.card}>
+          <View style={styles.cardContent}>
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.thumbnail} />
+            ) : (
+              <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
+                <Ionicons name={placeholderIcon} size={28} color={COLORS.textMuted} />
+              </View>
+            )}
+            <View style={styles.cardInfo}>
+              <View style={styles.cardTitleRow}>
+                <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
+                {isBuyingRequest && (
+                  <View style={styles.requestPill}>
+                    <Text style={styles.requestPillText}>Request</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.cardPrice}>
+                {isBuyingRequest ? `Budget ${formatPrice(getDisplayPrice(item))}` : formatPrice(getDisplayPrice(item))}
+              </Text>
+              <View style={styles.cardMeta}>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
+                  <Text style={styles.statusBadgeText}>{displayStatus}</Text>
+                </View>
+                <Text style={styles.cardDate} numberOfLines={1}>
+                  {[formatDate(item.created_at), item.seller_name].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {isPending && (
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.approveBtn]}
+                onPress={onApprove}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
+                <Text style={styles.approveText}>Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.rejectBtn]}
+                onPress={onReject}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close-circle" size={18} color={COLORS.error} />
+                <Text style={styles.rejectText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
 
 export default function AdminListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);
@@ -203,175 +277,117 @@ export default function AdminListingsScreen({ navigation }) {
     }
   };
 
-  const renderListing = ({ item }) => {
-    const imageUri = getImageUri(item);
-    const title = getTitle(item);
-    const displayStatus = item.listing_state || item.status || 'pending';
-    const rawStatus = item._table_status || item.status || 'pending';
-    const isBuyingRequest = item.listing_type === 'buying_requests';
-    const isPending = rawStatus === 'pending' && !isBuyingRequest;
-    const placeholderIcon = isBuyingRequest ? 'cart-outline' : 'image-outline';
-
-    return (
-      <TouchableOpacity
-        onPress={() => navigation.navigate('AdminListingDetail', { itemType: item.listing_type || 'cars', itemId: item.id })}
-        activeOpacity={0.8}
-      >
-      <View style={styles.card}>
-        <View style={styles.cardContent}>
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.thumbnail} />
-          ) : (
-            <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-              <Ionicons name={placeholderIcon} size={28} color={COLORS.textMuted} />
-            </View>
-          )}
-          <View style={styles.cardInfo}>
-            <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
-              {isBuyingRequest && (
-                <View style={styles.requestPill}>
-                  <Text style={styles.requestPillText}>Request</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.cardPrice}>
-              {isBuyingRequest ? `Budget ${formatPrice(getDisplayPrice(item))}` : formatPrice(getDisplayPrice(item))}
-            </Text>
-            <View style={styles.cardMeta}>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
-                <Text style={styles.statusBadgeText}>{displayStatus}</Text>
-              </View>
-              <Text style={styles.cardDate} numberOfLines={1}>
-                {[formatDate(item.created_at), item.seller_name].filter(Boolean).join(' · ')}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {isPending && (
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.approveBtn]}
-              onPress={() => handleApprove(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
-              <Text style={styles.approveText}>Approve</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.rejectBtn]}
-              onPress={() => handleReject(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close-circle" size={18} color={COLORS.error} />
-              <Text style={styles.rejectText}>Reject</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderListing = ({ item, index }) => (
+    <AdminListingCard
+      item={item}
+      index={index}
+      onPress={() => navigation.navigate('AdminListingDetail', { itemType: item.listing_type || 'cars', itemId: item.id })}
+      onApprove={() => handleApprove(item)}
+      onReject={() => handleReject(item)}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.typeTabBar}
-      >
-        {TYPE_TABS.map((tab) => {
-          const active = selectedTypes.includes(tab) || (tab === 'All' && selectedTypes.length === 0);
-          return (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.typeTab, active && styles.activeTypeTab]}
-              onPress={() => toggleType(tab)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
-                size={14}
-                color={active ? COLORS.white : COLORS.textSecondary}
-                style={{ marginRight: 4 }}
+      <ScreenEntrance>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.typeTabBar}
+        >
+          {TYPE_TABS.map((tab) => {
+            const active = selectedTypes.includes(tab) || (tab === 'All' && selectedTypes.length === 0);
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.typeTab, active && styles.activeTypeTab]}
+                onPress={() => toggleType(tab)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
+                  size={14}
+                  color={active ? COLORS.white : COLORS.textSecondary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.typeTabText, active && styles.activeTypeTabText]}>
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statusTabBar}
+        >
+          {STATUS_TABS.map((tab) => {
+            const active = selectedStatuses.includes(tab) || (tab === 'All' && selectedStatuses.length === 0);
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.statusTab, active && styles.activeStatusTab]}
+                onPress={() => toggleStatus(tab)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
+                  size={14}
+                  color={active ? COLORS.white : COLORS.textSecondary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.statusTabText, active && styles.activeStatusTabText]}>
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {!loading && (
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiItem}>
+              <Text style={styles.kpiValue}>{kpi.total}</Text>
+              <Text style={styles.kpiLabel}>Total</Text>
+            </View>
+            <View style={styles.kpiDivider} />
+            <View style={styles.kpiItem}>
+              <Text style={[styles.kpiValue, { color: COLORS.warning }]}>{kpi.pending}</Text>
+              <Text style={styles.kpiLabel}>Pending</Text>
+            </View>
+            <View style={styles.kpiDivider} />
+            <View style={styles.kpiItem}>
+              <Text style={[styles.kpiValue, { color: COLORS.success }]}>{kpi.active}</Text>
+              <Text style={styles.kpiLabel}>Active</Text>
+            </View>
+          </View>
+        )}
+
+        {loading && listings.length === 0 ? (
+          <LoadingSpinner message="Loading listings..." />
+        ) : (
+          <FlashList
+            estimatedItemSize={260}
+            data={listings}
+            renderItem={renderListing}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+            }
+            ListEmptyComponent={
+              <EmptyState
+                icon="list-outline"
+                title="No listings found"
+                message="Try adjusting your filters."
               />
-              <Text style={[styles.typeTabText, active && styles.activeTypeTabText]}>
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.statusTabBar}
-      >
-        {STATUS_TABS.map((tab) => {
-          const active = selectedStatuses.includes(tab) || (tab === 'All' && selectedStatuses.length === 0);
-          return (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.statusTab, active && styles.activeStatusTab]}
-              onPress={() => toggleStatus(tab)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
-                size={14}
-                color={active ? COLORS.white : COLORS.textSecondary}
-                style={{ marginRight: 4 }}
-              />
-              <Text style={[styles.statusTabText, active && styles.activeStatusTabText]}>
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {!loading && (
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiItem}>
-            <Text style={styles.kpiValue}>{kpi.total}</Text>
-            <Text style={styles.kpiLabel}>Total</Text>
-          </View>
-          <View style={styles.kpiDivider} />
-          <View style={styles.kpiItem}>
-            <Text style={[styles.kpiValue, { color: COLORS.warning }]}>{kpi.pending}</Text>
-            <Text style={styles.kpiLabel}>Pending</Text>
-          </View>
-          <View style={styles.kpiDivider} />
-          <View style={styles.kpiItem}>
-            <Text style={[styles.kpiValue, { color: COLORS.success }]}>{kpi.active}</Text>
-            <Text style={styles.kpiLabel}>Active</Text>
-          </View>
-        </View>
-      )}
-
-      {loading && listings.length === 0 ? (
-        <LoadingSpinner message="Loading listings..." />
-      ) : (
-        <FlatList
-          data={listings}
-          renderItem={renderListing}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="list-outline"
-              title="No listings found"
-              message="Try adjusting your filters."
-            />
-          }
-        />
-      )}
+            }
+          />
+        )}
+      </ScreenEntrance>
     </SafeAreaView>
   );
 }
