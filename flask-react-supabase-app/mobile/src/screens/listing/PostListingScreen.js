@@ -60,6 +60,9 @@ import {
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import ImageCropperModal from '../../components/ui/ImageCropperModal';
+import { compressImage } from '../../utils/imageCompressor';
+import { toastApiError } from '../../utils/toast';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -434,6 +437,8 @@ export default function PostListingScreen({ navigation, route }) {
   const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
+  const [cropperUri, setCropperUri] = useState(null);
+  const [cropperVisible, setCropperVisible] = useState(false);
 
   const [carEmirate, setCarEmirate] = useState('Dubai');
   const [carArea, setCarArea] = useState('');
@@ -647,13 +652,13 @@ export default function PostListingScreen({ navigation, route }) {
   const pickImages = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      selectionLimit: 10 - images.length,
+      allowsMultipleSelection: false,
+      selectionLimit: 1,
       quality: 0.7,
     });
-    if (!result.canceled && result.assets) {
-      const newImages = result.assets.map(a => a.uri);
-      setImages(prev => [...prev, ...newImages].slice(0, 10));
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setCropperUri(result.assets[0].uri);
+      setCropperVisible(true);
     }
   }, [images.length]);
 
@@ -1337,6 +1342,7 @@ export default function PostListingScreen({ navigation, route }) {
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
+      toastApiError(err);
       Alert.alert('Error', err.message || 'Failed to post listing. Please try again.');
     } finally {
       setLoading(false);
@@ -2367,6 +2373,19 @@ export default function PostListingScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {renderMapPickerModal()}
+      <ImageCropperModal
+        visible={cropperVisible}
+        imageUri={cropperUri}
+        onConfirm={(uri) => {
+          setImages(prev => [...prev, uri]);
+          setCropperVisible(false);
+          setCropperUri(null);
+        }}
+        onCancel={() => {
+          setCropperVisible(false);
+          setCropperUri(null);
+        }}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
