@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   Image,
   StyleSheet,
@@ -11,6 +10,8 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
@@ -21,6 +22,10 @@ import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
+import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import PressableScale from '../../components/ui/PressableScale';
+import { toastApiError } from '../../utils/toast';
 
 const PRICE_RANGES = [
   { label: 'Any', min: 0, max: 0 },
@@ -41,6 +46,43 @@ const getImageUri = (item) => {
   }
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
+
+function CarCard({ item, index, onPress }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  const uri = getImageUri(item);
+  const title = item.listing_title || `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Untitled Car';
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress} haptic="light">
+        <View style={styles.card}>
+          <View style={styles.imageContainer}>
+            {uri ? (
+              <Image source={{ uri }} style={styles.cardImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="car" size={40} color="rgba(255,255,255,0.2)" />
+              </View>
+            )}
+            {item.is_featured && (
+              <View style={styles.featuredBadge}>
+                <Badge label="Featured" variant="success" size="sm" />
+              </View>
+            )}
+          </View>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text style={styles.cardSubtitle}>
+              {item.make_year || ''} | {formatNumber(item.kilometer_driven)} km | {item.fuel_type || 'Petrol'}
+            </Text>
+            <Text style={styles.cardPrice}>{formatPrice(item.expected_selling_price)}</Text>
+          </View>
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
 
 export default function CarListScreen({ navigation }) {
   const [cars, setCars] = useState([]);
@@ -99,6 +141,7 @@ export default function CarListScreen({ navigation }) {
       setHasMore(items.length >= PAGE_SIZE);
       setPage(pageNum);
     } catch (err) {
+      toastApiError(err);
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -111,6 +154,13 @@ export default function CarListScreen({ navigation }) {
   useEffect(() => {
     fetchCars(1);
   }, []);
+
+  useEffect(() => {
+    setCars([]);
+    setPage(1);
+    setHasMore(true);
+    fetchCars(1, search, activeFilters);
+  }, [activeFilters]);
 
   const handleSearch = useCallback((text) => {
     setSearch(text);
@@ -246,104 +296,63 @@ export default function CarListScreen({ navigation }) {
     );
   };
 
-  const renderCarCard = ({ item }) => {
-    const uri = getImageUri(item);
-    const title = item.listing_title || `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Untitled Car';
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.7}
-        onPress={() => navigation.navigate('CarDetail', { listingId: item.id })}
-      >
-        <View style={styles.imageContainer}>
-          {uri ? (
-            <Image source={{ uri }} style={styles.cardImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="car" size={40} color="rgba(255,255,255,0.2)" />
-            </View>
-          )}
-          {item.is_featured && (
-            <View style={styles.featuredBadge}>
-              <Badge label="Featured" variant="success" size="sm" />
-            </View>
-          )}
-        </View>
-        <View style={styles.cardBody}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={styles.cardSubtitle}>
-            {item.make_year || ''} | {formatNumber(item.kilometer_driven)} km | {item.fuel_type || 'Petrol'}
-          </Text>
-          <Text style={styles.cardPrice}>{formatPrice(item.expected_selling_price)}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderCarItem = useCallback(({ item, index }) => (
+    <CarCard
+      item={item}
+      index={index}
+      onPress={() => navigation.navigate('CarDetail', { carId: item.id })}
+    />
+  ), [navigation]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Browse Cars</Text>
-      </View>
-      <View style={styles.searchContainer}>
-        <SearchBar
-          value={search}
-          onChangeText={handleSearch}
-          placeholder="Search cars..."
-        />
-      </View>
-      <View style={styles.filtersRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
-          {renderFilterChip('Make', 'make', !!activeFilters.make)}
-          {renderFilterChip('Year', 'year', !!activeFilters.year)}
-          {renderFilterChip('Price Range', 'priceRange', !!activeFilters.priceRange)}
-          {renderFilterChip('Fuel', 'fuel', !!activeFilters.fuel)}
-          {renderFilterChip('Transmission', 'transmission', !!activeFilters.transmission)}
-          {hasActiveFilters && (
-            <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
-              <Ionicons name="close-circle" size={14} color={COLORS.accent} />
-              <Text style={styles.clearFiltersText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-      </View>
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+      <ScreenEntrance>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Browse Cars</Text>
         </View>
-      ) : (
-        <FlatList
-          data={visibleCars}
-          renderItem={renderCarCard}
-          keyExtractor={(item, idx) => String(item.id || idx)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />
-          }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color={COLORS.accent} />
-              </View>
-            ) : null
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="car-outline"
-              title="No cars found"
-              message="Try adjusting your filters or search term"
-              actionLabel="Clear Filters"
-              onAction={clearFilters}
-            />
-          }
-        />
-      )}
-      {renderFilterModal()}
+        <View style={styles.searchContainer}>
+          <SearchBar
+            value={search}
+            onChangeText={handleSearch}
+            placeholder="Search cars..."
+          />
+        </View>
+        <View style={styles.filtersRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip('Make', 'make', !!activeFilters.make)}
+            {renderFilterChip('Year', 'year', !!activeFilters.year)}
+            {renderFilterChip('Price Range', 'priceRange', !!activeFilters.priceRange)}
+            {renderFilterChip('Fuel', 'fuel', !!activeFilters.fuel)}
+            {renderFilterChip('Transmission', 'transmission', !!activeFilters.transmission)}
+            {hasActiveFilters && (
+              <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
+                <Ionicons name="close-circle" size={14} color={COLORS.accent} />
+                <Text style={styles.clearFiltersText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+          </View>
+        ) : (
+          <FlashList
+            data={visibleCars}
+            keyExtractor={(item) => item.id}
+            estimatedItemSize={280}
+            renderItem={renderCarItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.4}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" />}
+            ListFooterComponent={loadingMore ? <ActivityIndicator color="#4CAF50" style={{ padding: 20 }} /> : null}
+            ListEmptyComponent={!loading ? <EmptyState title="No cars found" description="Try adjusting your filters" /> : null}
+          />
+        )}
+        {renderFilterModal()}
+      </ScreenEntrance>
     </SafeAreaView>
   );
 }
