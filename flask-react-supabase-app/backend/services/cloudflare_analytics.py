@@ -4,17 +4,18 @@ Returns the same shape the AdminMetrics page expects so we can drop the
 result straight into `user_metrics` and the chart picks it up unchanged.
 
 Env vars (set on Railway):
-    CLOUDFLARE_API_TOKEN  - token with Zone Analytics:Read on the target zone
-                              (and Zone:Read if relying on ACCOUNT_ID discovery)
+    CLOUDFLARE_API_TOKEN  - token with Zone Analytics:Read on the target zone(s)
 
   Pick ONE of:
-    CLOUDFLARE_ZONE_ID    - the zone tag (32-char hex). Skips discovery.
-    CLOUDFLARE_ACCOUNT_ID - the account id. We auto-discover the first active
-                              zone owned by this account and cache it.
+    CLOUDFLARE_ZONE_IDS   - comma-separated zone tags (preferred for multi-zone)
+                              e.g. "22b9d6ac...,1dce9274..."
+    CLOUDFLARE_ZONE_ID    - single zone tag (backward compat, used when IDS absent)
+    CLOUDFLARE_ACCOUNT_ID - auto-discover the first active zone in the account
 
 Optional:
-    CLOUDFLARE_GRAPHQL_URL - override the GraphQL endpoint (defaults to the
-                              public Cloudflare URL)
+    CLOUDFLARE_EMAIL      - account email (Global API Key auth for REST endpoint)
+    CLOUDFLARE_API_KEY    - Global API Key (required for REST window-uniques)
+    CLOUDFLARE_GRAPHQL_URL - override the GraphQL endpoint
     CLOUDFLARE_REST_URL    - override the REST base used for zone discovery
 """
 
@@ -23,6 +24,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -34,11 +36,10 @@ _DEFAULT_REST_URL = "https://api.cloudflare.com/client/v4"
 
 # Per-process cache so the admin page doesn't fan out a CF call on every
 # render. CF aggregates roll up every ~15 min — a 5 min TTL is plenty.
-_CACHE: dict[tuple[str, int], tuple[float, dict]] = {}
+_CACHE: dict[tuple, tuple[float, dict]] = {}
 _CACHE_TTL_SECONDS = 300
 
-# Cache the resolved zone id so we don't hit /zones on every metrics call.
-# Re-resolved on process restart.
+# Cache the resolved zone id list so we don't hit /zones on every metrics call.
 _ZONE_RESOLUTION: dict[str, tuple[float, str | None]] = {}
 _ZONE_RESOLUTION_TTL_SECONDS = 3600
 
@@ -76,7 +77,11 @@ query GetZoneMetrics($zoneTag: String!, $since: Date!, $until: Date!) {
 def is_enabled() -> bool:
     if not os.getenv("CLOUDFLARE_API_TOKEN"):
         return False
-    return bool(os.getenv("CLOUDFLARE_ZONE_ID") or os.getenv("CLOUDFLARE_ACCOUNT_ID"))
+    return bool(
+        os.getenv("CLOUDFLARE_ZONE_IDS")
+        or os.getenv("CLOUDFLARE_ZONE_ID")
+        or os.getenv("CLOUDFLARE_ACCOUNT_ID")
+    )
 
 
 def _discover_zone_id(token: str, account_id: str) -> str | None:
@@ -127,22 +132,56 @@ def _discover_zone_id(token: str, account_id: str) -> str | None:
     else:
         logger.warning(
             "Cloudflare account %s has no zones the token can list. "
-            "Grant Zone:Read or set CLOUDFLARE_ZONE_ID explicitly.",
+            "Grant Zone:Read or set CLOUDFLARE_ZONE_IDS explicitly.",
             account_id,
         )
     _ZONE_RESOLUTION[cache_key] = (time.time(), zone_id)
     return zone_id
 
 
-def _resolve_zone_id() -> str | None:
+def _resolve_zone_ids() -> list[str]:
+    """Return the ordered list of zone IDs to query.
+
+    Priority:
+      1. CLOUDFLARE_ZONE_IDS  — comma-separated list (primary for multi-zone)
+      2. CLOUDFLARE_ZONE_ID   — single explicit zone (backward compat)
+      3. CLOUDFLARE_ACCOUNT_ID — auto-discover first active zone in the account
+    """
+    multi = os.getenv("CLOUDFLARE_ZONE_IDS", "").strip()
+    if multi:
+        return [z.strip() for z in multi.split(",") if z.strip()]
+
+    single = os.getenv("CLOUDFLARE_ZONE_ID", "").strip()
+    if single:
+        return [single]
+
     token = os.getenv("CLOUDFLARE_API_TOKEN")
-    explicit = os.getenv("CLOUDFLARE_ZONE_ID")
-    if explicit:
-        return explicit
     account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-    if not token or not account_id:
-        return None
-    return _discover_zone_id(token, account_id)
+    if token and account_id:
+        zone = _discover_zone_id(token, account_id)
+        return [zone] if zone else []
+    return []
+
+
+def _resolve_zone_id() -> str | None:
+    """Return the first resolved zone ID (kept for backward compat with status endpoint)."""
+    ids = _resolve_zone_ids()
+    return ids[0] if ids else None
+
+
+def _global_key_headers() -> dict | None:
+    """Return X-Auth-Email/X-Auth-Key headers if a Global API Key is configured.
+
+    The legacy Zone Analytics REST endpoint (error 1016) rejects account-owned
+    API tokens and requires user-owned credentials. Set CLOUDFLARE_EMAIL and
+    CLOUDFLARE_API_KEY (Global API Key from CF dashboard → My Profile → API Tokens)
+    to unlock the exact window-deduped unique count that dash.cloudflare.com shows.
+    """
+    email = os.getenv("CLOUDFLARE_EMAIL")
+    key = os.getenv("CLOUDFLARE_API_KEY")
+    if email and key:
+        return {"X-Auth-Email": email, "X-Auth-Key": key}
+    return None
 
 
 def _fetch_rest_window_uniques(zone_id: str, token: str, since, until) -> int | None:
@@ -153,16 +192,21 @@ def _fetch_rest_window_uniques(zone_id: str, token: str, since, until) -> int | 
     aggregate. We deliberately don't log at error level — a transient REST
     failure shouldn't spam the logs since the GraphQL path still gives the
     headline charts.
+
+    Requires Global API Key auth (CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY).
+    Account-owned API tokens are rejected by CF with error 1016.
     """
+    auth_headers = _global_key_headers()
+    if not auth_headers:
+        return None
+
     base = os.getenv("CLOUDFLARE_REST_URL", _DEFAULT_REST_URL)
-    # Dashboard endpoint accepts negative-delta strings like "-30d" or absolute
-    # ISO timestamps. ISO is safer — avoids drift between our `days` math and CF's.
     since_iso = f"{since.isoformat()}T00:00:00Z"
     until_iso = f"{until.isoformat()}T23:59:59Z"
     try:
         resp = requests.get(
             f"{base}/zones/{zone_id}/analytics/dashboard",
-            headers={"Authorization": f"Bearer {token}"},
+            headers=auth_headers,
             params={"since": since_iso, "until": until_iso, "continuous": "false"},
             timeout=15,
         )
@@ -193,27 +237,14 @@ def _fetch_rest_window_uniques(zone_id: str, token: str, since, until) -> int | 
         return None
 
 
-def fetch_zone_metrics(days: int) -> dict | None:
-    """Return aggregated Cloudflare zone metrics for the last `days` days.
+def _fetch_single_zone_metrics(
+    zone_id: str, days: int, token: str, since, until
+) -> dict | None:
+    """Fetch and shape metrics for a single Cloudflare zone.
 
-    None means CF isn't configured or the call failed — callers should fall
-    back to the platform_events numbers in that case.
+    Returns None on any failure. On success returns a dict with the same keys
+    as the public `fetch_zone_metrics` return value so callers can aggregate.
     """
-
-    token = os.getenv("CLOUDFLARE_API_TOKEN")
-    zone_id = _resolve_zone_id()
-    if not token or not zone_id:
-        return None
-
-    days = max(1, min(int(days or 7), 90))
-    cache_key = (zone_id, days)
-    cached = _CACHE.get(cache_key)
-    if cached and (time.time() - cached[0]) < _CACHE_TTL_SECONDS:
-        return cached[1]
-
-    until = datetime.now(timezone.utc).date()
-    since = until - timedelta(days=days - 1)
-
     payload = {
         "query": _ZONE_QUERY,
         "variables": {
@@ -235,33 +266,30 @@ def fetch_zone_metrics(days: int) -> dict | None:
             timeout=15,
         )
     except requests.RequestException as exc:
-        logger.warning("Cloudflare analytics request failed: %s", exc)
+        logger.warning("Cloudflare analytics request failed for zone %s: %s", zone_id, exc)
         return None
 
     if response.status_code >= 400:
         logger.warning(
-            "Cloudflare analytics HTTP %s: %s",
-            response.status_code,
-            response.text[:300],
+            "Cloudflare analytics HTTP %s for zone %s: %s",
+            response.status_code, zone_id, response.text[:300],
         )
         return None
 
     try:
         data = response.json()
     except ValueError:
-        logger.warning("Cloudflare analytics returned non-JSON")
+        logger.warning("Cloudflare analytics returned non-JSON for zone %s", zone_id)
         return None
 
     if data.get("errors"):
-        logger.warning("Cloudflare analytics GraphQL errors: %s", data["errors"])
+        logger.warning("Cloudflare analytics GraphQL errors for zone %s: %s", zone_id, data["errors"])
         return None
 
     try:
-        zone_groups = (
-            data["data"]["viewer"]["zones"][0]["httpRequests1dGroups"]
-        )
+        zone_groups = data["data"]["viewer"]["zones"][0]["httpRequests1dGroups"]
     except (KeyError, IndexError, TypeError):
-        logger.warning("Cloudflare analytics response shape unexpected")
+        logger.warning("Cloudflare analytics response shape unexpected for zone %s", zone_id)
         return None
 
     total_requests = 0
@@ -270,9 +298,6 @@ def fetch_zone_metrics(days: int) -> dict | None:
     total_threats = 0
     total_cached_requests = 0
     total_cached_bytes = 0
-    # Daily uniques cannot be safely summed across days (the same visitor on
-    # multiple days would be double-counted). We report the per-day series for
-    # the chart, plus the max daily value as a conservative single-day picker.
     daily_uniques: list[int] = []
     daily_trends: list[dict] = []
 
@@ -296,22 +321,13 @@ def fetch_zone_metrics(days: int) -> dict | None:
         daily_trends.append(
             {
                 "date": d.get("date"),
-                "sessions": uniques_n,         # one Cloudflare unique ≈ one session
+                "sessions": uniques_n,
                 "page_views": page_views_n,
                 "requests": requests_n,
             }
         )
 
-    # Window-deduped uniques. Three paths in priority order:
-    #   1. REST /zones/:id/analytics/dashboard — the number CF's UI shows.
-    #      Truth, but deprecated and not available on every plan.
-    #   2. Heuristic from daily uniques — when REST is unreachable. Pure
-    #      max() under-counts (only one day), pure sum() over-counts
-    #      (return visitors counted N times). Use a linear-decay estimate
-    #      calibrated to observed CF-vs-sum ratios: 7d≈0.90, 30d≈0.60.
-    #   3. Zero — only if we have no daily data at all.
-    # data_source records which path was actually used so the dashboard
-    # badge can be honest about it.
+    # Window-deduped uniques (same logic as original).
     rest_window = _fetch_rest_window_uniques(zone_id, token, since, until)
     if rest_window is not None:
         unique_visitors_window = rest_window
@@ -319,8 +335,6 @@ def fetch_zone_metrics(days: int) -> dict | None:
     elif daily_uniques:
         total_sum = sum(daily_uniques)
         peak = max(daily_uniques)
-        # Linear decay: shrinks the sum toward truth as the window grows.
-        # Floor at peak so we never under-count below any single day's truth.
         factor = max(0.40, 1.0 - 0.014 * days)
         unique_visitors_window = max(peak, int(round(total_sum * factor)))
         unique_visitors_source = "cf_graphql_estimate"
@@ -328,7 +342,7 @@ def fetch_zone_metrics(days: int) -> dict | None:
         unique_visitors_window = 0
         unique_visitors_source = "none"
 
-    result = {
+    return {
         "data_source": "cloudflare",
         "unique_visitors": unique_visitors_window,
         "unique_visitors_source": unique_visitors_source,
@@ -342,5 +356,101 @@ def fetch_zone_metrics(days: int) -> dict | None:
         "daily_trends": daily_trends,
         "window_days": days,
     }
-    _CACHE[cache_key] = (time.time(), result)
-    return result
+
+
+def _aggregate_zone_results(results: list[dict], days: int) -> dict:
+    """Merge metric dicts from multiple zones into a single aggregate."""
+    agg: dict = {
+        "data_source": "cloudflare",
+        "requests": 0,
+        "page_views": 0,
+        "bytes": 0,
+        "threats": 0,
+        "cached_requests": 0,
+        "cached_bytes": 0,
+        "unique_visitors": 0,
+        "peak_daily_uniques": 0,
+        "window_days": days,
+        "unique_visitors_source": "none",
+    }
+
+    # Merge daily_trends by date, summing per-day values across zones.
+    daily_by_date: dict[str, dict] = defaultdict(
+        lambda: {"date": None, "sessions": 0, "page_views": 0, "requests": 0}
+    )
+
+    # Source priority: cf_rest > cf_graphql_estimate > none
+    _SOURCE_RANK = {"cf_rest": 2, "cf_graphql_estimate": 1, "none": 0}
+
+    for r in results:
+        agg["requests"] += r.get("requests", 0)
+        agg["page_views"] += r.get("page_views", 0)
+        agg["bytes"] += r.get("bytes", 0)
+        agg["threats"] += r.get("threats", 0)
+        agg["cached_requests"] += r.get("cached_requests", 0)
+        agg["cached_bytes"] += r.get("cached_bytes", 0)
+        agg["unique_visitors"] += r.get("unique_visitors", 0)
+        agg["peak_daily_uniques"] = max(
+            agg["peak_daily_uniques"], r.get("peak_daily_uniques", 0)
+        )
+
+        src = r.get("unique_visitors_source", "none")
+        if _SOURCE_RANK.get(src, 0) > _SOURCE_RANK.get(agg["unique_visitors_source"], 0):
+            agg["unique_visitors_source"] = src
+
+        for day in r.get("daily_trends", []):
+            date = day.get("date")
+            if date:
+                daily_by_date[date]["date"] = date
+                daily_by_date[date]["sessions"] += day.get("sessions", 0)
+                daily_by_date[date]["page_views"] += day.get("page_views", 0)
+                daily_by_date[date]["requests"] += day.get("requests", 0)
+
+    agg["daily_trends"] = sorted(
+        daily_by_date.values(), key=lambda x: x.get("date") or ""
+    )
+    return agg
+
+
+def fetch_zone_metrics(days: int) -> dict | None:
+    """Return aggregated Cloudflare zone metrics for the last `days` days.
+
+    Combines data from ALL configured zones (CLOUDFLARE_ZONE_IDS). For
+    dphclassifieds.com + dphclassifieds.ae the results are summed so the
+    admin dashboard shows the total traffic across both domains.
+
+    None means CF isn't configured or all calls failed — callers should fall
+    back to the platform_events numbers in that case.
+    """
+    token = os.getenv("CLOUDFLARE_API_TOKEN")
+    zone_ids = _resolve_zone_ids()
+    if not token or not zone_ids:
+        return None
+
+    days = max(1, min(int(days or 7), 90))
+    cache_key = (tuple(sorted(zone_ids)), days)
+    cached = _CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _CACHE_TTL_SECONDS:
+        return cached[1]
+
+    until = datetime.now(timezone.utc).date()
+    since = until - timedelta(days=days - 1)
+
+    zone_results = []
+    for zone_id in zone_ids:
+        result = _fetch_single_zone_metrics(zone_id, days, token, since, until)
+        if result:
+            zone_results.append(result)
+        else:
+            logger.warning("Cloudflare: no data for zone %s — skipping in aggregate", zone_id)
+
+    if not zone_results:
+        return None
+
+    aggregated = (
+        zone_results[0] if len(zone_results) == 1
+        else _aggregate_zone_results(zone_results, days)
+    )
+
+    _CACHE[cache_key] = (time.time(), aggregated)
+    return aggregated

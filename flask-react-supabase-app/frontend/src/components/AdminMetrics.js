@@ -506,17 +506,30 @@ const AdminMetrics = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <SectionTitle>Platform totals</SectionTitle>
-                    {userMetrics.data_source === 'cloudflare' ? (
-                      <span
-                        className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/30"
-                        title="Visitor counts come from Cloudflare GraphQL Analytics API (edge data). Bounce rate and conversion sessions still come from platform_events, which is the only source that knows which page each visitor actually engaged with."
-                      >
-                        Source: Cloudflare
-                      </span>
-                    ) : (
+                    {userMetrics.data_source === 'cloudflare' ? (() => {
+                      const uvSrc = userMetrics.unique_visitors_source;
+                      const isExact = uvSrc === 'cf_rest';
+                      const isEstimate = uvSrc === 'cf_graphql_estimate';
+                      const badgeClass = isExact
+                        ? 'border-orange-400/30 bg-orange-400/10 text-orange-200'
+                        : isEstimate
+                          ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
+                          : 'border-orange-500/30 bg-orange-500/10 text-orange-300';
+                      const badgeLabel = isExact ? 'Cloudflare (exact)' : isEstimate ? 'Cloudflare (estimated)' : 'Cloudflare';
+                      const badgeTip = isExact
+                        ? 'Visitor counts are exact — sourced from the Cloudflare REST Zone Analytics endpoint, same as dash.cloudflare.com.'
+                        : isEstimate
+                          ? 'Unique visitors are estimated from per-day GraphQL uniques using a linear-decay heuristic (may be ~10–20% off). Add CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY to Railway for the exact number from the CF dashboard.'
+                          : 'Visitor counts come from Cloudflare edge analytics. Bounce rate and conversion sessions still come from platform_events.';
+                      return (
+                        <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${badgeClass}`} title={badgeTip}>
+                          Source: {badgeLabel}
+                        </span>
+                      );
+                    })() : (
                       <span
                         className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/40 border border-white/10"
-                        title={userMetrics.data_source_note || 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN plus CLOUDFLARE_ACCOUNT_ID (or CLOUDFLARE_ZONE_ID) on the backend to switch to Cloudflare edge data.'}
+                        title={userMetrics.data_source_note || 'Numbers from the in-app platform_events tracker. Set CLOUDFLARE_API_TOKEN plus CLOUDFLARE_ZONE_IDS on the backend to switch to Cloudflare edge data.'}
                       >
                         Source: in-app tracker
                       </span>
@@ -524,7 +537,7 @@ const AdminMetrics = () => {
                   </div>
                   <KvList
                     items={[
-                      { label: 'Sessions', value: formatNumber(userMetrics.sessions), note: 'Daily uniques summed over the window' },
+                      { label: 'Sessions', value: formatNumber(userMetrics.sessions), note: userMetrics.unique_visitors_source === 'cf_rest' ? 'Exact window-deduped unique visitors (Cloudflare REST)' : userMetrics.unique_visitors_source === 'cf_graphql_estimate' ? 'Estimated unique visitors — add CF Global API Key for exact match' : 'Unique visitor sessions in the window' },
                       { label: 'Page views', value: formatNumber(userMetrics.page_views), note: 'Sitewide page loads at the edge' },
                       { label: 'Bounce rate', value: formatPercent(userMetrics.bounce_rate_percent), note: 'From in-app tracker (CF can’t see this)' },
                       { label: 'Conversion sessions', value: formatNumber(userMetrics.conversion_sessions), note: 'From in-app tracker (lead/form intent)' },

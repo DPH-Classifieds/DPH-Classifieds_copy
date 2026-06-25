@@ -48,3 +48,10 @@ ALTER TABLE public.car_parts
 -- ── license_plates: add user_email if missing ────────────────────────────
 ALTER TABLE public.license_plates
   ADD COLUMN IF NOT EXISTS user_email VARCHAR(255);
+
+-- ── cars: add user_email if missing ──────────────────────────────────────
+-- The POST handler sets user_email after whitelist filtering; the original
+-- schema omitted this column causing every new car insert to fail via the
+-- PGRST204 path and then the lifecycle fallback wrongly strips listing_title.
+ALTER TABLE public.cars
+  ADD COLUMN IF NOT EXISTS user_email VARCHAR(255);

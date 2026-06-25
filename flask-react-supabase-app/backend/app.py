@@ -6093,6 +6093,8 @@ def create_car(current_user):
         car_data = {k: v for k, v in car_data.items() if k in allowed_fields}
         car_data["user_email"] = get_user_email(current_user)
         car_data["status"] = _initial_listing_status()
+        # auto_review_reasons is NOT NULL in the cars table — default to empty array
+        car_data.setdefault("auto_review_reasons", [])
 
         if not images or len(images) == 0:
             return jsonify(
@@ -13777,6 +13779,8 @@ def create_part(current_user):
         }
         part_data = {k: v for k, v in part_data.items() if k in part_allowed_fields}
         part_data["user_email"] = get_user_email(current_user)
+        # auto_review_reasons is NOT NULL in the car_parts table — default to empty array
+        part_data.setdefault("auto_review_reasons", [])
 
         # compatible_years is TEXT[] in the DB — coerce string values to array/null
         cy = part_data.get("compatible_years")
@@ -14745,6 +14749,8 @@ def _create_plate_with_image_impl(current_user):
             **({"proof_document_url": proof_document_url} if proof_document_url else {}),
         }
         plate_data.update(_new_listing_lifecycle_fields())
+        # auto_review_reasons is NOT NULL in the license_plates table — default to empty array
+        plate_data.setdefault("auto_review_reasons", [])
         try:
             _require_whatsapp_prefill_and_phone_alignment(plate_data, "plates")
         except ValueError as validation_error:
@@ -16708,6 +16714,7 @@ def get_admin_metrics_overview(current_user):
                     user_metrics["edge_bytes"] = cf["bytes"]
                     user_metrics["peak_daily_uniques"] = cf["peak_daily_uniques"]
                     user_metrics["data_source"] = "cloudflare"
+                    user_metrics["unique_visitors_source"] = cf.get("unique_visitors_source")
                     # Daily chart series — preserve the platform_events one as
                     # `daily_trends_platform` in case the frontend wants both.
                     if user_metrics.get("daily_trends"):
@@ -16748,30 +16755,31 @@ def get_admin_cloudflare_status(current_user):
         from services.cloudflare_analytics import (
             fetch_zone_metrics as _cf_fetch,
             is_enabled as _cf_enabled,
-            _resolve_zone_id as _cf_resolve_zone,
+            _resolve_zone_ids as _cf_resolve_zones,
         )
 
         payload = {
             "token_present": bool(os.getenv("CLOUDFLARE_API_TOKEN")),
             "account_id_present": bool(os.getenv("CLOUDFLARE_ACCOUNT_ID")),
+            "zone_ids_present": bool(os.getenv("CLOUDFLARE_ZONE_IDS")),
             "zone_id_present": bool(os.getenv("CLOUDFLARE_ZONE_ID")),
             "enabled": _cf_enabled(),
         }
         if not _cf_enabled():
             payload["status"] = "disabled"
             payload["reason"] = (
-                "Set CLOUDFLARE_API_TOKEN plus either CLOUDFLARE_ZONE_ID "
-                "or CLOUDFLARE_ACCOUNT_ID."
+                "Set CLOUDFLARE_API_TOKEN plus either CLOUDFLARE_ZONE_IDS "
+                "(comma-separated), CLOUDFLARE_ZONE_ID, or CLOUDFLARE_ACCOUNT_ID."
             )
             return jsonify(payload), 200
 
-        resolved_zone = _cf_resolve_zone()
-        payload["resolved_zone_id"] = resolved_zone
-        if not resolved_zone:
+        resolved_zones = _cf_resolve_zones()
+        payload["resolved_zone_ids"] = resolved_zones
+        if not resolved_zones:
             payload["status"] = "zone_unresolved"
             payload["reason"] = (
-                "Token + ACCOUNT_ID present but no zones returned. The token "
-                "needs Zone:Read on the account, or set CLOUDFLARE_ZONE_ID."
+                "Token present but no zones resolved. Set CLOUDFLARE_ZONE_IDS "
+                "or grant Zone:Read on the account for auto-discovery."
             )
             return jsonify(payload), 200
 
