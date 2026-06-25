@@ -17,6 +17,9 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import apiClient from '../../utils/apiClient';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { TurnstileModal } from '../../utils/turnstile';
+import { TURNSTILE_SITE_KEY } from '../../constants/config';
+import { toastApiError } from '../../utils/toast';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -144,6 +147,17 @@ export default function SignupScreen({ navigation }) {
   const [marketingComms, setMarketingComms] = useState(true);
 
   const usernameTimeout = useRef(null);
+  const [turnstileVisible, setTurnstileVisible] = useState(false);
+  const turnstileResolveRef = useRef(null);
+  const turnstileRejectRef = useRef(null);
+
+  const getTurnstileToken = () =>
+    new Promise((res, rej) => {
+      if (!TURNSTILE_SITE_KEY) { res(''); return; }
+      turnstileResolveRef.current = res;
+      turnstileRejectRef.current = rej;
+      setTurnstileVisible(true);
+    });
 
   const checkUsername = useCallback(async (value) => {
     if (!value || value.length < 3) {
@@ -221,8 +235,9 @@ export default function SignupScreen({ navigation }) {
 
   const handleSignUp = async () => {
     if (!validate()) return;
-    setLoading(true);
     try {
+      setLoading(true);
+      const cfToken = await getTurnstileToken();
       const fullPhone = `${countryCode}${phone.replace(/[^0-9]/g, '')}`;
       await signUp(email.trim(), password, {
         username: username.trim().toLowerCase(),
@@ -235,10 +250,10 @@ export default function SignupScreen({ navigation }) {
         emailComms,
         smsComms,
         marketingComms,
-      });
+      }, cfToken);
       navigation.navigate('CheckEmail', { email: email.trim() });
     } catch (err) {
-      Alert.alert('Sign Up Failed', err.message || 'Something went wrong. Please try again.');
+      toastApiError(err);
     } finally {
       setLoading(false);
     }
@@ -683,6 +698,18 @@ export default function SignupScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <TurnstileModal
+        visible={turnstileVisible}
+        siteKey={TURNSTILE_SITE_KEY}
+        onToken={(token) => {
+          setTurnstileVisible(false);
+          turnstileResolveRef.current?.(token);
+        }}
+        onCancel={() => {
+          setTurnstileVisible(false);
+          turnstileRejectRef.current?.(new Error('cancelled'));
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

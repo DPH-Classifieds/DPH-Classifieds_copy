@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,9 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import apiClient from '../../utils/apiClient';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { TurnstileModal } from '../../utils/turnstile';
+import { TURNSTILE_SITE_KEY } from '../../constants/config';
+import { toastApiError } from '../../utils/toast';
 
 export default function LoginScreen({ navigation, route }) {
   const { signIn, signInWithGoogle } = useAuth();
@@ -25,6 +28,17 @@ export default function LoginScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [turnstileVisible, setTurnstileVisible] = useState(false);
+  const turnstileResolveRef = useRef(null);
+  const turnstileRejectRef = useRef(null);
+
+  const getTurnstileToken = () =>
+    new Promise((res, rej) => {
+      if (!TURNSTILE_SITE_KEY) { res(''); return; }
+      turnstileResolveRef.current = res;
+      turnstileRejectRef.current = rej;
+      setTurnstileVisible(true);
+    });
 
   const navigateAfterAuth = (signedInUser) => {
     const rootNav = navigation.getParent();
@@ -80,9 +94,10 @@ export default function LoginScreen({ navigation, route }) {
   const handleSignIn = async () => {
     if (!validate()) return;
 
-    setLoading(true);
     try {
-      await signIn(email.trim(), password);
+      setLoading(true);
+      const cfToken = await getTurnstileToken();
+      await signIn(email.trim(), password, cfToken);
       const rootNav = navigation.getParent();
       if (redirect && rootNav) {
         rootNav.navigate('Main', { screen: redirect });
@@ -90,7 +105,7 @@ export default function LoginScreen({ navigation, route }) {
         rootNav.goBack();
       }
     } catch (err) {
-      Alert.alert('Sign In Failed', err.message || 'Invalid email or password. Please try again.');
+      toastApiError(err);
     } finally {
       setLoading(false);
     }
@@ -194,6 +209,18 @@ export default function LoginScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <TurnstileModal
+        visible={turnstileVisible}
+        siteKey={TURNSTILE_SITE_KEY}
+        onToken={(token) => {
+          setTurnstileVisible(false);
+          turnstileResolveRef.current?.(token);
+        }}
+        onCancel={() => {
+          setTurnstileVisible(false);
+          turnstileRejectRef.current?.(new Error('cancelled'));
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
