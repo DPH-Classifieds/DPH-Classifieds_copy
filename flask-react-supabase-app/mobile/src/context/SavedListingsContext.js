@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import apiClient from '../utils/apiClient';
 import { useAuth } from './AuthContext';
+import { toastApiError } from '../utils/toast';
 
 const SavedListingsContext = createContext();
 
@@ -37,7 +38,7 @@ export const SavedListingsProvider = ({ children }) => {
         });
       }
     } catch (err) {
-      // silent
+      toastApiError(err);
     } finally {
       setLoading(false);
     }
@@ -89,6 +90,7 @@ export const SavedListingsProvider = ({ children }) => {
         return true;
       } catch (err) {
         setSavedListings(previousListingsRef.current);
+        toastApiError(err);
         return false;
       } finally {
         setSavingKeys(prev => {
@@ -110,6 +112,7 @@ export const SavedListingsProvider = ({ children }) => {
         return true;
       } catch (err) {
         setSavedListings(previousListingsRef.current);
+        toastApiError(err);
         return false;
       } finally {
         setSavingKeys(prev => {
