@@ -13,6 +13,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
+import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import PressableScale from '../../components/ui/PressableScale';
+import { toastApiError } from '../../utils/toast';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatNumber } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
@@ -45,6 +51,7 @@ const CATEGORIES = [
   { key: 'bikes', label: 'Bikes', icon: 'bicycle-outline' },
   { key: 'plates', label: 'Plates', icon: 'key-outline' },
   { key: 'parts', label: 'Parts', icon: 'construct-outline' },
+  { key: 'wanted', label: 'Wanted', icon: 'search-outline' },
 ];
 
 const SORT_OPTIONS = [
@@ -145,7 +152,7 @@ const normalizeItem = (category, item) => {
 };
 
 const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
-const LIST_SCREENS = { cars: 'CarList', bikes: 'BikeList', plates: 'PlateList', parts: 'PartList' };
+const LIST_SCREENS = { cars: 'CarList', bikes: 'BikeList', plates: 'PlateList', parts: 'PartList', wanted: 'BuyingRequests' };
 const LISTING_PAGE_SIZE = 18;
 
 function PickerContent({ options, onSelect, onClose, selectedValue }) {
@@ -397,6 +404,63 @@ const fcStyles = StyleSheet.create({
   resetText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
 });
 
+function ExploreCard({ item, index, onPress, onSave, saved }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  const catColor = CATEGORY_COLORS[item.category] || COLORS.accent;
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <View style={styles.card}>
+          <View style={styles.cardImageWrap}>
+            {item.image ? (
+              <FadeInImage source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.cardImagePlaceholder}>
+                <Ionicons name="image-outline" size={28} color={COLORS.textMuted} />
+              </View>
+            )}
+            <View style={[styles.cardCatBadge, { backgroundColor: catColor }]}>
+              <Text style={styles.cardCatText}>{item.category.charAt(0).toUpperCase() + item.category.slice(1)}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.cardSaveBtn}
+              onPress={onSave}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={saved ? 'heart' : 'heart-outline'}
+                size={18}
+                color={saved ? COLORS.error : COLORS.white}
+              />
+            </TouchableOpacity>
+            {item.is_featured && (
+              <View style={styles.cardFeatured}>
+                <Ionicons name="star" size={10} color={COLORS.black} />
+                <Text style={styles.cardFeaturedText}>Featured</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardPrice}>
+              {item.price ? formatPrice(item.price) : 'Price on request'}
+            </Text>
+            <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+            {item.subtitle ? (
+              <Text style={styles.cardSubtitle} numberOfLines={2}>{item.subtitle}</Text>
+            ) : null}
+            {item.location ? (
+              <View style={styles.cardLocationRow}>
+                <Ionicons name="location-outline" size={11} color={COLORS.textMuted} />
+                <Text style={styles.cardLocation} numberOfLines={1}>{item.location}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
+
 export default function ExploreScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
@@ -492,7 +556,7 @@ export default function ExploreScreen({ navigation }) {
         swrSet(EXPLORE_INITIAL_CACHE_KEY, { cars, bikes, plates, parts });
       }
     } catch (err) {
-      // Failed to fetch
+      toastApiError(err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -589,61 +653,15 @@ export default function ExploreScreen({ navigation }) {
 
   const renderItem = useCallback(({ item, index }) => {
     const detailScreen = DETAIL_SCREENS[item.category];
-    const catColor = CATEGORY_COLORS[item.category] || COLORS.accent;
     const saved = isSaved(item.category, item.id);
-    const animationDelay = index < 4 ? index * 40 : 0;
-
     return (
-      <FadeInView delay={animationDelay}>
-        <AnimatedCard onPress={() => navigation.navigate(detailScreen, { listingId: item.id, listing: item.raw })}>
-          <View style={styles.card}>
-            <View style={styles.cardImageWrap}>
-              {item.image ? (
-                <FadeInImage source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
-              ) : (
-                <View style={styles.cardImagePlaceholder}>
-                  <Ionicons name="image-outline" size={28} color={COLORS.textMuted} />
-                </View>
-              )}
-              <View style={[styles.cardCatBadge, { backgroundColor: catColor }]}>
-                <Text style={styles.cardCatText}>{item.category.charAt(0).toUpperCase() + item.category.slice(1)}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.cardSaveBtn}
-                onPress={() => toggleSaveListing(item.category, item.raw)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={saved ? 'heart' : 'heart-outline'}
-                  size={18}
-                  color={saved ? COLORS.error : COLORS.white}
-                />
-              </TouchableOpacity>
-              {item.is_featured && (
-                <View style={styles.cardFeatured}>
-                  <Ionicons name="star" size={10} color={COLORS.black} />
-                  <Text style={styles.cardFeaturedText}>Featured</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.cardBody}>
-              <Text style={styles.cardPrice}>
-                {item.price ? formatPrice(item.price) : 'Price on request'}
-              </Text>
-              <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-              {item.subtitle ? (
-                <Text style={styles.cardSubtitle} numberOfLines={2}>{item.subtitle}</Text>
-              ) : null}
-              {item.location ? (
-                <View style={styles.cardLocationRow}>
-                  <Ionicons name="location-outline" size={11} color={COLORS.textMuted} />
-                  <Text style={styles.cardLocation} numberOfLines={1}>{item.location}</Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-        </AnimatedCard>
-      </FadeInView>
+      <ExploreCard
+        item={item}
+        index={index}
+        onPress={() => navigation.navigate(detailScreen, { listingId: item.id, listing: item.raw })}
+        onSave={() => toggleSaveListing(item.category, item.raw)}
+        saved={saved}
+      />
     );
   }, [navigation, isSaved, toggleSaveListing]);
 
@@ -747,10 +765,12 @@ export default function ExploreScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenEntrance>
       {loading && !refreshing ? (
         <ListingSkeleton />
       ) : (
-        <FlatList
+        <FlashList
+          estimatedItemSize={260}
           data={normalizedItems}
           renderItem={renderItem}
           keyExtractor={(item, idx) => `${item.category || 'listing'}-${item.id || idx}`}
@@ -759,10 +779,6 @@ export default function ExploreScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
           keyboardShouldPersistTaps="handled"
-          initialNumToRender={5}
-          maxToRenderPerBatch={5}
-          windowSize={7}
-          removeClippedSubviews
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
           }
@@ -783,7 +799,7 @@ export default function ExploreScreen({ navigation }) {
           }
         />
       )}
-
+      </ScreenEntrance>
       <BottomSheet visible={pickerState.visible} onClose={closePicker} title={pickerState.title}>
         <PickerContent
           options={pickerState.options}

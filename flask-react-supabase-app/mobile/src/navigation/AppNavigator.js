@@ -35,6 +35,10 @@ import PrivacyPolicyScreen from '../screens/profile/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/profile/TermsOfServiceScreen';
 import AboutScreen from '../screens/profile/AboutScreen';
 
+import BuyingRequestsScreen from '../screens/listing/BuyingRequestsScreen';
+import BuyingRequestDetailScreen from '../screens/listing/BuyingRequestDetailScreen';
+import PostBuyingRequestScreen from '../screens/listing/PostBuyingRequestScreen';
+
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
 import AdminListingsScreen from '../screens/admin/AdminListingsScreen';
@@ -103,6 +107,9 @@ function ExploreStack() {
       <Stack.Screen name="PlateDetail" component={PlateDetailScreen} options={{ title: 'Plate Listing', headerBackTitle: 'Explore' }} />
       <Stack.Screen name="PartDetail" component={PartDetailScreen} options={{ title: 'Part Listing', headerBackTitle: 'Explore' }} />
       <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
+      <Stack.Screen name="BuyingRequests" component={BuyingRequestsScreen} options={{ title: 'Buying Requests' }} />
+      <Stack.Screen name="BuyingRequestDetail" component={BuyingRequestDetailScreen} options={{ title: 'Request Detail' }} />
+      <Stack.Screen name="PostBuyingRequest" component={PostBuyingRequestScreen} options={{ title: 'Post Request' }} />
     </Stack.Navigator>
   );
 }
@@ -111,6 +118,7 @@ function PostStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="PostListing" component={PostListingScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="PostBuyingRequest" component={PostBuyingRequestScreen} options={{ title: 'Post Buying Request' }} />
     </Stack.Navigator>
   );
 }
