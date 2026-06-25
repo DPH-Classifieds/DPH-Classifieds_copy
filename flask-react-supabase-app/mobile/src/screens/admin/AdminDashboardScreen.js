@@ -432,6 +432,16 @@ export default function AdminDashboardScreen({ navigation }) {
             <KpiCard icon="globe-outline" label={`Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={COLORS.accent} />
             <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={COLORS.accent} />
           </View>
+          <View style={{ paddingHorizontal: SPACING.md, marginTop: -SPACING.sm, marginBottom: SPACING.md }}>
+            <CfSourceBadge dataSource={stats?.data_source} uniqueVisitorsSource={stats?.unique_visitors_source} />
+            {stats?.data_source === 'cloudflare' && (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <EdgeStat label="Requests" value={stats.edge_requests} />
+                <EdgeStat label="Threats" value={stats.edge_threats} />
+                <EdgeStat label="Cached" value={stats.edge_cached_requests} />
+              </View>
+            )}
+          </View>
         )}
 
         <View style={styles.section}>
@@ -556,6 +566,35 @@ export default function AdminDashboardScreen({ navigation }) {
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function CfSourceBadge({ dataSource, uniqueVisitorsSource }) {
+  if (!dataSource) return null;
+  if (dataSource !== 'cloudflare') {
+    return <Text style={cfBadgeStyles.grey}>In-app tracker</Text>;
+  }
+  if (uniqueVisitorsSource === 'cf_rest') {
+    return <Text style={cfBadgeStyles.orange}>Cloudflare (exact)</Text>;
+  }
+  if (uniqueVisitorsSource === 'cf_graphql_estimate') {
+    return <Text style={cfBadgeStyles.amber}>Cloudflare (estimated)</Text>;
+  }
+  return <Text style={cfBadgeStyles.orange}>Cloudflare</Text>;
+}
+
+const cfBadgeStyles = StyleSheet.create({
+  orange: { fontSize: 10, color: '#fdba74', backgroundColor: 'rgba(251,146,60,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 4 },
+  amber:  { fontSize: 10, color: '#fcd34d', backgroundColor: 'rgba(252,211,77,0.12)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 4 },
+  grey:   { fontSize: 10, color: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 4 },
+});
+
+function EdgeStat({ label, value }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#272729', borderRadius: 8, padding: 10, alignItems: 'center' }}>
+      <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>{value?.toLocaleString() ?? '—'}</Text>
+      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{label}</Text>
+    </View>
   );
 }
 

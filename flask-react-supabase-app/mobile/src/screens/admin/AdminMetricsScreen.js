@@ -76,6 +76,26 @@ function BarChart({ items, labelKey = 'segment', valueKey = 'views' }) {
   );
 }
 
+function CfSourceBadge({ dataSource, uniqueVisitorsSource }) {
+  if (!dataSource) return null;
+  if (dataSource !== 'cloudflare') {
+    return <Text style={cfBadgeStyles.grey}>In-app tracker</Text>;
+  }
+  if (uniqueVisitorsSource === 'cf_rest') {
+    return <Text style={cfBadgeStyles.orange}>Cloudflare (exact)</Text>;
+  }
+  if (uniqueVisitorsSource === 'cf_graphql_estimate') {
+    return <Text style={cfBadgeStyles.amber}>Cloudflare (estimated)</Text>;
+  }
+  return <Text style={cfBadgeStyles.orange}>Cloudflare</Text>;
+}
+
+const cfBadgeStyles = StyleSheet.create({
+  orange: { fontSize: 10, color: '#fdba74', backgroundColor: 'rgba(251,146,60,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 4 },
+  amber:  { fontSize: 10, color: '#fcd34d', backgroundColor: 'rgba(252,211,77,0.12)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 4 },
+  grey:   { fontSize: 10, color: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 4 },
+});
+
 export default function AdminMetricsScreen() {
   const [metrics, setMetrics] = useState(null);
   const [health, setHealth] = useState(null);
@@ -224,18 +244,7 @@ export default function AdminMetricsScreen() {
 
         <SectionHeader label="USER METRICS" title="Engagement and retention" subtitle="How users interact with the platform." />
 
-        <View style={styles.sourceBadgeRow}>
-          <View style={[styles.sourceBadge, userMetrics.data_source === 'cloudflare' ? styles.sourceBadgeCloudflare : styles.sourceBadgeInternal]}>
-            <Ionicons
-              name={userMetrics.data_source === 'cloudflare' ? 'cloud' : 'analytics-outline'}
-              size={12}
-              color={userMetrics.data_source === 'cloudflare' ? '#fb923c' : 'rgba(255,255,255,0.55)'}
-            />
-            <Text style={[styles.sourceBadgeText, userMetrics.data_source === 'cloudflare' && { color: '#fb923c' }]}>
-              {userMetrics.data_source === 'cloudflare' ? 'Source: Cloudflare' : 'Source: in-app tracker'}
-            </Text>
-          </View>
-        </View>
+        <CfSourceBadge dataSource={metrics?.user_metrics?.data_source} uniqueVisitorsSource={metrics?.user_metrics?.unique_visitors_source} />
 
         <View style={styles.surface}>
           <MetricRow label="Repeat Rate" value={formatPercent(repeatRate)} />
