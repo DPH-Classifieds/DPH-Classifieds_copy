@@ -7,6 +7,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { SPRING_FAST } from '../constants/motion';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
@@ -45,6 +47,24 @@ import AdminMetricsScreen from '../screens/admin/AdminMetricsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+function AnimatedTabIcon({ name, color, size, focused }) {
+  const scale = useSharedValue(focused ? 1.15 : 1);
+
+  React.useEffect(() => {
+    scale.value = withSpring(focused ? 1.15 : 1, SPRING_FAST);
+  }, [focused]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Ionicons name={name} size={size} color={color} />
+    </Animated.View>
+  );
+}
 
 const screenOptions = {
   headerStyle: { backgroundColor: '#000000' },
@@ -203,7 +223,7 @@ function MainTabs() {
           else if (route.name === 'Post') iconName = focused ? 'add-circle' : 'add-circle-outline';
           else if (route.name === 'Saved') iconName = focused ? 'heart' : 'heart-outline';
           else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
-          return <Ionicons name={iconName} size={24} color={color} />;
+          return <AnimatedTabIcon name={iconName} size={size} color={color} focused={focused} />;
         },
       })}
     >
