@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   Image,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -12,6 +11,15 @@ import {
   Alert,
   Modal,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import PressableScale from '../../components/ui/PressableScale';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
@@ -85,6 +93,15 @@ export default function PlateDetailScreen({ route, navigation }) {
     if (listingId) fetchPlate();
   }, [listingId, routeListing]);
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+  const IMAGE_HEIGHT = 200;
+  const headerOpacity = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [IMAGE_HEIGHT - 60, IMAGE_HEIGHT], [0, 1], Extrapolation.CLAMP),
+  }));
+
   const { requireAuth, AuthPromptModal } = useAuthPrompt(navigation);
 
   const handleSave = useCallback(async () => {
@@ -118,7 +135,8 @@ export default function PlateDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScreenEntrance>
+      <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false}>
         <View style={styles.imageSection}>
           {images.length > 0 ? (
             <ScrollView
@@ -227,14 +245,14 @@ export default function PlateDetailScreen({ route, navigation }) {
               </View>
             </View>
             <View style={styles.sellerActions}>
-              <TouchableOpacity style={styles.callButton} onPress={handleCall} activeOpacity={0.8}>
+              <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
                 <Ionicons name="call" size={18} color={COLORS.white} />
                 <Text style={styles.callButtonText}>Call Now</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsApp} activeOpacity={0.8}>
+              </PressableScale>
+              <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
                 <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
                 <Text style={styles.whatsappButtonText}>WhatsApp</Text>
-              </TouchableOpacity>
+              </PressableScale>
             </View>
             {isOwner && (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
@@ -254,8 +272,9 @@ export default function PlateDetailScreen({ route, navigation }) {
         </View>
 
         <RecommendedListings listingType="plate" listingId={plate.id} navigation={navigation} />
-      </ScrollView>
+      </Animated.ScrollView>
 
+      </ScreenEntrance>
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.lightboxContainer}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
