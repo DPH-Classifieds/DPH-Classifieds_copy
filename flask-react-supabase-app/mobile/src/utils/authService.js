@@ -36,12 +36,12 @@ export const getAccessToken = async () => {
 };
 
 
-export const signIn = async (email, password) => {
+export const signIn = async (email, password, cfToken) => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, ...(cfToken ? { cf_turnstile_token: cfToken } : {}) }),
     });
 
     const data = await response.json();
@@ -62,12 +62,13 @@ export const signIn = async (email, password) => {
   }
 };
 
-export const signUp = async (email, password, additionalData = {}) => {
+export const signUp = async (email, password, additionalData = {}, cfToken) => {
   try {
+    const { cf_turnstile_token: _ignored, ...restAdditionalData } = additionalData;
     const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, ...additionalData }),
+      body: JSON.stringify({ email, password, ...restAdditionalData, ...(cfToken ? { cf_turnstile_token: cfToken } : {}) }),
     });
 
     const data = await response.json();

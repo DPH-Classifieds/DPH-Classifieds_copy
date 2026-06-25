@@ -140,10 +140,10 @@ export const AuthProvider = ({ children }) => {
     persistUserSnapshot(user);
   }, [user]);
 
-  const signIn = async (email, password) => {
+  const signIn = async (email, password, cfToken) => {
     try {
       setError(null);
-      const { data, error } = await authService.signIn(email, password);
+      const { data, error } = await authService.signIn(email, password, cfToken);
       if (error) throw new Error(error);
       trackEvent('login', { method: 'email', platform: 'mobile' });
       if (data?.user) {
@@ -160,10 +160,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signUp = async (email, password, additionalData = {}) => {
+  const signUp = async (email, password, additionalData = {}, cfToken) => {
     try {
       setError(null);
-      const { data, error } = await authService.signUp(email, password, additionalData);
+      const { data, error } = await authService.signUp(email, password, additionalData, cfToken);
       if (error) throw error;
       trackEvent('sign_up', {
         method: 'email',
