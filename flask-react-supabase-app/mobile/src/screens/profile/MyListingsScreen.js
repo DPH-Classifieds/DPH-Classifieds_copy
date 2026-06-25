@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   Alert,
   StyleSheet,
@@ -10,6 +9,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
+import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import PressableScale from '../../components/ui/PressableScale';
+import { toastApiError } from '../../utils/toast';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatDate, formatNumber } from '../../utils/formatters';
 import Badge from '../../components/ui/Badge';
@@ -18,6 +23,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import AnimatedCard from '../../components/ui/AnimatedCard';
 import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
+import RenewListingModal from '../../components/ui/RenewListingModal';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { resolveMediaUrl } from '../../utils/media';
@@ -49,11 +55,55 @@ const getDisplayStatus = (item, activeTabValue) => {
 
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
+function ListingCard({ item, index, onPress, actions, isSaved, activeTab, getDisplayStatus, getStatusVariant }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  const pluralType = toPluralType(item.listing_type);
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <View style={styles.card}>
+          <AnimatedCard
+            onPress={onPress}
+            style={styles.cardContent}
+          >
+            {getListingImage(item) ? (
+              <FadeInImage source={{ uri: getListingImage(item) }} style={styles.thumbnail} resizeMode="cover" />
+            ) : (
+              <View style={[styles.thumbnail, { backgroundColor: COLORS.surfaceDark, justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="image-outline" size={24} color={COLORS.textMuted} />
+              </View>
+            )}
+            <View style={styles.cardInfo}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{getListingTitle(item)}</Text>
+              <Text style={styles.cardPrice}>{formatPrice(getListingPrice(item))}</Text>
+              <View style={styles.cardMeta}>
+                <Text style={styles.cardDate}>{formatDate(item.created_at || item.date_posted)}</Text>
+                <View style={styles.viewsBadge}>
+                  <Ionicons name="eye-outline" size={12} color={COLORS.textMuted} />
+                  <Text style={styles.viewsText}>{formatNumber(item.views || item.view_count || 0)}</Text>
+                </View>
+              </View>
+              <Badge
+                label={activeTab === 'Review' ? 'Review' : getDisplayStatus(item, activeTab)}
+                variant={activeTab === 'Review' ? 'warning' : getStatusVariant(getDisplayStatus(item, activeTab))}
+                size="sm"
+                style={styles.statusBadge}
+              />
+            </View>
+          </AnimatedCard>
+          {!isSaved && actions}
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
+
 export default function MyListingsScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState('Active');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [renewModal, setRenewModal] = useState({ visible: false, type: null, id: null });
 
   const { savedListings } = useSavedListings();
 
@@ -73,7 +123,7 @@ export default function MyListingsScreen({ navigation }) {
       const data = await apiClient.get(`/api/user/listings?status=${status}`);
       setListings(Array.isArray(data) ? data : data?.listings || []);
     } catch (err) {
-      // Failed to fetch
+      toastApiError(err);
     } finally {
       setLoading(false);
     }
@@ -239,145 +289,143 @@ export default function MyListingsScreen({ navigation }) {
       ]
     : listings;
 
-  const renderListing = ({ item }) => {
+  const renderListing = ({ item, index }) => {
     const pluralType = toPluralType(item.listing_type);
     const singularType = toSingularType(item.listing_type);
-    const isSaved = activeTab === 'Saved';
-    return (
-      <FadeInView delay={0}>
-        <View style={styles.card}>
-          <AnimatedCard
-            onPress={() => navigation.navigate(DETAIL_ROUTES[pluralType], { listingId: item.id })}
-            style={styles.cardContent}
+    const isInSavedTab = activeTab === 'Saved';
+    const actions = (
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => navigation.navigate('EditListing', { listingId: item.id, listingType: singularType, editMode: true })}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="create-outline" size={18} color={COLORS.accent} />
+        </TouchableOpacity>
+        {activeTab === 'Active' ? (
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleMarkSold(item)}
+            activeOpacity={0.7}
           >
-            {getListingImage(item) ? (
-              <FadeInImage source={{ uri: getListingImage(item) }} style={styles.thumbnail} resizeMode="cover" />
-            ) : (
-              <View style={[styles.thumbnail, { backgroundColor: COLORS.surfaceDark, justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name="image-outline" size={24} color={COLORS.textMuted} />
-              </View>
+            <Ionicons name="bag-check-outline" size={18} color={COLORS.warning} />
+          </TouchableOpacity>
+        ) : activeTab === 'Review' || item.status === 'expired' ? (
+          <>
+            {item.status === 'expired' && (
+              <PressableScale
+                onPress={() => setRenewModal({ visible: true, type: toPluralType(item.listing_type), id: item.id })}
+                haptic="light"
+                style={styles.actionBtn}
+              >
+                <Ionicons name="refresh" size={18} color={COLORS.accent} />
+              </PressableScale>
             )}
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle} numberOfLines={1}>{getListingTitle(item)}</Text>
-              <Text style={styles.cardPrice}>{formatPrice(getListingPrice(item))}</Text>
-              <View style={styles.cardMeta}>
-                <Text style={styles.cardDate}>{formatDate(item.created_at || item.date_posted)}</Text>
-                <View style={styles.viewsBadge}>
-                  <Ionicons name="eye-outline" size={12} color={COLORS.textMuted} />
-                  <Text style={styles.viewsText}>{formatNumber(item.views || item.view_count || 0)}</Text>
-                </View>
-              </View>
-              <Badge
-                label={activeTab === 'Review' ? 'Review' : getDisplayStatus(item, activeTab)}
-                variant={activeTab === 'Review' ? 'warning' : getStatusVariant(getDisplayStatus(item, activeTab))}
-                size="sm"
-                style={styles.statusBadge}
-              />
-            </View>
-          </AnimatedCard>
-
-          {!isSaved && (
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => navigation.navigate('EditListing', { listingId: item.id, listingType: singularType, editMode: true })}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="create-outline" size={18} color={COLORS.accent} />
-              </TouchableOpacity>
-              {activeTab === 'Active' ? (
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleMarkSold(item)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="bag-check-outline" size={18} color={COLORS.warning} />
-                </TouchableOpacity>
-              ) : activeTab === 'Review' ? (
-                <>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleExtend(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="refresh-outline" size={18} color={COLORS.warning} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleMoveToDraft(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="folder-open-outline" size={18} color={COLORS.info} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleOutcome(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="document-text-outline" size={18} color={COLORS.warning} />
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleExtend(item)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="time-outline" size={18} color={COLORS.info} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => handleDelete(item)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-              </TouchableOpacity>
-            </View>
-          )}
-          </View>
-      </FadeInView>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => handleExtend(item)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh-outline" size={18} color={COLORS.warning} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => handleMoveToDraft(item)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="folder-open-outline" size={18} color={COLORS.info} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => handleOutcome(item)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text-outline" size={18} color={COLORS.warning} />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleExtend(item)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="time-outline" size={18} color={COLORS.info} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => handleDelete(item)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+        </TouchableOpacity>
+      </View>
+    );
+    return (
+      <ListingCard
+        item={item}
+        index={index}
+        onPress={() => navigation.navigate(DETAIL_ROUTES[pluralType], { listingId: item.id })}
+        actions={actions}
+        isSaved={isInSavedTab}
+        activeTab={activeTab}
+        getDisplayStatus={getDisplayStatus}
+        getStatusVariant={getStatusVariant}
+      />
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.tabBar}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ScreenEntrance>
+        <View style={styles.tabBar}>
+          {TABS.map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.activeTab]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {loading && !refreshing ? (
-        <LoadingSpinner message="Loading listings..." />
-      ) : (
-        <FlatList
-          data={displayListings}
-          renderItem={renderListing}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="folder-open-outline"
-              title={`No ${activeTab.toLowerCase()} listings`}
-              message="Your listings will appear here."
-            />
-          }
-        />
-      )}
+        {loading && !refreshing ? (
+          <LoadingSpinner message="Loading listings..." />
+        ) : (
+          <FlashList
+            estimatedItemSize={260}
+            data={displayListings}
+            renderItem={renderListing}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+            }
+            ListEmptyComponent={
+              <EmptyState
+                icon="folder-open-outline"
+                title={`No ${activeTab.toLowerCase()} listings`}
+                message="Your listings will appear here."
+              />
+            }
+          />
+        )}
+      </ScreenEntrance>
+      <RenewListingModal
+        visible={renewModal.visible}
+        listingType={renewModal.type}
+        listingId={renewModal.id}
+        onSuccess={() => {
+          setRenewModal({ visible: false, type: null, id: null });
+          fetchListings();
+        }}
+        onCancel={() => setRenewModal({ visible: false, type: null, id: null })}
+      />
     </SafeAreaView>
   );
 }
