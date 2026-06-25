@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Image,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -11,6 +10,8 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
@@ -19,6 +20,10 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
+import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import PressableScale from '../../components/ui/PressableScale';
+import { toastApiError } from '../../utils/toast';
 
 const BIKE_BRANDS = [
   'Honda', 'Yamaha', 'Kawasaki', 'Suzuki', 'BMW', 'Ducati', 'Harley-Davidson',
@@ -45,6 +50,37 @@ const getImageUri = (item) => {
   }
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
+
+function BikeCard({ item, index, onPress }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  const imageUri = getImageUri(item);
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <View style={styles.card}>
+          <View style={styles.imageContainer}>
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="bicycle" size={40} color="rgba(255,255,255,0.2)" />
+              </View>
+            )}
+          </View>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.bike_brand} {item.bike_model}
+            </Text>
+            <Text style={styles.cardSubtitle}>
+              {item.make_year}{item.engine_capacity ? ` | ${item.engine_capacity}` : ''}{item.fuel_type ? ` | ${item.fuel_type}` : ' | Petrol'}
+            </Text>
+            <Text style={styles.cardPrice}>{formatPrice(item.expected_selling_price)}</Text>
+          </View>
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
 
 export default function BikeListScreen({ navigation }) {
   const [bikes, setBikes] = useState([]);
@@ -97,6 +133,7 @@ export default function BikeListScreen({ navigation }) {
       setHasMore(items.length >= PAGE_SIZE);
       setPage(pageNum);
     } catch (err) {
+      toastApiError(err);
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -110,6 +147,9 @@ export default function BikeListScreen({ navigation }) {
 
   const handleSearch = useCallback((text) => {
     setSearch(text);
+    setBikes([]);
+    setPage(1);
+    setHasMore(true);
     fetchBikes(1, text, activeFilters);
   }, [fetchBikes, activeFilters]);
 
@@ -125,6 +165,9 @@ export default function BikeListScreen({ navigation }) {
     const newFilters = { ...activeFilters, [key]: value };
     setActiveFilters(newFilters);
     setFilterModal(null);
+    setBikes([]);
+    setPage(1);
+    setHasMore(true);
     fetchBikes(1, search, newFilters);
   };
 
@@ -132,6 +175,9 @@ export default function BikeListScreen({ navigation }) {
     const cleared = { brand: '', type: '', priceRange: null };
     setActiveFilters(cleared);
     setFilterModal(null);
+    setBikes([]);
+    setPage(1);
+    setHasMore(true);
     fetchBikes(1, search, cleared);
   };
 
@@ -208,78 +254,59 @@ export default function BikeListScreen({ navigation }) {
     );
   };
 
-  const renderBikeCard = ({ item }) => {
-    const imageUri = getImageUri(item);
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.7}
-        onPress={() => navigation.navigate('BikeDetail', { listingId: item.id })}
-      >
-        <View style={styles.imageContainer}>
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="bicycle" size={40} color="rgba(255,255,255,0.2)" />
-            </View>
-          )}
-        </View>
-        <View style={styles.cardBody}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.bike_brand} {item.bike_model}
-          </Text>
-          <Text style={styles.cardSubtitle}>
-            {item.make_year}{item.engine_capacity ? ` | ${item.engine_capacity}` : ''}{item.fuel_type ? ` | ${item.fuel_type}` : ' | Petrol'}
-          </Text>
-          <Text style={styles.cardPrice}>{formatPrice(item.expected_selling_price)}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderBikeCard = ({ item, index }) => (
+    <BikeCard
+      item={item}
+      index={index}
+      onPress={() => navigation.navigate('BikeDetail', { listingId: item.id })}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Browse Bikes</Text>
-      </View>
-      <View style={styles.searchContainer}>
-        <SearchBar value={search} onChangeText={handleSearch} placeholder="Search bikes..." />
-      </View>
-      <View style={styles.filtersRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
-          {renderFilterChip('Brand', 'brand', !!activeFilters.brand)}
-          {renderFilterChip('Type', 'type', !!activeFilters.type)}
-          {renderFilterChip('Price Range', 'priceRange', !!activeFilters.priceRange)}
-          {hasActiveFilters && (
-            <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
-              <Ionicons name="close-circle" size={14} color={COLORS.accent} />
-              <Text style={styles.clearFiltersText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-      </View>
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+      <ScreenEntrance>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Browse Bikes</Text>
         </View>
-      ) : (
-        <FlatList
-          data={bikes}
-          renderItem={renderBikeCard}
-          keyExtractor={(item, idx) => String(item.id || idx)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={COLORS.accent} /></View> : null}
-          ListEmptyComponent={
-            <EmptyState icon="bicycle-outline" title="No bikes found" message="Try adjusting your filters" actionLabel="Clear Filters" onAction={clearFilters} />
-          }
-        />
-      )}
-      {renderFilterModal()}
+        <View style={styles.searchContainer}>
+          <SearchBar value={search} onChangeText={handleSearch} placeholder="Search bikes..." />
+        </View>
+        <View style={styles.filtersRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip('Brand', 'brand', !!activeFilters.brand)}
+            {renderFilterChip('Type', 'type', !!activeFilters.type)}
+            {renderFilterChip('Price Range', 'priceRange', !!activeFilters.priceRange)}
+            {hasActiveFilters && (
+              <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
+                <Ionicons name="close-circle" size={14} color={COLORS.accent} />
+                <Text style={styles.clearFiltersText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+          </View>
+        ) : (
+          <FlashList
+            estimatedItemSize={260}
+            data={bikes}
+            renderItem={renderBikeCard}
+            keyExtractor={(item, idx) => String(item.id || idx)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={COLORS.accent} /></View> : null}
+            ListEmptyComponent={
+              <EmptyState icon="bicycle-outline" title="No bikes found" message="Try adjusting your filters" actionLabel="Clear Filters" onAction={clearFilters} />
+            }
+          />
+        )}
+        {renderFilterModal()}
+      </ScreenEntrance>
     </SafeAreaView>
   );
 }

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Image,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -11,6 +10,8 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
@@ -20,6 +21,10 @@ import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
+import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
+import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import PressableScale from '../../components/ui/PressableScale';
+import { toastApiError } from '../../utils/toast';
 
 const CONDITION_OPTIONS = ['New', 'Used', 'Refurbished'];
 const PART_TYPES = [
@@ -38,6 +43,40 @@ const getImageUri = (item) => {
   }
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
+
+function PartCard({ item, index, onPress }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  const imageUri = getImageUri(item);
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <View style={styles.card}>
+          <View style={styles.cardImageContainer}>
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.cardImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.cardImagePlaceholder}>
+                <Ionicons name="construct" size={32} color="rgba(255,255,255,0.2)" />
+              </View>
+            )}
+          </View>
+          <View style={styles.cardBody}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.part_type || item.brand || 'Part'}</Text>
+              {item.condition && (
+                <Badge label={item.condition} variant={CONDITION_VARIANT[item.condition] || 'default'} size="sm" />
+              )}
+            </View>
+            <Text style={styles.cardSubtitle} numberOfLines={1}>
+              {item.brand}{item.model ? ` ${item.model}` : ''}
+            </Text>
+            <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
+          </View>
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
 
 export default function PartListScreen({ navigation }) {
   const [parts, setParts] = useState([]);
@@ -79,6 +118,7 @@ export default function PartListScreen({ navigation }) {
       setHasMore(items.length >= PAGE_SIZE);
       setPage(pageNum);
     } catch (err) {
+      toastApiError(err);
     } finally {
       if (mountedRef.current) { setLoading(false); setRefreshing(false); setLoadingMore(false); }
     }
@@ -88,6 +128,9 @@ export default function PartListScreen({ navigation }) {
 
   const handleSearch = useCallback((text) => {
     setSearch(text);
+    setParts([]);
+    setPage(1);
+    setHasMore(true);
     fetchParts(1, text, activeFilters);
   }, [fetchParts, activeFilters]);
 
@@ -100,6 +143,9 @@ export default function PartListScreen({ navigation }) {
     const newFilters = { ...activeFilters, [key]: value };
     setActiveFilters(newFilters);
     setFilterModal(null);
+    setParts([]);
+    setPage(1);
+    setHasMore(true);
     fetchParts(1, search, newFilters);
   };
 
@@ -107,6 +153,9 @@ export default function PartListScreen({ navigation }) {
     const cleared = { condition: '', partType: '' };
     setActiveFilters(cleared);
     setFilterModal(null);
+    setParts([]);
+    setPage(1);
+    setHasMore(true);
     fetchParts(1, search, cleared);
   };
 
@@ -167,78 +216,56 @@ export default function PartListScreen({ navigation }) {
     );
   };
 
-  const renderPartCard = ({ item }) => {
-    const imageUri = getImageUri(item);
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.7}
-        onPress={() => navigation.navigate('PartDetail', { listingId: item.id })}
-      >
-        <View style={styles.cardImageContainer}>
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.cardImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.cardImagePlaceholder}>
-              <Ionicons name="construct" size={32} color="rgba(255,255,255,0.2)" />
-            </View>
-          )}
-        </View>
-        <View style={styles.cardBody}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.part_type || item.brand || 'Part'}</Text>
-            {item.condition && (
-              <Badge label={item.condition} variant={CONDITION_VARIANT[item.condition] || 'default'} size="sm" />
-            )}
-          </View>
-          <Text style={styles.cardSubtitle} numberOfLines={1}>
-            {item.brand}{item.model ? ` ${item.model}` : ''}
-          </Text>
-          <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderPartCard = ({ item, index }) => (
+    <PartCard
+      item={item}
+      index={index}
+      onPress={() => navigation.navigate('PartDetail', { listingId: item.id })}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Browse Parts</Text>
-      </View>
-      <View style={styles.searchContainer}>
-        <SearchBar value={search} onChangeText={handleSearch} placeholder="Search parts..." />
-      </View>
-      <View style={styles.filtersRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
-          {renderFilterChip('Condition', 'condition', !!activeFilters.condition)}
-          {renderFilterChip('Part Type', 'partType', !!activeFilters.partType)}
-          {hasActiveFilters && (
-            <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
-              <Ionicons name="close-circle" size={14} color={COLORS.accent} />
-              <Text style={styles.clearFiltersText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-      </View>
-      {loading ? (
-        <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.accent} /></View>
-      ) : (
-        <FlatList
-          data={parts}
-          renderItem={renderPartCard}
-          keyExtractor={(item, idx) => String(item.id || idx)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={COLORS.accent} /></View> : null}
-          ListEmptyComponent={
-            <EmptyState icon="construct-outline" title="No parts found" message="Try adjusting your filters" actionLabel="Clear Filters" onAction={clearFilters} />
-          }
-        />
-      )}
-      {renderFilterModal()}
+      <ScreenEntrance>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Browse Parts</Text>
+        </View>
+        <View style={styles.searchContainer}>
+          <SearchBar value={search} onChangeText={handleSearch} placeholder="Search parts..." />
+        </View>
+        <View style={styles.filtersRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip('Condition', 'condition', !!activeFilters.condition)}
+            {renderFilterChip('Part Type', 'partType', !!activeFilters.partType)}
+            {hasActiveFilters && (
+              <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
+                <Ionicons name="close-circle" size={14} color={COLORS.accent} />
+                <Text style={styles.clearFiltersText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.accent} /></View>
+        ) : (
+          <FlashList
+            estimatedItemSize={260}
+            data={parts}
+            renderItem={renderPartCard}
+            keyExtractor={(item, idx) => String(item.id || idx)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={COLORS.accent} /></View> : null}
+            ListEmptyComponent={
+              <EmptyState icon="construct-outline" title="No parts found" message="Try adjusting your filters" actionLabel="Clear Filters" onAction={clearFilters} />
+            }
+          />
+        )}
+        {renderFilterModal()}
+      </ScreenEntrance>
     </SafeAreaView>
   );
 }
