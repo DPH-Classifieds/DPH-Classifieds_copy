@@ -11,6 +11,143 @@ const REJECTION_REASONS = [
   'Duplicate listing', 'Incomplete information', 'Other',
 ];
 
+const SOLD_STATUS_DISPLAY = {
+  sold_on_dph:    { label: 'Sold on DPH',        color: '#4CAF50' },
+  sold_elsewhere: { label: 'Sold elsewhere',       color: '#FF9800' },
+  not_sold_renew: { label: 'Not sold — renewed',   color: '#2196F3' },
+};
+
+const DELETION_ROLE_ICONS = {
+  admin:  'shield-outline',
+  user:   'person-outline',
+  system: 'settings-outline',
+};
+
+function formatDateShort(iso) {
+  if (!iso) return 'N/A';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function LifecycleTimeline({ listing }) {
+  const now = new Date();
+  const expires  = listing?.expires_at   ? new Date(listing.expires_at)   : null;
+  const retEnd   = listing?.retention_expires_at ? new Date(listing.retention_expires_at) : null;
+  const isDeleted  = Boolean(listing?.deleted_at);
+  const isArchived = listing?.is_archived || (retEnd && now >= retEnd);
+
+  const milestones = [
+    { label: 'Created',   date: listing?.created_at,          done: true },
+    { label: expires && now >= expires ? 'Expired' : 'Expires', date: listing?.expires_at, done: expires && now >= expires },
+    { label: 'Retention ends', date: listing?.retention_expires_at, done: isArchived },
+    { label: isDeleted ? 'Deleted' : 'Archived', date: listing?.deleted_at || (isArchived ? listing?.retention_expires_at : null), done: isDeleted || isArchived },
+  ];
+
+  return (
+    <View style={lcStyles.timelineRow}>
+      {milestones.map((m, i) => (
+        <View key={m.label} style={lcStyles.milestone}>
+          <View style={[lcStyles.dot, m.done && lcStyles.dotDone, isDeleted && i === 3 && lcStyles.dotDeleted]} />
+          <Text style={[lcStyles.milestoneLabel, m.done && lcStyles.milestoneLabelDone]}>{m.label}</Text>
+          <Text style={lcStyles.milestoneDate}>{formatDateShort(m.date)}</Text>
+          {i < milestones.length - 1 && <View style={[lcStyles.connector, m.done && lcStyles.connectorDone]} />}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function SoldStatusCard({ listing }) {
+  const hasExpired = Boolean(listing?.expired_at);
+  const soldStatus = listing?.sold_status;
+  if (!hasExpired && !soldStatus) return null;
+
+  const now = new Date();
+  const deadline = listing?.sold_response_deadline ? new Date(listing.sold_response_deadline) : null;
+
+  let label, color;
+  if (soldStatus && SOLD_STATUS_DISPLAY[soldStatus]) {
+    ({ label, color } = SOLD_STATUS_DISPLAY[soldStatus]);
+  } else if (deadline && now < deadline) {
+    label = 'Awaiting owner response';
+    color = '#9E9E9E';
+  } else {
+    label = 'No response recorded';
+    color = '#F44336';
+  }
+
+  return (
+    <View style={lcStyles.card}>
+      <Text style={lcStyles.cardTitle}>Sold Status</Text>
+      <View style={[lcStyles.badge, { backgroundColor: color + '26' }]}>
+        <Text style={[lcStyles.badgeText, { color }]}>{label}</Text>
+      </View>
+      {listing?.sold_status_set_at && (
+        <Text style={lcStyles.cardSub}>Set: {formatDateShort(listing.sold_status_set_at)}</Text>
+      )}
+      {deadline && now < deadline && (
+        <Text style={lcStyles.cardSub}>Owner deadline: {formatDateShort(listing.sold_response_deadline)}</Text>
+      )}
+    </View>
+  );
+}
+
+function RenewalNudgeCard({ listing, renewalEmails }) {
+  const count = parseInt(listing?.renewal_nudge_count || 0, 10);
+  if (count === 0) return null;
+
+  const channels = listing?.renewal_nudge_channels || {};
+  const latestEmail = (renewalEmails || []).find(e => e.email_type === 'renewal_nudge' || e.email_type === 'listing_expiry_reminder');
+  const emailOpened = latestEmail?.opened_at;
+  const emailClicked = latestEmail?.clicked_at;
+
+  return (
+    <View style={lcStyles.card}>
+      <Text style={lcStyles.cardTitle}>Renewal Nudges</Text>
+      <Text style={lcStyles.cardValue}>{count} nudge{count !== 1 ? 's' : ''} sent</Text>
+      <View style={lcStyles.channelRow}>
+        {channels.email  !== undefined && <Text style={[lcStyles.channelPill, { color: channels.email  ? '#4CAF50' : '#9E9E9E' }]}>✉ Email</Text>}
+        {channels.sms    !== undefined && <Text style={[lcStyles.channelPill, { color: channels.sms    ? '#4CAF50' : '#9E9E9E' }]}>📱 SMS</Text>}
+        {channels.whatsapp !== undefined && <Text style={[lcStyles.channelPill, { color: channels.whatsapp ? '#4CAF50' : '#9E9E9E' }]}>💬 WA</Text>}
+      </View>
+      {listing?.renewal_nudge_sent_at && (
+        <Text style={lcStyles.cardSub}>Last sent: {formatDateShort(listing.renewal_nudge_sent_at)}</Text>
+      )}
+      {latestEmail && (
+        <View style={lcStyles.emailRow}>
+          <Ionicons
+            name={emailOpened || emailClicked ? 'mail-open-outline' : 'mail-outline'}
+            size={14}
+            color={emailOpened || emailClicked ? '#4CAF50' : '#9E9E9E'}
+          />
+          <Text style={[lcStyles.emailStatus, { color: emailOpened || emailClicked ? '#4CAF50' : '#9E9E9E' }]}>
+            {emailClicked ? 'Clicked link' : emailOpened ? 'Opened' : 'Not opened'}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function DeletionTimeline({ deletionEvents }) {
+  if (!deletionEvents || deletionEvents.length === 0) return null;
+  return (
+    <View style={lcStyles.card}>
+      <Text style={lcStyles.cardTitle}>Deletion History</Text>
+      {deletionEvents.map((ev, i) => (
+        <View key={i} style={lcStyles.deletionRow}>
+          <Ionicons name={DELETION_ROLE_ICONS[ev.deleted_by_role] || 'information-circle-outline'} size={16} color='rgba(255,255,255,0.6)' />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={lcStyles.deletionRole}>{(ev.deleted_by_role || 'unknown').charAt(0).toUpperCase() + (ev.deleted_by_role || 'unknown').slice(1)}</Text>
+            {ev.reason ? <Text style={lcStyles.deletionReason} numberOfLines={2}>{ev.reason}</Text> : null}
+            <Text style={lcStyles.cardSub}>{formatDateShort(ev.created_at)}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function AdminListingDetailScreen({ route, navigation }) {
   const { itemType, itemId } = route.params;
   const [detail, setDetail] = useState(null);
@@ -166,6 +303,17 @@ export default function AdminListingDetailScreen({ route, navigation }) {
         )}
 
         {!isBuyingRequest && (
+          <View style={lcStyles.card}>
+            <Text style={lcStyles.cardTitle}>Lifecycle</Text>
+            <LifecycleTimeline listing={listing} />
+          </View>
+        )}
+
+        <SoldStatusCard listing={listing} />
+        <RenewalNudgeCard listing={listing} renewalEmails={detail?.renewal_emails || []} />
+        <DeletionTimeline deletionEvents={detail?.deletion_events || []} />
+
+        {!isBuyingRequest && (
           <View style={styles.actions}>
             <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.7}>
               <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
@@ -212,4 +360,30 @@ const styles = StyleSheet.create({
   rejectBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
   deleteBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
+});
+
+const lcStyles = StyleSheet.create({
+  timelineRow:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm, paddingHorizontal: 4 },
+  milestone:         { alignItems: 'center', flex: 1, position: 'relative' },
+  dot:               { width: 10, height: 10, borderRadius: 5, backgroundColor: '#333', marginBottom: 4 },
+  dotDone:           { backgroundColor: COLORS.accent },
+  dotDeleted:        { backgroundColor: '#F44336' },
+  connector:         { position: 'absolute', top: 4, left: '50%', right: 0, height: 2, backgroundColor: '#333' },
+  connectorDone:     { backgroundColor: COLORS.accent },
+  milestoneLabel:    { fontSize: 9, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
+  milestoneLabelDone:{ color: COLORS.white },
+  milestoneDate:     { fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 2 },
+  card:              { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.sm },
+  cardTitle:         { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: SPACING.xs },
+  cardValue:         { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600', marginBottom: 4 },
+  cardSub:           { color: 'rgba(255,255,255,0.45)', fontSize: FONT_SIZES.xs, marginTop: 4 },
+  badge:             { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: 4 },
+  badgeText:         { fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  channelRow:        { flexDirection: 'row', gap: 8, marginVertical: 4 },
+  channelPill:       { fontSize: FONT_SIZES.sm },
+  emailRow:          { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  emailStatus:       { fontSize: FONT_SIZES.sm },
+  deletionRow:       { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2a2a2a' },
+  deletionRole:      { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  deletionReason:    { color: 'rgba(255,255,255,0.6)', fontSize: FONT_SIZES.xs, marginTop: 2 },
 });
