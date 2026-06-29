@@ -7767,11 +7767,30 @@ def _send_dealer_status_email(
     return _send_resend_email(payload, email_type="dealer_status")
 
 
+def _fetch_all_admin_emails():
+    """Return email addresses for every user with is_admin=true."""
+    resp, status = supabase_request(
+        "get",
+        "/rest/v1/users",
+        params={"select": "email", "is_admin": "eq.true"},
+        use_service_role=True,
+    )
+    if status >= 400 or not resp:
+        return []
+    return [r["email"] for r in resp if r.get("email")]
+
+
 def _send_new_listing_admin_notification(item_type, listing, user_email):
     from_email = os.getenv("RESEND_FROM_EMAIL")
-    to_email = os.getenv("RESEND_TO_EMAIL")
-    if not from_email or not to_email:
-        return None, "Missing RESEND_FROM_EMAIL or RESEND_TO_EMAIL"
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    admin_emails = _fetch_all_admin_emails()
+    fallback = os.getenv("RESEND_TO_EMAIL") or PRIMARY_SUPER_ADMIN_EMAIL
+    if not admin_emails:
+        admin_emails = [fallback]
+
+    to_email = admin_emails  # Resend accepts a list
 
     item_label_map = {
         "car": "Car",
@@ -7811,7 +7830,7 @@ def _send_new_listing_admin_notification(item_type, listing, user_email):
 
     payload = {
         "from": from_email,
-        "to": [to_email],
+        "to": to_email,
         "subject": subject,
         "html": html_content,
     }
