@@ -102,8 +102,9 @@ export default function AdminMetricsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [days, setDays] = useState(30);
+  const [emailMetrics, setEmailMetrics] = useState(null);
 
-  useEffect(() => { loadMetrics(); }, [days]);
+  useEffect(() => { loadMetrics(); loadEmailMetrics(); }, [days]);
   useEffect(() => { loadHealth(); }, []);
 
   const loadMetrics = async () => {
@@ -125,6 +126,15 @@ export default function AdminMetricsScreen() {
       setHealth(data || null);
     } catch {
       setHealth(null);
+    }
+  };
+
+  const loadEmailMetrics = async () => {
+    try {
+      const data = await apiClient.get(`/api/admin/metrics/email?days=${days}`);
+      setEmailMetrics(data && !data.error ? data : null);
+    } catch {
+      setEmailMetrics(null);
     }
   };
 
@@ -395,6 +405,65 @@ export default function AdminMetricsScreen() {
                 <MetricRow key={item.title} label={item.title} value={`${formatNumber(item.views)} views`} note={item.price ? formatMoney(item.price) : ''} />
               ))}
             </View>
+          </>
+        )}
+
+        <SectionHeader label="EMAIL" title="Outbound email delivery & engagement" subtitle={`Email analytics for the last ${days} days.`} />
+
+        {!emailMetrics ? (
+          <View style={styles.surface}>
+            <Text style={styles.emptyText}>Email metrics unavailable — run the outbound_emails migration.</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.surface}>
+              <MetricRow
+                label="Sent"
+                value={formatNumber(emailMetrics.summary?.total_sent)}
+              />
+              <MetricRow
+                label="Delivered"
+                value={`${formatNumber(emailMetrics.summary?.total_delivered)}  (${formatPercent(emailMetrics.summary?.delivery_rate_percent)})`}
+              />
+              <MetricRow
+                label="Opened"
+                value={`${formatNumber(emailMetrics.summary?.total_opened)}  (${formatPercent(emailMetrics.summary?.open_rate_percent)})`}
+              />
+              <MetricRow
+                label="Clicked"
+                value={`${formatNumber(emailMetrics.summary?.total_clicked)}  (${formatPercent(emailMetrics.summary?.click_rate_percent)})`}
+              />
+              <MetricRow
+                label="Bounced"
+                value={formatNumber(emailMetrics.summary?.total_bounced)}
+              />
+              <MetricRow
+                label="Unsubscribed"
+                value={formatNumber(emailMetrics.summary?.total_unsubscribed)}
+              />
+            </View>
+
+            {emailMetrics.by_type?.length > 0 && (
+              <>
+                <Text style={styles.subSectionTitle}>By Email Type</Text>
+                <View style={styles.surface}>
+                  <BarChart
+                    items={emailMetrics.by_type.map(t => ({ segment: t.email_type, views: t.sent }))}
+                  />
+                </View>
+              </>
+            )}
+
+            {emailMetrics.daily?.length > 0 && (
+              <>
+                <Text style={styles.subSectionTitle}>Daily Sends</Text>
+                <View style={styles.surface}>
+                  <BarChart
+                    items={emailMetrics.daily.slice(-14).map(d => ({ segment: d.date, views: d.sent }))}
+                  />
+                </View>
+              </>
+            )}
           </>
         )}
 
