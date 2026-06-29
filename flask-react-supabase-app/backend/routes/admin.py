@@ -2075,6 +2075,28 @@ def get_listing_overview(item_type, item_id):
         )
         deletion_rows = deletion_resp.json() if deletion_resp.status_code == 200 else []
 
+        # Renewal nudge emails sent to this listing's owner
+        renewal_emails = []
+        if listing.get("user_id"):
+            renewal_email_types = "renewal_nudge,listing_expiry_reminder,listing_expiry_final,listing_expired"
+            try:
+                email_resp = requests.get(
+                    f"{SUPABASE_URL}/rest/v1/outbound_emails",
+                    headers=_admin_headers(),
+                    params={
+                        "select": "id,email_type,sent_at,delivered_at,opened_at,clicked_at,open_count,click_count,subject,error_message",
+                        "user_id": f"eq.{listing['user_id']}",
+                        "email_type": f"in.({renewal_email_types})",
+                        "order": "sent_at.desc",
+                        "limit": "20",
+                    },
+                    timeout=10,
+                )
+                if email_resp.status_code == 200:
+                    renewal_emails = email_resp.json() or []
+            except Exception:
+                pass  # best-effort — missing table or network error does not break overview
+
         lead_rows = _admin_enrich_activity_rows(lead_rows, "user_id")
 
         lead_totals = defaultdict(int)
@@ -2104,6 +2126,7 @@ def get_listing_overview(item_type, item_id):
                 "lead_events": lead_rows or [],
                 "reports": report_rows or [],
                 "deletion_events": deletion_rows or [],
+                "renewal_emails": renewal_emails,
             }
         ), 200
     except Exception as e:
