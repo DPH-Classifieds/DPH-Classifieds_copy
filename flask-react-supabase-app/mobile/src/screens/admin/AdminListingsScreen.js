@@ -57,6 +57,12 @@ const statusKeyMap = {
   Deleted: 'deleted',
 };
 
+const SOLD_STATUS_CONFIG = {
+  sold_on_dph:    { label: 'Sold on DPH',      bg: 'rgba(76,175,80,0.2)',   text: '#4CAF50' },
+  sold_elsewhere: { label: 'Sold elsewhere',    bg: 'rgba(255,193,7,0.2)',   text: '#FFC107' },
+  not_sold_renew: { label: 'Not sold / Renew',  bg: 'rgba(158,158,158,0.2)', text: '#9E9E9E' },
+};
+
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
     return item.images[0].url || item.images[0].image_url;
@@ -117,6 +123,13 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject }) {
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
                   <Text style={styles.statusBadgeText}>{displayStatus}</Text>
                 </View>
+                {item.sold_status && SOLD_STATUS_CONFIG[item.sold_status] && (
+                  <View style={[styles.soldPill, { backgroundColor: SOLD_STATUS_CONFIG[item.sold_status].bg }]}>
+                    <Text style={[styles.soldPillText, { color: SOLD_STATUS_CONFIG[item.sold_status].text }]}>
+                      {SOLD_STATUS_CONFIG[item.sold_status].label}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.cardDate} numberOfLines={1}>
                   {[formatDate(item.created_at), item.seller_name].filter(Boolean).join(' · ')}
                 </Text>
@@ -567,6 +580,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
     textTransform: 'capitalize',
+  },
+  soldPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  soldPillText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
   },
   cardDate: {
     fontSize: FONT_SIZES.xs,
