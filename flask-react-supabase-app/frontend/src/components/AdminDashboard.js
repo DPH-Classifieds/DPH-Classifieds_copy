@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Loader2,
   ImageOff,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -312,6 +313,7 @@ const AdminDashboard = () => {
   const expiredListingsTotal = clampNumber(stats.expired_listings_total ?? lifecycleTotals.expired);
   const soldOnDphTotal = clampNumber(stats.sold_on_dph_total ?? lifecycleTotals.sold_on_dph);
   const soldElsewhereTotal = clampNumber(stats.sold_elsewhere_total ?? lifecycleTotals.sold_elsewhere);
+  const noResponseTotal = clampNumber(stats.no_response_total ?? lifecycleTotals.no_response);
 
   const pendingDealers = dealers.filter((d) => !d.dealer_verified);
   const pendingReports = reports.filter((r) => (r.status || 'pending') === 'pending');
@@ -572,13 +574,14 @@ const AdminDashboard = () => {
         <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
           Listing lifecycle
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
             { label: 'Active', value: activeListingsTotal, icon: Activity, href: '/admin/listings?statuses=approved' },
             { label: 'Drafts', value: draftListingsTotal, icon: Wrench, href: '/admin/listings?statuses=draft' },
             { label: 'Expired', value: expiredListingsTotal, icon: AlertTriangle, href: '/admin/listings?statuses=expired' },
             { label: 'Sold on DPH', value: soldOnDphTotal, icon: Car, href: '/admin/listings?statuses=sold' },
             { label: 'Sold elsewhere', value: soldElsewhereTotal, icon: ExternalLink, href: '/admin/listings?statuses=sold' },
+            { label: 'No response', value: noResponseTotal, icon: Clock, href: '/admin/expired-listings?reason=no_response' },
           ].map(({ label, value, icon: Icon, href }, i) => (
             <motion.div
               key={label}

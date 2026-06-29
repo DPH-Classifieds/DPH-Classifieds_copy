@@ -1944,6 +1944,8 @@ def get_expired_listings():
                 return "Sold elsewhere", None
             if sold == "not_sold_renew":
                 return "Renewed (not sold)", None
+            if sold == "no_response":
+                return "Expired — no response", None
             return "Expired — no response", None
 
         REASON_FILTER_MAP = {

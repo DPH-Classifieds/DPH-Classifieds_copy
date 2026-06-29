@@ -1184,7 +1184,7 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
         updates["status"] = "deleted"
         updates["deleted_at"] = _isoformat_utc(_utc_now())
         updates["auto_removed_at"] = _isoformat_utc(_utc_now())
-        updates["sold_status"] = record.get("sold_status") or "sold_elsewhere"
+        updates["sold_status"] = record.get("sold_status") or "no_response"
         updates["sold_status_set_at"] = _isoformat_utc(_utc_now())
 
     if lifecycle["is_archived"] and not record.get("is_archived"):
@@ -17092,6 +17092,7 @@ def _build_listing_lifecycle_summary():
             "expired": _supabase_count(table, {"listing_state": "eq.expired"}),
             "sold_on_dph": _supabase_count(table, {"sold_status": "eq.sold_on_dph"}),
             "sold_elsewhere": _supabase_count(table, {"sold_status": "eq.sold_elsewhere"}),
+            "no_response": _supabase_count(table, {"sold_status": "eq.no_response"}),
             "deleted": _supabase_count(table, {"status": "eq.deleted"}),
         }
         counts["sold_total"] = counts["sold_on_dph"] + counts["sold_elsewhere"]
@@ -17294,6 +17295,7 @@ def get_admin_stats(current_user):
             "sold_listings_total": listing_lifecycle.get("totals", {}).get("sold_total", 0),
             "sold_on_dph_total": listing_lifecycle.get("totals", {}).get("sold_on_dph", 0),
             "sold_elsewhere_total": listing_lifecycle.get("totals", {}).get("sold_elsewhere", 0),
+            "no_response_total": listing_lifecycle.get("totals", {}).get("no_response", 0),
             "expired_listings_total": listing_lifecycle.get("totals", {}).get("expired", 0),
             "draft_listings_total": listing_lifecycle.get("totals", {}).get("draft", 0),
             "active_listings_total": listing_lifecycle.get("totals", {}).get("active", 0),
