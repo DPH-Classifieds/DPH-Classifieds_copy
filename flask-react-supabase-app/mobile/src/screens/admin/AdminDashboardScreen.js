@@ -231,6 +231,8 @@ export default function AdminDashboardScreen({ navigation }) {
     clamp(stats.cars_pending) + clamp(stats.bikes_pending) + clamp(stats.parts_pending) + clamp(stats.plates_pending),
   [stats]);
 
+  const expiredTotal = clamp(stats.expired_listings_total || 0);
+
   const totalViews = useMemo(() =>
     clamp(stats.cars_views) + clamp(stats.bikes_views) + clamp(stats.parts_views) + clamp(stats.plates_views),
   [stats]);
@@ -342,6 +344,14 @@ export default function AdminDashboardScreen({ navigation }) {
             color={COLORS.info || COLORS.accent}
             icon="business-outline"
             onPress={() => navigation.navigate('AdminDealers')}
+          />
+          <InboxCard
+            label="Expired"
+            sub="Listings"
+            value={expiredTotal}
+            color="#FF6F00"
+            icon="time-outline"
+            onPress={() => navigation.navigate('AdminExpiredListings')}
           />
         </View>
 

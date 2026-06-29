@@ -48,6 +48,7 @@ import AdminUserDetailScreen from '../screens/admin/AdminUserDetailScreen';
 import AdminListingDetailScreen from '../screens/admin/AdminListingDetailScreen';
 import AdminDealerDetailScreen from '../screens/admin/AdminDealerDetailScreen';
 import AdminMetricsScreen from '../screens/admin/AdminMetricsScreen';
+import AdminExpiredListingsScreen from '../screens/admin/AdminExpiredListingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -156,6 +157,7 @@ function ProfileStack() {
       <Stack.Screen name="AdminListingDetail" component={AdminListingDetailScreen} options={{ title: 'Listing Detail' }} />
       <Stack.Screen name="AdminDealerDetail" component={AdminDealerDetailScreen} options={{ title: 'Dealer Detail' }} />
       <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Metrics' }} />
+      <Stack.Screen name="AdminExpiredListings" component={AdminExpiredListingsScreen} options={{ title: 'Expired & Deleted' }} />
       <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
       <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
       <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
