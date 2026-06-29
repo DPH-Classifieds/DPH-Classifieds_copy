@@ -2078,8 +2078,10 @@ def get_listing_overview(item_type, item_id):
         # Renewal nudge emails sent to this listing's owner
         renewal_emails = []
         if listing.get("user_id"):
-            renewal_email_types = "renewal_nudge,listing_expiry_reminder,listing_expiry_final,listing_expired"
+            renewal_email_types = "renewal_nudge,listing_expiry_reminder,listing_expired"
             try:
+                # outbound_emails has no listing_id column — returns all renewal emails
+                # for this owner across all their listings (acceptable: shows email engagement)
                 email_resp = requests.get(
                     f"{SUPABASE_URL}/rest/v1/outbound_emails",
                     headers=_admin_headers(),
@@ -2094,8 +2096,8 @@ def get_listing_overview(item_type, item_id):
                 )
                 if email_resp.status_code == 200:
                     renewal_emails = email_resp.json() or []
-            except Exception:
-                pass  # best-effort — missing table or network error does not break overview
+            except Exception as e:
+                logger.warning("renewal_emails fetch failed for listing %s: %s", item_id, e)
 
         lead_rows = _admin_enrich_activity_rows(lead_rows, "user_id")
 

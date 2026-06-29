@@ -1,5 +1,4 @@
 """Test that listing overview returns renewal_emails field."""
-import sys
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -100,5 +99,30 @@ def test_overview_renewal_emails_empty_when_no_user_id(client):
         )
 
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.get_json()}"
+    data = resp.get_json()
+    assert data.get("renewal_emails") == []
+
+
+def test_overview_renewal_emails_empty_on_exception(client):
+    """If outbound_emails fetch raises, overview still returns 200 with renewal_emails=[]."""
+    listing_row = {
+        "id": "777", "user_id": "u2", "status": "expired",
+        "renewal_nudge_count": 1,
+    }
+
+    def data_handler(url, **kwargs):
+        if "outbound_emails" in url:
+            raise ConnectionError("Supabase unreachable")
+        if "/cars" in url:
+            return _make_response([listing_row])
+        return _make_response([])
+
+    with patch("routes.admin.requests.get", side_effect=_auth_aware_fake(data_handler)):
+        resp = client.get(
+            "/api/admin/listings/cars/777/overview",
+            headers={"Authorization": "Bearer fake-token"},
+        )
+
+    assert resp.status_code == 200
     data = resp.get_json()
     assert data.get("renewal_emails") == []
