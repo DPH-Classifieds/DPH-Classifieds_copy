@@ -1780,6 +1780,216 @@ def get_parts():
     return _admin_serve_listings("parts")
 
 
+@admin_bp.route("/expired-listings", methods=["GET"])
+@admin_required
+def get_expired_listings():
+    """Return expired/deleted listings across all types with pre-computed expiry_reason.
+
+    Query params: type (all|cars|bikes|parts|plates), reason (all|auto_expired|
+    user_deleted|admin_deleted|sold_on_dph|sold_elsewhere|no_response),
+    days (1-365, default 30), limit (1-200, default 50), offset (default 0).
+    """
+    try:
+        type_filter = (request.args.get("type") or "all").strip().lower()
+        reason_filter = (request.args.get("reason") or "all").strip().lower()
+        days = max(min(int(request.args.get("days", 30)), 365), 1)
+        limit = max(min(int(request.args.get("limit", 50)), 200), 1)
+        offset = max(int(request.args.get("offset", 0)), 0)
+
+        cache_key = f"admin:expired:{type_filter}:{reason_filter}:{days}:{limit}:{offset}"
+        cached = _admin_cache_get(cache_key)
+        if cached is not None:
+            return jsonify(cached), 200
+
+        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
+
+        # ── Step 1: determine which tables to query ──────────────────────────
+        TYPE_CONFIGS = {
+            "cars":   {"table": "cars",           "images_table": "car_images",   "image_fk": "car_id",   "label": "cars"},
+            "bikes":  {"table": "bikes",          "images_table": "bike_images",  "image_fk": "bike_id",  "label": "bikes"},
+            "parts":  {"table": "car_parts",      "images_table": "part_images",  "image_fk": "part_id",  "label": "parts"},
+            "plates": {"table": "license_plates", "images_table": "plate_images", "image_fk": "plate_id", "label": "plates"},
+        }
+        if type_filter == "all":
+            tables_to_query = list(TYPE_CONFIGS.values())
+        elif type_filter in TYPE_CONFIGS:
+            tables_to_query = [TYPE_CONFIGS[type_filter]]
+        else:
+            return jsonify({"error": "Invalid type filter"}), 400
+
+        # ── Step 2: fetch expired/deleted listings from each table ────────────
+        all_listings = []
+        for cfg in tables_to_query:
+            resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/{cfg['table']}",
+                headers=_admin_headers(),
+                params={
+                    "select": "id,status,sold_status,sold_status_set_at,sold_response_deadline,"
+                              "deleted_at,expired_at,retention_expires_at,is_archived,"
+                              "renewal_nudge_count,renewal_nudge_sent_at,user_id,"
+                              "car_manufacturer,car_model,bike_brand,bike_model,"
+                              "part_type,part_name,city,code,digits,number,"
+                              "expected_selling_price,price,listing_state",
+                    "status": "in.(deleted,expired,archived)",
+                    "order": "created_at.desc",
+                    "limit": "500",
+                },
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                rows = resp.json() or []
+                for row in rows:
+                    row["_cfg_label"] = cfg["label"]
+                    row["_image_fk"] = cfg["image_fk"]
+                    row["_images_table"] = cfg["images_table"]
+                    # Apply days filter: keep rows where deleted_at or expired_at is within window
+                    date_field = row.get("deleted_at") or row.get("expired_at") or ""
+                    if date_field >= cutoff:
+                        all_listings.append(row)
+
+        if not all_listings:
+            return jsonify({"listings": [], "total": 0, "has_more": False}), 200
+
+        # ── Step 3: batch fetch deletion events ───────────────────────────────
+        listing_ids = [r.get("id") for r in all_listings if r.get("id")]
+        deletion_events_by_id = {}
+        for chunk in _chunks(listing_ids, 100):
+            ids_in = ",".join(chunk)
+            de_resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/listing_deletion_events",
+                headers=_admin_headers(),
+                params={
+                    "select": "listing_id,deleted_by_role,reason,created_at",
+                    "listing_id": f"in.({ids_in})",
+                    "order": "created_at.desc",
+                },
+                timeout=15,
+            )
+            if de_resp.status_code == 200:
+                for ev in de_resp.json() or []:
+                    lid = ev.get("listing_id")
+                    if lid and lid not in deletion_events_by_id:
+                        deletion_events_by_id[lid] = ev
+
+        # ── Step 4: batch fetch email interactions ────────────────────────────
+        user_ids = list({r.get("user_id") for r in all_listings if r.get("user_id")})
+        email_interacted_user_ids = set()
+        for chunk in _chunks(user_ids, 100):
+            uids_in = ",".join(chunk)
+            em_resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/outbound_emails",
+                headers=_admin_headers(),
+                params={
+                    "select": "user_id,opened_at,clicked_at",
+                    "user_id": f"in.({uids_in})",
+                    "email_type": "in.(renewal_nudge,listing_expiry_reminder,listing_expired)",
+                },
+                timeout=15,
+            )
+            if em_resp.status_code == 200:
+                for em in em_resp.json() or []:
+                    if em.get("opened_at") or em.get("clicked_at"):
+                        email_interacted_user_ids.add(em.get("user_id"))
+
+        # ── Step 5: batch fetch first image per listing ───────────────────────
+        image_url_by_id = {}
+        grouped_by_cfg = {}
+        for row in all_listings:
+            key = (row["_images_table"], row["_image_fk"])
+            grouped_by_cfg.setdefault(key, []).append(row.get("id"))
+
+        for (images_table, image_fk), ids in grouped_by_cfg.items():
+            imgs_map = _admin_batch_fetch_images(images_table, image_fk, ids)
+            for lid, imgs in imgs_map.items():
+                if imgs:
+                    first = imgs[0]
+                    image_url_by_id[lid] = (
+                        first.get("display_url") or first.get("image_url") or first.get("url")
+                    )
+
+        # ── Step 6: compute expiry_reason and build output ───────────────────
+        def _compute_title(row):
+            parts = [
+                row.get("car_manufacturer"), row.get("car_model"),
+                row.get("bike_brand"), row.get("bike_model"),
+                row.get("part_type") or row.get("part_name"),
+                row.get("city"), row.get("code"),
+                row.get("digits") or row.get("number"),
+            ]
+            return " ".join(p for p in parts if p).strip() or "Untitled"
+
+        def _compute_reason(row, deletion_event):
+            if deletion_event:
+                role = deletion_event.get("deleted_by_role")
+                if role == "admin":
+                    return "Admin deleted", deletion_event.get("reason")
+                if role == "user":
+                    return "User deleted", None
+                if row.get("is_archived"):
+                    return "Auto-removed (past retention)", None
+                return "Auto-expired", None
+            sold = row.get("sold_status")
+            if sold == "sold_on_dph":
+                return "Sold on DPH", None
+            if sold == "sold_elsewhere":
+                return "Sold elsewhere", None
+            if sold == "not_sold_renew":
+                return "Renewed (not sold)", None
+            return "Expired — no response", None
+
+        REASON_FILTER_MAP = {
+            "auto_expired":   lambda r: r in ("Auto-expired", "Auto-removed (past retention)"),
+            "user_deleted":   lambda r: r == "User deleted",
+            "admin_deleted":  lambda r: r == "Admin deleted",
+            "sold_on_dph":    lambda r: r == "Sold on DPH",
+            "sold_elsewhere":  lambda r: r == "Sold elsewhere",
+            "no_response":    lambda r: r == "Expired — no response",
+        }
+
+        enriched = []
+        for row in all_listings:
+            lid = row.get("id")
+            deletion_event = deletion_events_by_id.get(lid)
+            expiry_reason, reason_detail = _compute_reason(row, deletion_event)
+
+            if reason_filter != "all":
+                fn = REASON_FILTER_MAP.get(reason_filter)
+                if fn and not fn(expiry_reason):
+                    continue
+
+            enriched.append({
+                "id": lid,
+                "listing_type": row["_cfg_label"],
+                "title": _compute_title(row),
+                "price": row.get("expected_selling_price") or row.get("price"),
+                "image_url": image_url_by_id.get(lid),
+                "expiry_reason": expiry_reason,
+                "reason_detail": reason_detail,
+                "sold_status": row.get("sold_status"),
+                "sold_status_set_at": row.get("sold_status_set_at"),
+                "email_interacted": row.get("user_id") in email_interacted_user_ids,
+                "renewal_nudge_count": int(row.get("renewal_nudge_count") or 0),
+                "renewal_nudge_sent_at": row.get("renewal_nudge_sent_at"),
+                "deleted_at": row.get("deleted_at"),
+                "expired_at": row.get("expired_at"),
+                "user_id": row.get("user_id"),
+                "listing_state": row.get("listing_state"),
+                "is_archived": row.get("is_archived", False),
+            })
+
+        total = len(enriched)
+        page = enriched[offset: offset + limit]
+        has_more = (offset + limit) < total
+
+        result = {"listings": page, "total": total, "has_more": has_more}
+        _admin_cache_set(cache_key, result, ttl=120)
+        return jsonify(result), 200
+
+    except Exception as exc:
+        logger.error(f"Error fetching expired listings: {exc}")
+        return jsonify({"error": "Failed to fetch expired listings"}), 500
+
+
 @admin_bp.route("/listing-history", methods=["GET"])
 @admin_required
 def get_listing_history():
