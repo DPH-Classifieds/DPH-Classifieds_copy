@@ -179,3 +179,56 @@ def test_reason_filter_admin_deleted(client):
     data = resp.get_json()
     assert len(data["listings"]) == 1
     assert data["listings"][0]["id"] == "car-1"
+
+
+def test_invalid_type_returns_400(client):
+    """An unrecognised type param should return 400."""
+    with patch("routes.admin.requests.get", side_effect=_build_fake_get()):
+        resp = client.get(
+            "/api/admin/expired-listings?type=invalid",
+            headers={"Authorization": "Bearer fake-token"},
+        )
+    assert resp.status_code == 400
+
+
+def test_invalid_reason_returns_400(client):
+    """An unrecognised reason param should return 400."""
+    with patch("routes.admin.requests.get", side_effect=_build_fake_get()):
+        resp = client.get(
+            "/api/admin/expired-listings?reason=foobar",
+            headers={"Authorization": "Bearer fake-token"},
+        )
+    assert resp.status_code == 400
+
+
+def test_invalid_days_returns_400(client):
+    """A non-integer days param should return 400."""
+    with patch("routes.admin.requests.get", side_effect=_build_fake_get()):
+        resp = client.get(
+            "/api/admin/expired-listings?days=notanumber",
+            headers={"Authorization": "Bearer fake-token"},
+        )
+    assert resp.status_code == 400
+
+
+def test_expired_listing_included_not_deleted(client):
+    """A listing with status=expired and deleted_at=None but expired_at set should appear."""
+    expired_car = {
+        **CAR_ROW,
+        "id": "car-exp-1",
+        "status": "expired",
+        "deleted_at": None,
+        "expired_at": "2026-06-25T10:00:00Z",
+        "sold_status": None,
+    }
+    with patch("routes.admin.requests.get", side_effect=_build_fake_get(cars=[expired_car])):
+        resp = client.get(
+            "/api/admin/expired-listings?type=cars&days=30",
+            headers={"Authorization": "Bearer fake-token"},
+        )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data["listings"]) == 1
+    item = data["listings"][0]
+    assert item["id"] == "car-exp-1"
+    assert item["expiry_reason"] == "Expired — no response"

@@ -1792,9 +1792,12 @@ def get_expired_listings():
     try:
         type_filter = (request.args.get("type") or "all").strip().lower()
         reason_filter = (request.args.get("reason") or "all").strip().lower()
-        days = max(min(int(request.args.get("days", 30)), 365), 1)
-        limit = max(min(int(request.args.get("limit", 50)), 200), 1)
-        offset = max(int(request.args.get("offset", 0)), 0)
+        try:
+            days = max(min(int(request.args.get("days", 30)), 365), 1)
+            limit = max(min(int(request.args.get("limit", 50)), 200), 1)
+            offset = max(int(request.args.get("offset", 0)), 0)
+        except (ValueError, TypeError):
+            return jsonify({"error": "days, limit, and offset must be integers"}), 400
 
         cache_key = f"admin:expired:{type_filter}:{reason_filter}:{days}:{limit}:{offset}"
         cached = _admin_cache_get(cache_key)
@@ -1817,6 +1820,10 @@ def get_expired_listings():
         else:
             return jsonify({"error": "Invalid type filter"}), 400
 
+        VALID_REASONS = {"all", "auto_expired", "user_deleted", "admin_deleted", "sold_on_dph", "sold_elsewhere", "no_response", "renewed"}
+        if reason_filter not in VALID_REASONS:
+            return jsonify({"error": f"Invalid reason filter. Valid values: {', '.join(sorted(VALID_REASONS))}"}), 400
+
         # ── Step 2: fetch expired/deleted listings from each table ────────────
         all_listings = []
         for cfg in tables_to_query:
@@ -1831,8 +1838,9 @@ def get_expired_listings():
                               "part_type,part_name,city,code,digits,number,"
                               "expected_selling_price,price,listing_state",
                     "status": "in.(deleted,expired,archived)",
+                    "or": f"(deleted_at.gte.{cutoff},expired_at.gte.{cutoff})",
                     "order": "created_at.desc",
-                    "limit": "500",
+                    "limit": "1000",
                 },
                 timeout=15,
             )
@@ -1842,15 +1850,16 @@ def get_expired_listings():
                     row["_cfg_label"] = cfg["label"]
                     row["_image_fk"] = cfg["image_fk"]
                     row["_images_table"] = cfg["images_table"]
-                    # Apply days filter: keep rows where deleted_at or expired_at is within window
-                    date_field = row.get("deleted_at") or row.get("expired_at") or ""
-                    if date_field >= cutoff:
-                        all_listings.append(row)
+                    all_listings.append(row)
 
         if not all_listings:
             return jsonify({"listings": [], "total": 0, "has_more": False}), 200
 
         # ── Step 3: batch fetch deletion events ───────────────────────────────
+        # Note: querying by listing_id only (not listing_type) — UUID collisions across
+        # tables are astronomically unlikely, and filtering by type here would require
+        # separate queries per type. Consistent with the single-listing overview endpoint
+        # which DOES filter by type, but acceptable at batch scale.
         listing_ids = [r.get("id") for r in all_listings if r.get("id")]
         deletion_events_by_id = {}
         for chunk in _chunks(listing_ids, 100):
@@ -1926,8 +1935,8 @@ def get_expired_listings():
                 if role == "user":
                     return "User deleted", None
                 if row.get("is_archived"):
-                    return "Auto-removed (past retention)", None
-                return "Auto-expired", None
+                    return "Auto-removed (past retention)", deletion_event.get("reason")
+                return "Auto-expired", deletion_event.get("reason")
             sold = row.get("sold_status")
             if sold == "sold_on_dph":
                 return "Sold on DPH", None
@@ -1944,6 +1953,7 @@ def get_expired_listings():
             "sold_on_dph":    lambda r: r == "Sold on DPH",
             "sold_elsewhere":  lambda r: r == "Sold elsewhere",
             "no_response":    lambda r: r == "Expired — no response",
+            "renewed":        lambda r: r == "Renewed (not sold)",
         }
 
         enriched = []
@@ -1982,6 +1992,7 @@ def get_expired_listings():
         has_more = (offset + limit) < total
 
         result = {"listings": page, "total": total, "has_more": has_more}
+        # 120s TTL — longer than default (30s) because this query is expensive and read-only
         _admin_cache_set(cache_key, result, ttl=120)
         return jsonify(result), 200
 
