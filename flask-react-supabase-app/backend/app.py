@@ -425,17 +425,23 @@ def _api_cache_get(key):
     if not key:
         return None
     redis_client = _get_redis_cache_client()
+    redis_responded = False
     if redis_client:
         try:
             cached = redis_client.get(key)
+            redis_responded = True
             if cached:
                 logger.info("API_CACHE_HIT backend=redis key=%s", key)
                 return json.loads(cached)
             logger.info("API_CACHE_MISS backend=redis key=%s", key)
         except Exception as cache_err:
             logger.warning(f"Redis cache read failed: {cache_err}")
-    else:
-        logger.info("API_CACHE_MISS backend=memory key=%s", key)
+    # When Redis is healthy and returned a miss, that means the cache was
+    # intentionally invalidated. Don't fall through to stale per-worker memory
+    # in that case — only use memory when Redis itself is unavailable.
+    if redis_responded:
+        return None
+    logger.info("API_CACHE_MISS backend=memory key=%s", key)
     now_ts = time.time()
     with _MEMORY_API_CACHE_LOCK:
         hit = _MEMORY_API_CACHE.get(key)
@@ -531,7 +537,9 @@ def _invalidate_public_inventory_cache(item_type):
 
 def _cached_json_response(payload, status_code=200, ttl_seconds=API_CACHE_TTL_SECONDS):
     response = make_response(jsonify(payload), status_code)
-    response.headers["Cache-Control"] = f"public, max-age={ttl_seconds}"
+    # no-store: server-side Redis/memory cache handles performance;
+    # browser must always re-fetch so admin approvals appear immediately.
+    response.headers["Cache-Control"] = "no-store"
     return response
 
 
@@ -15584,9 +15592,28 @@ def _perform_approval(
     if not table_name:
         return False, {"error": f"Invalid item type: {item_type}"}, 400
 
-    patch_data = {"status": "approved"}
-    if item_type == "cars":
-        patch_data["is_approved"] = True
+    patch_data = {"status": "approved", "is_approved": True}
+    # Reset lifecycle state for all inventory listing types (not buying_requests,
+    # which don't have expiry columns).
+    _LIFECYCLE_TYPES = {"cars", "bikes", "parts", "plates"}
+    if item_type in _LIFECYCLE_TYPES:
+        import datetime as _dt
+        _now = _dt.datetime.now(_dt.timezone.utc)
+        _new_expires = _now + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
+        _new_retention = _new_expires + _dt.timedelta(days=LISTING_RETENTION_DAYS)
+        patch_data.update({
+            "expires_at": _new_expires.isoformat(),
+            "retention_expires_at": _new_retention.isoformat(),
+            "deleted_at": None,
+            "expired_at": None,
+            "is_archived": False,
+            "sold_status": None,
+            "sold_status_set_at": None,
+            "auto_removed_at": None,
+            "sold_response_deadline": None,
+            "expiry_reminder_sent_at": None,
+            "expired_email_sent_at": None,
+        })
     if actor == "auto":
         patch_data["auto_review_state"] = "auto_approved"
         patch_data["auto_review_decided_at"] = _utc_now().isoformat()
