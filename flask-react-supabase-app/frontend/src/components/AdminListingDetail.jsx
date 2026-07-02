@@ -160,6 +160,7 @@ const AdminListingDetail = () => {
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [soldSubType, setSoldSubType] = useState('sold_on_dph');
   const [moderationNote, setModerationNote] = useState('');
   const [removeReason, setRemoveReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -285,6 +286,21 @@ const AdminListingDetail = () => {
       navigate(`/admin/listings?filter=${approvalRouteType}&status=pending`);
     } catch (saveError) {
       setError(saveError.message || `Failed to ${action} listing`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleMarkAsSold = async () => {
+    try {
+      setActionLoading(true);
+      await apiClient.post(
+        `/api/admin/listings/${itemType}/${itemId}/set-status`,
+        { status: soldSubType }
+      );
+      navigate(`/admin/listings?filter=${approvalRouteType}&status=approved`);
+    } catch (soldError) {
+      setError(soldError.message || 'Failed to mark listing as sold');
     } finally {
       setActionLoading(false);
     }
@@ -942,6 +958,31 @@ const AdminListingDetail = () => {
                 <ShieldCheck size={15} />
                 VIN Unlock
               </button>
+
+              <div className="border-t border-white/[0.06] my-1" />
+
+              {/* Mark as Sold */}
+              {isActive && (
+                <div className="space-y-2">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-white/40 font-medium">Mark as sold</p>
+                  <select
+                    value={soldSubType}
+                    onChange={(e) => setSoldSubType(e.target.value)}
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
+                  >
+                    <option value="sold_on_dph">Sold on DPH</option>
+                    <option value="sold_elsewhere">Sold elsewhere</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={handleMarkAsSold}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-xl px-4 py-2.5 text-sm transition font-semibold disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Marking…' : 'Confirm sold'}
+                  </button>
+                </div>
+              )}
 
               <div className="border-t border-white/[0.06] my-1" />
 
