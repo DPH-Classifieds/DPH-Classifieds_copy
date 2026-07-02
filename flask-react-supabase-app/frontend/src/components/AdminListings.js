@@ -11,6 +11,8 @@ import {
   Trash2,
   Send,
   RefreshCw,
+  Sliders,
+  Calendar,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
 import { GlassCard, EmptyState } from './ui/dashboard';
@@ -161,6 +163,10 @@ const AdminListings = () => {
   const [showBulkRenewModal, setShowBulkRenewModal] = useState(false);
   const [bulkRenewReason, setBulkRenewReason] = useState('');
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [pendingStatusValue, setPendingStatusValue] = useState('');
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
+  const [expiryDate, setExpiryDate] = useState('');
   const navigate = useNavigate();
 
   const showToast = (message, type = 'success') => {
@@ -449,6 +455,68 @@ const AdminListings = () => {
     }
   };
 
+  const STATUS_CHANGE_OPTIONS = {
+    approved: [{ value: 'suspended', label: 'Suspended — take down temporarily' }, { value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    active: [{ value: 'suspended', label: 'Suspended — take down temporarily' }, { value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    suspended: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    rejected: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    expired: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    deleted: [{ value: 'approved', label: 'Approved — restore live' }],
+    pending: [{ value: 'suspended', label: 'Suspended — hold without notifying' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+  };
+
+  const getStatusOptions = (displayStatus) => {
+    const ds = String(displayStatus || '').toLowerCase();
+    return STATUS_CHANGE_OPTIONS[ds] || [{ value: 'approved', label: 'Approved — restore live' }, { value: 'suspended', label: 'Suspended — take down temporarily' }, { value: 'deleted', label: 'Deleted — remove permanently' }];
+  };
+
+  const handleSetStatus = async () => {
+    if (!selectedListing || !pendingStatusValue) return;
+    const lt = selectedListing.listing_type || 'cars';
+    try {
+      setActionLoading(true);
+      await apiClient.post(
+        `/api/admin/listings/${lt}/${selectedListing.id}/set-status`,
+        { status: pendingStatusValue }
+      );
+      const label = pendingStatusValue.charAt(0).toUpperCase() + pendingStatusValue.slice(1);
+      showToast(`Listing set to ${label} successfully`, 'success');
+      setShowStatusModal(false);
+      setPendingStatusValue('');
+      setSelectedListing(null);
+      fetchListings();
+    } catch (error) {
+      console.error('Failed to update listing status:', error);
+      const detail = error?.response?.data || error?.data;
+      showToast(detail?.error || 'Failed to update status. Please try again.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSetExpiry = async () => {
+    if (!selectedListing || !expiryDate) return;
+    const lt = selectedListing.listing_type || 'cars';
+    try {
+      setActionLoading(true);
+      await apiClient.post(
+        `/api/admin/listings/${lt}/${selectedListing.id}/set-expiry`,
+        { expires_at: new Date(expiryDate).toISOString() }
+      );
+      showToast('Expiry date updated successfully', 'success');
+      setShowExpiryModal(false);
+      setExpiryDate('');
+      setSelectedListing(null);
+      fetchListings();
+    } catch (error) {
+      console.error('Failed to update expiry:', error);
+      const detail = error?.response?.data || error?.data;
+      showToast(detail?.error || 'Failed to update expiry. Please try again.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getListingTitle = (listing) => {
     if (listing.display_title) return listing.display_title;
     if (listing.listing_title) return listing.listing_title;
@@ -732,6 +800,37 @@ const AdminListings = () => {
                                   className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                                 >
                                   <BarChart3 size={15} />
+                                </button>
+                                <button
+                                  title="Change listing status"
+                                  aria-label="Change listing status"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingStatusValue('');
+                                    setSelectedListing(listing);
+                                    setShowStatusModal(true);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-indigo-500/20 text-white/50 hover:text-indigo-300 transition-colors"
+                                  disabled={actionLoading}
+                                >
+                                  <Sliders size={15} />
+                                </button>
+                                <button
+                                  title="Set expiry date"
+                                  aria-label="Set expiry date"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const current = listing.expires_at
+                                      ? new Date(listing.expires_at).toISOString().slice(0, 10)
+                                      : '';
+                                    setExpiryDate(current);
+                                    setSelectedListing(listing);
+                                    setShowExpiryModal(true);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-sky-500/20 text-white/50 hover:text-sky-300 transition-colors"
+                                  disabled={actionLoading}
+                                >
+                                  <Calendar size={15} />
                                 </button>
                                 {showNudge && (
                                 <button
@@ -1112,6 +1211,131 @@ const AdminListings = () => {
                   </div>
                 </>
               )}
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {/* Expiry Modal */}
+        {showExpiryModal && selectedListing && (
+          <motion.div
+            key="expiry-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <GlassCard className="w-full max-w-md space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-sky-300">Set Expiry Date</h2>
+                <button
+                  onClick={() => { setShowExpiryModal(false); setExpiryDate(''); setSelectedListing(null); }}
+                  className="text-white/40 hover:text-white/80 transition-colors"
+                >
+                  <XCircle size={18} />
+                </button>
+              </div>
+              <p className="text-sm text-white/70">
+                <strong className="text-white">{getListingTitle(selectedListing)}</strong>
+              </p>
+              {selectedListing.expires_at && (
+                <p className="text-xs text-white/40">
+                  Current expiry: {new Date(selectedListing.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+              )}
+              <div className="space-y-2">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">New expiry date</label>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500/40 [color-scheme:dark]"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => { setShowExpiryModal(false); setExpiryDate(''); setSelectedListing(null); }}
+                  className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSetExpiry}
+                  disabled={!expiryDate || actionLoading}
+                  className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-full px-4 py-2 text-sm disabled:opacity-40"
+                >
+                  {actionLoading ? 'Saving…' : 'Set Expiry'}
+                </button>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {/* Status Modal */}
+        {showStatusModal && selectedListing && (
+          <motion.div
+            key="status-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <GlassCard className="w-full max-w-md space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-indigo-300">Change Listing Status</h2>
+                <button
+                  onClick={() => { setShowStatusModal(false); setPendingStatusValue(''); setSelectedListing(null); }}
+                  className="text-white/40 hover:text-white/80 transition-colors"
+                >
+                  <XCircle size={18} />
+                </button>
+              </div>
+              <p className="text-sm text-white/70">
+                <strong className="text-white">{getListingTitle(selectedListing)}</strong> — current status:{' '}
+                <span className="text-white/60 capitalize">
+                  {String(selectedListing.display_status || selectedListing.listing_state || selectedListing.status || '').toLowerCase()}
+                </span>
+              </p>
+              <div className="space-y-2">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">New status</label>
+                <select
+                  value={pendingStatusValue}
+                  onChange={(e) => setPendingStatusValue(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                >
+                  <option value="">Select new status…</option>
+                  {getStatusOptions(
+                    String(selectedListing.display_status || selectedListing.listing_state || selectedListing.status || '').toLowerCase()
+                  ).map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              {pendingStatusValue === 'approved' && (
+                <p className="text-xs text-emerald-300/80 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                  Listing will be restored live. If already expired, expiry will be extended by 60 days from now.
+                </p>
+              )}
+              {pendingStatusValue === 'deleted' && (
+                <p className="text-xs text-rose-300/80 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                  This will permanently remove the listing. Use the dedicated Delete button to also notify the seller.
+                </p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => { setShowStatusModal(false); setPendingStatusValue(''); setSelectedListing(null); }}
+                  className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSetStatus}
+                  disabled={!pendingStatusValue || actionLoading}
+                  className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full px-4 py-2 text-sm disabled:opacity-40"
+                >
+                  {actionLoading ? 'Saving…' : 'Confirm Change'}
+                </button>
+              </div>
             </GlassCard>
           </motion.div>
         )}

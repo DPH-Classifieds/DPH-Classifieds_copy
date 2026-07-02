@@ -168,6 +168,8 @@ const AdminListingDetail = () => {
   const [activeTab, setActiveTab] = useState('Details');
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const [nudgeFeedback, setNudgeFeedback] = useState('');
+  const [expiryEditDate, setExpiryEditDate] = useState('');
+  const [expiryFeedback, setExpiryFeedback] = useState('');
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -228,6 +230,28 @@ const AdminListingDetail = () => {
       } else {
         setNudgeFeedback(detail?.error || sendError?.message || 'Failed to send renewal nudge.');
       }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSetExpiry = async () => {
+    if (!expiryEditDate) return;
+    try {
+      setActionLoading(true);
+      setExpiryFeedback('');
+      await apiClient.post(
+        `/api/admin/listings/${itemType}/${itemId}/set-expiry`,
+        { expires_at: new Date(expiryEditDate).toISOString() }
+      );
+      setExpiryFeedback('Expiry date updated.');
+      setData((prev) => prev
+        ? { ...prev, listing: { ...prev.listing, expires_at: new Date(expiryEditDate).toISOString(), expired_at: null } }
+        : prev
+      );
+    } catch (err) {
+      const detail = err?.response?.data || err?.data;
+      setExpiryFeedback(detail?.error || 'Failed to update expiry.');
     } finally {
       setActionLoading(false);
     }
@@ -943,6 +967,34 @@ const AdminListingDetail = () => {
                   Restore listing
                 </button>
               )}
+
+              {/* Expiry date editor */}
+              <div className="space-y-2 pt-1">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-white/40 font-medium">Set expiry date</p>
+                {listing.expires_at && (
+                  <p className="text-xs text-white/40">
+                    Current: {new Date(listing.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                )}
+                <input
+                  type="date"
+                  value={expiryEditDate}
+                  onChange={(e) => { setExpiryEditDate(e.target.value); setExpiryFeedback(''); }}
+                  min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
+                />
+                <button
+                  type="button"
+                  disabled={!expiryEditDate || actionLoading}
+                  onClick={handleSetExpiry}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-xl px-4 py-2.5 text-sm transition font-medium disabled:opacity-50"
+                >
+                  {actionLoading ? 'Saving…' : 'Update Expiry'}
+                </button>
+                {expiryFeedback && (
+                  <p className="text-xs text-center text-sky-300/80">{expiryFeedback}</p>
+                )}
+              </div>
 
               {/* Renewal nudge (expired or deleted listings) */}
               {(['expired', 'deleted'].includes(String(listing.status || '').toLowerCase())

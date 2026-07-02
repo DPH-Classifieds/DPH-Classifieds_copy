@@ -262,7 +262,7 @@ PROFANITY_BLOCKLIST_COLLAPSED = {
     "faggot",
     "motherfucker",
 }
-LISTING_EXPIRY_DAYS = 15
+LISTING_EXPIRY_DAYS = 60
 LISTING_RETENTION_DAYS = 30
 LISTING_SOLD_RESPONSE_WINDOW_HOURS = int(
     os.getenv("LISTING_SOLD_RESPONSE_WINDOW_HOURS", "168")
@@ -12436,6 +12436,177 @@ def admin_renew_listings_bulk(current_user):
         "failed": len(results) - succeeded,
         "results": results,
     }), 200
+
+
+@app.route("/api/admin/listings/<item_type>/<item_id>/set-status", methods=["POST"])
+@token_required
+def admin_set_listing_status(current_user, item_type, item_id):
+    """Admin: change a listing's status (approved / suspended / rejected / deleted)."""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or {}
+    new_status = (data.get("status") or "").strip().lower()
+
+    ALLOWED_STATUSES = {"approved", "suspended", "rejected", "deleted"}
+    if new_status not in ALLOWED_STATUSES:
+        return jsonify({"error": f"status must be one of {sorted(ALLOWED_STATUSES)}"}), 400
+
+    table_map = {
+        "cars": "cars",
+        "bikes": "bikes",
+        "parts": "car_parts",
+        "plates": "license_plates",
+        "buying_requests": "buying_requests",
+    }
+    table = table_map.get(item_type)
+    if not table:
+        return jsonify({"error": f"Unknown item_type: {item_type}"}), 400
+
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+    update_data = {"status": new_status}
+
+    if new_status == "approved":
+        update_data.update(
+            {
+                "is_approved": True,
+                "approved_at": "now()",
+                "approved_by": current_user,
+                "deleted_at": None,
+                "expired_at": None,
+                "is_archived": False,
+                "sold_status": None,
+                "sold_status_set_at": None,
+                "auto_removed_at": None,
+                "renewal_nudge_sent_at": None,
+            }
+        )
+    elif new_status == "deleted":
+        update_data.update({"deleted_at": "now()", "is_approved": False})
+    elif new_status in ("rejected", "suspended"):
+        update_data["is_approved"] = False
+
+    resp = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
+        headers=headers,
+        json=update_data,
+        timeout=5,
+    )
+
+    if resp.status_code not in (200, 204):
+        logger.error(f"set-status DB error {resp.status_code}: {resp.text[:200]}")
+        return jsonify({"error": "Database update failed"}), 500
+
+    rows = resp.json() if resp.text else []
+    updated = rows[0] if rows else {}
+
+    # If restoring to approved and expires_at is already in the past, extend it.
+    if new_status == "approved" and updated.get("expires_at"):
+        try:
+            import datetime as _dt
+            from dateutil import parser as _dtp
+
+            expires_at = _dtp.isoparse(updated["expires_at"])
+            now_utc = _dt.datetime.now(_dt.timezone.utc)
+            if expires_at < now_utc:
+                new_expires = now_utc + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
+                requests.patch(
+                    f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
+                    headers=headers,
+                    json={"expires_at": new_expires.isoformat()},
+                    timeout=5,
+                )
+                updated["expires_at"] = new_expires.isoformat()
+        except Exception as ext_err:
+            logger.warning(f"Could not extend expires_at on restore: {ext_err}")
+
+    try:
+        _log_admin_action_direct(
+            admin_user_id=current_user,
+            action=f"listing_status_set_{new_status}",
+            metadata={"item_type": item_type, "item_id": item_id},
+        )
+    except Exception:
+        pass
+
+    return jsonify({"success": True, "status": new_status, "listing": updated}), 200
+
+
+@app.route("/api/admin/listings/<item_type>/<item_id>/set-expiry", methods=["POST"])
+@token_required
+def admin_set_listing_expiry(current_user, item_type, item_id):
+    """Admin: set a custom expiry date on any listing."""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or {}
+    expires_at_raw = (data.get("expires_at") or "").strip()
+    if not expires_at_raw:
+        return jsonify({"error": "expires_at is required"}), 400
+
+    try:
+        import datetime as _dt
+        from dateutil import parser as _dtp
+
+        new_expiry = _dtp.isoparse(expires_at_raw)
+        if new_expiry.tzinfo is None:
+            new_expiry = new_expiry.replace(tzinfo=_dt.timezone.utc)
+        if new_expiry < _dt.datetime.now(_dt.timezone.utc):
+            return jsonify({"error": "expires_at must be in the future"}), 400
+    except Exception:
+        return jsonify({"error": "Invalid expires_at date format"}), 400
+
+    table_map = {
+        "cars": "cars",
+        "bikes": "bikes",
+        "parts": "car_parts",
+        "plates": "license_plates",
+        "buying_requests": "buying_requests",
+    }
+    table = table_map.get(item_type)
+    if not table:
+        return jsonify({"error": f"Unknown item_type: {item_type}"}), 400
+
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+    resp = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
+        headers=headers,
+        json={
+            "expires_at": new_expiry.isoformat(),
+            "expired_at": None,
+            "expiry_reminder_sent_at": None,
+            "expired_email_sent_at": None,
+            "is_archived": False,
+        },
+        timeout=5,
+    )
+
+    if resp.status_code not in (200, 204):
+        return jsonify({"error": "Database update failed"}), 500
+
+    try:
+        _log_admin_action_direct(
+            admin_user_id=current_user,
+            action="listing_expiry_set",
+            metadata={"item_type": item_type, "item_id": item_id, "expires_at": new_expiry.isoformat()},
+        )
+    except Exception:
+        pass
+
+    rows = resp.json() if resp.text else []
+    return jsonify({"success": True, "expires_at": new_expiry.isoformat(), "listing": rows[0] if rows else {}}), 200
 
 
 # Columns that should NOT be carried over when a listing is reposted as a new draft.
