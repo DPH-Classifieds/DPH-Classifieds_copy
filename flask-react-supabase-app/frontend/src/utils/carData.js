@@ -1226,6 +1226,33 @@ const carTrims = {
     'Mariner': ['I4', 'V6', 'Premier', 'Hybrid', '4WD'],
     'Montego': ['Luxury', 'Premier', 'AWD'],
   },
+  'Chevrolet': {
+    'Silverado': ['WT', 'Custom', 'LT', 'RST', 'Trail Boss', 'LTZ', 'High Country', 'ZR2'],
+    'Tahoe': ['LS', 'LT', 'RST', 'Z71', 'Premier', 'High Country'],
+    'Suburban': ['LS', 'LT', 'RST', 'Z71', 'Premier', 'High Country'],
+    'Equinox': ['LS', 'LT', 'RS', 'Premier'],
+    'Traverse': ['LS', 'LT', 'RS', 'Z71', 'Premier', 'High Country'],
+    'Trax': ['LS', '1RS', '2RS', 'LT', 'Activ'],
+    'Blazer': ['2LT', '3LT', 'RS', 'Premier'],
+    'Camaro': ['LS', 'LT', 'LT1', 'SS', 'ZL1'],
+    'Corvette': ['1LT', '2LT', '3LT', 'Z06', 'E-Ray', 'ZR1'],
+    'Malibu': ['LS', 'LT', 'RS', 'Premier'],
+    'Impala': ['LS', 'LT', 'LTZ', 'Premier'],
+    'Cruze': ['L', 'LS', 'LT', 'Premier', 'RS'],
+    'Sonic': ['LS', 'LT', 'Premier'],
+    'Spark': ['LS', '1LT', '2LT', 'Activ'],
+    'Bolt': ['1LT', '2LT', 'EUV Premier'],
+    'Colorado': ['WT', 'LT', 'Trail Boss', 'Z71', 'ZR2'],
+    'Express': ['LS', 'LT', 'Cargo Van'],
+    'Trailing': ['LS', 'LT', 'RS', 'Activ'], 
+    'Aveo': ['LS', 'LT', 'LTZ'],
+    'Captiva': ['LS', 'LT', 'Premier'],
+    'Niva': ['L', 'LC', 'LE', 'GLC'],
+    'Groove': ['LT', 'Premier'],
+    'Menlo': ['LS', 'LT', 'Premier'],
+    'Lumina': ['LS', 'LTZ', 'SS'],
+    'Caprice': ['LS', 'LTZ', 'SS', 'Royale']
+  },
 };
 
 // Safety: ensure every make has a models/trims entry so forms don't crash if a make
