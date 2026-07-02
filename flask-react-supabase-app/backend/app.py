@@ -12476,15 +12476,12 @@ def admin_set_listing_status(current_user, item_type, item_id):
         update_data.update(
             {
                 "is_approved": True,
-                "approved_at": "now()",
-                "approved_by": current_user,
                 "deleted_at": None,
                 "expired_at": None,
                 "is_archived": False,
                 "sold_status": None,
                 "sold_status_set_at": None,
                 "auto_removed_at": None,
-                "renewal_nudge_sent_at": None,
             }
         )
     elif new_status == "deleted":
