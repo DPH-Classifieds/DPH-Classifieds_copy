@@ -558,8 +558,7 @@ const AdminListings = () => {
     rejected: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     expired:  [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     deleted:  [{ value: 'approved', label: 'Approved — restore live' }],
-    sold_on_dph:    [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
-    sold_elsewhere: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    sold:     [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     pending: [
       { value: 'rejected',       label: 'Rejected — notify seller' },
       { value: 'sold_on_dph',    label: 'Sold on DPH — remove from platform' },
