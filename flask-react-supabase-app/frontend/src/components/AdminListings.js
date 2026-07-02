@@ -543,18 +543,17 @@ const AdminListings = () => {
   };
 
   const STATUS_CHANGE_OPTIONS = {
-    approved: [{ value: 'suspended', label: 'Suspended — take down temporarily' }, { value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
-    active: [{ value: 'suspended', label: 'Suspended — take down temporarily' }, { value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
-    suspended: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    approved: [{ value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    active:   [{ value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     rejected: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
-    expired: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
-    deleted: [{ value: 'approved', label: 'Approved — restore live' }],
-    pending: [{ value: 'suspended', label: 'Suspended — hold without notifying' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    expired:  [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    deleted:  [{ value: 'approved', label: 'Approved — restore live' }],
+    pending:  [{ value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
   };
 
   const getStatusOptions = (displayStatus) => {
     const ds = String(displayStatus || '').toLowerCase();
-    return STATUS_CHANGE_OPTIONS[ds] || [{ value: 'approved', label: 'Approved — restore live' }, { value: 'suspended', label: 'Suspended — take down temporarily' }, { value: 'deleted', label: 'Deleted — remove permanently' }];
+    return STATUS_CHANGE_OPTIONS[ds] || [{ value: 'approved', label: 'Approved — restore live' }, { value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }];
   };
 
   const handleSetStatus = async () => {
@@ -588,7 +587,7 @@ const AdminListings = () => {
       setActionLoading(true);
       await apiClient.post(
         `/api/admin/listings/${lt}/${selectedListing.id}/set-expiry`,
-        { expires_at: new Date(expiryDate).toISOString() }
+        { expires_at: new Date(expiryDate + 'T23:59:59').toISOString() }
       );
       showToast('Expiry date updated successfully', 'success');
       setShowExpiryModal(false);
@@ -655,14 +654,35 @@ const AdminListings = () => {
 
   const selectedListings = listings.filter((l) => selectedIds.has(rowKey(l)));
   const bulkHasRenewable = selectedListings.some((l) => isRenewable(l));
+  // Restorable = actually deleted/rejected — NOT expired (those use Renew, not Restore)
   const bulkHasRestorable = selectedListings.some((l) => {
     const ds = String(l.display_status || l.listing_state || l.status || '').toLowerCase();
     const rs = String(l.status || '').toLowerCase();
-    return ds === 'expired' || ds === 'deleted' || rs === 'deleted' || rs === 'suspended' || rs === 'rejected';
+    return ds === 'deleted' || rs === 'deleted' || rs === 'rejected';
   });
   const bulkHasPending = selectedListings.some((l) =>
     String(l._table_status || l.status || '').toLowerCase() === 'pending'
   );
+
+  const pageSelectableIds = pagedListings
+    .filter((l) => {
+      const lt = l.listing_type || l._type || 'cars';
+      return !(lt === 'drafts' || String(l.status || '').toLowerCase() === 'draft');
+    })
+    .map((l) => rowKey(l));
+  const allPageSelected = pageSelectableIds.length > 0 && pageSelectableIds.every((id) => selectedIds.has(id));
+  const somePageSelected = !allPageSelected && pageSelectableIds.some((id) => selectedIds.has(id));
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageSelectableIds.forEach((id) => next.delete(id));
+      } else {
+        pageSelectableIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
 
   const ChipFilter = ({ options, activeKeys, paramKey, allowed }) => (
     <div className="flex flex-wrap gap-1.5">
@@ -780,7 +800,17 @@ const AdminListings = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                {['', 'Thumbnail', 'Listing', 'Type', 'Status', 'Seller', 'Views', 'Created', 'Actions'].map((h, idx) => (
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    ref={(el) => { if (el) el.indeterminate = somePageSelected; }}
+                    onChange={toggleSelectAll}
+                    className="w-3.5 h-3.5 rounded accent-emerald-500 cursor-pointer"
+                    title="Select all on this page"
+                  />
+                </th>
+                {['Thumbnail', 'Listing', 'Type', 'Status', 'Seller', 'Views', 'Created', 'Actions'].map((h, idx) => (
                   <th key={`${h}-${idx}`} className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium whitespace-nowrap">
                     {h}
                   </th>

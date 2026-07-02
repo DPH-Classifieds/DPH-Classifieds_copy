@@ -242,11 +242,11 @@ const AdminListingDetail = () => {
       setExpiryFeedback('');
       await apiClient.post(
         `/api/admin/listings/${itemType}/${itemId}/set-expiry`,
-        { expires_at: new Date(expiryEditDate).toISOString() }
+        { expires_at: new Date(expiryEditDate + 'T23:59:59').toISOString() }
       );
       setExpiryFeedback('Expiry date updated.');
       setData((prev) => prev
-        ? { ...prev, listing: { ...prev.listing, expires_at: new Date(expiryEditDate).toISOString(), expired_at: null } }
+        ? { ...prev, listing: { ...prev.listing, expires_at: new Date(expiryEditDate + 'T23:59:59').toISOString(), expired_at: null } }
         : prev
       );
     } catch (err) {

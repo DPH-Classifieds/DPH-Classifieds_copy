@@ -12482,6 +12482,14 @@ def admin_approve_listings_bulk(current_user):
             results.append({"ok": False, "error": f"Unknown type: {item_type}", "item_id": item_id})
             continue
         try:
+            get_r = requests.get(
+                f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}&select=*&limit=1",
+                headers={**headers, "Accept": "application/json"},
+                timeout=5,
+            )
+            listing_data = (get_r.json()[0] if get_r.status_code == 200 and get_r.json() else None)
+            user_id = listing_data.get("user_id") if listing_data else None
+
             resp = requests.patch(
                 f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
                 headers=headers,
@@ -12498,6 +12506,13 @@ def admin_approve_listings_bulk(current_user):
             ok = resp.status_code in (200, 204)
             results.append({"ok": ok, "item_type": item_type, "item_id": item_id,
                             **({"error": f"DB error {resp.status_code}"} if not ok else {})})
+            if ok and user_id and listing_data:
+                try:
+                    user_email, _ = _get_user_email_by_id(user_id)
+                    if user_email:
+                        _send_listing_status_email(user_email, item_type, listing_data, "approved")
+                except Exception as email_err:
+                    logger.error(f"approve-bulk: email failed for {item_id}: {email_err}")
         except Exception as e:
             results.append({"ok": False, "item_type": item_type, "item_id": item_id, "error": str(e)})
 
@@ -12562,6 +12577,14 @@ def admin_delete_listings_bulk(current_user):
             results.append({"ok": False, "error": f"Unknown type: {item_type}", "item_id": item_id})
             continue
         try:
+            get_r = requests.get(
+                f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}&select=*&limit=1",
+                headers={**headers, "Accept": "application/json"},
+                timeout=5,
+            )
+            listing_data = (get_r.json()[0] if get_r.status_code == 200 and get_r.json() else None)
+            user_id = listing_data.get("user_id") if listing_data else None
+
             resp = requests.patch(
                 f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
                 headers=headers,
@@ -12571,6 +12594,14 @@ def admin_delete_listings_bulk(current_user):
             ok = resp.status_code in (200, 204)
             results.append({"ok": ok, "item_type": item_type, "item_id": item_id,
                             **({"error": f"DB error {resp.status_code}"} if not ok else {})})
+            if ok and user_id and listing_data:
+                try:
+                    user_email, _ = _get_user_email_by_id(user_id)
+                    if user_email:
+                        listing_title = _build_listing_title(item_type, listing_data)
+                        _send_listing_deleted_email(user_email, item_type, listing_title, item_id, reason)
+                except Exception as email_err:
+                    logger.error(f"delete-bulk: email failed for {item_id}: {email_err}")
         except Exception as e:
             results.append({"ok": False, "item_type": item_type, "item_id": item_id, "error": str(e)})
 
@@ -12604,7 +12635,7 @@ def admin_set_listing_status(current_user, item_type, item_id):
     data = request.get_json(silent=True) or {}
     new_status = (data.get("status") or "").strip().lower()
 
-    ALLOWED_STATUSES = {"approved", "suspended", "rejected", "deleted"}
+    ALLOWED_STATUSES = {"approved", "rejected", "deleted"}
     if new_status not in ALLOWED_STATUSES:
         return jsonify({"error": f"status must be one of {sorted(ALLOWED_STATUSES)}"}), 400
 
