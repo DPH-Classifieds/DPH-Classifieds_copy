@@ -373,6 +373,21 @@
   scroll-snap-align: unset;
 }
 
+.explore-v2-sentinel {
+  grid-column: 1 / -1;
+  min-height: 8px;
+  margin-top: 8px;
+}
+
+.explore-v2-end-label {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+  padding: 32px 0 16px;
+  letter-spacing: 0.04em;
+}
+
 .explore-v2-card {
   --ex-text: #ffffff;
   --ex-text-muted: #bfc9c4;

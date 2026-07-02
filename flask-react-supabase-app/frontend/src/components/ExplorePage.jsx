@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import ListingSkeleton from './ListingSkeleton';
@@ -13,9 +13,30 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const LIST_PAGE_SIZE = 24;
+const PAGE_SIZE = 24;
 const INVENTORY_CACHE_TTL_MS = 60 * 1000;
 const inflightInventoryRequests = new Map();
+
+const EXPLORE_MODE_TO_API_KEY = {
+  cars: 'cars',
+  bikes: 'bikes',
+  'car-parts': 'parts',
+  plates: 'plates',
+};
+
+const FALLBACK_KEYS = {
+  cars: ['cars', 'data'],
+  bikes: ['bikes', 'data'],
+  parts: ['parts', 'car_parts', 'data'],
+  plates: ['plates', 'license_plates', 'data'],
+};
+
+const INIT_PAGES = {
+  cars: { offset: 0, hasMore: true },
+  bikes: { offset: 0, hasMore: true },
+  parts: { offset: 0, hasMore: true },
+  plates: { offset: 0, hasMore: true },
+};
 
 const fetchJsonWithCache = async (url, ttlMs = INVENTORY_CACHE_TTL_MS) => {
   const cacheKey = `explore-cache:${url}`;
@@ -413,8 +434,12 @@ const ExplorePage = () => {
     parts: [],
     plates: [],
   });
+  const [pages, setPages] = useState(INIT_PAGES);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const sentinelRef = useRef(null);
+  const isFetchingRef = useRef(false);
   const [activeMode, setActiveMode] = useState('all');
   const [globalQuery, setGlobalQuery] = useState('');
   const [carFilters, setCarFilters] = useState(carInitialFilters);
@@ -466,53 +491,98 @@ const ExplorePage = () => {
     ],
   });
 
-  useEffect(() => {
-    let isMounted = true;
+  // ── fetch one page for one API category ──────────────────────────────────
+  const fetchPage = useCallback(async (apiKey, offset) => {
+    const ttl = offset === 0 ? INVENTORY_CACHE_TTL_MS : 30_000;
+    const url = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
+    const data = await fetchJsonWithCache(url, ttl);
+    return extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
+  }, []);
 
-    const fetchInventory = async () => {
+  // ── initial load: all four categories, offset 0 ──────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
       setLoading(true);
       setError('');
-
-      const requests = await Promise.allSettled([
-        fetchJsonWithCache(`${API_URL}/api/cars?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
-        fetchJsonWithCache(`${API_URL}/api/bikes?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
-        fetchJsonWithCache(`${API_URL}/api/parts?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
-        fetchJsonWithCache(`${API_URL}/api/plates?limit=${LIST_PAGE_SIZE}&order=created_at.desc`),
+      const results = await Promise.allSettled([
+        fetchPage('cars', 0),
+        fetchPage('bikes', 0),
+        fetchPage('parts', 0),
+        fetchPage('plates', 0),
       ]);
-
-      if (!isMounted) {
-        return;
-      }
-
-      const [carsResult, bikesResult, partsResult, platesResult] = requests;
-      const nextInventory = {
-        cars: carsResult.status === 'fulfilled' ? extractInventoryCollection(carsResult.value, ['cars', 'data']) : [],
-        bikes: bikesResult.status === 'fulfilled' ? extractInventoryCollection(bikesResult.value, ['bikes', 'data']) : [],
-        parts: partsResult.status === 'fulfilled' ? extractInventoryCollection(partsResult.value, ['parts', 'car_parts', 'data']) : [],
-        plates: platesResult.status === 'fulfilled' ? extractInventoryCollection(platesResult.value, ['plates', 'license_plates', 'data']) : [],
-      };
-
-      const failedCategories = [];
-      if (carsResult.status === 'rejected') failedCategories.push('cars');
-      if (bikesResult.status === 'rejected') failedCategories.push('bikes');
-      if (partsResult.status === 'rejected') failedCategories.push('car parts');
-      if (platesResult.status === 'rejected') failedCategories.push('plates');
-
-      setInventory(nextInventory);
-      setError(
-        failedCategories.length
-          ? `Some inventory could not be loaded right now: ${failedCategories.join(', ')}.`
-          : ''
-      );
+      if (!mounted) return;
+      const [cars, bikes, parts, plates] = results;
+      const get = (r) => (r.status === 'fulfilled' ? r.value : []);
+      setInventory({ cars: get(cars), bikes: get(bikes), parts: get(parts), plates: get(plates) });
+      setPages({
+        cars:   { offset: 0, hasMore: get(cars).length === PAGE_SIZE },
+        bikes:  { offset: 0, hasMore: get(bikes).length === PAGE_SIZE },
+        parts:  { offset: 0, hasMore: get(parts).length === PAGE_SIZE },
+        plates: { offset: 0, hasMore: get(plates).length === PAGE_SIZE },
+      });
+      const failed = ['cars','bikes','car parts','plates'].filter((_, i) => results[i].status === 'rejected');
+      setError(failed.length ? `Some inventory could not be loaded: ${failed.join(', ')}.` : '');
       setLoading(false);
     };
+    load();
+    return () => { mounted = false; };
+  }, [fetchPage]);
 
-    fetchInventory();
+  // ── load more: append next page for the relevant categories ──────────────
+  const loadMore = useCallback(async () => {
+    if (isFetchingRef.current || loading) return;
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    // Which API keys to load more from
+    const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
+    const targets = modeKey ? [modeKey] : ['cars', 'bikes', 'parts', 'plates'];
+    const toLoad = targets.filter((k) => pages[k]?.hasMore);
+    if (toLoad.length === 0) return;
+
+    isFetchingRef.current = true;
+    setLoadingMore(true);
+
+    const results = await Promise.allSettled(
+      toLoad.map((k) => fetchPage(k, pages[k].offset + PAGE_SIZE))
+    );
+
+    setInventory((prev) => {
+      const next = { ...prev };
+      toLoad.forEach((k, i) => {
+        const items = results[i].status === 'fulfilled' ? results[i].value : [];
+        next[k] = [...prev[k], ...items];
+      });
+      return next;
+    });
+    setPages((prev) => {
+      const next = { ...prev };
+      toLoad.forEach((k, i) => {
+        const items = results[i].status === 'fulfilled' ? results[i].value : [];
+        next[k] = { offset: prev[k].offset + PAGE_SIZE, hasMore: items.length === PAGE_SIZE };
+      });
+      return next;
+    });
+
+    isFetchingRef.current = false;
+    setLoadingMore(false);
+  }, [activeMode, fetchPage, loading, pages]);
+
+  // Keep a ref so the IntersectionObserver always calls the latest loadMore
+  const loadMoreRef = useRef(loadMore);
+  useEffect(() => { loadMoreRef.current = loadMore; });
+
+  // ── IntersectionObserver sentinel ─────────────────────────────────────────
+  useEffect(() => {
+    if (loading) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMoreRef.current(); },
+      { rootMargin: '400px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [loading, activeMode]);
 
   const normalizedInventory = useMemo(
     () => ({
@@ -869,11 +939,28 @@ const ExplorePage = () => {
             </div>
           </div>
         ) : (
-          <div className="explore-v2-horizontal-track">
-            {filteredItems.map((item) => (
-              <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
-            ))}
-          </div>
+          <>
+            <div className="explore-v2-horizontal-track">
+              {filteredItems.map((item) => (
+                <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
+              ))}
+            </div>
+
+            {/* Sentinel triggers loadMore via IntersectionObserver */}
+            {(() => {
+              const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
+              const hasMore = modeKey
+                ? pages[modeKey]?.hasMore
+                : Object.values(pages).some((p) => p.hasMore);
+              return hasMore ? (
+                <div ref={sentinelRef} className="explore-v2-sentinel">
+                  {loadingMore && <ListingSkeleton variant="grid" count={4} />}
+                </div>
+              ) : filteredItems.length > 0 ? (
+                <p className="explore-v2-end-label">You've seen all listings.</p>
+              ) : null;
+            })()}
+          </>
         )}
 
         {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}
