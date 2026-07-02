@@ -512,6 +512,13 @@ def _invalidate_api_cache_prefixes(prefixes):
 
 
 def _invalidate_public_inventory_cache(item_type):
+    # Normalize table names and singular forms to the plural API type key
+    _alias_map = {
+        "car": "cars", "car_parts": "parts", "part": "parts",
+        "bike": "bikes", "license_plates": "plates", "plate": "plates",
+        "buying_request": "buying_requests",
+    }
+    item_type = _alias_map.get(item_type, item_type)
     public_prefixes = {
         "cars": ["/api/cars", "/api/homepage/preview", "/api/recommendations", "/api/sitemap.xml"],
         "bikes": ["/api/bikes", "/api/sitemap.xml"],
@@ -2008,12 +2015,19 @@ def _fetch_public_preview_records(table_name, params, relation_key, normalize=No
 
 
 def _fetch_homepage_preview_payload():
+    _LIFECYCLE_FIELDS = (
+        "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+        "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
+    )
+
     car_params = {
         "select": (
             "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
             "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
             "status,is_approved,view_count,lady_driven,"
-            "whatsapp_number,whatsapp_prefill_text,vin_number,car_images("
+            "whatsapp_number,whatsapp_prefill_text,vin_number,"
+            + _LIFECYCLE_FIELDS
+            + "car_images("
             + LISTING_IMAGE_SELECTS["cars"]
             + ")"
         ),
@@ -2027,7 +2041,9 @@ def _fetch_homepage_preview_payload():
         "select": (
             "id,user_id,bike_brand,bike_model,make_year,bike_category,engine_capacity,"
             "expected_selling_price,kilometer_driven,description,created_at,updated_at,image_url,url,"
-            "display_url,status,is_approved,featured,views,bike_images("
+            "display_url,status,is_approved,featured,views,"
+            + _LIFECYCLE_FIELDS
+            + "bike_images("
             + LISTING_IMAGE_SELECTS["bikes"]
             + ")"
         ),
@@ -2041,7 +2057,8 @@ def _fetch_homepage_preview_payload():
         "select": (
             "id,user_id,category,part_type,brand,model,condition,price,description,city,"
             "created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
-            "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
+            + _LIFECYCLE_FIELDS
+            + "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
         ),
         "limit": "3",
         "order": "created_at.desc",
@@ -2053,7 +2070,8 @@ def _fetch_homepage_preview_payload():
         "select": (
             "id,user_id,city,code,digits,price,number,plate_format,"
             "description,created_at,updated_at,image_url,url,display_url,status,is_approved,featured,views,"
-            "plate_images(" + LISTING_IMAGE_SELECTS["license_plates"] + ")"
+            + _LIFECYCLE_FIELDS
+            + "plate_images(" + LISTING_IMAGE_SELECTS["license_plates"] + ")"
         ),
         "limit": "3",
         "order": "created_at.desc",
@@ -5541,7 +5559,10 @@ def get_cars():
             "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
             "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
             "status,is_approved,view_count,lady_driven,"
-            "whatsapp_number,whatsapp_prefill_text,vin_number,car_images("
+            "whatsapp_number,whatsapp_prefill_text,vin_number,"
+            "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+            "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
+            "car_images("
             + LISTING_IMAGE_SELECTS["cars"]
             + ")"
         )
@@ -11918,7 +11939,10 @@ def get_bikes():
                 f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}"
                 "&select=id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
                 "color,price,location,area,emirate,description,contact_number,country_code,"
-                "status,is_approved,created_at,updated_at,bike_images("
+                "status,is_approved,created_at,updated_at,"
+                "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+                "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
+                "bike_images("
                 + LISTING_IMAGE_SELECTS["bikes"]
                 + ")"
             )
@@ -11988,7 +12012,10 @@ def get_bikes():
                 "select": (
                     "id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
                     "color,price,location,area,emirate,description,contact_number,country_code,"
-                    "status,is_approved,created_at,updated_at,bike_images("
+                    "status,is_approved,created_at,updated_at,"
+                    "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+                    "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
+                    "bike_images("
                     + LISTING_IMAGE_SELECTS["bikes"]
                     + ")"
                 ),
@@ -13633,7 +13660,9 @@ def get_plates():
         url = (
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
-            "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at"
+            "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at,"
+            "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+            "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at"
         )
 
         logger.info(f"Fetching plates from: {url}")
@@ -13944,6 +13973,8 @@ def get_parts():
                 "&select=id,user_id,name,part_type,condition,price,location,area,emirate,"
                 "description,contact_number,country_code,status,is_approved,created_at,updated_at,"
                 "compatible_makes,compatible_models,compatible_years,"
+                "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+                "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
                 "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
             )
 
@@ -14006,6 +14037,8 @@ def get_parts():
                     "id,user_id,name,part_type,condition,price,location,area,emirate,"
                     "description,contact_number,country_code,status,is_approved,created_at,updated_at,"
                     "compatible_makes,compatible_models,compatible_years,"
+                    "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+                    "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
                     "part_images(" + LISTING_IMAGE_SELECTS["car_parts"] + ")"
                 ),
             }
