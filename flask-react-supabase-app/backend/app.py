@@ -12528,12 +12528,10 @@ def admin_approve_listings_bulk(current_user):
             listing_data = (get_r.json()[0] if get_r.status_code == 200 and get_r.json() else None)
             user_id = listing_data.get("user_id") if listing_data else None
 
-            resp = requests.patch(
-                f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
-                headers=headers,
-                json={
-                    "status": "approved",
-                    "is_approved": True,
+            _LIFECYCLE_TYPES = {"cars", "bikes", "parts", "plates"}
+            patch_body = {"status": "approved", "is_approved": True}
+            if item_type in _LIFECYCLE_TYPES:
+                patch_body.update({
                     "expires_at": new_expires,
                     "retention_expires_at": new_retention,
                     "deleted_at": None,
@@ -12545,7 +12543,11 @@ def admin_approve_listings_bulk(current_user):
                     "sold_response_deadline": None,
                     "expiry_reminder_sent_at": None,
                     "expired_email_sent_at": None,
-                },
+                })
+            resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
+                headers=headers,
+                json=patch_body,
                 timeout=5,
             )
             ok = resp.status_code in (200, 204)
@@ -12660,6 +12662,12 @@ def admin_delete_listings_bulk(current_user):
 
     succeeded = sum(1 for r in results if r.get("ok"))
 
+    for t in set(r["item_type"] for r in results if r.get("ok") and r.get("item_type")):
+        try:
+            _invalidate_public_inventory_cache(t)
+        except Exception:
+            pass
+
     try:
         _log_admin_action_direct(
             admin_user_id=current_user,
@@ -12714,25 +12722,27 @@ def admin_set_listing_status(current_user, item_type, item_id):
 
     import datetime as _dt
 
+    _LIFECYCLE_TYPES = {"cars", "bikes", "parts", "plates"}
     if new_status == "approved":
-        new_expires = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
-        new_retention = new_expires + _dt.timedelta(days=LISTING_RETENTION_DAYS)
-        update_data.update(
-            {
-                "is_approved": True,
-                "deleted_at": None,
-                "expired_at": None,
-                "is_archived": False,
-                "sold_status": None,
-                "sold_status_set_at": None,
-                "auto_removed_at": None,
-                "sold_response_deadline": None,
-                "expires_at": new_expires.isoformat(),
-                "retention_expires_at": new_retention.isoformat(),
-                "expiry_reminder_sent_at": None,
-                "expired_email_sent_at": None,
-            }
-        )
+        update_data["is_approved"] = True
+        if item_type in _LIFECYCLE_TYPES:
+            new_expires = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
+            new_retention = new_expires + _dt.timedelta(days=LISTING_RETENTION_DAYS)
+            update_data.update(
+                {
+                    "deleted_at": None,
+                    "expired_at": None,
+                    "is_archived": False,
+                    "sold_status": None,
+                    "sold_status_set_at": None,
+                    "auto_removed_at": None,
+                    "sold_response_deadline": None,
+                    "expires_at": new_expires.isoformat(),
+                    "retention_expires_at": new_retention.isoformat(),
+                    "expiry_reminder_sent_at": None,
+                    "expired_email_sent_at": None,
+                }
+            )
     elif new_status == "deleted":
         update_data.update({"deleted_at": "now()", "is_approved": False})
     elif new_status == "rejected":
@@ -12834,6 +12844,11 @@ def admin_set_listing_expiry(current_user, item_type, item_id):
             action="listing_expiry_set",
             metadata={"item_type": item_type, "item_id": item_id, "expires_at": new_expiry.isoformat()},
         )
+    except Exception:
+        pass
+
+    try:
+        _invalidate_public_inventory_cache(item_type)
     except Exception:
         pass
 
