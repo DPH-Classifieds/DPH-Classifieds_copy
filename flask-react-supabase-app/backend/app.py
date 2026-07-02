@@ -12465,9 +12465,12 @@ def admin_approve_listings_bulk(current_user):
     }
 
     import datetime as _dt
-    new_expires = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=LISTING_EXPIRY_DAYS)).isoformat()
+    _now = _dt.datetime.now(_dt.timezone.utc)
+    new_expires = (_now + _dt.timedelta(days=LISTING_EXPIRY_DAYS)).isoformat()
+    new_retention = (_now + _dt.timedelta(days=LISTING_EXPIRY_DAYS + LISTING_RETENTION_DAYS)).isoformat()
 
     results = []
+    succeeded_types = set()
     for item in items:
         if not isinstance(item, dict):
             results.append({"ok": False, "error": "Invalid item shape"})
@@ -12497,15 +12500,24 @@ def admin_approve_listings_bulk(current_user):
                     "status": "approved",
                     "is_approved": True,
                     "expires_at": new_expires,
+                    "retention_expires_at": new_retention,
                     "deleted_at": None,
                     "expired_at": None,
                     "is_archived": False,
+                    "sold_status": None,
+                    "sold_status_set_at": None,
+                    "auto_removed_at": None,
+                    "sold_response_deadline": None,
+                    "expiry_reminder_sent_at": None,
+                    "expired_email_sent_at": None,
                 },
                 timeout=5,
             )
             ok = resp.status_code in (200, 204)
             results.append({"ok": ok, "item_type": item_type, "item_id": item_id,
                             **({"error": f"DB error {resp.status_code}"} if not ok else {})})
+            if ok:
+                succeeded_types.add(item_type)
             if ok and user_id and listing_data:
                 try:
                     user_email, _ = _get_user_email_by_id(user_id)
@@ -12517,6 +12529,12 @@ def admin_approve_listings_bulk(current_user):
             results.append({"ok": False, "item_type": item_type, "item_id": item_id, "error": str(e)})
 
     succeeded = sum(1 for r in results if r.get("ok"))
+
+    for t in succeeded_types:
+        try:
+            _invalidate_public_inventory_cache(t)
+        except Exception:
+            pass
 
     try:
         _log_admin_action_direct(
@@ -12663,6 +12681,7 @@ def admin_set_listing_status(current_user, item_type, item_id):
 
     if new_status == "approved":
         new_expires = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
+        new_retention = new_expires + _dt.timedelta(days=LISTING_RETENTION_DAYS)
         update_data.update(
             {
                 "is_approved": True,
@@ -12672,12 +12691,16 @@ def admin_set_listing_status(current_user, item_type, item_id):
                 "sold_status": None,
                 "sold_status_set_at": None,
                 "auto_removed_at": None,
+                "sold_response_deadline": None,
                 "expires_at": new_expires.isoformat(),
+                "retention_expires_at": new_retention.isoformat(),
+                "expiry_reminder_sent_at": None,
+                "expired_email_sent_at": None,
             }
         )
     elif new_status == "deleted":
         update_data.update({"deleted_at": "now()", "is_approved": False})
-    elif new_status in ("rejected", "suspended"):
+    elif new_status == "rejected":
         update_data["is_approved"] = False
 
     resp = requests.patch(
@@ -12693,6 +12716,12 @@ def admin_set_listing_status(current_user, item_type, item_id):
 
     rows = resp.json() if resp.text else []
     updated = rows[0] if rows else {}
+
+    if new_status in ("approved", "deleted", "rejected"):
+        try:
+            _invalidate_public_inventory_cache(item_type)
+        except Exception:
+            pass
 
     try:
         _log_admin_action_direct(
