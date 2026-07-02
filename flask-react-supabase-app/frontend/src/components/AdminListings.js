@@ -162,6 +162,9 @@ const AdminListings = () => {
   const [renewReason, setRenewReason] = useState('');
   const [showBulkRenewModal, setShowBulkRenewModal] = useState(false);
   const [bulkRenewReason, setBulkRenewReason] = useState('');
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkDeleteReason, setBulkDeleteReason] = useState('');
+  const [bulkRestoring, setBulkRestoring] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [pendingStatusValue, setPendingStatusValue] = useState('');
@@ -423,6 +426,66 @@ const AdminListings = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!bulkDeleteReason.trim()) {
+      showToast('Please select a removal reason.', 'error');
+      return;
+    }
+    const items = [];
+    for (const key of selectedIds) {
+      const [type, id] = key.split(':');
+      if (type && id) items.push({ type, id });
+    }
+    if (!items.length) return;
+    try {
+      setActionLoading(true);
+      const resp = await apiClient.post('/api/admin/listings/delete-bulk', {
+        items,
+        reason: bulkDeleteReason,
+      });
+      const total = Number(resp?.total ?? items.length);
+      const succeeded = Number(resp?.succeeded ?? 0);
+      const failed = Number(resp?.failed ?? Math.max(0, total - succeeded));
+      showToast(`Deleted ${succeeded} of ${total}.${failed ? ` ${failed} failed.` : ''}`, failed === 0 ? 'success' : 'error');
+      setShowBulkDeleteModal(false);
+      setBulkDeleteReason('');
+      clearSelection();
+      fetchListings();
+    } catch (error) {
+      const detail = error?.response?.data || error?.data;
+      showToast(detail?.error || 'Bulk delete failed. Please try again.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    const items = [];
+    for (const key of selectedIds) {
+      const [type, id] = key.split(':');
+      if (type && id) items.push({ type, id });
+    }
+    if (!items.length) return;
+    try {
+      setBulkRestoring(true);
+      let succeeded = 0;
+      for (const { type, id } of items) {
+        try {
+          await apiClient.post(`/api/admin/listings/${type}/${id}/set-status`, { status: 'approved' });
+          succeeded++;
+        } catch (_) {}
+      }
+      const failed = items.length - succeeded;
+      showToast(`Restored ${succeeded} of ${items.length}.${failed ? ` ${failed} failed.` : ''}`, failed === 0 ? 'success' : 'error');
+      clearSelection();
+      fetchListings();
+    } catch (error) {
+      showToast('Bulk restore failed. Please try again.', 'error');
+    } finally {
+      setBulkRestoring(false);
+    }
+  };
+
   const handleDeleteListing = async () => {
     if (!selectedListing) return;
     if (!deleteReason.trim()) {
@@ -565,6 +628,14 @@ const AdminListings = () => {
 
   const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE);
   const pagedListings = filtered.slice(page * ADMIN_PAGE_SIZE, (page + 1) * ADMIN_PAGE_SIZE);
+
+  const selectedListings = listings.filter((l) => selectedIds.has(rowKey(l)));
+  const bulkHasRenewable = selectedListings.some((l) => isRenewable(l));
+  const bulkHasRestorable = selectedListings.some((l) => {
+    const ds = String(l.display_status || l.listing_state || l.status || '').toLowerCase();
+    const rs = String(l.status || '').toLowerCase();
+    return ds === 'expired' || ds === 'deleted' || rs === 'deleted' || rs === 'suspended' || rs === 'rejected';
+  });
 
   const ChipFilter = ({ options, activeKeys, paramKey, allowed }) => (
     <div className="flex flex-wrap gap-1.5">
@@ -735,12 +806,12 @@ const AdminListings = () => {
                         className={`border-b border-white/[0.04] transition-colors group ${isDraftRow ? '' : 'hover:bg-white/[0.04] cursor-pointer'}`}
                       >
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          {canRenew ? (
+                          {!isDraftRow ? (
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleRowSelected(listing)}
-                              aria-label="Select listing for bulk renew"
+                              aria-label="Select listing"
                               className="w-4 h-4 rounded border-white/20 bg-white/[0.04] accent-emerald-500 cursor-pointer"
                             />
                           ) : (
@@ -1349,25 +1420,95 @@ const AdminListings = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl bg-[rgba(15,25,20,0.95)] border border-emerald-500/30 backdrop-blur-md"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-5 py-3 rounded-2xl shadow-2xl bg-[rgba(10,15,20,0.97)] border border-white/20 backdrop-blur-md"
           >
-            <span className="text-sm text-white/80 font-medium">
+            <span className="text-sm text-white/60 font-medium pr-1">
               {selectedIds.size} selected
             </span>
+            {bulkHasRenewable && (
+              <button
+                onClick={() => setShowBulkRenewModal(true)}
+                disabled={actionLoading || bulkRestoring}
+                className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
+              >
+                <RefreshCw size={14} />
+                Renew
+              </button>
+            )}
+            {bulkHasRestorable && (
+              <button
+                onClick={handleBulkRestore}
+                disabled={actionLoading || bulkRestoring}
+                className="inline-flex items-center gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} />
+                {bulkRestoring ? 'Restoring…' : 'Restore Live'}
+              </button>
+            )}
             <button
-              onClick={() => setShowBulkRenewModal(true)}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
+              onClick={() => setShowBulkDeleteModal(true)}
+              disabled={actionLoading || bulkRestoring}
+              className="inline-flex items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
             >
-              <RefreshCw size={14} />
-              Renew {selectedIds.size} selected
+              <Trash2 size={14} />
+              Delete
             </button>
             <button
               onClick={clearSelection}
-              className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-3 py-1.5 text-sm border border-white/10"
+              className="bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full px-3 py-1.5 text-sm border border-white/10"
             >
               Clear
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk delete modal */}
+      <AnimatePresence>
+        {showBulkDeleteModal && (
+          <motion.div
+            key="bulk-delete-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <GlassCard className="w-full max-w-md space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-rose-300">Delete {selectedIds.size} Listings</h2>
+                <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteReason(''); }} className="text-white/40 hover:text-white/80 transition-colors">
+                  <XCircle size={18} />
+                </button>
+              </div>
+              <p className="text-sm text-white/70">
+                Permanently remove <strong className="text-white">{selectedIds.size}</strong> listing{selectedIds.size === 1 ? '' : 's'}. This cannot be undone.
+              </p>
+              <div className="space-y-2">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium block">Removal reason</label>
+                <select
+                  value={bulkDeleteReason}
+                  onChange={(e) => setBulkDeleteReason(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-rose-500/40"
+                >
+                  <option value="">Select a reason…</option>
+                  {ADMIN_DELETE_REASONS.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteReason(''); }} className="bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full px-4 py-2 text-sm border border-white/10">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={!bulkDeleteReason.trim() || actionLoading}
+                  className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full px-4 py-2 text-sm disabled:opacity-40"
+                >
+                  {actionLoading ? 'Deleting…' : `Delete ${selectedIds.size}`}
+                </button>
+              </div>
+            </GlassCard>
           </motion.div>
         )}
       </AnimatePresence>
