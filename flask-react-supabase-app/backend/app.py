@@ -12438,6 +12438,88 @@ def admin_renew_listings_bulk(current_user):
     }), 200
 
 
+@app.route("/api/admin/listings/approve-bulk", methods=["POST"])
+@token_required
+def admin_approve_listings_bulk(current_user):
+    """Approve many listings in one call. Body: {items: [{type, id}, ...]}"""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    items = data.get("items") or []
+
+    if not isinstance(items, list) or not items:
+        return jsonify({"error": "Provide a non-empty items array"}), 400
+    if len(items) > 200:
+        return jsonify({"error": "Bulk approve is capped at 200 listings per call"}), 400
+
+    table_map = {
+        "cars": "cars", "bikes": "bikes", "parts": "car_parts",
+        "plates": "license_plates", "buying_requests": "buying_requests",
+    }
+
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    import datetime as _dt
+    new_expires = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=LISTING_EXPIRY_DAYS)).isoformat()
+
+    results = []
+    for item in items:
+        if not isinstance(item, dict):
+            results.append({"ok": False, "error": "Invalid item shape"})
+            continue
+        item_type = (item.get("type") or item.get("item_type") or "").strip().lower()
+        item_id = str(item.get("id") or item.get("item_id") or "").strip()
+        if not item_type or not item_id:
+            results.append({"ok": False, "error": "Missing type or id"})
+            continue
+        table = table_map.get(item_type)
+        if not table:
+            results.append({"ok": False, "error": f"Unknown type: {item_type}", "item_id": item_id})
+            continue
+        try:
+            resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
+                headers=headers,
+                json={
+                    "status": "approved",
+                    "is_approved": True,
+                    "expires_at": new_expires,
+                    "deleted_at": None,
+                    "expired_at": None,
+                    "is_archived": False,
+                },
+                timeout=5,
+            )
+            ok = resp.status_code in (200, 204)
+            results.append({"ok": ok, "item_type": item_type, "item_id": item_id,
+                            **({"error": f"DB error {resp.status_code}"} if not ok else {})})
+        except Exception as e:
+            results.append({"ok": False, "item_type": item_type, "item_id": item_id, "error": str(e)})
+
+    succeeded = sum(1 for r in results if r.get("ok"))
+
+    try:
+        _log_admin_action_direct(
+            admin_user_id=current_user,
+            action="listing_bulk_approve",
+            metadata={"total": len(results), "succeeded": succeeded, "failed": len(results) - succeeded},
+        )
+    except Exception:
+        pass
+
+    return jsonify({
+        "total": len(results),
+        "succeeded": succeeded,
+        "failed": len(results) - succeeded,
+        "results": results,
+    }), 200
+
+
 @app.route("/api/admin/listings/delete-bulk", methods=["POST"])
 @token_required
 def admin_delete_listings_bulk(current_user):

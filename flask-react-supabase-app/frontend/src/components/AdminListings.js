@@ -486,6 +486,30 @@ const AdminListings = () => {
     }
   };
 
+  const handleBulkApprove = async () => {
+    const items = [];
+    for (const key of selectedIds) {
+      const [type, id] = key.split(':');
+      if (type && id) items.push({ type, id });
+    }
+    if (!items.length) return;
+    try {
+      setActionLoading(true);
+      const resp = await apiClient.post('/api/admin/listings/approve-bulk', { items });
+      const total = Number(resp?.total ?? items.length);
+      const succeeded = Number(resp?.succeeded ?? 0);
+      const failed = Number(resp?.failed ?? Math.max(0, total - succeeded));
+      showToast(`Approved ${succeeded} of ${total}.${failed ? ` ${failed} failed.` : ''}`, failed === 0 ? 'success' : 'error');
+      clearSelection();
+      fetchListings();
+    } catch (error) {
+      const detail = error?.response?.data || error?.data;
+      showToast(detail?.error || 'Bulk approve failed. Please try again.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDeleteListing = async () => {
     if (!selectedListing) return;
     if (!deleteReason.trim()) {
@@ -636,6 +660,9 @@ const AdminListings = () => {
     const rs = String(l.status || '').toLowerCase();
     return ds === 'expired' || ds === 'deleted' || rs === 'deleted' || rs === 'suspended' || rs === 'rejected';
   });
+  const bulkHasPending = selectedListings.some((l) =>
+    String(l._table_status || l.status || '').toLowerCase() === 'pending'
+  );
 
   const ChipFilter = ({ options, activeKeys, paramKey, allowed }) => (
     <div className="flex flex-wrap gap-1.5">
@@ -1425,11 +1452,21 @@ const AdminListings = () => {
             <span className="text-sm text-white/60 font-medium pr-1">
               {selectedIds.size} selected
             </span>
+            {bulkHasPending && (
+              <button
+                onClick={handleBulkApprove}
+                disabled={actionLoading || bulkRestoring}
+                className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} />
+                Approve
+              </button>
+            )}
             {bulkHasRenewable && (
               <button
                 onClick={() => setShowBulkRenewModal(true)}
                 disabled={actionLoading || bulkRestoring}
-                className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-semibold rounded-full px-4 py-1.5 text-sm disabled:opacity-50"
               >
                 <RefreshCw size={14} />
                 Renew
