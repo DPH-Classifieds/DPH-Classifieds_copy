@@ -543,12 +543,27 @@ const AdminListings = () => {
   };
 
   const STATUS_CHANGE_OPTIONS = {
-    approved: [{ value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
-    active:   [{ value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    approved: [
+      { value: 'rejected',       label: 'Rejected — notify seller' },
+      { value: 'sold_on_dph',    label: 'Sold on DPH — remove from platform' },
+      { value: 'sold_elsewhere', label: 'Sold elsewhere — remove from platform' },
+      { value: 'deleted',        label: 'Deleted — remove permanently' },
+    ],
+    active: [
+      { value: 'rejected',       label: 'Rejected — notify seller' },
+      { value: 'sold_on_dph',    label: 'Sold on DPH — remove from platform' },
+      { value: 'sold_elsewhere', label: 'Sold elsewhere — remove from platform' },
+      { value: 'deleted',        label: 'Deleted — remove permanently' },
+    ],
     rejected: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     expired:  [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     deleted:  [{ value: 'approved', label: 'Approved — restore live' }],
-    pending:  [{ value: 'rejected', label: 'Rejected — notify seller' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    pending: [
+      { value: 'rejected',       label: 'Rejected — notify seller' },
+      { value: 'sold_on_dph',    label: 'Sold on DPH — remove from platform' },
+      { value: 'sold_elsewhere', label: 'Sold elsewhere — remove from platform' },
+      { value: 'deleted',        label: 'Deleted — remove permanently' },
+    ],
   };
 
   const getStatusOptions = (displayStatus) => {
@@ -565,8 +580,10 @@ const AdminListings = () => {
         `/api/admin/listings/${lt}/${selectedListing.id}/set-status`,
         { status: pendingStatusValue }
       );
-      const label = pendingStatusValue.charAt(0).toUpperCase() + pendingStatusValue.slice(1);
-      showToast(`Listing set to ${label} successfully`, 'success');
+      const SOLD_LABELS = { sold_on_dph: 'Sold on DPH', sold_elsewhere: 'Sold elsewhere' };
+      const label = SOLD_LABELS[pendingStatusValue]
+        || (pendingStatusValue.charAt(0).toUpperCase() + pendingStatusValue.slice(1));
+      showToast(`Listing marked as ${label} successfully`, 'success');
       setShowStatusModal(false);
       setPendingStatusValue('');
       setSelectedListing(null);
