@@ -7,6 +7,7 @@ import {
   Loader2,
   LayoutDashboard,
   ChevronRight,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -133,6 +134,7 @@ const AdminTools = () => {
   const [toolStates, setToolStates] = useState({
     makeAdmin: initialToolState(),
     refreshUser: initialToolState(),
+    flushCache: initialToolState(),
   });
 
   const updateTool = useCallback((id, patch) => {
@@ -216,6 +218,25 @@ const AdminTools = () => {
     }
   }, [updateTool, successToast, errorToast, syncWithSupabase]);
 
+  // ── tool: flush public listing cache ──────────────────────────────────────
+  const flushCache = useCallback(async () => {
+    updateTool('flushCache', { running: true, toast: null });
+    const t0 = Date.now();
+    try {
+      const res = await apiClient.post('/api/admin/cache/flush', {});
+      const ms = Date.now() - t0;
+      if (res && res.ok) {
+        successToast('flushCache', `Flushed ${(res.flushed || []).join(', ')} · ${ms}ms`);
+      } else {
+        errorToast('flushCache', 'Unexpected response from server.');
+      }
+    } catch (err) {
+      errorToast('flushCache', `Failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      updateTool('flushCache', { running: false });
+    }
+  }, [updateTool, successToast, errorToast]);
+
   // ── render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8">
@@ -230,6 +251,25 @@ const AdminTools = () => {
         <p className="text-sm text-white/50 mt-1">
           Internal utilities for the engineering and ops team.
         </p>
+      </motion.div>
+
+      {/* ── Section: Cache ───────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+      >
+        <SectionLabel>Cache</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ToolCard
+            icon={Zap}
+            title="Flush listing cache"
+            description="Clears Redis and in-memory caches for all public listing endpoints (cars, bikes, parts, plates). Use this if the live site is showing stale results after approving listings."
+            toolState={toolStates.flushCache}
+            onRun={flushCache}
+            runLabel="Flush cache"
+          />
+        </div>
       </motion.div>
 
       {/* ── Section: Account ─────────────────────────────────────────────── */}

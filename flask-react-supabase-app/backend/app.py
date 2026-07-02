@@ -21048,3 +21048,24 @@ if __name__ == "__main__":
     reminder_thread.start()
 
     app.run(debug=debug_mode, host="127.0.0.1", port=8000)
+
+
+@app.route("/api/admin/cache/flush", methods=["POST"])
+@token_required
+def admin_flush_cache(current_user):
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Admin access required"}), 403
+
+    types = request.json.get("types") if request.is_json else None
+    if not types:
+        types = ["cars", "bikes", "parts", "plates", "buying_requests"]
+
+    flushed = []
+    for t in types:
+        _invalidate_public_inventory_cache(t)
+        flushed.append(t)
+
+    redis_client = _get_redis_cache_client()
+    redis_ok = redis_client is not None
+    return jsonify({"ok": True, "flushed": flushed, "redis": redis_ok}), 200
