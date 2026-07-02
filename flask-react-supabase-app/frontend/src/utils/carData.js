@@ -37,7 +37,7 @@ const carModels = {
   'Caterham': ['Seven', 'Seven 270', 'Seven 310', 'Seven 420', 'Seven 485'],
   'Changan': ['Alsvin', 'CS35 Plus', 'CS55', 'CS75 Plus', 'CS85', 'CS95', 'Eado', 'Eado Plus', 'UNI-K', 'UNI-T', 'UNI-V', 'Hunter', 'Lumin'],
   'Chery': ['Tiggo 3', 'Tiggo 4', 'Tiggo 5', 'Tiggo 7', 'Tiggo 8', 'Tiggo 4 Pro', 'Tiggo 7 Pro', 'Tiggo 8 Pro', 'Arrizo 3', 'Arrizo 5', 'Arrizo 6', 'Arrizo 7', 'Arrizo 8', 'QQ', 'Windcloud'],
-  'Chevrolet': ['Silverado', 'Tahoe', 'Suburban', 'Equinox', 'Traverse', 'Trax', 'Blazer', 'Camaro', 'Corvette', 'Malibu', 'Impala', 'Cruze', 'Sonic', 'Spark', 'Bolt', 'Colorado', 'Express', 'Trailing', 'Aveo', 'Captiva', 'Niva', 'Groove', 'Menlo'],
+  'Chevrolet': ['Silverado', 'Tahoe', 'Suburban', 'Equinox', 'Traverse', 'Trax', 'Blazer', 'Camaro', 'Corvette', 'Malibu', 'Impala', 'Cruze', 'Sonic', 'Spark', 'Bolt', 'Colorado', 'Express', 'Trailing', 'Aveo', 'Captiva', 'Niva', 'Groove', 'Menlo','Lumina','Caprice'],
   'Chrysler': ['300', 'Pacifica', 'Voyager', 'Town & Country', 'Sebring', 'Crossfire', 'PT Cruiser'],
   'Citroen': ['C3', 'C4', 'C5', 'C5 Aircross', 'Berlingo', 'Dispatch', 'Jumpy', 'C-Elysee', 'DS3', 'DS4', 'DS5', 'C2', 'Saxo', 'Xsara'],
   'Daihatsu': ['Terios', 'Sirion', 'YRV', 'Materia', 'Charade', 'Gran Max'],
