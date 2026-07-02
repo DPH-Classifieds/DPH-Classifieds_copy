@@ -840,6 +840,18 @@ def _compute_listing_lifecycle(record):
     is_archived = bool(record.get("is_archived")) or now >= retention_expires_at
     is_expired = now >= expires_at
 
+    # An admin explicitly approved this listing — never auto-archive/expire it
+    # based on stale legacy timestamps. The approval is authoritative; the
+    # lifecycle worker will set a real expires_at via _sync_listing_lifecycle.
+    admin_approved = (
+        record.get("is_approved") is True
+        and str(record.get("status") or "").lower() == "approved"
+        and not record.get("deleted_at")
+    )
+    if admin_approved:
+        is_archived = False
+        is_expired = False
+
     if is_deleted:
         state = "deleted"
     elif is_archived:
@@ -1934,7 +1946,11 @@ def _resolve_listing_owner_email(record, fallback_user_id=None):
 def _filter_public_listing_records(table_name, records):
     filtered = []
     for record in records or []:
-        synced = _sync_listing_lifecycle(table_name, record, hard_delete_archived=True)
+        # Never hard-delete from a public read path — only the lifecycle sweep
+        # worker should permanently remove listings. Using hard_delete_archived=False
+        # here prevents a stale retention_expires_at from destroying a listing
+        # the moment someone visits the public page.
+        synced = _sync_listing_lifecycle(table_name, record, hard_delete_archived=False)
         if not synced:
             continue
         if synced.get("listing_state") != "active":
