@@ -963,28 +963,29 @@ const AdminListingDetail = () => {
 
               {/* Mark as Sold */}
               {isActive && (
-                <div className="space-y-2">
-                  <p className="text-[11px] uppercase tracking-[0.12em] text-white/40 font-medium">Mark as sold</p>
-                  <select
-                    value={soldSubType}
-                    onChange={(e) => setSoldSubType(e.target.value)}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
-                  >
-                    <option value="sold_on_dph">Sold on DPH</option>
-                    <option value="sold_elsewhere">Sold elsewhere</option>
-                  </select>
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={handleMarkAsSold}
-                    className="w-full inline-flex items-center justify-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-xl px-4 py-2.5 text-sm transition font-semibold disabled:opacity-50"
-                  >
-                    {actionLoading ? 'Marking…' : 'Confirm sold'}
-                  </button>
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-white/40 font-medium">Mark as sold</p>
+                    <select
+                      value={soldSubType}
+                      onChange={(e) => setSoldSubType(e.target.value)}
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-sky-500/40 transition [color-scheme:dark]"
+                    >
+                      <option value="sold_on_dph">Sold on DPH</option>
+                      <option value="sold_elsewhere">Sold elsewhere</option>
+                    </select>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleMarkAsSold}
+                      className="w-full inline-flex items-center justify-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-xl px-4 py-2.5 text-sm transition font-semibold disabled:opacity-50"
+                    >
+                      {actionLoading ? 'Marking…' : 'Confirm sold'}
+                    </button>
+                  </div>
+                  <div className="border-t border-white/[0.06] my-1" />
+                </>
               )}
-
-              <div className="border-t border-white/[0.06] my-1" />
 
               {/* Status flip */}
               {isActive ? (
