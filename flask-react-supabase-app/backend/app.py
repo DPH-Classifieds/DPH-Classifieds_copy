@@ -12705,7 +12705,7 @@ def admin_delete_listings_bulk(current_user):
 @app.route("/api/admin/listings/<item_type>/<item_id>/set-status", methods=["POST"])
 @token_required
 def admin_set_listing_status(current_user, item_type, item_id):
-    """Admin: change a listing's status (approved / suspended / rejected / deleted)."""
+    """Admin: change a listing's status (approved / rejected / deleted / sold_on_dph / sold_elsewhere)."""
     if not _require_admin_api_user(current_user):
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -12769,8 +12769,10 @@ def admin_set_listing_status(current_user, item_type, item_id):
         update_data["is_approved"] = False
     elif is_sold_action:
         update_data["is_approved"] = False
-        update_data["sold_status"] = new_status          # 'sold_on_dph' or 'sold_elsewhere'
-        update_data["sold_status_set_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        if item_type in _LIFECYCLE_TYPES:
+            update_data["sold_status"] = new_status          # 'sold_on_dph' or 'sold_elsewhere'
+            update_data["sold_status_set_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
+            update_data["sold_response_deadline"] = None
 
     resp = requests.patch(
         f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
@@ -12793,10 +12795,13 @@ def admin_set_listing_status(current_user, item_type, item_id):
             pass
 
     try:
+        _log_meta = {"item_type": item_type, "item_id": item_id}
+        if is_sold_action:
+            _log_meta["sold_status"] = new_status
         _log_admin_action_direct(
             admin_user_id=current_user,
             action=f"listing_status_set_{db_status}",
-            metadata={"item_type": item_type, "item_id": item_id, "sold_status": new_status if is_sold_action else None},
+            metadata=_log_meta,
         )
     except Exception:
         pass
