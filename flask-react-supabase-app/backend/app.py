@@ -12472,7 +12472,10 @@ def admin_set_listing_status(current_user, item_type, item_id):
 
     update_data = {"status": new_status}
 
+    import datetime as _dt
+
     if new_status == "approved":
+        new_expires = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
         update_data.update(
             {
                 "is_approved": True,
@@ -12482,6 +12485,7 @@ def admin_set_listing_status(current_user, item_type, item_id):
                 "sold_status": None,
                 "sold_status_set_at": None,
                 "auto_removed_at": None,
+                "expires_at": new_expires.isoformat(),
             }
         )
     elif new_status == "deleted":
@@ -12502,26 +12506,6 @@ def admin_set_listing_status(current_user, item_type, item_id):
 
     rows = resp.json() if resp.text else []
     updated = rows[0] if rows else {}
-
-    # If restoring to approved and expires_at is already in the past, extend it.
-    if new_status == "approved" and updated.get("expires_at"):
-        try:
-            import datetime as _dt
-            from dateutil import parser as _dtp
-
-            expires_at = _dtp.isoparse(updated["expires_at"])
-            now_utc = _dt.datetime.now(_dt.timezone.utc)
-            if expires_at < now_utc:
-                new_expires = now_utc + _dt.timedelta(days=LISTING_EXPIRY_DAYS)
-                requests.patch(
-                    f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
-                    headers=headers,
-                    json={"expires_at": new_expires.isoformat()},
-                    timeout=5,
-                )
-                updated["expires_at"] = new_expires.isoformat()
-        except Exception as ext_err:
-            logger.warning(f"Could not extend expires_at on restore: {ext_err}")
 
     try:
         _log_admin_action_direct(

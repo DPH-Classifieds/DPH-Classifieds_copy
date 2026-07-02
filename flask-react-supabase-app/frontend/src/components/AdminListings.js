@@ -888,9 +888,11 @@ const AdminListings = () => {
                                 >
                                   <XCircle size={15} />
                                 </button>
+                                  </>
+                                )}
                                 <button
-                                  title="Delete listing permanently"
-                                  aria-label="Delete listing permanently"
+                                  title="Delete listing (notify seller)"
+                                  aria-label="Delete listing"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedListing(listing);
@@ -904,8 +906,6 @@ const AdminListings = () => {
                                 >
                                   <Trash2 size={15} />
                                 </button>
-                                  </>
-                                )}
                               </>
                             )}
                           </div>
