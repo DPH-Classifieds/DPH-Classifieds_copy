@@ -558,6 +558,8 @@ const AdminListings = () => {
     rejected: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     expired:  [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     deleted:  [{ value: 'approved', label: 'Approved — restore live' }],
+    sold_on_dph:    [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
+    sold_elsewhere: [{ value: 'approved', label: 'Approved — restore live' }, { value: 'deleted', label: 'Deleted — remove permanently' }],
     pending: [
       { value: 'rejected',       label: 'Rejected — notify seller' },
       { value: 'sold_on_dph',    label: 'Sold on DPH — remove from platform' },
@@ -565,6 +567,8 @@ const AdminListings = () => {
       { value: 'deleted',        label: 'Deleted — remove permanently' },
     ],
   };
+
+  const SOLD_LABELS = { sold_on_dph: 'Sold on DPH', sold_elsewhere: 'Sold elsewhere' };
 
   const getStatusOptions = (displayStatus) => {
     const ds = String(displayStatus || '').toLowerCase();
@@ -580,7 +584,6 @@ const AdminListings = () => {
         `/api/admin/listings/${lt}/${selectedListing.id}/set-status`,
         { status: pendingStatusValue }
       );
-      const SOLD_LABELS = { sold_on_dph: 'Sold on DPH', sold_elsewhere: 'Sold elsewhere' };
       const label = SOLD_LABELS[pendingStatusValue]
         || (pendingStatusValue.charAt(0).toUpperCase() + pendingStatusValue.slice(1));
       showToast(`Listing marked as ${label} successfully`, 'success');
