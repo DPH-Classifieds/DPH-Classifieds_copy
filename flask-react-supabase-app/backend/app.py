@@ -12712,9 +12712,13 @@ def admin_set_listing_status(current_user, item_type, item_id):
     data = request.get_json(silent=True) or {}
     new_status = (data.get("status") or "").strip().lower()
 
-    ALLOWED_STATUSES = {"approved", "rejected", "deleted"}
+    ALLOWED_STATUSES = {"approved", "rejected", "deleted", "sold_on_dph", "sold_elsewhere"}
     if new_status not in ALLOWED_STATUSES:
         return jsonify({"error": f"status must be one of {sorted(ALLOWED_STATUSES)}"}), 400
+
+    # sold_on_dph / sold_elsewhere are sub-types; both map to status='sold'
+    is_sold_action = new_status in ("sold_on_dph", "sold_elsewhere")
+    db_status = "sold" if is_sold_action else new_status
 
     table_map = {
         "cars": "cars",
@@ -12734,7 +12738,7 @@ def admin_set_listing_status(current_user, item_type, item_id):
         "Prefer": "return=representation",
     }
 
-    update_data = {"status": new_status}
+    update_data = {"status": db_status}
 
     import datetime as _dt
 
@@ -12763,6 +12767,10 @@ def admin_set_listing_status(current_user, item_type, item_id):
         update_data.update({"deleted_at": "now()", "is_approved": False})
     elif new_status == "rejected":
         update_data["is_approved"] = False
+    elif is_sold_action:
+        update_data["is_approved"] = False
+        update_data["sold_status"] = new_status          # 'sold_on_dph' or 'sold_elsewhere'
+        update_data["sold_status_set_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
 
     resp = requests.patch(
         f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{item_id}",
@@ -12778,7 +12786,7 @@ def admin_set_listing_status(current_user, item_type, item_id):
     rows = resp.json() if resp.text else []
     updated = rows[0] if rows else {}
 
-    if new_status in ("approved", "deleted", "rejected"):
+    if new_status in ("approved", "deleted", "rejected") or is_sold_action:
         try:
             _invalidate_public_inventory_cache(item_type)
         except Exception:
@@ -12787,8 +12795,8 @@ def admin_set_listing_status(current_user, item_type, item_id):
     try:
         _log_admin_action_direct(
             admin_user_id=current_user,
-            action=f"listing_status_set_{new_status}",
-            metadata={"item_type": item_type, "item_id": item_id},
+            action=f"listing_status_set_{db_status}",
+            metadata={"item_type": item_type, "item_id": item_id, "sold_status": new_status if is_sold_action else None},
         )
     except Exception:
         pass
