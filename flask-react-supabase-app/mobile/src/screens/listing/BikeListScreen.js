@@ -42,6 +42,13 @@ const PRICE_RANGES = [
   { label: 'Above 100k', min: 100000, max: 0 },
 ];
 
+const SORT_OPTIONS = [
+  { label: 'Newest', order: 'created_at.desc' },
+  { label: 'Oldest', order: 'created_at.asc' },
+  { label: 'Price: Low to High', order: 'expected_selling_price.asc' },
+  { label: 'Price: High to Low', order: 'expected_selling_price.desc' },
+];
+
 const PAGE_SIZE = 15;
 
 const getImageUri = (item) => {
@@ -95,6 +102,7 @@ export default function BikeListScreen({ navigation }) {
     brand: '',
     type: '',
     priceRange: null,
+    sort: 'Newest',
   });
   const mountedRef = useRef(true);
 
@@ -105,6 +113,8 @@ export default function BikeListScreen({ navigation }) {
 
   const buildQuery = useCallback((pageNum, searchVal, filters) => {
     let params = [`page=${pageNum}`, `per_page=${PAGE_SIZE}`];
+    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
+    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
     if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
     if (filters.brand) params.push(`brand=${encodeURIComponent(filters.brand)}`);
     if (filters.type) params.push(`type=${encodeURIComponent(filters.type)}`);
@@ -172,7 +182,7 @@ export default function BikeListScreen({ navigation }) {
   };
 
   const clearFilters = () => {
-    const cleared = { brand: '', type: '', priceRange: null };
+    const cleared = { brand: '', type: '', priceRange: null, sort: 'Newest' };
     setActiveFilters(cleared);
     setFilterModal(null);
     setBikes([]);
@@ -181,7 +191,10 @@ export default function BikeListScreen({ navigation }) {
     fetchBikes(1, search, cleared);
   };
 
-  const hasActiveFilters = Object.values(activeFilters).some(v => v !== '' && v !== null);
+  const hasActiveFilters = Object.entries(activeFilters).some(([k, v]) => {
+    if (k === 'sort') return v && v !== 'Newest';
+    return v !== '' && v !== null;
+  });
 
   const renderFilterChip = (label, key, isActive) => (
     <TouchableOpacity
@@ -200,7 +213,11 @@ export default function BikeListScreen({ navigation }) {
     let title = '';
     let selected = '';
 
-    if (filterModal === 'brand') {
+    if (filterModal === 'sort') {
+      title = 'Sort By';
+      selected = activeFilters.sort;
+      options = SORT_OPTIONS.map((s) => s.label);
+    } else if (filterModal === 'brand') {
       title = 'Brand';
       selected = activeFilters.brand;
       options = ['All', ...BIKE_BRANDS];
@@ -273,6 +290,7 @@ export default function BikeListScreen({ navigation }) {
         </View>
         <View style={styles.filtersRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip(activeFilters.sort !== 'Newest' ? activeFilters.sort : 'Sort', 'sort', activeFilters.sort !== 'Newest')}
             {renderFilterChip('Brand', 'brand', !!activeFilters.brand)}
             {renderFilterChip('Type', 'type', !!activeFilters.type)}
             {renderFilterChip('Price Range', 'priceRange', !!activeFilters.priceRange)}

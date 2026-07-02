@@ -159,6 +159,7 @@ export default function AdminMetricsScreen() {
   const repeatRate = userMetrics.repeat_purchase_rate_percent ?? userMetrics.repeat_visit_rate_percent;
   const topPages = userMetrics.top_pages || [];
   const trafficSources = userMetrics.traffic_sources || [];
+  const platformBreakdown = userMetrics.platform_breakdown || [];
   const dailyTrends = userMetrics.daily_trends || [];
 
   if (loading) {
@@ -310,6 +311,21 @@ export default function AdminMetricsScreen() {
           ) : (
             trafficSources.map((item) => (
               <MetricRow key={item.source} label={item.source} value={formatNumber(item.sessions)} />
+            ))
+          )}
+        </View>
+
+        <Text style={styles.subSectionTitle}>Platform · Web vs Mobile</Text>
+        <View style={styles.surface}>
+          {platformBreakdown.length === 0 ? (
+            <Text style={styles.emptyText}>No platform data yet.</Text>
+          ) : (
+            platformBreakdown.map((item) => (
+              <MetricRow
+                key={item.platform}
+                label={item.platform === 'mobile' ? 'Mobile app' : (item.platform === 'web' ? 'Web' : item.platform)}
+                value={`${formatNumber(item.visitors)}${item.platform === 'mobile' && item.app_opens ? ` · ${formatNumber(item.app_opens)} opens` : ''}`}
+              />
             ))
           )}
         </View>

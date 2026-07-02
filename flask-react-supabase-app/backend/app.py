@@ -39,6 +39,7 @@ from werkzeug.utils import secure_filename
 from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
+from expo_push import send_expo_push, dead_push_tokens, is_valid_expo_token
 
 try:
     import redis
@@ -349,9 +350,9 @@ API_ITEM_TYPE_TO_TABLE = {
     "buying_request": "buying_requests",
 }
 LISTING_IMAGE_SELECTS = {
-    "cars": "id,car_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
-    "bikes": "id,bike_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
-    "car_parts": "id,part_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at",
+    "cars": "id,car_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at,is_primary",
+    "bikes": "id,bike_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at,is_primary",
+    "car_parts": "id,part_id,image_url,url,display_url,focal_x,focal_y,crop_meta,uploaded_at,is_primary",
     # plate_images may only have url/is_primary/uploaded_at in older DB setups;
     # image_url, display_url, focal_* are added by add_plate_images_columns migration.
     "license_plates": "id,plate_id,url,uploaded_at",
@@ -475,6 +476,17 @@ def _api_cache_set(key, payload, ttl_seconds=API_CACHE_TTL_SECONDS):
             "payload": payload,
             "expires_at": time.time() + ttl_seconds,
         }
+        # Evict expired entries and cap size at 500 keys to prevent unbounded growth.
+        if len(_MEMORY_API_CACHE) > 500:
+            now_ts = time.time()
+            expired = [k for k, v in _MEMORY_API_CACHE.items() if v.get("expires_at", 0) <= now_ts]
+            for k in expired:
+                _MEMORY_API_CACHE.pop(k, None)
+            if len(_MEMORY_API_CACHE) > 500:
+                # Evict oldest-expiring 100 keys
+                oldest = sorted(_MEMORY_API_CACHE, key=lambda k: _MEMORY_API_CACHE[k].get("expires_at", 0))[:100]
+                for k in oldest:
+                    _MEMORY_API_CACHE.pop(k, None)
     logger.info(
         "API_CACHE_SET backend=memory key=%s ttl_seconds=%s payload_count=%s",
         key,
@@ -1991,7 +2003,11 @@ def _normalize_preview_images(record, relation_key):
 
 def _sort_listing_images(images):
     def _sort_key(image):
-        crop_meta = image.get("crop_meta") if isinstance(image, dict) else None
+        if not isinstance(image, dict):
+            return (True, True, None, 0, "", "")
+        # is_primary=True always comes first regardless of sort_index
+        not_primary = not image.get("is_primary", False)
+        crop_meta = image.get("crop_meta")
         sort_index = None
         if isinstance(crop_meta, dict):
             raw_sort_index = crop_meta.get("sort_index")
@@ -1999,8 +2015,9 @@ def _sort_listing_images(images):
                 sort_index = int(raw_sort_index)
             except (TypeError, ValueError):
                 sort_index = None
-        uploaded_at = image.get("uploaded_at") if isinstance(image, dict) else None
+        uploaded_at = image.get("uploaded_at")
         return (
+            not_primary,
             sort_index is None,
             sort_index if sort_index is not None else 0,
             str(uploaded_at or ""),
@@ -3416,6 +3433,63 @@ def get_user_saved_searches(current_user):
             return _saved_search_missing_table_response()
         return jsonify({"error": "Failed to load saved searches"}), status_code
     return jsonify({"searches": response or []}), 200
+
+
+@app.route("/api/user/push-token", methods=["POST"])
+@token_required
+def register_push_token(current_user):
+    """Register/refresh an Expo push token for the signed-in user."""
+    payload = request.get_json(silent=True) or {}
+    token = str(payload.get("expo_push_token") or "").strip()
+    if not token:
+        return jsonify({"error": "expo_push_token is required"}), 400
+    if not is_valid_expo_token(token):
+        return jsonify({"error": "invalid expo_push_token"}), 400
+    now_iso = _isoformat_utc(_utc_now())
+    record = {
+        "user_id": current_user,
+        "expo_push_token": token,
+        "platform": (str(payload.get("platform") or "").strip()[:20] or None),
+        "device_id": (str(payload.get("device_id") or "").strip()[:200] or None),
+        "enabled": True,
+        "updated_at": now_iso,
+        "last_used_at": now_iso,
+    }
+    # Delete-then-insert upsert on the unique expo_push_token (house convention).
+    # Deleting by token (not user) reassigns a device that switched accounts.
+    supabase_request(
+        "delete",
+        "/rest/v1/push_tokens",
+        params={"expo_push_token": f"eq.{token}"},
+        use_service_role=True,
+    )
+    resp, status_code = supabase_request(
+        "post",
+        "/rest/v1/push_tokens",
+        data=record,
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        return jsonify({"error": "Failed to save push token"}), status_code
+    saved = resp[0] if isinstance(resp, list) and resp else resp
+    return jsonify({"saved": True, "token": saved}), 200
+
+
+@app.route("/api/user/push-token", methods=["DELETE"])
+@token_required
+def delete_push_token(current_user):
+    """Remove a push token (device opted out or signed out)."""
+    token = str(request.args.get("expo_push_token") or "").strip()
+    params = {"user_id": f"eq.{current_user}"}
+    if token:
+        params["expo_push_token"] = f"eq.{token}"
+    supabase_request(
+        "delete",
+        "/rest/v1/push_tokens",
+        params=params,
+        use_service_role=True,
+    )
+    return jsonify({"removed": True}), 200
 
 
 @app.route("/api/user/saved-searches", methods=["POST"])
@@ -5627,7 +5701,8 @@ def get_cars():
                     img["image_url"] = img["url"]
                 elif "image_url" in img and "url" not in img:
                     img["url"] = img["image_url"]
-            car["images"] = car_images
+            # Primary image first so car.images[0] is always the thumbnail
+            car["images"] = _sort_listing_images(car_images)
 
         # Fetch seller info for each car in a single batched request
         try:
@@ -7533,6 +7608,53 @@ def _log_email_event(email_type, to_email, subject=None, resend_email_id=None,
         )
     except Exception:
         pass
+
+
+def _get_user_push_tokens(user_id):
+    """Return a user's enabled Expo push tokens. Best-effort — [] on any error."""
+    if not user_id:
+        return []
+    rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/push_tokens",
+        params={
+            "select": "expo_push_token",
+            "user_id": f"eq.{user_id}",
+            "enabled": "eq.true",
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400 or not isinstance(rows, list):
+        return []
+    return [r.get("expo_push_token") for r in rows if r.get("expo_push_token")]
+
+
+def _prune_dead_push_tokens(tokens):
+    """Delete tokens Expo has told us are permanently dead so they don't
+    accumulate (Expo throttles senders that keep hitting dead tokens)."""
+    for token in tokens or []:
+        supabase_request(
+            "delete",
+            "/rest/v1/push_tokens",
+            params={"expo_push_token": f"eq.{token}"},
+            use_service_role=True,
+        )
+
+
+def _notify_user_push(user_id, title, body, data=None):
+    """Fan a push out to all of a user's devices. Best-effort — never raises,
+    so it can sit next to email sends without guarding every caller."""
+    try:
+        tokens = _get_user_push_tokens(user_id)
+        if not tokens:
+            return
+        resp, err = send_expo_push(tokens, title, body, data=data)
+        if err:
+            logger.info("Push send failed user=%s err=%s", user_id, str(err)[:200])
+            return
+        _prune_dead_push_tokens(dead_push_tokens(tokens, resp))
+    except Exception as e:
+        logger.debug("push notify error: %s", e)
 
 
 def _format_auth_email_error(error_data, fallback_message):
@@ -11046,6 +11168,13 @@ def _run_saved_car_reminders_once(first_age_hours=24, repeat_age_hours=48, age_h
                 )
             continue
         sent += 1
+        # Mirror the reminder to a push notification (best-effort, non-fatal).
+        _notify_user_push(
+            user_id,
+            "Still interested? 👀",
+            f"{title} is still available — take another look.",
+            data={"listing_type": "car", "listing_id": str(listing_id)},
+        )
         mark_data = {"saved_email_sent_at": saved.get("saved_email_sent_at") or now_iso}
         if migration_cols_present:
             mark_data.update({
@@ -11998,9 +12127,10 @@ def get_bikes():
                                 "focal_x": img.get("focal_x"),
                                 "focal_y": img.get("focal_y"),
                                 "crop_meta": img.get("crop_meta"),
+                                "is_primary": img.get("is_primary", False),
                             }
                         )
-                    bike["images"] = normalized_images
+                    bike["images"] = _sort_listing_images(normalized_images)
                     # Fallback for main image
                     if not bike["images"]:
                         if bike.get("image_url") or bike.get("url"):
@@ -12070,9 +12200,10 @@ def get_bikes():
                                 "focal_x": img.get("focal_x"),
                                 "focal_y": img.get("focal_y"),
                                 "crop_meta": img.get("crop_meta"),
+                                "is_primary": img.get("is_primary", False),
                             }
                         )
-                    bike["images"] = normalized_images
+                    bike["images"] = _sort_listing_images(normalized_images)
                     if not bike["images"] and (bike.get("image_url") or bike.get("url")):
                         main_url = bike.get("image_url") or bike.get("url")
                         bike["images"] = [
@@ -13707,10 +13838,12 @@ def get_plates():
             "Content-Type": "application/json",
         }
 
+        order = request.args.get("order", "created_at.desc")
+
         # Build query - only get approved plates
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
-            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order=created_at.desc"
+            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order={order}"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
             "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at,"
             "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
@@ -17887,7 +18020,7 @@ def track_listing_lead_event(item_type, item_id):
         listing_resp, listing_status = supabase_request(
             "get",
             f"/rest/v1/{table_name}",
-            params={"id": f"eq.{item_id}", "select": "id", "limit": 1},
+            params={"id": f"eq.{item_id}", "select": "id,user_id", "limit": 1},
             use_service_role=True,
         )
         if listing_status >= 400:
@@ -17917,6 +18050,25 @@ def track_listing_lead_event(item_type, item_id):
         if status_code >= 400:
             logger.error(f"Failed to track lead event: {response}")
             return jsonify({"error": "Failed to track lead event"}), status_code
+
+        # Real-time push to the seller only on direct-contact intent (call /
+        # WhatsApp), and only when the actor isn't the owner previewing. VIN
+        # opens are higher-frequency / lower-intent, so they don't push — keeps
+        # sellers from being spammed. Best-effort — never blocks the response.
+        # ponytail: no per-listing debounce; add one if a hot listing spams the seller.
+        owner_id = (listing_resp[0] or {}).get("user_id")
+        if owner_id and owner_id != user_id and action in ("call_click", "whatsapp_click"):
+            verb = "called about" if action == "call_click" else "messaged you on WhatsApp about"
+            # Background daemon thread so a slow Expo call (up to 10s) never
+            # blocks the buyer's request. _notify_user_push is self-contained
+            # (service-role Supabase + Expo HTTP), no Flask request context needed.
+            threading.Thread(
+                target=_notify_user_push,
+                args=(owner_id, "New buyer interest 🚗",
+                      f"Someone just {verb} your {normalized_type} listing."),
+                kwargs={"data": {"listing_type": normalized_type, "listing_id": str(item_id)}},
+                daemon=True,
+            ).start()
 
         return jsonify({"message": "Lead event tracked"}), 201
     except Exception as e:

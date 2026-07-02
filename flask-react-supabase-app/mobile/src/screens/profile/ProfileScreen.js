@@ -92,6 +92,12 @@ export default function ProfileScreen({ navigation }) {
       label: 'Account Settings',
       onPress: () => navigation.navigate('Settings'),
     },
+    ...(user?.is_dealer ? [{
+      icon: 'business-outline',
+      label: 'Dealer Dashboard',
+      onPress: () => navigation.navigate('DealerDashboard'),
+      accent: true,
+    }] : []),
     ...(user?.is_admin ? [{
       icon: 'shield-checkmark-outline',
       label: 'Admin Panel',

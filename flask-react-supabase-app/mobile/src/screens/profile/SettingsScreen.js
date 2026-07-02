@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../utils/apiClient';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { isPushEnabledPref, setPushEnabledPref } from '../../utils/pushNotifications';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { UAE_EMIRATES, EMIRATE_AREAS } from '../../utils/listingConstants';
 
@@ -61,6 +62,16 @@ export default function SettingsScreen({ navigation }) {
   const [notifSms, setNotifSms] = useState(user?.notification_preferences?.sms ?? true);
   const [notifMarketing, setNotifMarketing] = useState(user?.notification_preferences?.marketing ?? false);
   const [notifSaving, setNotifSaving] = useState(false);
+  const [notifPush, setNotifPush] = useState(true);
+
+  useEffect(() => {
+    isPushEnabledPref().then(setNotifPush);
+  }, []);
+
+  const handleTogglePush = async (value) => {
+    setNotifPush(value); // optimistic; applies device registration immediately
+    await setPushEnabledPref(value);
+  };
 
   const [isDealer, setIsDealer] = useState(user?.is_dealer || false);
   const [dealerCompanyName, setDealerCompanyName] = useState(user?.company_name || '');
@@ -498,6 +509,22 @@ export default function SettingsScreen({ navigation }) {
           </View>
 
           <View style={styles.toggleCard}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Ionicons name="notifications-outline" size={20} color={COLORS.white} />
+                <View style={styles.toggleTextWrap}>
+                  <Text style={styles.toggleLabel}>Push Notifications</Text>
+                  <Text style={styles.toggleDesc}>Instant alerts for leads, saved cars, and expiring listings</Text>
+                </View>
+              </View>
+              <Switch
+                value={notifPush}
+                onValueChange={handleTogglePush}
+                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
                 <Ionicons name="mail-outline" size={20} color={COLORS.white} />

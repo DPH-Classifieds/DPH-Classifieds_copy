@@ -244,6 +244,7 @@ const AdminMetrics = () => {
   const repeatRate = userMetrics.repeat_purchase_rate_percent ?? userMetrics.repeat_visit_rate_percent ?? 0;
   const topPages      = userMetrics.top_pages      || [];
   const trafficSources = userMetrics.traffic_sources || [];
+  const platformBreakdown = userMetrics.platform_breakdown || [];
   const dailyTrends   = userMetrics.daily_trends   || [];
 
   // Build TrendChart series for engagement daily
@@ -417,6 +418,27 @@ const AdminMetrics = () => {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Platform: web vs mobile app */}
+              <div>
+                <SectionTitle>Platform · web vs mobile app</SectionTitle>
+                {platformBreakdown.length === 0 ? (
+                  <EmptyState icon={Globe} title="No platform data" description="Web vs mobile split appears here as traffic comes in." />
+                ) : (
+                  <div className="space-y-1">
+                    {platformBreakdown.map((p) => (
+                      <BarRow
+                        key={p.platform}
+                        label={p.platform === 'mobile'
+                          ? `Mobile app${p.app_opens ? ` · ${(p.app_opens).toLocaleString()} opens` : ''}`
+                          : (p.platform === 'web' ? 'Web' : p.platform)}
+                        value={p.visitors || 0}
+                        maxValue={Math.max(1, ...platformBreakdown.map((x) => x.visitors || 0))}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Top pages */}

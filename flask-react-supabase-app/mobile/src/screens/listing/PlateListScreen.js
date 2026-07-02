@@ -40,6 +40,13 @@ const CITY_CODES = {
   'Other': 'م',
 };
 
+const SORT_OPTIONS = [
+  { label: 'Newest', order: 'created_at.desc' },
+  { label: 'Oldest', order: 'created_at.asc' },
+  { label: 'Price: Low to High', order: 'price.asc' },
+  { label: 'Price: High to Low', order: 'price.desc' },
+];
+
 const PAGE_SIZE = 15;
 
 const getImageUri = (item) => {
@@ -82,7 +89,7 @@ export default function PlateListScreen({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const [filterModal, setFilterModal] = useState(null);
-  const [activeFilters, setActiveFilters] = useState({ city: '', digits: '' });
+  const [activeFilters, setActiveFilters] = useState({ city: '', digits: '', sort: 'Newest' });
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -92,6 +99,8 @@ export default function PlateListScreen({ navigation }) {
 
   const buildQuery = useCallback((pageNum, searchVal, filters) => {
     let params = [`page=${pageNum}`, `per_page=${PAGE_SIZE}`];
+    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
+    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
     if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
     if (filters.city) params.push(`city=${encodeURIComponent(filters.city)}`);
     if (filters.digits && filters.digits !== 'Any') params.push(`digits=${filters.digits}`);
@@ -145,7 +154,7 @@ export default function PlateListScreen({ navigation }) {
   };
 
   const clearFilters = () => {
-    const cleared = { city: '', digits: '' };
+    const cleared = { city: '', digits: '', sort: 'Newest' };
     setActiveFilters(cleared);
     setFilterModal(null);
     setPlates([]);
@@ -154,7 +163,10 @@ export default function PlateListScreen({ navigation }) {
     fetchPlates(1, search, cleared);
   };
 
-  const hasActiveFilters = Object.values(activeFilters).some(v => v !== '' && v !== null && v !== 'Any');
+  const hasActiveFilters = Object.entries(activeFilters).some(([k, v]) => {
+    if (k === 'sort') return v && v !== 'Newest';
+    return v !== '' && v !== null && v !== 'Any';
+  });
 
   const renderFilterChip = (label, key, isActive) => (
     <TouchableOpacity
@@ -172,7 +184,10 @@ export default function PlateListScreen({ navigation }) {
     let options = [];
     let title = '';
 
-    if (filterModal === 'city') {
+    if (filterModal === 'sort') {
+      title = 'Sort By';
+      options = SORT_OPTIONS.map((s) => s.label);
+    } else if (filterModal === 'city') {
       title = 'City';
       options = ['All', ...PLATE_CITIES];
     } else if (filterModal === 'digits') {
@@ -192,14 +207,19 @@ export default function PlateListScreen({ navigation }) {
             </View>
             <ScrollView style={styles.modalOptions}>
               {options.map((opt) => {
-                const isSelected = filterModal === 'city'
-                  ? activeFilters.city === (opt === 'All' ? '' : opt)
-                  : activeFilters.digits === (opt === 'Any' ? '' : opt);
+                let isSelected;
+                if (filterModal === 'city') isSelected = activeFilters.city === (opt === 'All' ? '' : opt);
+                else if (filterModal === 'digits') isSelected = activeFilters.digits === (opt === 'Any' ? '' : opt);
+                else isSelected = activeFilters.sort === opt;
                 return (
                   <TouchableOpacity
                     key={opt}
                     style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
-                    onPress={() => applyFilter(filterModal, filterModal === 'city' ? (opt === 'All' ? '' : opt) : (opt === 'Any' ? '' : opt))}
+                    onPress={() => {
+                      if (filterModal === 'city') applyFilter('city', opt === 'All' ? '' : opt);
+                      else if (filterModal === 'digits') applyFilter('digits', opt === 'Any' ? '' : opt);
+                      else applyFilter('sort', opt);
+                    }}
                   >
                     <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>{opt}</Text>
                     {isSelected && <Ionicons name="checkmark" size={18} color={COLORS.accent} />}
@@ -232,6 +252,7 @@ export default function PlateListScreen({ navigation }) {
         </View>
         <View style={styles.filtersRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip(activeFilters.sort !== 'Newest' ? activeFilters.sort : 'Sort', 'sort', activeFilters.sort !== 'Newest')}
             {renderFilterChip('City', 'city', !!activeFilters.city)}
             {renderFilterChip('Digits', 'digits', !!activeFilters.digits)}
             {hasActiveFilters && (

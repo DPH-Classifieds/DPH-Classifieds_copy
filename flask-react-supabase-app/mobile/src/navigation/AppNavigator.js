@@ -1,8 +1,9 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
-import { buildNavigationStateChangeHandler } from '../utils/platformTracker';
+import { buildNavigationStateChangeHandler, trackMobilePlatformEvent } from '../utils/platformTracker';
+import { attachNotificationResponseHandler } from '../utils/pushNotifications';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +50,10 @@ import AdminListingDetailScreen from '../screens/admin/AdminListingDetailScreen'
 import AdminDealerDetailScreen from '../screens/admin/AdminDealerDetailScreen';
 import AdminMetricsScreen from '../screens/admin/AdminMetricsScreen';
 import AdminExpiredListingsScreen from '../screens/admin/AdminExpiredListingsScreen';
+
+import DealerDashboardScreen from '../screens/dealer/DealerDashboardScreen';
+import DealerLeadsScreen from '../screens/dealer/DealerLeadsScreen';
+import DealerLeadDetailScreen from '../screens/dealer/DealerLeadDetailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -158,6 +163,9 @@ function ProfileStack() {
       <Stack.Screen name="AdminDealerDetail" component={AdminDealerDetailScreen} options={{ title: 'Dealer Detail' }} />
       <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Metrics' }} />
       <Stack.Screen name="AdminExpiredListings" component={AdminExpiredListingsScreen} options={{ title: 'Expired & Deleted' }} />
+      <Stack.Screen name="DealerDashboard" component={DealerDashboardScreen} options={{ title: 'Dealer' }} />
+      <Stack.Screen name="DealerLeads" component={DealerLeadsScreen} options={{ title: 'Leads' }} />
+      <Stack.Screen name="DealerLeadDetail" component={DealerLeadDetailScreen} options={{ title: 'Lead Detail' }} />
       <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
       <Stack.Screen name="VerifyPhone" component={VerifyPhoneScreen} options={{ title: 'Verify Phone' }} />
       <Stack.Screen name="EditListing" component={PostListingScreen} options={{ title: 'Edit Listing' }} />
@@ -251,6 +259,14 @@ export default function AppNavigator() {
     () => buildNavigationStateChangeHandler(navigationRef),
     []
   );
+
+  // Fire one app_open event per cold start (powers the web-vs-mobile split on
+  // the admin panel) and wire tap-to-open for push notifications.
+  useEffect(() => {
+    trackMobilePlatformEvent('app_open', { page_kind: 'app_open' });
+    const detach = attachNotificationResponseHandler(navigationRef);
+    return detach;
+  }, []);
 
   // No isLoading gate. AuthContext rehydrates from AsyncStorage synchronously
   // (or near-synchronously) so authed users see their tab on the first paint;

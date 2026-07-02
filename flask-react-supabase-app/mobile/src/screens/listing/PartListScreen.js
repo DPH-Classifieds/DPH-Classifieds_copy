@@ -33,6 +33,13 @@ const PART_TYPES = [
   'Accessories', 'Tools', 'Other',
 ];
 
+const SORT_OPTIONS = [
+  { label: 'Newest', order: 'created_at.desc' },
+  { label: 'Oldest', order: 'created_at.asc' },
+  { label: 'Price: Low to High', order: 'price.asc' },
+  { label: 'Price: High to Low', order: 'price.desc' },
+];
+
 const PAGE_SIZE = 15;
 
 const CONDITION_VARIANT = { New: 'success', Used: 'warning', Refurbished: 'info' };
@@ -87,7 +94,7 @@ export default function PartListScreen({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const [filterModal, setFilterModal] = useState(null);
-  const [activeFilters, setActiveFilters] = useState({ condition: '', partType: '' });
+  const [activeFilters, setActiveFilters] = useState({ condition: '', partType: '', sort: 'Newest' });
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -97,6 +104,8 @@ export default function PartListScreen({ navigation }) {
 
   const buildQuery = useCallback((pageNum, searchVal, filters) => {
     let params = [`page=${pageNum}`, `per_page=${PAGE_SIZE}`];
+    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
+    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
     if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
     if (filters.condition) params.push(`condition=${encodeURIComponent(filters.condition)}`);
     if (filters.partType) params.push(`part_type=${encodeURIComponent(filters.partType)}`);
@@ -150,7 +159,7 @@ export default function PartListScreen({ navigation }) {
   };
 
   const clearFilters = () => {
-    const cleared = { condition: '', partType: '' };
+    const cleared = { condition: '', partType: '', sort: 'Newest' };
     setActiveFilters(cleared);
     setFilterModal(null);
     setParts([]);
@@ -159,7 +168,10 @@ export default function PartListScreen({ navigation }) {
     fetchParts(1, search, cleared);
   };
 
-  const hasActiveFilters = Object.values(activeFilters).some(v => v !== '');
+  const hasActiveFilters = Object.entries(activeFilters).some(([k, v]) => {
+    if (k === 'sort') return v && v !== 'Newest';
+    return v !== '';
+  });
 
   const renderFilterChip = (label, key, isActive) => (
     <TouchableOpacity
@@ -177,7 +189,10 @@ export default function PartListScreen({ navigation }) {
     let options = [];
     let title = '';
 
-    if (filterModal === 'condition') {
+    if (filterModal === 'sort') {
+      title = 'Sort By';
+      options = SORT_OPTIONS.map((s) => s.label);
+    } else if (filterModal === 'condition') {
       title = 'Condition';
       options = ['All', ...CONDITION_OPTIONS];
     } else if (filterModal === 'partType') {
@@ -235,6 +250,7 @@ export default function PartListScreen({ navigation }) {
         </View>
         <View style={styles.filtersRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip(activeFilters.sort !== 'Newest' ? activeFilters.sort : 'Sort', 'sort', activeFilters.sort !== 'Newest')}
             {renderFilterChip('Condition', 'condition', !!activeFilters.condition)}
             {renderFilterChip('Part Type', 'partType', !!activeFilters.partType)}
             {hasActiveFilters && (

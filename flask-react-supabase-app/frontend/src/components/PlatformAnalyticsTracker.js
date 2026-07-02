@@ -101,6 +101,7 @@ const PlatformAnalyticsTracker = () => {
       visitor_id: visitorIdRef.current,
       duration_ms: payload.duration_ms || 0,
       metadata: {
+        platform: 'web',
         referrer: document.referrer || null,
         pathname: window.location.pathname,
         search: window.location.search,

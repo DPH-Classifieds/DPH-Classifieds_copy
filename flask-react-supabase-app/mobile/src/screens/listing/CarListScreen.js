@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatNumber } from '../../utils/formatters';
-import { CAR_MAKES, FUEL_TYPES, TRANSMISSION_TYPES, getYearOptions } from '../../utils/listingConstants';
+import { CAR_MAKES, CAR_MODELS, BODY_TYPES, FUEL_TYPES, TRANSMISSION_TYPES, UAE_EMIRATES, getYearOptions } from '../../utils/listingConstants';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
@@ -36,6 +36,17 @@ const PRICE_RANGES = [
   { label: '200k - 500k', min: 200000, max: 500000 },
   { label: 'Above 500k', min: 500000, max: 0 },
 ];
+
+const SORT_OPTIONS = [
+  { label: 'Newest', order: 'created_at.desc' },
+  { label: 'Oldest', order: 'created_at.asc' },
+  { label: 'Price: Low to High', order: 'expected_selling_price.asc' },
+  { label: 'Price: High to Low', order: 'expected_selling_price.desc' },
+  { label: 'Year: Newest', order: 'make_year.desc' },
+  { label: 'Mileage: Lowest', order: 'kilometer_driven.asc' },
+];
+
+const CAR_CITIES = [...UAE_EMIRATES, 'Al Ain'];
 
 const PAGE_SIZE = 15;
 const years = getYearOptions();
@@ -95,10 +106,15 @@ export default function CarListScreen({ navigation }) {
   const [filterModal, setFilterModal] = useState(null);
   const [activeFilters, setActiveFilters] = useState({
     make: '',
-    year: '',
+    model: '',
+    yearFrom: '',
+    yearTo: '',
     priceRange: null,
     fuel: '',
     transmission: '',
+    bodyType: '',
+    city: '',
+    sort: 'Newest',
   });
   const mountedRef = useRef(true);
 
@@ -110,10 +126,14 @@ export default function CarListScreen({ navigation }) {
   const buildQuery = useCallback((pageNum, _searchVal, filters) => {
     const offset = (pageNum - 1) * PAGE_SIZE;
     const params = [`limit=${PAGE_SIZE}`, `offset=${offset}`];
+    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
+    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
     if (filters.make) params.push(`car_manufacturer=${encodeURIComponent(filters.make)}`);
-    if (filters.year) {
-      params.push(`make_year_from=${filters.year}`, `make_year_to=${filters.year}`);
-    }
+    if (filters.model) params.push(`car_model=${encodeURIComponent(filters.model)}`);
+    if (filters.bodyType) params.push(`body_type=${encodeURIComponent(filters.bodyType)}`);
+    if (filters.city) params.push(`car_city=${encodeURIComponent(filters.city)}`);
+    if (filters.yearFrom) params.push(`make_year_from=${filters.yearFrom}`);
+    if (filters.yearTo) params.push(`make_year_to=${filters.yearTo}`);
     if (filters.fuel) params.push(`fuel_type=${encodeURIComponent(filters.fuel)}`);
     if (filters.transmission) params.push(`transmission_type=${encodeURIComponent(filters.transmission)}`);
     if (filters.priceRange) {
@@ -178,19 +198,33 @@ export default function CarListScreen({ navigation }) {
 
   const applyFilter = (key, value) => {
     const newFilters = { ...activeFilters, [key]: value };
+    if (key === 'make') newFilters.model = ''; // model list depends on make
+    // Keep the year range coherent so from > to can't silently return nothing.
+    if (key === 'yearFrom' && value && newFilters.yearTo && Number(value) > Number(newFilters.yearTo)) {
+      newFilters.yearTo = value;
+    }
+    if (key === 'yearTo' && value && newFilters.yearFrom && Number(value) < Number(newFilters.yearFrom)) {
+      newFilters.yearFrom = value;
+    }
     setActiveFilters(newFilters);
     setFilterModal(null);
     fetchCars(1, search, newFilters);
   };
 
   const clearFilters = () => {
-    const cleared = { make: '', year: '', priceRange: null, fuel: '', transmission: '' };
+    const cleared = {
+      make: '', model: '', yearFrom: '', yearTo: '', priceRange: null,
+      fuel: '', transmission: '', bodyType: '', city: '', sort: 'Newest',
+    };
     setActiveFilters(cleared);
     setFilterModal(null);
     fetchCars(1, search, cleared);
   };
 
-  const hasActiveFilters = Object.values(activeFilters).some(v => v !== '' && v !== null);
+  const hasActiveFilters = Object.entries(activeFilters).some(([k, v]) => {
+    if (k === 'sort') return v && v !== 'Newest';
+    return v !== '' && v !== null;
+  });
 
   const visibleCars = useMemo(() => {
     if (!search.trim()) return cars;
@@ -232,13 +266,33 @@ export default function CarListScreen({ navigation }) {
     let title = '';
     let selected = '';
 
-    if (filterModal === 'make') {
+    if (filterModal === 'sort') {
+      title = 'Sort By';
+      selected = activeFilters.sort;
+      options = SORT_OPTIONS.map((s) => s.label);
+    } else if (filterModal === 'make') {
       title = 'Make';
       selected = activeFilters.make;
       options = ['All', ...CAR_MAKES];
-    } else if (filterModal === 'year') {
-      title = 'Year';
-      selected = activeFilters.year;
+    } else if (filterModal === 'model') {
+      title = 'Model';
+      selected = activeFilters.model;
+      options = ['All', ...((CAR_MODELS[activeFilters.make]) || [])];
+    } else if (filterModal === 'bodyType') {
+      title = 'Body Type';
+      selected = activeFilters.bodyType;
+      options = ['All', ...BODY_TYPES];
+    } else if (filterModal === 'city') {
+      title = 'City';
+      selected = activeFilters.city;
+      options = ['All', ...CAR_CITIES];
+    } else if (filterModal === 'yearFrom') {
+      title = 'Year From';
+      selected = activeFilters.yearFrom;
+      options = ['All', ...years];
+    } else if (filterModal === 'yearTo') {
+      title = 'Year To';
+      selected = activeFilters.yearTo;
       options = ['All', ...years];
     } else if (filterModal === 'priceRange') {
       title = 'Price Range';
@@ -319,9 +373,16 @@ export default function CarListScreen({ navigation }) {
         </View>
         <View style={styles.filtersRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip(activeFilters.sort !== 'Newest' ? activeFilters.sort : 'Sort', 'sort', activeFilters.sort !== 'Newest')}
             {renderFilterChip('Make', 'make', !!activeFilters.make)}
-            {renderFilterChip('Year', 'year', !!activeFilters.year)}
-            {renderFilterChip('Price Range', 'priceRange', !!activeFilters.priceRange)}
+            {activeFilters.make && (CAR_MODELS[activeFilters.make] || []).length > 0
+              ? renderFilterChip('Model', 'model', !!activeFilters.model)
+              : null}
+            {renderFilterChip('Body', 'bodyType', !!activeFilters.bodyType)}
+            {renderFilterChip('Year From', 'yearFrom', !!activeFilters.yearFrom)}
+            {renderFilterChip('Year To', 'yearTo', !!activeFilters.yearTo)}
+            {renderFilterChip('City', 'city', !!activeFilters.city)}
+            {renderFilterChip('Price', 'priceRange', !!activeFilters.priceRange)}
             {renderFilterChip('Fuel', 'fuel', !!activeFilters.fuel)}
             {renderFilterChip('Transmission', 'transmission', !!activeFilters.transmission)}
             {hasActiveFilters && (

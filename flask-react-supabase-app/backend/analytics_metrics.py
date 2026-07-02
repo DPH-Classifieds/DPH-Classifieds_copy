@@ -219,6 +219,9 @@ def build_platform_metrics(
     page_views_by_path = Counter()
     event_counts = Counter()
     traffic_sources = Counter()
+    # Web-vs-mobile split. metadata.platform is 'mobile' (mobile tracker) or
+    # 'web' (web tracker); events predating the tag default to 'web'.
+    platform_breakdown = defaultdict(lambda: {"visitors": set(), "sessions": set(), "app_opens": 0})
     daily_sessions = defaultdict(lambda: {"date": None, "sessions": set(), "page_views": 0, "conversions": 0})
     listings_by_id = {}
     plate_by_id = {}
@@ -243,6 +246,13 @@ def build_platform_metrics(
         metadata = event.get("metadata") or {}
         source = metadata.get("utm_source") or metadata.get("source") or event.get("traffic_source") or "direct"
         traffic_sources[source] += 1
+
+        platform_name = str(metadata.get("platform") or "web").lower()
+        bucket_pb = platform_breakdown[platform_name]
+        bucket_pb["visitors"].add(visitor_id)
+        bucket_pb["sessions"].add(session_id)
+        if event_name == "app_open":
+            bucket_pb["app_opens"] += 1
 
         date_key = None
         parsed = _parse_timestamp(event.get("created_at"))
@@ -418,6 +428,19 @@ def build_platform_metrics(
             "traffic_sources": [
                 {"source": source, "sessions": count}
                 for source, count in traffic_sources.most_common(8)
+            ],
+            "platform_breakdown": [
+                {
+                    "platform": name,
+                    "visitors": len(vals["visitors"]),
+                    "sessions": len(vals["sessions"]),
+                    "app_opens": vals["app_opens"],
+                }
+                for name, vals in sorted(
+                    platform_breakdown.items(),
+                    key=lambda kv: len(kv[1]["visitors"]),
+                    reverse=True,
+                )
             ],
             "daily_trends": daily_trends,
             "top_events": [

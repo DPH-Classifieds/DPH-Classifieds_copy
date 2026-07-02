@@ -4,6 +4,7 @@ import * as authService from '../utils/authService';
 import { supabase, getSession, signInWithGoogle as supabaseSignInWithGoogle } from '../utils/supabaseClient';
 import { API_BASE_URL } from '../constants/config';
 import { trackEvent } from '../utils/analytics';
+import { registerForPushNotifications, unregisterPushToken } from '../utils/pushNotifications';
 
 // Treat the user as newly registered if their auth row was created within
 // this many seconds of the OAuth completion. Used to fire sign_up vs login.
@@ -40,6 +41,7 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const isAuthCheckingRef = useRef(false);
   const backendDisagreedOnceRef = useRef(false);
+  const pushUserIdRef = useRef(null);
 
   const syncWithSupabase = async ({ forceBackendCheck = false } = {}) => {
     if (isAuthCheckingRef.current) return false;
@@ -138,6 +140,19 @@ export const AuthProvider = ({ children }) => {
   // can rehydrate instantly.
   useEffect(() => {
     persistUserSnapshot(user);
+  }, [user]);
+
+  // Sync the Expo push token to whichever user is signed in. Keyed on user id
+  // so profile-field updates don't re-trigger it; covers email/Google/session
+  // restore (register) and logout (unregister) from one place.
+  useEffect(() => {
+    if (user?.id && user.id !== pushUserIdRef.current) {
+      pushUserIdRef.current = user.id;
+      registerForPushNotifications();
+    } else if (!user && pushUserIdRef.current) {
+      pushUserIdRef.current = null;
+      unregisterPushToken();
+    }
   }, [user]);
 
   const signIn = async (email, password, cfToken) => {

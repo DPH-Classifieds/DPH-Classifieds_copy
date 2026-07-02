@@ -6,17 +6,20 @@ import Toast from 'react-native-toast-message';
 import { AuthProvider } from './src/context/AuthContext';
 import { SavedListingsProvider } from './src/context/SavedListingsContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import ErrorBoundary from './src/components/ui/ErrorBoundary';
 
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <SavedListingsProvider>
-          <StatusBar style="light" />
-          <AppNavigator />
-          <Toast />
-        </SavedListingsProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <SavedListingsProvider>
+            <StatusBar style="light" />
+            <AppNavigator />
+            <Toast />
+          </SavedListingsProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
