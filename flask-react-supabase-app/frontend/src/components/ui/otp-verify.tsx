@@ -29,7 +29,6 @@ export function OTPVerification({
   onCancel,
   autoStart = true,
   hideClose = false,
-  continueLabel = "Continue",
   className = "",
 }) {
   const [verificationId, setVerificationId] = useState(initialVerificationId)
@@ -43,6 +42,9 @@ export function OTPVerification({
   const [verified, setVerified] = useState(false)
   const [cooldownRemaining, setCooldownRemaining] = useState(0)
   const inputRefs = useRef([])
+  // ponytail: fire auto-start at most once per context; failed starts must NOT
+  // re-trigger the effect (that caused the /start request storm → 400s then 429s).
+  const autoStartedRef = useRef(false)
 
   const closeHandler = onClose || onCancel
   const effectiveCountryCode = UAE_COUNTRY_CODE
@@ -62,6 +64,7 @@ export function OTPVerification({
     setMessage("")
     setError("")
     setCooldownRemaining(0)
+    autoStartedRef.current = false
   }, [initialVerificationId, phone, purpose, listingId])
 
   useEffect(() => {
@@ -91,10 +94,11 @@ export function OTPVerification({
       return
     }
 
-    if (!autoStart || !phoneInput || starting || verificationId) {
+    if (!autoStart || !phoneInput || starting || verificationId || autoStartedRef.current) {
       return
     }
 
+    autoStartedRef.current = true
     void startVerification()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -297,6 +301,25 @@ export function OTPVerification({
     return null
   }
 
+  // A session exists once the code has been sent — drives the two-step UI
+  // (enter number → enter code) instead of showing everything at once.
+  const hasSession = Boolean(verificationId)
+
+  const changeNumber = () => {
+    autoStartedRef.current = true // stay manual; don't auto-resend to the old number
+    setVerificationId(null)
+    setPhoneVerification(null)
+    setOtp(emptyOtp())
+    setMessage("")
+    setError("")
+    setCooldownRemaining(0)
+    window.requestAnimationFrame(() => {
+      document.getElementById("phone-verification-phone")?.focus()
+    })
+  }
+
+  const busy = loading || starting
+
   const codeInputs = (
     <div className="grid grid-cols-6 gap-2 sm:gap-3">
       {otp.map((digit, index) => (
@@ -315,14 +338,21 @@ export function OTPVerification({
           maxLength={1}
           aria-label={`Verification digit ${index + 1}`}
           className={cn(
-            "h-14 w-full rounded-2xl border border-white/10 bg-white/[0.04] text-center text-lg font-semibold text-white outline-none transition",
-            "placeholder:text-white/20 focus:border-[#8bd6b4]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]",
-            digit ? "border-[#8bd6b4]/25" : ""
+            "aspect-square w-full rounded-2xl border text-center text-xl font-semibold text-white outline-none transition-all duration-150",
+            "focus:border-[#8bd6b4]/60 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.15)] focus:scale-[1.04]",
+            digit ? "border-[#8bd6b4]/40 bg-white/[0.06]" : "border-white/10 bg-white/[0.03]"
           )}
         />
       ))}
     </div>
   )
+
+  const cancelButton =
+    !hideClose && closeHandler ? (
+      <button type="button" className="auth-button auth-button-secondary" onClick={closeHandler}>
+        Cancel
+      </button>
+    ) : null
 
   const body = (
     <form className={cn("phone-verification-flow", className)} onSubmit={verifyCode}>
@@ -352,15 +382,6 @@ export function OTPVerification({
           ) : null}
         </div>
 
-        {displayPhone ? (
-          <div className="mb-5 rounded-2xl border border-[#8bd6b4]/12 bg-[#0b1a12] px-4 py-3">
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
-              Sent to
-            </span>
-            <strong className="mt-1 block break-all text-base font-semibold text-white">{displayPhone}</strong>
-          </div>
-        ) : null}
-
         {message ? (
           <div className="mb-4 rounded-2xl border border-[#8bd6b4]/12 bg-[#0d2217] px-4 py-3 text-sm text-[#c8f0d2]">
             {message}
@@ -372,87 +393,117 @@ export function OTPVerification({
           </div>
         ) : null}
 
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="phone-verification-phone" className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
-              Phone number
-            </label>
-            <input
-              id="phone-verification-phone"
-              type="tel"
-              value={phoneInput}
-              onChange={(event) => setPhoneInput(event.target.value)}
-              placeholder="+971501234567 or 0501234567"
-              autoComplete="tel"
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-base text-white outline-none transition placeholder:text-white/30 focus:border-[#8bd6b4]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]"
-            />
-            <p className="mt-2 text-xs leading-5 text-white/45">
-              Enter the number however you normally write it. We normalize it before sending the SMS.
-            </p>
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
-                Verification code
-              </span>
-              <span className="text-xs text-white/40">6 digits</span>
+        {verified ? (
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#8bd6b4]/20 bg-[#0d2217] px-4 py-8 text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#8bd6b4]/15 text-[#8bd6b4]">
+              <ShieldCheck className="h-6 w-6" />
             </div>
-            {codeInputs}
+            <p className="text-base font-semibold text-white">Phone verified</p>
+            <p className="text-sm text-white/60">{message || "You're all set."}</p>
           </div>
+        ) : !hasSession ? (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div>
+              <label htmlFor="phone-verification-phone" className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
+                Phone number
+              </label>
+              <input
+                id="phone-verification-phone"
+                type="tel"
+                value={phoneInput}
+                onChange={(event) => setPhoneInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && phoneInput && !busy) {
+                    event.preventDefault()
+                    void sendOrResend()
+                  }
+                }}
+                placeholder="+971 50 123 4567"
+                autoComplete="tel"
+                autoFocus
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-base text-white outline-none transition placeholder:text-white/30 focus:border-[#8bd6b4]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]"
+              />
+              <p className="mt-2 text-xs leading-5 text-white/45">
+                Enter it however you like — we normalize it before sending the SMS.
+              </p>
+            </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            {!hideClose && closeHandler ? (
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <button
                 type="button"
-                className="auth-button auth-button-secondary"
-                onClick={closeHandler}
-              >
-                Cancel
-              </button>
-            ) : null}
-
-            {!verified ? (
-              <button
-                type="button"
-                className="auth-button auth-button-secondary"
+                className="auth-button primary-button"
                 onClick={sendOrResend}
-                disabled={loading || starting || cooldownRemaining > 0}
+                disabled={busy || !phoneInput}
               >
-                {cooldownRemaining > 0 ? `Resend in ${cooldownRemaining}s` : verificationId ? "Resend code" : "Send code"}
+                {busy ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending code...
+                  </span>
+                ) : (
+                  "Send code"
+                )}
               </button>
-            ) : null}
-
-            <button
-              type="submit"
-              className="auth-button primary-button"
-              disabled={loading || verified || otp.join("").length !== OTP_LENGTH}
-            >
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Verifying...
-                </span>
-              ) : verified ? (
-                continueLabel
-              ) : (
-                "Verify code"
-              )}
-            </button>
+              {cancelButton}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-1 duration-200">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#8bd6b4]/12 bg-[#0b1a12] px-4 py-3">
+              <div className="min-w-0">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Code sent to</span>
+                <strong className="mt-0.5 block break-all text-base font-semibold text-white">{displayPhone || "your phone"}</strong>
+              </div>
+              <button
+                type="button"
+                onClick={changeNumber}
+                disabled={busy}
+                className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-[#bfeac8] transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+              >
+                Change
+              </button>
+            </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-xs text-white/45">
-          <span>By continuing, you confirm this phone belongs to your account.</span>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 font-semibold text-[#bfeac8] transition hover:text-white"
-            onClick={sendOrResend}
-            disabled={loading || starting || cooldownRemaining > 0}
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            {cooldownRemaining > 0 ? `Wait ${cooldownRemaining}s` : verificationId ? "Resend code" : "Send code"}
-          </button>
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
+                  Enter the 6-digit code
+                </span>
+                <button
+                  type="button"
+                  onClick={sendOrResend}
+                  disabled={busy || cooldownRemaining > 0}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#bfeac8] transition hover:text-white disabled:text-white/35"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", starting && "animate-spin")} />
+                  {cooldownRemaining > 0 ? `Resend in ${cooldownRemaining}s` : "Resend"}
+                </button>
+              </div>
+              {codeInputs}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <button
+                type="submit"
+                className="auth-button primary-button"
+                disabled={loading || otp.join("").length !== OTP_LENGTH}
+              >
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Verifying...
+                  </span>
+                ) : (
+                  "Verify code"
+                )}
+              </button>
+              {cancelButton}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 border-t border-white/10 pt-4 text-xs leading-5 text-white/45">
+          By continuing, you confirm this phone number belongs to your account.
         </div>
       </div>
     </form>
@@ -461,7 +512,7 @@ export function OTPVerification({
   if (mode === "page") {
     return (
       <div className="auth-container">
-        <div className="auth-card check-email-card max-w-[620px]">
+        <div className="auth-card check-email-card max-w-[620px] animate-in fade-in slide-in-from-bottom-2 duration-300">
           {body}
         </div>
       </div>
@@ -470,14 +521,14 @@ export function OTPVerification({
 
   return (
     <div
-      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-xl"
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-xl animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="otp-verification-title"
       onClick={closeHandler}
     >
       <div
-        className="w-full max-w-2xl"
+        className="w-full max-w-2xl animate-in fade-in zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
       >
         {body}
