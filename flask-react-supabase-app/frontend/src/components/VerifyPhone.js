@@ -62,6 +62,7 @@ const VerifyPhone = () => {
       countryCode={countryCode}
       purpose={purpose}
       verificationId={verificationId || null}
+      autoStart={false}
       onVerified={handleVerified}
       continueLabel={purpose === 'signup' ? 'Continue to email confirmation' : 'Finish verification'}
     />
