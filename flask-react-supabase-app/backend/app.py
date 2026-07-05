@@ -357,6 +357,89 @@ LISTING_IMAGE_SELECTS = {
     # image_url, display_url, focal_* are added by add_plate_images_columns migration.
     "license_plates": "id,plate_id,url,uploaded_at",
 }
+LISTING_LIFECYCLE_SELECT = (
+    "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+    "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,auto_removed_at"
+)
+PUBLIC_CAR_PREVIEW_SELECT = (
+    "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
+    "expected_selling_price,kilometer_driven,created_at,status,is_approved,view_count,"
+    "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
+    "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
+    "car_images("
+    + LISTING_IMAGE_SELECTS["cars"]
+    + ")"
+)
+ADMIN_LISTING_SELECTS = {
+    "car": (
+        "id,user_id,user_email,contact_email,listing_title,car_manufacturer,car_model,"
+        "trim,make_year,expected_selling_price,created_at,updated_at,status,is_approved,"
+        "view_count,renewal_nudge_sent_at,"
+        + LISTING_LIFECYCLE_SELECT
+        + ",car_images("
+        + LISTING_IMAGE_SELECTS["cars"]
+        + ")"
+    ),
+    "bike": (
+        "id,user_id,user_email,contact_email,listing_title,bike_brand,bike_model,year,"
+        "bike_type,price,expected_selling_price,created_at,updated_at,status,is_approved,"
+        "views,renewal_nudge_sent_at,"
+        + LISTING_LIFECYCLE_SELECT
+        + ",bike_images("
+        + LISTING_IMAGE_SELECTS["bikes"]
+        + ")"
+    ),
+    "part": (
+        "id,user_id,user_email,contact_email,listing_title,name,part_name,part_type,"
+        "category,price,created_at,updated_at,status,is_approved,views,"
+        "renewal_nudge_sent_at,"
+        + LISTING_LIFECYCLE_SELECT
+        + ",part_images("
+        + LISTING_IMAGE_SELECTS["car_parts"]
+        + ")"
+    ),
+    "plate": (
+        "id,user_id,user_email,contact_email,listing_title,city,code,digits,number,"
+        "price,image_url,url,display_url,created_at,updated_at,status,is_approved,views,renewal_nudge_sent_at,"
+        + LISTING_LIFECYCLE_SELECT
+    ),
+    "buying_request": (
+        "id,user_id,user_email,contact_email,listing_title,car_manufacturer,car_model,"
+        "trim,make_year,budget_min,budget_max,created_at,updated_at,status,"
+        "renewal_nudge_sent_at,"
+        + LISTING_LIFECYCLE_SELECT
+    ),
+}
+ADMIN_REPORT_TYPE_CONFIG = {
+    "car": {
+        "table": "cars",
+        "select": "id,car_model,car_manufacturer,make_year,expected_selling_price,user_id",
+        "img_table": "car_images",
+        "img_fk": "car_id",
+        "public_prefix": "/cars",
+    },
+    "bike": {
+        "table": "bikes",
+        "select": "id,bike_model,bike_brand,year,price,expected_selling_price,user_id",
+        "img_table": "bike_images",
+        "img_fk": "bike_id",
+        "public_prefix": "/bikes",
+    },
+    "plate": {
+        "table": "license_plates",
+        "select": "id,number,code,city,price,user_id",
+        "img_table": "plate_images",
+        "img_fk": "plate_id",
+        "public_prefix": "/plates",
+    },
+    "part": {
+        "table": "car_parts",
+        "select": "id,name,part_name,category,price,user_id",
+        "img_table": "part_images",
+        "img_fk": "part_id",
+        "public_prefix": "/car-parts",
+    },
+}
 
 
 def _build_http_session():
@@ -913,6 +996,125 @@ def _apply_listing_lifecycle_metadata(record):
         "rejected",
     }
     return record
+
+
+def _preview_listing_record(record):
+    if not isinstance(record, dict):
+        return None
+    preview = dict(record)
+    _apply_listing_lifecycle_metadata(preview)
+    return preview
+
+
+def _fetch_listing_lifecycle_rows():
+    rows_by_type = {}
+
+    def _load_rows(label, table_name):
+        rows, status_code = supabase_request(
+            "get",
+            f"/rest/v1/{table_name}",
+            params={
+                "select": "id,status,is_approved," + LISTING_LIFECYCLE_SELECT,
+                "limit": "1000",
+            },
+            use_service_role=True,
+        )
+        if status_code >= 400:
+            logger.warning(
+                "Failed to fetch lifecycle rows for %s: %s",
+                table_name,
+                rows,
+            )
+            return label, []
+        return label, rows or []
+
+    with ThreadPoolExecutor(max_workers=len(LIFECYCLE_SUMMARY_TABLES)) as executor:
+        future_map = {
+            executor.submit(_load_rows, label, table_name): label
+            for label, table_name in LIFECYCLE_SUMMARY_TABLES.items()
+        }
+        for future in as_completed(future_map):
+            label, rows = future.result()
+            rows_by_type[label] = rows
+
+    for label in LIFECYCLE_SUMMARY_TABLES:
+        rows_by_type.setdefault(label, [])
+    return rows_by_type
+
+
+def _build_listing_lifecycle_summary_from_rows(rows_by_type, draft_total=0):
+    totals = defaultdict(int)
+    by_type = {}
+
+    for label in LIFECYCLE_SUMMARY_TABLES:
+        counts = {
+            "active": 0,
+            "pending": 0,
+            "draft": 0,
+            "expired": 0,
+            "sold_on_dph": 0,
+            "sold_elsewhere": 0,
+            "no_response": 0,
+            "deleted": 0,
+            "total": 0,
+        }
+        for row in rows_by_type.get(label, []) or []:
+            preview = _preview_listing_record(row)
+            if not preview:
+                continue
+            counts["total"] += 1
+
+            status = str(preview.get("status") or "").strip().lower()
+            state = str(preview.get("listing_state") or "").strip().lower()
+            sold_status = str(preview.get("sold_status") or "").strip().lower()
+
+            if status == "approved" and state == "active":
+                counts["active"] += 1
+            if status == "pending":
+                counts["pending"] += 1
+            if status == "deleted":
+                counts["deleted"] += 1
+            if sold_status == "sold_on_dph":
+                counts["sold_on_dph"] += 1
+            if sold_status == "sold_elsewhere":
+                counts["sold_elsewhere"] += 1
+            if sold_status == "no_response":
+                counts["no_response"] += 1
+            if state in {"expired", "archived"} or (
+                preview.get("auto_removed_at") and preview.get("is_expired")
+            ):
+                counts["expired"] += 1
+
+        counts["sold_total"] = counts["sold_on_dph"] + counts["sold_elsewhere"]
+        by_type[label] = counts
+        for key, value in counts.items():
+            totals[key] += value
+
+    totals["draft"] = draft_total
+    by_type["drafts"] = {"draft": draft_total, "total": draft_total}
+    return {"totals": dict(totals), "by_type": by_type}
+
+
+def _cached_cropped_at_pct():
+    cache_key = "api-cache:admin-stats:cropped-at-pct"
+    cached_value = _api_cache_get(cache_key)
+    if cached_value is not None:
+        return cached_value
+
+    cropped_at_pct = None
+    try:
+        total_all = 0
+        cropped_all = 0
+        for table in ("car_images", "bike_images", "plate_images", "part_images"):
+            total_all += _supabase_count(table)
+            cropped_all += _supabase_count(table, {"cropped_at": "not.is.null"})
+        if total_all > 0:
+            cropped_at_pct = round(100.0 * cropped_all / total_all, 2)
+    except Exception as exc:
+        logger.warning("cropped_at_pct calculation failed: %s", exc)
+
+    _api_cache_set(cache_key, cropped_at_pct, ttl_seconds=3600)
+    return cropped_at_pct
 
 
 def _delete_listing_with_assets(table_name, listing_id):
@@ -1958,16 +2160,15 @@ def _resolve_listing_owner_email(record, fallback_user_id=None):
 def _filter_public_listing_records(table_name, records):
     filtered = []
     for record in records or []:
-        # Never hard-delete from a public read path — only the lifecycle sweep
-        # worker should permanently remove listings. Using hard_delete_archived=False
-        # here prevents a stale retention_expires_at from destroying a listing
-        # the moment someone visits the public page.
-        synced = _sync_listing_lifecycle(table_name, record, hard_delete_archived=False)
-        if not synced:
+        # Public browse reads should stay read-only. Compute lifecycle metadata
+        # in-process so stale timestamps do not leak to the UI, but do not
+        # patch listings or send emails from a hot listing page request.
+        preview = _preview_listing_record(record)
+        if not preview:
             continue
-        if synced.get("listing_state") != "active":
+        if preview.get("listing_state") != "active":
             continue
-        filtered.append(synced)
+        filtered.append(preview)
     return filtered
 
 
@@ -5653,17 +5854,7 @@ def get_cars():
         logger.info(f"Fetching cars with params: {filtered_params}")
 
         # Use select=* to get all fields, and join with car_images
-        filtered_params["select"] = (
-            "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
-            "expected_selling_price,kilometer_driven,car_description,created_at,updated_at,"
-            "status,is_approved,view_count,lady_driven,"
-            "whatsapp_number,whatsapp_prefill_text,vin_number,"
-            "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
-            "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
-            "car_images("
-            + LISTING_IMAGE_SELECTS["cars"]
-            + ")"
-        )
+        filtered_params["select"] = PUBLIC_CAR_PREVIEW_SELECT
 
         # Use service role for public fetches to ensure all approved listings and images are visible
         response, status_code = supabase_request(
@@ -17706,24 +17897,7 @@ LIFECYCLE_SUMMARY_TABLES = {
 
 
 def _build_listing_lifecycle_summary():
-    totals = defaultdict(int)
-    by_type = {}
-    for label, table in LIFECYCLE_SUMMARY_TABLES.items():
-        counts = {
-            "active": _supabase_count(table, {"status": "eq.approved"}),
-            "pending": _supabase_count(table, {"status": "eq.pending"}),
-            "draft": _supabase_count(table, {"listing_state": "eq.draft"}),
-            "expired": _supabase_count(table, {"listing_state": "eq.expired"}),
-            "sold_on_dph": _supabase_count(table, {"sold_status": "eq.sold_on_dph"}),
-            "sold_elsewhere": _supabase_count(table, {"sold_status": "eq.sold_elsewhere"}),
-            "no_response": _supabase_count(table, {"sold_status": "eq.no_response"}),
-            "deleted": _supabase_count(table, {"status": "eq.deleted"}),
-        }
-        counts["sold_total"] = counts["sold_on_dph"] + counts["sold_elsewhere"]
-        by_type[label] = counts
-        for key, value in counts.items():
-            totals[key] += value
-    return {"totals": dict(totals), "by_type": by_type}
+    return _build_listing_lifecycle_summary_from_rows(_fetch_listing_lifecycle_rows())
 
 
 @app.route("/api/admin/stats", methods=["GET"])
@@ -17783,45 +17957,98 @@ def get_admin_stats(current_user):
         lead_events = _fetch_rows(
             "/rest/v1/lead_events",
             {
-                # visitor_id/session_id/user_id are the fallback unique-visitor
-                # signal when platform_events is missing/empty.
-                "select": "action,listing_type,listing_id,created_at,user_id,session_id,visitor_id",
+                "select": "action,listing_type,listing_id,created_at,user_id,session_id",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
                 "limit": "5000",
             },
         )
-        # Reports total + per-listing pending counts: HEAD count probes via
-        # Content-Range. Cheaper than SELECT * and removes the silent row cap.
-        total_reports = _supabase_count("reports")
-        cars_pending = _supabase_count("cars", {"status": "eq.pending"})
-        bikes_pending = _supabase_count("bikes", {"status": "eq.pending"})
-        parts_pending = _supabase_count("car_parts", {"status": "eq.pending"})
-        plates_pending = _supabase_count("license_plates", {"status": "eq.pending"})
-        listing_lifecycle = _build_listing_lifecycle_summary()
-        saved_searches_total = _supabase_count("saved_searches")
-        saved_searches_window = _supabase_count(
-            "saved_searches", {"created_at": f"gte.{cutoff}"}
-        )
 
-        # Views are now derived from platform_events in the active window
-        # rather than the cumulative `view_count` columns on each listing
-        # table. PlatformAnalyticsTracker writes page_view rows with
-        # page_kind="listing_detail" and listing_type already parsed from
-        # page_path — see aggregation below where platform_events is in scope.
-        # Users: total + dealer counts via HEAD probes. Row fetch kept only for
-        # new-signups-in-window unique-visitor merge below — narrow projection
-        # and tighter window cuts it from 4000 to just the active window.
-        total_users = _supabase_count("users")
-        total_dealers = _supabase_count("users", {"is_dealer": "eq.true"})
-        users = _fetch_rows(
-            "/rest/v1/users",
-            {
-                "select": "id,created_at",
-                "created_at": f"gte.{cutoff}",
-                "order": "created_at.desc",
-                "limit": "4000",
-            },
+        aux_rows = {}
+        aux_jobs = {
+            "users": (
+                "/rest/v1/users",
+                {
+                    "select": "id,created_at,is_dealer,dealer_verified",
+                    "order": "created_at.desc",
+                    "limit": "5000",
+                },
+            ),
+            "reports": (
+                "/rest/v1/reports",
+                {
+                    "select": "id,status,created_at",
+                    "order": "created_at.desc",
+                    "limit": "5000",
+                },
+            ),
+            "saved_searches": (
+                "/rest/v1/saved_searches",
+                {
+                    "select": "id,created_at",
+                    "order": "created_at.desc",
+                    "limit": "5000",
+                },
+            ),
+            "listing_drafts": (
+                "/rest/v1/listing_drafts",
+                {
+                    "select": "id,created_at,updated_at",
+                    "order": "updated_at.desc",
+                    "limit": "5000",
+                },
+            ),
+        }
+        with ThreadPoolExecutor(max_workers=len(aux_jobs)) as executor:
+            future_map = {
+                executor.submit(_fetch_rows, path, params): key
+                for key, (path, params) in aux_jobs.items()
+            }
+            for future in as_completed(future_map):
+                aux_rows[future_map[future]] = future.result()
+
+        users = aux_rows.get("users", [])
+        reports = aux_rows.get("reports", [])
+        saved_searches = aux_rows.get("saved_searches", [])
+        listing_drafts = aux_rows.get("listing_drafts", [])
+
+        listing_rows_by_type = _fetch_listing_lifecycle_rows()
+        listing_lifecycle = _build_listing_lifecycle_summary_from_rows(
+            listing_rows_by_type,
+            draft_total=len(listing_drafts),
+        )
+        lifecycle_totals = listing_lifecycle.get("totals", {})
+
+        cars_total = len(listing_rows_by_type.get("cars", []))
+        bikes_total = len(listing_rows_by_type.get("bikes", []))
+        parts_total = len(listing_rows_by_type.get("parts", []))
+        plates_total = len(listing_rows_by_type.get("plates", []))
+        cars_pending = listing_lifecycle.get("by_type", {}).get("cars", {}).get("pending", 0)
+        bikes_pending = listing_lifecycle.get("by_type", {}).get("bikes", {}).get("pending", 0)
+        parts_pending = listing_lifecycle.get("by_type", {}).get("parts", {}).get("pending", 0)
+        plates_pending = listing_lifecycle.get("by_type", {}).get("plates", {}).get("pending", 0)
+        total_reports = len(reports)
+        pending_reports = sum(
+            1 for report in reports if str(report.get("status") or "").lower() == "pending"
+        )
+        saved_searches_total = len(saved_searches)
+        saved_searches_window = sum(
+            1
+            for saved_search in saved_searches
+            if (_parse_datetime(saved_search.get("created_at")) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc))
+            >= window_start
+        )
+        total_users = len(users)
+        total_dealers = sum(1 for user in users if user.get("is_dealer"))
+        verified_dealers = sum(
+            1
+            for user in users
+            if user.get("is_dealer") and user.get("dealer_verified")
+        )
+        platform_events_window_count = (
+            _supabase_count("platform_events", {"created_at": f"gte.{cutoff}"})
+            if platform_events_status == "ok"
+            else 0
         )
 
         # Unique visitors: collapse all signal sources onto a canonical identity
@@ -17882,7 +18109,10 @@ def get_admin_stats(current_user):
 
         data_health = {
             "platform_events": platform_events_status,
-            "platform_events_window_count": len(platform_events),
+            "platform_events_window_count": platform_events_window_count,
+            "platform_events_truncated": bool(
+                platform_events_window_count and platform_events_window_count > len(platform_events)
+            ),
             "unique_visitor_sources": sorted(unique_sources),
             "new_signups_window_count": new_signups_in_window,
             "lead_events_window_count": len(lead_events),
@@ -17909,45 +18139,26 @@ def get_admin_stats(current_user):
             "unique_visitors": len(unique_visitors),
             "live_users": len(live_visitors),
             "data_health": data_health,
-            "cars_total": _supabase_count("cars"),
-            "bikes_total": _supabase_count("bikes"),
-            "parts_total": _supabase_count("car_parts"),
-            "plates_total": _supabase_count("license_plates"),
+            "cars_total": cars_total,
+            "bikes_total": bikes_total,
+            "parts_total": parts_total,
+            "plates_total": plates_total,
             "saved_searches_total": saved_searches_total,
             "saved_searches_window": saved_searches_window,
             "listing_lifecycle": listing_lifecycle,
-            "sold_listings_total": listing_lifecycle.get("totals", {}).get("sold_total", 0),
-            "sold_on_dph_total": listing_lifecycle.get("totals", {}).get("sold_on_dph", 0),
-            "sold_elsewhere_total": listing_lifecycle.get("totals", {}).get("sold_elsewhere", 0),
-            "no_response_total": listing_lifecycle.get("totals", {}).get("no_response", 0),
-            "expired_listings_total": listing_lifecycle.get("totals", {}).get("expired", 0),
-            "draft_listings_total": listing_lifecycle.get("totals", {}).get("draft", 0),
-            "active_listings_total": listing_lifecycle.get("totals", {}).get("active", 0),
-            "verified_dealers": _supabase_count(
-                "users",
-                {"is_dealer": "eq.true", "dealer_verified": "eq.true"},
-            ),
-            "pending_reports": _supabase_count("reports", {"status": "eq.pending"}),
+            "sold_listings_total": lifecycle_totals.get("sold_total", 0),
+            "sold_on_dph_total": lifecycle_totals.get("sold_on_dph", 0),
+            "sold_elsewhere_total": lifecycle_totals.get("sold_elsewhere", 0),
+            "no_response_total": lifecycle_totals.get("no_response", 0),
+            "expired_listings_total": lifecycle_totals.get("expired", 0),
+            "draft_listings_total": lifecycle_totals.get("draft", 0),
+            "active_listings_total": lifecycle_totals.get("active", 0),
+            "verified_dealers": verified_dealers,
+            "pending_reports": pending_reports,
             "total_vin_reveals": len(lead_unique_actors.get("vin_reveal", set())),
             "total_vin_reveal_events": lead_event_counts.get("vin_reveal", 0),
         }
-
-        # Cropped_at migration health — % of image rows that have been migrated to the
-        # real cropped-blob render path. When this approaches 100%, the legacy
-        # focal-point CSS fallback in the detail-page renderers can be removed.
-        cropped_at_pct = None
-        try:
-            total_all = 0
-            cropped_all = 0
-            for table in ("car_images", "bike_images", "plate_images", "part_images"):
-                total_all += _supabase_count(table)
-                cropped_all += _supabase_count(table, {"cropped_at": "not.is.null"})
-            if total_all > 0:
-                cropped_at_pct = round(100.0 * cropped_all / total_all, 2)
-        except Exception as exc:
-            logger.warning("cropped_at_pct calculation failed: %s", exc)
-
-        stats["cropped_at_pct"] = cropped_at_pct
+        stats["cropped_at_pct"] = _cached_cropped_at_pct()
 
         # Cloudflare override for the headline traffic tiles. Edge metrics are
         # truth for "how many real humans hit the domain" — platform_events only
@@ -18345,17 +18556,20 @@ def get_reports(current_user):
 def get_admin_reports(current_user):
     """Get all reports for admin dashboard, enriched with listing details."""
     try:
-        # Verify admin status
-        user_details = _get_user_details_with_admin_status(current_user)
-        if not user_details or not user_details.get("is_admin"):
+        if not _require_admin_api_user(current_user):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
         # Get query parameters for filtering
         status = request.args.get("status")
         listing_type_filter = request.args.get("listing_type")
+        try:
+            limit = int(request.args.get("limit", "100"))
+        except (TypeError, ValueError):
+            limit = 100
+        limit = min(max(limit, 1), 500)
 
         # Build query — hard cap at 500
-        query = "/rest/v1/reports?order=created_at.desc&limit=500"
+        query = f"/rest/v1/reports?order=created_at.desc&limit={limit}"
 
         if status:
             query += f"&status=eq.{status}"
@@ -18380,42 +18594,14 @@ def get_admin_reports(current_user):
             if lt in buckets and r.get("listing_id"):
                 buckets[lt].append(r)
 
-        # Table/field config per type
-        type_config = {
-            "car": {
-                "table": "cars",
-                "select": "id,car_model,make,make_year,expected_selling_price,user_id",
-                "img_table": "car_images",
-                "public_prefix": "/cars",
-            },
-            "bike": {
-                "table": "bikes",
-                "select": "id,bike_model,make,make_year,expected_selling_price,user_id",
-                "img_table": "bike_images",
-                "public_prefix": "/bikes",
-            },
-            "plate": {
-                "table": "license_plates",
-                "select": "id,number,code,city,price,user_id",
-                "img_table": "plate_images",
-                "public_prefix": "/plates",
-            },
-            "part": {
-                "table": "car_parts",
-                "select": "id,name,part_name,category,price,user_id",
-                "img_table": "part_images",
-                "public_prefix": "/car-parts",
-            },
-        }
-
         # Helper: build a readable title from a listing row
         def _listing_title(lt, row):
             if lt == "car":
-                parts = [row.get("make_year"), row.get("make"), row.get("car_model")]
+                parts = [row.get("make_year"), row.get("car_manufacturer"), row.get("car_model")]
                 parts = [str(p) for p in parts if p]
                 return " ".join(parts) if parts else str(row.get("id", ""))
             if lt == "bike":
-                parts = [row.get("make_year"), row.get("make"), row.get("bike_model")]
+                parts = [row.get("year"), row.get("bike_brand"), row.get("bike_model")]
                 parts = [str(p) for p in parts if p]
                 return " ".join(parts) if parts else str(row.get("id", ""))
             if lt == "plate":
@@ -18433,7 +18619,7 @@ def get_admin_reports(current_user):
         for lt, rows in buckets.items():
             if not rows:
                 continue
-            cfg = type_config[lt]
+            cfg = ADMIN_REPORT_TYPE_CONFIG[lt]
             ids = list({r["listing_id"] for r in rows})
             ids_csv = ",".join(ids)
             try:
@@ -18469,7 +18655,7 @@ def get_admin_reports(current_user):
             try:
                 img_resp, img_sc = supabase_request(
                     "get",
-                    f"/rest/v1/{cfg['img_table']}?listing_id=in.({ids_csv})&select=listing_id,url,display_url,cropped_at&limit=1000",
+                    f"/rest/v1/{cfg['img_table']}?{cfg['img_fk']}=in.({ids_csv})&select={cfg['img_fk']},url,display_url,image_url,cropped_at&limit=1000",
                     user_id=current_user,
                     use_service_role=True,
                 )
@@ -18477,12 +18663,14 @@ def get_admin_reports(current_user):
                     # Keep only first image per listing_id
                     seen_img = set()
                     for img_row in img_resp:
-                        img_lid = str(img_row.get("listing_id") or "")
+                        img_lid = str(img_row.get(cfg["img_fk"]) or "")
                         if img_lid and img_lid not in seen_img:
                             seen_img.add(img_lid)
                             if img_lid in listing_map:
                                 listing_map[img_lid]["image_url"] = (
-                                    img_row.get("display_url") or img_row.get("url")
+                                    img_row.get("display_url")
+                                    or img_row.get("image_url")
+                                    or img_row.get("url")
                                 )
             except Exception as img_err:
                 logger.warning(f"Error fetching image batch type={lt}: {img_err}")
@@ -18809,32 +18997,36 @@ def get_admin_listing_history(current_user):
         type_config = {
             "car": {
                 "table": "cars",
-                "select": "id,car_model,make,make_year,expected_selling_price",
+                "select": "id,car_model,car_manufacturer,make_year,expected_selling_price",
                 "img_table": "car_images",
+                "img_fk": "car_id",
             },
             "bike": {
                 "table": "bikes",
-                "select": "id,bike_model,make,make_year,expected_selling_price",
+                "select": "id,bike_model,bike_brand,year,price,expected_selling_price",
                 "img_table": "bike_images",
+                "img_fk": "bike_id",
             },
             "plate": {
                 "table": "license_plates",
                 "select": "id,number,code,city,price",
                 "img_table": "plate_images",
+                "img_fk": "plate_id",
             },
             "part": {
                 "table": "car_parts",
                 "select": "id,name,part_name,category,price",
                 "img_table": "part_images",
+                "img_fk": "part_id",
             },
         }
 
         def _title(lt, lrow):
             if lt == "car":
-                parts = [lrow.get("make_year"), lrow.get("make"), lrow.get("car_model")]
+                parts = [lrow.get("make_year"), lrow.get("car_manufacturer"), lrow.get("car_model")]
                 return " ".join(str(p) for p in parts if p) or str(lrow.get("id", ""))
             if lt == "bike":
-                parts = [lrow.get("make_year"), lrow.get("make"), lrow.get("bike_model")]
+                parts = [lrow.get("year"), lrow.get("bike_brand"), lrow.get("bike_model")]
                 return " ".join(str(p) for p in parts if p) or str(lrow.get("id", ""))
             if lt == "plate":
                 code = lrow.get("code") or ""
@@ -18886,7 +19078,8 @@ def get_admin_listing_history(current_user):
                     "get",
                     (
                         f"/rest/v1/{cfg['img_table']}"
-                        f"?listing_id=in.({ids_csv})&select=listing_id,url,display_url,cropped_at&limit=1000"
+                        f"?{cfg['img_fk']}=in.({ids_csv})"
+                        f"&select={cfg['img_fk']},url,image_url,display_url,cropped_at&limit=1000"
                     ),
                     user_id=current_user,
                     use_service_role=True,
@@ -18894,13 +19087,15 @@ def get_admin_listing_history(current_user):
                 if img_sc < 400 and isinstance(img_resp, list):
                     seen = set()
                     for img_row in img_resp:
-                        ilid = str(img_row.get("listing_id") or "")
+                        ilid = str(img_row.get(cfg["img_fk"]) or "")
                         if not ilid or ilid in seen:
                             continue
                         seen.add(ilid)
                         if ilid in listing_lookup:
                             listing_lookup[ilid]["image_url"] = (
-                                img_row.get("display_url") or img_row.get("url")
+                                img_row.get("display_url")
+                                or img_row.get("image_url")
+                                or img_row.get("url")
                             )
             except Exception as img_err:
                 logger.warning(
@@ -18978,6 +19173,10 @@ def admin_listings_search(current_user):
         except (ValueError, TypeError):
             _req_limit = 100
         per_type_limit = min(max(_req_limit, 1), 200)
+        include_verification = (
+            str(request.args.get("include_verification", "")).strip().lower()
+            in {"1", "true", "yes"}
+        )
 
         listings = []
         counts = defaultdict(int)
@@ -19031,7 +19230,11 @@ def admin_listings_search(current_user):
             rows, status_code = supabase_request(
                 "get",
                 f"/rest/v1/{config['table']}",
-                params={"select": "*", "order": "created_at.desc", "limit": str(per_type_limit)},
+                params={
+                    "select": ADMIN_LISTING_SELECTS.get(listing_type, "*"),
+                    "order": "created_at.desc",
+                    "limit": str(per_type_limit),
+                },
                 use_service_role=True,
             )
             if status_code >= 400:
@@ -19044,33 +19247,49 @@ def admin_listings_search(current_user):
                 # Defensively isolate per-row work so a single malformed listing
                 # cannot 500 the whole admin page.
                 try:
-                    synced = _sync_listing_lifecycle(
-                        config["table"], dict(row), hard_delete_archived=False
-                    )
-                    if not synced:
+                    preview = _preview_listing_record(row)
+                    if not preview:
                         continue
 
-                    display_status = _admin_listing_display_status(synced)
-                    synced["display_status"] = display_status
-                    synced["listing_type"] = f"{listing_type}s" if listing_type != "part" else "parts"
-                    synced["_table_status"] = synced.get("status")
+                    if listing_type == "car":
+                        preview["images"] = _sort_listing_images(preview.pop("car_images", []) or [])
+                    elif listing_type == "bike":
+                        preview["images"] = _sort_listing_images(preview.pop("bike_images", []) or [])
+                    elif listing_type == "part":
+                        preview["images"] = _sort_listing_images(preview.pop("part_images", []) or [])
+                    else:
+                        preview["images"] = preview.get("images") or []
+                    if not preview["images"] and (
+                        preview.get("display_url") or preview.get("image_url") or preview.get("url")
+                    ):
+                        main_url = (
+                            preview.get("display_url")
+                            or preview.get("image_url")
+                            or preview.get("url")
+                        )
+                        preview["images"] = [
+                            {"id": "main", "url": main_url, "image_url": main_url}
+                        ]
+
+                    display_status = _admin_listing_display_status(preview)
+                    preview["display_status"] = display_status
+                    preview["listing_type"] = f"{listing_type}s" if listing_type != "part" else "parts"
+                    preview["_table_status"] = preview.get("status")
 
                     if requested_statuses and not any(
-                        _admin_listing_matches_status(synced, status)
+                        _admin_listing_matches_status(preview, status)
                         for status in requested_statuses
                     ):
                         continue
 
                     counts["total"] += 1
-                    counts[synced.get("_table_status") or "unknown"] += 1
-                    if synced.get("listing_state") == "active":
+                    counts[preview.get("_table_status") or "unknown"] += 1
+                    if preview.get("listing_state") == "active":
                         counts["active"] += 1
-                    if synced.get("listing_state") == "expired":
+                    if preview.get("listing_state") in {"expired", "archived"}:
                         counts["expired"] += 1
-                    if synced.get("status") == "pending":
-                        counts["pending"] += 1
 
-                    listings.append(synced)
+                    listings.append(preview)
                 except Exception as row_err:
                     logger.exception(
                         "admin_listings_search: failed processing %s/%s — %s",
@@ -19078,65 +19297,21 @@ def admin_listings_search(current_user):
                     )
                     continue
 
-        try:
-            latest_scan_map = _admin_fetch_latest_verification_scans(
-                [
-                    (listing.get("listing_type"), listing.get("id"))
-                    for listing in listings
-                ]
-            )
-            for listing in listings:
-                _admin_attach_latest_verification_scan(listing, latest_scan_map)
-        except Exception as scan_err:
-            logger.exception(
-                "admin_listings_search: verification scan enrichment failed — %s",
-                scan_err,
-            )
-
-        # Batch-fetch images so the admin table can render thumbnails. One
-        # round-trip per image table instead of N+1.
-        try:
-            _IMAGE_TABLES = {
-                "cars": ("car_images", "car_id"),
-                "bikes": ("bike_images", "bike_id"),
-                "car_parts": ("part_images", "part_id"),
-                "license_plates": ("plate_images", "plate_id"),
-            }
-            ids_by_table = defaultdict(list)
-            for lst in listings:
-                normalized_type = (lst.get("listing_type") or "").rstrip("s")
-                table_name = (LISTING_TABLE_CONFIG.get(normalized_type) or {}).get("table")
-                if table_name in _IMAGE_TABLES and lst.get("id"):
-                    ids_by_table[table_name].append(lst["id"])
-            images_by_listing = defaultdict(list)
-            for table_name, listing_ids in ids_by_table.items():
-                image_table, fk = _IMAGE_TABLES[table_name]
-                for chunk_start in range(0, len(listing_ids), 100):
-                    chunk = listing_ids[chunk_start : chunk_start + 100]
-                    img_rows, img_status = supabase_request(
-                        "get",
-                        f"/rest/v1/{image_table}",
-                        params={
-                            "select": "*",
-                            fk: f"in.({','.join(chunk)})",
-                            "order": "uploaded_at.asc",
-                        },
-                        use_service_role=True,
-                    )
-                    if img_status >= 400:
-                        continue
-                    for img in img_rows or []:
-                        owner_id = img.get(fk)
-                        if not img.get("image_url") and img.get("url"):
-                            img["image_url"] = img["url"]
-                        if owner_id:
-                            images_by_listing[owner_id].append(img)
-            for lst in listings:
-                lst["images"] = images_by_listing.get(lst.get("id"), [])
-        except Exception as img_err:
-            logger.exception(
-                "admin_listings_search: image hydration failed — %s", img_err
-            )
+        if include_verification:
+            try:
+                latest_scan_map = _admin_fetch_latest_verification_scans(
+                    [
+                        (listing.get("listing_type"), listing.get("id"))
+                        for listing in listings
+                    ]
+                )
+                for listing in listings:
+                    _admin_attach_latest_verification_scan(listing, latest_scan_map)
+            except Exception as scan_err:
+                logger.exception(
+                    "admin_listings_search: verification scan enrichment failed — %s",
+                    scan_err,
+                )
 
         return jsonify({"listings": listings, "metadata": dict(counts)}), 200
     except Exception as e:

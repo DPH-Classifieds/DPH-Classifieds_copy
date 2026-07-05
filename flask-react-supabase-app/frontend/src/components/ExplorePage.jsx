@@ -428,6 +428,7 @@ const scoreAllMatch = (item, query) => {
 const ExplorePage = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const initialCategory = new URLSearchParams(location.search).get('category') || 'all';
   const [inventory, setInventory] = useState({
     cars: [],
     bikes: [],
@@ -440,7 +441,9 @@ const ExplorePage = () => {
   const [error, setError] = useState('');
   const sentinelRef = useRef(null);
   const isFetchingRef = useRef(false);
-  const [activeMode, setActiveMode] = useState('all');
+  const [activeMode, setActiveMode] = useState(
+    exploreModes.some((mode) => mode.key === initialCategory) ? initialCategory : 'all'
+  );
   const [globalQuery, setGlobalQuery] = useState('');
   const [carFilters, setCarFilters] = useState(carInitialFilters);
   const [partsFilters, setPartsFilters] = useState(partsInitialFilters);
@@ -499,35 +502,40 @@ const ExplorePage = () => {
     return extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
   }, []);
 
-  // ── initial load: all four categories, offset 0 ──────────────────────────
+  // ── initial load: only the active category unless "all" is selected ─────
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setLoading(true);
       setError('');
-      const results = await Promise.allSettled([
-        fetchPage('cars', 0),
-        fetchPage('bikes', 0),
-        fetchPage('parts', 0),
-        fetchPage('plates', 0),
-      ]);
+      const targets = activeMode === 'all'
+        ? ['cars', 'bikes', 'parts', 'plates']
+        : [EXPLORE_MODE_TO_API_KEY[activeMode]].filter(Boolean);
+      const results = await Promise.allSettled(
+        targets.map((apiKey) => fetchPage(apiKey, 0))
+      );
       if (!mounted) return;
-      const [cars, bikes, parts, plates] = results;
-      const get = (r) => (r.status === 'fulfilled' ? r.value : []);
-      setInventory({ cars: get(cars), bikes: get(bikes), parts: get(parts), plates: get(plates) });
-      setPages({
-        cars:   { offset: 0, hasMore: get(cars).length === PAGE_SIZE },
-        bikes:  { offset: 0, hasMore: get(bikes).length === PAGE_SIZE },
-        parts:  { offset: 0, hasMore: get(parts).length === PAGE_SIZE },
-        plates: { offset: 0, hasMore: get(plates).length === PAGE_SIZE },
+      const nextInventory = { cars: [], bikes: [], parts: [], plates: [] };
+      const nextPages = { ...INIT_PAGES };
+      const failed = [];
+
+      targets.forEach((apiKey, index) => {
+        const items = results[index].status === 'fulfilled' ? results[index].value : [];
+        nextInventory[apiKey] = items;
+        nextPages[apiKey] = { offset: 0, hasMore: items.length === PAGE_SIZE };
+        if (results[index].status === 'rejected') {
+          failed.push(apiKey === 'parts' ? 'car parts' : apiKey);
+        }
       });
-      const failed = ['cars','bikes','car parts','plates'].filter((_, i) => results[i].status === 'rejected');
+
+      setInventory(nextInventory);
+      setPages(nextPages);
       setError(failed.length ? `Some inventory could not be loaded: ${failed.join(', ')}.` : '');
       setLoading(false);
     };
     load();
     return () => { mounted = false; };
-  }, [fetchPage]);
+  }, [activeMode, fetchPage]);
 
   // ── load more: append next page for the relevant categories ──────────────
   const loadMore = useCallback(async () => {

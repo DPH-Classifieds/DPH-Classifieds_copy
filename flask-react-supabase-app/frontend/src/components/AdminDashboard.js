@@ -175,32 +175,50 @@ const AdminDashboard = () => {
     setRefreshing(true);
 
     (async () => {
+      const merged = {
+        stats: cached?.value?.stats || {},
+        leadMetrics: cached?.value?.leadMetrics ?? null,
+        history: Array.isArray(cached?.value?.history) ? cached.value.history : [],
+        dealers: Array.isArray(cached?.value?.dealers) ? cached.value.dealers : [],
+        reports: Array.isArray(cached?.value?.reports) ? cached.value.reports : [],
+      };
+      let statsResolved = Boolean(cached?.value?.stats);
       try {
         setError('');
         const daysParam = days ? `?days=${days}` : '';
 
-        const [statsRes, leadRes, historyRes, dealersRes, reportsRes] = await Promise.all([
-          apiClient.get(`/api/admin/stats${daysParam}`).catch(() => ({})),
-          apiClient.get(`/api/admin/lead-metrics?days=${days || 365}`).catch(() => null),
-          apiClient.get('/api/admin/listing-history?limit=12').catch(() => []),
-          apiClient.get('/api/admin/dealers?pending=true').catch(() => []),
-          apiClient.get('/api/admin/reports').catch(() => []),
-        ]);
+        const requests = [
+          apiClient.get(`/api/admin/stats${daysParam}`).catch(() => ({})).then((statsRes) => {
+            if (!active) return;
+            merged.stats = statsRes || {};
+            setStats(merged.stats);
+            statsResolved = true;
+            setLoading(false);
+          }),
+          apiClient.get(`/api/admin/lead-metrics?days=${days}`).catch(() => null).then((leadRes) => {
+            if (!active) return;
+            merged.leadMetrics = leadRes || null;
+            setLeadMetrics(merged.leadMetrics);
+          }),
+          apiClient.get('/api/admin/listing-history?limit=12').catch(() => []).then((historyRes) => {
+            if (!active) return;
+            merged.history = Array.isArray(historyRes) ? historyRes : [];
+            setHistory(merged.history);
+          }),
+          apiClient.get('/api/admin/dealers?pending=true').catch(() => []).then((dealersRes) => {
+            if (!active) return;
+            merged.dealers = Array.isArray(dealersRes) ? dealersRes : [];
+            setDealers(merged.dealers);
+          }),
+          apiClient.get('/api/admin/reports?status=pending&limit=12').catch(() => []).then((reportsRes) => {
+            if (!active) return;
+            merged.reports = Array.isArray(reportsRes) ? reportsRes : [];
+            setReports(merged.reports);
+          }),
+        ];
 
+        await Promise.allSettled(requests);
         if (!active) return;
-
-        const merged = {
-          stats: statsRes || {},
-          leadMetrics: leadRes || null,
-          history: Array.isArray(historyRes) ? historyRes : [],
-          dealers: Array.isArray(dealersRes) ? dealersRes : [],
-          reports: Array.isArray(reportsRes) ? reportsRes : [],
-        };
-        setStats(merged.stats);
-        setLeadMetrics(merged.leadMetrics);
-        setHistory(merged.history);
-        setDealers(merged.dealers);
-        setReports(merged.reports);
         swrSet(cacheKey, merged);
       } catch (loadError) {
         if (!active) return;
@@ -208,7 +226,7 @@ const AdminDashboard = () => {
         if (!cached?.value) setError(loadError.message || 'Failed to load dashboard');
       } finally {
         if (active) {
-          setLoading(false);
+          if (!statsResolved) setLoading(false);
           setRefreshing(false);
         }
       }

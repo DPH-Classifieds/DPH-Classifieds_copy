@@ -55,50 +55,38 @@ class AdminStatsTests(unittest.TestCase):
             {"action": "call_click", "created_at": now_iso},
             {"action": "whatsapp_click", "created_at": now_iso},
         ]
-        cars = [{"view_count": 3}]
-        bikes = [{"view_count": 4}]
-        parts = [{"view_count": 5}]
-        plates = [{"view_count": 6}]
-        # No created_at on users so they don't pollute the unique_visitors
-        # set — the test specifically asserts unique_visitors == 2 (the two
-        # platform_events visitors). total_users/total_dealers now come from
-        # the _supabase_count mock, not from this fetch.
         users = [
-            {"id": "u1"},
-            {"id": "u2"},
-            {"id": "u3"},
+            {"id": "u1", "is_dealer": True, "dealer_verified": True},
+            {"id": "u2", "is_dealer": False, "dealer_verified": False},
+            {"id": "u3", "is_dealer": False, "dealer_verified": False},
         ]
+        reports = [
+            {"id": "r1", "status": "pending", "created_at": now_iso},
+            {"id": "r2", "status": "resolved", "created_at": now_iso},
+        ]
+        lifecycle_rows = {
+            "cars": [
+                {"id": "car-pending", "status": "pending", "created_at": now_iso},
+                {"id": "car-live", "status": "approved", "created_at": now_iso},
+            ],
+            "bikes": [],
+            "parts": [{"id": "part-pending", "status": "pending", "created_at": now_iso}],
+            "plates": [{"id": "plate-pending", "status": "pending", "created_at": now_iso}],
+        }
 
         def fake_supabase_request(method, path, params=None, data=None, user_id=None, use_service_role=False):
             if path == "/rest/v1/platform_events":
                 return platform_events, 200
-            if path == "/rest/v1/lead_events":
-                return lead_events, 200
-            if path == "/rest/v1/cars":
-                return cars, 200
-            if path == "/rest/v1/bikes":
-                return bikes, 200
-            if path == "/rest/v1/car_parts":
-                return parts, 200
-            if path == "/rest/v1/license_plates":
-                return plates, 200
-            if path == "/rest/v1/users":
-                return users, 200
             return [], 200
 
-        count_returns = {
-            ("users", None): 3,
-            ("users", frozenset({"is_dealer": "eq.true"}.items())): 1,
-            ("reports", None): 2,
-            ("cars", frozenset({"status": "eq.pending"}.items())): 1,
-            ("bikes", frozenset({"status": "eq.pending"}.items())): 0,
-            ("car_parts", frozenset({"status": "eq.pending"}.items())): 1,
-            ("license_plates", frozenset({"status": "eq.pending"}.items())): 1,
-        }
-
-        def fake_count(table, params=None):
-            key = (table, frozenset((params or {}).items()) if params else None)
-            return count_returns.get(key, 0)
+        def fake_fetch(path, params):
+            if "lead_events" in path:
+                return lead_events
+            if "users" in path:
+                return users
+            if "reports" in path:
+                return reports
+            return []
 
         # Cloudflare override would clobber the platform_events numbers we're
         # actually testing here. Disable it for the duration of this test so we
@@ -107,9 +95,14 @@ class AdminStatsTests(unittest.TestCase):
         with backend.app.test_request_context("/api/admin/stats?days=30"):
             with patch.object(backend, "_require_admin_api_user", return_value=True):
                 with patch.object(backend, "supabase_request", side_effect=fake_supabase_request):
-                    with patch.object(backend, "_supabase_count", side_effect=fake_count):
-                        with _patch("services.cloudflare_analytics.is_enabled", return_value=False):
-                            response, status = backend.get_admin_stats.__wrapped__("admin-1")
+                    with patch.object(backend, "_fetch_rows", side_effect=fake_fetch):
+                        with patch.object(backend, "_fetch_listing_lifecycle_rows", return_value=lifecycle_rows):
+                            with patch.object(backend, "_cached_cropped_at_pct", return_value=None):
+                                with patch.object(backend, "_supabase_count", return_value=3):
+                                    with patch.object(backend, "_api_cache_get", return_value=None):
+                                        with patch.object(backend, "_api_cache_set"):
+                                            with _patch("services.cloudflare_analytics.is_enabled", return_value=False):
+                                                response, status = backend.get_admin_stats.__wrapped__("admin-1")
 
         self.assertEqual(status, 200)
         payload = response.get_json()
@@ -158,12 +151,17 @@ class AdminStatsTests(unittest.TestCase):
                 return lead_events
             if "users" in path:
                 return users_in_window
+            if "reports" in path:
+                return []
             return []
 
         with patch("app.supabase_request", side_effect=fake_supabase_request), \
              patch("app._fetch_rows", side_effect=fake_fetch), \
+             patch("app._fetch_listing_lifecycle_rows", return_value={"cars": [], "bikes": [], "parts": [], "plates": []}), \
+             patch("app._cached_cropped_at_pct", return_value=None), \
              patch("app._supabase_count", return_value=1), \
              patch("app._api_cache_get", return_value=None), \
+             patch("app._api_cache_set"), \
              patch("app._require_admin_api_user", return_value=True), \
              patch("services.cloudflare_analytics.is_enabled", return_value=False):
             with backend.app.test_request_context("/api/admin/stats?days=30"):
@@ -191,12 +189,19 @@ class AdminStatsTests(unittest.TestCase):
             return [], 200  # no platform_events
 
         def fake_fetch(path, params):
-            return lead_events if "lead_events" in path else []
+            if "lead_events" in path:
+                return lead_events
+            if "reports" in path:
+                return []
+            return []
 
         with patch("app.supabase_request", side_effect=fake_supabase_request), \
              patch("app._fetch_rows", side_effect=fake_fetch), \
+             patch("app._fetch_listing_lifecycle_rows", return_value={"cars": [], "bikes": [], "parts": [], "plates": []}), \
+             patch("app._cached_cropped_at_pct", return_value=None), \
              patch("app._supabase_count", return_value=0), \
              patch("app._api_cache_get", return_value=None), \
+             patch("app._api_cache_set"), \
              patch("app._require_admin_api_user", return_value=True):
             with backend.app.test_request_context("/api/admin/stats?days=30"):
                 payload, status_code = backend.get_admin_stats.__wrapped__("admin-1")
@@ -231,8 +236,11 @@ class AdminStatsTests(unittest.TestCase):
 
         with patch("app.supabase_request", side_effect=fake_supabase_request), \
              patch("app._fetch_rows", side_effect=fake_fetch), \
+             patch("app._fetch_listing_lifecycle_rows", return_value={"cars": [], "bikes": [], "parts": [], "plates": []}), \
+             patch("app._cached_cropped_at_pct", return_value=None), \
              patch("app._supabase_count", return_value=0), \
              patch("app._api_cache_get", return_value=None), \
+             patch("app._api_cache_set"), \
              patch("app._require_admin_api_user", return_value=True):
             with backend.app.test_request_context("/api/admin/stats?days=30"):
                 resp = backend.get_admin_stats.__wrapped__("admin-1")
