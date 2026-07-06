@@ -134,7 +134,7 @@ const SkeletonRow = () => (
 );
 
 const AdminListings = () => {
-  const { user, isLoading: authLoading, syncWithSupabase } = useAuth();
+  const { isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTypes = parseParamList(searchParams.get('types'), ALL_TYPES);
   const effectiveTypes = selectedTypes.includes('all')
@@ -192,10 +192,6 @@ const AdminListings = () => {
 
       setLoading(true);
 
-      if (user && !user.access_token) {
-        await syncWithSupabase();
-      }
-
       const typesToFetch = effectiveTypes.includes('all')
         ? ['cars', 'bikes', 'parts', 'plates', 'buying_requests']
         : effectiveTypes;
@@ -239,17 +235,23 @@ const AdminListings = () => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, effectiveTypes.join(','), effectiveStatuses.join(','), syncWithSupabase, user]);
+  }, [authLoading, effectiveTypes.join(','), effectiveStatuses.join(',')]);
 
   useEffect(() => {
-    fetchListings();
-  }, [fetchListings]);
+    if (!authLoading) {
+      fetchListings();
+    }
+  }, [authLoading, fetchListings]);
 
   useEffect(() => {
-    const onFocus = () => fetchListings();
+    const onFocus = () => {
+      if (!authLoading) {
+        fetchListings();
+      }
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [fetchListings]);
+  }, [authLoading, fetchListings]);
 
   const toggleParam = (key, value, allowed) => {
     const current = parseParamList(searchParams.get(key), allowed);
