@@ -810,6 +810,9 @@ def _parse_datetime(value):
 def _isoformat_utc(value):
     if not value:
         return None
+    if isinstance(value, str):
+        parsed = _parse_datetime(value)
+        return parsed.astimezone(datetime.timezone.utc).isoformat() if parsed else value
     if value.tzinfo is None:
         value = value.replace(tzinfo=datetime.timezone.utc)
     return value.astimezone(datetime.timezone.utc).isoformat()
