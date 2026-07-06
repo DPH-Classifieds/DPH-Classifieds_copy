@@ -15,6 +15,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import apiClient from '../utils/apiClient';
+import { useAuth } from '../context/AuthContext';
 import { GlassCard, EmptyState } from './ui/dashboard';
 import { LISTING_REJECTION_REASONS } from './admin/rejectionConstants';
 
@@ -133,6 +134,7 @@ const SkeletonRow = () => (
 );
 
 const AdminListings = () => {
+  const { user, isLoading: authLoading, syncWithSupabase } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTypes = parseParamList(searchParams.get('types'), ALL_TYPES);
   const effectiveTypes = selectedTypes.includes('all')
@@ -184,7 +186,15 @@ const AdminListings = () => {
 
   const fetchListings = useCallback(async () => {
     try {
+      if (authLoading) {
+        return;
+      }
+
       setLoading(true);
+
+      if (user && !user.access_token) {
+        await syncWithSupabase();
+      }
 
       const typesToFetch = effectiveTypes.includes('all')
         ? ['cars', 'bikes', 'parts', 'plates', 'buying_requests']
@@ -229,7 +239,7 @@ const AdminListings = () => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveTypes.join(','), effectiveStatuses.join(',')]);
+  }, [authLoading, effectiveTypes.join(','), effectiveStatuses.join(','), syncWithSupabase, user]);
 
   useEffect(() => {
     fetchListings();
