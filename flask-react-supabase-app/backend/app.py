@@ -372,7 +372,7 @@ PUBLIC_CAR_PREVIEW_SELECT = (
 )
 ADMIN_LISTING_SELECTS = {
     "car": (
-        "id,user_id,user_email,contact_email,listing_title,car_manufacturer,car_model,"
+        "id,user_id,user_email,listing_title,car_manufacturer,car_model,"
         "trim,make_year,expected_selling_price,created_at,updated_at,status,is_approved,"
         "view_count,renewal_nudge_sent_at,"
         + LISTING_LIFECYCLE_SELECT
@@ -381,32 +381,30 @@ ADMIN_LISTING_SELECTS = {
         + ")"
     ),
     "bike": (
-        "id,user_id,user_email,contact_email,listing_title,bike_brand,bike_model,year,"
-        "bike_type,price,expected_selling_price,created_at,updated_at,status,is_approved,"
-        "views,renewal_nudge_sent_at,"
+        "id,user_id,user_email,bike_brand,bike_model,year,"
+        "bike_type,price,created_at,updated_at,status,is_approved,"
+        "view_count,renewal_nudge_sent_at,"
         + LISTING_LIFECYCLE_SELECT
         + ",bike_images("
         + LISTING_IMAGE_SELECTS["bikes"]
         + ")"
     ),
     "part": (
-        "id,user_id,user_email,contact_email,listing_title,name,part_name,part_type,"
-        "category,price,created_at,updated_at,status,is_approved,views,"
-        "renewal_nudge_sent_at,"
+        "id,user_id,user_email,name,part_type,price,created_at,updated_at,status,is_approved,"
+        "view_count,renewal_nudge_sent_at,"
         + LISTING_LIFECYCLE_SELECT
         + ",part_images("
         + LISTING_IMAGE_SELECTS["car_parts"]
         + ")"
     ),
     "plate": (
-        "id,user_id,user_email,contact_email,listing_title,city,code,digits,number,"
-        "price,image_url,url,display_url,created_at,updated_at,status,is_approved,views,renewal_nudge_sent_at,"
+        "id,user_id,user_email,listing_title,city,code,digits,number,"
+        "price,contact_name,contact_phone,created_at,updated_at,status,is_approved,view_count,renewal_nudge_sent_at,"
         + LISTING_LIFECYCLE_SELECT
     ),
     "buying_request": (
-        "id,user_id,user_email,contact_email,listing_title,car_manufacturer,car_model,"
-        "trim,make_year,budget_min,budget_max,created_at,updated_at,status,"
-        "renewal_nudge_sent_at,"
+        "id,user_id,user_email,listing_title,item_name,item_type,car_manufacturer,car_model,"
+        "trim,budget,created_at,updated_at,status,is_approved,"
         + LISTING_LIFECYCLE_SELECT
     ),
 }
