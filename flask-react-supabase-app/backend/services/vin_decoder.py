@@ -26,6 +26,28 @@ TRANSLITERATION = {
 WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2]
 _VIN_CACHE = {}
 
+# Position 10 (index 9) encodes model year per ISO 3779 (30-year cycle from 1980)
+_YEAR_CODES = {
+    **{c: 1980 + i for i, c in enumerate("ABCDEFGHJKLMNPRSTV")},
+    **{c: 1998 + i for i, c in enumerate("WXYZ")},  # W=1998,X=1999,Y=2000
+    **{str(d): 2001 + d - 1 for d in range(1, 10)},  # 1=2001..9=2009
+}
+# Second 30-year cycle (2010+) shares letters A-Y
+_YEAR_CODES_2010 = {c: y + 30 for c, y in _YEAR_CODES.items() if isinstance(c, str) and c.isalpha()}
+
+
+def decode_vin_year(vin):
+    """Return (base_year, base_year+30) possible model years from VIN position 10, or None."""
+    vin = str(vin or "").upper()
+    if len(vin) != 17:
+        return None
+    code = vin[9]
+    base = _YEAR_CODES.get(code)
+    if base is None:
+        return None
+    alt = _YEAR_CODES_2010.get(code)
+    return (base, alt) if alt else (base,)
+
 
 class VINDecoder:
     def __init__(
@@ -79,6 +101,7 @@ class VINDecoder:
             base_result["errors"].append("invalid_format")
             return self._cache(normalized_vin, base_result)
 
+        base_result["vin_year_candidates"] = decode_vin_year(normalized_vin)
         checksum_valid = self.is_checksum_valid(normalized_vin)
         base_result["checksum_valid"] = checksum_valid
         if not checksum_valid:
@@ -126,6 +149,9 @@ class VINDecoder:
     def is_checksum_valid(vin):
         if not VIN_ALLOWED_RE.match(vin):
             return False
+        # ponytail: checksum is NHTSA/NA-only (WMI 1-5); skip for JDM/EU/GCC-market VINs
+        if vin[0] not in "12345":
+            return True
         total = 0
         for char, weight in zip(vin, WEIGHTS):
             value = int(char) if char.isdigit() else TRANSLITERATION[char]
@@ -167,7 +193,8 @@ class VINDecoder:
 
         errors = []
         error_code = str(result.get("ErrorCode") or "").strip()
-        if error_code and error_code not in {"0", "00"}:
+        # ponytail: NHTSA can return multi-code like "0,6"; valid if any code is "0"
+        if error_code and not any(c.strip() in {"0", "00"} for c in error_code.split(",")):
             errors.append("decoder_error")
         if not decoded:
             errors.append("decoder_empty")

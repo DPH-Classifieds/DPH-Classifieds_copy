@@ -5,6 +5,7 @@ import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { getYearOptions } from '../utils/listingConstants';
+import { isVinValid } from '../utils/vinValidation';
 import '../styles/CreateListing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -438,23 +439,32 @@ const CreateListing = () => {
                   VIN *
                 </span> <span className="text-muted">(Vehicle Identification Number)</span>
               </label>
-              <input 
-                type="text" 
-                id="vin_number" 
-                name="vin_number" 
-                value={formData.vin_number} 
+              <input
+                type="text"
+                id="vin_number"
+                name="vin_number"
+                value={formData.vin_number}
                 onChange={(e) => {
                   const upperValue = e.target.value.toUpperCase();
                   setFormData(prev => ({ ...prev, vin_number: upperValue }));
                 }}
                 placeholder="e.g., 1HGCM82633A123456"
+                className={formData.vin_number.length === 17 ? (isVinValid(formData.vin_number) ? 'is-valid' : 'is-invalid') : ''}
                 style={{ textTransform: 'uppercase' }}
                 maxLength="17"
                 required
               />
-              <small className="form-text vin-help-text">
-                <strong>VIN helps your listing stand out:</strong> verified VIN details increase buyer trust and improve listing quality. <strong>Where to find it:</strong> check your registration, insurance documents, dashboard, door jamb, or under the hood.
-              </small>
+              {formData.vin_number.length === 17 && !isVinValid(formData.vin_number) && (
+                <small className="text-danger">Invalid VIN — check for typos (common mix-ups: O/0, I/1, Q/0).</small>
+              )}
+              {formData.vin_number.length === 17 && isVinValid(formData.vin_number) && (
+                <small className="text-success">VIN format looks good.</small>
+              )}
+              {!formData.vin_number && (
+                <small className="form-text vin-help-text">
+                  <strong>VIN helps your listing stand out:</strong> verified VIN details increase buyer trust and improve listing quality. <strong>Where to find it:</strong> check your registration, insurance documents, dashboard, door jamb, or under the hood.
+                </small>
+              )}
             </div>
           </div>
           

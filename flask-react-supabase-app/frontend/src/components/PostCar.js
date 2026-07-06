@@ -3083,14 +3083,27 @@ const PostCar = () => {
                   handleChange({ target: { name: 'vin_number', value: upperValue } });
                 }}
                 placeholder="e.g. 1HGCM82633A123456"
-                className="form-control"
+                className={`form-control${formData.vin_number.length === 17 && !isVinValid(formData.vin_number) ? ' is-invalid' : formData.vin_number.length === 17 && isVinValid(formData.vin_number) ? ' is-valid' : ''}`}
                 style={{ textTransform: 'uppercase' }}
                 maxLength="17"
                 required
               />
-              <div className="form-text">
-                <strong>VIN helps your listing stand out:</strong> verified VIN details increase buyer trust and improve listing quality. <span className="vin-help-text"><strong>Where to find it:</strong> check your registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.</span>
-              </div>
+              {formData.vin_number.length === 17 && !isVinValid(formData.vin_number) && (
+                <div className="invalid-feedback">
+                  Invalid VIN — check for typos (common mix-ups: O/0, I/1, Q/0). The 17-character code is on your registration document or driver's side dashboard.
+                </div>
+              )}
+              {formData.vin_number.length === 17 && isVinValid(formData.vin_number) && (
+                <div className="valid-feedback">VIN format looks good.</div>
+              )}
+              {formData.vin_number.length > 0 && formData.vin_number.length < 17 && (
+                <div className="form-text text-muted">{17 - formData.vin_number.length} characters remaining</div>
+              )}
+              {!(formData.vin_number.length > 0) && (
+                <div className="form-text">
+                  <strong>VIN helps your listing stand out:</strong> verified VIN details increase buyer trust and improve listing quality. <span className="vin-help-text"><strong>Where to find it:</strong> check your registration, insurance documents, driver's side dashboard (visible through windshield), driver's side door jamb, or under the hood.</span>
+                </div>
+              )}
             </div>
           </div>
           
