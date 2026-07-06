@@ -76,7 +76,7 @@ const carModels = {
   'Jeep': ['Wrangler', 'Wrangler Unlimited', 'Grand Cherokee', 'Grand Cherokee L', 'Cherokee', 'Compass', 'Renegade', 'Gladiator', 'Wagoneer', 'Grand Wagoneer', 'Patriot', 'Liberty'],
   'Jetour': ['G700', 'T1', 'T2', 'Dashing', 'X50', 'X70', 'X70 Plus', 'X90', 'X90 Plus'],
   'Kaiyi': ['X3', 'X7', 'X3 Pro', 'E5'],
-  'Kia': ['Telluride', 'Sorento', 'Sportage', 'Seltos', 'Forte', 'K5', 'Carnival', 'EV6', 'EV9', 'Niro', 'Soul', 'Rio', 'Stinger', 'K900', 'Mohave', 'Carens', 'Sonet', 'K4'],
+  'Kia': ['Telluride', 'Sorento', 'Sportage', 'Seltos', 'Forte', 'K5', 'Carnival', 'EV6', 'EV9', 'Niro', 'Soul', 'Rio', 'Stinger', 'K900', 'Mohave', 'Carens', 'Sonet', 'K4','Picanto'],
   'King Long': ['XMQ', 'XML', 'XMQ'],
   'Koenigsegg': ['Jesko', 'Regera', 'Agera', 'One:1', 'CCX', 'Gemera'],
   'KTM': ['X-Bow'],
@@ -1252,6 +1252,27 @@ const carTrims = {
     'Menlo': ['LS', 'LT', 'Premier'],
     'Lumina': ['LS', 'LTZ', 'SS'],
     'Caprice': ['LS', 'LTZ', 'SS', 'Royale']
+  },
+  'Kia': {
+    'Telluride': ['LX', 'S', 'EX', 'SX', 'SX Prestige', 'X-Line', 'X-Pro'],
+    'Sorento': ['LX', 'S', 'EX', 'SX', 'SX Prestige', 'X-Line', 'X-Pro'],
+    'Sportage': ['LX', 'EX', 'X-Line', 'SX', 'SX Prestige', 'X-Pro Prestige', 'GT-Line'],
+    'Seltos': ['LX', 'S', 'EX', 'SX', 'X-Line', 'GT-Line'],
+    'Forte': ['LX', 'LXS', 'GT-Line', 'GT'],
+    'K5': ['LX', 'LXS', 'GT-Line', 'EX', 'GT'],
+    'Carnival': ['LX', 'EX', 'SX', 'SX Prestige'],
+    'EV6': ['Light', 'Wind', 'GT-Line', 'GT'],
+    'EV9': ['Light', 'Wind', 'Land', 'GT-Line'],
+    'Niro': ['LX', 'EX', 'EX Premium', 'SX', 'SX Touring'],
+    'Soul': ['LX', 'S', 'EX', 'GT-Line'],
+    'Rio': ['LX', 'S', 'EX'],
+    'Stinger': ['GT-Line', 'GT', 'GT1', 'GT2'],
+    'K900': ['Premium', 'Luxury', 'VIP'],
+    'Mohave': ['LX', 'EX', 'SX'],
+    'Carens': ['Premium', 'Luxury', 'Luxury Plus', 'Luxury+'],
+    'Sonet': ['LX', 'EX', 'SX'],
+    'K4': ['LX', 'LXS', 'EX', 'GT-Line', 'GT-Line Turbo'],
+    'Picanto': ['LX', 'EX', 'GT-Line']
   },
 };
 
