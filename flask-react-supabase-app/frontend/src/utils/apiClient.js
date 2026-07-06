@@ -61,6 +61,14 @@ export const apiClient = {
       let token = await getBestAccessToken();
       
       if (!token) {
+        // If storage is temporarily out of sync, try a one-shot refresh before
+        // giving up. This avoids false 401s on admin surfaces during auth
+        // hydration and after token rotation.
+        const refreshResult = await authService.refreshToken();
+        token = refreshResult?.data?.access_token || null;
+      }
+
+      if (!token) {
         logger.debug('No authentication token available - user might not be logged in');
 
         // Create a descriptive error for better user experience
