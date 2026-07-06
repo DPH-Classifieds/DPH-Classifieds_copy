@@ -684,9 +684,9 @@ const AdminReports = () => {
                                                   {listing.title || '—'}
                                                 </p>
                                                 {listing.seller_email && (
-                                                  <p className="flex items-center gap-1.5 text-xs text-white/50">
+                                                  <p className="flex items-center gap-1.5 text-xs text-white/50 break-all">
                                                     <User size={11} />
-                                                    Seller: <span className="text-white/70">{listing.seller_email}</span>
+                                                    Seller: <span className="text-white/70 font-mono">{listing.seller_email}</span>
                                                   </p>
                                                 )}
                                                 <p className="font-mono text-[10px] text-white/30 break-all">

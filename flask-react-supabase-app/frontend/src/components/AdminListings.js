@@ -926,8 +926,13 @@ const AdminListings = () => {
                         </td>
                         <td className="px-4 py-3"><TypeBadge type={lt} /></td>
                         <td className="px-4 py-3"><StatusBadge status={displayStatus} /></td>
-                        <td className="px-4 py-3 max-w-[160px]">
-                          <p className="text-white/60 text-sm truncate">{seller}</p>
+                        <td className="px-4 py-3 max-w-[260px]">
+                          <p
+                            className="text-white/60 text-sm font-mono whitespace-normal break-all leading-snug"
+                            title={seller}
+                          >
+                            {seller}
+                          </p>
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-white/60 text-sm">{views.toLocaleString()}</p>
