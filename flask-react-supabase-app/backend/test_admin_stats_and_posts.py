@@ -40,6 +40,22 @@ class SupabaseCountTests(unittest.TestCase):
             )
             self.assertEqual(backend._supabase_count("users", {}), 0)
 
+    def test_supabase_count_uses_request_token_when_service_key_missing(self):
+        with backend.app.test_request_context("/api/admin/stats"):
+            backend.request.supabase_token = "jwt-token-123"
+            with patch.dict(backend.os.environ, {"SUPABASE_SERVICE_ROLE_KEY": ""}, clear=False):
+                with patch("app.requests.head") as mock_head:
+                    mock_head.return_value = Mock(
+                        status_code=206,
+                        headers={"Content-Range": "0-0/11"},
+                    )
+                    count = backend._supabase_count("users", {})
+
+        self.assertEqual(count, 11)
+        headers = mock_head.call_args.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "Bearer jwt-token-123")
+        self.assertEqual(headers["apikey"], backend.SUPABASE_KEY)
+
 
 class AdminStatsTests(unittest.TestCase):
     def test_admin_stats_includes_visitor_counts(self):

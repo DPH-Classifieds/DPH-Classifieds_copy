@@ -5527,14 +5527,20 @@ def _supabase_count(table: str, params: dict | None = None) -> int:
 
     params is a dict of PostgREST filter expressions, e.g. {"status": "eq.pending"}.
     """
-    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    request_token = getattr(request, "supabase_token", None) if has_request_context() else None
+    use_request_token = bool(request_token and not service_key)
+    bearer_token = request_token if use_request_token else (service_key or SUPABASE_KEY)
+    apikey = SUPABASE_KEY if use_request_token else (service_key or SUPABASE_KEY)
     headers = {
-        "apikey": service_key,
-        "Authorization": f"Bearer {service_key}",
+        "apikey": apikey,
+        "Authorization": f"Bearer {bearer_token}",
         "Range-Unit": "items",
         "Range": "0-0",
         "Prefer": "count=exact",
     }
+    if use_request_token:
+        headers["X-Postgres-Role"] = "authenticated"
     try:
         resp = requests.head(
             f"{SUPABASE_URL}/rest/v1/{table}",
@@ -5564,20 +5570,25 @@ def supabase_request(
 ):
     url = f"{SUPABASE_URL}{path}"
 
-    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     user_token = None
     if has_request_context():
         user_token = getattr(request, "supabase_token", None)
 
+    has_service_role = bool(service_key)
+    fallback_to_user_token = bool(use_service_role and not has_service_role and user_token)
+    auth_apikey = SUPABASE_KEY if fallback_to_user_token else (service_key or SUPABASE_KEY)
+    auth_bearer = user_token if fallback_to_user_token else (service_key or SUPABASE_KEY)
+
     if use_service_role or "admin" in path:
         headers = {
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
+            "apikey": auth_apikey,
+            "Authorization": f"Bearer {auth_bearer}",
             "Content-Type": "application/json",
             "Prefer": "return=representation",
             "X-Client-Info": "backend-api",
-            "X-Postgres-Role": "service_role",
         }
+        headers["X-Postgres-Role"] = "service_role" if has_service_role else "authenticated"
     elif user_id and user_token:
         headers = {
             "apikey": SUPABASE_KEY,
@@ -5597,13 +5608,13 @@ def supabase_request(
             }
         else:
             headers = {
-                "apikey": service_key,
-                "Authorization": f"Bearer {service_key}",
+                "apikey": auth_apikey,
+                "Authorization": f"Bearer {auth_bearer}",
                 "Content-Type": "application/json",
                 "Prefer": "return=representation",
                 "X-Client-Info": "backend-api",
-                "X-Postgres-Role": "service_role",
             }
+            headers["X-Postgres-Role"] = "service_role" if has_service_role else "authenticated"
     else:
         headers = {
             "apikey": SUPABASE_KEY,
