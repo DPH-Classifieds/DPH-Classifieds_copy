@@ -63,6 +63,7 @@ class SeoRouteTests(unittest.TestCase):
                             "id": "plate-1",
                             "created_at": "2026-04-29T13:00:00Z",
                             "status": "approved",
+                            "is_approved": True,
                         }
                     ]
                 )

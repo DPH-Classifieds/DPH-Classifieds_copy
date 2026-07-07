@@ -659,7 +659,8 @@ class ListingOutcomeTransitionTests(unittest.TestCase):
         self.assertEqual(status_code, 200)
         self.assertEqual(response.get_json()["message"], "Listing outcome saved")
         self.assertEqual(captured["data"]["status"], "draft")
-        self.assertEqual(captured["data"]["listing_state"], "draft")
+        # listing_state is a computed column — never written directly
+        self.assertNotIn("listing_state", captured["data"])
         self.assertEqual(captured["data"]["is_approved"], False)
         self.assertIsNone(captured["data"]["expired_at"])
         self.assertGreater(

@@ -95,7 +95,8 @@ class DraftAdminTests(unittest.TestCase):
                 return ([listing], 200)
             if method == "patch":
                 self.assertEqual(data.get("status"), "draft")
-                self.assertEqual(data.get("listing_state"), "draft")
+                # listing_state is a computed column — never written directly
+                self.assertNotIn("listing_state", data)
                 return ([{**listing, **data}], 200)
             return ([], 200)
 
