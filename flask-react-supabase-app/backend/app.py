@@ -6851,6 +6851,9 @@ def update_car(current_user, car_id):
         # Strictly apply allowed fields filter
         update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
 
+        if "expected_selling_price" in update_data and update_data["expected_selling_price"] is not None:
+            _maybe_record_price_drop("cars", car_id, update_data["expected_selling_price"])
+
         # Update the car using PATCH for partial update
         data, status_code = supabase_request(
             "patch",
@@ -11406,6 +11409,230 @@ def _run_saved_car_reminders_once(first_age_hours=24, repeat_age_hours=48, age_h
     return {"processed": len(rows or []), "sent": sent, "skipped": skipped}
 
 
+def _maybe_record_price_drop(listing_type, listing_id, new_price):
+    """If new_price < current DB price, insert a price_drops record for the worker to process."""
+    if not new_price or int(new_price) <= 0:
+        return
+    price_col = "expected_selling_price" if listing_type == "cars" else "price"
+    rows, status = supabase_request(
+        "get", f"/rest/v1/{listing_type}",
+        params={"id": f"eq.{listing_id}", "select": price_col},
+        use_service_role=True,
+    )
+    if status >= 400 or not rows:
+        return
+    current_price = rows[0].get(price_col) if rows else None
+    if not current_price or int(new_price) >= int(current_price):
+        return
+    supabase_request(
+        "post", "/rest/v1/price_drops",
+        data={
+            "listing_type": listing_type,
+            "listing_id": str(listing_id),
+            "old_price": int(current_price),
+            "new_price": int(new_price),
+        },
+        use_service_role=True,
+    )
+
+
+def _saved_searches_for_price_drop(listing_type, listing, new_price):
+    """Return saved search rows whose filters match this price-dropped listing."""
+    cat_map = {"cars": "cars", "bikes": "bikes", "car_parts": "parts", "license_plates": "plates"}
+    category = cat_map.get(listing_type)
+    if not category:
+        return []
+    rows, status = supabase_request(
+        "get", "/rest/v1/saved_searches",
+        params={
+            "select": "id,user_id,filters,name",
+            "or": f"(category.eq.{category},category.eq.all)",
+            "limit": "2000",
+        },
+        use_service_role=True,
+    )
+    if status >= 400 or not rows:
+        return []
+
+    if listing_type == "cars":
+        listing_make  = (listing.get("car_manufacturer") or "").lower()
+        listing_model = (listing.get("car_model") or "").lower()
+        listing_year  = listing.get("make_year")
+    else:
+        listing_make  = (listing.get("make") or "").lower()
+        listing_model = (listing.get("model") or "").lower()
+        listing_year  = listing.get("year")
+
+    matches = []
+    for row in rows:
+        f = row.get("filters") or {}
+        if f.get("make")  and listing_make  and f["make"].lower()  != listing_make:
+            continue
+        if f.get("model") and listing_model and f["model"].lower() != listing_model:
+            continue
+        if f.get("year_min") and listing_year and int(listing_year) < int(f["year_min"]):
+            continue
+        if f.get("year_max") and listing_year and int(listing_year) > int(f["year_max"]):
+            continue
+        price_max = f.get("price_max")
+        if price_max and int(new_price) > int(price_max):
+            continue
+        matches.append(row)
+    return matches
+
+
+def _send_price_drop_alert_email(user_email, listing_type, listing, old_price, new_price):
+    if not user_email or user_email == "unknown@example.com":
+        return None, "Missing recipient email"
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    drop_pct = round((old_price - new_price) / old_price * 100) if old_price else 0
+    if listing_type == "cars":
+        title = f"{listing.get('car_manufacturer', '')} {listing.get('car_model', '')} {listing.get('make_year', '')}".strip()
+    elif listing_type == "bikes":
+        title = f"{listing.get('make', '')} {listing.get('model', '')} {listing.get('year', '')}".strip()
+    elif listing_type == "car_parts":
+        title = listing.get("name") or "Car Part"
+    else:
+        title = listing.get("plate_number") or "Plate"
+    if not title:
+        title = "A listing you're watching"
+
+    listing_id  = listing.get("id")
+    table_slug  = {"cars": "cars", "bikes": "bikes", "car_parts": "parts", "license_plates": "plates"}.get(listing_type, listing_type)
+    img_url     = _fetch_listing_primary_image_url(listing_type.rstrip("s"), listing_id)
+    listing_url = _build_listing_url(table_slug, listing_id)
+    card_html   = _build_email_listing_card_html(listing_type.rstrip("s"), listing, img_url, listing_url, "View Listing")
+
+    subject = f"Price drop: {xml_escape(title)} — AED {int(new_price):,} (was {int(old_price):,})"
+    body = f"""
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td style="padding-bottom:20px;">
+    <h2 style="margin:0;font-size:22px;font-weight:700;color:#f0fdf4;line-height:1.3;">
+      Price dropped {xml_escape(str(drop_pct))}% on a listing you&rsquo;re watching
+    </h2>
+    <p style="margin:8px 0 0;font-size:16px;">
+      <span style="color:#6dac8e;text-decoration:line-through;">AED {xml_escape(f'{int(old_price):,}')}</span>
+      &nbsp;&rarr;&nbsp;
+      <span style="color:#8bd6b4;font-weight:700;">AED {xml_escape(f'{int(new_price):,}')}</span>
+    </p>
+  </td></tr>
+</table>
+{card_html}
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td style="padding:8px 0 20px;">
+    <a href="{listing_url}"
+       style="display:inline-block;background:#8bd6b4;color:#041008;font-weight:700;
+              font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+      View Listing &rarr;
+    </a>
+  </td></tr>
+</table>
+"""
+    footer = (
+        "You&rsquo;re receiving this because you have a matching saved search on DPH Classifieds. "
+        "To stop these alerts, remove the saved search or disable Email Notifications in account settings."
+    )
+    html_content = _email_outer_wrapper(subject, body, footer)
+    payload = {
+        "from": from_email,
+        "to": [user_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL") or os.getenv("RESEND_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+    return _send_resend_email(payload, email_type="price_drop_alert")
+
+
+def _mark_price_drop_processed(drop_id, notified_count):
+    supabase_request(
+        "patch", f"/rest/v1/price_drops?id=eq.{drop_id}",
+        data={"processed_at": _isoformat_utc(_utc_now()), "notified_count": notified_count},
+        use_service_role=True,
+    )
+
+
+def _run_price_drop_alerts_once(limit=50):
+    """Process queued price drop events: match to saved searches, notify matching users."""
+    rows, status = supabase_request(
+        "get", "/rest/v1/price_drops",
+        params={
+            "processed_at": "is.null",
+            "select": "*",
+            "order": "created_at.asc",
+            "limit": str(limit),
+        },
+        use_service_role=True,
+    )
+    if status >= 400 or not rows:
+        return {"processed": 0, "sent": 0}
+
+    total_sent = 0
+    for drop in rows:
+        listing_type = drop["listing_type"]
+        listing_id   = drop["listing_id"]
+        old_price    = drop["old_price"]
+        new_price    = drop["new_price"]
+
+        price_col = "expected_selling_price" if listing_type == "cars" else "price"
+        if listing_type == "cars":
+            fields = f"id,status,{price_col},car_manufacturer,car_model,make_year,listing_title,car_location"
+        elif listing_type == "bikes":
+            fields = f"id,status,{price_col},make,model,year,title"
+        elif listing_type == "car_parts":
+            fields = f"id,status,{price_col},make,model,name"
+        else:
+            fields = f"id,status,{price_col},plate_number"
+
+        listings, lst_status = supabase_request(
+            "get", f"/rest/v1/{listing_type}",
+            params={"id": f"eq.{listing_id}", "select": fields},
+            use_service_role=True,
+        )
+        if lst_status >= 400 or not listings:
+            _mark_price_drop_processed(drop["id"], 0)
+            continue
+
+        listing = listings[0]
+        if listing.get("status") not in ("approved", "active"):
+            _mark_price_drop_processed(drop["id"], 0)
+            continue
+
+        matches  = _saved_searches_for_price_drop(listing_type, listing, new_price)
+        notified = 0
+        seen     = set()
+        for search in matches:
+            user_id = search.get("user_id")
+            if not user_id or user_id in seen:
+                continue
+            seen.add(user_id)
+
+            email = get_user_email(user_id)
+            _, err = _send_price_drop_alert_email(email, listing_type, listing, old_price, new_price)
+            if not err:
+                if listing_type == "cars":
+                    push_label = f"{listing.get('car_manufacturer', '')} {listing.get('car_model', '')}".strip() or "A listing"
+                else:
+                    push_label = listing.get("title") or listing.get("name") or "A listing"
+                _notify_user_push(
+                    user_id,
+                    "Price Drop",
+                    f"{push_label} just dropped to AED {int(new_price):,}",
+                    data={"type": "price_drop", "listing_type": listing_type, "listing_id": listing_id},
+                )
+                notified += 1
+                logger.info("Price drop alert sent user=%s listing=%s %d->%d", user_id, listing_id, old_price, new_price)
+
+        _mark_price_drop_processed(drop["id"], notified)
+        total_sent += notified
+
+    return {"processed": len(rows), "sent": total_sent}
+
+
 def _run_saved_search_alerts_once(first_age_hours=24, repeat_age_hours=48, age_hours=None, limit=100):
     """Alert users about their saved searches: first at 24h, then every 48h when there are matching results."""
     if age_hours is not None:
@@ -13853,6 +14080,9 @@ def update_bike(current_user, bike_id):
 
         update_data = {k: v for k, v in update_data.items() if k in bike_allowed_fields}
 
+        if "price" in update_data and update_data["price"] is not None:
+            _maybe_record_price_drop("bikes", bike_id, update_data["price"])
+
         # Update the bike using PATCH for partial update
         data, status_code = supabase_request(
             "patch",
@@ -14260,6 +14490,9 @@ def update_plate(current_user, plate_id):
 
         # Sanitize
         update_data.pop("id", None)
+
+        if "price" in update_data and update_data["price"] is not None:
+            _maybe_record_price_drop("license_plates", plate_id, update_data["price"])
 
         # Update — include user_id filter so the query is a no-op if the caller
         # does not own this plate (belt-and-suspenders alongside RLS).
@@ -14874,6 +15107,9 @@ def update_part(current_user, part_id):
                 _validate_no_profanity(update_data.get("name"), field_name="name")
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
+
+        if "price" in update_data and update_data["price"] is not None:
+            _maybe_record_price_drop("car_parts", part_id, update_data["price"])
 
         # Update the part
         data, status_code = supabase_request(

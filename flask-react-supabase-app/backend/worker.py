@@ -157,6 +157,7 @@ def main():
             _run_saved_car_reminders_once,
             _run_saved_search_alerts_once,
             _run_dealer_doc_expiry_reminders_once,
+            _run_price_drop_alerts_once,
         )
         from workers.inventory_import_worker import run as _run_inventory_import_once
         from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
@@ -226,6 +227,9 @@ def main():
     )
     auto_review_interval_seconds = int(
         os.getenv("AUTO_REVIEW_INTERVAL_SECONDS", "15")
+    )
+    price_drop_alert_interval_seconds = int(
+        os.getenv("PRICE_DROP_ALERT_INTERVAL_SECONDS", "300")
     )
 
     health_server_thread = threading.Thread(
@@ -374,6 +378,16 @@ def main():
         name="auto-review",
         daemon=True,
     )
+    price_drop_alert_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "price-drop-alerts",
+            _run_price_drop_alerts_once,
+            price_drop_alert_interval_seconds,
+        ),
+        name="price-drop-alerts",
+        daemon=True,
+    )
     reminder_thread.start()
     draft_reminder_thread.start()
     saved_car_reminder_thread.start()
@@ -385,6 +399,7 @@ def main():
     dealer_api_poll_thread.start()
     webhook_delivery_thread.start()
     auto_review_thread.start()
+    price_drop_alert_thread.start()
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss draft_reminders=%ss saved_car_reminders=%ss saved_search_alerts=%ss sweep=%ss dealer_doc_expiry=%ss)",
         listing_reminder_interval_seconds,
@@ -444,6 +459,7 @@ def main():
         dealer_api_poll_thread.join(timeout=5)
         webhook_delivery_thread.join(timeout=5)
         auto_review_thread.join(timeout=5)
+        price_drop_alert_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 
