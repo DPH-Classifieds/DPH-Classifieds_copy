@@ -5,20 +5,21 @@ import '@tensorflow/tfjs-backend-webgl';
 
 let nsfwModel = null;
 let faceModel = null;
+let loadPromise = null;
 
 // Exported for test resets only — not for production use
 export function _resetModels() {
   nsfwModel = null;
   faceModel = null;
+  loadPromise = null;
 }
 
 async function loadModels() {
-  if (!nsfwModel || !faceModel) {
-    [nsfwModel, faceModel] = await Promise.all([
-      nsfwjs.load(),
-      blazeface.load(),
-    ]);
+  if (!loadPromise) {
+    loadPromise = Promise.all([nsfwjs.load(), blazeface.load()])
+      .then(([nsfw, face]) => { nsfwModel = nsfw; faceModel = face; });
   }
+  await loadPromise;
 }
 
 function fileToImageElement(file) {
