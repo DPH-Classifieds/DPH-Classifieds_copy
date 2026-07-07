@@ -63,6 +63,7 @@ import Button from '../../components/ui/Button';
 import ImageCropperModal from '../../components/ui/ImageCropperModal';
 import { compressImage } from '../../utils/imageCompressor';
 import { toastApiError } from '../../utils/toast';
+import { moderateImage } from '../../utils/imageModeration';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -439,6 +440,7 @@ export default function PostListingScreen({ navigation, route }) {
   const [images, setImages] = useState([]);
   const [cropperUri, setCropperUri] = useState(null);
   const [cropperVisible, setCropperVisible] = useState(false);
+  const [moderating, setModerating] = useState(false);
 
   const [carEmirate, setCarEmirate] = useState('Dubai');
   const [carArea, setCarArea] = useState('');
@@ -2376,10 +2378,26 @@ export default function PostListingScreen({ navigation, route }) {
       <ImageCropperModal
         visible={cropperVisible}
         imageUri={cropperUri}
-        onConfirm={(uri) => {
-          setImages(prev => [...prev, uri]);
+        onConfirm={async (uri) => {
+          // ponytail: moderate after crop so we check the final image, not the raw picker URI
+          let allow = true;
+          setModerating(true);
+          try {
+            const r = await moderateImage(uri);
+            if (r.blocked) {
+              const reason = r.reasons.includes('nudity')
+                ? 'Explicit content is not allowed.'
+                : 'Faces detected — please use vehicle-only photos.';
+              Alert.alert('Photo Blocked', reason);
+              allow = false;
+            }
+          } catch {
+            // ponytail: fail-open on moderation error
+          }
+          setModerating(false);
           setCropperVisible(false);
           setCropperUri(null);
+          if (allow) setImages(prev => [...prev, uri]);
         }}
         onCancel={() => {
           setCropperVisible(false);
@@ -2436,6 +2454,7 @@ export default function PostListingScreen({ navigation, route }) {
               title={isEditMode ? 'Update Listing' : 'Post Listing'}
               onPress={handleSubmit}
               loading={loading}
+              disabled={moderating}
               style={styles.submitBtn}
             />
           )}
