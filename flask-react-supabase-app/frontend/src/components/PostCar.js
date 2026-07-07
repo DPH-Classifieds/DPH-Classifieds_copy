@@ -3129,12 +3129,12 @@ const PostCar = () => {
                 required
               />
               {formData.vin_number.length === 17 && !isVinValid(formData.vin_number) && (
-                <div className="invalid-feedback">
+                <small style={{ color: '#dc3545', display: 'block', marginTop: '0.25rem' }}>
                   This VIN appears invalid. You can still post your listing.
-                </div>
+                </small>
               )}
               {formData.vin_number.length === 17 && isVinValid(formData.vin_number) && (
-                <div className="valid-feedback">VIN verified ✓</div>
+                <small style={{ color: '#198754', display: 'block', marginTop: '0.25rem' }}>VIN verified ✓</small>
               )}
               {formData.vin_number.length > 0 && formData.vin_number.length < 17 && (
                 <div className="form-text text-muted">{17 - formData.vin_number.length} characters remaining</div>

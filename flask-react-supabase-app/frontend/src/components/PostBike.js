@@ -462,11 +462,11 @@ const PostBike = () => {
         handleChange({ target: { name: 'vin_number', value: vinMatch[0] } });
         setRegDocOcrStatus('done');
       } else {
-        setRegDocOcrStatus('error');
+        setRegDocOcrStatus('not-found');
       }
     } catch (err) {
       console.warn('Bike OCR failed:', err);
-      setRegDocOcrStatus('error');
+      setRegDocOcrStatus('service-error');
     }
   };
 
@@ -913,7 +913,8 @@ const PostBike = () => {
                       </button>
                     )}
                     {regDocOcrStatus === 'done' && <p className="form-text text-success">VIN pre-filled from document.</p>}
-                    {regDocOcrStatus === 'error' && <p className="form-text text-muted">No VIN found — enter manually above.</p>}
+                    {regDocOcrStatus === 'not-found' && <p className="form-text text-muted">No VIN found in document — enter manually above.</p>}
+                    {regDocOcrStatus === 'service-error' && <p className="form-text text-warning">Scan service unavailable — enter VIN manually. Try again in a moment.</p>}
                     <div className="form-text text-muted">Never shown to buyers.</div>
                   </div>
                 </div>

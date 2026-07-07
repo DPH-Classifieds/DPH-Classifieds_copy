@@ -185,31 +185,51 @@ def hf_extract(current_user):
     if not image_b64:
         return jsonify({"error": "image_b64 is required"}), 400
 
+    # Strip data-URL prefix if caller includes it
     if "," in image_b64:
         image_b64 = image_b64.split(",", 1)[1]
 
     if len(image_b64) > 27 * 1024 * 1024:
         return jsonify({"error": "image_b64 exceeds 20 MB limit"}), 413
 
-    hf_url = "https://akhaliq-unlimited-ocr.hf.space/run/predict"
-    try:
-        hf_resp = _req.post(
-            hf_url,
-            json={"data": [f"data:image/jpeg;base64,{image_b64}"]},
-            timeout=30,
-        )
-    except _req.exceptions.Timeout:
-        return jsonify({"error": "OCR service timed out"}), 504
-    except Exception as exc:
-        return jsonify({"error": "OCR service unavailable"}), 502
+    data_url = f"data:image/jpeg;base64,{image_b64}"
 
-    if hf_resp.status_code != 200:
+    # ponytail: try Gradio 3.x dict format first (more compatible), fall back to plain string
+    hf_url = "https://akhaliq-unlimited-ocr.hf.space/run/predict"
+    payloads = [
+        # Gradio 3.x: image as {data, name, is_file} dict
+        {"data": [{"data": data_url, "name": "image.jpg", "is_file": False}]},
+        # Gradio 3.x fallback: plain data-URL string
+        {"data": [data_url]},
+    ]
+
+    last_err = None
+    for payload in payloads:
+        try:
+            hf_resp = _req.post(hf_url, json=payload, timeout=45)
+        except _req.exceptions.Timeout:
+            return jsonify({"error": "OCR service timed out — it may be warming up, please try again"}), 504
+        except Exception as exc:
+            last_err = exc
+            continue
+
+        if hf_resp.status_code == 200:
+            try:
+                result = hf_resp.json()
+                raw = result.get("data", [None])[0] or ""
+                # Gradio may return the text nested in a dict
+                text = raw if isinstance(raw, str) else (raw.get("value") or raw.get("text") or str(raw))
+            except Exception:
+                text = hf_resp.text or ""
+            return jsonify({"text": str(text)}), 200
+
+        if hf_resp.status_code in (422, 400):
+            # Wrong format for this space — try next payload
+            last_err = ValueError(f"HF {hf_resp.status_code}: {hf_resp.text[:200]}")
+            continue
+
+        logger.warning("HF OCR returned %s: %s", hf_resp.status_code, hf_resp.text[:200])
         return jsonify({"error": "OCR service error"}), 502
 
-    try:
-        payload = hf_resp.json()
-        text = payload.get("data", [None])[0] or ""
-    except Exception:
-        text = hf_resp.text or ""
-
-    return jsonify({"text": str(text)}), 200
+    logger.warning("HF OCR all payload formats failed: %s", last_err)
+    return jsonify({"error": "OCR service unavailable"}), 502

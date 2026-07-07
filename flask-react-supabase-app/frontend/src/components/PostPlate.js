@@ -447,11 +447,11 @@ const PostPlate = () => {
         setFormData((prev) => ({ ...prev, number: plateMatch[1] }));
         setPlateOcrStatus('done');
       } else {
-        setPlateOcrStatus('error');
+        setPlateOcrStatus('not-found');
       }
     } catch (err) {
       console.warn('Plate OCR failed:', err);
-      setPlateOcrStatus('error');
+      setPlateOcrStatus('service-error');
     }
   };
 
@@ -721,7 +721,8 @@ const PostPlate = () => {
                     </button>
                   )}
                   {plateOcrStatus === 'done' && <p className="form-text text-success">Plate number pre-filled.</p>}
-                  {plateOcrStatus === 'error' && <p className="form-text text-muted">No plate number found — enter manually.</p>}
+                  {plateOcrStatus === 'not-found' && <p className="form-text text-muted">No plate number found — enter manually.</p>}
+                  {plateOcrStatus === 'service-error' && <p className="form-text text-warning">Scan service unavailable — enter plate number manually. Try again in a moment.</p>}
                   <div className="form-text text-muted">Admin verification only. Never shown to buyers.</div>
                 </div>
               </div>
