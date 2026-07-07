@@ -999,11 +999,20 @@ def _apply_listing_lifecycle_metadata(record):
     return record
 
 
+_PUBLIC_STRIP_FIELDS = frozenset({
+    "registration_document_url",
+    "registration_doc_url",
+    "proof_document_url",
+})
+
+
 def _preview_listing_record(record):
     if not isinstance(record, dict):
         return None
     preview = dict(record)
     _apply_listing_lifecycle_metadata(preview)
+    for field in _PUBLIC_STRIP_FIELDS:
+        preview.pop(field, None)
     return preview
 
 
@@ -6085,6 +6094,9 @@ def get_car_by_id(car_id):
         logger.info(
             f"Returning car with {len(car['images'])} images (Views: {car.get('view_count', 0)})"
         )
+        if not is_owner:
+            for _f in _PUBLIC_STRIP_FIELDS:
+                car.pop(_f, None)
         if cache_key:
             _api_cache_set(cache_key, car)
             return _cached_json_response(car)
@@ -6830,6 +6842,7 @@ def update_car(current_user, car_id):
             "rear_view_camera",
             "lady_driven",
             "extras",
+            "registration_document_url",
         }
         # Sanitize update data to ensure 'id' is NOT sent to Supabase as part of the body
         # (Supabase/PostgREST rejects updates where the primary key is in the body)
@@ -12512,6 +12525,8 @@ def get_bike_by_id(bike_id):
                 logger.warning(f"Failed to fetch seller info: {user_err}")
 
         logger.info(f"Returning bike with {len(bike['images'])} images")
+        for _f in _PUBLIC_STRIP_FIELDS:
+            bike.pop(_f, None)
         _api_cache_set(cache_key, bike)
         return _cached_json_response(bike)
     except Exception as e:
@@ -13640,6 +13655,7 @@ def create_bike(current_user):
             "last_extended_at",
             "extension_count",
             "is_archived",
+            "registration_doc_url",
         }
         bike_data = {k: v for k, v in bike_data.items() if k in bike_allowed_fields}
         bike_data["user_email"] = get_user_email(current_user)
@@ -13830,6 +13846,7 @@ def update_bike(current_user, bike_id):
             "status",
             "user_id",
             "is_dealer",
+            "registration_doc_url",
         }
         # Sanitize update data to ensure 'id' is NOT sent to Supabase as part of the body
         update_data.pop("id", None)
@@ -14177,6 +14194,8 @@ def get_plate_details(plate_id):
             ]
 
             _enrich_listing_seller(plate, headers=headers)
+            for _f in _PUBLIC_STRIP_FIELDS:
+                plate.pop(_f, None)
             _api_cache_set(cache_key, plate)
             return _cached_json_response(plate)
         else:
@@ -14213,6 +14232,7 @@ def update_plate(current_user, plate_id):
             "emirate",
             "is_dealer",
             "proof_document_url",
+            "registration_doc_url",
         }
 
         for key in allowed_fields:
@@ -15534,6 +15554,7 @@ def _create_plate_with_image_impl(current_user):
         # Create plate entry
         plate_number_str = str(number).strip() if number is not None else ""
         proof_document_url = payload.get("proof_document_url") or None
+        registration_doc_url = payload.get("registration_doc_url") or None
         plate_data = {
             "city": city,
             "code": code,
@@ -15555,6 +15576,7 @@ def _create_plate_with_image_impl(current_user):
             "user_email": get_user_email(current_user),
             "status": _initial_listing_status(),
             **({"proof_document_url": proof_document_url} if proof_document_url else {}),
+            **({"registration_doc_url": registration_doc_url} if registration_doc_url else {}),
         }
         plate_data.update(_new_listing_lifecycle_fields())
         # auto_review_reasons is NOT NULL in the license_plates table — default to empty array
