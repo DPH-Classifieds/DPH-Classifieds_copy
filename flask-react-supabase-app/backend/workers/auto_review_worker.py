@@ -18,8 +18,15 @@ ITEM_TYPE_TO_TABLE = {
 ITEM_TYPE_TO_IMAGES_TABLE = {
     "cars": "car_images",
     "bikes": "bike_images",
-    "parts": "car_part_images",
-    "plates": "license_plate_images",
+    "parts": "part_images",
+    "plates": "plate_images",
+}
+
+ITEM_TYPE_TO_IMAGE_FK = {
+    "cars": "car_id",
+    "bikes": "bike_id",
+    "parts": "part_id",
+    "plates": "plate_id",
 }
 
 
@@ -157,12 +164,13 @@ def fetch_pending_for_type(type_label):
 def _fetch_image_urls(type_label, row):
     sb = _supabase_request()
     images_table = ITEM_TYPE_TO_IMAGES_TABLE[type_label]
+    fk = ITEM_TYPE_TO_IMAGE_FK[type_label]
     rows, status = sb(
         "get",
         f"/rest/v1/{images_table}",
         params={
             "select": "image_url",
-            "listing_id": f"eq.{row.get('id')}",
+            fk: f"eq.{row.get('id')}",
             "limit": "20",
         },
         use_service_role=True,
@@ -281,11 +289,15 @@ def build_signals_for(listing_kind, row):
         try:
             from services.vin_decoder import VINDecoder
             decoder = VINDecoder()
-            form_make = row.get("make") or row.get("bike_brand") or ""
-            form_model = row.get("model") or row.get("bike_model") or ""
+            if listing_kind == "car":
+                form_make = row.get("car_manufacturer") or ""
+                form_model = row.get("car_model") or ""
+            else:
+                form_make = row.get("bike_brand") or ""
+                form_model = row.get("bike_model") or ""
             form_year = row.get("make_year") or 0
             vin_signal = evaluate_vin(
-                row.get("vin") or "",
+                row.get("vin_number") or row.get("vin") or "",
                 form_make=form_make,
                 form_model=form_model,
                 form_year=form_year,
@@ -372,7 +384,7 @@ def run():
     number of rows handled this tick (used by adaptive backoff)."""
     if not _env_bool("AUTO_REVIEW_WORKER_ENABLED", False):
         return 0
-    dry_run = _env_bool("AUTO_REVIEW_DRY_RUN", True)
+    dry_run = _env_bool("AUTO_REVIEW_DRY_RUN", False)
 
     from services.auto_review.rules import evaluate as rules_evaluate
 

@@ -6557,6 +6557,7 @@ def create_car(current_user):
             logger.warning(f"Failed to send listing notification emails: {email_err}")
 
         _invalidate_public_inventory_cache("cars")
+        _trigger_auto_review_async()
         return jsonify(data[0]), 201
     except Exception as e:
         logger.error(f"Error creating car listing: {e}")
@@ -14020,6 +14021,7 @@ def create_bike(current_user):
         except Exception as email_err:
             logger.warning(f"Failed to send listing notification emails: {email_err}")
 
+        _trigger_auto_review_async()
         return jsonify(data[0]), 201
     except Exception as e:
         logger.error(f"Error creating bike listing: {e}")
@@ -15001,6 +15003,7 @@ def create_part(current_user):
         except Exception as email_err:
             logger.warning(f"Failed to send listing notification emails: {email_err}")
 
+        _trigger_auto_review_async()
         return jsonify(data[0]), 201
 
     except Exception as e:
@@ -15971,6 +15974,7 @@ def _create_plate_with_image_impl(current_user):
         except Exception as email_err:
             logger.warning(f"Failed to send listing notification emails: {email_err}")
 
+        _trigger_auto_review_async()
         return jsonify(response[0]), 201
 
     except Exception as e:
@@ -16263,6 +16267,25 @@ def _initial_listing_status():
     if raw in ("1", "true", "yes", "on"):
         return "pending_auto_review"
     return "pending"
+
+
+def _trigger_auto_review_async():
+    """Fire-and-forget: run one auto-review tick in a background thread.
+    Called immediately after a listing is saved so approval doesn't wait
+    for the next worker poll cycle.
+    """
+    if _initial_listing_status() != "pending_auto_review":
+        return
+    import threading as _threading
+
+    def _run():
+        try:
+            from workers.auto_review_worker import run as _ar_run
+            _ar_run()
+        except Exception as exc:
+            logger.warning("Auto-review immediate trigger failed: %s", exc)
+
+    _threading.Thread(target=_run, daemon=True).start()
 
 
 _APPROVAL_TABLE_BY_ITEM_TYPE = {
