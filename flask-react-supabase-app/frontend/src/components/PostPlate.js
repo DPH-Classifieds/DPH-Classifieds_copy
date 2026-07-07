@@ -11,6 +11,7 @@ import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
+import { moderateImage } from '../utils/imageModeration';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -101,6 +102,8 @@ const PostPlate = () => {
   const [proofFile, setProofFile] = useState(null);
   const [proofDocumentUrl, setProofDocumentUrl] = useState('');
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [moderationError, setModerationError] = useState(null);
+  const [moderating, setModerating] = useState(false);
   const proofInputRef = useRef(null);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [useUsernameAsContactName, setUseUsernameAsContactName] = useState(false);
@@ -354,6 +357,25 @@ const PostPlate = () => {
     if (file.size > MAX_PROOF_SIZE_BYTES) {
       setError({ message: 'Proof document must be under 20 MB.' });
       return;
+    }
+    if (file.type !== 'application/pdf') {
+      setModerating(true);
+      setModerationError(null);
+      try {
+        const { blocked, reasons } = await moderateImage(file);
+        if (blocked) {
+          setModerationError(
+            reasons.includes('nudity')
+              ? 'This photo was blocked — explicit content detected. Please upload a valid proof of ownership document.'
+              : 'This photo was blocked — a face was detected. Please upload a valid proof of ownership document.'
+          );
+          return;
+        }
+      } catch (err) {
+        console.warn('Image moderation failed, allowing file:', err);
+      } finally {
+        setModerating(false);
+      }
     }
     setProofFile(file);
     setIsUploadingProof(true);
@@ -618,6 +640,12 @@ const PostPlate = () => {
                     style={{ display: 'none' }}
                   />
                 </div>
+                {moderating && (
+                  <p style={{ color: '#6b7280', fontSize: '0.85rem', marginTop: 4 }}>Checking document…</p>
+                )}
+                {moderationError && (
+                  <p style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: 4 }}>{moderationError}</p>
+                )}
               </div>
             </div>
 
