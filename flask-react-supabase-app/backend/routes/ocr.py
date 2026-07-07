@@ -166,10 +166,69 @@ def scan_registration(current_user):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
-        logger.exception("Registration OCR scan failed")
-        return jsonify({"error": "registration OCR scan failed"}), 500
+        logger.warning("Tesseract OCR unavailable, falling back to HF OCR: %s", exc)
+        # ponytail: tesseract not installed in prod — reuse HF endpoint logic inline
+        result = _hf_ocr_fallback(image)
+        if result is None:
+            return jsonify({"error": "registration OCR unavailable"}), 503
+        return jsonify(result), 200
 
     return jsonify(result), 200
+
+
+def _hf_ocr_fallback(image_file):
+    """Call HuggingFace Unlimited-OCR and return a minimal scan result dict.
+    Returns None if the HF call also fails.
+    """
+    import base64
+    import re as _re
+    import requests as _req
+
+    try:
+        image_file.stream.seek(0)
+        raw = image_file.stream.read()
+        b64 = base64.b64encode(raw).decode()
+    except Exception as exc:
+        logger.warning("HF fallback: failed to read image: %s", exc)
+        return None
+
+    data_url = f"data:image/jpeg;base64,{b64}"
+    hf_url = "https://akhaliq-unlimited-ocr.hf.space/run/predict"
+    payloads = [
+        {"data": [{"data": data_url, "name": "image.jpg", "is_file": False}]},
+        {"data": [data_url]},
+    ]
+
+    text = None
+    for payload in payloads:
+        try:
+            resp = _req.post(hf_url, json=payload, timeout=45)
+            if resp.status_code == 200:
+                raw_result = resp.json().get("data", [None])[0] or ""
+                text = raw_result if isinstance(raw_result, str) else str(raw_result)
+                break
+        except Exception as exc:
+            logger.warning("HF fallback attempt failed: %s", exc)
+            continue
+
+    if text is None:
+        return None
+
+    # Extract 17-char VIN from OCR text
+    vin_match = _re.search(r'\b[A-HJ-NPR-Z0-9]{17}\b', text.upper())
+    vin = vin_match.group(0) if vin_match else ""
+
+    return {
+        "vin": vin,
+        "make": "",
+        "model": "",
+        "year": "",
+        "raw_text": text,
+        "confidence": {"vin": 0.6 if vin else 0.0, "overall": 0.5 if vin else 0.0},
+        "needs_review": True,
+        "review_reasons": ["hf_ocr_fallback"],
+        "document_type": "registration",
+    }
 
 
 @ocr_bp.route("/hf-extract", methods=["POST"])
