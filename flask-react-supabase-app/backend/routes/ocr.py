@@ -157,14 +157,14 @@ def scan_registration(current_user):
         "user_id": current_user,
     }
 
-    # Try HF Unlimited-OCR first (no binary dependency, works in all envs),
+    # Try self-hosted EasyOCR first (no binary dependency, supports Arabic + English),
     # fall back to Tesseract for richer structured extraction when available.
-    hf_result = _hf_ocr_fallback(image)
-    if hf_result and hf_result.get("vin"):
-        logger.info("HF OCR extracted VIN for user %s", current_user)
-        return jsonify(hf_result), 200
+    local_result = _local_ocr_scan(image)
+    if local_result and local_result.get("vin"):
+        logger.info("Local OCR extracted VIN for user %s", current_user)
+        return jsonify(local_result), 200
 
-    # HF returned no VIN (or failed) — try Tesseract for full structured scan
+    # Local OCR found no VIN — try Tesseract for full structured scan
     image.stream.seek(0)
     try:
         result = scan_registration_image(
@@ -176,54 +176,30 @@ def scan_registration(current_user):
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
         logger.warning("Tesseract OCR also unavailable: %s", exc)
-        if hf_result is not None:
-            # HF worked but found no VIN — return its raw text so user can check
-            return jsonify(hf_result), 200
+        if local_result is not None:
+            # Local OCR worked but found no VIN — return raw text so user can check
+            return jsonify(local_result), 200
         return jsonify({"error": "registration OCR unavailable"}), 503
 
     return jsonify(result), 200
 
 
-def _hf_ocr_fallback(image_file):
-    """Call HuggingFace Unlimited-OCR and return a minimal scan result dict.
-    Returns None if the HF call also fails.
+def _local_ocr_scan(image_file):
+    """Run self-hosted EasyOCR and return a minimal scan result dict.
+    Returns None only if EasyOCR itself fails to load or errors out.
     """
-    import base64
     import re as _re
-    import requests as _req
+
+    from services.local_ocr import extract_text
 
     try:
         image_file.stream.seek(0)
-        raw = image_file.stream.read()
-        b64 = base64.b64encode(raw).decode()
+        text = extract_text(image_file.stream)
     except Exception as exc:
-        logger.warning("HF fallback: failed to read image: %s", exc)
+        logger.warning("Local OCR failed: %s", exc)
         return None
 
-    data_url = f"data:image/jpeg;base64,{b64}"
-    hf_url = "https://akhaliq-unlimited-ocr.hf.space/run/predict"
-    payloads = [
-        {"data": [{"data": data_url, "name": "image.jpg", "is_file": False}]},
-        {"data": [data_url]},
-    ]
-
-    text = None
-    for payload in payloads:
-        try:
-            resp = _req.post(hf_url, json=payload, timeout=45)
-            if resp.status_code == 200:
-                raw_result = resp.json().get("data", [None])[0] or ""
-                text = raw_result if isinstance(raw_result, str) else str(raw_result)
-                break
-        except Exception as exc:
-            logger.warning("HF fallback attempt failed: %s", exc)
-            continue
-
-    if text is None:
-        return None
-
-    # Extract 17-char VIN from OCR text
-    vin_match = _re.search(r'\b[A-HJ-NPR-Z0-9]{17}\b', text.upper())
+    vin_match = _re.search(r"\b[A-HJ-NPR-Z0-9]{17}\b", text.upper())
     vin = vin_match.group(0) if vin_match else ""
 
     return {
@@ -234,7 +210,7 @@ def _hf_ocr_fallback(image_file):
         "raw_text": text,
         "confidence": {"vin": 0.6 if vin else 0.0, "overall": 0.5 if vin else 0.0},
         "needs_review": True,
-        "review_reasons": ["hf_ocr_fallback"],
+        "review_reasons": ["local_ocr"],
         "document_type": "registration",
     }
 
@@ -242,61 +218,30 @@ def _hf_ocr_fallback(image_file):
 @ocr_bp.route("/hf-extract", methods=["POST"])
 @ocr_auth_required
 def hf_extract(current_user):
-    """Proxy image OCR to HuggingFace akhaliq/unlimited-ocr Spaces API.
+    """Self-hosted EasyOCR endpoint (replaces HuggingFace proxy).
     Accepts JSON { image_b64: str }. Returns { text: str }.
     """
-    import requests as _req
+    import base64
+    import io
+
+    from services.local_ocr import extract_text
 
     data = request.get_json(silent=True) or {}
     image_b64 = data.get("image_b64", "")
     if not image_b64:
         return jsonify({"error": "image_b64 is required"}), 400
 
-    # Strip data-URL prefix if caller includes it
     if "," in image_b64:
         image_b64 = image_b64.split(",", 1)[1]
 
     if len(image_b64) > 27 * 1024 * 1024:
         return jsonify({"error": "image_b64 exceeds 20 MB limit"}), 413
 
-    data_url = f"data:image/jpeg;base64,{image_b64}"
+    try:
+        raw = base64.b64decode(image_b64)
+        text = extract_text(io.BytesIO(raw))
+    except Exception as exc:
+        logger.warning("Local OCR hf-extract failed: %s", exc)
+        return jsonify({"error": "OCR unavailable"}), 503
 
-    # ponytail: try Gradio 3.x dict format first (more compatible), fall back to plain string
-    hf_url = "https://akhaliq-unlimited-ocr.hf.space/run/predict"
-    payloads = [
-        # Gradio 3.x: image as {data, name, is_file} dict
-        {"data": [{"data": data_url, "name": "image.jpg", "is_file": False}]},
-        # Gradio 3.x fallback: plain data-URL string
-        {"data": [data_url]},
-    ]
-
-    last_err = None
-    for payload in payloads:
-        try:
-            hf_resp = _req.post(hf_url, json=payload, timeout=45)
-        except _req.exceptions.Timeout:
-            return jsonify({"error": "OCR service timed out — it may be warming up, please try again"}), 504
-        except Exception as exc:
-            last_err = exc
-            continue
-
-        if hf_resp.status_code == 200:
-            try:
-                result = hf_resp.json()
-                raw = result.get("data", [None])[0] or ""
-                # Gradio may return the text nested in a dict
-                text = raw if isinstance(raw, str) else (raw.get("value") or raw.get("text") or str(raw))
-            except Exception:
-                text = hf_resp.text or ""
-            return jsonify({"text": str(text)}), 200
-
-        if hf_resp.status_code in (422, 400):
-            # Wrong format for this space — try next payload
-            last_err = ValueError(f"HF {hf_resp.status_code}: {hf_resp.text[:200]}")
-            continue
-
-        logger.warning("HF OCR returned %s: %s", hf_resp.status_code, hf_resp.text[:200])
-        return jsonify({"error": "OCR service error"}), 502
-
-    logger.warning("HF OCR all payload formats failed: %s", last_err)
-    return jsonify({"error": "OCR service unavailable"}), 502
+    return jsonify({"text": text}), 200
