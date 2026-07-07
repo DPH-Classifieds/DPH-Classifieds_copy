@@ -6,7 +6,8 @@ cmds = [
   "python -m venv .venv && . .venv/bin/activate && pip install --upgrade pip setuptools wheel",
   ". .venv/bin/activate && pip install torch --index-url https://download.pytorch.org/whl/cpu",
   ". .venv/bin/activate && pip install -r flask-react-supabase-app/backend/requirements.txt",
-  ". .venv/bin/activate && python flask-react-supabase-app/backend/download_ocr_models.py",
+  "TBIN=$(which tesseract 2>/dev/null || find /nix/store -maxdepth 4 -name tesseract -type f 2>/dev/null | head -1); [ -n \"$TBIN\" ] && ln -sf \"$TBIN\" /usr/local/bin/tesseract && echo \"tesseract symlinked: $TBIN\" || echo 'WARNING: tesseract binary not found'",
+  ". .venv/bin/activate && EASYOCR_MODEL_DIR=/app/easyocr_models python flask-react-supabase-app/backend/download_ocr_models.py",
 ]
 
 [start]

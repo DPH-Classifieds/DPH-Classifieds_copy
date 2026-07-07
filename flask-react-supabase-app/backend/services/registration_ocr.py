@@ -14,7 +14,13 @@ def _auto_configure_tesseract():
 
     binary = shutil.which("tesseract")
     if not binary:
-        # Nix store fallback — Railway may not expose Nix binaries on PATH
+        # Symlink created by nixpacks install step (our build puts it here)
+        for candidate_path in ("/usr/local/bin/tesseract", "/usr/bin/tesseract"):
+            if os.path.isfile(candidate_path) and os.access(candidate_path, os.X_OK):
+                binary = candidate_path
+                break
+    if not binary:
+        # Deep Nix store search — last resort
         nix_hits = sorted(_glob.glob("/nix/store/*/bin/tesseract"))
         if nix_hits:
             binary = nix_hits[0]
