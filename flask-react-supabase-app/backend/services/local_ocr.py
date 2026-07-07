@@ -22,7 +22,7 @@ def _get_reader():
                 _reader = easyocr.Reader(
                     ["en", "ar"],
                     model_storage_directory=_MODEL_DIR,
-                    download_enabled=True,
+                    download_enabled=False,  # models must be pre-baked at build time
                     verbose=False,
                 )
                 logger.info("EasyOCR ready.")

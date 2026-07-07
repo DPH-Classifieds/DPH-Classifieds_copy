@@ -186,15 +186,25 @@ def scan_registration(current_user):
 
 def _local_ocr_scan(image_file):
     """Run self-hosted EasyOCR and return a minimal scan result dict.
-    Returns None only if EasyOCR itself fails to load or errors out.
+    Returns None only if EasyOCR fails, is unavailable, or times out.
     """
     import re as _re
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
     from services.local_ocr import extract_text
 
+    timeout = int(os.getenv("EASYOCR_TIMEOUT", "25"))
+
     try:
         image_file.stream.seek(0)
-        text = extract_text(image_file.stream)
+        raw = image_file.stream.read()
+        import io as _io
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(extract_text, _io.BytesIO(raw))
+            text = future.result(timeout=timeout)
+    except FuturesTimeout:
+        logger.warning("Local OCR timed out after %ss — falling back to Tesseract", timeout)
+        return None
     except Exception as exc:
         logger.warning("Local OCR failed: %s", exc)
         return None
