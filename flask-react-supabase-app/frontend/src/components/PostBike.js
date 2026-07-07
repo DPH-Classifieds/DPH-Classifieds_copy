@@ -16,6 +16,7 @@ import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
+import { moderateImage } from '../utils/imageModeration';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import '../styles/PostForms.css';
 
@@ -88,6 +89,8 @@ const PostBike = () => {
   const [croppedImages, setCroppedImages] = useState([]); // Array<{croppedFile, originalFile, previewUrl}>
   const [existingImageUrls, setExistingImageUrls] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [moderationErrors, setModerationErrors] = useState({});
+  const [moderating, setModerating] = useState(false);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [formData, setFormData] = useState({
     bike_brand: '',
@@ -353,7 +356,7 @@ const PostBike = () => {
     }));
   };
 
-  const onPickImages = (e) => {
+  const onPickImages = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
@@ -376,8 +379,33 @@ const PostBike = () => {
 
     if (!validFiles.length) return;
     setError(null);
-    setPendingCropFiles(validFiles);
+    setModerating(true);
+    setModerationErrors({});
     e.target.value = '';
+
+    try {
+      const results = await Promise.all(
+        validFiles.map(file => moderateImage(file).then(r => ({ file, ...r })))
+      );
+      const newErrors = {};
+      const cleanFiles = [];
+      for (const { file, blocked, reasons } of results) {
+        if (blocked) {
+          newErrors[file.name] = reasons.includes('nudity')
+            ? 'This photo was blocked — explicit content detected. Please use photos that show the vehicle only.'
+            : 'This photo was blocked — a face was detected. Please use photos that show the vehicle only to protect privacy.';
+        } else {
+          cleanFiles.push(file);
+        }
+      }
+      setModerationErrors(newErrors);
+      if (cleanFiles.length > 0) setPendingCropFiles(cleanFiles);
+    } catch (err) {
+      console.warn('Image moderation failed, allowing files:', err);
+      setPendingCropFiles(validFiles);
+    } finally {
+      setModerating(false);
+    }
   };
 
   const uploadImages = async () => {
@@ -643,6 +671,14 @@ const PostBike = () => {
                     onChange={onPickImages}
                   />
                 </div>
+                {moderating && (
+                  <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '4px 0 0' }}>Checking images…</p>
+                )}
+                {Object.entries(moderationErrors).map(([filename, msg]) => (
+                  <p key={filename} style={{ color: '#dc2626', fontSize: '0.85rem', margin: '4px 0 0' }}>
+                    <strong>{filename}:</strong> {msg}
+                  </p>
+                ))}
 
                 {croppedImages.length > 0 && (
                   <div className="image-previews-grid">
