@@ -50,8 +50,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "GENERATE_SOURCEMAP=false react-scripts build",
+    "start": "craco start",
+    "build": "GENERATE_SOURCEMAP=false craco build",
     "postinstall": "node scripts/ensure-mediapipe-sourcemap.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -75,6 +75,7 @@
     ]
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "playwright": "^1.61.0"
   }
 }
