@@ -7,6 +7,12 @@ module.exports = {
         test: /node_modules[\\/](@tensorflow|nsfwjs|@tensorflow-models)[\\/]/,
         parser: { amd: false },
       });
+      // ponytail: suppress the dynamic-require "Critical dependency" warnings that
+      // CRA promotes to errors under CI=true
+      webpackConfig.ignoreWarnings = [
+        ...(webpackConfig.ignoreWarnings || []),
+        { message: /Critical dependency: require function is used/ },
+      ];
       return webpackConfig;
     },
   },
