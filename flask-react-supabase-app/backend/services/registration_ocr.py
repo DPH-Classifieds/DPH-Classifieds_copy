@@ -1,9 +1,26 @@
 import logging
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from datetime import datetime, timezone
+
+def _auto_configure_tesseract():
+    """Set TESSDATA_PREFIX from the installed binary path if not already set.
+    In Nix/Railway, tessdata lives next to the binary, not in /usr/share.
+    """
+    if os.getenv("TESSDATA_PREFIX"):
+        return
+    binary = shutil.which("tesseract")
+    if not binary:
+        return
+    # Nix layout: /nix/store/.../bin/tesseract → /nix/store/.../share/tessdata/
+    candidate = os.path.join(os.path.dirname(os.path.dirname(binary)), "share", "tessdata")
+    if os.path.isdir(candidate):
+        os.environ["TESSDATA_PREFIX"] = candidate
+
+_auto_configure_tesseract()
 
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
 

@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python311Full", "gcc", "tesseract"]
+nixPkgs = ["python311Full", "gcc", "tesseract4"]
 
 [phases.install]
 cmds = ["python -m venv .venv && . .venv/bin/activate && python -m pip install --upgrade pip setuptools wheel && if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; elif [ -f flask-react-supabase-app/backend/requirements.txt ]; then python -m pip install -r flask-react-supabase-app/backend/requirements.txt; else echo 'requirements.txt not found' && exit 1; fi"]

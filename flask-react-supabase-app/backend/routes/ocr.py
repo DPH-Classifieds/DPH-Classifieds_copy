@@ -157,6 +157,15 @@ def scan_registration(current_user):
         "user_id": current_user,
     }
 
+    # Try HF Unlimited-OCR first (no binary dependency, works in all envs),
+    # fall back to Tesseract for richer structured extraction when available.
+    hf_result = _hf_ocr_fallback(image)
+    if hf_result and hf_result.get("vin"):
+        logger.info("HF OCR extracted VIN for user %s", current_user)
+        return jsonify(hf_result), 200
+
+    # HF returned no VIN (or failed) — try Tesseract for full structured scan
+    image.stream.seek(0)
     try:
         result = scan_registration_image(
             image.stream,
@@ -166,12 +175,11 @@ def scan_registration(current_user):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
-        logger.warning("Tesseract OCR unavailable, falling back to HF OCR: %s", exc)
-        # ponytail: tesseract not installed in prod — reuse HF endpoint logic inline
-        result = _hf_ocr_fallback(image)
-        if result is None:
-            return jsonify({"error": "registration OCR unavailable"}), 503
-        return jsonify(result), 200
+        logger.warning("Tesseract OCR also unavailable: %s", exc)
+        if hf_result is not None:
+            # HF worked but found no VIN — return its raw text so user can check
+            return jsonify(hf_result), 200
+        return jsonify({"error": "registration OCR unavailable"}), 503
 
     return jsonify(result), 200
 
