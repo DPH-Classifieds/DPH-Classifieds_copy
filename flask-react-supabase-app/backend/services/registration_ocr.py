@@ -7,18 +7,29 @@ import tempfile
 from datetime import datetime, timezone
 
 def _auto_configure_tesseract():
-    """Set TESSDATA_PREFIX from the installed binary path if not already set.
-    In Nix/Railway, tessdata lives next to the binary, not in /usr/share.
+    """Set TESSDATA_PREFIX and TESSERACT_CMD from the installed binary.
+    In Nix/Railway, the binary may be in the Nix store but not on PATH.
     """
-    if os.getenv("TESSDATA_PREFIX"):
-        return
+    import glob as _glob
+
     binary = shutil.which("tesseract")
     if not binary:
+        # Nix store fallback — Railway may not expose Nix binaries on PATH
+        nix_hits = sorted(_glob.glob("/nix/store/*/bin/tesseract"))
+        if nix_hits:
+            binary = nix_hits[0]
+
+    if not binary:
         return
-    # Nix layout: /nix/store/.../bin/tesseract → /nix/store/.../share/tessdata/
-    candidate = os.path.join(os.path.dirname(os.path.dirname(binary)), "share", "tessdata")
-    if os.path.isdir(candidate):
-        os.environ["TESSDATA_PREFIX"] = candidate
+
+    if not os.getenv("TESSERACT_CMD"):
+        os.environ["TESSERACT_CMD"] = binary
+
+    if not os.getenv("TESSDATA_PREFIX"):
+        # Nix layout: /nix/store/.../bin/tesseract → /nix/store/.../share/tessdata/
+        candidate = os.path.join(os.path.dirname(os.path.dirname(binary)), "share", "tessdata")
+        if os.path.isdir(candidate):
+            os.environ["TESSDATA_PREFIX"] = candidate
 
 _auto_configure_tesseract()
 

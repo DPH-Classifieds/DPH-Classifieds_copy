@@ -503,6 +503,9 @@ const MyListings = () => {
       if (isDeleted) return 'Deleted';
       if (isDraft) return 'Draft';
       if (listing.listing_state === 'expired') return 'Expired';
+      const s = String(listing.status || '').toLowerCase();
+      if (s === 'pending' || s === 'pending_auto_review') return 'Pending Review';
+      if (s === 'approved') return 'Live';
       return listing.status || 'Live';
     })();
 

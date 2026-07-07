@@ -19,13 +19,21 @@ def _get_reader():
             if _reader is None:
                 import easyocr
                 logger.info("Loading EasyOCR models (en + ar) from %s", _MODEL_DIR)
-                _reader = easyocr.Reader(
-                    ["en", "ar"],
-                    model_storage_directory=_MODEL_DIR,
-                    download_enabled=False,  # models must be pre-baked at build time
-                    verbose=False,
-                )
-                logger.info("EasyOCR ready.")
+                try:
+                    _reader = easyocr.Reader(
+                        ["en", "ar"],
+                        model_storage_directory=_MODEL_DIR,
+                        download_enabled=False,  # models must be pre-baked at build time
+                        verbose=False,
+                    )
+                    logger.info("EasyOCR ready.")
+                except Exception as exc:
+                    logger.error(
+                        "EasyOCR failed to load (model_dir=%s): %s — "
+                        "set EASYOCR_MODEL_DIR or ensure models are baked at build time",
+                        _MODEL_DIR, exc,
+                    )
+                    raise
     return _reader
 
 

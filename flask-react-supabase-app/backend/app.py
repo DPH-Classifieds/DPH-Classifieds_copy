@@ -1080,7 +1080,7 @@ def _build_listing_lifecycle_summary_from_rows(rows_by_type, draft_total=0):
 
             if status == "approved" and state == "active":
                 counts["active"] += 1
-            if status == "pending":
+            if status in ("pending", "pending_auto_review"):
                 counts["pending"] += 1
             if status == "deleted":
                 counts["deleted"] += 1
@@ -16902,8 +16902,8 @@ def get_pending_counts():
             response, status_code = supabase_request(
                 "get",
                 f"/rest/v1/{table_name}",
-                params={"status": "eq.pending", "select": "count"},
-                use_service_role=True,  # Admin actions might need service role
+                params={"status": "in.(pending,pending_auto_review)", "select": "count"},
+                use_service_role=True,
             )
             if (
                 status_code == 200
@@ -19839,7 +19839,7 @@ def _admin_listing_matches_status(listing, status_filter):
     if normalized == "approved":
         return listing_status == "approved"
     if normalized == "pending":
-        return listing_status == "pending"
+        return listing_status in ("pending", "pending_auto_review")
     if normalized == "rejected":
         return listing_status == "rejected"
     if normalized == "deleted":
@@ -19861,9 +19861,9 @@ def _admin_listing_display_status(listing):
     listing_status = str(listing.get("status") or "").strip().lower()
     listing_state = str(listing.get("listing_state") or "").strip().lower()
 
-    moderation_override = {"pending", "draft", "rejected", "sold", "deleted", "suspended"}
+    moderation_override = {"pending", "pending_auto_review", "draft", "rejected", "sold", "deleted", "suspended"}
     if listing_status in moderation_override:
-        return listing_status
+        return "pending" if listing_status == "pending_auto_review" else listing_status
 
     if listing.get("auto_removed_at") and listing.get("is_expired"):
         return "expired"
