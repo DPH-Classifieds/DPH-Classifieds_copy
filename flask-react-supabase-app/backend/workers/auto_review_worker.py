@@ -343,6 +343,18 @@ def downgrade_to_pending_for(type_label, row, decision):
         data={"status": "pending"},
         use_service_role=True,
     )
+    # Notify admins that this listing needs manual review (auto-review couldn't approve it)
+    try:
+        from app import _send_new_listing_admin_notification, get_user_email
+        user_email = row.get("user_email") or row.get("contact_email")
+        if not user_email:
+            uid = row.get("user_id")
+            if uid:
+                user_email = get_user_email(uid)
+        listing_kind = type_label.rstrip("s")  # "cars" -> "car"
+        _send_new_listing_admin_notification(listing_kind, row, user_email)
+    except Exception as exc:
+        logger.warning("Failed to send manual-review admin notification: %s", exc)
 
 
 def _approve_via_helper(*, item_type, item_id, actor, actor_id, signals):

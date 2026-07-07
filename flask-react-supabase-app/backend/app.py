@@ -4097,7 +4097,8 @@ def _get_cors_origins():
         if origins:
             return origins
 
-    if os.getenv("FLASK_ENV") == "production":
+    # FLASK_ENV=production OR Railway sets RAILWAY_ENVIRONMENT automatically
+    if os.getenv("FLASK_ENV") == "production" or os.getenv("RAILWAY_ENVIRONMENT"):
         return [
             "https://dphclassifieds.com",
             "https://www.dphclassifieds.com",
@@ -4115,6 +4116,18 @@ def _get_cors_origins():
 CORS(
     app, resources={r"/*": {"origins": _get_cors_origins()}}, supports_credentials=True
 )
+
+# Pre-warm EasyOCR models in the background so the first scan request is fast
+def _prewarm_easyocr():
+    try:
+        from services.local_ocr import _get_reader
+        _get_reader()
+        logger.info("EasyOCR pre-warmed.")
+    except Exception as _exc:
+        logger.warning("EasyOCR pre-warm skipped: %s", _exc)
+
+import threading as _startup_threading
+_startup_threading.Thread(target=_prewarm_easyocr, daemon=True).start()
 
 # Enable compression for better performance.
 # - Algorithm order: brotli first (smaller), gzip fallback.
@@ -6535,7 +6548,9 @@ def create_car(current_user):
         try:
             user_details = _get_user_email_by_id(current_user)
             user_email = user_details.get("email") if user_details else None
-            _send_new_listing_admin_notification("car", data[0], user_email)
+            # Only notify admins immediately if auto-review won't handle it
+            if _initial_listing_status() == "pending":
+                _send_new_listing_admin_notification("car", data[0], user_email)
             if user_email:
                 _send_new_listing_user_confirmation(user_email, "car", data[0])
         except Exception as email_err:
@@ -8226,6 +8241,53 @@ def _send_new_listing_admin_notification(item_type, listing, user_email):
         payload["reply_to"] = reply_to
 
     return _send_resend_email(payload, email_type="admin_new_listing")
+
+
+def _send_auto_approved_admin_notification(item_type, listing, user_email):
+    """Email admins when the auto-review worker approves a listing — informational only."""
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+
+    admin_emails = _fetch_all_admin_emails()
+    fallback = os.getenv("RESEND_TO_EMAIL") or PRIMARY_SUPER_ADMIN_EMAIL
+    if not admin_emails:
+        admin_emails = [fallback]
+
+    item_label = {"car": "Car", "bike": "Bike", "part": "Car Part", "plate": "Plate"}.get(item_type, "Listing")
+    listing_title = _build_listing_title(
+        f"{item_type}s" if not item_type.endswith("s") else item_type, listing
+    )
+    listing_id = listing.get("id", "N/A")
+    admin_url = f"{SITE_URL}/admin/listings"
+
+    subject = f"[Auto-Approved] {listing_title} — No action needed"
+    html_content = f"""
+    <div style="font-family:'Inter',-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;background-color:#041008;color:#f0fdf4;border-radius:24px;border:1px solid rgba(139,214,180,0.1);">
+        <div style="text-align:center;margin-bottom:32px;">
+            <div style="font-size:28px;font-weight:800;color:#8bd6b4;">DPH<span style="color:#ffffff;">CLASSIFIEDS</span></div>
+            <div style="font-size:13px;color:#64748b;margin-top:4px;">Auto-Review Notification</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);border-radius:20px;padding:32px;border:1px solid rgba(255,255,255,0.05);margin-bottom:24px;">
+            <h2 style="margin-top:0;color:#8bd6b4;font-size:22px;font-weight:700;margin-bottom:16px;">&#10003; Listing Auto-Approved</h2>
+            <p style="color:#94a3b8;line-height:1.6;margin-bottom:24px;">This <strong style="color:#8bd6b4;">{item_label}</strong> listing passed all auto-review checks and is now live. No action needed.</p>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+                <tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#64748b;font-size:14px;width:40%;">Title</td><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#f0fdf4;font-weight:600;">{listing_title}</td></tr>
+                <tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#64748b;font-size:14px;">Submitted by</td><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#f0fdf4;">{user_email or "Unknown"}</td></tr>
+                <tr><td style="padding:10px 0;color:#64748b;font-size:14px;">Listing ID</td><td style="padding:10px 0;color:#8bd6b4;font-family:monospace;">{listing_id}</td></tr>
+            </table>
+            <a href="{admin_url}" style="display:inline-block;background-color:rgba(139,214,180,0.15);color:#8bd6b4;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:16px;border:1px solid rgba(139,214,180,0.3);">View in Admin Panel</a>
+        </div>
+        <div style="text-align:center;color:#64748b;font-size:13px;">
+            <p>&copy; {datetime.datetime.now().year} DPH Classifieds. Auto-review notification.</p>
+        </div>
+    </div>
+    """
+    payload = {"from": from_email, "to": admin_emails, "subject": subject, "html": html_content}
+    reply_to = os.getenv("RESEND_REPLY_TO_EMAIL")
+    if reply_to:
+        payload["reply_to"] = reply_to
+    return _send_resend_email(payload, email_type="admin_auto_approved")
 
 
 def _send_new_listing_user_confirmation(user_email, item_type, listing):
@@ -13951,7 +14013,8 @@ def create_bike(current_user):
         try:
             user_details = _get_user_email_by_id(current_user)
             user_email = user_details.get("email") if user_details else None
-            _send_new_listing_admin_notification("bike", data[0], user_email)
+            if _initial_listing_status() == "pending":
+                _send_new_listing_admin_notification("bike", data[0], user_email)
             if user_email:
                 _send_new_listing_user_confirmation(user_email, "bike", data[0])
         except Exception as email_err:
@@ -14931,7 +14994,8 @@ def create_part(current_user):
         try:
             user_details = _get_user_email_by_id(current_user)
             user_email = user_details.get("email") if user_details else None
-            _send_new_listing_admin_notification("part", data[0], user_email)
+            if _initial_listing_status() == "pending":
+                _send_new_listing_admin_notification("part", data[0], user_email)
             if user_email:
                 _send_new_listing_user_confirmation(user_email, "part", data[0])
         except Exception as email_err:
@@ -15900,7 +15964,8 @@ def _create_plate_with_image_impl(current_user):
         try:
             user_details = _get_user_email_by_id(current_user)
             user_email = user_details.get("email") if user_details else None
-            _send_new_listing_admin_notification("plate", response[0], user_email)
+            if _initial_listing_status() == "pending":
+                _send_new_listing_admin_notification("plate", response[0], user_email)
             if user_email:
                 _send_new_listing_user_confirmation(user_email, "plate", response[0])
         except Exception as email_err:
@@ -16322,6 +16387,18 @@ def _perform_approval(
         logger.warning(
             f"Approval email skipped for {item_type} {item_id}: {email_error}"
         )
+
+    # When the auto-review worker approves a listing, notify admins (informational)
+    if actor == "auto" and listing:
+        try:
+            admin_user_email = listing.get("user_email") or listing.get("contact_email")
+            if not admin_user_email:
+                uid = listing.get("user_id")
+                if uid:
+                    admin_user_email = get_user_email(uid)
+            _send_auto_approved_admin_notification(item_type, listing, admin_user_email)
+        except Exception as _ae:
+            logger.warning("Auto-approved admin notification failed: %s", _ae)
 
     logger.info(
         "%s %s approved %s %s",
