@@ -683,6 +683,23 @@ const AdminListingDetail = () => {
                   </p>
                 </div>
               )}
+
+              {/* Bike / Plate registration doc */}
+              {listing.registration_doc_url && (
+                <div>
+                  <SectionLabel>Reg. doc (Bike/Plate)</SectionLabel>
+                  <a href={listing.registration_doc_url} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={listing.registration_doc_url}
+                      alt="Registration document"
+                      className="w-full rounded-xl border border-emerald-500/20 hover:border-emerald-500/40 transition cursor-zoom-in"
+                      style={{ maxHeight: '180px', objectFit: 'cover' }}
+                      onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                    />
+                  </a>
+                  <p className="text-[10px] text-amber-400 mt-1.5">Admin-only. Verify before approving.</p>
+                </div>
+              )}
             </div>
           </div>
         </GlassCard>
