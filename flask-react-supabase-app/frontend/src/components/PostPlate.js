@@ -12,6 +12,7 @@ import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
 import { moderateImage } from '../utils/imageModeration';
+import { uploadRegistrationDocument } from '../utils/directUpload';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -105,6 +106,11 @@ const PostPlate = () => {
   const [moderationError, setModerationError] = useState(null);
   const [moderating, setModerating] = useState(false);
   const proofInputRef = useRef(null);
+  const [regDocFile, setRegDocFile] = useState(null);
+  const [regDocUrl, setRegDocUrl] = useState('');
+  const [uploadingRegDoc, setUploadingRegDoc] = useState(false);
+  const [plateOcrStatus, setPlateOcrStatus] = useState('');
+  const regDocInputRef = useRef(null);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
   const [useUsernameAsContactName, setUseUsernameAsContactName] = useState(false);
   const [formData, setFormData] = useState({
@@ -198,6 +204,7 @@ const PostPlate = () => {
         if (data.proof_document_url) {
           setProofDocumentUrl(data.proof_document_url);
         }
+        if (data.registration_doc_url) { setRegDocUrl(data.registration_doc_url); }
 
       } catch (fetchError) {
         setError(fetchError.message || 'Failed to load plate listing');
@@ -405,6 +412,49 @@ const PostPlate = () => {
     }
   };
 
+  const handleRegDocChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRegDocFile(file);
+    setRegDocUrl('');
+    setPlateOcrStatus('');
+    if (!user?.id) return;
+    setUploadingRegDoc(true);
+    try {
+      const url = await uploadRegistrationDocument(file, { userId: user.id });
+      setRegDocUrl(url);
+    } catch (err) {
+      console.warn('Failed to upload registration doc:', err);
+    } finally {
+      setUploadingRegDoc(false);
+    }
+  };
+
+  const runPlateOcr = async () => {
+    if (!regDocFile) return;
+    setPlateOcrStatus('scanning');
+    try {
+      const reader = new FileReader();
+      const b64 = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(regDocFile);
+      });
+      const resp = await apiClient.post('/api/ocr/hf-extract', { image_b64: b64 });
+      const text = resp?.text || '';
+      const plateMatch = text.match(/\b(\d{1,5})\b/);
+      if (plateMatch) {
+        setFormData((prev) => ({ ...prev, number: plateMatch[1] }));
+        setPlateOcrStatus('done');
+      } else {
+        setPlateOcrStatus('error');
+      }
+    } catch (err) {
+      console.warn('Plate OCR failed:', err);
+      setPlateOcrStatus('error');
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!user) return;
 
@@ -474,6 +524,7 @@ const PostPlate = () => {
         description: formData.description.trim(),
         is_dealer: formData.is_dealer,
         ...(proofDocumentUrl && { proof_document_url: proofDocumentUrl }),
+        ...(regDocUrl && { registration_doc_url: regDocUrl }),
       };
 
       if (isEdit) {
@@ -646,6 +697,33 @@ const PostPlate = () => {
                 {moderationError && (
                   <p style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: 4 }}>{moderationError}</p>
                 )}
+
+                <div className="form-group" style={{ marginTop: 16 }}>
+                  <label>Vehicle Registration Document <span style={{ fontWeight: 'normal', fontSize: '0.85em' }}>(optional)</span></label>
+                  <div className="registration-doc-upload">
+                    <input
+                      ref={regDocInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                      className="file-input"
+                      onChange={handleRegDocChange}
+                      id="plate_registration_doc"
+                    />
+                    <label htmlFor="plate_registration_doc" className="upload-doc-label">
+                      {regDocFile ? regDocFile.name : 'Upload vehicle registration (optional)'}
+                    </label>
+                    {uploadingRegDoc && <span className="form-text">Uploading…</span>}
+                    {regDocUrl && !uploadingRegDoc && <span className="form-text text-success">Document uploaded.</span>}
+                  </div>
+                  {regDocFile && regDocUrl && (
+                    <button type="button" className="btn btn-secondary btn-sm mt-1" onClick={runPlateOcr} disabled={plateOcrStatus === 'scanning'}>
+                      {plateOcrStatus === 'scanning' ? 'Scanning…' : 'Scan for plate number'}
+                    </button>
+                  )}
+                  {plateOcrStatus === 'done' && <p className="form-text text-success">Plate number pre-filled.</p>}
+                  {plateOcrStatus === 'error' && <p className="form-text text-muted">No plate number found — enter manually.</p>}
+                  <div className="form-text text-muted">Admin verification only. Never shown to buyers.</div>
+                </div>
               </div>
             </div>
 
