@@ -86,6 +86,7 @@ const PostCar = () => {
   const [registrationDocumentUrl, setRegistrationDocumentUrl] = useState(null);
   // eslint-disable-next-line no-unused-vars
   const [uploadingRegistrationDoc, setUploadingRegistrationDoc] = useState(false);
+  const registrationDocumentUploadPromiseRef = useRef(null);
   const [useUsernameAsSellerName, setUseUsernameAsSellerName] = useState(false);
   const [mapModules, setMapModules] = useState(null);
   const [mapModulesError, setMapModulesError] = useState(null);
@@ -267,6 +268,9 @@ const PostCar = () => {
     setRegistrationOcrPreparedImage(null);
     setRegistrationOcrTruth(null);
     setRegistrationOcrDebugInfo(null);
+    setRegistrationDocumentUrl(null);
+    setUploadingRegistrationDoc(false);
+    registrationDocumentUploadPromiseRef.current = null;
   }, []);
 
   const applyRegistrationScanResult = useCallback((scan, { status = 'Done', debugInfo = null } = {}) => {
@@ -645,19 +649,12 @@ const PostCar = () => {
     resetRegistrationOcrState();
     setRegistrationOcrStatus('Preparing…');
 
-    // Upload the registration document to storage in parallel with OCR
-    if (registrationOcrFile && user?.id) {
-      setUploadingRegistrationDoc(true);
-      uploadRegistrationDocument(registrationOcrFile, { userId: user.id })
-        .then((url) => {
-          setRegistrationDocumentUrl(url);
-          setUploadingRegistrationDoc(false);
-        })
-        .catch((err) => {
-          console.warn('Failed to upload registration document:', err);
-          setUploadingRegistrationDoc(false);
-        });
-    }
+    // Upload the registration document to storage in parallel with OCR.
+    // Submit waits on the same promise before persisting the listing.
+    void ensureRegistrationDocumentUploaded().catch((err) => {
+      console.warn('Failed to upload registration document:', err);
+      setRegistrationOcrError('Could not upload the registration document. Please try again.');
+    });
 
     try {
       // STEP 1: Try the backend with the ORIGINAL file. The backend accepts
@@ -796,10 +793,14 @@ const PostCar = () => {
     } catch (err) {
       console.error('Registration OCR failed:', err);
       setRegistrationOcrStatus(null);
-      setRegistrationOcrError('OCR failed. Please try a clearer photo (good lighting, minimal glare).');
+      setRegistrationOcrError(
+        err?.message && err.message.includes('registration document')
+          ? err.message
+          : 'OCR failed. Please try a clearer photo (good lighting, minimal glare).'
+      );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applyRegistrationScanResult, isEdit, listingId, parseRegistrationOcr, prepareRegistrationOcrInput, registrationOcrFile, resetRegistrationOcrState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps, no-use-before-define
+  }, [applyRegistrationScanResult, ensureRegistrationDocumentUploaded, isEdit, listingId, parseRegistrationOcr, prepareRegistrationOcrInput, registrationOcrFile, resetRegistrationOcrState]);
 
   const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
@@ -812,6 +813,31 @@ const PostCar = () => {
     const cutoff = matches[maxWords]?.index ?? String(text).length;
     return String(text).slice(0, cutoff).trimEnd();
   };
+
+  const ensureRegistrationDocumentUploaded = useCallback(async () => {
+    if (!registrationOcrFile || !user?.id) {
+      return registrationDocumentUrl;
+    }
+
+    if (registrationDocumentUrl) {
+      return registrationDocumentUrl;
+    }
+
+    if (!registrationDocumentUploadPromiseRef.current) {
+      setUploadingRegistrationDoc(true);
+      registrationDocumentUploadPromiseRef.current = uploadRegistrationDocument(registrationOcrFile, { userId: user.id })
+        .then((url) => {
+          setRegistrationDocumentUrl(url);
+          return url;
+        })
+        .finally(() => {
+          setUploadingRegistrationDoc(false);
+          registrationDocumentUploadPromiseRef.current = null;
+        });
+    }
+
+    return registrationDocumentUploadPromiseRef.current;
+  }, [registrationDocumentUrl, registrationOcrFile, user?.id]);
 
   const clearFieldHighlights = () => {
     if (!formRef.current) return;
@@ -1976,6 +2002,16 @@ const PostCar = () => {
     setIsSubmitting(true);
     setError(null);
     try {
+      if (registrationOcrFile) {
+        setRegistrationOcrStatus('Uploading…');
+        try {
+          await ensureRegistrationDocumentUploaded();
+        } catch (uploadErr) {
+          console.warn('Registration document upload failed:', uploadErr);
+          throw new Error('Could not upload the registration document. Please try again.');
+        }
+      }
+
       // Prepare submission data
       const submissionData = {
         ...formData,
@@ -2400,6 +2436,40 @@ const PostCar = () => {
                   )}
                 </div>
               </div>
+              {(uploadingRegistrationDoc || registrationDocumentUrl) && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'rgba(37, 99, 235, 0.06)',
+                    border: '1px solid rgba(37, 99, 235, 0.16)',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: '#1e3a8a', marginBottom: 4 }}>
+                    {uploadingRegistrationDoc ? 'Uploading registration copy…' : 'Uploaded registration copy'}
+                  </div>
+                  {registrationDocumentUrl ? (
+                    <a
+                      href={registrationDocumentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#2563eb', fontWeight: 600, wordBreak: 'break-word' }}
+                    >
+                      Open uploaded document
+                    </a>
+                  ) : (
+                    <div className="form-text" style={{ margin: 0 }}>
+                      Your registration file is being saved and will be attached to this listing.
+                    </div>
+                  )}
+                  {registrationOcrFile?.name && (
+                    <div className="form-text" style={{ marginTop: 4, marginBottom: 0 }}>
+                      File: {registrationOcrFile.name}
+                    </div>
+                  )}
+                </div>
+              )}
               {registrationOcrError && (
                 <div className="alert alert-danger mt-3" role="alert">
                   {registrationOcrError}
