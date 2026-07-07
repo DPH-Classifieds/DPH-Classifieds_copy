@@ -10,6 +10,7 @@ from werkzeug.datastructures import FileStorage
 
 import app as backend
 from routes import ocr as ocr_route
+from services import local_ocr
 from services import registration_ocr
 
 
@@ -263,6 +264,24 @@ class RegistrationOCRServiceTests(unittest.TestCase):
             )
 
         self.assertIn("resized image dimensions are too large", str(context.exception))
+
+
+class LocalOCRTests(unittest.TestCase):
+    @patch.object(local_ocr, "_get_reader")
+    @patch.object(local_ocr._ready, "wait", return_value=True)
+    def test_extract_text_supports_pdf_uploads(self, _mock_wait, mock_get_reader):
+        class FakeReader:
+            def readtext(self, array):
+                self.seen_shape = getattr(array, "shape", None)
+                return [([(0, 0), (1, 1)], "VIN 1HGCM82633A004352", 0.99)]
+
+        fake_reader = FakeReader()
+        mock_get_reader.return_value = fake_reader
+
+        text = local_ocr.extract_text(_pdf_bytes())
+
+        self.assertIn(VALID_VIN, text)
+        self.assertIsNotNone(fake_reader.seen_shape)
 
 
 class RegistrationOCRRouteTests(unittest.TestCase):

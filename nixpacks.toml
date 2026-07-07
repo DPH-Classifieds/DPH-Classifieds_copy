@@ -1,5 +1,6 @@
 [phases.setup]
 nixPkgs = ["python311Full", "gcc", "tesseract4"]
+aptPkgs = ["tesseract-ocr"]
 
 [phases.install]
 cmds = [
