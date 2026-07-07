@@ -1,3 +1,6 @@
+# EasyOCR models — downloaded at build time, not tracked in git
+easyocr_models/
+
 # Python
 __pycache__/
 *.py[cod]

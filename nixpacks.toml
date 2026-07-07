@@ -6,7 +6,7 @@ cmds = [
   "python -m venv .venv && . .venv/bin/activate && pip install --upgrade pip setuptools wheel",
   ". .venv/bin/activate && pip install torch --index-url https://download.pytorch.org/whl/cpu",
   ". .venv/bin/activate && pip install -r flask-react-supabase-app/backend/requirements.txt",
-  ". .venv/bin/activate && python -c \"import easyocr; easyocr.Reader(['en', 'ar'], download_enabled=True, verbose=False)\"",
+  ". .venv/bin/activate && python flask-react-supabase-app/backend/download_ocr_models.py",
 ]
 
 [start]

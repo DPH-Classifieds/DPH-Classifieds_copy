@@ -8,8 +8,14 @@ logger = logging.getLogger(__name__)
 _reader = None
 _lock = threading.Lock()
 
-# Allow override via env var; default to EasyOCR's own home-dir cache
-_MODEL_DIR = os.getenv("EASYOCR_MODEL_DIR", os.path.expanduser("~/.EasyOCR"))
+# Models live in backend/easyocr_models/ — baked at build time by download_ocr_models.py.
+# This path is relative to this file's location (services/) so it survives into the
+# runtime container regardless of what HOME resolves to.
+_DEFAULT_MODEL_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),  # backend/
+    "easyocr_models",
+)
+_MODEL_DIR = os.getenv("EASYOCR_MODEL_DIR") or _DEFAULT_MODEL_DIR
 
 
 def _get_reader():
