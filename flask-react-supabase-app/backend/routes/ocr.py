@@ -170,3 +170,46 @@ def scan_registration(current_user):
         return jsonify({"error": "registration OCR scan failed"}), 500
 
     return jsonify(result), 200
+
+
+@ocr_bp.route("/hf-extract", methods=["POST"])
+@ocr_auth_required
+def hf_extract(current_user):
+    """Proxy image OCR to HuggingFace akhaliq/unlimited-ocr Spaces API.
+    Accepts JSON { image_b64: str }. Returns { text: str }.
+    """
+    import requests as _req
+
+    data = request.get_json(silent=True) or {}
+    image_b64 = data.get("image_b64", "")
+    if not image_b64:
+        return jsonify({"error": "image_b64 is required"}), 400
+
+    if "," in image_b64:
+        image_b64 = image_b64.split(",", 1)[1]
+
+    if len(image_b64) > 27 * 1024 * 1024:
+        return jsonify({"error": "image_b64 exceeds 20 MB limit"}), 413
+
+    hf_url = "https://akhaliq-unlimited-ocr.hf.space/run/predict"
+    try:
+        hf_resp = _req.post(
+            hf_url,
+            json={"data": [f"data:image/jpeg;base64,{image_b64}"]},
+            timeout=30,
+        )
+    except _req.exceptions.Timeout:
+        return jsonify({"error": "OCR service timed out"}), 504
+    except Exception as exc:
+        return jsonify({"error": "OCR service unavailable"}), 502
+
+    if hf_resp.status_code != 200:
+        return jsonify({"error": "OCR service error"}), 502
+
+    try:
+        payload = hf_resp.json()
+        text = payload.get("data", [None])[0] or ""
+    except Exception:
+        text = hf_resp.text or ""
+
+    return jsonify({"text": str(text)}), 200
