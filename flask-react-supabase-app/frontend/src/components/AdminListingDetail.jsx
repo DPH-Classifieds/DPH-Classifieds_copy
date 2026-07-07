@@ -91,6 +91,101 @@ const Badge = ({ children, className = '' }) => (
   </span>
 );
 
+/* ── auto-review reason map ──────────────────────────────────────────────── */
+const AUTO_REVIEW_REASONS = {
+  no_trust_tier: {
+    label: 'Account not yet trusted',
+    detail: 'Email unverified, or fewer than 3 previously approved listings. Verify the seller manually before approving.',
+  },
+  vin_missing: {
+    label: 'No VIN provided',
+    detail: 'The seller did not enter a VIN. Confirm this is a real vehicle and request the VIN if possible.',
+  },
+  vin_invalid: {
+    label: 'VIN failed checksum',
+    detail: 'The VIN number did not pass validation. Check the VIN against the mulkiya or a VIN-check service.',
+  },
+  vin_make_mismatch: {
+    label: 'VIN make mismatch',
+    detail: 'The VIN decodes to a different manufacturer than what was listed. Verify which is correct.',
+  },
+  vin_model_mismatch: {
+    label: 'VIN model mismatch',
+    detail: 'The VIN decodes to a different model than listed. Cross-check with the registration document.',
+  },
+  vin_year_mismatch: {
+    label: 'VIN year mismatch',
+    detail: 'The VIN decodes to a different model year. Confirm the correct year from the mulkiya.',
+  },
+  vin_decoder_unavailable: {
+    label: 'VIN decoder unavailable',
+    detail: 'The VIN could not be checked automatically. Verify it manually using the mulkiya or a VIN lookup tool.',
+  },
+  face_detected: {
+    label: 'Face detected in photos',
+    detail: 'One or more photos may contain an identifiable face. Review the images before approving.',
+  },
+  plate_detected: {
+    label: 'License plate visible in photos',
+    detail: 'A vehicle plate number is visible in the images. This may expose private information — blur or crop before approving.',
+  },
+  profanity_detected: {
+    label: 'Profanity in description',
+    detail: 'The listing description contains flagged language. Review and edit the description before approving.',
+  },
+  user_under_review: {
+    label: 'Seller account flagged',
+    detail: 'This seller account is under review. Resolve the account issue before approving their listings.',
+  },
+};
+
+const AutoReviewPanel = ({ listing }) => {
+  const state = listing?.auto_review_state;
+  const reasons = listing?.auto_review_reasons;
+  const decidedAt = listing?.auto_review_decided_at;
+  if (!state || state === 'auto_approved') return null;
+
+  const reasonList = Array.isArray(reasons) && reasons.length > 0 ? reasons : [];
+  const isPending = !state; // still in pending_auto_review, worker hasn't run yet
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.08 }}>
+      <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.05] p-5 space-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+          <p className="text-sm font-semibold text-amber-300">
+            {isPending ? 'Awaiting Auto-Review' : 'Auto-Review: Manual Review Required'}
+          </p>
+          {decidedAt && (
+            <span className="ml-auto text-[11px] text-white/30">{new Date(decidedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+          )}
+        </div>
+
+        {isPending ? (
+          <p className="text-xs text-white/50">The auto-review worker has not yet processed this listing. It will be picked up on the next worker cycle.</p>
+        ) : reasonList.length === 0 ? (
+          <p className="text-xs text-white/50">Queued for manual review (no specific reasons recorded).</p>
+        ) : (
+          <div className="space-y-2">
+            {reasonList.map((reason) => {
+              const info = AUTO_REVIEW_REASONS[reason] || { label: reason, detail: 'Review this item manually.' };
+              return (
+                <div key={reason} className="flex gap-3 bg-white/[0.03] rounded-xl px-3 py-2.5 border border-white/[0.04]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400/70 mt-1.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-200">{info.label}</p>
+                    <p className="text-[11px] text-white/50 mt-0.5">{info.detail}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
 /* ── section label ────────────────────────────────────────────────────────── */
 const SectionLabel = ({ children }) => (
   <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">{children}</p>
@@ -571,6 +666,9 @@ const AdminListingDetail = () => {
         <KpiTile label="Days Listed" value={daysListed} icon={Clock} />
         <KpiTile label="Reports" value={summary.report_count ?? 0} icon={Flag} />
       </motion.div>
+
+      {/* Auto-review failure panel */}
+      <AutoReviewPanel listing={listing} />
 
       {/* Hero card: gallery + meta */}
       <motion.div
