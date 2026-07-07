@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ChevronRight,
   Zap,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -135,7 +136,22 @@ const AdminTools = () => {
     makeAdmin: initialToolState(),
     refreshUser: initialToolState(),
     flushCache: initialToolState(),
+    autoReview: initialToolState(),
   });
+
+  // Auto-review toggle state: null = loading, true/false = known
+  const [arEnabled, setArEnabled] = useState(null);
+  const [arToggleLoading, setArToggleLoading] = useState(false);
+  const [arSource, setArSource] = useState(null); // 'redis' | 'env'
+
+  useEffect(() => {
+    apiClient.get('/api/admin/auto-review/settings')
+      .then(data => {
+        setArEnabled(data.enabled);
+        setArSource(data.source);
+      })
+      .catch(() => setArEnabled(false));
+  }, []);
 
   const updateTool = useCallback((id, patch) => {
     setToolStates((prev) => ({
@@ -218,6 +234,39 @@ const AdminTools = () => {
     }
   }, [updateTool, successToast, errorToast, syncWithSupabase]);
 
+  // ── tool: auto-review toggle ──────────────────────────────────────────────
+  const toggleAutoReview = useCallback(async () => {
+    const newVal = !arEnabled;
+    setArEnabled(newVal);
+    setArToggleLoading(true);
+    try {
+      const res = await apiClient.patch('/api/admin/auto-review/settings', { enabled: newVal });
+      setArEnabled(res.enabled);
+      setArSource(res.source);
+      successToast('autoReview', `Auto-review ${res.enabled ? 'enabled ✓' : 'disabled'}`);
+    } catch (err) {
+      setArEnabled(!newVal); // revert
+      errorToast('autoReview', `Failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setArToggleLoading(false);
+    }
+  }, [arEnabled, successToast, errorToast]);
+
+  // ── tool: run auto-review now ─────────────────────────────────────────────
+  const runAutoReview = useCallback(async () => {
+    updateTool('autoReview', { running: true, toast: null });
+    const t0 = Date.now();
+    try {
+      const res = await apiClient.post('/api/admin/auto-review/run');
+      const ms = Date.now() - t0;
+      successToast('autoReview', `Done · ${res.processed ?? 0} listing(s) reviewed · ${ms}ms`);
+    } catch (err) {
+      errorToast('autoReview', `Failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      updateTool('autoReview', { running: false });
+    }
+  }, [updateTool, successToast, errorToast]);
+
   // ── tool: flush public listing cache ──────────────────────────────────────
   const flushCache = useCallback(async () => {
     updateTool('flushCache', { running: true, toast: null });
@@ -251,6 +300,68 @@ const AdminTools = () => {
         <p className="text-sm text-white/50 mt-1">
           Internal utilities for the engineering and ops team.
         </p>
+      </motion.div>
+
+      {/* ── Section: Auto Review ─────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.07 }}
+      >
+        <SectionLabel>Auto Review</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* Toggle card */}
+          <GlassCard className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <Bot size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-white leading-snug">Auto-approve toggle</p>
+                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                  When on, new listings go to auto-review and approved instantly if they pass. When off, everything goes to the manual pending queue.
+                  {arSource === 'env' && (
+                    <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-auto pt-1">
+              <button
+                type="button"
+                onClick={toggleAutoReview}
+                disabled={arEnabled === null || arToggleLoading}
+                aria-label={arEnabled ? 'Disable auto-review' : 'Enable auto-review'}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                  arEnabled ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                    arEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-sm font-medium text-white/70">
+                {arEnabled === null ? 'Loading…' : arEnabled ? 'Enabled' : 'Disabled'}
+                {arToggleLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+              </span>
+            </div>
+
+            <InlineToast toast={toolStates.autoReview.toast} />
+          </GlassCard>
+
+          {/* Run now card */}
+          <ToolCard
+            icon={Bot}
+            title="Run auto-review now"
+            description="Process all pending_auto_review listings immediately — useful to clear the backlog or after toggling the feature on."
+            toolState={toolStates.autoReview}
+            onRun={runAutoReview}
+            runLabel="Run now"
+          />
+
+        </div>
       </motion.div>
 
       {/* ── Section: Cache ───────────────────────────────────────────────── */}

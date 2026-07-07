@@ -382,7 +382,12 @@ def _approve_via_helper(*, item_type, item_id, actor, actor_id, signals):
 def run():
     """Worker entrypoint, called by worker.py::scheduled_loop. Returns the
     number of rows handled this tick (used by adaptive backoff)."""
-    if not _env_bool("AUTO_REVIEW_WORKER_ENABLED", False):
+    try:
+        import app as _backend
+        enabled = _backend._auto_review_enabled()
+    except Exception:
+        enabled = _env_bool("AUTO_REVIEW_WORKER_ENABLED", False)
+    if not enabled:
         return 0
     dry_run = _env_bool("AUTO_REVIEW_DRY_RUN", False)
 

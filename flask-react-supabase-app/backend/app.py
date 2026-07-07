@@ -16259,14 +16259,26 @@ def admin_get_plates(current_user):
         return jsonify({"error": str(e)}), 500
 
 
+def _auto_review_enabled() -> bool:
+    """Check if auto-review is enabled.
+    Checks Redis first (set via admin UI toggle), falls back to env var."""
+    rc = _get_redis_cache_client()
+    if rc:
+        try:
+            val = rc.get("ar:enabled")
+            if val is not None:
+                return val == "1"
+        except Exception:
+            pass
+    raw = (os.getenv("AUTO_REVIEW_WORKER_ENABLED") or "false").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
 def _initial_listing_status():
     """Initial status for a freshly-submitted listing. If the auto-review
     worker is enabled, lands at 'pending_auto_review' so the worker picks
     it up; otherwise the historical 'pending' (straight to admin queue)."""
-    raw = (os.getenv("AUTO_REVIEW_WORKER_ENABLED") or "false").strip().lower()
-    if raw in ("1", "true", "yes", "on"):
-        return "pending_auto_review"
-    return "pending"
+    return "pending_auto_review" if _auto_review_enabled() else "pending"
 
 
 def _trigger_auto_review_async():
@@ -16274,7 +16286,7 @@ def _trigger_auto_review_async():
     Called immediately after a listing is saved so approval doesn't wait
     for the next worker poll cycle.
     """
-    if _initial_listing_status() != "pending_auto_review":
+    if not _auto_review_enabled():
         return
     import threading as _threading
 
@@ -21779,3 +21791,61 @@ def admin_flush_cache(current_user):
     redis_client = _get_redis_cache_client()
     redis_ok = redis_client is not None
     return jsonify({"ok": True, "flushed": flushed, "redis": redis_ok}), 200
+
+
+@app.route("/api/admin/auto-review/settings", methods=["GET", "PATCH"])
+@token_required
+def admin_auto_review_settings(current_user):
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Admin access required"}), 403
+
+    env_enabled = (os.getenv("AUTO_REVIEW_WORKER_ENABLED") or "false").strip().lower() in ("1", "true", "yes", "on")
+    rc = _get_redis_cache_client()
+
+    if request.method == "PATCH":
+        body = request.get_json(silent=True) or {}
+        enabled = bool(body.get("enabled", False))
+        if rc:
+            try:
+                rc.set("ar:enabled", "1" if enabled else "0")
+                return jsonify({"enabled": enabled, "source": "redis"}), 200
+            except Exception as exc:
+                return jsonify({"error": f"Redis error: {exc}"}), 500
+        return jsonify({"error": "Redis unavailable — set AUTO_REVIEW_WORKER_ENABLED env var instead"}), 503
+
+    # GET
+    redis_val = None
+    if rc:
+        try:
+            redis_val = rc.get("ar:enabled")
+        except Exception:
+            pass
+    if redis_val is not None:
+        return jsonify({"enabled": redis_val == "1", "source": "redis", "env_enabled": env_enabled}), 200
+    return jsonify({"enabled": env_enabled, "source": "env", "env_enabled": env_enabled}), 200
+
+
+@app.route("/api/admin/auto-review/run", methods=["POST"])
+@token_required
+def admin_auto_review_run(current_user):
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Admin access required"}), 403
+
+    import threading as _threading
+    result_box = {}
+
+    def _run():
+        try:
+            from workers.auto_review_worker import run as _ar_run
+            result_box["processed"] = _ar_run()
+        except Exception as exc:
+            result_box["error"] = str(exc)
+
+    t = _threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=30)
+    if "error" in result_box:
+        return jsonify({"error": result_box["error"]}), 500
+    return jsonify({"ok": True, "processed": result_box.get("processed", 0)}), 200
