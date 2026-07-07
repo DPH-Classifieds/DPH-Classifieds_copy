@@ -29,6 +29,7 @@ import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
 import { normalizeRegistrationScanResponse } from '../utils/registrationScan';
+import { moderateImage } from '../utils/imageModeration';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;
@@ -1635,11 +1636,13 @@ const PostCar = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [moderationErrors, setModerationErrors] = useState({}); // { [filename]: errorMessage }
+  const [moderating, setModerating] = useState(false);
   const fileInputRef = useRef(null);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
-    processFiles(files);
+    await processFiles(files);
     // Allow selecting the same file again in a later pick.
     e.target.value = '';
   };
@@ -1663,7 +1666,7 @@ const PostCar = () => {
     fileInputRef.current?.click();
   };
 
-  const processFiles = (files) => {
+  const processFiles = async (files) => {
     const nextFiles = files.filter((file) => file && file.type?.startsWith('image/'));
     if (nextFiles.length === 0) {
       setError('Please select image files only.');
@@ -1681,7 +1684,7 @@ const PostCar = () => {
 
     const totalFiles = existingImages.length + croppedImages.length + dedupedNewFiles.length;
     if (totalFiles > 10) {
-      setError("You can only upload up to 10 images.");
+      setError('You can only upload up to 10 images.');
       return;
     }
 
@@ -1696,9 +1699,36 @@ const PostCar = () => {
       setError('Each image must be 20MB or smaller.');
       return;
     }
-    
+
     setError(null);
-    setPendingCropFiles(dedupedNewFiles);
+    setModerating(true);
+    setModerationErrors({});
+
+    try {
+      const results = await Promise.all(
+        dedupedNewFiles.map(file => moderateImage(file).then(r => ({ file, ...r })))
+      );
+
+      const newErrors = {};
+      const cleanFiles = [];
+      for (const { file, blocked, reasons } of results) {
+        if (blocked) {
+          newErrors[file.name] = reasons.includes('nudity')
+            ? 'This photo was blocked — explicit content detected. Please use photos that show the vehicle only.'
+            : 'This photo was blocked — a face was detected. Please use photos that show the vehicle only to protect privacy.';
+        } else {
+          cleanFiles.push(file);
+        }
+      }
+
+      setModerationErrors(newErrors);
+      if (cleanFiles.length > 0) setPendingCropFiles(cleanFiles);
+    } catch (err) {
+      console.warn('Image moderation failed, allowing files:', err);
+      setPendingCropFiles(dedupedNewFiles);
+    } finally {
+      setModerating(false);
+    }
   };
 
   const handleDragOver = (e) => {
@@ -1711,20 +1741,20 @@ const PostCar = () => {
     setIsDragOver(false);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     setIsDragOver(false);
-    
-    const files = Array.from(e.dataTransfer.files).filter(file => 
+
+    const files = Array.from(e.dataTransfer.files).filter(file =>
       file.type.startsWith('image/')
     );
-    
+
     if (files.length === 0) {
       setError("Please drop only image files.");
       return;
     }
-    
-    processFiles(files);
+
+    await processFiles(files);
   };
 
   // Drag and drop handlers for reordering images
@@ -2166,6 +2196,16 @@ const PostCar = () => {
                   className="file-input"
                   id="images"
                 />
+                {moderating && (
+                  <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '4px 0 0' }}>
+                    Checking images…
+                  </p>
+                )}
+                {Object.entries(moderationErrors).map(([filename, msg]) => (
+                  <p key={filename} style={{ color: '#dc2626', fontSize: '0.85rem', margin: '4px 0 0' }}>
+                    <strong>{filename}:</strong> {msg}
+                  </p>
+                ))}
                 <button type="button" className="browse-btn" onClick={handleBrowseClick}>
                   Browse Files
                 </button>
