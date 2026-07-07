@@ -455,10 +455,10 @@ const CreateListing = () => {
                 required
               />
               {formData.vin_number.length === 17 && !isVinValid(formData.vin_number) && (
-                <small className="text-danger">Invalid VIN — check for typos (common mix-ups: O/0, I/1, Q/0).</small>
+                <small className="text-danger">This VIN appears invalid. You can still post your listing.</small>
               )}
               {formData.vin_number.length === 17 && isVinValid(formData.vin_number) && (
-                <small className="text-success">VIN format looks good.</small>
+                <small className="text-success">VIN verified ✓</small>
               )}
               {!formData.vin_number && (
                 <small className="form-text vin-help-text">

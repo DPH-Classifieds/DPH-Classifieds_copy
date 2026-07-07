@@ -3130,11 +3130,11 @@ const PostCar = () => {
               />
               {formData.vin_number.length === 17 && !isVinValid(formData.vin_number) && (
                 <div className="invalid-feedback">
-                  Invalid VIN — check for typos (common mix-ups: O/0, I/1, Q/0). The 17-character code is on your registration document or driver's side dashboard.
+                  This VIN appears invalid. You can still post your listing.
                 </div>
               )}
               {formData.vin_number.length === 17 && isVinValid(formData.vin_number) && (
-                <div className="valid-feedback">VIN format looks good.</div>
+                <div className="valid-feedback">VIN verified ✓</div>
               )}
               {formData.vin_number.length > 0 && formData.vin_number.length < 17 && (
                 <div className="form-text text-muted">{17 - formData.vin_number.length} characters remaining</div>
