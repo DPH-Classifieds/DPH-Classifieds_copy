@@ -14,7 +14,7 @@ import {
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
 import { moderateImage } from '../utils/imageModeration';
 import UnifiedCropper from './cropper/UnifiedCropper';
@@ -92,6 +92,11 @@ const PostBike = () => {
   const [moderationErrors, setModerationErrors] = useState({});
   const [moderating, setModerating] = useState(false);
   const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true);
+  const [regDocFile, setRegDocFile] = useState(null);
+  const [regDocUrl, setRegDocUrl] = useState('');
+  const [uploadingRegDoc, setUploadingRegDoc] = useState(false);
+  const [regDocOcrStatus, setRegDocOcrStatus] = useState('');
+  const regDocInputRef = useRef(null);
   const [formData, setFormData] = useState({
     bike_brand: '',
     bike_model: '',
@@ -192,6 +197,7 @@ const PostBike = () => {
               .filter(Boolean)
           : [];
         setExistingImageUrls(urls);
+        if (data.registration_doc_url) { setRegDocUrl(data.registration_doc_url); }
       } catch (fetchError) {
         setError(fetchError.message || 'Failed to load bike listing');
       } finally {
@@ -421,6 +427,49 @@ const PostBike = () => {
     setExistingImageUrls((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   };
 
+  const handleRegDocChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRegDocFile(file);
+    setRegDocUrl('');
+    setRegDocOcrStatus('');
+    if (!user?.id) return;
+    setUploadingRegDoc(true);
+    try {
+      const url = await uploadRegistrationDocument(file, { userId: user.id });
+      setRegDocUrl(url);
+    } catch (err) {
+      console.warn('Failed to upload registration doc:', err);
+    } finally {
+      setUploadingRegDoc(false);
+    }
+  };
+
+  const runBikeOcr = async () => {
+    if (!regDocFile) return;
+    setRegDocOcrStatus('scanning');
+    try {
+      const reader = new FileReader();
+      const b64 = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(regDocFile);
+      });
+      const resp = await apiClient.post('/api/ocr/hf-extract', { image_b64: b64 });
+      const text = resp?.text || '';
+      const vinMatch = text.match(/\b[A-HJ-NPR-Z0-9]{17}\b/);
+      if (vinMatch) {
+        handleChange({ target: { name: 'vin_number', value: vinMatch[0] } });
+        setRegDocOcrStatus('done');
+      } else {
+        setRegDocOcrStatus('error');
+      }
+    } catch (err) {
+      console.warn('Bike OCR failed:', err);
+      setRegDocOcrStatus('error');
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!user) return;
 
@@ -513,6 +562,7 @@ const PostBike = () => {
         wheels: formData.wheels ? Number(formData.wheels) : null,
         is_dealer: formData.is_dealer,
         images: mergedImages,
+        registration_doc_url: regDocUrl || undefined,
       };
 
       if (isEdit) {
@@ -836,6 +886,35 @@ const PostBike = () => {
                   <div className="form-group">
                     <label htmlFor="price">Price (AED) <RequiredMark /></label>
                     <input id="price" name="price" type="number" min="0" value={formData.price} onChange={handleChange} required placeholder="25000" />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full-width">
+                    <label>Registration Document <span style={{fontWeight:'normal',fontSize:'0.85em'}}>(optional — for admin verification)</span></label>
+                    <div className="registration-doc-upload">
+                      <input
+                        ref={regDocInputRef}
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                        className="file-input"
+                        onChange={handleRegDocChange}
+                        id="bike_registration_doc"
+                      />
+                      <label htmlFor="bike_registration_doc" className="upload-doc-label">
+                        {regDocFile ? regDocFile.name : 'Upload mulkiyya / registration card'}
+                      </label>
+                      {uploadingRegDoc && <span className="form-text">Uploading…</span>}
+                      {regDocUrl && !uploadingRegDoc && <span className="form-text text-success">Document uploaded.</span>}
+                    </div>
+                    {regDocFile && regDocUrl && (
+                      <button type="button" className="btn btn-secondary btn-sm mt-1" onClick={runBikeOcr} disabled={regDocOcrStatus === 'scanning'}>
+                        {regDocOcrStatus === 'scanning' ? 'Scanning…' : 'Scan document for VIN'}
+                      </button>
+                    )}
+                    {regDocOcrStatus === 'done' && <p className="form-text text-success">VIN pre-filled from document.</p>}
+                    {regDocOcrStatus === 'error' && <p className="form-text text-muted">No VIN found — enter manually above.</p>}
+                    <div className="form-text text-muted">Never shown to buyers.</div>
                   </div>
                 </div>
               </div>
