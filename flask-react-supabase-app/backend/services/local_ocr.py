@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import threading
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,33 @@ _INIT_TIMEOUT_SECONDS = int(os.getenv("EASYOCR_INIT_TIMEOUT", "30"))
 _reader = None
 _init_error = None
 _ready = threading.Event()
+
+
+def _log_runtime_diagnostics():
+    model_path = Path(_MODEL_DIR)
+    exists = model_path.is_dir()
+    entries = []
+    if exists:
+        try:
+            entries = sorted(child.name for child in model_path.iterdir())
+        except OSError:
+            entries = []
+    model_files_present = any(name.endswith(".pth") or name.endswith(".zip") for name in entries)
+    logger.info(
+        "EasyOCR model directory: %s (exists=%s, files=%s)",
+        _MODEL_DIR,
+        exists,
+        len(entries),
+    )
+    logger.info(
+        "EasyOCR models present: %s",
+        "yes" if model_files_present else "no",
+    )
+    if not model_files_present:
+        logger.warning(
+            "EasyOCR model directory is missing expected model files: %s",
+            _MODEL_DIR,
+        )
 
 
 def _init():
@@ -34,6 +62,7 @@ def _init():
 
 
 # Start in background so imports are never blocking
+_log_runtime_diagnostics()
 threading.Thread(target=_init, daemon=True).start()
 
 

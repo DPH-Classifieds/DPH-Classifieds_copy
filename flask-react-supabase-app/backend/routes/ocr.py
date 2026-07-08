@@ -4,6 +4,7 @@ from functools import wraps
 
 from flask import Blueprint, current_app, jsonify, request
 
+from services.local_ocr import extract_text as extract_local_ocr_text
 from services.registration_ocr import scan_registration_image
 
 logger = logging.getLogger(__name__)
@@ -204,8 +205,6 @@ def _local_ocr_scan(image_file):
     import re as _re
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
-    from services.local_ocr import extract_text
-
     timeout = int(os.getenv("EASYOCR_TIMEOUT", "25"))
 
     try:
@@ -213,7 +212,7 @@ def _local_ocr_scan(image_file):
         raw = image_file.stream.read()
         import io as _io
         with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(extract_text, _io.BytesIO(raw))
+            future = pool.submit(extract_local_ocr_text, _io.BytesIO(raw))
             text = future.result(timeout=timeout)
     except FuturesTimeout:
         logger.warning("Local OCR timed out after %ss — falling back to Tesseract", timeout)

@@ -2,6 +2,7 @@
 import builtins
 import io
 import os
+from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 
@@ -214,6 +215,28 @@ class RegistrationOCRServiceTests(unittest.TestCase):
             fake_pytesseract.pytesseract.tesseract_cmd,
             "/custom/bin/tesseract",
         )
+
+    def test_tesseract_autoconfig_logs_resolved_binary(self):
+        with patch.object(registration_ocr.shutil, "which", return_value="/usr/bin/tesseract"), \
+             self.assertLogs("services.registration_ocr", level="INFO") as captured:
+            registration_ocr._auto_configure_tesseract()
+
+        logs = "\n".join(captured.output)
+        self.assertIn("Resolved tesseract binary path: /usr/bin/tesseract", logs)
+
+    def test_easyocr_diagnostics_report_model_presence(self):
+        with unittest.mock.patch.object(local_ocr, "_MODEL_DIR", "/tmp/easyocr-models"):
+            with unittest.mock.patch.object(Path, "is_dir", return_value=True), \
+                 unittest.mock.patch.object(Path, "iterdir", return_value=[
+                     Path("/tmp/easyocr-models/craft_mlt_25k.pth"),
+                     Path("/tmp/easyocr-models/latin_g2.pth"),
+                 ]), \
+                 self.assertLogs("services.local_ocr", level="INFO") as captured:
+                local_ocr._log_runtime_diagnostics()
+
+        logs = "\n".join(captured.output)
+        self.assertIn("EasyOCR model directory: /tmp/easyocr-models", logs)
+        self.assertIn("EasyOCR models present: yes", logs)
 
     @patch("subprocess.run")
     def test_tesseract_provider_falls_back_to_cli_when_pytesseract_is_unavailable(self, mock_run):

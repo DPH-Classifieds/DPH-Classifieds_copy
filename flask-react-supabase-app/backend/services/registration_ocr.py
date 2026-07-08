@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 
+logger = logging.getLogger(__name__)
+
 def _auto_configure_tesseract():
     """Set TESSDATA_PREFIX and TESSERACT_CMD from the installed binary.
     In Nix/Railway, the binary may be in the Nix store but not on PATH.
@@ -30,6 +32,7 @@ def _auto_configure_tesseract():
             binary = nix_hits[0]
 
     if not binary:
+        logger.warning("Resolved tesseract binary path: not found")
         return
 
     if not os.getenv("TESSERACT_CMD"):
@@ -41,13 +44,15 @@ def _auto_configure_tesseract():
         if os.path.isdir(candidate):
             os.environ["TESSDATA_PREFIX"] = candidate
 
-_auto_configure_tesseract()
+    logger.info("Resolved tesseract binary path: %s", binary)
+    logger.info(
+        "Tesseract data directory: %s",
+        os.getenv("TESSDATA_PREFIX") or "(not set)",
+    )
 
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
 
 from services.vin_decoder import VIN_ALLOWED_RE, VINDecoder
-
-logger = logging.getLogger(__name__)
 
 FIELD_ALIASES = {
     "make": {"make", "manufacturer", "brand"},
@@ -70,6 +75,8 @@ VIN_OCR_SUBSTITUTIONS = {
     "I": ("1",),
     "L": ("1",),
 }
+
+_auto_configure_tesseract()
 
 
 class TesseractOCRProvider:
