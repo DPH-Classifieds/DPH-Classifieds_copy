@@ -29,7 +29,7 @@ const ADMIN_DELETE_REASONS = [
   'Price manipulation',
 ];
 
-const STATUS_SORT_ORDER = { pending: 0, draft: 1, active: 2, approved: 2, expired: 3, suspended: 4, rejected: 5, sold: 6, deleted: 7, archived: 8, removed: 9 };
+const STATUS_SORT_ORDER = { pending: 0, pending_auto_review: 0, draft: 1, active: 2, approved: 2, expired: 3, suspended: 4, rejected: 5, sold: 6, deleted: 7, archived: 8, removed: 9 };
 const statusRank = (l) => STATUS_SORT_ORDER[l._table_status || l.status] ?? 10;
 
 const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates', 'drafts', 'buying_requests'];
@@ -109,6 +109,7 @@ const StatusBadge = ({ status }) => {
     active: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
     approved: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
     pending: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+    pending_auto_review: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
     suspended: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
     rejected: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
     removed: 'bg-white/5 text-white/40 border-white/10',
@@ -116,9 +117,10 @@ const StatusBadge = ({ status }) => {
     deleted: 'bg-white/5 text-white/40 border-white/10',
     expired: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
   };
+  const label = s === 'pending_auto_review' ? 'Auto Review' : status;
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${map[s] || 'bg-white/5 text-white/40 border-white/10'}`}>
-      {status}
+      {label}
     </span>
   );
 };

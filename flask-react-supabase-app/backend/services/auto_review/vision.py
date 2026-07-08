@@ -14,10 +14,10 @@ class VisionResult:
 
 
 class NullVisionProvider:
-    """Always returns available=False. Worker treats that as soft-fail → human queue."""
+    """No vision API configured — skip image checks entirely (pass-through)."""
 
     def analyze(self, image_bytes):
-        return VisionResult(available=False)
+        return VisionResult(available=True)
 
 
 class GoogleVisionProvider:

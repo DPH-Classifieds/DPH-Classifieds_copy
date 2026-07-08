@@ -21838,8 +21838,26 @@ def admin_auto_review_run(current_user):
 
     def _run():
         try:
-            from workers.auto_review_worker import run as _ar_run
-            result_box["processed"] = _ar_run()
+            from workers.auto_review_worker import (
+                process_once,
+                fetch_pending_for_type,
+                build_signals_for,
+                record_decision_for,
+                downgrade_to_pending_for,
+                _approve_via_helper,
+            )
+            from services.auto_review.rules import evaluate as rules_evaluate
+            result_box["processed"] = process_once(
+                fetch_pending=fetch_pending_for_type,
+                build_signals=build_signals_for,
+                evaluate=lambda kind, listing, signals: rules_evaluate(
+                    kind, listing=listing, signals=signals
+                ),
+                approve=_approve_via_helper,
+                record_decision=record_decision_for,
+                downgrade_to_pending=downgrade_to_pending_for,
+                dry_run=False,
+            )
         except Exception as exc:
             result_box["error"] = str(exc)
 
