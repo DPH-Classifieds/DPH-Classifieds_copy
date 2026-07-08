@@ -205,7 +205,7 @@ def _local_ocr_scan(image_file):
     import re as _re
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
-    timeout = int(os.getenv("EASYOCR_TIMEOUT", "25"))
+    timeout = int(os.getenv("EASYOCR_TIMEOUT", "10"))
 
     try:
         image_file.stream.seek(0)

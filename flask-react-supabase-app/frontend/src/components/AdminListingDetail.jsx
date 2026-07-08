@@ -94,8 +94,8 @@ const Badge = ({ children, className = '' }) => (
 /* ── auto-review reason map ──────────────────────────────────────────────── */
 const AUTO_REVIEW_REASONS = {
   no_trust_tier: {
-    label: 'Account not yet trusted',
-    detail: 'Email unverified, or fewer than 3 previously approved listings. Verify the seller manually before approving.',
+    label: 'Account not yet verified',
+    detail: 'Seller must have both email and phone number verified to be auto-approved. Verify manually or ask the seller to complete verification.',
   },
   vin_missing: {
     label: 'No VIN provided',
@@ -425,7 +425,7 @@ const AdminListingDetail = () => {
     setArRunning(true);
     setArFeedback('');
     try {
-      const res = await apiClient.post('/api/admin/auto-review/run');
+      const res = await apiClient.post('/api/admin/auto-review/run', { listing_id: itemId, listing_type: approvalRouteType });
       setArFeedback(`Done — ${res.processed ?? 0} listing(s) processed.`);
       // Reload listing data so the panel reflects the new decision
       const refreshed = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);

@@ -21840,6 +21840,26 @@ def admin_auto_review_run(current_user):
     if not user_details or not user_details.get("is_admin"):
         return jsonify({"error": "Admin access required"}), 403
 
+    data = request.get_json(silent=True) or {}
+    listing_id = data.get("listing_id")
+    listing_type = data.get("listing_type")  # plural: "cars", "bikes", "parts", "plates"
+
+    # If a specific listing is targeted, reset it to pending_auto_review so the
+    # sweep picks it up regardless of any previous auto-review decision.
+    if listing_id and listing_type and listing_type in ADMIN_ITEM_TYPE_TO_TABLE:
+        table = ADMIN_ITEM_TYPE_TO_TABLE[listing_type]
+        supabase_request(
+            "patch",
+            f"/rest/v1/{table}?id=eq.{listing_id}",
+            data={
+                "status": "pending_auto_review",
+                "auto_review_decided_at": None,
+                "auto_review_state": None,
+                "auto_review_reasons": [],
+            },
+            use_service_role=True,
+        )
+
     import threading as _threading
     result_box = {}
 

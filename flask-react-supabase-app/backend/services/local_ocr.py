@@ -94,7 +94,12 @@ def _load_image(stream):
 
 def extract_text(stream):
     """Run EasyOCR on an image stream. Returns plain text string."""
-    if not _ready.wait(timeout=_INIT_TIMEOUT_SECONDS):
+    # If still loading, don't block the web request — raise immediately so callers
+    # can fall back to Tesseract. Blocking here can cause Railway to time out the
+    # connection and return a 504 without CORS headers (looks like a CORS error).
+    if not _ready.is_set():
+        raise RuntimeError("EasyOCR still initializing")
+    if not _ready.wait(timeout=5):
         raise RuntimeError("EasyOCR not ready")
 
     reader = _get_reader()
