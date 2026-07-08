@@ -61,9 +61,12 @@ def _init():
         _ready.set()
 
 
-# Start in background so imports are never blocking
-_log_runtime_diagnostics()
-threading.Thread(target=_init, daemon=True).start()
+# Skip EasyOCR loading in worker mode — it's not needed there and wastes memory.
+if os.getenv("SERVICE_ROLE") != "worker":
+    _log_runtime_diagnostics()
+    threading.Thread(target=_init, daemon=True).start()
+else:
+    _ready.set()  # mark ready so _get_reader() returns None cleanly
 
 
 def _get_reader():

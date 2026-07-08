@@ -153,6 +153,12 @@ def scheduled_loop(label, task_fn, interval_seconds, max_backoff_seconds=300):
 def main():
     logger.info("Worker starting")
 
+    # Start health server immediately so Railway sees the process as alive while
+    # imports run. The health server is a daemon thread, so it stays up as long
+    # as main() is running.
+    _health_thread = threading.Thread(target=start_health_server, name="health-server", daemon=True)
+    _health_thread.start()
+
     try:
         from app import (
             _run_listing_draft_reminders_once,
@@ -235,11 +241,6 @@ def main():
     price_drop_alert_interval_seconds = int(
         os.getenv("PRICE_DROP_ALERT_INTERVAL_SECONDS", "300")
     )
-
-    health_server_thread = threading.Thread(
-        target=start_health_server, name="health-server", daemon=True
-    )
-    health_server_thread.start()
 
     try:
         ok, info = record_worker_heartbeat()

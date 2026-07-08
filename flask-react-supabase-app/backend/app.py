@@ -4132,7 +4132,8 @@ def _prewarm_easyocr():
         logger.warning("EasyOCR pre-warm skipped: %s", _exc)
 
 import threading as _startup_threading
-_startup_threading.Thread(target=_prewarm_easyocr, daemon=True).start()
+if os.getenv("SERVICE_ROLE") != "worker":
+    _startup_threading.Thread(target=_prewarm_easyocr, daemon=True).start()
 
 # Enable compression for better performance.
 # - Algorithm order: brotli first (smaller), gzip fallback.
