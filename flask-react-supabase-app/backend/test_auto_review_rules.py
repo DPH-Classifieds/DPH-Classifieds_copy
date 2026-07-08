@@ -3,20 +3,22 @@ import unittest
 from services.auto_review.decision import FailReason
 from services.auto_review.hard_blockers import ImageAnalysis
 from services.auto_review.rules import evaluate
+from services.auto_review.sync_gate import SyncGateResult
 from services.auto_review.trust import TrustResult
 from services.auto_review.vin_gate import VinGateResult
 
 
 def _ok_signals():
-    return {
-        "trust": TrustResult(True, "dealer_verified"),
-        "image_analysis": ImageAnalysis(ok=True, reasons=[], raw=[1, 2, 3]),
-        "vin": VinGateResult(ok=True, reasons=[], decoded={"make": "Honda"}),
-        "profanity": [],
-        "duplicate": None,
-        "price_outlier": None,
-        "user_under_review": False,
-    }
+        return {
+            "trust": TrustResult(True, "dealer_verified"),
+            "image_analysis": ImageAnalysis(ok=True, reasons=[], raw=[1, 2, 3]),
+            "vin": VinGateResult(ok=True, reasons=[], decoded={"make": "Honda"}),
+            "sync_gate": SyncGateResult(ok=True, missing=[]),
+            "profanity": [],
+            "duplicate": None,
+            "price_outlier": None,
+            "user_under_review": False,
+        }
 
 
 class RulesTests(unittest.TestCase):
@@ -56,7 +58,14 @@ class RulesTests(unittest.TestCase):
         s["vin"] = None
         d = evaluate("car", listing={}, signals=s)
         self.assertFalse(d.approved)
-        self.assertIn("vin_decoder_unavailable", d.as_label_list())
+        self.assertIn("vin_missing", d.as_label_list())
+
+    def test_missing_required_fields_queues(self):
+        s = _ok_signals()
+        s["sync_gate"] = SyncGateResult(ok=False, missing=["vin", "photos"])
+        d = evaluate("car", listing={}, signals=s)
+        self.assertFalse(d.approved)
+        self.assertIn("missing_required_fields", d.as_label_list())
 
     def test_no_trust_queues(self):
         s = _ok_signals()

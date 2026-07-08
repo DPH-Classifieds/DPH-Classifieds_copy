@@ -21,6 +21,9 @@ def evaluate(listing_type, *, listing, signals):
     t = (listing_type or "").lower()
 
     # Step 1 — hard blockers
+    sync_gate = signals.get("sync_gate")
+    if sync_gate is not None and not sync_gate.ok:
+        reasons.append(FailReason("missing_required_fields", {"missing": sync_gate.missing}))
     reasons.extend(signals.get("profanity") or [])
     image_analysis = signals.get("image_analysis")
     if image_analysis is not None and not image_analysis.ok:
@@ -36,7 +39,7 @@ def evaluate(listing_type, *, listing, signals):
     if t in VIN_REQUIRED_TYPES:
         vin = signals.get("vin")
         if vin is None:
-            reasons.append(FailReason("vin_decoder_unavailable", {}))
+            reasons.append(FailReason("vin_missing", {}))
         elif not vin.ok:
             reasons.extend(vin.reasons)
 

@@ -17,6 +17,91 @@ class SyncGateResult:
     missing: list = field(default_factory=list)
 
 
+def _first_text(*values):
+    for value in values:
+        if _non_empty(value):
+            return value
+    return None
+
+
+def normalize_listing_fields(listing_type, listing):
+    """Map the stored row into the field names used by the sync gate.
+
+    The create routes preserve the canonical DB columns, but some forms still
+    submit legacy aliases. Normalising here keeps the auto-review worker aligned
+    with the actual submission payloads instead of relying on one exact key.
+    """
+    src = dict(listing or {})
+    t = (listing_type or "").lower()
+
+    if t == "car":
+        return {
+            **src,
+            "make": _first_text(src.get("make"), src.get("car_manufacturer")),
+            "model": _first_text(src.get("model"), src.get("car_model")),
+            "body_type": _first_text(src.get("body_type")),
+            "color": _first_text(src.get("color"), src.get("exterior_color")),
+            "regional_spec": _first_text(src.get("regional_spec")),
+            "car_owner_phone_number": _first_text(
+                src.get("car_owner_phone_number"), src.get("contact_phone")
+            ),
+            "whatsapp_number": _first_text(src.get("whatsapp_number")),
+            "whatsapp_prefill_text": _first_text(src.get("whatsapp_prefill_text")),
+            "car_description": _first_text(src.get("car_description"), src.get("description")),
+            "car_city": _first_text(src.get("car_city"), src.get("city"), src.get("emirate")),
+            "area": _first_text(src.get("area")),
+            "make_year": src.get("make_year"),
+            "kilometer_driven": src.get("kilometer_driven"),
+            "expected_selling_price": src.get("expected_selling_price"),
+            "vin": _first_text(src.get("vin"), src.get("vin_number")),
+            "transmission_type": _first_text(src.get("transmission_type"), src.get("transmission")),
+            "fuel_type": _first_text(src.get("fuel_type")),
+        }
+
+    if t == "bike":
+        return {
+            **src,
+            "bike_brand": _first_text(src.get("bike_brand"), src.get("make")),
+            "bike_model": _first_text(src.get("bike_model"), src.get("model")),
+            "area": _first_text(src.get("area"), src.get("location"), src.get("city")),
+            "contact_number": _first_text(src.get("contact_number"), src.get("contact_phone")),
+            "whatsapp_number": _first_text(src.get("whatsapp_number")),
+            "whatsapp_prefill_text": _first_text(src.get("whatsapp_prefill_text")),
+            "description": _first_text(src.get("description"), src.get("bike_description")),
+            "make_year": src.get("make_year") or src.get("year"),
+            "kilometer_driven": src.get("kilometer_driven") or src.get("mileage"),
+            "price": src.get("price") or src.get("expected_selling_price"),
+            "engine_size": src.get("engine_size") or src.get("engine_capacity"),
+            "vin": _first_text(src.get("vin"), src.get("vin_number")),
+        }
+
+    if t == "part":
+        return {
+            **src,
+            "name": _first_text(src.get("name"), src.get("item_name")),
+            "part_type": _first_text(src.get("part_type"), src.get("category")),
+            "area": _first_text(src.get("area"), src.get("location"), src.get("city")),
+            "contact_number": _first_text(src.get("contact_number"), src.get("contact_phone")),
+            "description": _first_text(src.get("description"), src.get("part_description")),
+            "price": src.get("price"),
+            "condition": _first_text(src.get("condition")),
+        }
+
+    if t == "plate":
+        return {
+            **src,
+            "city": _first_text(src.get("city"), src.get("emirate"), src.get("area")),
+            "code": _first_text(src.get("code")),
+            "digits": src.get("digits"),
+            "price": src.get("price"),
+            "contact_phone": _first_text(src.get("contact_phone"), src.get("contact_number")),
+            "whatsapp_number": _first_text(src.get("whatsapp_number")),
+            "description": _first_text(src.get("description"), src.get("plate_description")),
+        }
+
+    return src
+
+
 def _non_empty(value):
     if value is None:
         return False
@@ -125,6 +210,7 @@ def _validate_plate(listing, photo_count, missing):
 def validate_required_fields(listing_type, listing, *, photo_count, min_year, max_year):
     missing = []
     t = (listing_type or "").lower()
+    listing = normalize_listing_fields(t, listing)
     if t == "car":
         _validate_car(listing, photo_count, min_year, max_year, missing)
     elif t == "bike":

@@ -260,9 +260,15 @@ def _trust_context_for(user_id):
 
 
 def build_signals_for(listing_kind, row):
+    import app as _backend
+
     from services.auto_review.hard_blockers import (
         evaluate_image_blockers,
         evaluate_profanity,
+    )
+    from services.auto_review.sync_gate import (
+        normalize_listing_fields,
+        validate_required_fields,
     )
     from services.auto_review.trust import evaluate_trust
     from services.auto_review.vin_gate import evaluate_vin
@@ -278,6 +284,16 @@ def build_signals_for(listing_kind, row):
         image_bytes, provider, face_confidence_threshold=face_threshold,
     )
 
+    normalized_listing = normalize_listing_fields(listing_kind, row)
+    current_year = datetime.now().year
+    sync_gate = validate_required_fields(
+        listing_kind,
+        normalized_listing,
+        photo_count=len(image_urls),
+        min_year=getattr(_backend, "MIN_ALLOWED_YEAR", 1886),
+        max_year=current_year + 1,
+    )
+
     profanity = evaluate_profanity(
         [
             row.get("description") or row.get("car_description") or "",
@@ -289,16 +305,17 @@ def build_signals_for(listing_kind, row):
     if listing_kind in ("car", "bike"):
         try:
             from services.vin_decoder import VINDecoder
+
             decoder = VINDecoder()
             if listing_kind == "car":
-                form_make = row.get("car_manufacturer") or ""
-                form_model = row.get("car_model") or ""
+                form_make = normalized_listing.get("make") or ""
+                form_model = normalized_listing.get("model") or ""
             else:
-                form_make = row.get("bike_brand") or ""
-                form_model = row.get("bike_model") or ""
-            form_year = row.get("make_year") or 0
+                form_make = normalized_listing.get("bike_brand") or ""
+                form_model = normalized_listing.get("bike_model") or ""
+            form_year = normalized_listing.get("make_year") or 0
             vin_signal = evaluate_vin(
-                row.get("vin_number") or row.get("vin") or "",
+                normalized_listing.get("vin") or "",
                 form_make=form_make,
                 form_model=form_model,
                 form_year=form_year,
@@ -313,6 +330,7 @@ def build_signals_for(listing_kind, row):
         "trust": trust,
         "image_analysis": image_analysis,
         "vin": vin_signal,
+        "sync_gate": sync_gate,
         "profanity": profanity,
         "duplicate": None,
         "price_outlier": None,

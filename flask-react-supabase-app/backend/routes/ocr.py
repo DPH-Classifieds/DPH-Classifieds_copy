@@ -179,7 +179,20 @@ def scan_registration(current_user):
         if local_result is not None:
             # Local OCR worked but found no VIN — return raw text so user can check
             return jsonify(local_result), 200
-        return jsonify({"error": "registration OCR unavailable"}), 503
+        return jsonify(
+            {
+                "vin": "",
+                "make": "",
+                "model": "",
+                "year": "",
+                "raw_text": "",
+                "confidence": {"vin": 0.0, "overall": 0.0},
+                "needs_review": True,
+                "review_reasons": ["ocr_unavailable"],
+                "document_type": request.form.get("document_type") or "registration",
+                "error": "registration OCR unavailable",
+            }
+        ), 200
 
     return jsonify(result), 200
 

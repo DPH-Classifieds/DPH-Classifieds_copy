@@ -119,6 +119,26 @@ class BikeSyncGateTests(unittest.TestCase):
         )
         self.assertTrue(result.ok, msg=result.missing)
 
+    def test_alias_fields_are_normalized(self):
+        listing = {
+            "make": "Honda",
+            "model": "CBR600",
+            "year": 2021,
+            "mileage": 12000,
+            "expected_selling_price": 28000,
+            "engine_capacity": 600,
+            "vin_number": "JH2PC40H8MM200001",
+            "location": "Dubai",
+            "contact_phone": "+971501234567",
+            "whatsapp_number": "+971501234567",
+            "whatsapp_prefill_text": "Bike interest",
+            "bike_description": "Good condition, recently serviced",
+        }
+        result = validate_required_fields(
+            "bike", listing, photo_count=3, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertTrue(result.ok, msg=result.missing)
+
     def test_too_few_photos(self):
         result = validate_required_fields(
             "bike", VALID_BIKE, photo_count=2, min_year=MIN_YEAR, max_year=MAX_YEAR
@@ -145,6 +165,21 @@ class PlateSyncGateTests(unittest.TestCase):
     def test_valid_plate_passes(self):
         result = validate_required_fields(
             "plate", VALID_PLATE, photo_count=1, min_year=MIN_YEAR, max_year=MAX_YEAR
+        )
+        self.assertTrue(result.ok, msg=result.missing)
+
+    def test_area_alias_normalizes_to_city(self):
+        listing = {
+            "area": "Dubai",
+            "code": "F",
+            "digits": 3,
+            "price": 25000,
+            "contact_number": "+971501234567",
+            "whatsapp_number": "+971501234567",
+            "plate_description": "Clean Dubai plate F123",
+        }
+        result = validate_required_fields(
+            "plate", listing, photo_count=1, min_year=MIN_YEAR, max_year=MAX_YEAR
         )
         self.assertTrue(result.ok, msg=result.missing)
 

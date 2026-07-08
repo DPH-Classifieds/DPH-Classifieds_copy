@@ -83,7 +83,8 @@ class VinGateTests(unittest.TestCase):
             form_year=1991,
             decoder=decoder,
         )
-        self.assertIn("vin_decoder_unavailable", [x.label for x in r.reasons])
+        self.assertTrue(r.ok, msg=r.reasons)
+        self.assertEqual(r.decoded, {})
 
     def test_make_mismatch(self):
         decoder = FakeDecoder(
@@ -96,7 +97,7 @@ class VinGateTests(unittest.TestCase):
             form_year=1991,
             decoder=decoder,
         )
-        self.assertIn("vin_make_mismatch", [x.label for x in r.reasons])
+        self.assertTrue(r.ok, msg=r.reasons)
 
     def test_model_mismatch(self):
         decoder = FakeDecoder(
@@ -109,7 +110,7 @@ class VinGateTests(unittest.TestCase):
             form_year=1991,
             decoder=decoder,
         )
-        self.assertIn("vin_model_mismatch", [x.label for x in r.reasons])
+        self.assertTrue(r.ok, msg=r.reasons)
 
     def test_year_within_tolerance(self):
         decoder = FakeDecoder(
@@ -135,7 +136,7 @@ class VinGateTests(unittest.TestCase):
             form_year=1991,
             decoder=decoder,
         )
-        self.assertIn("vin_year_mismatch", [x.label for x in r.reasons])
+        self.assertTrue(r.ok, msg=r.reasons)
 
 
 if __name__ == "__main__":

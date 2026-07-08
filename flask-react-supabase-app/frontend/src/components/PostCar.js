@@ -2008,7 +2008,7 @@ const PostCar = () => {
           await ensureRegistrationDocumentUploaded();
         } catch (uploadErr) {
           console.warn('Registration document upload failed:', uploadErr);
-          throw new Error('Could not upload the registration document. Please try again.');
+          setRegistrationOcrError('Could not upload the registration document, but the listing will still be submitted.');
         }
       }
 

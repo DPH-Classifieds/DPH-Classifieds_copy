@@ -486,7 +486,7 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         self.assertEqual(status, 413)
         self.assertEqual(response.get_json()["error"], "image upload is too large")
 
-    def test_scan_registration_route_returns_503_when_both_ocr_fail(self):
+    def test_scan_registration_route_returns_fallback_when_both_ocr_fail(self):
         with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:
             mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
             with patch("routes.ocr._local_ocr_scan") as mock_local, \
@@ -499,8 +499,11 @@ class RegistrationOCRRouteTests(unittest.TestCase):
                     headers={"Authorization": "Bearer test-token"},
                 )
 
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.get_json(), {"error": "registration OCR unavailable"})
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["error"], "registration OCR unavailable")
+        self.assertTrue(payload["needs_review"])
+        self.assertIn("ocr_unavailable", payload["review_reasons"])
 
     def test_scan_registration_route_requires_image(self):
         with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:

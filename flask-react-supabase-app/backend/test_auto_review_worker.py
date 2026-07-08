@@ -3,6 +3,10 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from services.auto_review.decision import Decision, FailReason
+from services.auto_review.hard_blockers import ImageAnalysis
+from services.auto_review.sync_gate import SyncGateResult
+from services.auto_review.trust import TrustResult
+from services.auto_review.vin_gate import VinGateResult
 from workers import auto_review_worker as worker
 
 
@@ -143,6 +147,73 @@ class WorkerRunGateTests(unittest.TestCase):
         env = {k: v for k, v in os.environ.items() if k != "AUTO_REVIEW_WORKER_ENABLED"}
         with patch.dict(os.environ, env, clear=True):
             self.assertEqual(worker.run(), 0)
+
+
+class WorkerSignalTests(unittest.TestCase):
+    @patch("services.auto_review.trust.evaluate_trust", return_value=TrustResult(True, "dealer_verified"))
+    @patch("services.auto_review.hard_blockers.evaluate_profanity", return_value=[])
+    @patch("services.auto_review.hard_blockers.evaluate_image_blockers")
+    @patch("services.auto_review.vision.select_vision_provider", return_value=object())
+    @patch("services.vin_decoder.VINDecoder")
+    @patch("workers.auto_review_worker._fetch_image_bytes", return_value=[b"image-bytes"])
+    @patch(
+        "workers.auto_review_worker._fetch_image_urls",
+        return_value=[
+            "https://example.com/image-1.jpg",
+            "https://example.com/image-2.jpg",
+            "https://example.com/image-3.jpg",
+            "https://example.com/image-4.jpg",
+        ],
+    )
+    @patch("workers.auto_review_worker._trust_context_for", return_value=object())
+    def test_build_signals_for_normalizes_alias_fields_and_keeps_vin_approved(
+        self,
+        _mock_trust_context,
+        _mock_fetch_urls,
+        _mock_fetch_bytes,
+        mock_decoder_cls,
+        _mock_provider,
+        mock_image_blockers,
+        _mock_profanity,
+        _mock_trust,
+    ):
+        mock_image_blockers.return_value = ImageAnalysis(ok=True, reasons=[], raw=[1])
+        mock_decoder = mock_decoder_cls.return_value
+        mock_decoder.is_checksum_valid.return_value = True
+        mock_decoder.validate_and_decode.return_value = {
+            "decoded": {"make": "Honda", "model": "Accord", "model_year": 2020}
+        }
+
+        signals = worker.build_signals_for(
+            "car",
+            {
+                "id": "car-1",
+                "user_id": "u1",
+                "car_manufacturer": "Honda",
+                "car_model": "Accord",
+                "make_year": 2020,
+                "kilometer_driven": 15000,
+                "expected_selling_price": 45000,
+                "body_type": "Sedan",
+                "regional_spec": "GCC",
+                "car_description": "Well maintained",
+                "contact_phone": "+971501234567",
+                "transmission": "Automatic",
+                "fuel_type": "Petrol",
+                "color": "White",
+                "car_city": "Dubai",
+                "whatsapp_number": "+971501234567",
+                "whatsapp_prefill_text": "Hi",
+                "vin_number": "1HGBH41JXMN109186",
+            },
+        )
+
+        self.assertTrue(signals["sync_gate"].ok, msg=signals["sync_gate"].missing)
+        self.assertIsInstance(signals["vin"], VinGateResult)
+        self.assertTrue(signals["vin"].ok, msg=signals["vin"].reasons)
+        self.assertEqual(signals["vin"].decoded["make"], "Honda")
+        self.assertIsInstance(signals["trust"], TrustResult)
+        self.assertIsInstance(signals["sync_gate"], SyncGateResult)
 
 
 if __name__ == "__main__":
