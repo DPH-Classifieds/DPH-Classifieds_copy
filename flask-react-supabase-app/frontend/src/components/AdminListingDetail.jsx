@@ -139,14 +139,18 @@ const AUTO_REVIEW_REASONS = {
   },
 };
 
-const AutoReviewPanel = ({ listing }) => {
+const AutoReviewPanel = ({ listing, onRun, runLoading, runFeedback }) => {
   const state = listing?.auto_review_state;
+  const listingStatus = listing?.status || listing?._table_status;
   const reasons = listing?.auto_review_reasons;
   const decidedAt = listing?.auto_review_decided_at;
-  if (!state || state === 'auto_approved') return null;
+
+  // Show panel for: unprocessed pending_auto_review OR worker decided manual review needed
+  const isAwaitingWorker = listingStatus === 'pending_auto_review' && !state;
+  const isQueued = state === 'auto_queued';
+  if (!isAwaitingWorker && !isQueued) return null;
 
   const reasonList = Array.isArray(reasons) && reasons.length > 0 ? reasons : [];
-  const isPending = !state; // still in pending_auto_review, worker hasn't run yet
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.08 }}>
@@ -154,15 +158,15 @@ const AutoReviewPanel = ({ listing }) => {
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
           <p className="text-sm font-semibold text-amber-300">
-            {isPending ? 'Awaiting Auto-Review' : 'Auto-Review: Manual Review Required'}
+            {isAwaitingWorker ? 'Awaiting Auto-Review' : 'Auto-Review: Manual Review Required'}
           </p>
           {decidedAt && (
             <span className="ml-auto text-[11px] text-white/30">{new Date(decidedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
           )}
         </div>
 
-        {isPending ? (
-          <p className="text-xs text-white/50">The auto-review worker has not yet processed this listing. It will be picked up on the next worker cycle.</p>
+        {isAwaitingWorker ? (
+          <p className="text-xs text-white/50">The auto-review worker has not yet processed this listing.</p>
         ) : reasonList.length === 0 ? (
           <p className="text-xs text-white/50">Queued for manual review (no specific reasons recorded).</p>
         ) : (
@@ -179,6 +183,20 @@ const AutoReviewPanel = ({ listing }) => {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {onRun && (
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onRun}
+              disabled={runLoading}
+              className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-semibold rounded-full px-4 py-1.5 text-xs transition-colors"
+            >
+              {runLoading ? 'Running…' : 'Run Auto-Review Now'}
+            </button>
+            {runFeedback && <span className="text-xs text-amber-300">{runFeedback}</span>}
           </div>
         )}
       </div>
@@ -263,6 +281,8 @@ const AdminListingDetail = () => {
   const [rejectReasonIndex, setRejectReasonIndex] = useState('');
   const [activeTab, setActiveTab] = useState('Details');
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [arRunning, setArRunning] = useState(false);
+  const [arFeedback, setArFeedback] = useState('');
   const [nudgeFeedback, setNudgeFeedback] = useState('');
   const [expiryEditDate, setExpiryEditDate] = useState('');
   const [expiryFeedback, setExpiryFeedback] = useState('');
@@ -398,6 +418,22 @@ const AdminListingDetail = () => {
       setError(soldError.message || 'Failed to mark listing as sold');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleRunAutoReview = async () => {
+    setArRunning(true);
+    setArFeedback('');
+    try {
+      const res = await apiClient.post('/api/admin/auto-review/run');
+      setArFeedback(`Done — ${res.processed ?? 0} listing(s) processed.`);
+      // Reload listing data so the panel reflects the new decision
+      const refreshed = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
+      setData(refreshed || null);
+    } catch (e) {
+      setArFeedback(`Failed: ${e.message || 'unknown error'}`);
+    } finally {
+      setArRunning(false);
     }
   };
 
@@ -668,7 +704,7 @@ const AdminListingDetail = () => {
       </motion.div>
 
       {/* Auto-review failure panel */}
-      <AutoReviewPanel listing={listing} />
+      <AutoReviewPanel listing={listing} onRun={handleRunAutoReview} runLoading={arRunning} runFeedback={arFeedback} />
 
       {/* Hero card: gallery + meta */}
       <motion.div

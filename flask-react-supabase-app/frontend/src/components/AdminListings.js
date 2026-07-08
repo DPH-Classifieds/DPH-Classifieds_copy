@@ -174,6 +174,8 @@ const AdminListings = () => {
   const [pendingStatusValue, setPendingStatusValue] = useState('');
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [expiryDate, setExpiryDate] = useState('');
+  const [arRunning, setArRunning] = useState(false);
+  const [arFeedback, setArFeedback] = useState('');
   const navigate = useNavigate();
 
   const showToast = (message, type = 'success') => {
@@ -556,6 +558,21 @@ const AdminListings = () => {
     }
   };
 
+  const handleRunAutoReview = async () => {
+    setArRunning(true);
+    setArFeedback('');
+    try {
+      const res = await apiClient.post('/api/admin/auto-review/run');
+      const count = res.processed ?? 0;
+      setArFeedback(`${count} listing(s) processed`);
+      if (count > 0) fetchListings();
+    } catch (e) {
+      setArFeedback(`Failed: ${e.message || 'error'}`);
+    } finally {
+      setArRunning(false);
+    }
+  };
+
   const STATUS_CHANGE_OPTIONS = {
     approved: [
       { value: 'rejected',       label: 'Rejected — notify seller' },
@@ -772,7 +789,7 @@ const AdminListings = () => {
           <h1 className="text-3xl font-semibold text-white">Listings</h1>
           <p className="text-sm text-white/50 mt-1">Moderate cars, bikes, plates, and parts across the platform.</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/[0.06] text-white/60 border border-white/10">
             {listingSummary.visible} shown
           </span>
@@ -781,6 +798,15 @@ const AdminListings = () => {
               {listingSummary.pendingCount} pending
             </span>
           )}
+          <button
+            type="button"
+            onClick={handleRunAutoReview}
+            disabled={arRunning}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+          >
+            {arRunning ? 'Running…' : 'Run Auto-Review'}
+          </button>
+          {arFeedback && <span className="text-xs text-emerald-400">{arFeedback}</span>}
         </div>
       </div>
 
