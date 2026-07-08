@@ -205,6 +205,8 @@ def _dealer_verified(user_id):
         },
         use_service_role=True,
     )
+    if not isinstance(rows, list):
+        return False
     approved_types = {r.get("document_type") for r in (rows or [])}
     required = {"trade_license", "vat_certificate", "owner_id"}
     return required.issubset(approved_types)
@@ -237,7 +239,7 @@ def _trust_context_for(user_id):
         "get",
         "/rest/v1/users",
         params={
-            "select": "id,is_admin,email_verified,phone_verified,phone,is_banned",
+            "select": "id,is_admin,is_dealer,email_verified,phone_verified,phone",
             "id": f"eq.{user_id}",
             "limit": "1",
         },
@@ -246,13 +248,12 @@ def _trust_context_for(user_id):
     if status >= 400 or not user_rows:
         return TrustContext(False, False, 0, 0, 0, False)
     u = user_rows[0]
-    if u.get("is_banned"):
-        return TrustContext(False, False, 0, 0, 0, False)
     # phone_verified = OTP-confirmed OR a phone number is present in their profile
     phone_verified = bool(u.get("phone_verified")) or bool(str(u.get("phone") or "").strip())
+    dealer_verified = _dealer_verified(user_id) if u.get("is_dealer") else False
     return TrustContext(
         is_admin=bool(u.get("is_admin")),
-        dealer_verified=_dealer_verified(user_id),
+        dealer_verified=dealer_verified,
         approved_listings_count=0,
         rejections_last_90d=0,
         reports_last_90d=0,

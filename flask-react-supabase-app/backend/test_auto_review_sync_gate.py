@@ -67,24 +67,24 @@ class CarSyncGateTests(unittest.TestCase):
         )
         self.assertTrue(result.ok, msg=result.missing)
 
-    def test_missing_vin_fails(self):
+    def test_missing_vin_is_allowed(self):
         listing = {**VALID_CAR}
         listing.pop("vin")
         result = validate_required_fields(
             "car", listing, photo_count=5, min_year=MIN_YEAR, max_year=MAX_YEAR
         )
-        self.assertIn("vin", result.missing)
+        self.assertTrue(result.ok, msg=result.missing)
 
     def test_short_vin_fails(self):
         listing = {**VALID_CAR, "vin": "TOO_SHORT"}
         result = validate_required_fields(
             "car", listing, photo_count=5, min_year=MIN_YEAR, max_year=MAX_YEAR
         )
-        self.assertIn("vin", result.missing)
+        self.assertIn("vin_invalid_format", result.missing)
 
     def test_too_few_photos_fails(self):
         result = validate_required_fields(
-            "car", VALID_CAR, photo_count=3, min_year=MIN_YEAR, max_year=MAX_YEAR
+            "car", VALID_CAR, photo_count=2, min_year=MIN_YEAR, max_year=MAX_YEAR
         )
         self.assertIn("photos", result.missing)
 

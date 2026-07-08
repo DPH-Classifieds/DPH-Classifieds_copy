@@ -8,7 +8,7 @@ CAR_TRANSMISSIONS = {"Automatic", "Manual"}
 CAR_FUEL_TYPES = {"Petrol", "Diesel", "Hybrid", "Electric"}
 PART_CONDITIONS = {"New", "Used"}
 
-PHOTO_MIN = {"car": 4, "bike": 3, "part": 2, "plate": 1}
+PHOTO_MIN = {"car": 3, "bike": 3, "part": 2, "plate": 1}
 
 
 @dataclass(frozen=True)
@@ -151,9 +151,15 @@ def _validate_car(listing, photo_count, min_year, max_year, missing):
     vin = (listing.get("vin") or "").strip().upper()
     if vin and not VIN_RE.match(vin):
         missing.append("vin_invalid_format")
-    if not _non_empty(listing.get("transmission_type")):
+    transmission = listing.get("transmission_type")
+    if not _non_empty(transmission):
         missing.append("transmission_type")
-    if not _non_empty(listing.get("fuel_type")):
+    elif transmission not in CAR_TRANSMISSIONS:
+        missing.append("transmission_type")
+    fuel_type = listing.get("fuel_type")
+    if not _non_empty(fuel_type):
+        missing.append("fuel_type")
+    elif fuel_type not in CAR_FUEL_TYPES and not str(fuel_type).startswith("Other - "):
         missing.append("fuel_type")
     if photo_count < PHOTO_MIN["car"]:
         missing.append("photos")
