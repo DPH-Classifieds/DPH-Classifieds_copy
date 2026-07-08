@@ -119,23 +119,13 @@ class TesseractOCRProvider:
                 pass
 
     def extract_text(self, image):
-        configs = (
-            "--oem 1 --psm 6",
-            "--oem 1 --psm 11",
-            "--oem 1 --psm 12",
-        )
-        texts = []
-        for config in configs:
-            try:
-                text = self._run_with_pytesseract(image, config)
-            except Exception as pytesseract_error:
-                logger.debug("pytesseract OCR failed, falling back to CLI: %s", pytesseract_error)
-                text = self._run_with_cli(image, config)
-            text = (text or "").strip()
-            if text:
-                if text not in texts:
-                    texts.append(text)
-        return "\n".join(texts)
+        config = "--oem 1 --psm 6"
+        try:
+            text = self._run_with_pytesseract(image, config)
+        except Exception as pytesseract_error:
+            logger.debug("pytesseract OCR failed, falling back to CLI: %s", pytesseract_error)
+            text = self._run_with_cli(image, config)
+        return (text or "").strip()
 
 
 def get_default_ocr_provider():
@@ -309,11 +299,7 @@ def _render_pdf_first_page(image_file):
 def _build_ocr_variants(image):
     base = image.copy()
     stronger_contrast = ImageEnhance.Contrast(base).enhance(2.1)
-    threshold = stronger_contrast.point(lambda p: 255 if p >= 165 else 0)
-    enlarged = stronger_contrast.resize(
-        (max(stronger_contrast.width * 2, 1), max(stronger_contrast.height * 2, 1))
-    )
-    return [base, stronger_contrast, threshold, enlarged]
+    return [base, stronger_contrast]
 
 
 def preprocess_image(
