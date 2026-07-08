@@ -5,10 +5,7 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-_MODEL_DIR = os.getenv("EASYOCR_MODEL_DIR") or os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "easyocr_models",
-)
+_MODEL_DIR = os.getenv("EASYOCR_MODEL_DIR") or "/app/easyocr_models"
 _INIT_TIMEOUT_SECONDS = int(os.getenv("EASYOCR_INIT_TIMEOUT", "30"))
 
 _reader = None
@@ -25,7 +22,7 @@ def _init():
         _reader = easyocr.Reader(
             ["en", "ar"],
             model_storage_directory=_MODEL_DIR,
-            download_enabled=True,
+            download_enabled=False,
             verbose=False,
         )
         logger.info("EasyOCR ready.")
