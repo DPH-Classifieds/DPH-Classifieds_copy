@@ -1,8 +1,3 @@
-import * as nsfwjs from 'nsfwjs';
-import * as blazeface from '@tensorflow-models/blazeface';
-import '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-webgl';
-
 let nsfwModel = null;
 let faceModel = null;
 let loadPromise = null;
@@ -16,8 +11,19 @@ export function _resetModels() {
 
 async function loadModels() {
   if (!loadPromise) {
-    loadPromise = Promise.all([nsfwjs.load(), blazeface.load()])
-      .then(([nsfw, face]) => { nsfwModel = nsfw; faceModel = face; });
+    // Dynamic imports avoid the TensorFlow.js circular-dependency TDZ crash
+    // that occurs when nsfwjs / blazeface are imported at module top level.
+    loadPromise = Promise.all([
+      import('@tensorflow/tfjs'),
+      import('@tensorflow/tfjs-backend-webgl'),
+      import('nsfwjs'),
+      import('@tensorflow-models/blazeface'),
+    ]).then(([, , nsfwjs, blazeface]) =>
+      Promise.all([nsfwjs.load(), blazeface.load()])
+    ).then(([nsfw, face]) => {
+      nsfwModel = nsfw;
+      faceModel = face;
+    });
   }
   await loadPromise;
 }
