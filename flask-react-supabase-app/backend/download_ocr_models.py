@@ -15,6 +15,17 @@ model_dir = os.environ.get("EASYOCR_MODEL_DIR") or os.path.join(
 os.makedirs(model_dir, exist_ok=True)
 
 print(f"Downloading EasyOCR models (en + ar) to {model_dir}", flush=True)
-import easyocr  # noqa: E402
-easyocr.Reader(["en", "ar"], model_storage_directory=model_dir, download_enabled=True, verbose=True)
+try:
+    import easyocr  # noqa: E402
+
+    easyocr.Reader(
+        ["en", "ar"],
+        model_storage_directory=model_dir,
+        download_enabled=True,
+        verbose=True,
+    )
+except Exception as exc:
+    print(f"Skipping EasyOCR model preload: {exc}", file=sys.stderr, flush=True)
+    sys.exit(0)
+
 print("EasyOCR models ready.", flush=True)

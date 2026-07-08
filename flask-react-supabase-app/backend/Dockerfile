@@ -20,7 +20,7 @@ COPY requirements.txt /app/requirements.txt
 
 RUN python -m venv /opt/venv \
     && pip install --upgrade pip setuptools wheel \
-    && pip install torch --index-url https://download.pytorch.org/whl/cpu \
+    && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu \
     && pip install -r /app/requirements.txt
 
 COPY download_ocr_models.py /app/download_ocr_models.py
