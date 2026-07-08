@@ -2,7 +2,10 @@ import io
 import logging
 import os
 import threading
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
 logger = logging.getLogger(__name__)
 
