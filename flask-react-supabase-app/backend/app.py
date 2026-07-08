@@ -18197,9 +18197,10 @@ def api_health():
                 "worker": worker_health,
             },
         }
-        return jsonify(snapshot), 200 if snapshot[
-            "overall_status"
-        ] == "healthy" else 503
+        # Keep this endpoint liveness-friendly for platform health checks.
+        # The payload still reports degraded dependencies when Redis or the
+        # worker is unavailable, but the container itself remains reachable.
+        return jsonify(snapshot), 200
     except Exception as exc:
         logger.error(f"Health check failed: {exc}")
         return jsonify({"status": "down", "error": str(exc)}), 503
