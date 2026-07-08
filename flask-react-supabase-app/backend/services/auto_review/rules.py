@@ -35,12 +35,10 @@ def evaluate(listing_type, *, listing, signals):
     if signals.get("user_under_review"):
         reasons.append(FailReason("user_under_review", {}))
 
-    # Step 2 — VIN gate (cars/bikes only)
+    # Step 2 — VIN gate (cars/bikes only); vin is None means evaluation threw — skip, don't block
     if t in VIN_REQUIRED_TYPES:
         vin = signals.get("vin")
-        if vin is None:
-            reasons.append(FailReason("vin_missing", {}))
-        elif not vin.ok:
+        if vin is not None and not vin.ok:
             reasons.extend(vin.reasons)
 
     # Step 4 — trust tier

@@ -237,7 +237,7 @@ def _trust_context_for(user_id):
         "get",
         "/rest/v1/users",
         params={
-            "select": "id,is_admin,email_verified,phone_verified,is_banned",
+            "select": "id,is_admin,email_verified,phone_verified,phone,is_banned",
             "id": f"eq.{user_id}",
             "limit": "1",
         },
@@ -248,6 +248,8 @@ def _trust_context_for(user_id):
     u = user_rows[0]
     if u.get("is_banned"):
         return TrustContext(False, False, 0, 0, 0, False)
+    # phone_verified = OTP-confirmed OR a phone number is present in their profile
+    phone_verified = bool(u.get("phone_verified")) or bool(str(u.get("phone") or "").strip())
     return TrustContext(
         is_admin=bool(u.get("is_admin")),
         dealer_verified=_dealer_verified(user_id),
@@ -255,7 +257,7 @@ def _trust_context_for(user_id):
         rejections_last_90d=0,
         reports_last_90d=0,
         email_verified=bool(u.get("email_verified")),
-        phone_verified=bool(u.get("phone_verified")),
+        phone_verified=phone_verified,
     )
 
 

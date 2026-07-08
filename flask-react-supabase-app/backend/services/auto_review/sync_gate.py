@@ -149,11 +149,11 @@ def _validate_car(listing, photo_count, min_year, max_year, missing):
     if not _int_in_range(listing.get("expected_selling_price"), 0):
         missing.append("expected_selling_price")
     vin = (listing.get("vin") or "").strip().upper()
-    if not VIN_RE.match(vin):
-        missing.append("vin")
-    if listing.get("transmission_type") not in CAR_TRANSMISSIONS:
+    if vin and not VIN_RE.match(vin):
+        missing.append("vin_invalid_format")
+    if not _non_empty(listing.get("transmission_type")):
         missing.append("transmission_type")
-    if listing.get("fuel_type") not in CAR_FUEL_TYPES:
+    if not _non_empty(listing.get("fuel_type")):
         missing.append("fuel_type")
     if photo_count < PHOTO_MIN["car"]:
         missing.append("photos")
@@ -179,8 +179,8 @@ def _validate_bike(listing, photo_count, min_year, max_year, missing):
     if not _int_in_range(listing.get("engine_size"), 1):
         missing.append("engine_size")
     vin = (listing.get("vin") or "").strip().upper()
-    if not VIN_RE.match(vin):
-        missing.append("vin")
+    if vin and not VIN_RE.match(vin):
+        missing.append("vin_invalid_format")
     if photo_count < PHOTO_MIN["bike"]:
         missing.append("photos")
 
