@@ -499,6 +499,31 @@ const PostCar = () => {
     };
   }, [preprocessImageToPngFile, renderPdfPageToPngFile]);
 
+  const ensureRegistrationDocumentUploaded = useCallback(async () => {
+    if (!registrationOcrFile || !user?.id) {
+      return registrationDocumentUrl;
+    }
+
+    if (registrationDocumentUrl) {
+      return registrationDocumentUrl;
+    }
+
+    if (!registrationDocumentUploadPromiseRef.current) {
+      setUploadingRegistrationDoc(true);
+      registrationDocumentUploadPromiseRef.current = uploadRegistrationDocument(registrationOcrFile, { userId: user.id })
+        .then((url) => {
+          setRegistrationDocumentUrl(url);
+          return url;
+        })
+        .finally(() => {
+          setUploadingRegistrationDoc(false);
+          registrationDocumentUploadPromiseRef.current = null;
+        });
+    }
+
+    return registrationDocumentUploadPromiseRef.current;
+  }, [registrationDocumentUrl, registrationOcrFile, user?.id]);
+
   const parseRegistrationOcr = useCallback(
     (text, { words = [] } = {}) => {
       const rawText = String(text || '');
@@ -813,31 +838,6 @@ const PostCar = () => {
     const cutoff = matches[maxWords]?.index ?? String(text).length;
     return String(text).slice(0, cutoff).trimEnd();
   };
-
-  const ensureRegistrationDocumentUploaded = useCallback(async () => {
-    if (!registrationOcrFile || !user?.id) {
-      return registrationDocumentUrl;
-    }
-
-    if (registrationDocumentUrl) {
-      return registrationDocumentUrl;
-    }
-
-    if (!registrationDocumentUploadPromiseRef.current) {
-      setUploadingRegistrationDoc(true);
-      registrationDocumentUploadPromiseRef.current = uploadRegistrationDocument(registrationOcrFile, { userId: user.id })
-        .then((url) => {
-          setRegistrationDocumentUrl(url);
-          return url;
-        })
-        .finally(() => {
-          setUploadingRegistrationDoc(false);
-          registrationDocumentUploadPromiseRef.current = null;
-        });
-    }
-
-    return registrationDocumentUploadPromiseRef.current;
-  }, [registrationDocumentUrl, registrationOcrFile, user?.id]);
 
   const clearFieldHighlights = () => {
     if (!formRef.current) return;
