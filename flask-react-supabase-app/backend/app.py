@@ -13,7 +13,6 @@ from flask import (
     render_template,
     make_response,
 )
-from dotenv import load_dotenv
 import datetime
 import hashlib
 import threading
@@ -40,6 +39,12 @@ from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
 from expo_push import send_expo_push, dead_push_tokens, is_valid_expo_token
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        return False
 
 try:
     import redis
