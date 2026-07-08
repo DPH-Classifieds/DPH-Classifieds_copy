@@ -6,10 +6,10 @@ aptPkgs = ["tesseract-ocr"]
 cmds = [
   "python -m venv .venv && . .venv/bin/activate && pip install --upgrade pip setuptools wheel",
   ". .venv/bin/activate && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu",
-  ". .venv/bin/activate && REQ_FILE=requirements.txt; [ -f \"$REQ_FILE\" ] || REQ_FILE=flask-react-supabase-app/backend/requirements.txt; pip install -r \"$REQ_FILE\"",
+  ". .venv/bin/activate && pip install -r requirements.txt",
   "TBIN=$(which tesseract 2>/dev/null || find /nix/store -maxdepth 4 -name tesseract -type f 2>/dev/null | head -1); [ -n \"$TBIN\" ] && ln -sf \"$TBIN\" /usr/local/bin/tesseract && echo \"tesseract symlinked: $TBIN\" || echo 'WARNING: tesseract binary not found'",
-  ". .venv/bin/activate && OCR_SCRIPT=download_ocr_models.py; [ -f \"$OCR_SCRIPT\" ] || OCR_SCRIPT=flask-react-supabase-app/backend/download_ocr_models.py; EASYOCR_MODEL_DIR=/app/easyocr_models python \"$OCR_SCRIPT\"",
+  ". .venv/bin/activate && EASYOCR_MODEL_DIR=/app/easyocr_models python download_ocr_models.py",
 ]
 
 [start]
-cmd = "sh -lc 'export PATH=\"/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$(pwd)/.venv/bin:$PATH\"; export EASYOCR_MODEL_DIR=\"${EASYOCR_MODEL_DIR:-/app/easyocr_models}\"; export TESSERACT_CMD=\"${TESSERACT_CMD:-/usr/bin/tesseract}\"; if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then if [ -f worker.py ]; then exec python worker.py; elif [ -f flask-react-supabase-app/backend/worker.py ]; then cd flask-react-supabase-app/backend && exec python worker.py; else echo \"worker.py not found\" && exit 1; fi; else if [ -f app.py ]; then exec gunicorn -c gunicorn.conf.py app:app; elif [ -f flask-react-supabase-app/backend/app.py ]; then cd flask-react-supabase-app/backend && exec gunicorn -c gunicorn.conf.py app:app; else echo \"app.py not found\" && exit 1; fi; fi'"
+cmd = "sh -lc 'export PATH=\"/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$(pwd)/.venv/bin:$PATH\"; export EASYOCR_MODEL_DIR=\"${EASYOCR_MODEL_DIR:-/app/easyocr_models}\"; export TESSERACT_CMD=\"${TESSERACT_CMD:-/usr/bin/tesseract}\"; if [ \"${SERVICE_ROLE:-web}\" = \"worker\" ]; then exec python worker.py; else exec gunicorn -c gunicorn.conf.py app:app; fi'"
