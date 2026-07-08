@@ -11,6 +11,7 @@ class TrustContext:
     rejections_last_90d: int
     reports_last_90d: int
     email_verified: bool
+    phone_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -24,12 +25,6 @@ def evaluate_trust(ctx):
         return TrustResult(True, "admin")
     if ctx.dealer_verified:
         return TrustResult(True, "dealer_verified")
-    if (
-        ctx.approved_listings_count >= 3
-        and ctx.rejections_last_90d == 0
-        and ctx.reports_last_90d == 0
-    ):
-        return TrustResult(True, "clean_individual")
-    if ctx.email_verified:
-        return TrustResult(True, "email_verified")
+    if ctx.email_verified and ctx.phone_verified:
+        return TrustResult(True, "verified_user")
     return TrustResult(False, None)

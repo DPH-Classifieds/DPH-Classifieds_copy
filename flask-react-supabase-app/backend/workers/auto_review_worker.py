@@ -237,7 +237,7 @@ def _trust_context_for(user_id):
         "get",
         "/rest/v1/users",
         params={
-            "select": "id,is_admin,email_verified,is_banned",
+            "select": "id,is_admin,email_verified,phone_verified,is_banned",
             "id": f"eq.{user_id}",
             "limit": "1",
         },
@@ -251,10 +251,11 @@ def _trust_context_for(user_id):
     return TrustContext(
         is_admin=bool(u.get("is_admin")),
         dealer_verified=_dealer_verified(user_id),
-        approved_listings_count=_approved_listing_count(user_id),
-        rejections_last_90d=0,  # plumbed later
+        approved_listings_count=0,
+        rejections_last_90d=0,
         reports_last_90d=0,
         email_verified=bool(u.get("email_verified")),
+        phone_verified=bool(u.get("phone_verified")),
     )
 
 
