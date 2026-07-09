@@ -39,10 +39,12 @@ export const normalizeRegistrationScanResponse = (payload) => {
   };
 
   const needsReview = Boolean(payload?.needs_review);
-  const shouldAutoFill =
-    !needsReview
-    && vinValidation.valid
-    && confidence.overall >= AUTO_FILL_THRESHOLD;
+  // Auto-fill when VIN was extracted and the backend reports no errors.
+  // Overall confidence is low-by-design for VIN-only docs (mulkiya), so we
+  // drop the threshold gate and the valid-checksum gate — an invalid-checksum
+  // VIN is still useful (user can correct one char); the field won't be locked
+  // unless verifiedVin is true (see PostCar registrationOcrTruth handling).
+  const shouldAutoFill = !needsReview && Boolean(fields.vin);
 
   return {
     fields,

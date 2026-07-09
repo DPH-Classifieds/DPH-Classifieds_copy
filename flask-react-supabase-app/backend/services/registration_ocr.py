@@ -119,7 +119,9 @@ class TesseractOCRProvider:
                 pass
 
     def extract_text(self, image):
-        config = "--oem 1 --psm 6"
+        # PSM 3: auto page segmentation without OSD — better than PSM 6 (uniform block)
+        # for structured registration cards with mixed Arabic/English text.
+        config = "--oem 1 --psm 3"
         try:
             text = self._run_with_pytesseract(image, config)
         except Exception as pytesseract_error:
@@ -610,7 +612,9 @@ def scan_registration_image(
     if vin_validation.get("mismatches"):
         review_reasons.append("decoder_mismatch")
     confidence_overall = ocr_confidence_overall
-    if confidence_overall < _confidence_threshold():
+    # Only flag low confidence when no VIN was found — for VIN-only docs (mulkiya) the
+    # overall score is low by design (other fields may be blank) but the scan succeeded.
+    if confidence_overall < _confidence_threshold() and not fields.get("vin"):
         review_reasons.append("low_confidence")
 
     needs_review = bool(review_reasons)

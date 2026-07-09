@@ -240,9 +240,9 @@ def _local_ocr_scan(image_file):
         "model": "",
         "year": "",
         "raw_text": text,
-        "confidence": {"vin": 0.6 if vin else 0.0, "overall": 0.5 if vin else 0.0},
-        "needs_review": True,
-        "review_reasons": ["local_ocr"],
+        "confidence": {"vin": 0.85 if vin else 0.0, "overall": 0.85 if vin else 0.0},
+        "needs_review": not bool(vin),
+        "review_reasons": [] if vin else ["no_vin_found"],
         "document_type": "registration",
     }
 

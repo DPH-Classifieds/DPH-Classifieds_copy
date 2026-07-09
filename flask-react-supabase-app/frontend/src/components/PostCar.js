@@ -283,7 +283,8 @@ const PostCar = () => {
             make: scan.fields.make || null,
             model: scan.fields.model || null,
             year: scan.fields.year || null,
-            vin: scan.fields.vin || null,
+            // Only lock VIN when checksum-verified; unverified VINs fill but stay editable
+            vin: scan.verifiedVin ? (scan.fields.vin || null) : null,
           }
         : null
     );
