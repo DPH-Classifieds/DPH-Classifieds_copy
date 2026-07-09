@@ -145,7 +145,7 @@ def fetch_pending_for_type(type_label):
         f"/rest/v1/{table}",
         params={
             "select": "*",
-            "status": "eq.pending_auto_review",
+            "status": "in.(pending,pending_auto_review)",
             "auto_review_decided_at": "is.null",
             "order": "created_at.asc",
             "limit": "20",

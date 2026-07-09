@@ -149,6 +149,30 @@ class WorkerRunGateTests(unittest.TestCase):
             self.assertEqual(worker.run(), 0)
 
 
+class WorkerFetchPendingTests(unittest.TestCase):
+    @patch("workers.auto_review_worker._supabase_request")
+    def test_fetch_pending_includes_pending_and_pending_auto_review(self, mock_factory):
+        captured = {}
+
+        def fake_request(method, path, params=None, **kwargs):
+            captured["method"] = method
+            captured["path"] = path
+            captured["params"] = params or {}
+            return ([], 200)
+
+        mock_factory.return_value = fake_request
+
+        worker.fetch_pending_for_type("cars")
+
+        self.assertEqual(captured["method"], "get")
+        self.assertEqual(captured["path"], "/rest/v1/cars")
+        self.assertEqual(
+            captured["params"].get("status"),
+            "in.(pending,pending_auto_review)",
+        )
+        self.assertEqual(captured["params"].get("auto_review_decided_at"), "is.null")
+
+
 class WorkerSignalTests(unittest.TestCase):
     @patch("services.auto_review.trust.evaluate_trust", return_value=TrustResult(True, "dealer_verified"))
     @patch("services.auto_review.hard_blockers.evaluate_profanity", return_value=[])
