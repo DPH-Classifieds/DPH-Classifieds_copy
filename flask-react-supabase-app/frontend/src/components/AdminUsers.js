@@ -124,6 +124,7 @@ const AdminUsers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -141,13 +142,30 @@ const AdminUsers = () => {
   const fetchUsers = useCallback(async ({ withSpinner = false } = {}) => {
     try {
       if (withSpinner) setLoading(true);
-      const response = await apiClient.get('/api/admin/users');
-      // Backend now returns {users, total, limit, offset}; tolerate the legacy flat array too.
-      setUsers(
-        Array.isArray(response?.users)
+      const pageSize = 200;
+      let offset = 0;
+      let fetchedTotal = null;
+      let aggregatedUsers = [];
+
+      while (fetchedTotal === null || aggregatedUsers.length < fetchedTotal) {
+        const response = await apiClient.get(
+          `/api/admin/users?limit=${pageSize}&offset=${offset}`
+        );
+        const pageUsers = Array.isArray(response?.users)
           ? response.users
-          : (Array.isArray(response) ? response : [])
-      );
+          : (Array.isArray(response) ? response : []);
+
+        aggregatedUsers = aggregatedUsers.concat(pageUsers);
+        fetchedTotal = Number.isFinite(response?.total) ? response.total : pageUsers.length;
+
+        if (!pageUsers.length || pageUsers.length < pageSize) {
+          break;
+        }
+        offset += pageSize;
+      }
+
+      setUsers(aggregatedUsers);
+      setTotalUsers(fetchedTotal ?? aggregatedUsers.length);
       setError(null);
     } catch (err) {
       setError('Failed to fetch users');
@@ -240,14 +258,14 @@ const AdminUsers = () => {
   };
 
   const userSummary = useMemo(() => {
-    const total = users.length;
+    const total = totalUsers || users.length;
     const admins = users.filter((u) => u.is_admin).length;
     const dealers = users.filter((u) => u.is_dealer).length;
     const suspended = users.filter((u) => (u.account_status || 'active') === 'suspended').length;
     const banned = users.filter((u) => (u.account_status || 'active') === 'banned').length;
     const verified = users.filter((u) => u.email_verified && u.phone_verified).length;
     return { total, admins, dealers, suspended, banned, verified };
-  }, [users]);
+  }, [totalUsers, users]);
 
   const getDisplayName = (u) => {
     if (u.display_name) return u.display_name;
