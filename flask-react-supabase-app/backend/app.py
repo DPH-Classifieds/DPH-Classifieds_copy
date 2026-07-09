@@ -4433,14 +4433,166 @@ def _get_user_profile_for_verification(user_id):
     if not user_id:
         return None
 
+    select_fields = [
+        "id",
+        "email",
+        "email_verified",
+        "phone",
+        "country_code",
+        "phone_verified",
+        "phone_verified_at",
+    ]
+    if _users_table_has_column("email_verified_at"):
+        select_fields.insert(3, "email_verified_at")
+
     resp, status = supabase_request(
         "get",
-        f"/rest/v1/users?id=eq.{user_id}&select=id,email,email_verified,phone,country_code,phone_verified,phone_verified_at",
+        f"/rest/v1/users?id=eq.{user_id}&select={','.join(select_fields)}",
         use_service_role=True,
     )
     if status >= 400 or not resp:
         return None
-    return resp[0]
+
+    profile = resp[0]
+    auth_user = _fetch_supabase_auth_user(user_id)
+    auth_email_confirmed, auth_phone_confirmed = _extract_auth_confirmation_fields(
+        auth_user
+    )
+
+    if auth_user and auth_user.get("email") and not profile.get("email"):
+        profile["email"] = auth_user.get("email")
+
+    if auth_email_confirmed:
+        profile["email_verified"] = True
+        profile["email_verified_at"] = auth_email_confirmed
+        if not bool(resp[0].get("email_verified")):
+            _sync_user_verification_flags(
+                user_id,
+                email_verified=True,
+                email_verified_at=auth_email_confirmed,
+            )
+
+    if auth_phone_confirmed:
+        profile["phone_verified"] = True
+        profile["phone_verified_at"] = auth_phone_confirmed
+        if auth_user and auth_user.get("phone") and not profile.get("phone"):
+            profile["phone"] = auth_user.get("phone")
+        if not bool(resp[0].get("phone_verified")):
+            _sync_user_verification_flags(
+                user_id,
+                phone_verified=True,
+                phone_verified_at=auth_phone_confirmed,
+                phone=profile.get("phone"),
+                country_code=profile.get("country_code"),
+            )
+
+    return profile
+
+
+def _supabase_admin_headers():
+    service_key = SUPABASE_SERVICE_ROLE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not service_key:
+        service_key = SUPABASE_KEY
+    return {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+        "X-Postgres-Role": "service_role",
+    }
+
+
+_USERS_TABLE_COLUMN_CACHE = {}
+
+
+def _users_table_has_column(column_name):
+    cached = _USERS_TABLE_COLUMN_CACHE.get(column_name)
+    if cached is not None:
+        return cached
+
+    response, status = supabase_request(
+        "get",
+        "/rest/v1/users",
+        params={"select": f"id,{column_name}", "limit": 1},
+        use_service_role=True,
+    )
+    exists = status < 400 and not _looks_like_missing_column(response, column_name)
+    _USERS_TABLE_COLUMN_CACHE[column_name] = exists
+    return exists
+
+
+def _fetch_supabase_auth_user(user_id):
+    if not user_id or not SUPABASE_URL:
+        return None
+
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers=_supabase_admin_headers(),
+            timeout=10,
+        )
+        if response.status_code != 200:
+            return None
+        payload = response.json()
+        if isinstance(payload, dict) and isinstance(payload.get("user"), dict):
+            return payload.get("user")
+        return payload if isinstance(payload, dict) else None
+    except requests.exceptions.RequestException as exc:
+        logger.warning("Failed to fetch auth user %s: %s", user_id, exc)
+        return None
+
+
+def _extract_auth_confirmation_fields(auth_user):
+    if not isinstance(auth_user, dict):
+        return None, None
+    return auth_user.get("email_confirmed_at"), auth_user.get("phone_confirmed_at")
+
+
+def _infer_country_code_from_phone(phone):
+    normalized_phone = _normalize_phone_number(phone)
+    digits = re.sub(r"[^\d]", "", normalized_phone or "")
+    if not digits:
+        return None
+    if digits.startswith("971"):
+        return "+971"
+    return None
+
+
+def _sync_user_verification_flags(
+    user_id,
+    *,
+    email_verified=False,
+    email_verified_at=None,
+    phone_verified=False,
+    phone_verified_at=None,
+    phone=None,
+    country_code=None,
+):
+    if not user_id:
+        return
+
+    payload = {"updated_at": _isoformat_utc(_utc_now())}
+    if email_verified:
+        payload["email_verified"] = True
+        if _users_table_has_column("email_verified_at"):
+            payload["email_verified_at"] = email_verified_at or payload["updated_at"]
+    if phone_verified:
+        payload["phone_verified"] = True
+        payload["phone_verified_at"] = phone_verified_at or payload["updated_at"]
+    normalized_phone = _normalize_phone_number(phone, country_code)
+    if normalized_phone:
+        payload["phone"] = normalized_phone
+        payload["country_code"] = (
+            country_code
+            or _infer_country_code_from_phone(normalized_phone)
+            or "+971"
+        )
+
+    supabase_request(
+        "patch",
+        f"/rest/v1/users?id=eq.{user_id}",
+        data=payload,
+        use_service_role=True,
+    )
 
 
 def _lookup_phone_verification(
@@ -4528,7 +4680,12 @@ def _issue_phone_verification(
         "verified_at": None,
         "last_sent_at": _isoformat_utc(now),
         "last_error": None,
-        "metadata": metadata or {},
+        "metadata": {
+            **(metadata or {}),
+            "country_code": country_code
+            or _infer_country_code_from_phone(normalized_phone)
+            or "+971",
+        },
         "updated_at": _isoformat_utc(now),
     }
 
@@ -4738,15 +4895,13 @@ def _finalize_phone_verification(
         use_service_role=True,
     )
 
-    supabase_request(
-        "patch",
-        f"/rest/v1/users?id=eq.{verification_record.get('user_id')}",
-        data={
-            "phone_verified": True,
-            "phone_verified_at": _isoformat_utc(now),
-            "updated_at": _isoformat_utc(now),
-        },
-        use_service_role=True,
+    verification_metadata = verification_record.get("metadata") or {}
+    _sync_user_verification_flags(
+        verification_record.get("user_id"),
+        phone_verified=True,
+        phone_verified_at=_isoformat_utc(now),
+        phone=verification_record.get("phone"),
+        country_code=verification_metadata.get("country_code"),
     )
 
     # Sync verified phone number to all user's listings
@@ -4766,6 +4921,32 @@ def _finalize_phone_verification(
         "listing_id": verification_record.get("listing_id"),
         "verified_at": _isoformat_utc(now),
     }
+
+
+def _require_verified_user_for_listing(user_id):
+    profile = _get_user_profile_for_verification(user_id) or {}
+
+    if not bool(profile.get("email_verified")):
+        return jsonify(
+            {
+                "error": "Please verify your email before posting a listing.",
+                "code": "email_not_verified",
+                "email_verified": False,
+                "phone_verified": bool(profile.get("phone_verified")),
+            }
+        ), 403
+
+    if not bool(profile.get("phone_verified")):
+        return jsonify(
+            {
+                "error": "Please verify your phone number before posting a listing.",
+                "code": "phone_not_verified",
+                "email_verified": True,
+                "phone_verified": False,
+            }
+        ), 403
+
+    return None
 
 
 def _phone_verification_response(record):
@@ -6242,6 +6423,10 @@ def create_car(current_user):
 
         logger.info(f"Creating car listing for user {current_user}")
         logger.info(f"Request data keys: {list(request.json.keys())}")
+
+        verification_check = _require_verified_user_for_listing(current_user)
+        if verification_check:
+            return verification_check
 
         limit_response = _enforce_listing_limit(current_user)
         if limit_response:
@@ -11958,16 +12143,12 @@ def _get_user_details_with_admin_status(user_id_from_token):
     auth_user_data = None
     is_superadmin = False
     try:
-        auth_response = requests.get(
-            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id_from_token}",
-            headers=headers,
-            timeout=10,  # Increased timeout slightly
-        )
+        auth_user_data = _fetch_supabase_auth_user(user_id_from_token)
         logger.info(
-            f"[_get_user_details_with_admin_status] Auth system response status: {auth_response.status_code}"
-        )  # New Log
-        if auth_response.status_code == 200:
-            auth_user_data = auth_response.json()
+            "[_get_user_details_with_admin_status] Auth system user fetched: %s",
+            bool(auth_user_data),
+        )
+        if auth_user_data:
             auth_email = auth_user_data.get("email")
             user_role = auth_user_data.get("role", "")
             is_superadmin = user_role == "superadmin"
@@ -11976,7 +12157,7 @@ def _get_user_details_with_admin_status(user_id_from_token):
             )
         else:
             logger.warning(
-                f"[_get_user_details_with_admin_status] Could not get user from auth system: {auth_response.status_code} - {auth_response.text}"
+                "[_get_user_details_with_admin_status] Could not get user from auth system"
             )
     except requests.exceptions.RequestException as e_auth:
         logger.error(
@@ -12124,18 +12305,12 @@ def _get_user_details_with_admin_status(user_id_from_token):
         email_verified = bool(db_user_data.get("email_verified", False))
         phone_verified = bool(db_user_data.get("phone_verified", False))
 
-    auth_email_confirmed = None
-    auth_phone_confirmed = None
-    if auth_user_data:
-        if isinstance(auth_user_data.get("user"), dict):
-            auth_email_confirmed = auth_user_data["user"].get("email_confirmed_at")
-            auth_phone_confirmed = auth_user_data["user"].get("phone_confirmed_at")
-        else:
-            auth_email_confirmed = auth_user_data.get("email_confirmed_at")
-            auth_phone_confirmed = auth_user_data.get("phone_confirmed_at")
+    auth_email_confirmed, auth_phone_confirmed = _extract_auth_confirmation_fields(
+        auth_user_data
+    )
 
     email_verified = email_verified or bool(auth_email_confirmed)
-    phone_verified = phone_verified or False
+    phone_verified = phone_verified or bool(auth_phone_confirmed)
 
     if (
         db_user_data
@@ -12143,21 +12318,40 @@ def _get_user_details_with_admin_status(user_id_from_token):
         and not bool(db_user_data.get("email_verified", False))
     ):
         try:
-            sync_resp = requests.patch(
-                f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id_from_token}",
-                headers=headers,
-                json={
-                    "email_verified": True,
-                    "email_verified_at": auth_email_confirmed,
-                },
-                timeout=5,
+            _sync_user_verification_flags(
+                user_id_from_token,
+                email_verified=True,
+                email_verified_at=auth_email_confirmed,
             )
-            if sync_resp.status_code in (200, 204):
-                db_user_data["email_verified"] = True
-                db_user_data["email_verified_at"] = auth_email_confirmed
-        except requests.exceptions.RequestException as sync_err:
+            db_user_data["email_verified"] = True
+            db_user_data["email_verified_at"] = auth_email_confirmed
+        except Exception as sync_err:
             logger.warning(
                 "Failed to sync auth email verification for %s: %s",
+                user_id_from_token,
+                sync_err,
+            )
+
+    if (
+        db_user_data
+        and auth_phone_confirmed
+        and not bool(db_user_data.get("phone_verified", False))
+    ):
+        try:
+            _sync_user_verification_flags(
+                user_id_from_token,
+                phone_verified=True,
+                phone_verified_at=auth_phone_confirmed,
+                phone=(auth_user_data or {}).get("phone"),
+                country_code=db_user_data.get("country_code"),
+            )
+            db_user_data["phone_verified"] = True
+            db_user_data["phone_verified_at"] = auth_phone_confirmed
+            if (auth_user_data or {}).get("phone") and not db_user_data.get("phone"):
+                db_user_data["phone"] = auth_user_data.get("phone")
+        except Exception as sync_err:
+            logger.warning(
+                "Failed to sync auth phone verification for %s: %s",
                 user_id_from_token,
                 sync_err,
             )
@@ -13839,6 +14033,10 @@ def create_bike(current_user):
         if not request.json:
             return jsonify({"error": "Invalid request data"}), 400
 
+        verification_check = _require_verified_user_for_listing(current_user)
+        if verification_check:
+            return verification_check
+
         limit_response = _enforce_listing_limit(current_user)
         if limit_response:
             return limit_response
@@ -14814,6 +15012,10 @@ def create_part(current_user):
     try:
         logger.info("Creating new car part listing")
 
+        verification_check = _require_verified_user_for_listing(current_user)
+        if verification_check:
+            return verification_check
+
         dealer_check = _require_dealer_verified(current_user)
         if dealer_check:
             return dealer_check
@@ -15669,6 +15871,31 @@ def update_admin_user_profile(current_user, user_id):
 
             update_data["dealer_verified_at"] = datetime.utcnow().isoformat()
 
+        if update_data.get("phone_verified") is True:
+            current_profile = _get_user_profile_for_verification(user_id) or {}
+            next_phone = update_data.get("phone")
+            if next_phone is None:
+                next_phone = current_profile.get("phone")
+            next_country_code = update_data.get("country_code")
+            if next_country_code is None:
+                next_country_code = current_profile.get("country_code")
+            normalized_phone = _normalize_phone_number(next_phone, next_country_code)
+            if not normalized_phone:
+                return jsonify(
+                    {
+                        "error": "Cannot mark a user as phone verified without a valid phone number."
+                    }
+                ), 400
+            update_data["phone"] = normalized_phone
+            update_data["country_code"] = (
+                next_country_code
+                or _infer_country_code_from_phone(normalized_phone)
+                or "+971"
+            )
+            update_data["phone_verified_at"] = _isoformat_utc(_utc_now())
+        elif update_data.get("phone_verified") is False:
+            update_data["phone_verified_at"] = None
+
         response, status_code = supabase_request(
             "patch",
             f"/rest/v1/users?id=eq.{user_id}",
@@ -15810,6 +16037,10 @@ def admin_cleanup_unverified_accounts(current_user):
 def _create_plate_with_image_impl(current_user):
     try:
         logger.info("Creating plate listing with image upload")
+
+        verification_check = _require_verified_user_for_listing(current_user)
+        if verification_check:
+            return verification_check
 
         dealer_check = _require_dealer_verified(current_user)
         if dealer_check:
@@ -16626,18 +16857,23 @@ def admin_vin_unlock(current_user, item_type, item_id):
         if not owner_id:
             return jsonify({"error": "Listing owner not found"}), 400
 
-        _, update_status = supabase_request(
-            "patch",
-            f"/rest/v1/users?id=eq.{owner_id}",
-            data={
-                "phone_verified": True,
-                "phone_verified_at": _isoformat_utc(_utc_now()),
-                "updated_at": _isoformat_utc(_utc_now()),
-            },
-            use_service_role=True,
+        owner_profile = _get_user_profile_for_verification(owner_id) or {}
+        if not _normalize_phone_number(
+            owner_profile.get("phone"), owner_profile.get("country_code")
+        ):
+            return jsonify(
+                {
+                    "error": "Listing owner must have a valid phone number on file before VIN unlock can mark them verified."
+                }
+            ), 400
+
+        _sync_user_verification_flags(
+            owner_id,
+            phone_verified=True,
+            phone_verified_at=_isoformat_utc(_utc_now()),
+            phone=owner_profile.get("phone"),
+            country_code=owner_profile.get("country_code"),
         )
-        if update_status >= 400:
-            return jsonify({"error": "Failed to unlock VIN for owner"}), update_status
 
         return jsonify(
             {

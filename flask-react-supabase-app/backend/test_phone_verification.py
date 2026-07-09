@@ -97,5 +97,40 @@ class UAEPhoneValidationTests(unittest.TestCase):
         self.assertIn("Only UAE phone numbers are supported", str(context.exception))
 
 
+class PhoneVerificationPersistenceTests(unittest.TestCase):
+    @patch.object(backend, "_sync_phone_to_listings")
+    @patch.object(backend, "_sync_user_verification_flags")
+    @patch.object(backend, "supabase_request")
+    def test_finalize_phone_verification_persists_phone_and_country_code(
+        self,
+        mock_supabase_request,
+        mock_sync_user_flags,
+        mock_sync_listings,
+    ):
+        verification_record = {
+            "id": "verif-1",
+            "user_id": "user-123",
+            "phone": "+971501234567",
+            "purpose": "profile_verify",
+            "listing_id": None,
+            "status": "pending",
+            "attempt_count": 0,
+            "code_salt": "salt",
+            "code_hash": backend._hash_phone_verification_code("123456", "salt"),
+            "metadata": {"country_code": "+971"},
+        }
+
+        result = backend._finalize_phone_verification(verification_record, "123456")
+
+        self.assertEqual(result["status"], "verified")
+        mock_sync_user_flags.assert_called_once()
+        _, kwargs = mock_sync_user_flags.call_args
+        self.assertEqual(kwargs["phone"], "+971501234567")
+        self.assertEqual(kwargs["country_code"], "+971")
+        self.assertTrue(kwargs["phone_verified"])
+        mock_sync_listings.assert_called_once_with("user-123", "+971501234567")
+        self.assertTrue(mock_supabase_request.called)
+
+
 if __name__ == "__main__":
     unittest.main()

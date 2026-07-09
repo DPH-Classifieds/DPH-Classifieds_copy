@@ -216,5 +216,32 @@ class WorkerSignalTests(unittest.TestCase):
         self.assertIsInstance(signals["sync_gate"], SyncGateResult)
 
 
+class WorkerTrustContextTests(unittest.TestCase):
+    @patch("workers.auto_review_worker._dealer_verified", return_value=False)
+    @patch("workers.auto_review_worker._supabase_request")
+    @patch("app._get_user_profile_for_verification")
+    def test_trust_context_does_not_treat_phone_presence_as_phone_verified(
+        self,
+        mock_profile,
+        mock_supabase_request_factory,
+        _mock_dealer_verified,
+    ):
+        mock_profile.return_value = {
+            "id": "user-1",
+            "email_verified": True,
+            "phone_verified": False,
+            "phone": "+971501234567",
+        }
+        mock_supabase_request_factory.return_value = lambda *args, **kwargs: (
+            [{"id": "user-1", "is_admin": False, "is_dealer": False}],
+            200,
+        )
+
+        ctx = worker._trust_context_for("user-1")
+
+        self.assertTrue(ctx.email_verified)
+        self.assertFalse(ctx.phone_verified)
+
+
 if __name__ == "__main__":
     unittest.main()

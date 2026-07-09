@@ -231,15 +231,21 @@ def _approved_listing_count(user_id):
 
 
 def _trust_context_for(user_id):
+    import app as backend_app
+
     from services.auto_review.trust import TrustContext
+
     sb = _supabase_request()
     if not user_id:
+        return TrustContext(False, False, 0, 0, 0, False)
+    profile = backend_app._get_user_profile_for_verification(user_id)
+    if not profile:
         return TrustContext(False, False, 0, 0, 0, False)
     user_rows, status = sb(
         "get",
         "/rest/v1/users",
         params={
-            "select": "id,is_admin,is_dealer,email_verified,phone_verified,phone",
+            "select": "id,is_admin,is_dealer",
             "id": f"eq.{user_id}",
             "limit": "1",
         },
@@ -248,8 +254,6 @@ def _trust_context_for(user_id):
     if status >= 400 or not user_rows:
         return TrustContext(False, False, 0, 0, 0, False)
     u = user_rows[0]
-    # phone_verified = OTP-confirmed OR a phone number is present in their profile
-    phone_verified = bool(u.get("phone_verified")) or bool(str(u.get("phone") or "").strip())
     dealer_verified = _dealer_verified(user_id) if u.get("is_dealer") else False
     return TrustContext(
         is_admin=bool(u.get("is_admin")),
@@ -257,8 +261,8 @@ def _trust_context_for(user_id):
         approved_listings_count=0,
         rejections_last_90d=0,
         reports_last_90d=0,
-        email_verified=bool(u.get("email_verified")),
-        phone_verified=phone_verified,
+        email_verified=bool(profile.get("email_verified")),
+        phone_verified=bool(profile.get("phone_verified")),
     )
 
 

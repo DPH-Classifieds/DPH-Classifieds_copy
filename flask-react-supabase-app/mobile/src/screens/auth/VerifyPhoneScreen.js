@@ -18,12 +18,17 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 
 const PHONE_CODES = ['+971', '+966', '+973', '+974', '+965', '+968', '+92', '+91', '+1', '+44'];
 
-export default function VerifyPhoneScreen({ navigation }) {
+export default function VerifyPhoneScreen({ navigation, route }) {
   const { user, updateUser } = useAuth();
+  const purpose = route?.params?.purpose || 'profile_verify';
+  const redirect = route?.params?.redirect || null;
   const [step, setStep] = useState('phone');
-  const [countryCode, setCountryCode] = useState('+971');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState(
+    route?.params?.countryCode || user?.country_code || '+971'
+  );
+  const [phoneNumber, setPhoneNumber] = useState(route?.params?.phone || user?.phone || '');
   const [otp, setOtp] = useState('');
+  const [verificationId, setVerificationId] = useState(route?.params?.verificationId || '');
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(60);
@@ -53,9 +58,16 @@ export default function VerifyPhoneScreen({ navigation }) {
 
     setLoading(true);
     try {
-      await apiClient.post('/api/phone-verifications/start', {
-        phone_number: `${countryCode}${phoneNumber}`,
+      const response = await apiClient.post('/api/phone-verifications/start', {
+        phone: phoneNumber.trim(),
+        country_code: countryCode,
+        purpose,
+        source: 'mobile',
       });
+      const nextVerificationId = response?.phone_verification?.verification_id || '';
+      const normalizedPhone = response?.phone_verification?.phone || phoneNumber.trim();
+      setVerificationId(nextVerificationId);
+      setPhoneNumber(normalizedPhone);
       setStep('otp');
       setCountdown(60);
       setCanResend(false);
@@ -71,18 +83,38 @@ export default function VerifyPhoneScreen({ navigation }) {
       Alert.alert('Error', 'Please enter a valid 6-digit code');
       return;
     }
+    if (!verificationId) {
+      Alert.alert('Error', 'Please request a verification code first');
+      return;
+    }
 
     setLoading(true);
     try {
       await apiClient.post('/api/phone-verifications/verify', {
-        phone_number: `${countryCode}${phoneNumber}`,
-        code: otp,
+        verification_id: verificationId,
+        code: otp.trim(),
+        purpose,
       });
+      const me = await apiClient.get('/api/auth/me').catch(() => null);
       if (updateUser) {
-        await updateUser({ phone_verified: true });
+        await updateUser(me || { ...user, phone_verified: true });
       }
+      const rootNav = navigation.getParent();
       Alert.alert('Success', 'Phone number verified successfully!', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        {
+          text: 'OK',
+          onPress: () => {
+            if (redirect && rootNav) {
+              rootNav.navigate('Main', { screen: redirect });
+              return;
+            }
+            if (rootNav) {
+              rootNav.goBack();
+              return;
+            }
+            navigation.goBack();
+          },
+        },
       ]);
     } catch (err) {
       Alert.alert('Error', err.message || 'Invalid verification code. Please try again.');
@@ -94,9 +126,17 @@ export default function VerifyPhoneScreen({ navigation }) {
   const handleResendCode = async () => {
     setResendLoading(true);
     try {
-      await apiClient.post('/api/phone-verifications/start', {
-        phone_number: `${countryCode}${phoneNumber}`,
+      const response = await apiClient.post('/api/phone-verifications/start', {
+        verification_id: verificationId,
+        phone: phoneNumber.trim(),
+        country_code: countryCode,
+        purpose,
+        source: 'mobile',
       });
+      const nextVerificationId = response?.phone_verification?.verification_id;
+      if (nextVerificationId) {
+        setVerificationId(nextVerificationId);
+      }
       setCountdown(60);
       setCanResend(false);
       Alert.alert('Success', 'Verification code sent again!');

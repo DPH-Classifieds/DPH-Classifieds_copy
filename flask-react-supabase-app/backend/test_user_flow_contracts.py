@@ -88,21 +88,46 @@ class UserFlowContractsTests(unittest.TestCase):
             }
         ]
 
-        patch_response = Mock()
-        patch_response.status_code = 200
-        patch_response.json.return_value = [{"id": "user-1", "email_verified": True}]
-
         mock_requests.get.side_effect = [auth_response, user_response]
-        mock_requests.patch.return_value = patch_response
 
         with patch.object(backend, "SUPABASE_URL", "https://example.supabase.co"), patch.object(
             backend, "SUPABASE_KEY", "anon-key"
-        ), patch.object(backend, "SUPABASE_SERVICE_ROLE_KEY", "service-key"):
+        ), patch.object(backend, "SUPABASE_SERVICE_ROLE_KEY", "service-key"), patch.object(
+            backend, "supabase_request", return_value=([{"id": "user-1", "email_verified": True}], 200)
+        ):
             details = backend._get_user_details_with_admin_status("user-1")
 
         self.assertTrue(details["email_verified"])
         self.assertEqual(details["phone_verified"], False)
-        mock_requests.patch.assert_called()
+
+    @patch.object(backend, "_get_user_profile_for_verification")
+    def test_listing_verification_guard_requires_phone_after_email(self, mock_profile):
+        mock_profile.return_value = {
+            "id": "user-1",
+            "email_verified": True,
+            "phone_verified": False,
+        }
+
+        with backend.app.test_request_context("/api/cars", method="POST", json={}):
+            response, status = backend._require_verified_user_for_listing("user-1")
+
+        payload = response.get_json()
+        self.assertEqual(status, 403)
+        self.assertEqual(payload["code"], "phone_not_verified")
+
+    @patch.object(backend, "_require_verified_user_for_listing")
+    def test_car_create_checks_verification_before_listing_creation(
+        self, mock_require_verified
+    ):
+        with backend.app.app_context():
+            blocked_response = backend.jsonify({"error": "blocked"})
+        mock_require_verified.return_value = (blocked_response, 403)
+
+        with backend.app.test_request_context("/api/cars", method="POST", json={"foo": "bar"}):
+            response, status = backend.create_car.__wrapped__("user-1")
+
+        self.assertEqual(status, 403)
+        self.assertTrue(mock_require_verified.called)
 
     @patch.object(admin_routes, "requests")
     def test_admin_user_list_uses_supabase_auth_email_confirmation(self, mock_requests):

@@ -15,7 +15,7 @@ const VerifyPhone = () => {
   const verificationId = state.verificationId || params.get('verification_id') || '';
   const phone = state.phone || params.get('phone') || '';
   const purpose = state.purpose || params.get('purpose') || 'signup';
-  const countryCode = '+971';
+  const countryCode = state.countryCode || params.get('country_code') || '+971';
   const email = state.email || params.get('email') || '';
   const redirect = state.redirect || params.get('redirect') || '/profile';
   const nextRoute = state.nextRoute || params.get('next') || '';

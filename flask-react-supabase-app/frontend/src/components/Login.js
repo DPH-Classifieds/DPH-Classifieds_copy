@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { saveAuthData, setAuthHeader, setTokenStorageMode, storeAccessToken } from '../utils/authService';
+import { getCurrentUser, saveAuthData, setAuthHeader, setTokenStorageMode, storeAccessToken } from '../utils/authService';
 import { signInWithGoogle } from '../utils/supabaseClient';
 import '../styles/Auth.css';
 
@@ -73,8 +73,22 @@ const Login = () => {
         setAuthHeader(data.access_token);
       }
 
-      await syncWithSupabase({ forceBackendCheck: true });
       const safeRedirect = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/';
+      await syncWithSupabase({ forceBackendCheck: true });
+      const { user: backendUser } = await getCurrentUser(true);
+      if (backendUser?.id && !backendUser.phone_verified) {
+        navigate('/verify-phone', {
+          replace: true,
+          state: {
+            phone: backendUser.phone || '',
+            countryCode: backendUser.country_code || '+971',
+            purpose: 'profile_verify',
+            redirect: safeRedirect,
+            nextRoute: safeRedirect,
+          },
+        });
+        return;
+      }
       navigate(safeRedirect, { replace: true });
     } catch (err) {
       if (err.message && err.message.toLowerCase().includes('network')) {

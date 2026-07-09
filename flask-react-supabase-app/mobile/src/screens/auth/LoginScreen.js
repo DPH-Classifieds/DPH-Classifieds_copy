@@ -98,12 +98,8 @@ export default function LoginScreen({ navigation, route }) {
       setLoading(true);
       const cfToken = await getTurnstileToken();
       await signIn(email.trim(), password, cfToken);
-      const rootNav = navigation.getParent();
-      if (redirect && rootNav) {
-        rootNav.navigate('Main', { screen: redirect });
-      } else if (rootNav) {
-        rootNav.goBack();
-      }
+      const me = await apiClient.get('/api/auth/me').catch(() => null);
+      navigateAfterAuth(me);
     } catch (err) {
       toastApiError(err);
     } finally {
