@@ -59,6 +59,17 @@ class VinGateTests(unittest.TestCase):
         )
         self.assertTrue(r.ok, msg=r.reasons)
 
+    def test_formatted_non_north_american_vin_is_normalized(self):
+        decoder = FakeDecoder(decoded={})
+        r = evaluate_vin(
+            "SALYJ-2EX4NA-123456",
+            form_make="Land Rover",
+            form_model="Range Rover",
+            form_year=2022,
+            decoder=decoder,
+        )
+        self.assertTrue(r.ok, msg=r.reasons)
+
     def test_checksum_invalid(self):
         decoder = FakeDecoder(
             decoded={"make": "Honda", "model": "Accord", "model_year": 1991},

@@ -12,6 +12,10 @@ const TRANSLITERATION = {
 const WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
 
+export function normalizeVin(vin) {
+  return String(vin || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
 // ponytail: checksum is NHTSA/North-American only (WMI 1-5); skip for JDM/EU/GCC-market VINs
 function isNorthAmericanVin(vin) {
   return '12345'.includes(vin[0]);
@@ -32,6 +36,6 @@ export function isVinChecksumValid(vin) {
 }
 
 export function isVinValid(vin) {
-  const v = String(vin || '').toUpperCase();
+  const v = normalizeVin(vin);
   return VIN_RE.test(v) && isVinChecksumValid(v);
 }

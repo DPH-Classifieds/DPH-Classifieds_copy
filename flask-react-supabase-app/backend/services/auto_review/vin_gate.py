@@ -21,7 +21,7 @@ def _norm(s):
 
 def evaluate_vin(vin, *, form_make, form_model, form_year, decoder):
     reasons = []
-    vin_clean = (vin or "").strip().upper()
+    vin_clean = re.sub(r"[^A-Z0-9]", "", str(vin or "").upper())
     if not vin_clean:
         # VIN not provided — skip gate entirely
         return VinGateResult(ok=True, reasons=[], decoded={})

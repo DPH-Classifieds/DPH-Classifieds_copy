@@ -25,6 +25,7 @@ import {
 import 'leaflet/dist/leaflet.css';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
+import { isVinValid, normalizeVin } from '../utils/vinValidation';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
@@ -347,57 +348,27 @@ const PostCar = () => {
     [levenshteinDistance, normalizeOcrToken]
   );
 
-  const computeVinCheckDigit = useCallback((vinRaw) => {
-    const vin = String(vinRaw || '').toUpperCase();
-    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return null;
-    const map = {
-      A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8,
-      J: 1, K: 2, L: 3, M: 4, N: 5, P: 7, R: 9,
-      S: 2, T: 3, U: 4, V: 5, W: 6, X: 7, Y: 8, Z: 9,
-      0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9,
-    };
-    const weights = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
-    let sum = 0;
-    for (let i = 0; i < 17; i += 1) {
-      const ch = vin[i];
-      const value = map[ch];
-      if (typeof value !== 'number') return null;
-      sum += value * weights[i];
-    }
-    const remainder = sum % 11;
-    return remainder === 10 ? 'X' : String(remainder);
-  }, []);
-
-  const isVinValid = useCallback(
-    (vinRaw) => {
-      const vin = String(vinRaw || '').toUpperCase();
-      if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return false;
-      const expected = computeVinCheckDigit(vin);
-      if (!expected) return false;
-      return vin[8] === expected;
-    },
-    [computeVinCheckDigit]
-  );
-
   const tryFixVinOcr = useCallback(
     (vinRaw) => {
-      const vin = String(vinRaw || '').toUpperCase();
+      const vin = normalizeVin(vinRaw);
       if (!/^[A-Z0-9]{17}$/.test(vin)) return null;
-      const candidates = new Set([
-        vin,
-        vin.replace(/O/g, '0'),
-        vin.replace(/I/g, '1'),
-        vin.replace(/Q/g, '0'),
-        vin.replace(/S/g, '5'),
-        vin.replace(/Z/g, '2'),
-        vin.replace(/B/g, '8'),
-      ]);
+      const candidates = new Set([vin]);
+      if ('12345'.includes(vin[0])) {
+        [
+          vin.replace(/O/g, '0'),
+          vin.replace(/I/g, '1'),
+          vin.replace(/Q/g, '0'),
+          vin.replace(/S/g, '5'),
+          vin.replace(/Z/g, '2'),
+          vin.replace(/B/g, '8'),
+        ].forEach((candidate) => candidates.add(candidate));
+      }
       for (const candidate of candidates) {
         if (isVinValid(candidate)) return candidate;
       }
       return null;
     },
-    [isVinValid]
+    []
   );
 
   const preprocessImageToPngFile = useCallback(async (blobOrFile, { threshold = 180, contrast = 1.25 } = {}) => {
@@ -663,7 +634,7 @@ const PostCar = () => {
         confidence,
       };
     },
-    [isVinValid, normalizeOcrToken, similarityScore, tryFixVinOcr, yearOptions]
+    [normalizeOcrToken, similarityScore, tryFixVinOcr, yearOptions]
   );
 
   const runRegistrationOcr = useCallback(async () => {
@@ -1988,14 +1959,8 @@ const PostCar = () => {
     }
     clearFieldHighlights();
 
-    if (!isEdit && existingImages.length + croppedImages.length === 0) {
-      setError('You must upload at least one image of your car.');
-      focusAndHighlightField('images');
-      return;
-    }
-
-    if (isEdit && existingImages.length + croppedImages.length === 0) {
-      setError('You must keep or upload at least one image of your car.');
+    if (existingImages.length + croppedImages.length < 3) {
+      setError('You must upload at least 3 images of your car.');
       focusAndHighlightField('images');
       return;
     }
@@ -3190,7 +3155,7 @@ const PostCar = () => {
                 name="vin_number"
                 value={formData.vin_number}
                 onChange={(e) => {
-                  const upperValue = e.target.value.toUpperCase();
+                  const upperValue = normalizeVin(e.target.value).slice(0, 17);
                   handleChange({ target: { name: 'vin_number', value: upperValue } });
                 }}
                 placeholder="e.g. 1HGCM82633A123456"

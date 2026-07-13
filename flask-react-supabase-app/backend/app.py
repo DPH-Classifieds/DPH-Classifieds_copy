@@ -4322,6 +4322,7 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
             payload["whatsapp_number"] = _normalize_phone_number(
                 payload.get("whatsapp_number"), payload.get("country_code")
             )
+
     elif listing_type == "plates":
         contact_phone = payload.get("contact_phone")
         normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
@@ -4332,6 +4333,7 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
             payload["whatsapp_number"] = _normalize_phone_number(
                 payload.get("whatsapp_number"), payload.get("country_code")
             )
+
     elif listing_type == "parts":
         contact_phone = payload.get("contact_phone") or payload.get("contact_number")
         normalized = _normalize_phone_number(contact_phone, payload.get("country_code"))
@@ -4343,6 +4345,35 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
             payload["whatsapp_number"] = _normalize_phone_number(
                 payload.get("whatsapp_number"), payload.get("country_code")
             )
+
+
+def _normalize_listing_vin(payload):
+    if not isinstance(payload, dict):
+        return
+    for key in ("vin_number", "vin"):
+        if key in payload and payload.get(key) not in (None, ""):
+            payload[key] = re.sub(r"[^A-Z0-9]", "", str(payload[key]).upper())
+
+
+def _sync_gate_error(listing_type, payload, photo_count):
+    from services.auto_review.sync_gate import validate_required_fields
+
+    result = validate_required_fields(
+        listing_type,
+        payload,
+        photo_count=photo_count,
+        min_year=MIN_ALLOWED_YEAR,
+        max_year=datetime.datetime.now().year + 1,
+    )
+    if result.ok:
+        return None
+    return jsonify(
+        {
+            "error": "Please complete all required listing fields before submitting.",
+            "code": "missing_required_fields",
+            "missing": result.missing,
+        }
+    ), 400
 
 
 def _mask_phone_number(phone):
@@ -6439,6 +6470,7 @@ def create_car(current_user):
         car_data = request.json
         car_data["user_id"] = current_user
         car_data.update(_new_listing_lifecycle_fields())
+        _normalize_listing_vin(car_data)
 
         # Normalize legacy/alternate frontend keys.
         if "description" in car_data and "car_description" not in car_data:
@@ -6566,6 +6598,10 @@ def create_car(current_user):
 
         # Extract images from the request
         images = car_data.pop("images", [])
+
+        sync_error = _sync_gate_error("car", car_data, len(images))
+        if sync_error:
+            return sync_error
 
         # Whitelist allowed columns for cars to avoid schema cache errors
         # Cars table schema (per cars_schema.sql) - keep only these fields
@@ -6904,6 +6940,8 @@ def update_car(current_user, car_id):
             keep_image_ids = []
             crop_data = []
             images = update_data.pop("images", None)
+
+        _normalize_listing_vin(update_data)
 
         # Normalize legacy/alternate frontend keys.
         if "description" in update_data and "car_description" not in update_data:
@@ -14049,6 +14087,7 @@ def create_bike(current_user):
         bike_data["user_id"] = current_user
         bike_data["status"] = _initial_listing_status()
         bike_data.update(_new_listing_lifecycle_fields())
+        _normalize_listing_vin(bike_data)
 
         # Normalize legacy/alternate frontend keys.
         if "make" in bike_data and "bike_brand" not in bike_data:
@@ -14106,6 +14145,9 @@ def create_bike(current_user):
 
         # Extract images from the request
         images = bike_data.pop("images", [])
+        sync_error = _sync_gate_error("bike", bike_data, len(images))
+        if sync_error:
+            return sync_error
         if not images:
             return jsonify(
                 {"error": "At least one image is required for a bike listing."}
@@ -14261,6 +14303,7 @@ def update_bike(current_user, bike_id):
 
         update_data = request.json
         images = update_data.pop("images", None)
+        _normalize_listing_vin(update_data)
 
         # Normalize legacy/alternate frontend keys.
         if "make" in update_data and "bike_brand" not in update_data:

@@ -11,6 +11,10 @@ PART_CONDITIONS = {"New", "Used"}
 PHOTO_MIN = {"car": 3, "bike": 3, "part": 2, "plate": 1}
 
 
+def normalize_vin(value):
+    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+
+
 @dataclass(frozen=True)
 class SyncGateResult:
     ok: bool
@@ -148,7 +152,7 @@ def _validate_car(listing, photo_count, min_year, max_year, missing):
         missing.append("kilometer_driven")
     if not _int_in_range(listing.get("expected_selling_price"), 0):
         missing.append("expected_selling_price")
-    vin = (listing.get("vin") or "").strip().upper()
+    vin = normalize_vin(listing.get("vin"))
     if vin and not VIN_RE.match(vin):
         missing.append("vin_invalid_format")
     transmission = listing.get("transmission_type")
@@ -184,7 +188,7 @@ def _validate_bike(listing, photo_count, min_year, max_year, missing):
         missing.append("price")
     if not _int_in_range(listing.get("engine_size"), 1):
         missing.append("engine_size")
-    vin = (listing.get("vin") or "").strip().upper()
+    vin = normalize_vin(listing.get("vin"))
     if vin and not VIN_RE.match(vin):
         missing.append("vin_invalid_format")
     if photo_count < PHOTO_MIN["bike"]:

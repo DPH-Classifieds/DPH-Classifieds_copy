@@ -1195,8 +1195,14 @@ export default function PostListingScreen({ navigation, route }) {
       const uploadedImageUrls = newImageUris.length > 0 ? await uploadListingImages(newImageUris) : [];
       const finalImageUrls = [...existingImageUrls, ...uploadedImageUrls];
 
-      if ((category === 'car' || category === 'bike') && finalImageUrls.length === 0) {
-        Alert.alert('Required', 'Please add at least one image before posting.');
+      if (category === 'car' && finalImageUrls.length < 3) {
+        Alert.alert('Required', 'Please add at least 3 car images before posting.');
+        setLoading(false);
+        return;
+      }
+
+      if (category === 'bike' && finalImageUrls.length < 3) {
+        Alert.alert('Required', 'Please add at least 3 bike images before posting.');
         setLoading(false);
         return;
       }
@@ -1213,8 +1219,8 @@ export default function PostListingScreen({ navigation, route }) {
       }
 
       if (category === 'car') {
-        if (!carForm.car_manufacturer || !carForm.car_model || !carForm.make_year || !carForm.expected_selling_price) {
-          Alert.alert('Required', 'Make, Model, Year, and Price are required.');
+        if (!carForm.car_manufacturer || !carForm.car_model || !carForm.make_year || !carForm.expected_selling_price || !carForm.kilometer_driven || !carForm.body_type || !carForm.color || !carForm.regional_spec || !carForm.car_owner_phone_number || !carForm.car_description || !carForm.fuel_type || carForm.fuel_type === 'Other' || !carForm.transmission_type) {
+          Alert.alert('Required', 'Please complete all required car fields.');
           setLoading(false);
           return;
         }
@@ -1234,8 +1240,8 @@ export default function PostListingScreen({ navigation, route }) {
         };
         if (!isEditMode) endpoint = '/api/cars';
       } else if (category === 'bike') {
-        if (!bikeForm.bike_brand || !bikeForm.bike_model || !bikeForm.price) {
-          Alert.alert('Required', 'Brand, Model, and Price are required.');
+        if (!bikeForm.bike_brand || !bikeForm.bike_model || !bikeForm.make_year || !bikeForm.mileage || !bikeForm.price || !bikeForm.engine_capacity || !bikeForm.contact_number || !bikeForm.description || !bikeArea) {
+          Alert.alert('Required', 'Please complete all required bike fields.');
           setLoading(false);
           return;
         }
