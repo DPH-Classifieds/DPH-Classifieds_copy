@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,8 @@ const ITEM_TYPES = [
 ];
 
 const REGIONAL_SPEC_OPTIONS = ['GCC', 'American', 'European', 'Japanese', 'Canadian', 'Korean', 'Chinese', 'Other'];
+const MAX_REFERENCE_IMAGES = 10;
+const MIN_REFERENCE_IMAGES = 3;
 
 const inputClass =
   'rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-white focus:border-[#8bd6b4] focus:outline-none disabled:opacity-50';
@@ -28,7 +30,9 @@ export default function PostBuyingRequest() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [selectedPreview, setSelectedPreview] = useState('');
+  const [selectedPreviews, setSelectedPreviews] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
   const [form, setForm] = useState({
     item_type: 'car',
     item_name: '',
@@ -89,31 +93,48 @@ export default function PostBuyingRequest() {
     setForm((prev) => ({ ...prev, whatsapp_number: digitsOnly }));
   };
 
-  const onAddReferenceImage = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const addReferenceImages = (incomingFiles) => {
+    const files = Array.from(incomingFiles || []);
+    if (!files.length) return;
     setError('');
-    if (file.size > LISTING_IMAGE_MAX_BYTES) {
-      setError('Reference image is too large.');
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    const oversized = imageFiles.find((file) => file.size > LISTING_IMAGE_MAX_BYTES);
+    if (oversized) {
+      setError(`${oversized.name} is too large. Each image must be under ${Math.round(LISTING_IMAGE_MAX_BYTES / 1024 / 1024)}MB.`);
       return;
     }
-    setSelectedPreview((currentPreview) => {
-      if (currentPreview) {
-        URL.revokeObjectURL(currentPreview);
-      }
-      return URL.createObjectURL(file);
+    if (imageFiles.length !== files.length) {
+      setError('Only image files can be added.');
+    }
+    setSelectedFiles((current) => {
+      const merged = [...current, ...imageFiles].slice(0, MAX_REFERENCE_IMAGES);
+      setSelectedPreviews((currentPreviews) => {
+        currentPreviews.forEach((preview) => URL.revokeObjectURL(preview));
+        return merged.map((file) => URL.createObjectURL(file));
+      });
+      return merged;
     });
-    setSelectedFiles([file]);
+    setForm((prev) => ({ ...prev, images: [] }));
+  };
+
+  const onAddReferenceImage = (e) => {
+    addReferenceImages(e.target.files);
+    e.target.value = '';
+  };
+
+  const removeReferenceImage = (index) => {
+    setSelectedFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+    setSelectedPreviews((current) => {
+      const removed = current[index];
+      if (removed) URL.revokeObjectURL(removed);
+      return current.filter((_, previewIndex) => previewIndex !== index);
+    });
     setForm((prev) => ({ ...prev, images: [] }));
   };
 
   useEffect(
-    () => () => {
-      if (selectedPreview) {
-        URL.revokeObjectURL(selectedPreview);
-      }
-    },
-    [selectedPreview]
+    () => () => selectedPreviews.forEach((preview) => URL.revokeObjectURL(preview)),
+    [selectedPreviews]
   );
 
   const submit = async (e) => {
@@ -131,8 +152,13 @@ export default function PostBuyingRequest() {
         return;
       }
 
+      if (selectedFiles.length < MIN_REFERENCE_IMAGES && form.images.length < MIN_REFERENCE_IMAGES) {
+        setError(`Please add at least ${MIN_REFERENCE_IMAGES} reference images.`);
+        return;
+      }
+
       let images = form.images;
-      if ((!images || images.length === 0) && selectedFiles.length > 0) {
+      if ((!images || images.length < MIN_REFERENCE_IMAGES) && selectedFiles.length >= MIN_REFERENCE_IMAGES) {
         setUploading(true);
         images = await uploadListingImagesDirect(selectedFiles, { userId: user.id });
         setForm((prev) => ({ ...prev, images }));
@@ -165,9 +191,9 @@ export default function PostBuyingRequest() {
         <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-red-100">{error}</div>
       ) : null}
 
-      <form onSubmit={submit} className="mt-6 grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-5">
+      <form onSubmit={submit} className="mt-6 grid gap-5 rounded-3xl border border-white/10 bg-white/[0.045] p-5 shadow-2xl shadow-black/20 sm:p-7">
         <label className="grid gap-1 text-sm text-white/80">
-          Item Type*
+          Item Type<span className="ml-1 text-red-400" aria-hidden="true">*</span>
           <select name="item_type" value={form.item_type} onChange={onChange} className={inputClass}>
             {ITEM_TYPES.map((type) => (
               <option key={type.value} value={type.value}>
@@ -178,7 +204,7 @@ export default function PostBuyingRequest() {
         </label>
 
         <label className="grid gap-1 text-sm text-white/80">
-          Item Name*
+          Item Name<span className="ml-1 text-red-400" aria-hidden="true">*</span>
           <input
             name="item_name"
             value={form.item_name}
@@ -262,7 +288,7 @@ export default function PostBuyingRequest() {
         </label>
 
         <label className="grid gap-1 text-sm text-white/80">
-          Mileage preference*
+          Mileage preference<span className="ml-1 text-red-400" aria-hidden="true">*</span>
           <input
             name="mileage_preference"
             value={form.mileage_preference}
@@ -274,7 +300,7 @@ export default function PostBuyingRequest() {
         </label>
 
         <label className="grid gap-1 text-sm text-white/80">
-          Regional spec*
+          Regional spec<span className="ml-1 text-red-400" aria-hidden="true">*</span>
           <select
             name="regional_spec"
             value={form.regional_spec}
@@ -304,7 +330,7 @@ export default function PostBuyingRequest() {
         </label>
 
         <div className="grid gap-1 text-sm text-white/80">
-          <span>Phone / WhatsApp Number*</span>
+          <span>Phone / WhatsApp Number<span className="ml-1 text-red-400" aria-hidden="true">*</span></span>
           <div className="flex gap-2">
             <select
               name="whatsapp_country_code"
@@ -336,18 +362,42 @@ export default function PostBuyingRequest() {
           </span>
         </div>
 
-        <label className="grid gap-1 text-sm text-white/80">
-          Reference image*
-          <input type="file" accept="image/*" onChange={onAddReferenceImage} className="text-white/80" />
-          <span className="text-xs text-white/50">Max {Math.round(LISTING_IMAGE_MAX_BYTES / 1024 / 1024)}MB.</span>
-        </label>
-
-        {selectedPreview ? (
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
-            <div className="px-3 py-2 text-xs uppercase tracking-wide text-white/50">Image preview</div>
-            <img src={selectedPreview} alt="Reference preview" className="h-56 w-full object-cover" />
+        <div className="grid gap-2 text-sm text-white/80">
+          <div className="flex items-baseline justify-between gap-3">
+            <span>Reference images<span className="ml-1 text-red-400" aria-hidden="true">*</span></span>
+            <span className={selectedFiles.length >= MIN_REFERENCE_IMAGES ? 'text-xs text-[#8bd6b4]' : 'text-xs text-white/50'}>
+              {selectedFiles.length}/{MAX_REFERENCE_IMAGES} added
+            </span>
           </div>
-        ) : null}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); addReferenceImages(e.dataTransfer.files); }}
+            className={`group rounded-2xl border border-dashed px-5 py-8 text-center transition ${
+              isDragging ? 'border-[#8bd6b4] bg-[#8bd6b4]/10' : 'border-white/20 bg-black/20 hover:border-[#8bd6b4]/70 hover:bg-white/[0.04]'
+            }`}
+          >
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#8bd6b4]/30 bg-[#8bd6b4]/10 text-2xl text-[#8bd6b4] transition group-hover:scale-105">↑</span>
+            <span className="mt-3 block font-medium text-white">Drop your reference images here</span>
+            <span className="mt-1 block text-xs text-white/50">or click to browse · minimum {MIN_REFERENCE_IMAGES} · up to {MAX_REFERENCE_IMAGES} · {Math.round(LISTING_IMAGE_MAX_BYTES / 1024 / 1024)}MB each</span>
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={onAddReferenceImage} className="sr-only" />
+          {selectedPreviews.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3">
+              {selectedPreviews.map((preview, index) => (
+                <div key={`${preview}-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                  <img src={preview} alt={`Reference ${index + 1}`} className="h-full w-full object-cover" />
+                  <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-1 text-[11px] text-white">{index + 1}</span>
+                  <button type="button" onClick={() => removeReferenceImage(index)} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-white transition hover:bg-red-500" aria-label={`Remove reference image ${index + 1}`}>×</button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <span className="text-xs text-white/50">Add at least three clear images so buyers know exactly what you are looking for.</span>
+        </div>
 
         <button
           type="submit"

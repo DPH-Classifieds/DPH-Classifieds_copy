@@ -42,7 +42,11 @@ def test_buying_requests_limit_5(monkeypatch):
         "item_name": "BMW M3 wanted",
         "mileage_preference": "< 80,000 km",
         "regional_spec": "GCC",
-        "images": ["https://example.com/ref.jpg"],
+        "images": [
+            "https://example.com/ref-1.jpg",
+            "https://example.com/ref-2.jpg",
+            "https://example.com/ref-3.jpg",
+        ],
     }
 
     with app.test_client() as client:
@@ -87,3 +91,28 @@ def test_buying_requests_list_includes_preview_image(monkeypatch):
     assert resp.status_code == 200
     payload = resp.get_json()
     assert payload[0]["images"][0]["display_url"] == "https://example.com/ref.jpg"
+
+
+def test_buying_requests_require_three_images(monkeypatch):
+    with patch.object(backend, "token_required", new=lambda f: _passthrough_token_required(f)):
+        mod = importlib.import_module("routes.buying_requests")
+        importlib.reload(mod)
+
+    app = Flask(__name__)
+    app.config["TESTING"] = True
+    app.register_blueprint(mod.buying_requests_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/api/buying-requests",
+            json={
+                "item_type": "car",
+                "item_name": "BMW X5 wanted",
+                "mileage_preference": "under 80,000 km",
+                "regional_spec": "GCC",
+                "images": ["https://example.com/ref-1.jpg", "https://example.com/ref-2.jpg"],
+            },
+        )
+
+    assert resp.status_code == 400
+    assert "3 reference images" in (resp.get_json() or {}).get("error", "")

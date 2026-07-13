@@ -299,8 +299,8 @@ def create_buying_request(current_user):
         return jsonify({"error": "Regional spec is required"}), 400
 
     images = payload.get("images") or []
-    if not isinstance(images, list) or len(_coerce_image_entries(images)) < 1:
-        return jsonify({"error": "A reference image is required"}), 400
+    if not isinstance(images, list) or len(_coerce_image_entries(images)) < 3:
+        return jsonify({"error": "At least 3 reference images are required"}), 400
 
     # Enforce max 5 active buying requests per user.
     active_params = {
