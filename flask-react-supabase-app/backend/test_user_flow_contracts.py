@@ -364,6 +364,7 @@ class UserFlowContractsTests(unittest.TestCase):
             "listing_id": "car-1",
             "listing_type": "car",
             "created_at": "2026-06-17T10:00:00+00:00",
+            "status": "approved",
         }
 
         def side_effect(method, path, params=None, data=None, **kwargs):
@@ -372,7 +373,7 @@ class UserFlowContractsTests(unittest.TestCase):
             if method == "patch" and path.startswith("/rest/v1/saved_listings"):
                 return ([{**saved_row, **(data or {})}], 200)
             if method == "get" and path == "/rest/v1/cars":
-                return ([{"id": "car-1", "listing_title": "Toyota Supra"}], 200)
+                return ([{"id": "car-1", "listing_title": "Toyota Supra", "status": "active"}], 200)
             return ([], 200)
 
         mock_supabase.side_effect = side_effect
@@ -382,31 +383,22 @@ class UserFlowContractsTests(unittest.TestCase):
         self.assertEqual(result["sent"], 1)
         mock_send.assert_called_once()
 
-    @patch.object(backend, "_supabase_count")
-    def test_lifecycle_summary_tracks_sold_expired_draft_and_active(self, mock_count):
-        def count(table, params=None):
-            params = params or {}
-            if params.get("sold_status") == "eq.sold_on_dph":
-                return 2
-            if params.get("sold_status") == "eq.sold_elsewhere":
-                return 3
-            if params.get("listing_state") == "eq.expired":
-                return 4
-            if params.get("listing_state") == "eq.draft":
-                return 5
-            if params.get("status") == "eq.approved":
-                return 6
-            return 0
-
-        mock_count.side_effect = count
-
+    @patch.object(backend, "_fetch_listing_lifecycle_rows")
+    def test_lifecycle_summary_tracks_sold_expired_draft_and_active(self, mock_rows):
+        mock_rows.return_value = {
+            "cars": [
+                {"id": "1", "status": "approved", "expires_at": "2099-01-01T00:00:00+00:00"},
+                {"id": "2", "status": "approved", "expires_at": "2020-01-01T00:00:00+00:00", "sold_status": "sold_on_dph"},
+                {"id": "3", "status": "approved", "expires_at": "2099-01-01T00:00:00+00:00", "sold_status": "sold_elsewhere"},
+            ],
+            "bikes": [], "parts": [], "plates": [],
+        }
         summary = backend._build_listing_lifecycle_summary()
 
-        self.assertEqual(summary["totals"]["sold_on_dph"], 8)
-        self.assertEqual(summary["totals"]["sold_elsewhere"], 12)
-        self.assertEqual(summary["totals"]["expired"], 16)
-        self.assertEqual(summary["totals"]["draft"], 20)
-        self.assertEqual(summary["totals"]["active"], 24)
+        self.assertEqual(summary["totals"]["sold_on_dph"], 1)
+        self.assertEqual(summary["totals"]["sold_elsewhere"], 1)
+        self.assertEqual(summary["totals"]["expired"], 1)
+        self.assertEqual(summary["totals"]["active"], 2)
 
 
 if __name__ == "__main__":

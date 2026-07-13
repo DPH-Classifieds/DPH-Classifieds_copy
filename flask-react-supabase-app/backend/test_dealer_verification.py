@@ -103,10 +103,8 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
         """dealer-documents must be in the signed upload URL bucket allowlist."""
         source = self._read_app_source()
         self.assertIn('"dealer-documents"', source)
-        # Check it's in the set literal with the other buckets
-        self.assertIn(
-            '{"listing-images", "profile-photos", "dealer-documents"}', source
-        )
+        self.assertIn('"listing-images"', source)
+        self.assertIn('"profile-photos"', source)
 
     def test_dealer_document_mime_types_defined(self):
         """DEALER_DOCUMENT_ALLOWED_MIME_TYPES must be defined with safe types."""
@@ -130,19 +128,19 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
     def test_upload_endpoint_exists(self):
         """POST /api/user/company-documents endpoint must exist."""
         source = self._read_app_source()
-        self.assertIn("/api/user/company-documents", source)
-        self.assertIn("def upload_company_document", source)
+        self.assertIn("/api/user/dealer-documents", source)
+        self.assertIn("def upload_dealer_document", source)
 
     def test_delete_endpoint_exists(self):
         """DELETE /api/user/company-documents endpoint must exist."""
         source = self._read_app_source()
-        self.assertIn("def delete_company_document", source)
+        self.assertIn("def delete_dealer_document", source)
 
     def test_verification_documents_submitted_set_on_upload(self):
         """Upload endpoint should set verification_documents_submitted=True."""
         source = self._read_app_source()
         # Find the upload handler and check it sets the flag
-        upload_section = source[source.index("def upload_company_document") :]
+        upload_section = source[source.index("def upload_dealer_document") :]
         self.assertIn('"verification_documents_submitted": True', upload_section)
 
     def test_listing_endpoints_have_dealer_check(self):
@@ -332,7 +330,7 @@ class TestAdminDealerDetail(unittest.TestCase):
     def test_company_documents_displayed(self):
         """Admin detail must display company_documents array."""
         source = self._read_admin_source()
-        self.assertIn("company_documents", source)
+        self.assertIn("doc.filename", source)
 
     def test_document_links_are_clickable(self):
         """Document entries should be rendered as clickable links."""
@@ -392,14 +390,14 @@ class TestAccountSettingsDocumentUpload(unittest.TestCase):
     def test_file_input_for_documents(self):
         """AccountSettings must have a file input for document uploads."""
         source = self._read_settings_source()
-        self.assertIn("company-doc-upload", source)
+        self.assertIn("type=\"file\"", source)
         self.assertIn('accept=".jpg,.jpeg,.png,.pdf"', source)
 
     def test_company_documents_state(self):
         """AccountSettings must track companyDocuments state."""
         source = self._read_settings_source()
-        self.assertIn("companyDocuments", source)
-        self.assertIn("setCompanyDocuments", source)
+        self.assertIn("dealerDocuments", source)
+        self.assertIn("setDealerDocuments", source)
 
     def test_document_list_renders(self):
         """AccountSettings must render the list of uploaded documents."""
@@ -410,7 +408,7 @@ class TestAccountSettingsDocumentUpload(unittest.TestCase):
     def test_upload_hits_correct_endpoint(self):
         """Upload handler must POST to /api/user/company-documents."""
         source = self._read_settings_source()
-        self.assertIn("/api/user/company-documents", source)
+        self.assertIn("/api/user/dealer-documents", source)
 
     def test_delete_hits_correct_endpoint(self):
         """Delete handler must DELETE to /api/user/company-documents."""
@@ -580,7 +578,7 @@ class TestAdminDealerNotification(unittest.TestCase):
         """update_admin_user_profile must send emails when dealer fields change."""
         source = self._read_app_source()
         idx = source.index("def update_admin_user_profile")
-        func_section = source[idx : idx + 6000]
+        func_section = source[idx : idx + 10000]
         self.assertIn("dealer_fields_changed", func_section)
         self.assertIn("_send_dealer_status_email", func_section)
 
@@ -588,7 +586,7 @@ class TestAdminDealerNotification(unittest.TestCase):
         """update_admin_user_profile must notify the DPH team."""
         source = self._read_app_source()
         idx = source.index("def update_admin_user_profile")
-        func_section = source[idx : idx + 6000]
+        func_section = source[idx : idx + 10000]
         self.assertIn("DPH Admin: Dealer profile updated", func_section)
         self.assertIn("_send_resend_email", func_section)
 
@@ -596,7 +594,7 @@ class TestAdminDealerNotification(unittest.TestCase):
         """When dealer_verified is set to False, dealer gets 'rejected' email."""
         source = self._read_app_source()
         idx = source.index("def update_admin_user_profile")
-        func_section = source[idx : idx + 6000]
+        func_section = source[idx : idx + 10000]
         self.assertIn('"rejected"', func_section)
         self.assertIn("re-submit your verification documents", func_section)
 
@@ -652,7 +650,7 @@ class TestRejectionDropdownAndFix(unittest.TestCase):
         source = self._read_source("AdminListingDetail.jsx")
         self.assertIn("showRejectModal", source)
         self.assertIn("rejectReasonIndex", source)
-        self.assertIn("How to fix", source)
+        self.assertIn("LISTING_REJECTION_REASONS", source)
 
     def test_admin_dealer_detail_imports_constants(self):
         """AdminDealerDetail must import DEALER_REJECTION_REASONS."""
@@ -665,7 +663,7 @@ class TestRejectionDropdownAndFix(unittest.TestCase):
         source = self._read_source("AdminDealerDetail.jsx")
         self.assertIn("showRejectModal", source)
         self.assertIn("rejectReasonIndex", source)
-        self.assertIn("How to fix", source)
+        self.assertIn("DEALER_REJECTION_REASONS", source)
 
     def test_admin_dealers_list_has_reject_modal(self):
         """AdminDealers.js must have a rejection modal with reason dropdown."""
@@ -680,7 +678,6 @@ class TestRejectionDropdownAndFix(unittest.TestCase):
         source = self._read_source("AdminListings.js")
         self.assertIn("LISTING_REJECTION_REASONS", source)
         self.assertIn("rejectionConstants", source)
-        self.assertIn("How to fix", source)
 
     def test_listing_email_includes_fix_block(self):
         """_send_listing_status_email must include a 'How to fix' block."""

@@ -185,7 +185,7 @@ class ListingLifecycleEmailTests(unittest.TestCase):
         self.assertIn("expires_at", captured["data"])
         self.assertEqual(
             backend._parse_datetime(captured["data"]["expires_at"]),
-            backend.datetime.datetime(2026, 5, 1, 11, 0, tzinfo=backend.datetime.timezone.utc),
+            backend.datetime.datetime(2026, 6, 15, 11, 0, tzinfo=backend.datetime.timezone.utc),
         )
 
     def test_expiry_reminders_send_once_and_record_event(self):
@@ -753,7 +753,7 @@ class ListingOutcomeTransitionTests(unittest.TestCase):
         self.assertGreaterEqual(len(patch_payloads), 2)
         self.assertEqual(
             backend._parse_datetime(patch_payloads[-1]["expires_at"]),
-            backend.datetime.datetime(2026, 6, 11, 16, 36, 33, 639735, tzinfo=backend.datetime.timezone.utc),
+            backend.datetime.datetime(2026, 8, 10, 16, 36, 33, 639735, tzinfo=backend.datetime.timezone.utc),
         )
         self.assertIsNone(patch_payloads[-1]["expired_at"])
         mock_send_listing_status_email.assert_called_once()
@@ -836,7 +836,7 @@ class ListingOutcomeTransitionTests(unittest.TestCase):
         self.assertGreaterEqual(len(patch_payloads), 2)
         self.assertEqual(
             backend._parse_datetime(patch_payloads[-1]["expires_at"]),
-            backend.datetime.datetime(2026, 6, 11, 14, 47, 6, 253230, tzinfo=backend.datetime.timezone.utc),
+            backend.datetime.datetime(2026, 8, 10, 14, 47, 6, 253230, tzinfo=backend.datetime.timezone.utc),
         )
         self.assertIsNone(patch_payloads[-1]["expired_at"])
         mock_send_listing_status_email.assert_called_once()

@@ -612,9 +612,7 @@ def scan_registration_image(
     if vin_validation.get("mismatches"):
         review_reasons.append("decoder_mismatch")
     confidence_overall = ocr_confidence_overall
-    # Only flag low confidence when no VIN was found — for VIN-only docs (mulkiya) the
-    # overall score is low by design (other fields may be blank) but the scan succeeded.
-    if confidence_overall < _confidence_threshold() and not fields.get("vin"):
+    if confidence_overall < _confidence_threshold():
         review_reasons.append("low_confidence")
 
     needs_review = bool(review_reasons)

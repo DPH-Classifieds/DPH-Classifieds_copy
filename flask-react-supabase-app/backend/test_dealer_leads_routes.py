@@ -26,6 +26,10 @@ def app_with_leads():
         import app as flask_app_module
         from routes.dealer.leads import leads_bp
         if "dealer_leads" not in flask_app_module.app.blueprints:
+            # This module can run after tests that have already served a request.
+            # Flask then rejects late blueprint registration unless the test app
+            # is explicitly reset for this isolated route fixture.
+            flask_app_module.app._got_first_request = False
             flask_app_module.app.register_blueprint(leads_bp)
         flask_app_module.app.config["TESTING"] = True
         yield flask_app_module.app

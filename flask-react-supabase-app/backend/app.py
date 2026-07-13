@@ -5253,20 +5253,14 @@ def _dealer_expired_required_documents(user_id):
 def _require_dealer_verified(user_id):
     """Block unverified dealers from creating listings. Returns error response or None."""
     try:
-        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_KEY"))
-        headers = {
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
-            "Content-Type": "application/json",
-        }
-        resp = requests.get(
-            f"{os.getenv('SUPABASE_URL')}/rest/v1/users?id=eq.{user_id}&select=is_dealer,dealer_verified",
-            headers=headers,
-            timeout=10,
+        rows, status = supabase_request(
+            "get",
+            "/rest/v1/users",
+            params={"id": f"eq.{user_id}", "select": "is_dealer,dealer_verified"},
+            use_service_role=True,
         )
-        if resp.status_code >= 400:
+        if status >= 400:
             return None  # Don't block on query errors
-        rows = resp.json()
         if rows and rows[0].get("is_dealer") and not rows[0].get("dealer_verified"):
             return jsonify(
                 {
@@ -5277,13 +5271,16 @@ def _require_dealer_verified(user_id):
 
         # Check that all 3 required documents are approved
         if rows and rows[0].get("is_dealer") and rows[0].get("dealer_verified"):
-            docs_resp = requests.get(
-                f"{os.getenv('SUPABASE_URL')}/rest/v1/dealer_documents?user_id=eq.{user_id}&select=document_type,status",
-                headers=headers,
-                timeout=10,
+            docs, docs_status = supabase_request(
+                "get",
+                "/rest/v1/dealer_documents",
+                params={
+                    "user_id": f"eq.{user_id}",
+                    "select": "document_type,status",
+                },
+                use_service_role=True,
             )
-            if docs_resp.status_code == 200:
-                docs = docs_resp.json()
+            if docs_status == 200:
                 required_types = {
                     "trade_license",
                     "company_registration",

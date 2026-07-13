@@ -431,27 +431,29 @@ export default function AdminDashboardScreen({ navigation }) {
         </TouchableOpacity>
 
         {showAllMetrics && (
-          <View style={styles.kpiGrid}>
-            <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" />
-            <KpiCard icon="car" label="Total Cars" value={formatNumber(clamp(stats.cars_total))} color={COLORS.accent} />
-            <KpiCard icon="bicycle" label="Total Bikes" value={formatNumber(clamp(stats.bikes_total))} color={COLORS.accent} />
-            <KpiCard icon="construct" label="Total Parts" value={formatNumber(clamp(stats.parts_total))} color={COLORS.accent} />
-            <KpiCard icon="key" label="Total Plates" value={formatNumber(clamp(stats.plates_total))} color={COLORS.accent} />
-            <KpiCard icon="logo-whatsapp" label={`WhatsApp (${selectedRangeLabel})`} value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
-            <KpiCard icon="phone-portrait" label={`Callers (${selectedRangeLabel})`} value={formatNumber(totalCalls)} color={COLORS.accent} />
-            <KpiCard icon="globe-outline" label={`Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={COLORS.accent} />
-            <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={COLORS.accent} />
-          </View>
-          <View style={{ paddingHorizontal: SPACING.md, marginTop: -SPACING.sm, marginBottom: SPACING.md }}>
-            <CfSourceBadge dataSource={stats?.data_source} uniqueVisitorsSource={stats?.unique_visitors_source} />
-            {stats?.data_source === 'cloudflare' && (
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <EdgeStat label="Requests" value={stats.edge_requests} />
-                <EdgeStat label="Threats" value={stats.edge_threats} />
-                <EdgeStat label="Cached" value={stats.edge_cached_requests} />
-              </View>
-            )}
-          </View>
+          <>
+            <View style={styles.kpiGrid}>
+              <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" />
+              <KpiCard icon="car" label="Total Cars" value={formatNumber(clamp(stats.cars_total))} color={COLORS.accent} />
+              <KpiCard icon="bicycle" label="Total Bikes" value={formatNumber(clamp(stats.bikes_total))} color={COLORS.accent} />
+              <KpiCard icon="construct" label="Total Parts" value={formatNumber(clamp(stats.parts_total))} color={COLORS.accent} />
+              <KpiCard icon="key" label="Total Plates" value={formatNumber(clamp(stats.plates_total))} color={COLORS.accent} />
+              <KpiCard icon="logo-whatsapp" label={`WhatsApp (${selectedRangeLabel})`} value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
+              <KpiCard icon="phone-portrait" label={`Callers (${selectedRangeLabel})`} value={formatNumber(totalCalls)} color={COLORS.accent} />
+              <KpiCard icon="globe-outline" label={`Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={COLORS.accent} />
+              <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={COLORS.accent} />
+            </View>
+            <View style={{ paddingHorizontal: SPACING.md, marginTop: -SPACING.sm, marginBottom: SPACING.md }}>
+              <CfSourceBadge dataSource={stats?.data_source} uniqueVisitorsSource={stats?.unique_visitors_source} />
+              {stats?.data_source === 'cloudflare' && (
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                  <EdgeStat label="Requests" value={stats.edge_requests} />
+                  <EdgeStat label="Threats" value={stats.edge_threats} />
+                  <EdgeStat label="Cached" value={stats.edge_cached_requests} />
+                </View>
+              )}
+            </View>
+          </>
         )}
 
         <View style={styles.section}>

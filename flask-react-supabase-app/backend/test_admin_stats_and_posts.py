@@ -292,6 +292,7 @@ class PostListingSmokeTests(unittest.TestCase):
         self.notify_admin_patch = patch.object(backend, "_send_new_listing_admin_notification", return_value=(None, None))
         self.notify_user_patch = patch.object(backend, "_send_new_listing_user_confirmation", return_value=(None, None))
         self.dealer_patch = patch.object(backend, "_require_dealer_verified", return_value=None)
+        self.verified_user_patch = patch.object(backend, "_require_verified_user_for_listing", return_value=None)
         self.whatsapp_patch = patch.object(backend, "_require_whatsapp_prefill_and_phone_alignment", return_value=None)
         self.validation_patch = patch.object(backend, "_validate_description_word_count", return_value=None)
         self.profanity_patch = patch.object(backend, "_validate_no_profanity", return_value=None)
@@ -302,6 +303,7 @@ class PostListingSmokeTests(unittest.TestCase):
         self.notify_admin_patch.start()
         self.notify_user_patch.start()
         self.dealer_patch.start()
+        self.verified_user_patch.start()
         self.whatsapp_patch.start()
         self.validation_patch.start()
         self.profanity_patch.start()
@@ -312,6 +314,7 @@ class PostListingSmokeTests(unittest.TestCase):
         self.addCleanup(self.notify_admin_patch.stop)
         self.addCleanup(self.notify_user_patch.stop)
         self.addCleanup(self.dealer_patch.stop)
+        self.addCleanup(self.verified_user_patch.stop)
         self.addCleanup(self.whatsapp_patch.stop)
         self.addCleanup(self.validation_patch.stop)
         self.addCleanup(self.profanity_patch.stop)
@@ -409,7 +412,7 @@ class PostListingSmokeTests(unittest.TestCase):
             "bike_model": "MT-09",
             "bike_type": "Naked",
             "year": 2022,
-            "engine_size": "900cc",
+            "engine_size": 900,
             "mileage": 12000,
             "color": "Blue",
             "price": 32000,
@@ -423,11 +426,15 @@ class PostListingSmokeTests(unittest.TestCase):
             "whatsapp_prefill_text": "Hello",
             "features": ["ABS"],
             "condition": "Good",
-            "vin_number": "VIN123",
+            "vin_number": "JYARN58E0MA000001",
             "cylinders": 2,
             "wheels": 2,
             "is_dealer": False,
-            "images": ["https://example.com/bike.jpg"],
+            "images": [
+                "https://example.com/bike-1.jpg",
+                "https://example.com/bike-2.jpg",
+                "https://example.com/bike-3.jpg",
+            ],
         }
 
         with backend.app.test_request_context("/api/bikes", method="POST", json=payload):

@@ -177,8 +177,9 @@ def scan_registration(current_user):
     raw_bytes = image.stream.read()
 
     def _run_tesseract():
-        from services.registration_ocr import scan_registration_image as _scan
-        return _scan(_io.BytesIO(raw_bytes), document_type=doc_type, metadata=metadata)
+        return scan_registration_image(
+            _io.BytesIO(raw_bytes), document_type=doc_type, metadata=metadata
+        )
 
     try:
         with ThreadPoolExecutor(max_workers=1) as _pool:

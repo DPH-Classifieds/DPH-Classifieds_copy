@@ -53,12 +53,11 @@ class RulesTests(unittest.TestCase):
         d = evaluate("plate", listing={}, signals=s)
         self.assertTrue(d.approved)
 
-    def test_missing_vin_signal_for_car_queues(self):
+    def test_missing_vin_signal_for_car_is_optional(self):
         s = _ok_signals()
         s["vin"] = None
         d = evaluate("car", listing={}, signals=s)
-        self.assertFalse(d.approved)
-        self.assertIn("vin_missing", d.as_label_list())
+        self.assertTrue(d.approved, msg=d.as_label_list())
 
     def test_missing_required_fields_queues(self):
         s = _ok_signals()

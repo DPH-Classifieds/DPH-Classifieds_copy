@@ -9,10 +9,10 @@ from services.auto_review.vision import (
 
 
 class NullVisionProviderTests(unittest.TestCase):
-    def test_analyze_returns_unavailable_result(self):
+    def test_analyze_returns_safe_pass_through_result(self):
         provider = NullVisionProvider()
         result = provider.analyze(b"\x89PNG_fake")
-        self.assertFalse(result.available)
+        self.assertTrue(result.available)
         self.assertEqual(result.face_count, 0)
         self.assertFalse(result.nsfw_likely)
         self.assertFalse(result.contains_vehicle)
