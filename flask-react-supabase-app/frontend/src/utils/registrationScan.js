@@ -1,5 +1,3 @@
-const AUTO_FILL_THRESHOLD = 0.9;
-
 const normalizeNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
