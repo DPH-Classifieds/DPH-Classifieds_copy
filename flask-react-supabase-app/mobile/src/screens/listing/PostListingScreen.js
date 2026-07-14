@@ -23,7 +23,7 @@ import MapView, { Marker } from '../../utils/mapComponents';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../utils/apiClient';
-import { scanCarRegistration } from '../../utils/ocrScanner';
+import { scanCarRegistration, scanRegistrationDocForText } from '../../utils/ocrScanner';
 import { trackEvent } from '../../utils/analytics';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -449,6 +449,8 @@ export default function PostListingScreen({ navigation, route }) {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [lastDraftSave, setLastDraftSave] = useState(null);
   const [carRegistrationScan, setCarRegistrationScan] = useState(null);
+  const [bikeOcrStatus, setBikeOcrStatus] = useState('');
+  const [plateOcrStatus, setPlateOcrStatus] = useState('');
   const draftTimerRef = React.useRef(null);
 
   const [carForm, setCarForm] = useState({
@@ -1160,6 +1162,39 @@ export default function PostListingScreen({ navigation, route }) {
 
     return urls.filter(Boolean);
   }, []);
+
+  const runRegistrationDocScan = ({ setStatus, updateForm, fieldName, pattern }) => {
+    const scan = async (source) => {
+      setStatus('scanning');
+      try {
+        const result = await scanRegistrationDocForText({ source });
+        if (!result) {
+          setStatus('');
+          return;
+        }
+        if (result.documentUrl) updateForm('registration_doc_url', result.documentUrl);
+        const match = result.text.match(pattern);
+        if (match) {
+          updateForm(fieldName, match[0]);
+          setStatus('done');
+        } else {
+          setStatus('not-found');
+        }
+      } catch (err) {
+        if (__DEV__) console.error('Registration doc scan failed:', err);
+        setStatus('service-error');
+      }
+    };
+    Alert.alert(
+      'Scan Registration Document',
+      'Choose a source for the registration document.',
+      [
+        { text: 'Take Photo', onPress: () => scan('camera') },
+        { text: 'Choose from Photos', onPress: () => scan('library') },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  };
 
   const toggleCarExtra = (extra) => {
     setCarForm(prev => {
@@ -1942,6 +1977,24 @@ export default function PostListingScreen({ navigation, route }) {
           placeholder="17-character VIN"
         />
 
+        <TouchableOpacity
+          style={styles.scanButton}
+          onPress={() => runRegistrationDocScan({
+            setStatus: setBikeOcrStatus,
+            updateForm: updateBikeForm,
+            fieldName: 'vin_number',
+            pattern: /\b[A-HJ-NPR-Z0-9]{17}\b/,
+          })}
+        >
+          <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
+          <Text style={styles.scanButtonText}>
+            {bikeOcrStatus === 'scanning' ? 'Scanning…' : 'Scan mulkiyya for VIN'}
+          </Text>
+        </TouchableOpacity>
+        {bikeOcrStatus === 'done' && <Text style={styles.scanResultMeta}>VIN found and filled in.</Text>}
+        {bikeOcrStatus === 'not-found' && <Text style={styles.scanResultMeta}>No VIN found, enter it manually.</Text>}
+        {bikeOcrStatus === 'service-error' && <Text style={styles.scanResultMeta}>Scan failed, try again.</Text>}
+
         <Text style={styles.fieldLabel}>Cylinders</Text>
         <Picker
           value={bikeForm.cylinders}
@@ -2060,6 +2113,24 @@ export default function PostListingScreen({ navigation, route }) {
           placeholder="e.g. 12345"
           keyboardType="numeric"
         />
+
+        <TouchableOpacity
+          style={styles.scanButton}
+          onPress={() => runRegistrationDocScan({
+            setStatus: setPlateOcrStatus,
+            updateForm: updatePlateForm,
+            fieldName: 'number',
+            pattern: /\b(\d{1,5})\b/,
+          })}
+        >
+          <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
+          <Text style={styles.scanButtonText}>
+            {plateOcrStatus === 'scanning' ? 'Scanning…' : 'Scan registration for plate number'}
+          </Text>
+        </TouchableOpacity>
+        {plateOcrStatus === 'done' && <Text style={styles.scanResultMeta}>Plate number found and filled in.</Text>}
+        {plateOcrStatus === 'not-found' && <Text style={styles.scanResultMeta}>No number found, enter it manually.</Text>}
+        {plateOcrStatus === 'service-error' && <Text style={styles.scanResultMeta}>Scan failed, try again.</Text>}
 
         <Input
           label="Digits"

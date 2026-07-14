@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import apiClient from './apiClient';
 import { normalizeRegistrationScanResponse } from './registrationScan';
 
@@ -93,4 +94,34 @@ export const scanCarRegistration = async ({
     if (__DEV__) console.error('OCR scan error:', err);
     throw err;
   }
+};
+
+// Picks a registration/mulkiya photo (camera or library), uploads it for storage,
+// and OCRs it for a plain-text match (VIN or plate number) — mirrors the web
+// PostBike/PostPlate runBikeOcr/runPlateOcr flow, which doesn't use the
+// structured scan-registration endpoint.
+export const scanRegistrationDocForText = async ({ source = 'camera' } = {}) => {
+  const file = source === 'library' ? await pickFromLibrary() : await pickFromCamera();
+  if (!file) return null;
+
+  const base64 = await FileSystem.readAsStringAsync(file.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const [{ text } = {}, uploadResponse] = await Promise.all([
+    apiClient.post('/api/ocr/hf-extract', { image_b64: base64 }),
+    apiClient.post('/api/upload-images', (() => {
+      const formData = new FormData();
+      formData.append('images', { uri: file.uri, type: file.mimeType, name: file.name });
+      return formData;
+    })()),
+  ]);
+
+  const documentUrl =
+    uploadResponse?.absolute_urls?.[0] ||
+    uploadResponse?.urls?.[0] ||
+    uploadResponse?.images?.[0]?.url ||
+    uploadResponse?.images?.[0]?.image_url ||
+    null;
+
+  return { text: text || '', documentUrl };
 };

@@ -576,6 +576,16 @@ export default function AdminDashboardScreen({ navigation }) {
           <Text style={styles.metricsLinkText}>View full metrics</Text>
           <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.metricsLinkRow}
+          onPress={() => navigation.navigate('AdminTools')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="construct-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.metricsLinkText}>Operational tools</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

@@ -206,6 +206,32 @@ export default function AdminListingDetailScreen({ route, navigation }) {
     ]);
   };
 
+  const handleMarkAsSold = async () => {
+    Alert.alert('Mark as Sold', 'Select how this listing sold:', [
+      {
+        text: 'Sold on DPH',
+        onPress: async () => {
+          try {
+            await apiClient.post(`/api/admin/listings/${itemType}/${itemId}/set-status`, { status: 'sold_on_dph' });
+            Alert.alert('Marked Sold', 'Listing marked as sold on DPH.');
+            navigation.goBack();
+          } catch (err) { Alert.alert('Error', err?.message || 'Failed to mark as sold.'); }
+        },
+      },
+      {
+        text: 'Sold elsewhere',
+        onPress: async () => {
+          try {
+            await apiClient.post(`/api/admin/listings/${itemType}/${itemId}/set-status`, { status: 'sold_elsewhere' });
+            Alert.alert('Marked Sold', 'Listing marked as sold elsewhere.');
+            navigation.goBack();
+          } catch (err) { Alert.alert('Error', err?.message || 'Failed to mark as sold.'); }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const handleDelete = async () => {
     Alert.alert('Delete', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -260,6 +286,7 @@ export default function AdminListingDetailScreen({ route, navigation }) {
   const listing = detail?.listing;
   const verification = detail?.verification_status || {};
   const verificationFields = verification.fields || {};
+  const isActive = listing?.status === 'approved' || listing?.status === 'active';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -319,6 +346,12 @@ export default function AdminListingDetailScreen({ route, navigation }) {
               <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
               <Text style={styles.approveBtnText}>Approve</Text>
             </TouchableOpacity>
+            {isActive && (
+              <TouchableOpacity style={styles.soldBtn} onPress={handleMarkAsSold} activeOpacity={0.7}>
+                <Ionicons name="pricetag-outline" size={18} color={COLORS.white} />
+                <Text style={styles.soldBtnText}>Mark as Sold</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.editBtn} onPress={handleEdit} activeOpacity={0.7}>
               <Ionicons name="create-outline" size={18} color={COLORS.white} />
               <Text style={styles.editBtnText}>Edit</Text>
@@ -356,6 +389,8 @@ const styles = StyleSheet.create({
   approveBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
   editBtnText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  soldBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(33,150,243,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+  soldBtnText: { color: '#2196F3', fontSize: FONT_SIZES.md, fontWeight: '600' },
   rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
   rejectBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },

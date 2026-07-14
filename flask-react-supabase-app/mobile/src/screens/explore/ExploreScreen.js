@@ -10,6 +10,7 @@ import {
   Keyboard,
   Platform,
   UIManager,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -469,6 +470,15 @@ export default function ExploreScreen({ navigation }) {
   const [counts, setCounts] = useState({ cars: 0, bikes: 0, plates: 0, parts: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pages, setPages] = useState({
+    cars: { offset: 0, hasMore: true },
+    bikes: { offset: 0, hasMore: true },
+    plates: { offset: 0, hasMore: true },
+    parts: { offset: 0, hasMore: true },
+  });
+  const pagesRef = useRef(pages);
+  useEffect(() => { pagesRef.current = pages; }, [pages]);
   const mountedRef = useRef(true);
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -531,7 +541,10 @@ export default function ExploreScreen({ navigation }) {
     try {
       const filterParams = buildFilterParams();
       const qs = new URLSearchParams(filterParams).toString();
-      const buildUrl = (base) => qs ? `${base}?per_page=${LISTING_PAGE_SIZE}&${qs}` : `${base}?per_page=${LISTING_PAGE_SIZE}`;
+      const buildUrl = (base) => {
+        const pageQs = `limit=${LISTING_PAGE_SIZE}&offset=0`;
+        return qs ? `${base}?${pageQs}&${qs}` : `${base}?${pageQs}`;
+      };
 
       const [carsRes, bikesRes, platesRes, partsRes] = await Promise.all([
         apiClient.get(buildUrl('/api/cars')).catch(() => []),
@@ -549,6 +562,12 @@ export default function ExploreScreen({ navigation }) {
 
       setAllItems({ cars, bikes, plates, parts });
       setCounts({ cars: cars.length, bikes: bikes.length, plates: plates.length, parts: parts.length });
+      setPages({
+        cars: { offset: 0, hasMore: cars.length === LISTING_PAGE_SIZE },
+        bikes: { offset: 0, hasMore: bikes.length === LISTING_PAGE_SIZE },
+        plates: { offset: 0, hasMore: plates.length === LISTING_PAGE_SIZE },
+        parts: { offset: 0, hasMore: parts.length === LISTING_PAGE_SIZE },
+      });
 
       // Persist the no-filter payload so the next cold start / tab switch
       // can paint listings before the network responds.
@@ -562,6 +581,61 @@ export default function ExploreScreen({ navigation }) {
       setRefreshing(false);
     }
   }, [buildFilterParams]);
+
+  // Appends the next page for whichever categories the active tab covers.
+  // Guards on a ref (not just loadingMore state) so a second onEndReached
+  // fired before the first setState commits can't race a duplicate fetch.
+  const loadingMoreRef = useRef(false);
+  const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current || loading || refreshing) return;
+    const categories = activeTab === 'all' ? ['cars', 'bikes', 'plates', 'parts'] : [activeTab];
+    const targets = categories.filter((cat) => pagesRef.current[cat]?.hasMore);
+    if (!targets.length) return;
+
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const filterParams = buildFilterParams();
+      const qs = new URLSearchParams(filterParams).toString();
+      const endpointFor = { cars: '/api/cars', bikes: '/api/bikes', plates: '/api/plates', parts: '/api/parts' };
+
+      const results = await Promise.all(targets.map((cat) => {
+        const nextOffset = pagesRef.current[cat].offset + LISTING_PAGE_SIZE;
+        const pageQs = `limit=${LISTING_PAGE_SIZE}&offset=${nextOffset}`;
+        const url = qs ? `${endpointFor[cat]}?${pageQs}&${qs}` : `${endpointFor[cat]}?${pageQs}`;
+        return apiClient.get(url).catch(() => []).then((res) => ({
+          cat,
+          nextOffset,
+          items: Array.isArray(res) ? res : res?.[cat] || [],
+        }));
+      }));
+
+      if (!mountedRef.current) return;
+
+      setAllItems((prev) => {
+        const next = { ...prev };
+        results.forEach(({ cat, items }) => { next[cat] = [...prev[cat], ...items]; });
+        return next;
+      });
+      setCounts((prev) => {
+        const next = { ...prev };
+        results.forEach(({ cat, items }) => { next[cat] = prev[cat] + items.length; });
+        return next;
+      });
+      setPages((prev) => {
+        const next = { ...prev };
+        results.forEach(({ cat, nextOffset, items }) => {
+          next[cat] = { offset: nextOffset, hasMore: items.length === LISTING_PAGE_SIZE };
+        });
+        return next;
+      });
+    } catch (err) {
+      toastApiError(err);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [activeTab, buildFilterParams, loading, refreshing]);
 
   // Hydrate from cache before the network resolves. Skeleton only shows on
   // a true cold first-ever load (no cache and no fetch result yet).
@@ -666,22 +740,29 @@ export default function ExploreScreen({ navigation }) {
   }, [navigation, isSaved, toggleSaveListing]);
 
   const renderCTA = useCallback(() => (
-    <TouchableOpacity
-      style={styles.ctaCard}
-      activeOpacity={0.8}
-      onPress={() => navigation.navigate('PostListing')}
-    >
-      <View style={styles.ctaContent}>
-        <View style={styles.ctaLeft}>
-          <Text style={styles.ctaTitle}>List Your Vehicle</Text>
-          <Text style={styles.ctaSubtitle}>It's free to post your listing</Text>
+    <>
+      {loadingMore && (
+        <View style={styles.loadMoreWrap}>
+          <ActivityIndicator size="small" color={COLORS.accent} />
         </View>
-        <View style={styles.ctaIconWrap}>
-          <Ionicons name="add-circle" size={36} color={COLORS.accent} />
+      )}
+      <TouchableOpacity
+        style={styles.ctaCard}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('PostListing')}
+      >
+        <View style={styles.ctaContent}>
+          <View style={styles.ctaLeft}>
+            <Text style={styles.ctaTitle}>List Your Vehicle</Text>
+            <Text style={styles.ctaSubtitle}>It's free to post your listing</Text>
+          </View>
+          <View style={styles.ctaIconWrap}>
+            <Ionicons name="add-circle" size={36} color={COLORS.accent} />
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  ), [navigation]);
+      </TouchableOpacity>
+    </>
+  ), [navigation, loadingMore]);
 
   const renderHeader = useCallback(() => (
     <View>
@@ -782,6 +863,8 @@ export default function ExploreScreen({ navigation }) {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
           }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
           ListFooterComponent={renderCTA}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -953,6 +1036,7 @@ const styles = StyleSheet.create({
   cardLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   cardLocation: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs },
 
+  loadMoreWrap: { paddingVertical: SPACING.md, alignItems: 'center' },
   ctaCard: {
     marginHorizontal: SPACING.md, marginTop: SPACING.sm, marginBottom: SPACING.md,
     backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden',
