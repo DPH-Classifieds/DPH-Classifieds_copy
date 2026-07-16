@@ -24,15 +24,33 @@ DEFAULT_MAX_IMAGE_PIXELS = 25000000
 DEFAULT_MAX_RESIZE_PIXELS = 6000000
 DEFAULT_MAX_RESIZE_WIDTH = 2400
 DEFAULT_MAX_RESIZE_HEIGHT = 2400
-VIN_OCR_SUBSTITUTIONS = {
-    "O": ("0",),
-    "Q": ("0",),
-    "D": ("0",),
-    "I": ("1",),
-    "L": ("1",),
-    "V": ("W",),
-    "W": ("V",),
+# I, O, Q can never legally appear in a VIN (VIN_ALLOWED_RE excludes them) —
+# any occurrence is definitely an OCR misread, so substituting these is a
+# correction, not a guess, and is always applied to reach a charset-valid
+# candidate at all.
+REQUIRED_VIN_SUBSTITUTIONS = {
+    "O": "0",
+    "Q": "0",
+    "I": "1",
 }
+# D and L ARE valid VIN letters in their own right, so swapping them for 0/1
+# is a genuine guess, not a correction — only trust it where the checksum
+# can actually confirm it (see VINDecoder.is_checksum_applicable). For
+# non-NA VINs the checksum can't verify anything (see is_checksum_valid),
+# so these are never applied there.
+SPECULATIVE_VIN_SUBSTITUTIONS = {
+    "D": ("0",),
+    "L": ("1",),
+}
+# The VIN check digit only has ~1-in-11 discriminating power (it's meant to
+# catch a single transcription typo, not to serve as a search oracle). Tried
+# adding V<->W here; on a garbled read it let up to 64 blind substitution
+# combinations be searched, and a synthetic test proved that finds a
+# checksum-valid VIN that is NOT the real one (LOWDD7O51QJ614961 repaired to
+# a *different*, wrong, but checksum-passing VIN). Reverted, and speculative
+# repair is now capped at MAX_VIN_SUBSTITUTIONS below to bound the
+# false-positive risk from the remaining table.
+MAX_VIN_SUBSTITUTIONS = 2
 # Below this, a EasyOCR detection is noise often enough that letting it into
 # the VIN/field-candidate search does more harm than good. Deliberately much
 # lower than a "trust this on its own" threshold (0.9) — extract_registration_fields
@@ -143,29 +161,54 @@ def _repair_vin_candidate(value):
     cleaned = re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
     if len(cleaned) != 17:
         return None
-    if VIN_ALLOWED_RE.match(cleaned) and VINDecoder.is_checksum_valid(cleaned):
-        return cleaned
 
-    candidates = [cleaned]
-    for index, char in enumerate(cleaned):
-        replacements = VIN_OCR_SUBSTITUTIONS.get(char)
+    # Step 1: I/O/Q are impossible in a real VIN, so fix them unconditionally
+    # — this isn't a guess, it's a correction (needed just to reach a
+    # charset-valid 17-char string at all).
+    required_fixed = "".join(REQUIRED_VIN_SUBSTITUTIONS.get(c, c) for c in cleaned)
+    if not VIN_ALLOWED_RE.match(required_fixed):
+        return None
+
+    # Step 2: if this VIN's WMI prefix isn't NA-market, the checksum can't
+    # verify anything (see VINDecoder.is_checksum_applicable) — so there is
+    # no way to confirm a speculative D<->0 / L<->1 guess. Return the
+    # required-fix-only result as a best effort rather than inventing
+    # further changes we can never check.
+    if not VINDecoder.is_checksum_applicable(required_fixed):
+        return required_fixed
+
+    if VINDecoder.is_checksum_valid(required_fixed):
+        return required_fixed
+
+    # Step 3 (NA-market only): the checksum is real here, so it's safe to
+    # search speculative substitutions and trust a pass. Each candidate
+    # tracks how many changes it made from required_fixed — the more
+    # substitutions needed, the more likely a "pass" is pure 1-in-11
+    # coincidence rather than a real repair, so this is capped and the
+    # fewest-substitution match wins.
+    candidates = [(required_fixed, 0)]
+    for index, char in enumerate(required_fixed):
+        replacements = SPECULATIVE_VIN_SUBSTITUTIONS.get(char)
         if not replacements:
             continue
         next_candidates = []
-        for candidate in candidates:
-            next_candidates.append(candidate)
-            for replacement in replacements:
-                next_candidates.append(candidate[:index] + replacement + candidate[index + 1 :])
+        for candidate, subs in candidates:
+            next_candidates.append((candidate, subs))
+            if subs < MAX_VIN_SUBSTITUTIONS:
+                for replacement in replacements:
+                    next_candidates.append((candidate[:index] + replacement + candidate[index + 1:], subs + 1))
         candidates = next_candidates[:64]
 
     seen = set()
-    for candidate in candidates:
-        if candidate in seen:
+    best = None
+    for candidate, subs in candidates:
+        if candidate in seen or subs == 0:
             continue
         seen.add(candidate)
         if VIN_ALLOWED_RE.match(candidate) and VINDecoder.is_checksum_valid(candidate):
-            return candidate
-    return None
+            if best is None or subs < best[1]:
+                best = (candidate, subs)
+    return best[0] if best else None
 
 
 def _max_image_pixels():

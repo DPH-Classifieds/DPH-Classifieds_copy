@@ -174,6 +174,47 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertEqual(fields["vin"], VALID_VIN)
         self.assertGreaterEqual(confidence["vin"], 0.8)
 
+    def test_vin_repair_skips_speculative_guessing_for_non_na_vins(self):
+        # Non-NA WMI prefix (starts with a letter, not 1-5): the checksum
+        # can't verify anything for these (real UAE/GCC vehicles), so
+        # speculative D/L substitution must never run — only the required
+        # I/O/Q fix is applied, and the result is returned as best-effort
+        # without inventing further changes. Regression test for a bug
+        # where the old code trusted is_checksum_valid()'s unconditional
+        # True for non-NA VINs as if it meant "confirmed correct" — it let
+        # a garbled read repair into a *different*, wrong, but
+        # checksum-passing VIN.
+        garbled = "LOWDD7O51QJ614961"
+        self.assertFalse(registration_ocr.VINDecoder.is_checksum_applicable(garbled))
+        # Only the O's and Q (required, unconditional) get fixed; the D's
+        # are left untouched since speculative substitution never runs.
+        self.assertEqual(registration_ocr._repair_vin_candidate(garbled), "L0WDD70510J614961")
+
+    def test_vin_repair_caps_speculative_substitutions_for_na_vins(self):
+        # NA WMI prefix (starts with 1-5): checksum is real here, so
+        # speculative guessing is allowed but must stay bounded — mock the
+        # checksum to accept only a candidate that needs 5 simultaneous
+        # D/L substitutions (over MAX_VIN_SUBSTITUTIONS=2) and confirm
+        # _repair_vin_candidate refuses to find it.
+        garbled = "1DGCLD2633ADD4352"  # NA prefix, 5 D/L-substitutable chars
+        target = "10GC102633A004352"  # every D/L flipped -> 5 substitutions away
+
+        def fake_checksum_valid(vin):
+            return vin == target
+
+        with patch.object(registration_ocr.VINDecoder, "is_checksum_valid", staticmethod(fake_checksum_valid)):
+            self.assertIsNone(registration_ocr._repair_vin_candidate(garbled))
+
+    def test_vin_repair_finds_within_cap_substitutions_for_na_vins(self):
+        garbled = "1HGCM82633ADD4352"  # NA prefix, 2 D chars (within cap)
+        target = VALID_VIN  # "1HGCM82633A004352" -- both D's -> 0
+
+        def fake_checksum_valid(vin):
+            return vin == target
+
+        with patch.object(registration_ocr.VINDecoder, "is_checksum_valid", staticmethod(fake_checksum_valid)):
+            self.assertEqual(registration_ocr._repair_vin_candidate(garbled), target)
+
     @patch.dict(os.environ, {"OCR_CONFIDENCE_THRESHOLD": "0.90"}, clear=False)
     def test_marks_review_when_confidence_is_below_acceptance_threshold(self):
         result = registration_ocr.scan_registration_image(

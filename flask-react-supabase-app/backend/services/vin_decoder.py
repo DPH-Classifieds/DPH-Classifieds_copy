@@ -146,11 +146,23 @@ class VINDecoder:
         return re.sub(r"[^A-Z0-9]", "", str(vin or "").upper())
 
     @staticmethod
+    def is_checksum_applicable(vin):
+        """Whether the ISO 3779 mod-11 check digit is actually verifiable for
+        this VIN. It's an NHTSA/North-America regulatory requirement (49 CFR
+        565), not a global one — most JDM/EU/GCC manufacturers don't
+        necessarily compute position 9 this way. `is_checksum_valid` returns
+        True (unverifiable, not "confirmed correct") for these to avoid
+        false-rejecting genuine non-NA VINs; callers deciding whether to
+        *trust* a checksum pass (e.g. guessing a repair, or auto-filling
+        without review) must check this first.
+        """
+        return bool(vin) and vin[0] in "12345"
+
+    @staticmethod
     def is_checksum_valid(vin):
         if not VIN_ALLOWED_RE.match(vin):
             return False
-        # ponytail: checksum is NHTSA/NA-only (WMI 1-5); skip for JDM/EU/GCC-market VINs
-        if vin[0] not in "12345":
+        if not VINDecoder.is_checksum_applicable(vin):
             return True
         total = 0
         for char, weight in zip(vin, WEIGHTS):
