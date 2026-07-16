@@ -4122,18 +4122,8 @@ CORS(
     app, resources={r"/*": {"origins": _get_cors_origins()}}, supports_credentials=True
 )
 
-# Pre-warm EasyOCR models in the background so the first scan request is fast
-def _prewarm_easyocr():
-    try:
-        from services.local_ocr import _get_reader
-        _get_reader()
-        logger.info("EasyOCR pre-warmed.")
-    except Exception as _exc:
-        logger.warning("EasyOCR pre-warm skipped: %s", _exc)
-
-import threading as _startup_threading
-if os.getenv("SERVICE_ROLE") != "worker":
-    _startup_threading.Thread(target=_prewarm_easyocr, daemon=True).start()
+# OCR runs on the standalone PaddleOCR microservice (see ../ocr-service); no
+# in-process model to pre-warm here anymore.
 
 # Enable compression for better performance.
 # - Algorithm order: brotli first (smaller), gzip fallback.

@@ -10,7 +10,6 @@ from werkzeug.datastructures import FileStorage
 
 import app as backend
 from routes import ocr as ocr_route
-from services import local_ocr
 from services import registration_ocr
 
 
@@ -317,42 +316,9 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertTrue(result["needs_review"])
         self.assertIn("low_confidence", result["review_reasons"])
 
-    def test_default_ocr_provider_is_easyocr(self):
+    def test_default_ocr_provider_is_paddle_service(self):
         provider = registration_ocr.get_default_ocr_provider()
-        self.assertIsInstance(provider, registration_ocr.EasyOCRProvider)
-
-    def test_easyocr_provider_reads_shared_reader_and_filters_low_confidence(self):
-        fake_reader = Mock()
-        fake_reader.readtext.return_value = [
-            (None, "Make: Honda", 0.92),
-            (None, "garbage", 0.1),
-        ]
-        with patch.object(local_ocr, "_get_reader", return_value=fake_reader):
-            provider = registration_ocr.EasyOCRProvider()
-            text = provider.extract_text(Image.new("RGB", (4, 4)))
-
-        self.assertEqual(text, "Make: Honda")
-
-    def test_easyocr_provider_raises_when_reader_unavailable(self):
-        with patch.object(local_ocr, "_get_reader", return_value=None), \
-             patch.object(local_ocr, "_init_error", RuntimeError("model load failed")):
-            provider = registration_ocr.EasyOCRProvider()
-            with self.assertRaises(RuntimeError):
-                provider.extract_text(Image.new("RGB", (4, 4)))
-
-    def test_easyocr_diagnostics_report_model_presence(self):
-        with unittest.mock.patch.object(local_ocr, "_MODEL_DIR", "/tmp/easyocr-models"):
-            with unittest.mock.patch.object(Path, "is_dir", return_value=True), \
-                 unittest.mock.patch.object(Path, "iterdir", return_value=[
-                     Path("/tmp/easyocr-models/craft_mlt_25k.pth"),
-                     Path("/tmp/easyocr-models/latin_g2.pth"),
-                 ]), \
-                 self.assertLogs("services.local_ocr", level="INFO") as captured:
-                local_ocr._log_runtime_diagnostics()
-
-        logs = "\n".join(captured.output)
-        self.assertIn("EasyOCR model directory: /tmp/easyocr-models", logs)
-        self.assertIn("EasyOCR models present: yes", logs)
+        self.assertIsInstance(provider, registration_ocr.PaddleOCRServiceProvider)
 
     def test_extract_registration_fields_handles_registration_card_noise(self):
         raw_text = "\n".join(
@@ -411,24 +377,6 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         ext, content_type = registration_ocr._sniff_extension(_jpeg_bytes().read())
         self.assertEqual(ext, "jpg")
         self.assertEqual(content_type, "image/jpeg")
-
-
-class LocalOCRTests(unittest.TestCase):
-    @patch.object(local_ocr, "_get_reader")
-    @patch.object(local_ocr._ready, "wait", return_value=True)
-    def test_extract_text_supports_pdf_uploads(self, _mock_wait, mock_get_reader):
-        class FakeReader:
-            def readtext(self, array):
-                self.seen_shape = getattr(array, "shape", None)
-                return [([(0, 0), (1, 1)], "VIN 1HGCM82633A004352", 0.99)]
-
-        fake_reader = FakeReader()
-        mock_get_reader.return_value = fake_reader
-
-        text = local_ocr.extract_text(_pdf_bytes())
-
-        self.assertIn(VALID_VIN, text)
-        self.assertIsNotNone(fake_reader.seen_shape)
 
 
 class RegistrationOCRRouteTests(unittest.TestCase):
@@ -664,35 +612,6 @@ class RegistrationOCRRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()["error"], "image is required")
-
-    def test_hf_extract_route_retains_image_for_training(self):
-        import base64
-
-        with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate, \
-             patch.object(registration_ocr, "upload_training_image") as mock_upload, \
-             patch.object(local_ocr, "extract_text", return_value="Chassis No. " + VALID_VIN):
-            mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
-            response = self.client.post(
-                "/api/ocr/hf-extract",
-                json={"image_b64": base64.b64encode(_jpeg_bytes().read()).decode()},
-                headers={"Authorization": "Bearer test-token"},
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(VALID_VIN, response.get_json()["text"])
-        self.assertTrue(mock_upload.called)
-        self.assertEqual(mock_upload.call_args.kwargs["metadata"], {"user_id": "auth-user-123"})
-
-    def test_hf_extract_route_rejects_invalid_base64(self):
-        with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:
-            mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
-            response = self.client.post(
-                "/api/ocr/hf-extract",
-                json={"image_b64": "not-valid-base64!!!"},
-                headers={"Authorization": "Bearer test-token"},
-            )
-
-        self.assertEqual(response.status_code, 400)
 
     def test_rejects_image_above_pixel_guardrail(self):
         with self.assertRaises(ValueError) as context:

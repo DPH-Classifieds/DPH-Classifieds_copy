@@ -51,34 +51,6 @@ SPECULATIVE_VIN_SUBSTITUTIONS = {
 # repair is now capped at MAX_VIN_SUBSTITUTIONS below to bound the
 # false-positive risk from the remaining table.
 MAX_VIN_SUBSTITUTIONS = 2
-# Below this, a EasyOCR detection is noise often enough that letting it into
-# the VIN/field-candidate search does more harm than good. Deliberately much
-# lower than a "trust this on its own" threshold (0.9) — extract_registration_fields
-# and _repair_vin_candidate's checksum-based repair are the real accuracy gate;
-# this floor only exists to drop blank/near-blank detections.
-EASYOCR_MIN_CONFIDENCE = 0.1
-
-class EasyOCRProvider:
-    """Runs registration-doc OCR through the shared self-hosted EasyOCR
-    reader (en+ar) — the same model instance backing /api/ocr/hf-extract,
-    so the model is only ever loaded once per process.
-    """
-
-    def extract_text(self, image):
-        from services import local_ocr
-
-        reader = local_ocr._get_reader()
-        if reader is None:
-            if local_ocr._init_error is not None:
-                raise RuntimeError(
-                    f"EasyOCR failed to load: {local_ocr._init_error}"
-                ) from local_ocr._init_error
-            raise RuntimeError("EasyOCR not ready")
-
-        import numpy as np
-
-        results = reader.readtext(np.array(image.convert("RGB")))
-        return " ".join(text for _, text, conf in results if conf > EASYOCR_MIN_CONFIDENCE).strip()
 
 
 class PaddleOCRServiceProvider:
@@ -127,11 +99,8 @@ class PaddleOCRServiceProvider:
 
 
 def get_default_ocr_provider():
-    # Prefer the PaddleOCR microservice when configured; fall back to the
-    # in-process EasyOCR reader until the service is fully rolled out.
-    if os.getenv("OCR_SERVICE_URL"):
-        return PaddleOCRServiceProvider()
-    return EasyOCRProvider()
+    # OCR runs on the standalone PaddleOCR microservice (OCR_SERVICE_URL).
+    return PaddleOCRServiceProvider()
 
 
 def get_default_vin_decoder():

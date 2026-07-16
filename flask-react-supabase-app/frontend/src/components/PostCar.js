@@ -662,143 +662,27 @@ const PostCar = () => {
     });
 
     try {
-      // STEP 1: Try the backend with the ORIGINAL file. The backend accepts
-      // both images and PDFs natively, so we don't need to render PDFs locally
-      // just to talk to it. This means a local PDF-render failure (e.g. pdfjs
-      // worker issues) can no longer block the backend OCR path.
-      let backendSucceeded = false;
-      try {
-        setRegistrationOcrStatus('Scanning…');
-        const formData = new FormData();
-        formData.append('image', registrationOcrFile, registrationOcrFile.name || 'registration-scan');
-        formData.append('document_type', 'mulkiya');
-        if (isEdit && listingId) {
-          formData.append('listing_type', 'car');
-          formData.append('listing_id', listingId);
-        }
-
-        const backendScan = normalizeRegistrationScanResponse(
-          await apiClient.post('/api/ocr/scan-registration', formData)
-        );
-
-        applyRegistrationScanResult(backendScan);
-        setRegistrationOcrError(null);
-        backendSucceeded = true;
-
-        if (backendScan.shouldAutoFill) {
-          return;
-        }
-      } catch (backendError) {
-        console.warn('Backend registration scan unavailable, falling back to local OCR:', backendError);
+      // Scan via the backend (which calls the PaddleOCR microservice). The
+      // backend accepts images and PDFs natively and does all VIN/plate
+      // validation. There is deliberately NO browser-side OCR fallback: the
+      // old Tesseract.js fallback produced garbage reads it couldn't verify
+      // and mislabelled them "valid". If the backend can't scan, the user
+      // enters the details manually.
+      setRegistrationOcrStatus('Scanning…');
+      const formData = new FormData();
+      formData.append('image', registrationOcrFile, registrationOcrFile.name || 'registration-scan');
+      formData.append('document_type', 'mulkiya');
+      if (isEdit && listingId) {
+        formData.append('listing_type', 'car');
+        formData.append('listing_id', listingId);
       }
 
-      // STEP 2: Local OCR fallback. Only prepare (render PDF, preprocess images)
-      // if we still need it. If preparation fails and the backend already gave
-      // us something, surface that result rather than throwing.
-      setRegistrationOcrStatus('Preparing…');
-      let prepared = null;
-      try {
-        prepared = await prepareRegistrationOcrInput(registrationOcrFile);
-      } catch (prepError) {
-        console.warn('Local OCR preparation failed:', prepError);
-        if (backendSucceeded) {
-          return;
-        }
-        throw prepError;
-      }
-
-      const attempts = prepared?.attempts || [];
-      if (!attempts.length) {
-        if (backendSucceeded) {
-          return;
-        }
-        throw new Error('No OCR input prepared');
-      }
-
-      let best = null;
-      let bestScore = -1;
-      let bestAttempt = null;
-
-      for (let idx = 0; idx < attempts.length; idx += 1) {
-        const attempt = attempts[idx];
-        if (!attempt?.image) continue;
-        setRegistrationOcrPreparedImage(attempt);
-        setRegistrationOcrStatus(`Scanning… (${idx + 1}/${attempts.length})`);
-        setRegistrationOcrProgress(0);
-
-        const { default: Tesseract } = await import('tesseract.js');
-        const result = await Tesseract.recognize(attempt.image, 'eng', {
-          logger: (m) => {
-            if (m?.status === 'recognizing text' && typeof m.progress === 'number') {
-              setRegistrationOcrProgress(Math.round(m.progress * 100));
-            }
-          },
-        });
-
-        const parsed = parseRegistrationOcr(result?.data?.text || '', { words: result?.data?.words || [] });
-        const score =
-          (parsed.verifiedVin ? 3 : 0) +
-          (parsed.verifiedMake ? 2 : 0) +
-          (parsed.verifiedModel ? 2 : 0) +
-          (parsed.verifiedYear ? 2 : 0) +
-          (parsed.confidence?.ocr ? parsed.confidence.ocr : 0);
-
-        if (score > bestScore) {
-          best = parsed;
-          bestScore = score;
-          bestAttempt = attempt;
-        }
-
-        if (parsed.verifiedVin && parsed.verifiedMake && parsed.verifiedYear) {
-          break;
-        }
-      }
-
-      if (!best) {
-        if (backendSucceeded) {
-          return;
-        }
-        throw new Error('OCR failed to produce results');
-      }
-
-      const fallbackScan = normalizeRegistrationScanResponse({
-        fields: {
-          make: best.make,
-          model: best.model,
-          year: best.year,
-          // Browser Tesseract can't verify a VIN it read (no checksum for
-          // GCC/JDM VINs, no decoder). Only surface a VIN this local
-          // fallback could actually verify; otherwise leave it out so the
-          // user enters it manually instead of seeing a fabricated read.
-          vin: best.verifiedVin ? best.vin : null,
-        },
-        confidence: {
-          ...best.confidence,
-          overall: Math.max(
-            best.confidence?.ocr || 0,
-            best.verifiedVin && best.verifiedMake && best.verifiedYear ? 0.95 : 0.6
-          ),
-        },
-        vin_validation: {
-          valid: best.verifiedVin,
-          decoded: {
-            make: best.make,
-            model: best.model,
-            model_year: best.year,
-          },
-        },
-        needs_review: !(best.verifiedVin && best.verifiedMake && best.verifiedYear),
-        review_reasons: best.verifiedVin && best.verifiedMake && best.verifiedYear
-          ? []
-          : ['local_fallback_review'],
-        raw_text: '',
-        document_type: 'mulkiya',
-      });
-
-      applyRegistrationScanResult(
-        fallbackScan,
-        { debugInfo: bestAttempt ? { source: bestAttempt.source, pass: bestAttempt.pass } : null }
+      const backendScan = normalizeRegistrationScanResponse(
+        await apiClient.post('/api/ocr/scan-registration', formData)
       );
+
+      applyRegistrationScanResult(backendScan);
+      setRegistrationOcrError(null);
     } catch (err) {
       console.error('Registration OCR failed:', err);
       setRegistrationOcrStatus(null);
@@ -809,7 +693,7 @@ const PostCar = () => {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps, no-use-before-define
-  }, [applyRegistrationScanResult, ensureRegistrationDocumentUploaded, isEdit, listingId, parseRegistrationOcr, prepareRegistrationOcrInput, registrationOcrFile, resetRegistrationOcrState]);
+  }, [applyRegistrationScanResult, ensureRegistrationDocumentUploaded, isEdit, listingId, registrationOcrFile, resetRegistrationOcrState]);
 
   const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
