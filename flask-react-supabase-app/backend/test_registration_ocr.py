@@ -205,6 +205,42 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         with patch.object(registration_ocr.VINDecoder, "is_checksum_valid", staticmethod(fake_checksum_valid)):
             self.assertIsNone(registration_ocr._repair_vin_candidate(garbled))
 
+    def test_extract_plate_fields_from_real_mulkiya_text(self):
+        # Both the accurate PDF read and the actual garbled EasyOCR read of
+        # the same UAE mulkiya must yield plate number 66182. The JPG text
+        # is verbatim from a real EasyOCR run and contains Arabic-Indic
+        # digits (٥٠) that must NOT be mistaken for the plate number.
+        pdf_text = "CC/66182 خصوصي 12307760 2025 5 GREAT WALL TANK 300 LGWFF7A51SJ614961"
+        jpg_text = (
+            "Vehicle License Tnffic Fliic No. 0C /66182 رقم اللوحة "
+            "Placc of Issue Dubai اللرخبص ، ٥٠ N٥٠ 1230775٥ االرمز"
+        )
+        self.assertEqual(registration_ocr.extract_plate_fields(pdf_text)["plate_number"], "66182")
+        self.assertEqual(registration_ocr.extract_plate_fields(jpg_text)["plate_number"], "66182")
+
+    def test_extract_plate_fields_ignores_arabic_indic_digits(self):
+        # Only Arabic-Indic digits present, no ASCII plate — must return
+        # None rather than leaking "٥٠" into a Western-digit form field.
+        self.assertIsNone(
+            registration_ocr.extract_plate_fields("رقم اللوحة ٥٠ N٥٠ خصوصي")["plate_number"]
+        )
+
+    def test_extract_plate_fields_does_not_split_years_or_bare_numbers(self):
+        # A 4-digit year must never be split into code+number.
+        self.assertIsNone(registration_ocr.extract_plate_fields("Model 2025 Origin China")["plate_number"])
+        # A bare 5-digit plate near a label stays whole (not split 44+321).
+        self.assertEqual(
+            registration_ocr.extract_plate_fields("رقم اللوحة 44321 خصوصي")["plate_number"],
+            "44321",
+        )
+
+    def test_extract_plate_fields_requires_separator_for_numeric_code(self):
+        # Numeric region code needs an explicit separator ("50 / 4321").
+        self.assertEqual(
+            registration_ocr.extract_plate_fields("Traffic Plate No 50 / 4321 Dubai")["plate_number"],
+            "4321",
+        )
+
     def test_vin_repair_finds_within_cap_substitutions_for_na_vins(self):
         garbled = "1HGCM82633ADD4352"  # NA prefix, 2 D chars (within cap)
         target = VALID_VIN  # "1HGCM82633A004352" -- both D's -> 0

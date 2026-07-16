@@ -14,6 +14,8 @@ export const normalizeRegistrationScanResponse = (payload) => {
     model: normalizeString(payload?.fields?.model || payload?.model),
     year: normalizeString(payload?.fields?.year || payload?.year),
     vin: normalizeString(payload?.fields?.vin || payload?.vin).toUpperCase(),
+    plate_number: normalizeString(payload?.fields?.plate_number),
+    plate_code: normalizeString(payload?.fields?.plate_code),
   };
 
   const confidence = {

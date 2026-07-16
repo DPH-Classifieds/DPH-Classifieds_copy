@@ -23,7 +23,7 @@ import MapView, { Marker } from '../../utils/mapComponents';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../utils/apiClient';
-import { scanCarRegistration, scanRegistrationDocForText } from '../../utils/ocrScanner';
+import { scanCarRegistration, scanRegistrationStructured } from '../../utils/ocrScanner';
 import { trackEvent } from '../../utils/analytics';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -1163,20 +1163,25 @@ export default function PostListingScreen({ navigation, route }) {
     return urls.filter(Boolean);
   }, []);
 
-  const runRegistrationDocScan = ({ setStatus, updateForm, fieldName, pattern }) => {
+  // `extractField` is 'vin' or 'plate_number' — read from the structured,
+  // validated scan response's fields (not a blind regex over raw text).
+  // `validated` reflects whether the value passed validation, so the UI can
+  // warn the user to double-check unverified reads.
+  const runRegistrationDocScan = ({ setStatus, updateForm, fieldName, extractField }) => {
     const scan = async (source) => {
       setStatus('scanning');
       try {
-        const result = await scanRegistrationDocForText({ source });
+        const result = await scanRegistrationStructured({ source });
         if (!result) {
           setStatus('');
           return;
         }
         if (result.documentUrl) updateForm('registration_doc_url', result.documentUrl);
-        const match = result.text.match(pattern);
-        if (match) {
-          updateForm(fieldName, match[0]);
-          setStatus('done');
+        const value = result.fields?.[extractField];
+        if (value) {
+          updateForm(fieldName, value);
+          const validated = extractField === 'vin' ? result.vinValidation?.valid : true;
+          setStatus(validated ? 'done' : 'review');
         } else {
           setStatus('not-found');
         }
@@ -1191,6 +1196,7 @@ export default function PostListingScreen({ navigation, route }) {
       [
         { text: 'Take Photo', onPress: () => scan('camera') },
         { text: 'Choose from Photos', onPress: () => scan('library') },
+        { text: 'Choose File (PDF / Image)', onPress: () => scan('file') },
         { text: 'Cancel', style: 'cancel' },
       ],
     );
@@ -1986,7 +1992,7 @@ export default function PostListingScreen({ navigation, route }) {
             setStatus: setBikeOcrStatus,
             updateForm: updateBikeForm,
             fieldName: 'vin_number',
-            pattern: /\b[A-HJ-NPR-Z0-9]{17}\b/,
+            extractField: 'vin',
           })}
         >
           <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
@@ -1997,7 +2003,8 @@ export default function PostListingScreen({ navigation, route }) {
         <Text style={styles.scanDisclaimer}>
           Scanned text may be inaccurate — please double-check before submitting. Uploaded documents may be retained to improve this scanner (see our Privacy Policy).
         </Text>
-        {bikeOcrStatus === 'done' && <Text style={styles.scanResultMeta}>VIN found and filled in — please double-check it.</Text>}
+        {bikeOcrStatus === 'done' && <Text style={styles.scanResultMeta}>VIN read & validated — please still double-check it.</Text>}
+        {bikeOcrStatus === 'review' && <Text style={styles.scanResultMeta}>VIN read but could not be validated — check every character.</Text>}
         {bikeOcrStatus === 'not-found' && <Text style={styles.scanResultMeta}>No VIN found, enter it manually.</Text>}
         {bikeOcrStatus === 'service-error' && <Text style={styles.scanResultMeta}>Scan failed, try again.</Text>}
 
@@ -2126,7 +2133,7 @@ export default function PostListingScreen({ navigation, route }) {
             setStatus: setPlateOcrStatus,
             updateForm: updatePlateForm,
             fieldName: 'number',
-            pattern: /\b(\d{1,5})\b/,
+            extractField: 'plate_number',
           })}
         >
           <Ionicons name="scan-outline" size={20} color={COLORS.accent} />

@@ -449,18 +449,18 @@ const PostBike = () => {
     if (!regDocFile) return;
     setRegDocOcrStatus('scanning');
     try {
-      const reader = new FileReader();
-      const b64 = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(regDocFile);
-      });
-      const resp = await apiClient.post('/api/ocr/hf-extract', { image_b64: b64 });
-      const text = resp?.text || '';
-      const vinMatch = text.match(/\b[A-HJ-NPR-Z0-9]{17}\b/);
-      if (vinMatch) {
-        handleChange({ target: { name: 'vin_number', value: vinMatch[0] } });
-        setRegDocOcrStatus('done');
+      // Use the structured, validated scan-registration endpoint (same as
+      // the car flow) instead of raw text + a blind first-17-char regex.
+      // It runs the VIN charset check, checksum-aware repair, and NHTSA
+      // decode, so we never auto-fill a fabricated VIN.
+      const formData = new FormData();
+      formData.append('image', regDocFile, regDocFile.name || 'registration-scan');
+      formData.append('document_type', 'mulkiya');
+      const resp = await apiClient.post('/api/ocr/scan-registration', formData);
+      const vin = String(resp?.fields?.vin || '').toUpperCase();
+      if (vin) {
+        handleChange({ target: { name: 'vin_number', value: vin } });
+        setRegDocOcrStatus(resp?.vin_validation?.valid ? 'done' : 'review');
       } else {
         setRegDocOcrStatus('not-found');
       }
@@ -912,7 +912,8 @@ const PostBike = () => {
                         {regDocOcrStatus === 'scanning' ? 'Scanning…' : 'Scan document for VIN'}
                       </button>
                     )}
-                    {regDocOcrStatus === 'done' && <p className="form-text text-success">VIN pre-filled from document — please double-check it's correct.</p>}
+                    {regDocOcrStatus === 'done' && <p className="form-text text-success">VIN read &amp; validated from document — please still double-check it's correct.</p>}
+                    {regDocOcrStatus === 'review' && <p className="form-text text-warning">VIN read but could not be validated — check every character carefully before submitting.</p>}
                     {regDocOcrStatus === 'not-found' && <p className="form-text text-muted">No VIN found in document — enter manually above.</p>}
                     {regDocOcrStatus === 'service-error' && <p className="form-text text-warning">Scan service unavailable — enter VIN manually. Try again in a moment.</p>}
                     <div className="form-text text-muted">Never shown to buyers. Scanned text may be inaccurate — verify before submitting. Uploaded documents may be retained to improve this scanner (see our Privacy Policy).</div>

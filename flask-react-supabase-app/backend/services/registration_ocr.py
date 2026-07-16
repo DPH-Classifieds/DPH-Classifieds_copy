@@ -418,6 +418,71 @@ def extract_registration_fields(raw_text):
     return fields, confidence
 
 
+# A UAE traffic plate on a mulkiya is a short code plus a 1-5 digit number,
+# e.g. "CC/66182", "A 12345", "50 / 4321". The plate number is the digits.
+# A LETTER code needs no separator (letter->digit is an unambiguous
+# boundary: "CC66182"), but a NUMERIC code requires an explicit separator —
+# otherwise a plain 5-digit plate ("44321") or a 4-digit year ("2025")
+# would be wrongly split into code+number.
+# ASCII digits only ([0-9], never \d) — \d also matches Arabic-Indic digits
+# (٠-٩), which EasyOCR emits for the Arabic side of the card and which must
+# never land in a form field that expects Western digits.
+_PLATE_LETTER_CODE_RE = re.compile(r"\b([A-Z]{1,2})\s*[/\-]?\s*([0-9]{1,5})\b")
+_PLATE_DIGIT_CODE_RE = re.compile(r"\b([0-9]{1,2})\s*[/\-]\s*([0-9]{1,5})\b")
+_PLATE_SLASH_NUMBER_RE = re.compile(r"/\s*([0-9]{1,5})\b")
+_PLATE_BARE_NUMBER_RE = re.compile(r"\b([0-9]{1,5})\b")
+_PLATE_LABEL_RE = re.compile(r"(?:traffic\s*plate|plate\s*no|لوحة)", re.IGNORECASE)
+
+
+def _is_year_like(digits):
+    return len(digits) == 4 and re.match(r"(?:19[89]\d|20[0-4]\d)$", digits) is not None
+
+
+def _match_plate_code_number(text):
+    """First plate code+number token in `text`, skipping year-like numbers.
+    Returns (code, number) or None."""
+    for regex in (_PLATE_LETTER_CODE_RE, _PLATE_DIGIT_CODE_RE):
+        for m in regex.finditer(text):
+            if not _is_year_like(m.group(2)):
+                return m.group(1), m.group(2)
+    return None
+
+
+def extract_plate_fields(raw_text):
+    """Extract a UAE traffic plate {code, number} from OCR text.
+
+    The old client-side approach grabbed the FIRST 1-5 digit token in the
+    whole blob, which routinely picked the plate *code*, a fragment of the
+    T.C. number, a policy number, or a year. This uses label proximity
+    first, then the distinctive code+number token format, and refuses to
+    return a year-like number.
+    """
+    text = raw_text or ""
+
+    # 1. Label proximity — check BOTH sides of a plate label. The English
+    #    label ("Traffic Plate No") sits to the left of its value; the
+    #    Arabic label ("رقم اللوحة") sits to the right (RTL), so the value
+    #    can appear before it in the flattened OCR text.
+    for label in _PLATE_LABEL_RE.finditer(text):
+        window = text[max(0, label.start() - 40): label.end() + 40]
+        found = _match_plate_code_number(window)
+        if found:
+            return {"plate_code": found[0], "plate_number": found[1]}
+        slash = _PLATE_SLASH_NUMBER_RE.search(window)
+        if slash and not _is_year_like(slash.group(1)):
+            return {"plate_code": None, "plate_number": slash.group(1)}
+        num = _PLATE_BARE_NUMBER_RE.search(window)
+        if num and not _is_year_like(num.group(1)):
+            return {"plate_code": None, "plate_number": num.group(1)}
+
+    # 2. Distinctive code+number token anywhere. Skip year-like numbers.
+    found = _match_plate_code_number(text)
+    if found:
+        return {"plate_code": found[0], "plate_number": found[1]}
+
+    return {"plate_code": None, "plate_number": None}
+
+
 def _normalized_compare(value):
     return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
 
@@ -648,6 +713,12 @@ def scan_registration_image(
     raw_text = best_raw_text
     fields = best_fields
     confidence = best_confidence
+
+    # Plate number/code (for plate listings) — extracted from the same OCR
+    # text via label proximity + format matching, not a blind first-number
+    # grab. Car/bike flows simply ignore these keys.
+    plate = extract_plate_fields(raw_text)
+    fields = {**fields, "plate_number": plate["plate_number"], "plate_code": plate["plate_code"]}
 
     ocr_confidence_overall = confidence.get("overall", 0)
 

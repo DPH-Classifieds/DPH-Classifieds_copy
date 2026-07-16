@@ -434,17 +434,17 @@ const PostPlate = () => {
     if (!regDocFile) return;
     setPlateOcrStatus('scanning');
     try {
-      const reader = new FileReader();
-      const b64 = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(regDocFile);
-      });
-      const resp = await apiClient.post('/api/ocr/hf-extract', { image_b64: b64 });
-      const text = resp?.text || '';
-      const plateMatch = text.match(/\b(\d{1,5})\b/);
-      if (plateMatch) {
-        setFormData((prev) => ({ ...prev, number: plateMatch[1] }));
+      // Use the structured scan-registration endpoint, which extracts the
+      // plate number via label proximity + format matching — instead of
+      // grabbing the first 1-5 digit token in the raw OCR blob, which
+      // routinely picked the plate code, T.C. number, or a year.
+      const formData = new FormData();
+      formData.append('image', regDocFile, regDocFile.name || 'registration-scan');
+      formData.append('document_type', 'mulkiya');
+      const resp = await apiClient.post('/api/ocr/scan-registration', formData);
+      const plateNumber = String(resp?.fields?.plate_number || '');
+      if (plateNumber) {
+        setFormData((prev) => ({ ...prev, number: plateNumber }));
         setPlateOcrStatus('done');
       } else {
         setPlateOcrStatus('not-found');
