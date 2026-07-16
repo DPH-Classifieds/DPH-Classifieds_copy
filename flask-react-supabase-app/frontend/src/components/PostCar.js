@@ -25,7 +25,7 @@ import {
 import 'leaflet/dist/leaflet.css';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
-import { isVinValid, normalizeVin } from '../utils/vinValidation';
+import { isVinValid, isVinChecksumApplicable, normalizeVin } from '../utils/vinValidation';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
@@ -603,7 +603,15 @@ const PostCar = () => {
       if (fixedVin) {
         detectedVin = fixedVin;
       }
-      const verifiedVin = Boolean(detectedVin && isVinValid(detectedVin));
+      // Only claim "verified" when the checksum can ACTUALLY confirm it
+      // (North-America VINs). Browser Tesseract can't verify a GCC/JDM VIN,
+      // so a 17-char garbage run starting with a non-1-5 char must never be
+      // marked verified/Valid — it would otherwise auto-fill and lock as
+      // truth. Unverifiable VINs from this local fallback are left for
+      // manual entry rather than filled from unreliable browser OCR.
+      const verifiedVin = Boolean(
+        detectedVin && isVinChecksumApplicable(detectedVin) && isVinValid(detectedVin)
+      );
 
       const wordConfidence = Array.isArray(words) && words.length
         ? Math.round(
@@ -758,7 +766,11 @@ const PostCar = () => {
           make: best.make,
           model: best.model,
           year: best.year,
-          vin: best.vin,
+          // Browser Tesseract can't verify a VIN it read (no checksum for
+          // GCC/JDM VINs, no decoder). Only surface a VIN this local
+          // fallback could actually verify; otherwise leave it out so the
+          // user enters it manually instead of seeing a fabricated read.
+          vin: best.verifiedVin ? best.vin : null,
         },
         confidence: {
           ...best.confidence,

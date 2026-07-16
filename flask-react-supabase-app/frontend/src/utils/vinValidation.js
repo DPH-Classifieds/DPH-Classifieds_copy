@@ -21,6 +21,17 @@ function isNorthAmericanVin(vin) {
   return '12345'.includes(vin[0]);
 }
 
+// Whether the mod-11 check digit can actually verify this VIN. It's an
+// NHTSA/North-America requirement, not global — so isVinChecksumValid returns
+// true (UNVERIFIABLE, not "confirmed correct") for non-NA VINs to avoid
+// false-rejecting genuine GCC/JDM/EU VINs a user typed. Any code that wants to
+// CLAIM a VIN is verified (e.g. auto-filling an OCR read as "Valid") must check
+// this first — otherwise 17 garbage chars starting with a non-1-5 char sail
+// through as "valid".
+export function isVinChecksumApplicable(vin) {
+  return Boolean(vin) && isNorthAmericanVin(vin);
+}
+
 export function isVinChecksumValid(vin) {
   if (!VIN_RE.test(vin)) return false;
   if (!isNorthAmericanVin(vin)) return true;
