@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -29,7 +30,15 @@ VIN_OCR_SUBSTITUTIONS = {
     "D": ("0",),
     "I": ("1",),
     "L": ("1",),
+    "V": ("W",),
+    "W": ("V",),
 }
+# Below this, a EasyOCR detection is noise often enough that letting it into
+# the VIN/field-candidate search does more harm than good. Deliberately much
+# lower than a "trust this on its own" threshold (0.9) — extract_registration_fields
+# and _repair_vin_candidate's checksum-based repair are the real accuracy gate;
+# this floor only exists to drop blank/near-blank detections.
+EASYOCR_MIN_CONFIDENCE = 0.1
 
 class EasyOCRProvider:
     """Runs registration-doc OCR through the shared self-hosted EasyOCR
@@ -51,7 +60,7 @@ class EasyOCRProvider:
         import numpy as np
 
         results = reader.readtext(np.array(image.convert("RGB")))
-        return " ".join(text for _, text, conf in results if conf > 0.3).strip()
+        return " ".join(text for _, text, conf in results if conf > EASYOCR_MIN_CONFIDENCE).strip()
 
 
 def get_default_ocr_provider():
@@ -250,21 +259,37 @@ def preprocess_image(
         image.load()
     except UnidentifiedImageError as exc:
         raise ValueError("image upload must be a valid image") from exc
+    # Tested removing grayscale+sharpen on the theory that EasyOCR's CNN
+    # doesn't need Tesseract-style binarization — verified against a real
+    # clean scan that this is wrong: dropping sharpen alone turned a
+    # correctly-read "S" into "$" (LGWFF7A51SJ614961 -> LGWFF7A51$J614961),
+    # breaking VIN extraction that worked before. Keeping the full
+    # grayscale+autocontrast+sharpen pipeline. Resolution is still the
+    # dominant lever for small printed fields (Chassis No., Veh. Type) on
+    # low-res source photos, so the upscale target is raised from 1200px.
     image = ImageOps.exif_transpose(image).convert("RGB")
     image = ImageOps.grayscale(image)
     image = ImageOps.autocontrast(image)
     image = ImageEnhance.Sharpness(image).enhance(1.5)
-    if image.width < 1200:
-        ratio = 1200 / max(image.width, 1)
-        target_size = (1200, int(image.height * ratio))
+    target_width = _env_int("OCR_TARGET_WIDTH", 2000)
+    if image.width < target_width:
         guardrails = _resize_guardrails(max_resize_pixels, max_width, max_height)
-        if (
-            target_size[0] > guardrails["width"]
-            or target_size[1] > guardrails["height"]
-            or target_size[0] * target_size[1] > guardrails["pixels"]
-        ):
+        # Bound the scale-up by whichever axis is more restrictive — a
+        # portrait-oriented photo (e.g. two mulkiya faces stacked
+        # vertically) can hit the height guardrail well before it reaches
+        # the target width. Previously this only scaled by width, which
+        # rejected legitimate portrait photos as "too large" once the
+        # target width was raised for accuracy.
+        ratio = min(
+            target_width / max(image.width, 1),
+            guardrails["width"] / max(image.width, 1),
+            guardrails["height"] / max(image.height, 1),
+        )
+        target_size = (max(1, int(image.width * ratio)), max(1, int(image.height * ratio)))
+        if target_size[0] * target_size[1] > guardrails["pixels"]:
             raise ValueError("resized image dimensions are too large")
-        image = image.resize(target_size)
+        if target_size[0] > image.width or target_size[1] > image.height:
+            image = image.resize(target_size, Image.LANCZOS)
     return image
 
 
@@ -427,6 +452,63 @@ def persist_scan(payload, supabase_request_func=None):
     return response
 
 
+TRAINING_BUCKET = "mulkiya-training-data"
+
+
+def _sniff_extension(raw_bytes):
+    if raw_bytes[:5] == b"%PDF-":
+        return "pdf", "application/pdf"
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as probe:
+            fmt = (probe.format or "JPEG").lower()
+    except Exception:
+        fmt = "jpeg"
+    ext = {"jpeg": "jpg"}.get(fmt, fmt)
+    return ext, f"image/{fmt}"
+
+
+def upload_training_image(raw_bytes, metadata=None, upload_func=None):
+    """Best-effort retention of the original (unprocessed) scan image in the
+    private mulkiya-training-data bucket, for future OCR model training.
+    Returns the object path, or None — never raises, since a storage hiccup
+    must not block the user's actual OCR scan.
+    """
+    import uuid
+
+    try:
+        if upload_func is not None:
+            return upload_func(raw_bytes, metadata)
+
+        import app as backend_app
+
+        ext, content_type = _sniff_extension(raw_bytes)
+        metadata = metadata or {}
+        prefix = metadata.get("user_id") or "anonymous"
+        object_path = f"{prefix}/{uuid.uuid4()}.{ext}"
+        upload_url = f"{backend_app.SUPABASE_URL}/storage/v1/object/{TRAINING_BUCKET}/{object_path}"
+        response = backend_app.requests.post(
+            upload_url,
+            headers={
+                "apikey": backend_app.SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {backend_app.SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": content_type,
+                "x-upsert": "true",
+            },
+            data=raw_bytes,
+            timeout=30,
+        )
+        if response.status_code not in (200, 201):
+            logger.warning(
+                "Mulkiya training image upload failed: %s %s",
+                response.status_code, response.text,
+            )
+            return None
+        return object_path
+    except Exception as exc:
+        logger.warning("Mulkiya training image upload failed: %s", exc)
+        return None
+
+
 def _scan_record(
     metadata,
     document_type,
@@ -435,6 +517,7 @@ def _scan_record(
     vin_validation,
     confidence,
     needs_review,
+    training_image_path=None,
 ):
     metadata = metadata or {}
     return {
@@ -447,6 +530,7 @@ def _scan_record(
         "vin_validation": vin_validation,
         "confidence": confidence,
         "needs_review": needs_review,
+        "training_image_path": training_image_path,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -478,11 +562,23 @@ def scan_registration_image(
     ocr_provider=None,
     vin_decoder=None,
     persist_func=None,
+    training_upload_func=None,
 ):
     provider = ocr_provider or get_default_ocr_provider()
     decoder = vin_decoder or get_default_vin_decoder()
     persist = persist_func or persist_scan
     normalized_document_type = (document_type or "registration").strip().lower()
+
+    # Retain the original (unprocessed) bytes for OCR training-data
+    # collection before preprocess_image consumes the stream. Best-effort:
+    # upload_training_image never raises, so a storage hiccup can't break
+    # the actual scan response the user is waiting on.
+    image_file.seek(0)
+    original_bytes = image_file.read()
+    image_file.seek(0)
+    training_image_path = upload_training_image(
+        original_bytes, metadata=metadata, upload_func=training_upload_func
+    )
 
     processed_image = preprocess_image(image_file)
     best_raw_text = ""
@@ -548,6 +644,7 @@ def scan_registration_image(
         vin_validation,
         confidence,
         needs_review,
+        training_image_path=training_image_path,
     )
     persisted = persist(scan_payload)
 

@@ -221,6 +221,7 @@ def hf_extract(current_user):
     import io
 
     from services.local_ocr import extract_text
+    from services.registration_ocr import upload_training_image
 
     data = request.get_json(silent=True) or {}
     image_b64 = data.get("image_b64", "")
@@ -235,6 +236,14 @@ def hf_extract(current_user):
 
     try:
         raw = base64.b64decode(image_b64)
+    except Exception:
+        return jsonify({"error": "image_b64 is not valid base64"}), 400
+
+    # Bike/plate registration docs also go through this endpoint (only cars
+    # use /scan-registration) — retain them the same way for OCR training.
+    upload_training_image(raw, metadata={"user_id": current_user})
+
+    try:
         text = extract_text(io.BytesIO(raw))
     except Exception as exc:
         logger.warning("Local OCR hf-extract failed: %s", exc)

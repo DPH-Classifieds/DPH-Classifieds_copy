@@ -63,6 +63,10 @@ const PrivacyPolicy = () => {
               <td>Name, username, profile photo, and any identity verification documents you provide.</td>
             </tr>
             <tr>
+              <td>Vehicle Registration Documents</td>
+              <td>Mulkiya / vehicle registration cards and similar ownership documents you upload when posting a listing, including any data extracted from them by our OCR (optical character recognition) scanning tools, such as VIN, make, model, and year.</td>
+            </tr>
+            <tr>
               <td>Contact Data</td>
               <td>Email address, phone number.</td>
             </tr>
@@ -72,7 +76,7 @@ const PrivacyPolicy = () => {
             </tr>
             <tr>
               <td>Listing Data</td>
-              <td>Ads you create, vehicles or services you view, offers you make, and purchase history.</td>
+              <td>Ads you create (including prices, descriptions, and photos), vehicles or services you view, offers you make, and purchase history.</td>
             </tr>
             <tr>
               <td>Chat & Call Data</td>
@@ -137,8 +141,12 @@ const PrivacyPolicy = () => {
               <td>Contractual necessity</td>
             </tr>
             <tr>
-              <td>Improve our services via analytics</td>
+              <td>Improve our services via analytics, including analysing listing prices for market trends, pricing tools, and similar features</td>
               <td>Legitimate interest</td>
+            </tr>
+            <tr>
+              <td>Scan registration documents with OCR to pre-fill listing fields, and train and improve the accuracy of that OCR system over time</td>
+              <td>Legitimate interest and consent</td>
             </tr>
             <tr>
               <td>Send marketing communications (if opted-in)</td>
@@ -158,6 +166,8 @@ const PrivacyPolicy = () => {
         <h2>6. User Listings and Uploaded Images</h2>
         <p>When you upload listing content, including car photos, videos, descriptions, and related media, we process that content so we can host it, display it on the Platform, moderate it, improve our services, advertise the Platform, train and test our systems, and prevent abuse or fraud. Listing media and other listing content may be visible to other users and may be stored in our systems, caches, logs, backups, or archives for operational, legal, security, evidentiary, product, analytics, or commercial purposes.</p>
         <p>Your rights and responsibilities for uploaded content are also described in our Terms of Use. If you submit a listing, you acknowledge that the listing content you provide may be used, repurposed, and retained as part of operating, promoting, commercialising, and improving the Platform, subject to those Terms and applicable law.</p>
+        <p><strong>Registration documents and OCR.</strong> When you upload a mulkiya, vehicle registration card, or similar document to help pre-fill a listing, we scan it using an automated OCR system to extract details such as the VIN, make, model, and year. This scan is automated and may be inaccurate — always review pre-filled fields before submitting your listing. We may retain a copy of the document and the scan results to train, test, and improve the accuracy of our OCR system over time. These documents are stored privately and are not shown to other users.</p>
+        <p><strong>Listing prices and analytics.</strong> We may analyse listing prices and related pricing history (including price changes over time) across the Platform to build features such as market pricing insights, price-drop alerts, and similar analytics or automated tools, and to test and improve those tools.</p>
         
         <h2>7. Sharing Your Data</h2>
         <p>We only share your personal data with trusted parties when necessary:</p>

@@ -95,6 +95,7 @@ class RegistrationOCRServiceTests(unittest.TestCase):
             ocr_provider=FakeOCRProvider(ocr_text),
             vin_decoder=decoder,
             persist_func=lambda payload: persisted.append(payload) or [{"id": "scan-1"}],
+            training_upload_func=lambda *args, **kwargs: None,
         )
 
         self.assertEqual(result["fields"]["make"], "Honda")
@@ -132,6 +133,7 @@ class RegistrationOCRServiceTests(unittest.TestCase):
                 }
             ),
             persist_func=lambda payload: [],
+            training_upload_func=lambda *args, **kwargs: None,
         )
 
         self.assertTrue(result["needs_review"])
@@ -157,6 +159,7 @@ class RegistrationOCRServiceTests(unittest.TestCase):
                 }
             ),
             persist_func=lambda payload: [],
+            training_upload_func=lambda *args, **kwargs: None,
         )
 
         self.assertTrue(result["needs_review"])
@@ -191,6 +194,7 @@ class RegistrationOCRServiceTests(unittest.TestCase):
                 }
             ),
             persist_func=lambda payload: [],
+            training_upload_func=lambda *args, **kwargs: None,
         )
 
         self.assertEqual(result["confidence"]["overall"], 0.875)
@@ -261,6 +265,37 @@ class RegistrationOCRServiceTests(unittest.TestCase):
 
         self.assertIn("resized image dimensions are too large", str(context.exception))
 
+    def test_upload_training_image_uses_injected_upload_func(self):
+        calls = []
+
+        def fake_upload(raw_bytes, metadata):
+            calls.append((raw_bytes, metadata))
+            return "user-123/fake.jpg"
+
+        path = registration_ocr.upload_training_image(
+            b"fake-bytes", metadata={"user_id": "user-123"}, upload_func=fake_upload
+        )
+
+        self.assertEqual(path, "user-123/fake.jpg")
+        self.assertEqual(calls, [(b"fake-bytes", {"user_id": "user-123"})])
+
+    def test_upload_training_image_swallows_errors_and_returns_none(self):
+        def broken_upload(raw_bytes, metadata):
+            raise RuntimeError("storage is down")
+
+        path = registration_ocr.upload_training_image(
+            b"fake-bytes", metadata={}, upload_func=broken_upload
+        )
+
+        self.assertIsNone(path)
+
+    def test_sniff_extension_detects_pdf_and_image(self):
+        self.assertEqual(registration_ocr._sniff_extension(b"%PDF-1.4 ..."), ("pdf", "application/pdf"))
+
+        ext, content_type = registration_ocr._sniff_extension(_jpeg_bytes().read())
+        self.assertEqual(ext, "jpg")
+        self.assertEqual(content_type, "image/jpeg")
+
 
 class LocalOCRTests(unittest.TestCase):
     @patch.object(local_ocr, "_get_reader")
@@ -286,6 +321,7 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         self.client = backend.app.test_client()
 
     @patch("routes.ocr._authenticate_bearer_token")
+    @patch.object(registration_ocr, "upload_training_image")
     @patch.object(registration_ocr, "persist_scan")
     @patch.object(registration_ocr, "get_default_vin_decoder")
     @patch.object(registration_ocr, "get_default_ocr_provider")
@@ -294,8 +330,10 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         mock_provider_factory,
         mock_decoder_factory,
         mock_persist_scan,
+        mock_upload_training_image,
         mock_authenticate,
     ):
+        mock_upload_training_image.return_value = None
         mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
         mock_provider_factory.return_value = FakeOCRProvider(
             f"Make: Honda\nModel: Accord\nYear: 2003\nVIN: {VALID_VIN}"
@@ -510,6 +548,35 @@ class RegistrationOCRRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()["error"], "image is required")
+
+    def test_hf_extract_route_retains_image_for_training(self):
+        import base64
+
+        with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate, \
+             patch.object(registration_ocr, "upload_training_image") as mock_upload, \
+             patch.object(local_ocr, "extract_text", return_value="Chassis No. " + VALID_VIN):
+            mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+            response = self.client.post(
+                "/api/ocr/hf-extract",
+                json={"image_b64": base64.b64encode(_jpeg_bytes().read()).decode()},
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(VALID_VIN, response.get_json()["text"])
+        self.assertTrue(mock_upload.called)
+        self.assertEqual(mock_upload.call_args.kwargs["metadata"], {"user_id": "auth-user-123"})
+
+    def test_hf_extract_route_rejects_invalid_base64(self):
+        with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:
+            mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+            response = self.client.post(
+                "/api/ocr/hf-extract",
+                json={"image_b64": "not-valid-base64!!!"},
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        self.assertEqual(response.status_code, 400)
 
     def test_rejects_image_above_pixel_guardrail(self):
         with self.assertRaises(ValueError) as context:

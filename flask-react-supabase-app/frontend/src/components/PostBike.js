@@ -912,10 +912,10 @@ const PostBike = () => {
                         {regDocOcrStatus === 'scanning' ? 'Scanning…' : 'Scan document for VIN'}
                       </button>
                     )}
-                    {regDocOcrStatus === 'done' && <p className="form-text text-success">VIN pre-filled from document.</p>}
+                    {regDocOcrStatus === 'done' && <p className="form-text text-success">VIN pre-filled from document — please double-check it's correct.</p>}
                     {regDocOcrStatus === 'not-found' && <p className="form-text text-muted">No VIN found in document — enter manually above.</p>}
                     {regDocOcrStatus === 'service-error' && <p className="form-text text-warning">Scan service unavailable — enter VIN manually. Try again in a moment.</p>}
-                    <div className="form-text text-muted">Never shown to buyers.</div>
+                    <div className="form-text text-muted">Never shown to buyers. Scanned text may be inaccurate — verify before submitting. Uploaded documents may be retained to improve this scanner (see our Privacy Policy).</div>
                   </div>
                 </div>
               </div>

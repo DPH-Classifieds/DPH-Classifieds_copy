@@ -1508,6 +1508,9 @@ export default function PostListingScreen({ navigation, route }) {
           <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
           <Text style={styles.scanButtonText}>Scan Registration</Text>
         </TouchableOpacity>
+        <Text style={styles.scanDisclaimer}>
+          Scanned text may be inaccurate — please double-check before submitting. Uploaded documents may be retained to improve this scanner (see our Privacy Policy).
+        </Text>
 
         {carRegistrationScan && (
           <View style={styles.scanResultCard}>
@@ -1991,7 +1994,10 @@ export default function PostListingScreen({ navigation, route }) {
             {bikeOcrStatus === 'scanning' ? 'Scanning…' : 'Scan mulkiyya for VIN'}
           </Text>
         </TouchableOpacity>
-        {bikeOcrStatus === 'done' && <Text style={styles.scanResultMeta}>VIN found and filled in.</Text>}
+        <Text style={styles.scanDisclaimer}>
+          Scanned text may be inaccurate — please double-check before submitting. Uploaded documents may be retained to improve this scanner (see our Privacy Policy).
+        </Text>
+        {bikeOcrStatus === 'done' && <Text style={styles.scanResultMeta}>VIN found and filled in — please double-check it.</Text>}
         {bikeOcrStatus === 'not-found' && <Text style={styles.scanResultMeta}>No VIN found, enter it manually.</Text>}
         {bikeOcrStatus === 'service-error' && <Text style={styles.scanResultMeta}>Scan failed, try again.</Text>}
 
@@ -2128,7 +2134,10 @@ export default function PostListingScreen({ navigation, route }) {
             {plateOcrStatus === 'scanning' ? 'Scanning…' : 'Scan registration for plate number'}
           </Text>
         </TouchableOpacity>
-        {plateOcrStatus === 'done' && <Text style={styles.scanResultMeta}>Plate number found and filled in.</Text>}
+        <Text style={styles.scanDisclaimer}>
+          Scanned text may be inaccurate — please double-check before submitting. Uploaded documents may be retained to improve this scanner (see our Privacy Policy).
+        </Text>
+        {plateOcrStatus === 'done' && <Text style={styles.scanResultMeta}>Plate number found and filled in — please double-check it.</Text>}
         {plateOcrStatus === 'not-found' && <Text style={styles.scanResultMeta}>No number found, enter it manually.</Text>}
         {plateOcrStatus === 'service-error' && <Text style={styles.scanResultMeta}>Scan failed, try again.</Text>}
 
@@ -2802,6 +2811,12 @@ const styles = StyleSheet.create({
   scanResultMeta: {
     color: COLORS.textSecondary,
     fontSize: FONT_SIZES.xs,
+  },
+  scanDisclaimer: {
+    color: COLORS.warning,
+    fontSize: FONT_SIZES.xs,
+    marginTop: 6,
+    marginBottom: 4,
   },
   locationPickerTrigger: {
     flexDirection: 'row',

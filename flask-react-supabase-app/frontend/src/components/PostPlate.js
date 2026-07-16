@@ -720,10 +720,10 @@ const PostPlate = () => {
                       {plateOcrStatus === 'scanning' ? 'Scanning…' : 'Scan for plate number'}
                     </button>
                   )}
-                  {plateOcrStatus === 'done' && <p className="form-text text-success">Plate number pre-filled.</p>}
+                  {plateOcrStatus === 'done' && <p className="form-text text-success">Plate number pre-filled — please double-check it's correct.</p>}
                   {plateOcrStatus === 'not-found' && <p className="form-text text-muted">No plate number found — enter manually.</p>}
                   {plateOcrStatus === 'service-error' && <p className="form-text text-warning">Scan service unavailable — enter plate number manually. Try again in a moment.</p>}
-                  <div className="form-text text-muted">Admin verification only. Never shown to buyers.</div>
+                  <div className="form-text text-muted">Admin verification only. Never shown to buyers. Scanned text may be inaccurate — verify before submitting. Uploaded documents may be retained to improve this scanner (see our Privacy Policy).</div>
                 </div>
               </div>
             </div>

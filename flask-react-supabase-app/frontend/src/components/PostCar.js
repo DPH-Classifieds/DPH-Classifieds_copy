@@ -2334,6 +2334,9 @@ const PostCar = () => {
               <div className="form-text" style={{ marginTop: 4 }}>
                 Skip the manual entry. Upload a clear photo of your car registration and we'll fill in the next few fields for you.
               </div>
+              <div className="form-text" style={{ marginTop: 4, color: '#92400e' }}>
+                Scanned text may be inaccurate — please double-check the filled-in fields before submitting. Uploaded registration documents may be retained to improve this scanner over time (see our Privacy Policy).
+              </div>
               <div
                 className="upload-area"
                 role="button"
