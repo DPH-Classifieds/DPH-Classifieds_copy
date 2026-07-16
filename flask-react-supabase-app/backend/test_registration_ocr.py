@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import builtins
 import io
 import os
 from pathlib import Path
@@ -198,31 +197,28 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertTrue(result["needs_review"])
         self.assertIn("low_confidence", result["review_reasons"])
 
-    @patch.dict(os.environ, {"TESSERACT_CMD": "/custom/bin/tesseract"}, clear=False)
-    @patch.dict("sys.modules", clear=False)
-    def test_tesseract_provider_honors_configured_command(self):
-        import sys
+    def test_default_ocr_provider_is_easyocr(self):
+        provider = registration_ocr.get_default_ocr_provider()
+        self.assertIsInstance(provider, registration_ocr.EasyOCRProvider)
 
-        fake_pytesseract = Mock()
-        fake_pytesseract.image_to_string.return_value = "Make: Honda"
-        sys.modules["pytesseract"] = fake_pytesseract
-
-        provider = registration_ocr.TesseractOCRProvider()
-        text = provider.extract_text(Image.new("L", (1, 1)))
+    def test_easyocr_provider_reads_shared_reader_and_filters_low_confidence(self):
+        fake_reader = Mock()
+        fake_reader.readtext.return_value = [
+            (None, "Make: Honda", 0.92),
+            (None, "garbage", 0.1),
+        ]
+        with patch.object(local_ocr, "_get_reader", return_value=fake_reader):
+            provider = registration_ocr.EasyOCRProvider()
+            text = provider.extract_text(Image.new("RGB", (4, 4)))
 
         self.assertEqual(text, "Make: Honda")
-        self.assertEqual(
-            fake_pytesseract.pytesseract.tesseract_cmd,
-            "/custom/bin/tesseract",
-        )
 
-    def test_tesseract_autoconfig_logs_resolved_binary(self):
-        with patch.object(registration_ocr.shutil, "which", return_value="/usr/bin/tesseract"), \
-             self.assertLogs("services.registration_ocr", level="INFO") as captured:
-            registration_ocr._auto_configure_tesseract()
-
-        logs = "\n".join(captured.output)
-        self.assertIn("Resolved tesseract binary path: /usr/bin/tesseract", logs)
+    def test_easyocr_provider_raises_when_reader_unavailable(self):
+        with patch.object(local_ocr, "_get_reader", return_value=None), \
+             patch.object(local_ocr, "_init_error", RuntimeError("model load failed")):
+            provider = registration_ocr.EasyOCRProvider()
+            with self.assertRaises(RuntimeError):
+                provider.extract_text(Image.new("RGB", (4, 4)))
 
     def test_easyocr_diagnostics_report_model_presence(self):
         with unittest.mock.patch.object(local_ocr, "_MODEL_DIR", "/tmp/easyocr-models"):
@@ -237,29 +233,6 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         logs = "\n".join(captured.output)
         self.assertIn("EasyOCR model directory: /tmp/easyocr-models", logs)
         self.assertIn("EasyOCR models present: yes", logs)
-
-    @patch("subprocess.run")
-    def test_tesseract_provider_falls_back_to_cli_when_pytesseract_is_unavailable(self, mock_run):
-        mock_run.return_value = __import__("subprocess").CompletedProcess(
-            args=["tesseract"],
-            returncode=0,
-            stdout="Make: Honda\n",
-            stderr="",
-        )
-
-        original_import = builtins.__import__
-
-        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-            if name == "pytesseract":
-                raise ImportError("pytesseract is unavailable")
-            return original_import(name, globals, locals, fromlist, level)
-
-        with patch("builtins.__import__", side_effect=guarded_import):
-            provider = registration_ocr.TesseractOCRProvider()
-            text = provider.extract_text(Image.new("L", (32, 32)))
-
-        self.assertEqual(text, "Make: Honda")
-        self.assertTrue(mock_run.called)
 
     def test_extract_registration_fields_handles_registration_card_noise(self):
         raw_text = "\n".join(
@@ -509,12 +482,10 @@ class RegistrationOCRRouteTests(unittest.TestCase):
         self.assertEqual(status, 413)
         self.assertEqual(response.get_json()["error"], "image upload is too large")
 
-    def test_scan_registration_route_returns_fallback_when_both_ocr_fail(self):
+    def test_scan_registration_route_returns_fallback_when_ocr_fails(self):
         with patch("routes.ocr._authenticate_bearer_token") as mock_authenticate:
             mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
-            with patch("routes.ocr._local_ocr_scan") as mock_local, \
-                 patch("routes.ocr.scan_registration_image") as mock_scan:
-                mock_local.return_value = None
+            with patch("routes.ocr.scan_registration_image") as mock_scan:
                 mock_scan.side_effect = RuntimeError("secret backend detail")
                 response = self.client.post(
                     "/api/ocr/scan-registration",

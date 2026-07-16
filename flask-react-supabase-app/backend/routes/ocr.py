@@ -4,7 +4,6 @@ from functools import wraps
 
 from flask import Blueprint, current_app, jsonify, request
 
-from services.local_ocr import extract_text as extract_local_ocr_text
 from services.registration_ocr import scan_registration_image
 
 logger = logging.getLogger(__name__)
@@ -161,37 +160,30 @@ def scan_registration(current_user):
     import io as _io
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FuturesTimeout
 
-    _TESSERACT_TIMEOUT = int(os.getenv("TESSERACT_TIMEOUT", "12"))
+    _OCR_TIMEOUT = int(os.getenv("EASYOCR_REGISTRATION_TIMEOUT", "15"))
     doc_type = request.form.get("document_type")
 
-    # Try EasyOCR first. If it returns ANY result (even without a VIN) use it
-    # directly — only fall back to Tesseract when EasyOCR itself fails/times out.
-    local_result = _local_ocr_scan(image)
-    if local_result is not None:
-        if local_result.get("vin"):
-            logger.info("Local OCR extracted VIN for user %s", current_user)
-        return jsonify(local_result), 200
-
-    # EasyOCR failed (timed out or threw) — try Tesseract with a hard timeout.
     image.stream.seek(0)
     raw_bytes = image.stream.read()
 
-    def _run_tesseract():
+    def _run_scan():
         return scan_registration_image(
             _io.BytesIO(raw_bytes), document_type=doc_type, metadata=metadata
         )
 
     try:
         with ThreadPoolExecutor(max_workers=1) as _pool:
-            _future = _pool.submit(_run_tesseract)
-            result = _future.result(timeout=_TESSERACT_TIMEOUT)
+            _future = _pool.submit(_run_scan)
+            result = _future.result(timeout=_OCR_TIMEOUT)
+        if result.get("fields", {}).get("vin"):
+            logger.info("EasyOCR extracted VIN for user %s", current_user)
         return jsonify(result), 200
     except _FuturesTimeout:
-        logger.warning("Tesseract OCR timed out after %ss", _TESSERACT_TIMEOUT)
+        logger.warning("EasyOCR registration scan timed out after %ss", _OCR_TIMEOUT)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
-        logger.warning("Tesseract OCR unavailable: %s", exc)
+        logger.warning("EasyOCR registration scan unavailable: %s", exc)
 
     return jsonify(
         {
@@ -207,45 +199,6 @@ def scan_registration(current_user):
             "error": "registration OCR unavailable",
         }
     ), 200
-
-
-def _local_ocr_scan(image_file):
-    """Run self-hosted EasyOCR and return a minimal scan result dict.
-    Returns None only if EasyOCR fails, is unavailable, or times out.
-    """
-    import re as _re
-    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
-
-    timeout = int(os.getenv("EASYOCR_TIMEOUT", "8"))
-
-    try:
-        image_file.stream.seek(0)
-        raw = image_file.stream.read()
-        import io as _io
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(extract_local_ocr_text, _io.BytesIO(raw))
-            text = future.result(timeout=timeout)
-    except FuturesTimeout:
-        logger.warning("Local OCR timed out after %ss — falling back to Tesseract", timeout)
-        return None
-    except Exception as exc:
-        logger.warning("Local OCR failed: %s", exc)
-        return None
-
-    vin_match = _re.search(r"\b[A-HJ-NPR-Z0-9]{17}\b", text.upper())
-    vin = vin_match.group(0) if vin_match else ""
-
-    return {
-        "vin": vin,
-        "make": "",
-        "model": "",
-        "year": "",
-        "raw_text": text,
-        "confidence": {"vin": 0.85 if vin else 0.0, "overall": 0.85 if vin else 0.0},
-        "needs_review": not bool(vin),
-        "review_reasons": [] if vin else ["no_vin_found"],
-        "document_type": "registration",
-    }
 
 
 @ocr_bp.route("/hf-extract", methods=["POST"])

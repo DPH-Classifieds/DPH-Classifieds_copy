@@ -7,14 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     EASYOCR_MODEL_DIR=/app/easyocr_models \
-    TESSERACT_CMD=/usr/bin/tesseract \
     PATH=/opt/venv/bin:$PATH
 
 WORKDIR /app
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tesseract-ocr \
-    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
 

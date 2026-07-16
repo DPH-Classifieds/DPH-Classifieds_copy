@@ -1,56 +1,11 @@
 import logging
 import os
 import re
-import shutil
-import subprocess
-import tempfile
 from datetime import datetime, timezone
 
-logger = logging.getLogger(__name__)
-
-def _auto_configure_tesseract():
-    """Set TESSDATA_PREFIX and TESSERACT_CMD from the installed binary.
-    In Nix/Railway, the binary may be in the Nix store but not on PATH.
-    """
-    import glob as _glob
-
-    binary = shutil.which("tesseract")
-    if not binary:
-        # Common fixed paths — Nix profile (Railway), symlink from build step, system
-        for candidate_path in (
-            "/root/.nix-profile/bin/tesseract",
-            "/nix/var/nix/profiles/default/bin/tesseract",
-            "/usr/local/bin/tesseract",
-            "/usr/bin/tesseract",
-        ):
-            if os.path.isfile(candidate_path) and os.access(candidate_path, os.X_OK):
-                binary = candidate_path
-                break
-    if not binary:
-        nix_hits = sorted(_glob.glob("/nix/store/*/bin/tesseract"))
-        if nix_hits:
-            binary = nix_hits[0]
-
-    if not binary:
-        logger.warning("Resolved tesseract binary path: not found")
-        return
-
-    if not os.getenv("TESSERACT_CMD"):
-        os.environ["TESSERACT_CMD"] = binary
-
-    if not os.getenv("TESSDATA_PREFIX"):
-        # Nix layout: /nix/store/.../bin/tesseract → /nix/store/.../share/tessdata/
-        candidate = os.path.join(os.path.dirname(os.path.dirname(binary)), "share", "tessdata")
-        if os.path.isdir(candidate):
-            os.environ["TESSDATA_PREFIX"] = candidate
-
-    logger.info("Resolved tesseract binary path: %s", binary)
-    logger.info(
-        "Tesseract data directory: %s",
-        os.getenv("TESSDATA_PREFIX") or "(not set)",
-    )
-
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
+
+logger = logging.getLogger(__name__)
 
 from services.vin_decoder import VIN_ALLOWED_RE, VINDecoder
 
@@ -76,65 +31,31 @@ VIN_OCR_SUBSTITUTIONS = {
     "L": ("1",),
 }
 
-_auto_configure_tesseract()
-
-
-class TesseractOCRProvider:
-    def _run_with_pytesseract(self, image, config):
-        import pytesseract
-
-        tesseract_cmd = os.getenv("TESSERACT_CMD")
-        if tesseract_cmd:
-            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
-
-        try:
-            return pytesseract.image_to_string(image, config=config)
-        except TypeError:
-            return pytesseract.image_to_string(image)
-
-    def _run_with_cli(self, image, config):
-        tesseract_cmd = os.getenv("TESSERACT_CMD", "tesseract")
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
-            image.save(temp_file.name, format="PNG")
-            temp_path = temp_file.name
-
-        try:
-            command = [tesseract_cmd, temp_path, "stdout"]
-            if config:
-                command.extend(config.split())
-
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode not in (0, 1):
-                raise RuntimeError((result.stderr or "").strip() or "tesseract CLI failed")
-            return result.stdout or ""
-        finally:
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass
+class EasyOCRProvider:
+    """Runs registration-doc OCR through the shared self-hosted EasyOCR
+    reader (en+ar) — the same model instance backing /api/ocr/hf-extract,
+    so the model is only ever loaded once per process.
+    """
 
     def extract_text(self, image):
-        # PSM 3: auto page segmentation without OSD — better than PSM 6 (uniform block)
-        # for structured registration cards with mixed Arabic/English text.
-        config = "--oem 1 --psm 3"
-        try:
-            text = self._run_with_pytesseract(image, config)
-        except Exception as pytesseract_error:
-            logger.debug("pytesseract OCR failed, falling back to CLI: %s", pytesseract_error)
-            text = self._run_with_cli(image, config)
-        return (text or "").strip()
+        from services import local_ocr
+
+        reader = local_ocr._get_reader()
+        if reader is None:
+            if local_ocr._init_error is not None:
+                raise RuntimeError(
+                    f"EasyOCR failed to load: {local_ocr._init_error}"
+                ) from local_ocr._init_error
+            raise RuntimeError("EasyOCR not ready")
+
+        import numpy as np
+
+        results = reader.readtext(np.array(image.convert("RGB")))
+        return " ".join(text for _, text, conf in results if conf > 0.3).strip()
 
 
 def get_default_ocr_provider():
-    provider = os.getenv("OCR_PROVIDER", "local_tesseract").strip().lower()
-    if provider not in {"local_tesseract", "tesseract"}:
-        logger.warning("Unknown OCR_PROVIDER '%s'; using local_tesseract", provider)
-    return TesseractOCRProvider()
+    return EasyOCRProvider()
 
 
 def get_default_vin_decoder():

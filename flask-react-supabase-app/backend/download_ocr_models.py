@@ -25,9 +25,10 @@ try:
         verbose=True,
     )
 except Exception as exc:
-    # Non-fatal: Tesseract is the fallback OCR engine and doesn't need these models.
-    # EasyOCR will be skipped at runtime if models are absent.
-    print(f"WARNING: EasyOCR model download failed ({exc}). Tesseract will be used instead.", file=sys.stderr, flush=True)
-    sys.exit(0)
+    # Fatal: EasyOCR is the only OCR engine (no Tesseract fallback exists
+    # anymore). A missing model means every OCR request would silently
+    # 503/needs_review in production, so fail the build instead of shipping it.
+    print(f"ERROR: EasyOCR model download failed ({exc}). Failing the build.", file=sys.stderr, flush=True)
+    sys.exit(1)
 
 print("EasyOCR models ready.", flush=True)
