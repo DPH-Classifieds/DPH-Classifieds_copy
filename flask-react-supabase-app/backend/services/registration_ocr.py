@@ -81,7 +81,56 @@ class EasyOCRProvider:
         return " ".join(text for _, text, conf in results if conf > EASYOCR_MIN_CONFIDENCE).strip()
 
 
+class PaddleOCRServiceProvider:
+    """Runs OCR by calling the standalone PaddleOCR microservice over HTTP.
+    Keeps this backend lean and lets OCR scale independently. Mirrors the
+    VIN-decoder remote pattern (requests + timeout + env config).
+    """
+
+    def __init__(self, base_url=None, service_key=None, timeout=None):
+        self.base_url = (base_url or os.getenv("OCR_SERVICE_URL", "")).rstrip("/")
+        self.service_key = service_key or os.getenv("OCR_SERVICE_KEY", "")
+        self.timeout = timeout or float(os.getenv("OCR_SERVICE_TIMEOUT_SECONDS", "30"))
+
+    def extract_text(self, image):
+        import requests
+
+        buffer = io.BytesIO()
+        image.convert("RGB").save(buffer, format="PNG")
+        buffer.seek(0)
+
+        headers = {"X-OCR-Service-Key": self.service_key} if self.service_key else {}
+        url = f"{self.base_url}/scan"
+
+        # One retry on 503 (service busy / still loading its model).
+        last_exc = None
+        for attempt in range(2):
+            try:
+                response = requests.post(
+                    url,
+                    files={"image": ("scan.png", buffer.getvalue(), "image/png")},
+                    headers=headers,
+                    timeout=self.timeout,
+                )
+            except requests.RequestException as exc:
+                last_exc = exc
+                break
+            if response.status_code == 503 and attempt == 0:
+                continue
+            if response.status_code >= 400:
+                raise RuntimeError(
+                    f"OCR service returned {response.status_code}: {response.text[:200]}"
+                )
+            return (response.json() or {}).get("text", "") or ""
+
+        raise RuntimeError(f"OCR service unavailable: {last_exc}")
+
+
 def get_default_ocr_provider():
+    # Prefer the PaddleOCR microservice when configured; fall back to the
+    # in-process EasyOCR reader until the service is fully rolled out.
+    if os.getenv("OCR_SERVICE_URL"):
+        return PaddleOCRServiceProvider()
     return EasyOCRProvider()
 
 

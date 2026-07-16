@@ -205,6 +205,45 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         with patch.object(registration_ocr.VINDecoder, "is_checksum_valid", staticmethod(fake_checksum_valid)):
             self.assertIsNone(registration_ocr._repair_vin_candidate(garbled))
 
+    def test_paddle_service_provider_returns_text(self):
+        provider = registration_ocr.PaddleOCRServiceProvider(
+            base_url="http://ocr.internal:8000", service_key="k", timeout=5
+        )
+        resp = Mock(status_code=200)
+        resp.json.return_value = {"text": "Chassis No. " + VALID_VIN}
+        with patch("requests.post", return_value=resp) as mock_post:
+            text = provider.extract_text(Image.new("RGB", (4, 4)))
+        self.assertIn(VALID_VIN, text)
+        # sends the shared-secret header and hits /scan
+        _, kwargs = mock_post.call_args
+        self.assertEqual(kwargs["headers"]["X-OCR-Service-Key"], "k")
+        self.assertTrue(mock_post.call_args[0][0].endswith("/scan"))
+
+    def test_paddle_service_provider_retries_once_on_503(self):
+        provider = registration_ocr.PaddleOCRServiceProvider(base_url="http://x", timeout=1)
+        busy = Mock(status_code=503, text="busy")
+        ok = Mock(status_code=200)
+        ok.json.return_value = {"text": "hello"}
+        with patch("requests.post", side_effect=[busy, ok]) as mock_post:
+            text = provider.extract_text(Image.new("RGB", (4, 4)))
+        self.assertEqual(text, "hello")
+        self.assertEqual(mock_post.call_count, 2)
+
+    def test_paddle_service_provider_raises_when_unavailable(self):
+        import requests as _requests
+
+        provider = registration_ocr.PaddleOCRServiceProvider(base_url="http://x", timeout=1)
+        with patch("requests.post", side_effect=_requests.ConnectionError("down")):
+            with self.assertRaises(RuntimeError):
+                provider.extract_text(Image.new("RGB", (4, 4)))
+
+    def test_default_provider_prefers_service_when_configured(self):
+        with patch.dict(os.environ, {"OCR_SERVICE_URL": "http://ocr.internal:8000"}, clear=False):
+            self.assertIsInstance(
+                registration_ocr.get_default_ocr_provider(),
+                registration_ocr.PaddleOCRServiceProvider,
+            )
+
     def test_extract_plate_fields_from_real_mulkiya_text(self):
         # Both the accurate PDF read and the actual garbled EasyOCR read of
         # the same UAE mulkiya must yield plate number 66182. The JPG text
