@@ -220,9 +220,12 @@ def _render_pdf_first_page(image_file):
 
 
 def _build_ocr_variants(image):
-    base = image.copy()
-    stronger_contrast = ImageEnhance.Contrast(base).enhance(2.1)
-    return [base, stronger_contrast]
+    # Single pass: the contrast-enhanced second variant was tuned for
+    # Tesseract's classical thresholding, which is sensitive to lighting.
+    # EasyOCR's CRAFT/CRNN detector is materially more contrast-robust, and
+    # a second deep-learning inference pass roughly doubles CPU wall-clock
+    # time per scan — the main contributor to Cloudflare 524s on Railway.
+    return [image.copy()]
 
 
 def preprocess_image(
