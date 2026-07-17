@@ -17,8 +17,14 @@ VALID_VIN = "1HGCM82633A004352"
 
 
 class FakeOCRProvider:
-    def __init__(self, text):
+    def __init__(self, text, conf=0.95):
         self.text = text
+        # Emulate the real service returning per-line recognition confidence:
+        # one line per whitespace-run at a uniform confidence.
+        self.lines = [{"text": tok, "conf": conf} for tok in text.split()]
+
+    def extract(self, image):
+        return self.text, self.lines
 
     def extract_text(self, image):
         return self.text
@@ -144,7 +150,7 @@ class RegistrationOCRServiceTests(unittest.TestCase):
     def test_marks_review_when_confidence_is_low(self):
         result = registration_ocr.scan_registration_image(
             _jpeg_bytes(),
-            ocr_provider=FakeOCRProvider(f"Chassis: {VALID_VIN}"),
+            ocr_provider=FakeOCRProvider(f"Chassis: {VALID_VIN}", conf=0.5),
             vin_decoder=FakeVINDecoder(
                 {
                     "is_valid": True,
@@ -294,7 +300,8 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         result = registration_ocr.scan_registration_image(
             _jpeg_bytes(),
             ocr_provider=FakeOCRProvider(
-                f"Make: Honda\nModel: Accord\nVIN: {VALID_VIN}\nRegistered in 2003"
+                f"Make: Honda\nModel: Accord\nVIN: {VALID_VIN}\nRegistered in 2003",
+                conf=0.85,
             ),
             vin_decoder=FakeVINDecoder(
                 {
@@ -312,9 +319,35 @@ class RegistrationOCRServiceTests(unittest.TestCase):
             training_upload_func=lambda *args, **kwargs: None,
         )
 
-        self.assertEqual(result["confidence"]["overall"], 0.875)
+        # Real OCR confidence (0.85) is below the 0.90 acceptance threshold.
+        self.assertEqual(result["confidence"]["overall"], 0.85)
         self.assertTrue(result["needs_review"])
         self.assertIn("low_confidence", result["review_reasons"])
+
+    def test_attribute_confidence_uses_real_line_scores_and_ignores_floored(self):
+        lines = [
+            {"text": "LGWFF7A51SJ614961", "conf": 0.985},
+            {"text": "GREAT WALL TANK3", "conf": 0.936},
+            {"text": "2025", "conf": 0.998},
+        ]
+        fields = {
+            "vin": "LGWFF7A51SJ614961",
+            "make": "GREAT WALL",
+            "year": "2025",
+            "model": "3GARBAGE WALLTANK3 G",  # assembled/garbled -> no line match
+        }
+        conf = registration_ocr.attribute_confidence(fields, lines)
+        self.assertEqual(conf["vin"], 0.985)
+        self.assertEqual(conf["year"], 0.998)
+        self.assertEqual(conf["model"], registration_ocr.FLOOR_CONFIDENCE)
+        # overall excludes the floored model -> stays 90%+
+        self.assertGreaterEqual(conf["overall"], 0.90)
+
+    def test_attribute_confidence_overall_zero_when_nothing_present(self):
+        conf = registration_ocr.attribute_confidence(
+            {"vin": None, "make": None, "model": None, "year": None}, []
+        )
+        self.assertEqual(conf["overall"], 0.0)
 
     def test_default_ocr_provider_is_paddle_service(self):
         provider = registration_ocr.get_default_ocr_provider()

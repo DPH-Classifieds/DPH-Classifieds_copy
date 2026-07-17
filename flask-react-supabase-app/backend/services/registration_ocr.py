@@ -64,7 +64,9 @@ class PaddleOCRServiceProvider:
         self.service_key = service_key or os.getenv("OCR_SERVICE_KEY", "")
         self.timeout = timeout or float(os.getenv("OCR_SERVICE_TIMEOUT_SECONDS", "30"))
 
-    def extract_text(self, image):
+    def extract(self, image):
+        """Return (text, lines) where lines is [{text, conf}] carrying
+        PaddleOCR's real per-detection recognition confidence."""
         import requests
 
         buffer = io.BytesIO()
@@ -93,9 +95,78 @@ class PaddleOCRServiceProvider:
                 raise RuntimeError(
                     f"OCR service returned {response.status_code}: {response.text[:200]}"
                 )
-            return (response.json() or {}).get("text", "") or ""
+            payload = response.json() or {}
+            return payload.get("text", "") or "", payload.get("lines", []) or []
 
         raise RuntimeError(f"OCR service unavailable: {last_exc}")
+
+    def extract_text(self, image):
+        return self.extract(image)[0]
+
+
+def _ocr_extract(provider, image):
+    """Get (text, lines) from a provider that may only implement the simple
+    string-returning extract_text (e.g. test fakes)."""
+    if hasattr(provider, "extract"):
+        return provider.extract(image)
+    return (provider.extract_text(image) or "", [])
+
+
+def _confidence_from_lines(value, lines):
+    """Real OCR confidence for an extracted field value: the max recognition
+    confidence among the OCR lines whose (alnum-normalized) text contains, or
+    is contained by, the value. 0.0 if none match."""
+    if not value or not lines:
+        return 0.0
+    target = re.sub(r"[^A-Z0-9]", "", str(value).upper())
+    if not target:
+        return 0.0
+    best = 0.0
+    for line in lines:
+        line_text = re.sub(r"[^A-Z0-9]", "", str(line.get("text", "")).upper())
+        if len(line_text) < 2:
+            continue
+        if target in line_text or line_text in target:
+            best = max(best, float(line.get("conf") or 0))
+    return round(best, 4)
+
+
+FLOOR_CONFIDENCE = 0.6
+
+
+def attribute_confidence(fields, lines):
+    """Overwrite heuristic field confidences with PaddleOCR's actual line
+    confidence.
+
+    `overall` is the mean over fields that were CLEANLY read — i.e. present
+    AND matched to a real OCR line. A value we extracted but couldn't match
+    to a clean line (a make/model assembled from a garbled/repeated
+    vehicle-type run) is uncertain: it keeps a modest floor and is still
+    returned + autofilled for the user to verify, but it does not drag the
+    summary confidence down. Missing fields are excluded entirely (so a
+    scan with no model no longer averages ~0.3).
+    """
+    conf = {}
+    floored = set()
+    for field in ("make", "model", "year", "vin", "plate_number"):
+        value = fields.get(field)
+        if not value:
+            conf[field] = 0.0
+            continue
+        c = _confidence_from_lines(value, lines)
+        if c > 0:
+            conf[field] = c
+        else:
+            conf[field] = FLOOR_CONFIDENCE
+            floored.add(field)
+
+    real = [conf[f] for f in ("make", "model", "year", "vin") if fields.get(f) and f not in floored]
+    if real:
+        conf["overall"] = round(sum(real) / len(real), 4)
+    else:
+        present = [conf[f] for f in ("make", "model", "year", "vin") if fields.get(f)]
+        conf["overall"] = round(sum(present) / len(present), 4) if present else 0.0
+    return conf
 
 
 def get_default_ocr_provider():
@@ -708,16 +779,16 @@ def scan_registration_image(
 
     processed_image = preprocess_image(image_file)
     best_raw_text = ""
+    best_lines = []
     best_fields = {"make": None, "model": None, "year": None, "vin": None}
-    best_confidence = {"make": 0.0, "model": 0.0, "year": 0.0, "vin": 0.0, "overall": 0.0}
     best_score = -1.0
 
     for variant in _build_ocr_variants(processed_image):
-        raw_text = provider.extract_text(variant) or ""
-        fields, confidence = extract_registration_fields(raw_text)
+        raw_text, lines = _ocr_extract(provider, variant)
+        raw_text = raw_text or ""
+        fields, _heuristic_conf = extract_registration_fields(raw_text)
         score = (
-            float(confidence.get("overall") or 0)
-            + (0.4 if fields.get("vin") else 0)
+            (0.4 if fields.get("vin") else 0)
             + (0.2 if fields.get("make") else 0)
             + (0.2 if fields.get("model") else 0)
             + (0.2 if fields.get("year") else 0)
@@ -725,12 +796,11 @@ def scan_registration_image(
         if score > best_score:
             best_score = score
             best_raw_text = raw_text
+            best_lines = lines
             best_fields = fields
-            best_confidence = confidence
 
     raw_text = best_raw_text
     fields = best_fields
-    confidence = best_confidence
 
     # Plate number/code (for plate listings) — extracted from the same OCR
     # text via label proximity + format matching, not a blind first-number
@@ -738,6 +808,9 @@ def scan_registration_image(
     plate = extract_plate_fields(raw_text)
     fields = {**fields, "plate_number": plate["plate_number"], "plate_code": plate["plate_code"]}
 
+    # Real per-field confidence from PaddleOCR's recognition scores, with
+    # overall averaged over PRESENT fields only.
+    confidence = attribute_confidence(fields, best_lines)
     ocr_confidence_overall = confidence.get("overall", 0)
 
     if fields.get("vin"):

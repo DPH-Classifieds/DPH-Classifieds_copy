@@ -92,8 +92,10 @@ def _run_ocr(image_bytes):
 
     # PaddleOCR returns [[ [box, (text, conf)], ... ]] (one page). Sort the
     # detected lines top-to-bottom then left-to-right so downstream regexes see
-    # a sensible reading order, and drop low-confidence noise.
-    lines = []
+    # a sensible reading order, and drop low-confidence noise. We keep each
+    # line's recognition confidence so the backend can report REAL per-field
+    # confidence instead of guessing.
+    rows = []
     for page in (result or []):
         for entry in (page or []):
             try:
@@ -104,9 +106,11 @@ def _run_ocr(image_bytes):
                 continue
             top = min(pt[1] for pt in box)
             left = min(pt[0] for pt in box)
-            lines.append((round(top / 10), left, text))
-    lines.sort(key=lambda item: (item[0], item[1]))
-    return " ".join(text for _, _, text in lines).strip()
+            rows.append((round(top / 10), left, text, float(conf)))
+    rows.sort(key=lambda item: (item[0], item[1]))
+    text = " ".join(r[2] for r in rows).strip()
+    lines = [{"text": r[2], "conf": round(r[3], 4)} for r in rows]
+    return text, lines
 
 
 @app.post("/scan")
@@ -135,7 +139,7 @@ async def scan(
         raise HTTPException(status_code=503, detail="ocr service busy")
     try:
         loop = asyncio.get_running_loop()
-        text = await loop.run_in_executor(None, _run_ocr, data)
+        text, lines = await loop.run_in_executor(None, _run_ocr, data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
@@ -144,4 +148,5 @@ async def scan(
     finally:
         _semaphore.release()
 
-    return {"text": text}
+    # `text` stays for back-compat; `lines` carries per-detection confidence.
+    return {"text": text, "lines": lines}

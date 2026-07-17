@@ -272,16 +272,12 @@ const PostCar = () => {
     setRegistrationOcrSuggestions(scan);
     setRegistrationOcrDebugInfo(debugInfo);
     setRegistrationOcrStatus(status);
+    // Autofill everything the scan read, but keep it all EDITABLE. The only
+    // thing locked as source-of-truth is a genuinely checksum-valid VIN (rare,
+    // North-America only) — make/model/year and GCC/UAE VINs stay editable so
+    // the user can correct any OCR slip.
     setRegistrationOcrTruth(
-      scan.shouldAutoFill
-        ? {
-            make: scan.fields.make || null,
-            model: scan.fields.model || null,
-            year: scan.fields.year || null,
-            // Only lock VIN when checksum-verified; unverified VINs fill but stay editable
-            vin: scan.verifiedVin ? (scan.fields.vin || null) : null,
-          }
-        : null
+      scan.vinLocked ? { make: null, model: null, year: null, vin: scan.fields.vin || null } : null
     );
 
     if (!scan.shouldAutoFill) {

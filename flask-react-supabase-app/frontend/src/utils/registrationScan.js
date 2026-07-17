@@ -1,3 +1,7 @@
+// A field PaddleOCR read at/above this recognition confidence is shown as
+// "verified" in the suggestion panel (still editable).
+const HIGH_CONFIDENCE = 0.85;
+
 const normalizeNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -39,12 +43,14 @@ export const normalizeRegistrationScanResponse = (payload) => {
   };
 
   const needsReview = Boolean(payload?.needs_review);
-  // Auto-fill when VIN was extracted and the backend reports no errors.
-  // Overall confidence is low-by-design for VIN-only docs (mulkiya), so we
-  // drop the threshold gate and the valid-checksum gate — an invalid-checksum
-  // VIN is still useful (user can correct one char); the field won't be locked
-  // unless verifiedVin is true (see PostCar registrationOcrTruth handling).
-  const shouldAutoFill = !needsReview && Boolean(fields.vin);
+  // Autofill whatever the scan extracted. A UAE/GCC VIN can't be
+  // checksum-validated (that math is North-America-only), so gating autofill
+  // on validation left real mulkiyas mostly manual. Instead we fill every
+  // field that was read (kept editable), and `needsReview` just drives a
+  // "please double-check" note — it no longer blocks filling.
+  const shouldAutoFill = Boolean(
+    fields.vin || fields.make || fields.model || fields.year || fields.plate_number
+  );
 
   return {
     fields,
@@ -59,9 +65,15 @@ export const normalizeRegistrationScanResponse = (payload) => {
     model: fields.model,
     year: fields.year,
     vin: fields.vin,
-    verifiedMake: shouldAutoFill && Boolean(fields.make),
-    verifiedModel: shouldAutoFill && Boolean(fields.model),
-    verifiedYear: shouldAutoFill && Boolean(fields.year),
-    verifiedVin: vinValidation.valid && Boolean(fields.vin),
+    // "verified" tags now reflect how cleanly PaddleOCR read each field
+    // (high confidence), or a genuinely checksum-valid VIN — honest per-field
+    // signal for the suggestion panel. Everything still autofills regardless.
+    verifiedMake: Boolean(fields.make) && confidence.make >= HIGH_CONFIDENCE,
+    verifiedModel: Boolean(fields.model) && confidence.model >= HIGH_CONFIDENCE,
+    verifiedYear: Boolean(fields.year) && confidence.year >= HIGH_CONFIDENCE,
+    verifiedVin: Boolean(fields.vin) && (vinValidation.valid || confidence.vin >= HIGH_CONFIDENCE),
+    // Only a checksum-valid VIN locks as the source of truth; a GCC/UAE VIN
+    // (never checksum-validatable) fills but stays editable.
+    vinLocked: Boolean(fields.vin) && vinValidation.valid,
   };
 };
