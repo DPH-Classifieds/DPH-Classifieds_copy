@@ -54,6 +54,23 @@ def ocr_auth_required(f):
     return decorated
 
 
+def _record_ocr_failure(user_id, doc_type, code, message):
+    """Funnel a silent OCR failure into app_errors (admin Errors tab). Best-effort."""
+    try:
+        import app as backend_app
+
+        backend_app.record_app_error(
+            context="ocr_scan_registration",
+            message=message,
+            error_code=code,
+            user_id=user_id,
+            details={"document_type": doc_type or "registration"},
+            source="backend",
+        )
+    except Exception:
+        logger.warning("failed to record ocr error", exc_info=True)
+
+
 def _max_upload_bytes():
     configured = current_app.config.get("MAX_CONTENT_LENGTH")
     if configured:
@@ -188,12 +205,15 @@ def scan_registration(current_user):
     except _FuturesTimeout:
         _pool.shutdown(wait=False)
         logger.warning("EasyOCR registration scan timed out after %ss", _OCR_TIMEOUT)
+        _record_ocr_failure(current_user, doc_type, "ocr_timeout", f"registration OCR timed out after {_OCR_TIMEOUT}s")
     except ValueError as exc:
         _pool.shutdown(wait=False)
+        _record_ocr_failure(current_user, doc_type, "ocr_invalid", str(exc))
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
         _pool.shutdown(wait=False)
         logger.warning("EasyOCR registration scan unavailable: %s", exc)
+        _record_ocr_failure(current_user, doc_type, "ocr_unavailable", str(exc))
 
     return jsonify(
         {

@@ -145,7 +145,7 @@ const BarRow = ({ label, value, maxValue }) => {
 
 // ─── main component ──────────────────────────────────────────────────────────
 
-const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Health', 'Email'];
+const TABS = ['Engagement', 'Acquisition', 'Conversion', 'Health', 'Email', 'Errors'];
 const WINDOW_OPTIONS = [
   { label: '24h', value: 1  },
   { label: '7d',  value: 7  },
@@ -162,6 +162,7 @@ const AdminMetrics = () => {
   const [metrics, setMetrics]   = useState(null);
   const [health, setHealth]     = useState(null);
   const [emailMetrics, setEmailMetrics] = useState(null);
+  const [errorMetrics, setErrorMetrics] = useState(null);
   const [activeTab, setActiveTab] = useState('Engagement');
 
   // ── API: metrics overview (re-fetches on window change) ─────────────────
@@ -202,6 +203,23 @@ const AdminMetrics = () => {
       }
     };
     fetchEmail();
+    return () => { active = false; };
+  }, [days]);
+
+  // ── API: error events (re-fetches on window change) ───────────────────────
+  useEffect(() => {
+    let active = true;
+    const fetchErrors = async () => {
+      try {
+        const response = await apiClient.get(`/api/admin/metrics/errors?days=${days}`);
+        if (!active) return;
+        setErrorMetrics(response || null);
+      } catch (e) {
+        if (!active) return;
+        setErrorMetrics({ error: e.message || 'Failed to load errors' });
+      }
+    };
+    fetchErrors();
     return () => { active = false; };
   }, [days]);
 
@@ -868,7 +886,97 @@ const AdminMetrics = () => {
               </div>
             );
           })()}
-          {activeTab !== 'Email' && null}
+          {activeTab === 'Errors' && (() => {
+            const errm     = errorMetrics || {};
+            const summary  = errm.summary || {};
+            const byCtx    = errm.by_context || [];
+            const recent   = errm.recent || [];
+
+            if (errm.error) return (
+              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-rose-300 text-sm">
+                Errors unavailable — run the app_errors migration first.
+              </div>
+            );
+
+            return (
+              <div className="space-y-6">
+                <SectionTitle>Silent errors — last {days} day{days !== 1 ? 's' : ''}</SectionTitle>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: 'Total',    value: summary.total    ?? '—' },
+                    { label: 'Backend',  value: summary.backend  ?? '—' },
+                    { label: 'Frontend', value: summary.frontend ?? '—' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-xl bg-white/[0.04] border border-white/10 p-4 text-center">
+                      <p className="text-2xl font-bold text-rose-400 tabular-nums">{value}</p>
+                      <p className="text-xs text-white/50 mt-1">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {byCtx.length > 0 && (
+                  <div>
+                    <SectionTitle>By context</SectionTitle>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-white/40 text-xs border-b border-white/10">
+                            <th className="text-left py-2 pr-4">Context</th>
+                            <th className="text-right py-2 pl-3">Count</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {byCtx.map(row => (
+                            <tr key={row.context} className="border-b border-white/5 hover:bg-white/[0.03]">
+                              <td className="py-2 pr-4 text-white/80 font-mono text-xs">{row.context}</td>
+                              <td className="text-right py-2 pl-3 text-white tabular-nums">{row.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {recent.length > 0 && (
+                  <div>
+                    <SectionTitle>Recent</SectionTitle>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-white/40 text-xs border-b border-white/10">
+                            <th className="text-left py-2 pr-4">When</th>
+                            <th className="text-left py-2 px-3">Context</th>
+                            <th className="text-left py-2 px-3">Code</th>
+                            <th className="text-left py-2 px-3">Source</th>
+                            <th className="text-left py-2 pl-3">Message</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recent.map((row, i) => (
+                            <tr key={i} className="border-b border-white/5 hover:bg-white/[0.03] align-top">
+                              <td className="py-2 pr-4 text-white/50 tabular-nums whitespace-nowrap">{String(row.created_at || '').replace('T', ' ').slice(0, 16)}</td>
+                              <td className="py-2 px-3 text-white/80 font-mono text-xs whitespace-nowrap">{row.context}</td>
+                              <td className="py-2 px-3 text-amber-300 font-mono text-xs whitespace-nowrap">{row.error_code || '—'}</td>
+                              <td className="py-2 px-3 text-white/60 text-xs">{row.source}</td>
+                              <td className="py-2 pl-3 text-white/70 text-xs break-words max-w-md">{row.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {recent.length === 0 && (
+                  <p className="text-white/40 text-sm text-center py-8">
+                    No errors recorded for this period. 🎉 (Run the app_errors migration if you expected data.)
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+          {activeTab !== 'Email' && activeTab !== 'Errors' && null}
         </GlassCard>
       </motion.div>
 

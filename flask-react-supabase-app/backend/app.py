@@ -5926,6 +5926,40 @@ def supabase_request(
         return {"error": str(e)}, 500
 
 
+def record_app_error(
+    context,
+    message,
+    *,
+    error_code=None,
+    user_id=None,
+    details=None,
+    source="backend",
+    url=None,
+    user_agent=None,
+):
+    """Best-effort insert into app_errors. NEVER raises — recording an error
+    must not itself create one. Surfaces in the admin "Errors" tab; precursor
+    to Sentry. Silent failures across the app funnel here."""
+    try:
+        supabase_request(
+            "post",
+            "/rest/v1/app_errors",
+            data={
+                "context": str(context or "unknown")[:200],
+                "message": str(message or "")[:2000],
+                "error_code": (str(error_code)[:200] if error_code else None),
+                "user_id": (str(user_id) if user_id else None),
+                "details": details if isinstance(details, (dict, list)) else None,
+                "source": str(source or "backend")[:20],
+                "url": (str(url)[:500] if url else None),
+                "user_agent": (str(user_agent)[:500] if user_agent else None),
+            },
+            use_service_role=True,
+        )
+    except Exception:
+        logger.warning("record_app_error failed for context=%s", context, exc_info=True)
+
+
 # Home endpoint
 @app.route("/")
 def home():
@@ -18024,6 +18058,74 @@ def get_email_metrics(current_user):
     }
     _api_cache_set(_email_cache_key, _email_result, _EMAIL_METRICS_TTL)
     return jsonify(_email_result), 200
+
+
+@app.route("/api/errors", methods=["POST"])
+@token_required
+def report_app_error(current_user):
+    """Client-side error report from the frontend. Best-effort — always 200 so
+    a reporting hiccup never cascades into the UI. Authed only."""
+    body = request.get_json(silent=True) or {}
+    _details = body.get("details")
+    record_app_error(
+        context=body.get("context") or "frontend",
+        message=body.get("message") or "",
+        error_code=body.get("error_code"),
+        user_id=current_user,
+        details=_details if isinstance(_details, (dict, list)) else None,
+        source="frontend",
+        url=body.get("url"),
+        user_agent=request.headers.get("User-Agent"),
+    )
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/api/admin/metrics/errors", methods=["GET"])
+@token_required
+def get_error_metrics(current_user):
+    """Recent silent errors/failures for the admin Errors tab."""
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    days   = max(min(int(request.args.get("days", 30)), 365), 1)
+    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+
+    rows, status_code = supabase_request(
+        "get",
+        "/rest/v1/app_errors",
+        params={
+            "select": "created_at,user_id,context,error_code,message,source,url",
+            "created_at": f"gte.{cutoff}",
+            "order": "created_at.desc",
+            "limit": "1000",
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400:
+        if _looks_like_missing_table(rows):
+            return jsonify({"error": "app_errors table not migrated yet", "summary": {}, "by_context": [], "recent": []}), 200
+        return jsonify({"error": "Failed to fetch errors"}), status_code
+
+    rows = rows or []
+    from collections import defaultdict
+    by_context_map = defaultdict(int)
+    for r in rows:
+        by_context_map[r.get("context") or "unknown"] += 1
+    by_context = [
+        {"context": k, "count": c}
+        for k, c in sorted(by_context_map.items(), key=lambda x: -x[1])
+    ]
+
+    return jsonify({
+        "summary": {
+            "total":    len(rows),
+            "frontend": sum(1 for r in rows if r.get("source") == "frontend"),
+            "backend":  sum(1 for r in rows if r.get("source") != "frontend"),
+        },
+        "by_context": by_context,
+        "recent":     rows[:200],
+    }), 200
 
 
 @app.route("/api/admin/metrics/overview", methods=["GET"])

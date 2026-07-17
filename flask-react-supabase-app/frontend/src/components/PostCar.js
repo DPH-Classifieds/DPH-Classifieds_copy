@@ -30,6 +30,7 @@ import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
 import { normalizeRegistrationScanResponse } from '../utils/registrationScan';
+import { reportError } from '../utils/reportError';
 import { moderateImage } from '../utils/imageModeration';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -78,8 +79,9 @@ const PostCar = () => {
   const [isDraftSaving, setIsDraftSaving] = useState(false);
   const [registrationOcrFile, setRegistrationOcrFile] = useState(null);
   const [registrationOcrPreparedImage, setRegistrationOcrPreparedImage] = useState(null);
-  const [registrationOcrProgress, setRegistrationOcrProgress] = useState(0);
   const [registrationOcrStatus, setRegistrationOcrStatus] = useState(null);
+  const [scanStage, setScanStage] = useState('');
+  const scanStageTimersRef = useRef([]);
   const [registrationOcrSuggestions, setRegistrationOcrSuggestions] = useState(null);
   const [registrationOcrError, setRegistrationOcrError] = useState(null);
   const [registrationOcrTruth, setRegistrationOcrTruth] = useState(null);
@@ -258,7 +260,6 @@ const PostCar = () => {
   const resetRegistrationOcrState = useCallback(() => {
     setRegistrationOcrError(null);
     setRegistrationOcrStatus(null);
-    setRegistrationOcrProgress(0);
     setRegistrationOcrSuggestions(null);
     setRegistrationOcrPreparedImage(null);
     setRegistrationOcrTruth(null);
@@ -327,6 +328,29 @@ const PostCar = () => {
     return registrationDocumentUploadPromiseRef.current;
   }, [registrationDocumentUrl, registrationOcrFile, user?.id]);
 
+  // Simulated staged progress: the backend scan is a single black-box request
+  // with no real progress stream, so we walk reassuring messages on a timer to
+  // show the user something is happening (and that it didn't silently die).
+  const stopScanStages = useCallback(() => {
+    scanStageTimersRef.current.forEach(clearTimeout);
+    scanStageTimersRef.current = [];
+    setScanStage('');
+  }, []);
+
+  const startScanStages = useCallback(() => {
+    const stages = [
+      'Scanning your registration…',
+      'Reading the details…',
+      'Making sure everything looks right…',
+      'Almost there…',
+    ];
+    scanStageTimersRef.current.forEach(clearTimeout);
+    setScanStage(stages[0]);
+    scanStageTimersRef.current = stages.slice(1).map((msg, i) =>
+      setTimeout(() => setScanStage(msg), (i + 1) * 2500)
+    );
+  }, []);
+
   const runRegistrationOcr = useCallback(async () => {
     if (!registrationOcrFile) {
       setRegistrationOcrError('Please choose a clear photo of your car registration first.');
@@ -351,6 +375,7 @@ const PostCar = () => {
       // and mislabelled them "valid". If the backend can't scan, the user
       // enters the details manually.
       setRegistrationOcrStatus('Scanning…');
+      startScanStages();
       const formData = new FormData();
       formData.append('image', registrationOcrFile, registrationOcrFile.name || 'registration-scan');
       formData.append('document_type', 'mulkiya');
@@ -365,6 +390,14 @@ const PostCar = () => {
 
       applyRegistrationScanResult(backendScan);
       setRegistrationOcrError(null);
+      // The request "succeeded" but nothing readable came back — the silent
+      // failure the user never sees. Record it so it shows in the admin Errors tab.
+      if (!backendScan.shouldAutoFill) {
+        reportError('ocr_scan_registration_frontend', 'OCR returned no readable fields', {
+          errorCode: 'ocr_no_fields',
+          details: { reviewReasons: backendScan.reviewReasons },
+        });
+      }
     } catch (err) {
       console.error('Registration OCR failed:', err);
       setRegistrationOcrStatus(null);
@@ -373,9 +406,14 @@ const PostCar = () => {
           ? err.message
           : 'OCR failed. Please try a clearer photo (good lighting, minimal glare).'
       );
+      reportError('ocr_scan_registration_frontend', err?.message || 'OCR request failed', {
+        errorCode: 'ocr_request_failed',
+      });
+    } finally {
+      stopScanStages();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps, no-use-before-define
-  }, [applyRegistrationScanResult, ensureRegistrationDocumentUploaded, isEdit, listingId, registrationOcrFile, resetRegistrationOcrState]);
+  }, [applyRegistrationScanResult, ensureRegistrationDocumentUploaded, isEdit, listingId, registrationOcrFile, resetRegistrationOcrState, startScanStages, stopScanStages]);
 
   const countWords = (text) => (text.trim().match(/\S+/g) || []).length;
 
@@ -1965,7 +2003,7 @@ const PostCar = () => {
                     {registrationOcrStatus === 'Preparing…'
                       ? 'Preparing…'
                       : registrationOcrStatus === 'Scanning…'
-                        ? `Scanning… ${registrationOcrProgress}%`
+                        ? 'Scanning…'
                         : 'Scan'}
                   </button>
                   {registrationOcrFile && (
@@ -1983,6 +2021,29 @@ const PostCar = () => {
                   )}
                 </div>
               </div>
+              {(registrationOcrStatus === 'Scanning…' || registrationOcrStatus === 'Preparing…') && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    marginTop: 12,
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'rgba(37, 99, 235, 0.06)',
+                    border: '1px solid rgba(37, 99, 235, 0.16)',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: '#1e3a8a', marginBottom: 8 }}>
+                    {scanStage || 'Scanning your registration…'}
+                  </div>
+                  <div className="submit-loading-bar">
+                    <span className="submit-loading-bar-fill" />
+                  </div>
+                  <div className="form-text" style={{ marginTop: 6, marginBottom: 0 }}>
+                    This can take a few seconds — hang tight.
+                  </div>
+                </div>
+              )}
               {(uploadingRegistrationDoc || registrationDocumentUrl) && (
                 <div
                   style={{
@@ -2020,6 +2081,12 @@ const PostCar = () => {
               {registrationOcrError && (
                 <div className="alert alert-danger mt-3" role="alert">
                   {registrationOcrError}
+                </div>
+              )}
+              {registrationOcrSuggestions && !registrationOcrSuggestions.shouldAutoFill && (
+                <div className="alert alert-warning mt-3" role="alert">
+                  <strong>We couldn&apos;t read this document.</strong> Please enter the
+                  make, model, year and VIN manually below — your registration copy is still attached.
                 </div>
               )}
               {registrationOcrSuggestions && (
