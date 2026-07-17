@@ -33,4 +33,6 @@ EXPOSE 8000
 
 # One gunicorn+uvicorn worker per process, each loading its own predictor.
 # Scale throughput with GUNICORN_WORKERS and/or Railway replicas.
-CMD ["sh", "-c", "exec /opt/venv/bin/gunicorn app:app -k uvicorn.workers.UvicornWorker -w ${GUNICORN_WORKERS:-1} -b 0.0.0.0:${PORT:-8000} --timeout 120 --graceful-timeout 30"]
+# Bind [::] (dual-stack) so the service is reachable over Railway private
+# networking (IPv6-only) as well as the public proxy.
+CMD ["sh", "-c", "exec /opt/venv/bin/gunicorn app:app -k uvicorn.workers.UvicornWorker -w ${GUNICORN_WORKERS:-1} -b [::]:${PORT:-8080} --timeout 120 --graceful-timeout 30"]

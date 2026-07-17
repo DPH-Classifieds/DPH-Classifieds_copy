@@ -6,22 +6,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    EASYOCR_MODEL_DIR=/app/easyocr_models \
     PATH=/opt/venv/bin:$PATH
 
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
 
+# OCR now runs on the separate PaddleOCR microservice, so the backend no longer
+# needs torch / easyocr / baked models — just the light Python deps.
 RUN python -m venv /opt/venv \
     && pip install --upgrade pip setuptools wheel \
-    && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu \
     && pip install -r /app/requirements.txt
-
-COPY download_ocr_models.py /app/download_ocr_models.py
-
-RUN mkdir -p /app/easyocr_models \
-    && EASYOCR_MODEL_DIR=/app/easyocr_models python /app/download_ocr_models.py
 
 COPY . /app
 
