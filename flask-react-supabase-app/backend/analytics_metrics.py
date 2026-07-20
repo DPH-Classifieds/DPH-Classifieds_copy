@@ -10,7 +10,9 @@ LISTING_PATH_PATTERNS = [
     (re.compile(r"^/car-parts/([^/?#]+)$", re.IGNORECASE), "part"),
 ]
 
-PAGE_VIEW_EVENTS = {"page_view"}
+# ``listing_view`` is the canonical event emitted for a listing detail route.
+# Keep ``page_view`` for non-listing routes and historical data.
+PAGE_VIEW_EVENTS = {"page_view", "listing_view"}
 PAGE_EXIT_EVENTS = {"page_exit", "session_end"}
 CONVERSION_EVENTS = {
     "call_click",

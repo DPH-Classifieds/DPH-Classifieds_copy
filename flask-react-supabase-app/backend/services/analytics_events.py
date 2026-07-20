@@ -2,7 +2,11 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 
-EVENT_NAMES = {"listing_view", "call_click", "whatsapp_click", "vin_open", "vin_reveal", "page_view", "page_exit", "session_start", "session_end", "form_submit"}
+EVENT_NAMES = {
+    "listing_view", "call_click", "whatsapp_click", "vin_open", "vin_reveal",
+    "page_view", "page_exit", "session_start", "session_end", "form_submit",
+    "link_click", "button_click", "app_open",
+}
 LISTING_EVENTS = {"listing_view", "call_click", "whatsapp_click", "vin_open", "vin_reveal"}
 METADATA_KEYS = {"source", "route", "schema_version", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"}
 TYPE_ALIASES = {"cars": "car", "bikes": "bike", "plates": "plate", "parts": "part", "car-parts": "part"}

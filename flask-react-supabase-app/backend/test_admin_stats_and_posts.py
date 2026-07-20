@@ -93,6 +93,8 @@ class AdminStatsTests(unittest.TestCase):
         def fake_supabase_request(method, path, params=None, data=None, user_id=None, use_service_role=False):
             if path == "/rest/v1/platform_events":
                 return platform_events, 200
+            if path == "/rest/v1/lead_events":
+                return lead_events, 200
             return [], 200
 
         def fake_fetch(path, params):
@@ -160,6 +162,8 @@ class AdminStatsTests(unittest.TestCase):
         def fake_supabase_request(method, path, **kwargs):
             if "platform_events" in path:
                 return platform_events, 200
+            if "lead_events" in path:
+                return lead_events, 200
             return [], 200
 
         def fake_fetch(path, params):
@@ -202,6 +206,8 @@ class AdminStatsTests(unittest.TestCase):
         ]
 
         def fake_supabase_request(method, path, **kwargs):
+            if "lead_events" in path:
+                return lead_events, 200
             return [], 200  # no platform_events
 
         def fake_fetch(path, params):

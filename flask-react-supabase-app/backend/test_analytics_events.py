@@ -30,3 +30,9 @@ class AnalyticsEventTests(unittest.TestCase):
             normalize_analytics_event({
                 "event_id": "bad", "event_name": "page_view", "visitor_id": "v", "session_id": "s"
             }, None)
+
+    def test_accepts_non_conversion_tracker_events(self):
+        event = normalize_analytics_event({
+            "event_name": "button_click", "visitor_id": "visitor-1", "session_id": "session-1"
+        })
+        self.assertEqual(event["event_name"], "button_click")

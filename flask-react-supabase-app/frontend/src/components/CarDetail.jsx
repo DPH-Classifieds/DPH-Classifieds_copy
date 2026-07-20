@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -22,6 +22,7 @@ import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
+import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -96,7 +97,6 @@ const CarDetail = () => {
     totalInterest: 0,
     totalCost: 0
   });
-  const viewTrackedRef = useRef(false);
 
   useEffect(() => {
     const fetchCarDetails = async () => {
@@ -198,26 +198,6 @@ const CarDetail = () => {
     setActiveImageIndex(0);
   }, [id]);
 
-  useEffect(() => {
-    viewTrackedRef.current = false;
-  }, [id]);
-
-  useEffect(() => {
-    const trackView = async () => {
-      if (!car?.id || viewTrackedRef.current) {
-        return;
-      }
-      viewTrackedRef.current = true;
-      try {
-        await fetch(`${API_URL}/api/cars/${id}/view`, { method: 'POST' });
-      } catch (error) {
-        console.warn('Failed to record car view:', error);
-      }
-    };
-
-    trackView();
-  }, [car?.id, id]);
-
   const handleLoanChange = (field, value) => {
     setLoanCalculator(prev => ({
       ...prev,
@@ -271,7 +251,9 @@ const CarDetail = () => {
           action,
           source: 'car_detail',
           payload,
+          ...getWebAnalyticsIdentity(),
         }),
+        keepalive: true,
       });
     } catch (trackingError) {
       console.warn('Lead tracking failed:', trackingError);

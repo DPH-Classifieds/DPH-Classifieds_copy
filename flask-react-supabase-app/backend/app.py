@@ -17943,6 +17943,8 @@ def track_platform_event():
                 )
 
         if status_code >= 400:
+            if status_code == 409 and "event_id" in str(response).lower():
+                return jsonify({"success": True, "duplicate": True}), 200
             logger.error(f"Failed to store platform event: {response}")
             return jsonify({"error": "Failed to track event"}), 500
 
@@ -18222,16 +18224,13 @@ def get_admin_metrics_overview(current_user):
             if _overview_cached is not None:
                 return jsonify(_overview_cached), 200
 
-        events_resp, events_status = supabase_request(
-            "get",
+        events_resp, events_status = _fetch_all_rows(
             "/rest/v1/platform_events",
-            params={
+            {
                 "select": "*",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
-                "limit": "5000",
             },
-            use_service_role=True,
         )
         if events_status >= 400:
             return jsonify({"error": "Failed to fetch analytics events"}), events_status
@@ -18716,6 +18715,38 @@ def _fetch_rows(path, params):
     return rows or [] if status < 400 else []
 
 
+def _fetch_all_rows(path, params, *, page_size=1000, max_rows=250000):
+    """Fetch all rows for an analytics window, not Supabase's first page.
+
+    PostgREST installations commonly cap a request at 1,000 rows even when a
+    larger ``limit`` is supplied. Admin metrics must therefore page explicitly
+    rather than silently calculate a partial window.
+    """
+    collected = []
+    offset = 0
+    base_params = dict(params or {})
+
+    while len(collected) < max_rows:
+        page_params = {
+            **base_params,
+            "limit": str(min(page_size, max_rows - len(collected))),
+            "offset": str(offset),
+        }
+        rows, status = supabase_request(
+            "get", path, params=page_params, use_service_role=True
+        )
+        if status >= 400:
+            return collected, status
+        rows = rows or []
+        collected.extend(rows)
+        if len(rows) < page_size:
+            return collected, status
+        offset += len(rows)
+
+    logger.warning("Analytics query reached safety cap of %s rows for %s", max_rows, path)
+    return collected, 206
+
+
 LIFECYCLE_SUMMARY_TABLES = {
     "cars": "cars",
     "bikes": "bikes",
@@ -18753,16 +18784,13 @@ def get_admin_stats(current_user):
         # explicitly and feed that into data_health for the admin UI.
         platform_events = []
         platform_events_status = "ok"
-        events_resp, events_status = supabase_request(
-            "get",
+        events_resp, events_status = _fetch_all_rows(
             "/rest/v1/platform_events",
-            params={
+            {
                 "select": "visitor_id,user_id,session_id,page_kind,listing_type,created_at",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
-                "limit": "5000",
             },
-            use_service_role=True,
         )
         if events_status == 404 or (
             events_status >= 400 and "does not exist" in str(events_resp).lower()
@@ -18782,15 +18810,17 @@ def get_admin_stats(current_user):
             if not platform_events:
                 platform_events_status = "empty"
 
-        lead_events = _fetch_rows(
+        lead_events, lead_events_status = _fetch_all_rows(
             "/rest/v1/lead_events",
             {
                 "select": "action,listing_type,listing_id,created_at,user_id,session_id",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
-                "limit": "5000",
             },
         )
+        if lead_events_status >= 400:
+            logger.warning("lead_events query failed: status=%s", lead_events_status)
+            lead_events = []
 
         aux_rows = {}
         aux_jobs = {
@@ -18938,12 +18968,11 @@ def get_admin_stats(current_user):
         data_health = {
             "platform_events": platform_events_status,
             "platform_events_window_count": platform_events_window_count,
-            "platform_events_truncated": bool(
-                platform_events_window_count and platform_events_window_count > len(platform_events)
-            ),
+            "platform_events_truncated": events_status == 206,
             "unique_visitor_sources": sorted(unique_sources),
             "new_signups_window_count": new_signups_in_window,
             "lead_events_window_count": len(lead_events),
+            "lead_events_truncated": lead_events_status == 206,
         }
 
         stats = {

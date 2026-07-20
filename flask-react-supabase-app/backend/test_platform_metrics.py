@@ -134,6 +134,21 @@ class PlatformAnalyticsHelperTests(unittest.TestCase):
         self.assertEqual(metrics["plate_metrics"]["most_in_demand"]["segment"], "Dubai")
         self.assertEqual(metrics["plate_metrics"]["most_in_demand"]["views"], 1)
 
+    def test_listing_view_is_counted_as_a_page_view(self):
+        metrics = build_platform_metrics([
+            {
+                "event_name": "listing_view",
+                "page_path": "/cars/abc-123",
+                "listing_type": "car",
+                "listing_id": "abc-123",
+                "session_id": "session-a",
+                "visitor_id": "visitor-a",
+                "created_at": "2026-07-20T10:00:00Z",
+            }
+        ], days=30)
+
+        self.assertEqual(metrics["user_metrics"]["page_views"], 1)
+
 
 class PlatformAnalyticsRouteTests(unittest.TestCase):
     @patch.object(backend, "ensure_platform_events_table")

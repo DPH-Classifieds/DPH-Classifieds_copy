@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -13,6 +13,7 @@ import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
+import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
 import { resolveMediaUrl } from '../utils/media';
 import useSwipe from '../hooks/useSwipe';
 
@@ -44,7 +45,6 @@ const PartDetailRedesigned = () => {
     totalInterest: 0,
     totalCost: 0
   });
-  const viewTrackedRef = useRef(false);
   const seoData = useMemo(
     () =>
       buildListingSeo('part', part || preloadedPart || {}, {
@@ -118,26 +118,6 @@ const PartDetailRedesigned = () => {
     setActiveImageIndex(0);
   }, [id]);
 
-  useEffect(() => {
-    viewTrackedRef.current = false;
-  }, [id]);
-
-  useEffect(() => {
-    const trackView = async () => {
-      if (!part?.id || viewTrackedRef.current) {
-        return;
-      }
-      viewTrackedRef.current = true;
-      try {
-        await fetch(`${API_URL}/api/parts/${id}/view`, { method: 'POST' });
-      } catch (error) {
-        console.warn('Failed to record part view:', error);
-      }
-    };
-
-    trackView();
-  }, [id, part?.id]);
-
   const handleLoanChange = (field, value) => {
     setLoanCalculator(prev => ({
       ...prev,
@@ -188,7 +168,8 @@ const PartDetailRedesigned = () => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action, source: 'part_detail', payload: { listing_id: id } }),
+        body: JSON.stringify({ action, source: 'part_detail', payload: { listing_id: id }, ...getWebAnalyticsIdentity() }),
+        keepalive: true,
       });
     } catch (error) {
       console.warn('Part lead tracking failed:', error);

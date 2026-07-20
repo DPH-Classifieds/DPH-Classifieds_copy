@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -13,6 +13,7 @@ import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
+import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
 import UAELicensePlate from './UAELicensePlate';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -41,7 +42,6 @@ const PlateDetailRedesigned = () => {
     totalInterest: 0,
     totalCost: 0
   });
-  const viewTrackedRef = useRef(false);
   const seoData = useMemo(
     () =>
       buildListingSeo('plate', plate || preloadedPlate || {}, {
@@ -111,26 +111,6 @@ const PlateDetailRedesigned = () => {
     });
   }, [loanCalculator]);
 
-  useEffect(() => {
-    viewTrackedRef.current = false;
-  }, [id]);
-
-  useEffect(() => {
-    const trackView = async () => {
-      if (!plate?.id || viewTrackedRef.current) {
-        return;
-      }
-      viewTrackedRef.current = true;
-      try {
-        await fetch(`${API_URL}/api/plates/${id}/view`, { method: 'POST' });
-      } catch (error) {
-        console.warn('Failed to record plate view:', error);
-      }
-    };
-
-    trackView();
-  }, [id, plate?.id]);
-
   const handleLoanChange = (field, value) => {
     setLoanCalculator(prev => ({
       ...prev,
@@ -181,7 +161,8 @@ const PlateDetailRedesigned = () => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action, source: 'plate_detail', payload: { listing_id: id } }),
+        body: JSON.stringify({ action, source: 'plate_detail', payload: { listing_id: id }, ...getWebAnalyticsIdentity() }),
+        keepalive: true,
       });
     } catch (error) {
       console.warn('Plate lead tracking failed:', error);

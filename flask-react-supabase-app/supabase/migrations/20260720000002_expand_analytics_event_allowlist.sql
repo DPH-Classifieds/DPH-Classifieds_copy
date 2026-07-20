@@ -1,12 +1,5 @@
-ALTER TABLE public.platform_events ADD COLUMN IF NOT EXISTS event_id uuid;
-ALTER TABLE public.platform_events ADD COLUMN IF NOT EXISTS platform text;
-ALTER TABLE public.platform_events ADD COLUMN IF NOT EXISTS occurred_at timestamptz;
-ALTER TABLE public.platform_events ADD COLUMN IF NOT EXISTS received_at timestamptz;
-UPDATE public.platform_events SET occurred_at = coalesce(occurred_at, created_at), received_at = coalesce(received_at, created_at) WHERE occurred_at IS NULL OR received_at IS NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS platform_events_event_id_unique ON public.platform_events(event_id) WHERE event_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS platform_events_listing_occurred_at_idx ON public.platform_events(listing_type, listing_id, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS platform_events_visitor_occurred_at_idx ON public.platform_events(visitor_id, occurred_at DESC);
-
+-- The initial canonical migration is already live. Keep its RPC allowlist in
+-- sync with browser/mobile tracker events without changing its signature.
 CREATE OR REPLACE FUNCTION public.record_analytics_event(p_event_id uuid, p_event_name text, p_listing_type text, p_listing_id text, p_visitor_id text, p_session_id text, p_user_id uuid, p_platform text, p_occurred_at timestamptz, p_metadata jsonb DEFAULT '{}'::jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE inserted_id uuid;
@@ -18,5 +11,3 @@ BEGIN
   ON CONFLICT (event_id) WHERE event_id IS NOT NULL DO NOTHING RETURNING id INTO inserted_id;
   RETURN jsonb_build_object('accepted', inserted_id IS NOT NULL, 'duplicate', inserted_id IS NULL);
 END; $$;
-REVOKE ALL ON FUNCTION public.record_analytics_event(uuid,text,text,text,text,text,uuid,text,timestamptz,jsonb) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.record_analytics_event(uuid,text,text,text,text,text,uuid,text,timestamptz,jsonb) TO service_role;

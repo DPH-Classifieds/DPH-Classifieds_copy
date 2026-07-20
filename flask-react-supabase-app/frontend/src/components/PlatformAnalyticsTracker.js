@@ -167,8 +167,11 @@ const PlatformAnalyticsTracker = () => {
     pageStartedAtRef.current = Date.now();
     lastPathRef.current = path;
 
-    void sendEvent('page_view', {
+    const listing = classifyPath(path);
+    void sendEvent(listing.listing_id ? 'listing_view' : 'page_view', {
       page_path: path,
+      listing_type: listing.listing_type || null,
+      listing_id: listing.listing_id || null,
       metadata: {
         referrer: document.referrer || null,
       },
