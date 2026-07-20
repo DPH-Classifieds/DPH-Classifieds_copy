@@ -40,6 +40,7 @@ from werkzeug.utils import secure_filename
 from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
+from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from expo_push import send_expo_push, dead_push_tokens, is_valid_expo_token
 
 try:
@@ -17839,6 +17840,11 @@ def track_platform_event():
     """Persist a raw platform analytics event."""
     try:
         payload = request.json or {}
+        user_id = _get_optional_user_id_from_auth_header()
+        try:
+            canonical = normalize_analytics_event(payload, user_id)
+        except AnalyticsEventError as exc:
+            return jsonify({"error": str(exc)}), 400
         event_name = (payload.get("event_name") or payload.get("action") or "").strip()
         if not event_name:
             return jsonify({"error": "event_name is required"}), 400
@@ -17861,10 +17867,11 @@ def track_platform_event():
         visitor_id = (
             payload.get("visitor_id") or metadata.get("visitor_id") or session_id
         )
-        user_id = _get_optional_user_id_from_auth_header()
+        user_id = canonical["user_id"]
 
         row = {
             "id": str(uuid.uuid4()),
+            "event_id": canonical["event_id"],
             "event_name": event_name,
             "event_category": (
                 payload.get("event_category")
@@ -17892,12 +17899,15 @@ def track_platform_event():
             )
             or None,
             "user_id": user_id,
-            "visitor_id": str(visitor_id),
-            "session_id": str(session_id),
+            "visitor_id": canonical["visitor_id"] or str(visitor_id),
+            "session_id": canonical["session_id"] or str(session_id),
+            "platform": canonical["platform"],
+            "occurred_at": canonical["occurred_at"],
+            "received_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "duration_ms": int(
                 payload.get("duration_ms") or metadata.get("duration_ms") or 0
             ),
-            "metadata": metadata,
+            "metadata": canonical["metadata"],
         }
         if not row["page_kind"]:
             if row["listing_id"]:
@@ -19058,12 +19068,30 @@ def track_listing_lead_event(item_type, item_id):
             return jsonify({"error": "Listing not found"}), 404
 
         user_id = _get_optional_user_id_from_auth_header()
+        try:
+            canonical = normalize_analytics_event({
+                **payload, "event_name": action, "listing_type": normalized_type,
+                "listing_id": item_id, "metadata": {"source": payload.get("source")},
+            }, user_id)
+        except AnalyticsEventError as exc:
+            return jsonify({"error": str(exc)}), 400
+        canonical_response, canonical_status = supabase_request(
+            "post", "/rest/v1/rpc/record_analytics_event", data={
+                "p_event_id": canonical["event_id"], "p_event_name": canonical["event_name"],
+                "p_listing_type": canonical["listing_type"], "p_listing_id": canonical["listing_id"],
+                "p_visitor_id": canonical["visitor_id"], "p_session_id": canonical["session_id"],
+                "p_user_id": canonical["user_id"], "p_platform": canonical["platform"],
+                "p_occurred_at": canonical["occurred_at"], "p_metadata": canonical["metadata"],
+            }, use_service_role=True)
+        if canonical_status >= 400:
+            logger.error("Failed to store canonical lead event: %s", canonical_response)
+            return jsonify({"error": "Failed to track lead event"}), 500
         event_payload = {
             "listing_id": str(item_id),
             "listing_type": normalized_type,
             "action": action,
             "user_id": user_id,
-            "session_id": payload.get("session_id"),
+            "session_id": canonical["session_id"],
             "source": payload.get("source"),
             "user_agent": request.headers.get("User-Agent"),
             "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),

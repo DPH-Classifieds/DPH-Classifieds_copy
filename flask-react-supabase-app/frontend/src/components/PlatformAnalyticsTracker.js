@@ -88,7 +88,9 @@ const PlatformAnalyticsTracker = () => {
 
   const sendEvent = async (eventName, payload = {}, options = {}) => {
     const body = {
+      event_id: window.crypto?.randomUUID?.() || `evt_${Date.now()}_${Math.random().toString(16).slice(2)}`,
       event_name: eventName,
+      platform: 'web',
       page_path: payload.page_path || `${window.location.pathname}${window.location.search}`,
       page_title: payload.page_title || document.title,
       page_kind: payload.page_kind || getPageKind(payload.page_path || `${window.location.pathname}${window.location.search}`),

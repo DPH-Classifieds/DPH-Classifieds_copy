@@ -26,6 +26,10 @@ const ensureVisitorId = async () => {
   return fresh;
 };
 
+export const getMobileAnalyticsIdentity = async () => ({
+  event_id: newId(), visitor_id: await ensureVisitorId(), session_id: sessionId,
+});
+
 const PAGE_KIND_BY_ROUTE_PREFIX = {
   CarDetail: 'listing_detail',
   BikeDetail: 'listing_detail',
@@ -61,7 +65,9 @@ export const trackMobilePlatformEvent = async (eventName, payload = {}) => {
   try {
     const visitorId = await ensureVisitorId();
     await apiClient.post('/api/analytics/events', {
+      event_id: newId(),
       event_name: eventName,
+      platform: 'mobile',
       page_path: payload.page_path || `/mobile/${payload.route || eventName}`,
       page_kind: payload.page_kind,
       listing_type: payload.listing_type,
@@ -88,7 +94,7 @@ export const buildNavigationStateChangeHandler = (navigationRef) => {
       page_path: `/mobile/${name}`,
       page_kind: inferPageKind(name),
       listing_type: LISTING_TYPE_BY_ROUTE[name],
-      listing_id: route?.params?.listingId || route?.params?.itemId,
+      listing_id: route?.params?.listingId || route?.params?.itemId || route?.params?.carId,
     });
   };
 };
