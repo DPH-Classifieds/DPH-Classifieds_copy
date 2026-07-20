@@ -7,6 +7,7 @@ from app import (
     _api_cache_get,
     _api_cache_set,
     _build_api_cache_key,
+    capture_posthog_event,
     _create_listing_with_lifecycle_fallback,
     _invalidate_api_cache_prefixes,
     _invalidate_public_inventory_cache,
@@ -384,6 +385,11 @@ def create_buying_request(current_user):
             row["images"] = imgs or []
 
     _invalidate_public_inventory_cache("buying_requests")
+    capture_posthog_event(
+        "buying_request_created",
+        current_user,
+        {"item_type": item_type, "has_reference_images": bool(image_inserts)},
+    )
     return jsonify(_scrub_public_row(row)), 201
 
 

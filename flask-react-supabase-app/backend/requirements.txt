@@ -13,4 +13,5 @@ Flask-Mail==0.10.0
 flask-compress==1.15
 brotli==1.1.0
 redis==5.1.1
+posthog>=7.0.0
 cryptography>=43,<46

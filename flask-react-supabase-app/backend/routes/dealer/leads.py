@@ -278,6 +278,13 @@ def update_lead(current_user, lead_id):
     if "status" in update and update["status"] != current.get("status"):
         _emit_event(lead_id, current_user, "status_change",
                     {"from": current.get("status"), "to": update["status"]})
+        from app import capture_posthog_event
+
+        capture_posthog_event(
+            "dealer_lead_status_updated",
+            current_user,
+            {"previous_status": current.get("status"), "new_status": update["status"]},
+        )
     if "assigned_to" in update and update["assigned_to"] != current.get("assigned_to"):
         _emit_event(lead_id, current_user, "assignment",
                     {"from": current.get("assigned_to"), "to": update["assigned_to"]})

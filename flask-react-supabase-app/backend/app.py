@@ -13,6 +13,7 @@ from flask import (
     render_template,
     make_response,
 )
+import atexit
 import datetime
 import hashlib
 import threading
@@ -34,6 +35,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from flask_cors import CORS
 from PIL import Image
+from posthog import Posthog
 from werkzeug.utils import secure_filename
 from xml.sax.saxutils import escape as xml_escape
 
@@ -73,6 +75,34 @@ app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25MB max request size
 
 logger = logging.getLogger(__name__)
+
+POSTHOG_PROJECT_TOKEN = os.getenv("POSTHOG_PROJECT_TOKEN")
+POSTHOG_HOST = os.getenv("POSTHOG_HOST")
+posthog_client = None
+if POSTHOG_PROJECT_TOKEN and POSTHOG_HOST:
+    posthog_client = Posthog(
+        POSTHOG_PROJECT_TOKEN,
+        host=POSTHOG_HOST,
+        enable_exception_autocapture=True,
+    )
+    atexit.register(posthog_client.shutdown)
+else:
+    logger.warning("PostHog is not configured; analytics events will not be sent")
+
+
+def capture_posthog_event(event_name, distinct_id, properties=None):
+    """Capture an analytics event without allowing tracking failures to affect requests."""
+    if posthog_client is None or not distinct_id:
+        return
+    try:
+        posthog_client.capture(
+            event_name,
+            distinct_id=str(distinct_id),
+            properties=properties or {},
+        )
+    except Exception:
+        logger.exception("PostHog capture failed for %s", event_name)
+
 
 # Flask-Mail configuration
 try:
@@ -3507,6 +3537,11 @@ def create_user_saved_listing(current_user):
             )
         return jsonify(insert_response), insert_status
 
+    capture_posthog_event(
+        "listing_saved",
+        current_user,
+        {"listing_type": listing_type},
+    )
     return jsonify(
         {
             "saved": True,
@@ -5015,6 +5050,11 @@ def handle_internal_error(error):
         logger.error(
             "Unhandled internal error on %s: %s", request.path, error, exc_info=True
         )
+        if posthog_client is not None:
+            try:
+                posthog_client.capture_exception(error)
+            except Exception:
+                logger.exception("PostHog exception capture failed")
         return jsonify({"message": "Internal server error"}), 500
     return error
 
@@ -6806,6 +6846,16 @@ def create_car(current_user):
 
         _invalidate_public_inventory_cache("cars")
         _trigger_auto_review_async()
+        capture_posthog_event(
+            "listing_created",
+            current_user,
+            {
+                "listing_type": "car",
+                "has_images": bool(images),
+                "is_dealer": bool(car_data.get("is_dealer")),
+                "submission_status": data[0].get("status"),
+            },
+        )
         return jsonify(data[0]), 201
     except Exception as e:
         logger.error(f"Error creating car listing: {e}")
@@ -10013,6 +10063,11 @@ def login():
                     samesite="Lax",
                     max_age=refresh_max_age,
                 )
+            capture_posthog_event(
+                "user_logged_in",
+                user_id,
+                {"login_method": "password", "remember_me": remember_me},
+            )
             return response
         else:
             try:
@@ -10421,6 +10476,12 @@ def signup():
             response_data["next_step"] = (
                 "Verify your email first. Phone verification will be available after email confirmation."
             )
+            if user_id:
+                capture_posthog_event(
+                    "user_signed_up",
+                    user_id,
+                    {"account_type": "dealer" if is_dealer_signup else "individual"},
+                )
             return jsonify(response_data), 200
 
         # Try to parse error details; fall back to raw text
@@ -19038,6 +19099,12 @@ def track_listing_lead_event(item_type, item_id):
                 daemon=True,
             ).start()
 
+        if user_id:
+            capture_posthog_event(
+                "lead_contacted",
+                user_id,
+                {"listing_type": normalized_type, "contact_method": action},
+            )
         return jsonify({"message": "Lead event tracked"}), 201
     except Exception as e:
         logger.error(f"Error tracking lead event: {e}")

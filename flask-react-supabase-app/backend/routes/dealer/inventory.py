@@ -280,6 +280,13 @@ def post_import(current_user=None):
         return jsonify({"error": {"code": "job_insert_failed",
                                   "message": ir.text[:200]}}), 502
 
+    from app import capture_posthog_event
+
+    capture_posthog_event(
+        "dealer_inventory_import_started",
+        current_user,
+        {"import_kind": kind},
+    )
     return jsonify({"job": ir.json()[0]}), 201
 
 
