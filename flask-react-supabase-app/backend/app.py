@@ -340,6 +340,10 @@ REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_MB", "10")) * 1024 * 1024
 )
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
+# Events written on and after this migration are the canonical, idempotent
+# source. ``lead_events`` remains only as a pre-cutover history fallback so a
+# single contact cannot be counted once in each table.
+CANONICAL_ANALYTICS_CUTOVER_AT = datetime.datetime(2026, 7, 20, tzinfo=datetime.timezone.utc)
 LISTING_OUTCOME_OPTIONS = {
     "sold_on_dph",
     "sold_elsewhere",
@@ -18759,7 +18763,7 @@ def get_admin_stats(current_user):
         events_resp, events_status = _fetch_all_rows(
             "/rest/v1/platform_events",
             {
-                "select": "visitor_id,user_id,session_id,page_kind,listing_type,created_at",
+                "select": "event_name,visitor_id,user_id,session_id,page_kind,listing_type,created_at",
                 "created_at": f"gte.{cutoff}",
                 "order": "created_at.desc",
             },
@@ -18918,8 +18922,29 @@ def get_admin_stats(current_user):
 
         lead_event_counts = defaultdict(int)       # raw event counts per action
         lead_unique_actors = defaultdict(set)      # unique actors per action
+        # New interactions have a canonical event row. Count those first so
+        # retries and the legacy compatibility insert cannot inflate leads.
+        for event in platform_events:
+            action = str(event.get("event_name") or "")
+            if action not in LEAD_EVENT_ACTIONS:
+                continue
+            lead_event_counts[action] += 1
+            key = _canonical_visitor_key(event)
+            if key:
+                lead_unique_actors[action].add(key)
+                unique_visitors.add(key)
+                unique_sources.add("platform_events")
+
+        # ``lead_events`` is the historical source only. Every event emitted
+        # after the canonical migration is written to both tables for legacy
+        # integrations, so including it here would double-count contacts.
         for event in lead_events:
+            created_at = _parse_datetime(event.get("created_at"))
+            if created_at and created_at >= CANONICAL_ANALYTICS_CUTOVER_AT:
+                continue
             action = str(event.get("action") or "unknown")
+            if action not in LEAD_EVENT_ACTIONS:
+                continue
             lead_event_counts[action] += 1
             key = _canonical_visitor_key(event)
             if key:

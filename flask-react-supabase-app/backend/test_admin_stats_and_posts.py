@@ -66,6 +66,8 @@ class AdminStatsTests(unittest.TestCase):
             {"visitor_id": "visitor-1", "created_at": now_iso},
             {"visitor_id": "visitor-2", "created_at": now_iso},
             {"visitor_id": "visitor-1", "created_at": now_iso},
+            {"event_name": "call_click", "visitor_id": "visitor-1", "session_id": "session-1", "created_at": now_iso},
+            {"event_name": "whatsapp_click", "visitor_id": "visitor-2", "session_id": "session-2", "created_at": now_iso},
         ]
         lead_events = [
             {"action": "call_click", "created_at": now_iso},
@@ -134,12 +136,11 @@ class AdminStatsTests(unittest.TestCase):
         self.assertEqual(payload["plates_pending"], 1)
         self.assertEqual(payload["total_users"], 3)
         self.assertEqual(payload["total_reports"], 2)
-        # lead_events fixture rows above have no user_id/visitor_id/session_id,
-        # so _canonical_visitor_key() returns None and they don't add to the
-        # unique-actor sets. Raw event counts still reflect the rows.
-        self.assertEqual(payload["total_calls"], 0)
+        # Recent legacy rows are compatibility writes; the canonical platform
+        # rows above are the source for post-cutover contacts.
+        self.assertEqual(payload["total_calls"], 1)
         self.assertEqual(payload["total_call_events"], 1)
-        self.assertEqual(payload["total_whatsapp"], 0)
+        self.assertEqual(payload["total_whatsapp"], 1)
         self.assertEqual(payload["total_whatsapp_events"], 1)
         self.assertEqual(payload["total_dealers"], 1)
 
@@ -147,6 +148,7 @@ class AdminStatsTests(unittest.TestCase):
         iso = backend._isoformat_utc
         now = backend._utc_now()
         user_a = "user-aaaa-1111"
+        old_iso = iso(backend.CANONICAL_ANALYTICS_CUTOVER_AT - backend.datetime.timedelta(days=1))
 
         platform_events = [
             {"user_id": user_a, "visitor_id": "v-anon-1", "session_id": "s1",
@@ -154,7 +156,7 @@ class AdminStatsTests(unittest.TestCase):
         ]
         lead_events = [
             {"user_id": user_a, "session_id": "s2", "action": "call_click",
-             "created_at": iso(now)},
+             "created_at": old_iso},
         ]
         users_in_window = [{"id": user_a, "created_at": iso(now)}]
 
@@ -196,7 +198,7 @@ class AdminStatsTests(unittest.TestCase):
 
     def test_total_calls_dedupes_per_actor(self):
         iso = backend._isoformat_utc
-        now = backend._utc_now()
+        now = backend.CANONICAL_ANALYTICS_CUTOVER_AT - backend.datetime.timedelta(days=1)
 
         lead_events = [
             {"user_id": "u1", "action": "call_click", "created_at": iso(now)},
@@ -233,6 +235,38 @@ class AdminStatsTests(unittest.TestCase):
                 self.assertEqual(data["total_call_events"], 3)      # raw event count
                 self.assertEqual(data["total_whatsapp"], 1)         # unique whatsappers
                 self.assertEqual(data["total_whatsapp_events"], 1)  # raw whatsapp count
+
+    def test_recent_legacy_contact_rows_do_not_double_count_canonical_events(self):
+        now_iso = backend._isoformat_utc(backend._utc_now())
+        platform_events = [
+            {"event_name": "call_click", "visitor_id": "buyer-1", "session_id": "session-1", "created_at": now_iso},
+        ]
+        lead_events = [
+            {"action": "call_click", "session_id": "session-1", "created_at": now_iso},
+        ]
+
+        def fake_supabase_request(method, path, **kwargs):
+            if "platform_events" in path:
+                return platform_events, 200
+            if "lead_events" in path:
+                return lead_events, 200
+            return [], 200
+
+        with patch("app.supabase_request", side_effect=fake_supabase_request), \
+             patch("app._fetch_listing_lifecycle_rows", return_value={"cars": [], "bikes": [], "parts": [], "plates": []}), \
+             patch("app._cached_cropped_at_pct", return_value=None), \
+             patch("app._supabase_count", return_value=1), \
+             patch("app._api_cache_get", return_value=None), \
+             patch("app._api_cache_set"), \
+             patch("app._require_admin_api_user", return_value=True), \
+             patch("services.cloudflare_analytics.is_enabled", return_value=False):
+            with backend.app.test_request_context("/api/admin/stats?days=30"):
+                payload, status_code = backend.get_admin_stats.__wrapped__("admin-1")
+
+        self.assertEqual(status_code, 200)
+        data = payload.get_json()
+        self.assertEqual(data["total_call_events"], 1)
+        self.assertEqual(data["total_calls"], 1)
 
     def test_total_views_is_window_bounded(self):
         iso = backend._isoformat_utc
