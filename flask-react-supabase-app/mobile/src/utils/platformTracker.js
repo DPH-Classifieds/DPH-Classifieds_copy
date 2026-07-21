@@ -75,7 +75,7 @@ export const trackMobilePlatformEvent = async (eventName, payload = {}) => {
       session_id: sessionId,
       visitor_id: visitorId,
       metadata: { platform: 'mobile', route: payload.route, ...payload.metadata },
-    });
+    }, { requiresAuth: false });
   } catch (_) { /* analytics never blocks UI */ }
 };
 
@@ -89,12 +89,14 @@ export const buildNavigationStateChangeHandler = (navigationRef) => {
     const name = route?.name;
     if (!name || name === lastRouteName) return;
     lastRouteName = name;
-    trackMobilePlatformEvent('page_view', {
+    const listingType = LISTING_TYPE_BY_ROUTE[name];
+    const listingId = route?.params?.listingId || route?.params?.itemId || route?.params?.carId;
+    trackMobilePlatformEvent(listingType && listingId ? 'listing_view' : 'page_view', {
       route: name,
       page_path: `/mobile/${name}`,
       page_kind: inferPageKind(name),
-      listing_type: LISTING_TYPE_BY_ROUTE[name],
-      listing_id: route?.params?.listingId || route?.params?.itemId || route?.params?.carId,
+      listing_type: listingType,
+      listing_id: listingId,
     });
   };
 };

@@ -21,7 +21,7 @@ export const trackLeadEvent = async (listingType, listingId, action, source = 'd
       platform: 'mobile',
       source: `${listingType}_${source}`,
       payload: { listing_id: listingId },
-    });
+    }, { requiresAuth: false });
   } catch (err) {
     // Silent fail — analytics never blocks UI.
   }

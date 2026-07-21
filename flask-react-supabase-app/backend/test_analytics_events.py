@@ -1,5 +1,6 @@
 import unittest
 
+import app as backend
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 
 
@@ -36,3 +37,10 @@ class AnalyticsEventTests(unittest.TestCase):
             "event_name": "button_click", "visitor_id": "visitor-1", "session_id": "session-1"
         })
         self.assertEqual(event["event_name"], "button_click")
+
+    def test_legacy_view_endpoint_does_not_mutate_a_listing_counter(self):
+        with backend.app.test_request_context("/api/cars/listing-1/view", method="POST"):
+            response, status = backend.track_car_view("listing-1")
+
+        self.assertEqual(status, 202)
+        self.assertIn("canonical analytics", response.get_json()["message"])

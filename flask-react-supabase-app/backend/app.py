@@ -6399,63 +6399,35 @@ def get_car_by_id(car_id):
         return jsonify({"error": str(e)}), 500
 
 
-def _increment_listing_view_count(table_name, listing_id):
-    try:
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-        }
+def _legacy_listing_view_response(listing_type, listing_id):
+    """Accept deprecated view pings without creating a second metric source.
 
-        response = requests.get(
-            f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{listing_id}&select=view_count",
-            headers=headers,
-            timeout=5,
-        )
-        if response.status_code != 200 or not response.json():
-            return False
-
-        current_view_count = response.json()[0].get("view_count", 0) or 0
-        update_response = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{listing_id}",
-            headers=headers,
-            json={"view_count": current_view_count + 1},
-            timeout=5,
-        )
-        return update_response.status_code in [200, 204]
-    except Exception as view_error:
-        logger.warning(
-            f"Failed to increment view count for {table_name}/{listing_id}: {view_error}"
-        )
-        return False
+    Listing views are now recorded as idempotent ``listing_view`` events. The
+    old read-then-write counter was race-prone and made its value disagree
+    with the admin dashboard, so it must never mutate listing rows again.
+    """
+    logger.info("Ignored deprecated %s view counter ping for %s", listing_type, listing_id)
+    return jsonify({"message": "Listing views are tracked by canonical analytics events"}), 202
 
 
 @app.route("/api/cars/<string:car_id>/view", methods=["POST"])
 def track_car_view(car_id):
-    if _increment_listing_view_count("cars", car_id):
-        return jsonify({"message": "View count updated"}), 200
-    return jsonify({"message": "Unable to update view count"}), 400
+    return _legacy_listing_view_response("car", car_id)
 
 
 @app.route("/api/bikes/<string:bike_id>/view", methods=["POST"])
 def track_bike_view(bike_id):
-    if _increment_listing_view_count("bikes", bike_id):
-        return jsonify({"message": "View count updated"}), 200
-    return jsonify({"message": "Unable to update view count"}), 400
+    return _legacy_listing_view_response("bike", bike_id)
 
 
 @app.route("/api/plates/<string:plate_id>/view", methods=["POST"])
 def track_plate_view(plate_id):
-    if _increment_listing_view_count("license_plates", plate_id):
-        return jsonify({"message": "View count updated"}), 200
-    return jsonify({"message": "Unable to update view count"}), 400
+    return _legacy_listing_view_response("plate", plate_id)
 
 
 @app.route("/api/parts/<string:part_id>/view", methods=["POST"])
 def track_part_view(part_id):
-    if _increment_listing_view_count("car_parts", part_id):
-        return jsonify({"message": "View count updated"}), 200
-    return jsonify({"message": "Unable to update view count"}), 400
+    return _legacy_listing_view_response("part", part_id)
 
 
 # Get user's own cars (authenticated)
