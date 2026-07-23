@@ -3157,6 +3157,18 @@ def _fetch_saved_listing_cards(current_user):
             continue
         record = records_by_type.get(listing_type, {}).get(row.get("listing_id"))
         if record and _is_listing_deleted(record):
+            # Listing was removed — delete the orphaned save so it's gone from
+            # the list AND the saved count, on web and mobile. Best-effort.
+            row_id = row.get("id")
+            if row_id:
+                try:
+                    supabase_request(
+                        "delete",
+                        f"/rest/v1/saved_listings?id=eq.{row_id}",
+                        use_service_role=True,
+                    )
+                except Exception:
+                    pass
             continue
         card = _build_saved_listing_card(listing_type, record, row)
         if not card:
@@ -19006,7 +19018,10 @@ def get_admin_stats(current_user):
             "total_views": view_counts_by_type.get("__total__", 0),
             "total_users": total_users,
             "total_reports": total_reports,
-            "total_leads": sum(lead_event_counts.get(a, 0) for a in CONTACT_LEAD_ACTIONS),
+            # Deduped: unique visitors who called/WhatsApp'd, not raw taps (a
+            # single person tapping call 3x is 1 lead, not 3). Matches total_calls/
+            # total_whatsapp and the dealer-KPI dedupe semantics.
+            "total_leads": sum(len(lead_unique_actors.get(a, set())) for a in CONTACT_LEAD_ACTIONS),
             "total_calls": len(lead_unique_actors.get("call_click", set())),
             "total_call_events": lead_event_counts.get("call_click", 0),
             "total_whatsapp": len(lead_unique_actors.get("whatsapp_click", set())),
