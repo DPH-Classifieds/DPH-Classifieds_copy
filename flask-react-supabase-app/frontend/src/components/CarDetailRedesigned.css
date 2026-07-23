@@ -368,6 +368,41 @@
   color: var(--cd-color-warning);
 }
 
+.cd-badge-reddit {
+  background-color: #ff4500;
+  color: #ffffff;
+}
+
+.cd-reddit-source {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cd-reddit-source-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cd-reddit-source-attr {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cd-color-text-primary);
+}
+
+.cd-reddit-source-disclaimer {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cd-color-text-secondary);
+}
+
+.cd-reddit-cta {
+  text-align: center;
+}
+
 .cd-divider {
   height: 0.5px;
   background-color: var(--cd-color-border-tertiary);

@@ -1,0 +1,44 @@
+{
+  "kind": "Listing",
+  "data": {
+    "after": null,
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1v4iryw",
+          "name": "t3_1v4iryw",
+          "title": "WTS: 2018 BMW 120i GCC - AED 39,000",
+          "selftext": "Clean car, 88,000 km, full service history. Contact me on +971501234567 or seller@example.com",
+          "author": "dph_seller",
+          "permalink": "/r/DubaiPetrolHeads/comments/1v4iryw/wts_2018_bmw_120i_gcc_aed_39000/",
+          "created_utc": 1753200000,
+          "over_18": false,
+          "stickied": false,
+          "distinguished": null,
+          "url": "https://i.redd.it/example-primary.jpg",
+          "preview": {
+            "images": [
+              {
+                "source": { "url": "https://preview.redd.it/example-primary.jpg?width=1080&amp;crop=smart" }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1v4wtbx",
+          "name": "t3_1v4wtbx",
+          "title": "WTB Porsche 911 - budget AED 200,000",
+          "selftext": "Looking to buy, DM me.",
+          "author": "buyer_guy",
+          "permalink": "/r/DubaiPetrolHeads/comments/1v4wtbx/wtb_porsche_911/",
+          "created_utc": 1753200500,
+          "url": ""
+        }
+      }
+    ]
+  }
+}

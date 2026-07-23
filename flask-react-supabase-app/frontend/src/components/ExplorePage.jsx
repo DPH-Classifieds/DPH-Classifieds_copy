@@ -255,6 +255,7 @@ const normalizeCar = (car) => {
     id: car.id,
     categoryKey: 'cars',
     categoryLabel: 'Car',
+    sourcePlatform: car.source_platform || null,
     title,
     year,
     kilometers: mileage,

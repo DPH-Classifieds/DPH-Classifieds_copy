@@ -171,6 +171,7 @@ def main():
         )
         from workers.inventory_import_worker import run as _run_inventory_import_once
         from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
+        from workers.reddit_import_worker import run as _run_reddit_import_once
         from workers.webhook_delivery_worker import run as _run_webhook_delivery_once
         from workers.auto_review_worker import run as _run_auto_review_once
         from health_monitoring import (
@@ -231,6 +232,9 @@ def main():
     )
     dealer_api_poll_interval_seconds = int(
         os.getenv("DEALER_API_POLL_INTERVAL_SECONDS", "60")
+    )
+    reddit_import_interval_seconds = int(
+        os.getenv("REDDIT_IMPORT_INTERVAL_SECONDS", str(4 * 60 * 60))
     )
     webhook_delivery_interval_seconds = int(
         os.getenv("WEBHOOK_DELIVERY_INTERVAL_SECONDS", "5")
@@ -363,6 +367,16 @@ def main():
         name="dealer-api-poll",
         daemon=True,
     )
+    reddit_import_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "reddit_import_worker",
+            _run_reddit_import_once,
+            reddit_import_interval_seconds,
+        ),
+        name="reddit-import",
+        daemon=True,
+    )
     webhook_delivery_thread = threading.Thread(
         target=scheduled_loop,
         args=(
@@ -402,6 +416,7 @@ def main():
     dealer_lead_agg_thread.start()
     inventory_import_thread.start()
     dealer_api_poll_thread.start()
+    reddit_import_thread.start()
     webhook_delivery_thread.start()
     auto_review_thread.start()
     price_drop_alert_thread.start()
@@ -417,6 +432,11 @@ def main():
     logger.info(
         "Webhook delivery worker started (interval=%ss)",
         webhook_delivery_interval_seconds,
+    )
+    logger.info(
+        "Reddit import worker registered (interval=%ss enabled=%s) — no fetch while disabled",
+        reddit_import_interval_seconds,
+        str(os.getenv("REDDIT_IMPORT_ENABLED", "false")),
     )
 
     cleanup_thread = None
@@ -462,6 +482,7 @@ def main():
         dealer_lead_agg_thread.join(timeout=5)
         inventory_import_thread.join(timeout=5)
         dealer_api_poll_thread.join(timeout=5)
+        reddit_import_thread.join(timeout=5)
         webhook_delivery_thread.join(timeout=5)
         auto_review_thread.join(timeout=5)
         price_drop_alert_thread.join(timeout=5)

@@ -504,6 +504,20 @@
   text-transform: uppercase;
 }
 
+.explore-v2-card-badge-reddit {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #ff4500;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .explore-v2-card-copy {
   display: flex;
   flex: 1;

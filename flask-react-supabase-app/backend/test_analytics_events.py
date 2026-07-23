@@ -38,6 +38,23 @@ class AnalyticsEventTests(unittest.TestCase):
         })
         self.assertEqual(event["event_name"], "button_click")
 
+    def test_reddit_post_open_is_listing_scoped_and_safe(self):
+        event = normalize_analytics_event({
+            "event_name": "reddit_post_open",
+            "listing_type": "cars",
+            "listing_id": "car-1",
+            "visitor_id": "visitor-1",
+            "session_id": "session-1",
+            "metadata": {"source": "reddit", "target_domain": "reddit.com", "url": "https://secret.example"},
+        })
+        self.assertEqual(event["event_name"], "reddit_post_open")
+        self.assertEqual(event["listing_type"], "car")
+        self.assertEqual(event["metadata"], {"source": "reddit", "target_domain": "reddit.com"})
+
+    def test_reddit_post_open_requires_listing_identity(self):
+        with self.assertRaises(AnalyticsEventError):
+            normalize_analytics_event({"event_name": "reddit_post_open", "visitor_id": "v", "session_id": "s"})
+
     def test_legacy_view_endpoint_does_not_mutate_a_listing_counter(self):
         with backend.app.test_request_context("/api/cars/listing-1/view", method="POST"):
             response, status = backend.track_car_view("listing-1")

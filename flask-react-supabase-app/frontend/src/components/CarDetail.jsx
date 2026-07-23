@@ -11,6 +11,7 @@ import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import SavedListingToggleButton from './SavedListingToggleButton';
+import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
 import SeoMeta from './SeoMeta';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
@@ -620,7 +621,7 @@ const CarDetail = () => {
               </div>
               
               <div className="cd-badges">
-                {car?.regional_spec && (
+                {car?.regional_spec?.includes('GCC') && (
                   <span className="cd-badge cd-badge-success">GCC Specs</span>
                 )}
                 {car?.is_insured && (
@@ -633,32 +634,46 @@ const CarDetail = () => {
 
               <div className="cd-divider"></div>
 
-	              <div className="cd-cta-buttons">
-	                <a 
-	                  href={`tel:${car?.car_owner_phone_number || car?.contact_phone || ''}`}
-	                  className="cd-button cd-button-primary"
-	                  onClick={handleCallClick}
-	                >
-	                  Call Seller
-	                </a>
-	                <a 
-	                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
-	                  target="_blank" 
-	                  rel="noopener noreferrer"
-	                  className="cd-button cd-button-secondary"
-	                  onClick={handleWhatsappClick}
-	                >
-	                  WhatsApp
-	                </a>
-	                <SavedListingToggleButton
-	                  listingType="car"
-	                  listingId={id}
-                  listingData={car}
-                  className="saved-listing-button-detail"
-                  label="Save listing"
-                  showLabel
-                />
-              </div>
+              {isRedditSourced(car) ? (
+                <div className="cd-cta-buttons">
+                  <RedditSourcePanel car={car} />
+                  <SavedListingToggleButton
+                    listingType="car"
+                    listingId={id}
+                    listingData={car}
+                    className="saved-listing-button-detail"
+                    label="Save listing"
+                    showLabel
+                  />
+                </div>
+              ) : (
+                <div className="cd-cta-buttons">
+                  <a
+                    href={`tel:${car?.car_owner_phone_number || car?.contact_phone || ''}`}
+                    className="cd-button cd-button-primary"
+                    onClick={handleCallClick}
+                  >
+                    Call Seller
+                  </a>
+                  <a
+                    href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="cd-button cd-button-secondary"
+                    onClick={handleWhatsappClick}
+                  >
+                    WhatsApp
+                  </a>
+                  <SavedListingToggleButton
+                    listingType="car"
+                    listingId={id}
+                    listingData={car}
+                    className="saved-listing-button-detail"
+                    label="Save listing"
+                    showLabel
+                  />
+                </div>
+              )}
             </div>
 
             <div className="cd-seller-card">

@@ -113,6 +113,9 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           </div>
         )}
         <span className="explore-v2-card-badge">{item.categoryLabel}</span>
+        {(item.sourcePlatform || item.source_platform) === 'reddit' ? (
+          <span className="explore-v2-card-badge-reddit">Reddit</span>
+        ) : null}
         {hasGallery ? (
           <span className="explore-v2-card-photo-count">
             {imageIndex + 1} / {galleryImages.length}

@@ -71,3 +71,32 @@ POST /api/admin/cache/flush     Flush all public listing Redis + in-memory cache
 GET /api/admin/metrics          Platform-wide KPIs
 GET /api/admin/health           Service health snapshot
 ```
+
+## Admin — Reddit import analytics
+
+```
+GET /api/admin/reddit-import-analytics?days=1..90   Admin-only; 60s cache
+```
+
+Response (no IP/user-agent, raw metadata, tokens, post bodies, or seller contact):
+
+```json
+{
+  "window_days": 30,
+  "listings": { "total": 12, "live": 10, "removed": 2, "views": 340 },
+  "opens":    { "total": 57, "unique_visitors": 41 },
+  "daily_opens": [ { "date": "2026-07-22", "count": 9 } ],
+  "top_listings": [
+    { "listing_id": "…", "title": "2018 BMW 120i", "source_url": "https://www.reddit.com/r/DubaiPetrolHeads/comments/…/", "views": 40, "opens": 12 }
+  ],
+  "latest_run": {
+    "status": "succeeded", "started_at": "…", "finished_at": "…",
+    "fetched_count": 100, "eligible_count": 6, "created_count": 4,
+    "updated_count": 2, "skipped_count": 94, "removed_count": 0,
+    "failed_count": 0, "error_summary": null
+  }
+}
+```
+
+Canonical event: `reddit_post_open` (listing-scoped, `listing_type=car`) — emitted by the
+`View original Reddit post` CTA via the global click tracker; do not infer from `link_click`.

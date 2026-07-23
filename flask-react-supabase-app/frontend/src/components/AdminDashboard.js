@@ -37,6 +37,7 @@ import {
 } from './ui/dashboard';
 import { adminListingDetailHref } from './admin/adminUtils';
 import VinRevealAnalyticsModal from './admin/VinRevealAnalyticsModal';
+import RedditImportAnalyticsPanel from './admin/RedditImportAnalyticsPanel';
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -146,6 +147,7 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({});
   const [leadMetrics, setLeadMetrics] = useState(null);
   const [contactAnalytics, setContactAnalytics] = useState(null);
+  const [redditImport, setRedditImport] = useState(null);
   const [showVinAnalytics, setShowVinAnalytics] = useState(false);
   const [history, setHistory] = useState([]);
   const [dealers, setDealers] = useState([]);
@@ -163,12 +165,14 @@ const AdminDashboard = () => {
       const {
         stats: cStats,
         leadMetrics: cLeadMetrics,
+        redditImport: cRedditImport,
         history: cHistory,
         dealers: cDealers,
         reports: cReports,
       } = cached.value;
       if (cStats) setStats(cStats);
       if (cLeadMetrics !== undefined) setLeadMetrics(cLeadMetrics);
+      if (cRedditImport !== undefined) setRedditImport(cRedditImport);
       if (Array.isArray(cHistory)) setHistory(cHistory);
       if (Array.isArray(cDealers)) setDealers(cDealers);
       if (Array.isArray(cReports)) setReports(cReports);
@@ -183,6 +187,7 @@ const AdminDashboard = () => {
         stats: cached?.value?.stats || {},
         leadMetrics: cached?.value?.leadMetrics ?? null,
         contactAnalytics: cached?.value?.contactAnalytics ?? null,
+        redditImport: cached?.value?.redditImport ?? null,
         history: Array.isArray(cached?.value?.history) ? cached.value.history : [],
         dealers: Array.isArray(cached?.value?.dealers) ? cached.value.dealers : [],
         reports: Array.isArray(cached?.value?.reports) ? cached.value.reports : [],
@@ -209,6 +214,11 @@ const AdminDashboard = () => {
             if (!active) return;
             merged.contactAnalytics = contactRes || null;
             setContactAnalytics(merged.contactAnalytics);
+          }),
+          apiClient.get(`/api/admin/reddit-import-analytics?days=${days}`).catch(() => null).then((redditRes) => {
+            if (!active) return;
+            merged.redditImport = redditRes || null;
+            setRedditImport(merged.redditImport);
           }),
           apiClient.get('/api/admin/listing-history?limit=12').catch(() => []).then((historyRes) => {
             if (!active) return;
@@ -563,6 +573,9 @@ const AdminDashboard = () => {
       </div>
 
       <VinRevealAnalyticsModal open={showVinAnalytics} onClose={() => setShowVinAnalytics(false)} listings={contactAnalytics?.vin_listings || []} days={days} />
+
+      {/* ── Reddit import health & outbound opens ─────────────────────────── */}
+      <RedditImportAnalyticsPanel data={redditImport} />
 
       {/* ── 3. Pending review queue ──────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
