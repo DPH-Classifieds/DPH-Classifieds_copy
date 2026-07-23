@@ -172,6 +172,29 @@ export default function ProfileScreen({ navigation }) {
           </Text>
         </View>
 
+        {(user?.email || user?.phone || user?.bio) && (
+          <View style={styles.infoCard}>
+            {user?.email ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="mail-outline" size={18} color={COLORS.textSecondary} />
+                <Text style={styles.infoText} numberOfLines={1}>{user.email}</Text>
+              </View>
+            ) : null}
+            {user?.phone ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="call-outline" size={18} color={COLORS.textSecondary} />
+                <Text style={styles.infoText}>{`${user.country_code || ''} ${user.phone}`.trim()}</Text>
+              </View>
+            ) : null}
+            {user?.bio ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="information-circle-outline" size={18} color={COLORS.textSecondary} />
+                <Text style={styles.infoText}>{user.bio}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
         {stats && (
           <View style={styles.statsRow}>
             <AnimatedCard style={styles.statItem}>
@@ -244,6 +267,15 @@ const styles = StyleSheet.create({
   userUsername: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
   badgesRow: { flexDirection: 'row', gap: 6, marginTop: SPACING.sm },
   memberSince: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginTop: SPACING.sm },
+  infoCard: {
+    backgroundColor: COLORS.surface, marginHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, marginBottom: SPACING.md,
+  },
+  infoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight,
+  },
+  infoText: { color: COLORS.white, fontSize: FONT_SIZES.md, flex: 1 },
   statsRow: {
     flexDirection: 'row', backgroundColor: COLORS.surface, marginHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.lg, paddingVertical: SPACING.md, marginBottom: SPACING.md,
