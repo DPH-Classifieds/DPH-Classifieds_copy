@@ -12,20 +12,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
 import { toastApiError } from '../../utils/toast';
 import apiClient from '../../utils/apiClient';
 import { useSavedListings } from '../../context/SavedListingsContext';
-import { formatPrice } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import AnimatedCard from '../../components/ui/AnimatedCard';
-import FadeInImage from '../../components/ui/FadeInImage';
+import ListingCard from '../../components/ui/ListingCard';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
-import { SPRING_FAST } from '../../constants/motion';
 import { resolveMediaUrl } from '../../utils/media';
 
 const TABS = ['Cars', 'Bikes', 'Plates', 'Parts', 'Searches'];
@@ -91,49 +88,9 @@ const getItemTitle = (item) => {
   return item.part_type || item.name || 'Listing';
 };
 
-const getItemPrice = (item) => item.expected_selling_price || item.price || 0;
-
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
-function SavedCard({ item, index, onPress, onUnsave }) {
-  const { animatedStyle } = useStaggeredEntrance(index);
-  // Local pop on the heart when un-saving, before the item animates out.
-  const heartScale = useSharedValue(1);
-  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
-  const handleUnsave = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    heartScale.value = withSpring(1.35, SPRING_FAST, () => {
-      heartScale.value = withSpring(1, SPRING_FAST);
-    });
-    onUnsave();
-  };
-  return (
-    <Animated.View style={[styles.cardWrap, animatedStyle]}>
-      <PressableScale onPress={onPress}>
-        <AnimatedCard style={styles.card}>
-          {getImageUri(item) ? (
-            <FadeInImage source={{ uri: getImageUri(item) }} style={styles.cardImage} resizeMode="cover" />
-          ) : (
-            <View style={[styles.cardImage, styles.imagePlaceholder]}>
-              <Ionicons name="image-outline" size={32} color={COLORS.textMuted} />
-            </View>
-          )}
-          <View style={styles.cardOverlay}>
-            <TouchableOpacity style={styles.heartButton} onPress={handleUnsave} activeOpacity={0.7} hitSlop={6}>
-              <Animated.View style={heartStyle}>
-                <Ionicons name="heart" size={18} color={COLORS.error} />
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{getItemTitle(item)}</Text>
-            <Text style={styles.cardPrice}>{item.priceLabel || formatPrice(getItemPrice(item))}</Text>
-          </View>
-        </AnimatedCard>
-      </PressableScale>
-    </Animated.View>
-  );
-}
+// Saved listings now render with the shared ListingCard (same look as Explore).
 
 // Horizontally-scrolling row of category chips. Each chip is sized to its
 // content with comfortable padding/spacing; the active chip is highlighted.
@@ -224,11 +181,12 @@ export default function SavedScreen({ navigation }) {
   };
 
   const renderListing = ({ item, index }) => (
-    <SavedCard
-      item={item}
+    <ListingCard
+      item={{ ...item, image: getImageUri(item), title: getItemTitle(item) }}
       index={index}
+      saved
       onPress={() => navigation.navigate(DETAIL_ROUTES[activeKey], { listingId: item.id || item.listing_id })}
-      onUnsave={() => handleUnsave(item)}
+      onSave={() => handleUnsave(item)}
     />
   );
 
@@ -299,13 +257,13 @@ export default function SavedScreen({ navigation }) {
           <LoadingSpinner message="Loading saved searches..." size="small" />
         ) : (
           <FlashList
-            estimatedItemSize={activeTab === 'Searches' ? 72 : 220}
+            estimatedItemSize={activeTab === 'Searches' ? 72 : 300}
             data={activeTab === 'Searches' ? savedSearches : items}
             renderItem={activeTab === 'Searches' ? renderSearch : renderListing}
             keyExtractor={(item, index) => activeTab === 'Searches'
               ? String(item.id || item.search_key || index)
               : String(item.id || item.listing_id)}
-            numColumns={activeTab === 'Searches' ? 1 : 2}
+            numColumns={1}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
