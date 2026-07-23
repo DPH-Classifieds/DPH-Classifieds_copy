@@ -36,6 +36,7 @@ import {
   SegmentedControl,
 } from './ui/dashboard';
 import { adminListingDetailHref } from './admin/adminUtils';
+import VinRevealAnalyticsModal from './admin/VinRevealAnalyticsModal';
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -144,6 +145,8 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
   const [stats, setStats] = useState({});
   const [leadMetrics, setLeadMetrics] = useState(null);
+  const [contactAnalytics, setContactAnalytics] = useState(null);
+  const [showVinAnalytics, setShowVinAnalytics] = useState(false);
   const [history, setHistory] = useState([]);
   const [dealers, setDealers] = useState([]);
   const [reports, setReports] = useState([]);
@@ -179,6 +182,7 @@ const AdminDashboard = () => {
       const merged = {
         stats: cached?.value?.stats || {},
         leadMetrics: cached?.value?.leadMetrics ?? null,
+        contactAnalytics: cached?.value?.contactAnalytics ?? null,
         history: Array.isArray(cached?.value?.history) ? cached.value.history : [],
         dealers: Array.isArray(cached?.value?.dealers) ? cached.value.dealers : [],
         reports: Array.isArray(cached?.value?.reports) ? cached.value.reports : [],
@@ -200,6 +204,11 @@ const AdminDashboard = () => {
             if (!active) return;
             merged.leadMetrics = leadRes || null;
             setLeadMetrics(merged.leadMetrics);
+          }),
+          apiClient.get(`/api/admin/contact-analytics?days=${days}`).catch(() => null).then((contactRes) => {
+            if (!active) return;
+            merged.contactAnalytics = contactRes || null;
+            setContactAnalytics(merged.contactAnalytics);
           }),
           apiClient.get('/api/admin/listing-history?limit=12').catch(() => []).then((historyRes) => {
             if (!active) return;
@@ -307,7 +316,7 @@ const AdminDashboard = () => {
   }, []);
 
   // ── derived values ───────────────────────────────────────────────────────
-  const totals = leadMetrics?.totals || {};
+  const contactSummary = contactAnalytics?.summary || {};
   const recentEvents = leadMetrics?.recent_events ?? EMPTY_ARRAY;
 
   const totalListingViews = useMemo(
@@ -319,10 +328,10 @@ const AdminDashboard = () => {
     [stats],
   );
 
-  const vinOpens      = clampNumber(totals.vin_open);
-  const totalLeads    = clampNumber(stats.total_leads    || totals.qualified_leads || totals.call_click || 0);
-  const totalCalls    = clampNumber(stats.total_calls    || totals.call_click  || 0);
-  const totalWhatsapp = clampNumber(stats.total_whatsapp || totals.whatsapp_click || 0);
+  const totalLeads    = clampNumber(contactSummary.unique_leads);
+  const totalCalls    = clampNumber(contactSummary.unique_callers);
+  const totalWhatsapp = clampNumber(contactSummary.unique_whatsapp_contacts);
+  const vinReveals    = clampNumber(contactSummary.unique_vin_revealers);
   const totalDealers  = clampNumber(stats.total_dealers  || dealers.length);
   const totalReports  = clampNumber(stats.total_reports  || reports.length);
   const savedSearchesTotal = clampNumber(stats.saved_searches_total);
@@ -519,8 +528,9 @@ const AdminDashboard = () => {
           { label: 'Total users',       value: clampNumber(stats.total_users),   icon: Users,         accent: 'default' },
           { label: 'Site visitors',     value: clampNumber(stats.unique_visitors),icon: Eye,           suffix: ' uniq'   },
           { label: 'Total leads',       value: totalLeads,                        icon: Target,        accent: 'emerald' },
-          { label: 'Calls',             value: totalCalls,                        icon: Phone                           },
-          { label: 'WhatsApp',          value: totalWhatsapp,                     icon: MessageSquare                   },
+          { label: 'Call taps',         value: totalCalls,                        icon: Phone                           },
+          { label: 'WhatsApp taps',     value: totalWhatsapp,                     icon: MessageSquare                   },
+          { label: 'VIN reveals',       value: vinReveals,                        icon: Fingerprint, accent: 'default', onClick: () => setShowVinAnalytics(true) },
           { label: 'Total dealers',     value: totalDealers,                      icon: Store                           },
           { label: 'Active listing views', value: totalListingViews,              icon: Activity                        },
           { label: 'Saved searches',    value: savedSearchesTotal,                icon: Target, delta: savedSearchesWindow },
@@ -532,7 +542,7 @@ const AdminDashboard = () => {
             icon: AlertTriangle,
             delta: pendingReports.length > 0 ? -pendingReports.length : undefined,
           },
-        ].map(({ label, value, icon, accent, suffix, delta }, i) => (
+        ].map(({ label, value, icon, accent, suffix, delta, onClick }, i) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 8 }}
@@ -546,29 +556,13 @@ const AdminDashboard = () => {
               accent={accent}
               suffix={suffix}
               delta={delta}
+              onClick={onClick}
             />
           </motion.div>
         ))}
       </div>
 
-      {/* ── 2b. VIN opens ────────────────────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }}>
-        <GlassCard
-          className="cursor-pointer hover:bg-white/[0.06] transition-colors"
-          onClick={() => navigate('/admin/vin-opens')}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">VIN opens</p>
-            <Fingerprint size={14} className="text-white/30" />
-          </div>
-          <p className="text-2xl font-semibold tabular-nums text-white">
-            {vinOpens.toLocaleString('en-AE')}
-          </p>
-          <p className="mt-1 text-[11px] text-white/40 flex items-center gap-1">
-            View events <ChevronRight size={11} />
-          </p>
-        </GlassCard>
-      </motion.div>
+      <VinRevealAnalyticsModal open={showVinAnalytics} onClose={() => setShowVinAnalytics(false)} listings={contactAnalytics?.vin_listings || []} days={days} />
 
       {/* ── 3. Pending review queue ──────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>

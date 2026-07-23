@@ -41,6 +41,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
+from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
 from expo_push import send_expo_push, dead_push_tokens, is_valid_expo_token
 
 try:
@@ -19800,6 +19801,76 @@ def get_admin_lead_metrics(current_user):
     except Exception as e:
         logger.error(f"Error fetching lead metrics: {str(e)}")
         return jsonify({"error": "Failed to fetch lead metrics"}), 500
+
+
+def _load_admin_contact_analytics(days):
+    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+    platform_events, platform_status = _fetch_all_rows(
+        "/rest/v1/platform_events",
+        {"select": "event_name,listing_type,listing_id,user_id,visitor_id,session_id,created_at",
+         "created_at": f"gte.{cutoff}", "order": "created_at.desc"},
+    )
+    legacy_events, legacy_status = _fetch_all_rows(
+        "/rest/v1/lead_events",
+        {"select": "action,listing_type,listing_id,user_id,session_id,payload,created_at",
+         "created_at": f"gte.{cutoff}", "order": "created_at.desc"},
+    )
+    if platform_status >= 400 or legacy_status >= 400:
+        raise RuntimeError("Failed to load contact analytics events")
+    return build_contact_analytics(platform_events or [], legacy_events or [], days, _utc_now())
+
+
+@app.route("/api/admin/contact-analytics", methods=["GET"])
+@token_required
+def get_admin_contact_analytics(current_user):
+    """The single normalized reporting source for contact and VIN engagement."""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized - Admin access required"}), 403
+    try:
+        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        cache_key = f"api-cache:admin-contact-analytics:days={days}"
+        cached = _api_cache_get(cache_key)
+        if cached is not None:
+            return jsonify(cached), 200
+        analytics = _load_admin_contact_analytics(days)
+        payload = {key: value for key, value in analytics.items() if key != "_vin_events"}
+        payload["window_days"] = days
+        _api_cache_set(cache_key, payload, ttl_seconds=60)
+        return jsonify(payload), 200
+    except Exception as exc:
+        logger.error("Failed to load normalized contact analytics: %s", exc)
+        return jsonify({"error": "Failed to fetch contact analytics"}), 500
+
+
+@app.route("/api/admin/contact-analytics/vin-listings/<item_type>/<item_id>", methods=["GET"])
+@token_required
+def get_admin_vin_listing_activity(current_user, item_type, item_id):
+    """Return safe actor-level VIN reveal history for one listing."""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized - Admin access required"}), 403
+    normalized_type = item_type.rstrip("s")
+    if not _resolve_listing_table(normalized_type):
+        return jsonify({"error": "Invalid listing type"}), 400
+    try:
+        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        activity = build_vin_listing_activity(
+            _load_admin_contact_analytics(days), normalized_type, item_id
+        )
+        # Only authenticated account ids enrich to a display name. Visitor and
+        # session ids deliberately remain an anonymous label in admin UI.
+        rows = [{**row, "user_id": row["actor_id"]} for row in activity]
+        rows = _admin_enrich_activity_rows(rows, "user_id")
+        for row in rows:
+            if not row.get("actor_username"):
+                row["actor_name"] = "Anonymous visitor"
+            row.pop("actor_email", None)
+            row.pop("actor_id", None)
+            row.pop("user_id", None)
+        return jsonify({"window_days": days, "listing_type": normalized_type,
+                        "listing_id": str(item_id), "actors": rows}), 200
+    except Exception as exc:
+        logger.error("Failed loading VIN listing activity: %s", exc)
+        return jsonify({"error": "Failed to fetch VIN reveal activity"}), 500
 
 
 @app.route("/api/user/lead-metrics", methods=["GET"])
