@@ -9859,12 +9859,18 @@ def get_user_statistics(current_user):
             if users:
                 member_since = users[0].get("created_at")
 
+        # Saved-listings count. The mobile profile card reads saved_count; without
+        # it the card showed 0 even when the user had saved items (web computes
+        # saved from a different source, which is why the two disagreed).
+        saved_count = _supabase_count("saved_listings", {"user_id": f"eq.{current_user}"})
+
         statistics = {
             "total_listings": total_listings,
             "active_listings": active_listings,
             "sold_listings": 0,  # Placeholder for future feature
             "pending_listings": pending_listings,
             "total_views": total_views,
+            "saved_count": saved_count,
             "member_since": member_since,
         }
 

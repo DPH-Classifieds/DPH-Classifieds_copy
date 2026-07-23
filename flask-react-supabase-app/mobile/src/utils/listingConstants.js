@@ -1,3 +1,5 @@
+import { carMakes, carModels } from './carData';
+
 export const UAE_EMIRATES = [
   "Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain",
   "Ras Al Khaimah", "Fujairah",
@@ -112,45 +114,13 @@ export const TAG_OPTIONS = [
   "Executive Driven", "Mallu Owned", "British Owned",
 ];
 
-export const CAR_MAKES = [
-  "Abarth", "Alfa Romeo", "Aston Martin", "Audi", "Bentley", "BMW",
-  "Cadillac", "Chevrolet", "Chrysler", "Citroen", "Dacia", "Daewoo",
-  "Daihatsu", "Dodge", "Ferrari", "Fiat", "Ford", "GAC", "Geely",
-  "Genesis", "GMC", "Great Wall", "Haval", "Holden", "Honda",
-  "Hyundai", "Infiniti", "Isuzu", "Jaguar", "Jeep", "Kia",
-  "Lamborghini", "Land Rover", "Lexus", "Lincoln", "Lotus", "Maserati",
-  "Mazda", "McLaren", "Mercedes-Benz", "MG", "Mini", "Mitsubishi",
-  "Nissan", "Opel", "Peugeot", "Porsche", "Renault", "Rolls-Royce",
-  "Rover", "Saab", "SEAT", "Skoda", "Smart", "SsangYong", "Subaru",
-  "Suzuki", "Tesla", "Toyota", "Volkswagen", "Volvo", "Zeekr",
-];
-
-export const CAR_MODELS = {
-  Toyota: ["Corolla", "Camry", "Land Cruiser", "Land Cruiser Prado", "RAV4", "Yaris", "Hilux", "Fortuner", "C-HR", "Highlander", "Supra", "Alphard", "Coaster"],
-  Nissan: ["Patrol", "X-Trail", "Altima", "Sunny", "Kicks", "Maxima", "Murano", "Navara", "GT-R", "370Z", "Sentra", "Pathfinder"],
-  BMW: ["3 Series", "5 Series", "7 Series", "X1", "X3", "X5", "X6", "X7", "M3", "M4", "M5", "Z4", "i4", "iX"],
-  "Mercedes-Benz": ["C-Class", "E-Class", "S-Class", "A-Class", "GLA", "GLC", "GLE", "GLS", "AMG GT", "CLA", "CLS", "G-Class"],
-  Audi: ["A3", "A4", "A6", "A8", "Q3", "Q5", "Q7", "Q8", "TT", "R8", "e-tron", "RS3", "RS6"],
-  Porsche: ["911", "Cayenne", "Macan", "Panamera", "Taycan", "Boxster", "Cayman"],
-  Honda: ["Civic", "Accord", "CR-V", "HR-V", "Pilot", "City", "Jazz"],
-  Hyundai: ["Tucson", "Elantra", "Sonata", "Santa Fe", "Accent", "Kona", "Palisade", "Ioniq 5"],
-  Ford: ["Explorer", "Mustang", "Edge", "Escape", "F-150", "Ranger", "Bronco"],
-  Chevrolet: ["Tahoe", "Suburban", "Silverado", "Camaro", "Malibu", "Trailblazer", "Equinox"],
-  Lexus: ["RX", "ES", "LS", "NX", "IS", "UX", "LX", "GX"],
-  "Land Rover": ["Range Rover", "Range Rover Sport", "Range Rover Velar", "Discovery", "Defender", "Discovery Sport"],
-  GAC: ["GS3", "GS4", "GS5", "GS8", "GN8", "Emkoo", "Empow"],
-  Haval: ["H6", "Jolion", "Dargo", "F7", "H9"],
-  Geely: ["Coolray", "Azkarra", "Tugella", "Emgrand", "Okavango"],
-  MG: ["ZS", "HS", "MG5", "MG6", "Marvel R", "MG4"],
-  Tesla: ["Model 3", "Model Y", "Model S", "Model X"],
-  Genesis: ["G70", "G80", "G90", "GV60", "GV70", "GV80"],
-  Mitsubishi: ["Pajero", "Outlander", "ASX", "L200", "Xpander"],
-  Suzuki: ["Jimny", "Swift", "Vitara", "Ertiga"],
-  Fiat: ["500", "Panda", "Tipo"],
-  Dodge: ["Challenger", "Charger", "Durango", "RAM"],
-  Jeep: ["Wrangler", "Grand Cherokee", "Cherokee", "Compass", "Gladiator"],
-  Kia: ["Sportage", "Sorento", "Cerato", "Stinger", "Telluride", "Seltos", "EV6"],
-};
+// Full make/model dataset (126 makes, every make with a model list) lives in
+// carData.js — the same source the web app uses. Re-export it so all consumers
+// of CAR_MAKES/CAR_MODELS (Explore filters, CarList filters, Post form) get the
+// complete list. This used to be a hand-maintained subset (62 makes, models for
+// only ~24) which left most manufacturers with an empty model picker on mobile.
+export const CAR_MAKES = carMakes;
+export const CAR_MODELS = carModels;
 
 export const REGIONAL_SPECS = ["GCC", "North American", "European", "Japanese", "Korean", "Chinese", "Other"];
 
