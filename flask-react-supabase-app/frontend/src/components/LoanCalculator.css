@@ -44,6 +44,11 @@
   font-size: 0.76rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  /* Keep every label one line so the longer "Down Payment (AED) (20%)" label
+     doesn't wrap and push its input below the single-line siblings. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .input-group input,

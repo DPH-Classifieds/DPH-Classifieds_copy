@@ -9779,35 +9779,59 @@ def get_user_statistics(current_user):
 
         base_url = app.config["SUPABASE_URL"]
 
+        # Only count the user's OWN live listings. Exclude soft-deleted rows
+        # (deleted_at) so the profile matches "My Listings" (_get_user_listing_count).
+        deleted_filter = "&deleted_at=is.null"
+
         # Count cars
         cars_response = requests.get(
-            f"{base_url}/rest/v1/cars?user_id=eq.{current_user}&select=id,status,view_count",
+            f"{base_url}/rest/v1/cars?user_id=eq.{current_user}&select=id,status,view_count{deleted_filter}",
             headers=headers,
         )
 
         # Count bikes
         bikes_response = requests.get(
-            f"{base_url}/rest/v1/bikes?user_id=eq.{current_user}&select=id,status,view_count",
+            f"{base_url}/rest/v1/bikes?user_id=eq.{current_user}&select=id,status,view_count{deleted_filter}",
             headers=headers,
         )
 
         # Count plates
         plates_response = requests.get(
-            f"{base_url}/rest/v1/license_plates?user_id=eq.{current_user}&select=id,status,view_count",
+            f"{base_url}/rest/v1/license_plates?user_id=eq.{current_user}&select=id,status,view_count{deleted_filter}",
             headers=headers,
         )
 
         # Count parts
         parts_response = requests.get(
-            f"{base_url}/rest/v1/car_parts?user_id=eq.{current_user}&select=id,status",
+            f"{base_url}/rest/v1/car_parts?user_id=eq.{current_user}&select=id,status{deleted_filter}",
             headers=headers,
         )
 
-        # Process results
-        cars = cars_response.json() if cars_response.status_code == 200 else []
-        bikes = bikes_response.json() if bikes_response.status_code == 200 else []
-        plates = plates_response.json() if plates_response.status_code == 200 else []
-        parts = parts_response.json() if parts_response.status_code == 200 else []
+        # Process results. If deleted_at column isn't present yet the query 400s,
+        # so fall back to an unfiltered fetch (mirrors _get_user_listing_count).
+        def _fetch_or_fallback(response, table, select):
+            if response.status_code == 200:
+                return response.json()
+            fb = requests.get(
+                f"{base_url}/rest/v1/{table}?user_id=eq.{current_user}&select={select}",
+                headers=headers,
+            )
+            return fb.json() if fb.status_code == 200 else []
+
+        cars = _fetch_or_fallback(cars_response, "cars", "id,status,view_count")
+        bikes = _fetch_or_fallback(bikes_response, "bikes", "id,status,view_count")
+        plates = _fetch_or_fallback(plates_response, "license_plates", "id,status,view_count")
+        parts = _fetch_or_fallback(parts_response, "car_parts", "id,status")
+
+        # Terminal statuses aren't the user's live listings; drop them so the
+        # count matches what "My Listings" shows (active + drafts they own).
+        def _is_live(item):
+            return str(item.get("status") or "").strip().lower() not in LISTING_TERMINAL_STATUSES
+
+        cars = [c for c in cars if _is_live(c)]
+        bikes = [b for b in bikes if _is_live(b)]
+        plates = [p for p in plates if _is_live(p)]
+        parts = [p for p in parts if _is_live(p)]
 
         all_listings = cars + bikes + plates + parts
 

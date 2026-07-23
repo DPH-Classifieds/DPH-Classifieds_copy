@@ -78,7 +78,9 @@ const styles = StyleSheet.create({
   resultInline: { alignItems: 'flex-end' },
   row: { flexDirection: 'row', gap: 8 },
   field: { flex: 1 },
-  label: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
+  // Fixed 2-line height so the longer "Down Payment (AED)" label wraps without
+  // pushing its input below the single-line siblings (Term / Rate).
+  label: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4, height: 30 },
   input: {
     backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md,
     borderWidth: 1, borderColor: COLORS.border, color: COLORS.white,

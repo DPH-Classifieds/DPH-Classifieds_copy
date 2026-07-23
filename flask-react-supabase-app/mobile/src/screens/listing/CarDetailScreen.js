@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -88,6 +88,7 @@ export default function CarDetailScreen({ route, navigation }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
+  const lightboxListRef = useRef(null);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
@@ -406,9 +407,8 @@ export default function CarDetailScreen({ route, navigation }) {
           {previewImageIndex > 0 && (
             <TouchableOpacity style={styles.lightboxPrev} onPress={() => {
               const newIndex = previewImageIndex - 1;
-              const uri = imageUris[newIndex];
+              lightboxListRef.current?.scrollToIndex({ index: newIndex, animated: true });
               setPreviewImageIndex(newIndex);
-              setPreviewImage(uri);
             }}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </TouchableOpacity>
@@ -416,14 +416,14 @@ export default function CarDetailScreen({ route, navigation }) {
           {previewImageIndex < imageUris.length - 1 && (
             <TouchableOpacity style={styles.lightboxNext} onPress={() => {
               const newIndex = previewImageIndex + 1;
-              const uri = imageUris[newIndex];
+              lightboxListRef.current?.scrollToIndex({ index: newIndex, animated: true });
               setPreviewImageIndex(newIndex);
-              setPreviewImage(uri);
             }}>
               <Ionicons name="chevron-forward" size={32} color="#fff" />
             </TouchableOpacity>
           )}
           <FlatList
+            ref={lightboxListRef}
             data={imageUris}
             horizontal
             pagingEnabled
@@ -443,7 +443,6 @@ export default function CarDetailScreen({ route, navigation }) {
             onMomentumScrollEnd={(e) => {
               const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
               setPreviewImageIndex(index);
-              setPreviewImage(imageUris[index]);
             }}
           />
         </View>
@@ -565,6 +564,6 @@ const styles = StyleSheet.create({
   lightboxImage: { width: '92%', height: '82%' },
   lightboxClose: { position: 'absolute', top: 50, right: 20, padding: 8, zIndex: 10 },
   lightboxCounter: { position: 'absolute', top: 55, alignSelf: 'center', color: '#fff', fontSize: 14, fontWeight: '600', zIndex: 10 },
-  lightboxPrev: { position: 'absolute', left: 10, padding: 12, zIndex: 10 },
-  lightboxNext: { position: 'absolute', right: 10, padding: 12, zIndex: 10 },
+  lightboxPrev: { position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
+  lightboxNext: { position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
 });

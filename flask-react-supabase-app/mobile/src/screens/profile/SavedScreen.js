@@ -6,6 +6,7 @@ import {
   StyleSheet,
   RefreshControl,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -129,32 +130,21 @@ function SavedCard({ item, index, onPress, onUnsave }) {
   );
 }
 
-// Animated segmented control: a single accent pill slides between segments with
-// a spring, instead of hard-swapping background colors. Width is measured on
-// layout so it works at any screen size.
+// Horizontally-scrolling row of category chips. Each chip is sized to its
+// content with comfortable padding/spacing; the active chip is highlighted.
 function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
-  const [barWidth, setBarWidth] = useState(0);
-  const segW = barWidth ? barWidth / tabs.length : 0;
-  const x = useSharedValue(0);
-
-  useEffect(() => {
-    x.value = withSpring(activeIndex * segW, SPRING_FAST);
-  }, [activeIndex, segW, x]);
-
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.value }],
-    width: segW,
-  }));
-
   return (
-    <View style={styles.segment} onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}>
-      {segW > 0 && <Animated.View style={[styles.segmentPill, pillStyle]} pointerEvents="none" />}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.chipRow}
+    >
       {tabs.map((tab, index) => {
         const active = index === activeIndex;
         return (
           <TouchableOpacity
             key={tab}
-            style={styles.segmentItem}
+            style={[styles.chip, active && styles.chipActive]}
             onPress={() => onSelect(index)}
             activeOpacity={0.8}
           >
@@ -163,7 +153,7 @@ function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
               size={15}
               color={active ? COLORS.accent : COLORS.textMuted}
             />
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]} numberOfLines={1}>
+            <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
               {tab}
             </Text>
             {counts[index] > 0 && (
@@ -176,7 +166,7 @@ function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -369,36 +359,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  segment: {
-    flexDirection: 'row',
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.pill,
-    padding: 4,
-  },
-  segmentPill: {
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    left: 4,
-    backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.pill,
-  },
-  segmentItem: {
-    flex: 1,
+  chipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 9,
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
-  segmentText: {
-    fontSize: FONT_SIZES.xs,
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  chipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.accent,
+  },
+  chipText: {
+    fontSize: FONT_SIZES.sm,
     fontWeight: '600',
     color: COLORS.textMuted,
   },
-  segmentTextActive: {
+  chipTextActive: {
     color: COLORS.accent,
   },
   segmentBadge: {
