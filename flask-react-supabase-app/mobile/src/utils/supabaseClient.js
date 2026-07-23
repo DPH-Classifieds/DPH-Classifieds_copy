@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { SUPABASE_URL, SUPABASE_KEY } from '../constants/config';
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -26,11 +27,17 @@ export const getSession = async () => {
   }
 };
 
-// Deep-link target Supabase redirects to after Google completes. Matches the
-// scheme declared in app.json ("dphclassifieds"). Must be added as an
-// allowed redirect in Supabase → Auth → URL Configuration → Additional
-// Redirect URLs as `dphclassifieds://auth-callback`.
-const MOBILE_REDIRECT_URL = Linking.createURL('auth-callback');
+// Deep-link target Supabase redirects to after Google completes.
+// In Expo Go the app is only reachable via the exp:// dev URL, so use
+// Linking.createURL (-> exp://<host>/--/auth-callback) which returns to Expo Go.
+// In ANY real build (dev client, preview, or the deployed/production app) use the
+// app's own custom scheme so the redirect returns to the INSTALLED app, not Expo Go.
+// Both must be added in Supabase → Auth → URL Configuration → Redirect URLs
+// (the exp:// dev URL for testing, and `dphclassifieds://auth-callback` for the build).
+const inExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const MOBILE_REDIRECT_URL = inExpoGo
+  ? Linking.createURL('auth-callback')
+  : 'dphclassifieds://auth-callback';
 
 const parseHashParams = (url) => {
   if (!url) return null;
@@ -66,6 +73,11 @@ export const signInWithGoogle = async () => {
     });
     if (error) throw error;
     if (!data?.url) throw new Error('Google sign-in unavailable. Try again.');
+
+    // Print the exact redirect URL that must be whitelisted in Supabase
+    // (Auth -> URL Configuration -> Redirect URLs). In Expo Go this is an
+    // exp://<LAN-IP>:<port>/--/auth-callback URL that changes per machine/network.
+    console.log('[GoogleAuth] Add this to Supabase Redirect URLs:', MOBILE_REDIRECT_URL);
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, MOBILE_REDIRECT_URL);
     if (result.type !== 'success' || !result.url) {
