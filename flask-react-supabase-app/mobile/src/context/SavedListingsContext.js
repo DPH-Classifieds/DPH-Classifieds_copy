@@ -29,7 +29,23 @@ export const SavedListingsProvider = ({ children }) => {
     try {
       setLoading(true);
       const data = await apiClient.get('/api/user/saved-listings');
-      if (data && typeof data === 'object') {
+      const KEY = {
+        car: 'cars', cars: 'cars', bike: 'bikes', bikes: 'bikes',
+        plate: 'plates', plates: 'plates', part: 'parts', parts: 'parts',
+      };
+      if (Array.isArray(data?.items)) {
+        // Backend returns a flat { items: [...] } list (each card carries a
+        // singular listing_type). Group it into the per-type buckets the app
+        // uses. Previously this read data.cars/.bikes (which don't exist), so
+        // saved listings never showed up.
+        const grouped = { cars: [], bikes: [], plates: [], parts: [] };
+        data.items.forEach((it) => {
+          const key = KEY[it.listing_type];
+          if (key) grouped[key].push({ ...it, listing_type: key });
+        });
+        setSavedListings(grouped);
+      } else if (data && typeof data === 'object') {
+        // Backward-compat: a pre-grouped { cars, bikes, plates, parts } shape.
         setSavedListings({
           cars: data.cars || [],
           bikes: data.bikes || [],
