@@ -3156,9 +3156,10 @@ def _fetch_saved_listing_cards(current_user):
         if not listing_type:
             continue
         record = records_by_type.get(listing_type, {}).get(row.get("listing_id"))
-        if record and _is_listing_deleted(record):
-            # Listing was removed — delete the orphaned save so it's gone from
-            # the list AND the saved count, on web and mobile. Best-effort.
+        status = (record or {}).get("status")
+        # Permanently removed (deleted / sold / rejected): purge the orphaned save
+        # so it's gone from the list AND the saved count on web + mobile. Best-effort.
+        if record and (_is_listing_deleted(record) or status in LISTING_TERMINAL_STATUSES):
             row_id = row.get("id")
             if row_id:
                 try:
@@ -3169,6 +3170,10 @@ def _fetch_saved_listing_cards(current_user):
                     )
                 except Exception:
                     pass
+            continue
+        # Not currently available (missing/expired/pending): hide from saved but
+        # keep the save row — an expired listing may be renewed later.
+        if not record or status not in ("approved", "active"):
             continue
         card = _build_saved_listing_card(listing_type, record, row)
         if not card:
@@ -9871,10 +9876,14 @@ def get_user_statistics(current_user):
             if users:
                 member_since = users[0].get("created_at")
 
-        # Saved-listings count. The mobile profile card reads saved_count; without
-        # it the card showed 0 even when the user had saved items (web computes
-        # saved from a different source, which is why the two disagreed).
-        saved_count = _supabase_count("saved_listings", {"user_id": f"eq.{current_user}"})
+        # Saved-listings count. Use the same source as the Saved list so the count
+        # matches exactly (only currently-available listings, orphans purged) — a
+        # raw saved_listings row count would include removed/expired items.
+        try:
+            saved_payload, saved_status = _fetch_saved_listing_cards(current_user)
+            saved_count = saved_payload.get("total", 0) if saved_status < 400 else 0
+        except Exception:
+            saved_count = 0
 
         statistics = {
             "total_listings": total_listings,

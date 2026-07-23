@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../utils/apiClient';
+import { resolveMediaUrl } from '../../utils/media';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { isPushEnabledPref, setPushEnabledPref } from '../../utils/pushNotifications';
@@ -45,7 +46,7 @@ export default function SettingsScreen({ navigation }) {
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [whatsappNumber, setWhatsappNumber] = useState(user?.whatsapp_number || '');
-  const [profilePhoto, setProfilePhoto] = useState(user?.profile_photo || user?.avatar_url || null);
+  const [profilePhoto, setProfilePhoto] = useState(user?.profile_photo_url || user?.profile_photo || user?.avatar_url || null);
   const [saving, setSaving] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState(null);
   const [usernameChecking, setUsernameChecking] = useState(false);
@@ -133,12 +134,14 @@ export default function SettingsScreen({ navigation }) {
       const filename = uri.split('/').pop();
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
-      formData.append('photo', { uri, name: filename, type });
+      // Backend upload_profile_photo reads request.files["profile_photo"].
+      formData.append('profile_photo', { uri, name: filename, type });
 
       const data = await apiClient.post('/api/user/upload-profile-photo', formData);
-      if (data?.profile_photo) {
-        setProfilePhoto(data.profile_photo);
-        updateUser({ profile_photo: data.profile_photo });
+      const photoUrl = data?.profile_photo_url || data?.profile_photo;
+      if (photoUrl) {
+        setProfilePhoto(photoUrl);
+        updateUser({ profile_photo_url: photoUrl });
       }
     } catch (err) {
       Alert.alert('Upload failed', err.message || 'Failed to upload photo. Please try again.');
@@ -296,7 +299,7 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.photoSection}>
           <TouchableOpacity onPress={pickImage} style={styles.photoContainer} activeOpacity={0.7}>
             {profilePhoto ? (
-              <Image source={{ uri: profilePhoto }} style={styles.photo} />
+              <Image source={{ uri: resolveMediaUrl(profilePhoto) }} style={styles.photo} />
             ) : (
               <View style={styles.photoPlaceholder}>
                 <Ionicons name="camera-outline" size={32} color={COLORS.textMuted} />

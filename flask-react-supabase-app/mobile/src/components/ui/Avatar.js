@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { resolveMediaUrl } from '../../utils/media';
 
 const PALETTE = [
   '#1b5e20',
@@ -33,10 +34,12 @@ function getColor(name) {
 }
 
 export default function Avatar({ uri, name, size = 40 }) {
-  if (uri) {
+  // Resolve relative/storage paths to absolute URLs (passes full URLs through).
+  const resolved = resolveMediaUrl(uri);
+  if (resolved) {
     return (
       <Image
-        source={{ uri }}
+        source={{ uri: resolved }}
         style={[
           styles.image,
           { width: size, height: size, borderRadius: size / 2 },

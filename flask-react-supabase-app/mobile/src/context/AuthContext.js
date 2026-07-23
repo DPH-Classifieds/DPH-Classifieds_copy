@@ -15,8 +15,8 @@ const NEW_USER_WINDOW_SECONDS = 120;
 const CACHED_USER_KEY = 'cached_user_v1';
 const CACHED_USER_FIELDS = [
   'id', 'email', 'first_name', 'last_name', 'username', 'display_name',
-  'full_name', 'profile_photo', 'avatar_url', 'phone_verified', 'is_dealer',
-  'is_admin', 'created_at', 'phone', 'country_code', 'bio',
+  'full_name', 'profile_photo', 'profile_photo_url', 'avatar_url', 'phone_verified',
+  'is_dealer', 'is_admin', 'created_at', 'phone', 'country_code', 'bio',
 ];
 
 const persistUserSnapshot = (u) => {

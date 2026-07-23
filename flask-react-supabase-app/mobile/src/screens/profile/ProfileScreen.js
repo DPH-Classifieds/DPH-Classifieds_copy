@@ -155,7 +155,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <View style={styles.userCard}>
-          <Avatar uri={user?.profile_photo || user?.avatar_url} name={user?.first_name || user?.email} size={72} />
+          <Avatar uri={user?.profile_photo_url || user?.profile_photo || user?.avatar_url} name={user?.first_name || user?.email} size={72} />
           <Text style={styles.userName}>
             {user?.first_name
               ? `${user.first_name} ${user.last_name || ''}`.trim()
