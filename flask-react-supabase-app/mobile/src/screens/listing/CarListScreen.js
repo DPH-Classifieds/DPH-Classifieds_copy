@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   Image,
   StyleSheet,
@@ -104,6 +105,10 @@ export default function CarListScreen({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const [filterModal, setFilterModal] = useState(null);
+  // Search box inside long option modals (make/model/city). Cleared each time a
+  // different modal opens.
+  const [optionSearch, setOptionSearch] = useState('');
+  useEffect(() => { setOptionSearch(''); }, [filterModal]);
   const [activeFilters, setActiveFilters] = useState({
     make: '',
     model: '',
@@ -308,6 +313,12 @@ export default function CarListScreen({ navigation }) {
       options = ['All', ...TRANSMISSION_TYPES];
     }
 
+    // Long lists (make/model/city, or any >12 options) get a type-to-search box.
+    const searchable = ['make', 'model', 'city'].includes(filterModal) || options.length > 12;
+    const shownOptions = (searchable && optionSearch.trim())
+      ? options.filter((o) => o === 'All' || String(o).toLowerCase().includes(optionSearch.trim().toLowerCase()))
+      : options;
+
     return (
       <Modal visible transparent animationType="fade" onRequestClose={() => setFilterModal(null)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setFilterModal(null)}>
@@ -318,8 +329,24 @@ export default function CarListScreen({ navigation }) {
                 <Ionicons name="close" size={22} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalOptions}>
-              {options.map((opt) => {
+            {searchable && (
+              <View style={styles.modalSearchWrap}>
+                <Ionicons name="search" size={16} color={COLORS.textMuted} />
+                <TextInput
+                  style={styles.modalSearchInput}
+                  value={optionSearch}
+                  onChangeText={setOptionSearch}
+                  placeholder={`Search ${title.toLowerCase()}...`}
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
+            <ScrollView style={styles.modalOptions} keyboardShouldPersistTaps="handled">
+              {shownOptions.length === 0 && (
+                <Text style={styles.modalEmptyText}>No matches</Text>
+              )}
+              {shownOptions.map((opt) => {
                 const isSelected = filterModal === 'priceRange'
                   ? (activeFilters.priceRange?.label || 'Any') === opt
                   : selected === (opt === 'All' ? '' : opt);
@@ -559,6 +586,30 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: FONT_SIZES.lg,
     fontWeight: '600',
+  },
+  modalSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalSearchInput: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    padding: 0,
+  },
+  modalEmptyText: {
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    paddingVertical: SPACING.lg,
   },
   modalOptions: {
     padding: SPACING.sm,
