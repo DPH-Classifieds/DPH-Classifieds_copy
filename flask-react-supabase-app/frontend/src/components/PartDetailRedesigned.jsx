@@ -7,6 +7,7 @@ import { getAccessToken } from '../utils/supabaseClient';
 import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
+import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
@@ -380,8 +381,21 @@ const PartDetailRedesigned = () => {
 
               <div className="cd-divider"></div>
 
+              {isRedditSourced(part) ? (
+                <div className="cd-cta-buttons">
+                  <RedditSourcePanel car={part} listingType="part" listingId={id} />
+                  <SavedListingToggleButton
+                    listingType="part"
+                    listingId={id}
+                    listingData={part}
+                    className="saved-listing-button-detail"
+                    label="Save listing"
+                    showLabel
+                  />
+                </div>
+              ) : (
               <div className="cd-cta-buttons">
-                <a 
+                <a
                   href={`tel:${part?.contact_number || ''}`}
                   className="cd-button cd-button-primary"
                   onClick={(event) => {
@@ -394,9 +408,9 @@ const PartDetailRedesigned = () => {
                 >
                   Call Seller
                 </a>
-                <a 
+                <a
                   href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
-                  target="_blank" 
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"
                   onClick={(event) => {
@@ -418,6 +432,7 @@ const PartDetailRedesigned = () => {
                   showLabel
                 />
               </div>
+              )}
             </div>
 
             <div className="cd-seller-card">

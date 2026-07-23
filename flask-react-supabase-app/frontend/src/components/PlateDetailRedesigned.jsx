@@ -7,6 +7,7 @@ import { getAccessToken } from '../utils/supabaseClient';
 import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
+import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
@@ -299,8 +300,21 @@ const PlateDetailRedesigned = () => {
 
               <div className="cd-divider"></div>
 
+              {isRedditSourced(plate) ? (
+                <div className="cd-cta-buttons">
+                  <RedditSourcePanel car={plate} listingType="plate" listingId={id} />
+                  <SavedListingToggleButton
+                    listingType="plate"
+                    listingId={id}
+                    listingData={plate}
+                    className="saved-listing-button-detail"
+                    label="Save listing"
+                    showLabel
+                  />
+                </div>
+              ) : (
               <div className="cd-cta-buttons">
-                <a 
+                <a
                   href={`tel:${plate?.contact_phone || ''}`}
                   className="cd-button cd-button-primary"
                   onClick={(event) => {
@@ -313,9 +327,9 @@ const PlateDetailRedesigned = () => {
                 >
                   Call Seller
                 </a>
-                <a 
+                <a
                   href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
-                  target="_blank" 
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="cd-button cd-button-secondary"
                   onClick={(event) => {
@@ -337,6 +351,7 @@ const PlateDetailRedesigned = () => {
                   showLabel
                 />
               </div>
+              )}
             </div>
 
             <div className="cd-seller-card">

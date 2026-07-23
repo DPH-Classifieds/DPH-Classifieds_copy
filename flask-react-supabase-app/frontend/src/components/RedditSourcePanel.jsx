@@ -16,9 +16,12 @@ export function isRedditSourced(car) {
 // Source attribution + the single canonical outbound CTA. The global
 // PlatformAnalyticsTracker click handler reads the data-* attributes and emits
 // exactly one `reddit_post_open` event — no onClick network call here.
-export default function RedditSourcePanel({ car }) {
+// `car` is any imported listing (car/bike/plate/part); listingType/listingId
+// tag the analytics event to the right category.
+export default function RedditSourcePanel({ car, listingType = 'car', listingId }) {
   if (!isRedditSourced(car)) return null;
   const author = car.source_author ? `u/${car.source_author}` : 'a Reddit user';
+  const id = listingId != null ? listingId : car.id;
   return (
     <div className="cd-reddit-source">
       <div className="cd-reddit-source-head">
@@ -35,8 +38,8 @@ export default function RedditSourcePanel({ car }) {
         className="cd-button cd-button-primary cd-reddit-cta"
         data-analytics-event="reddit_post_open"
         data-analytics-intent="view_original_reddit_post"
-        data-listing-type="car"
-        data-listing-id={car.id}
+        data-listing-type={listingType}
+        data-listing-id={id}
         data-analytics-label="View original Reddit post"
       >
         View original Reddit post

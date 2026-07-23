@@ -1,15 +1,16 @@
 """Four-hourly Reddit sale-post importer (backend worker only).
 
-Fetches the newest posts from r/DubaiPetrolHeads, parses eligible sale posts,
-and idempotently upserts them into `cars` + `car_images` under the DPH
-Classifieds owner via the service role. Dedupe key: cars.source_external_id.
+Fetches the newest posts from r/DubaiPetrolHeads, classifies + parses eligible
+sale posts, and idempotently upserts them into the correct table
+(cars/bikes/license_plates/car_parts) + its images table, under the DPH
+Classifieds owner via the service role. Dedupe key: <table>.source_external_id.
 Removal is confirmed per-post via a bounded /api/info verification pass — never
 inferred from "fell out of the newest window". Every run is audited in
 `reddit_import_runs`.
 
 Self-contained (no `app` import) so it is safely unit-testable and matches the
 dealer_api_source_poller pattern. Cache invalidation is left to the public
-/api/cars 5-minute TTL — negligible against a 4-hour import cycle.
+5-minute TTL — negligible against a 4-hour import cycle.
 # ponytail: TTL-based cache refresh; wire explicit invalidation if 5min latency matters.
 """
 import logging
@@ -19,11 +20,12 @@ from datetime import datetime, timezone
 import requests
 
 from services.reddit_import import (
-    build_imported_car_payload,
+    LISTING_TABLES,
+    build_imported_payload,
     fetch_new_submissions,
     fetch_submissions_by_ids,
     get_app_access_token,
-    parse_sale_post,
+    parse_listing,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,7 +38,7 @@ DEFAULT_SUBREDDIT = os.getenv("REDDIT_IMPORT_SUBREDDIT", "DubaiPetrolHeads")
 EXPECTED_OWNER_EMAIL = os.getenv("REDDIT_IMPORT_OWNER_EMAIL", "admin@dphclassifieds.com").strip().lower()
 
 _SESSION = requests.Session()
-_REMOVAL_CHECK_CAP = 300  # bounded: at most 3 /api/info calls per run.
+_REMOVAL_CHECK_CAP = 300  # bounded: at most 3 /api/info calls per run per table.
 # ponytail: 300-id ceiling on removal verification; raise if the live pool grows.
 
 
@@ -105,7 +107,7 @@ def _finish_run(run_id, status, counts=None, error_summary=None):
 
 
 def _record_failed_run(subreddit, error_summary):
-    body, status = supabase_request(
+    supabase_request(
         "post", "/rest/v1/reddit_import_runs",
         data={
             "subreddit": subreddit, "status": "failed",
@@ -136,13 +138,13 @@ def _validate_owner(owner_id):
 
 # --- Upsert -----------------------------------------------------------------
 
-def _fetch_existing_by_source_ids(source_ids):
-    """Return {source_external_id: car_id} for the given reddit source ids."""
+def _fetch_existing_by_source_ids(table, source_ids):
+    """Return {source_external_id: row_id} for the given reddit source ids in a table."""
     ids = [s for s in source_ids if s]
     if not ids:
         return {}
     body, status = supabase_request(
-        "get", "/rest/v1/cars",
+        "get", f"/rest/v1/{table}",
         params={
             "select": "id,source_external_id",
             "source_platform": "eq.reddit",
@@ -154,100 +156,91 @@ def _fetch_existing_by_source_ids(source_ids):
     return {r["source_external_id"]: r["id"] for r in body if r.get("source_external_id")}
 
 
-def _sync_primary_image(car_id, image_url):
-    """Ensure exactly one primary imported image, matching the current source URL."""
-    if not (car_id and image_url):
+def _sync_primary_image(config, row_id, image_url):
+    """Ensure exactly one primary imported image matching the current source URL."""
+    if not (row_id and image_url):
         return
+    images_table, fk = config["images_table"], config["fk"]
     body, status = supabase_request(
-        "get", "/rest/v1/car_images",
-        params={"select": "id,image_url,is_primary", "car_id": f"eq.{car_id}"},
+        "get", f"/rest/v1/{images_table}",
+        params={"select": f"id,image_url", fk: f"eq.{row_id}"},
     )
     existing = body if (status < 400 and isinstance(body, list)) else []
     if any(img.get("image_url") == image_url for img in existing):
         return  # unchanged
-    # Drop stale imported images then insert the fresh primary.
     if existing:
-        supabase_request("delete", f"/rest/v1/car_images?car_id=eq.{car_id}")
+        supabase_request("delete", f"/rest/v1/{images_table}?{fk}=eq.{row_id}")
     supabase_request(
-        "post", "/rest/v1/car_images",
-        data={"car_id": car_id, "image_url": image_url, "url": image_url, "is_primary": True},
+        "post", f"/rest/v1/{images_table}",
+        data={fk: row_id, "image_url": image_url, "url": image_url, "is_primary": True},
     )
 
 
-def _upsert_car(parsed, owner_id, existing_map, now, counts):
-    payload = build_imported_car_payload(parsed, owner_id, now)
-    car_id = existing_map.get(parsed.source_id)
-    if car_id:
-        # Re-observe: refresh everything except the immutable create timestamp,
-        # and republish (clear any prior source_removed_at).
+def _upsert_listing(parsed, owner_id, existing_map, now, counts):
+    built = build_imported_payload(parsed, owner_id, now)
+    config, payload = built["config"], built["payload"]
+    table = config["table"]
+    row_id = existing_map.get(parsed.source_id)
+    if row_id:
         update = {k: v for k, v in payload.items() if k != "source_created_at"}
-        _, status = supabase_request("patch", f"/rest/v1/cars?id=eq.{car_id}", data=update)
+        _, status = supabase_request("patch", f"/rest/v1/{table}?id=eq.{row_id}", data=update)
         if status >= 400:
             counts["failed"] += 1
             return
         counts["updated"] += 1
     else:
-        body, status = supabase_request("post", "/rest/v1/cars", data=payload)
+        body, status = supabase_request("post", f"/rest/v1/{table}", data=payload)
         if status >= 400 or not (isinstance(body, list) and body):
             counts["failed"] += 1
-            logger.warning("reddit_import: car insert failed status=%s", status)
+            logger.warning("reddit_import: %s insert failed status=%s body=%s", table, status, str(body)[:200])
             return
-        car_id = body[0].get("id")
+        row_id = body[0].get("id")
         counts["created"] += 1
-    _sync_primary_image(car_id, parsed.image_url)
+    _sync_primary_image(config, row_id, parsed.image_url)
 
 
 # --- Removal sync -----------------------------------------------------------
 
 def sync_removed_imports(session, access_token, live_source_ids, user_agent, now):
-    """Unpublish previously-imported cars whose source post is confirmed removed.
-
-    A car is a *candidate* only if its source id was NOT seen in this run's fresh
-    fetch (live_source_ids). Each candidate is then verified via /api/info: absent
-    from the response, or flagged removed/deleted, means it is truly gone. Falling
-    out of the 100-post window alone never triggers removal.
-    """
-    body, status = supabase_request(
-        "get", "/rest/v1/cars",
-        params={
-            "select": "id,source_external_id",
-            "source_platform": "eq.reddit",
-            "source_removed_at": "is.null",
-        },
-    )
-    if status >= 400 or not isinstance(body, list):
-        return {"removed": 0, "checked": 0}
-
-    candidates = [
-        r for r in body
-        if r.get("source_external_id") and r["source_external_id"] not in live_source_ids
-    ][:_REMOVAL_CHECK_CAP]
-    if not candidates:
-        return {"removed": 0, "checked": 0}
-
-    candidate_ids = [r["source_external_id"] for r in candidates]
-    found = {}
-    if access_token:
-        try:
-            found = fetch_submissions_by_ids(session, access_token, candidate_ids, user_agent)
-        except Exception as exc:
-            logger.warning("reddit_import: removal verification fetch failed: %s", exc)
-            return {"removed": 0, "checked": len(candidates)}
-
-    removed = 0
-    for row in candidates:
-        sid = row["source_external_id"]
-        sub = found.get(sid)
-        if sub is not None and not sub.is_removed_or_deleted:
-            continue  # still live upstream — leave published
-        _, st = supabase_request(
-            "patch", f"/rest/v1/cars?id=eq.{row['id']}",
-            data={"status": "source_removed", "is_approved": False,
-                  "source_removed_at": now.isoformat()},
+    """Unpublish previously-imported rows (across all tables) whose source post is
+    confirmed removed. A row is a candidate only if its source id was NOT in this
+    run's fresh fetch; each candidate is then verified via /api/info."""
+    removed = checked = 0
+    for cat, config in LISTING_TABLES.items():
+        table = config["table"]
+        body, status = supabase_request(
+            "get", f"/rest/v1/{table}",
+            params={"select": "id,source_external_id", "source_platform": "eq.reddit",
+                    "source_removed_at": "is.null"},
         )
-        if st < 400:
-            removed += 1
-    return {"removed": removed, "checked": len(candidates)}
+        if status >= 400 or not isinstance(body, list):
+            continue
+        candidates = [r for r in body
+                      if r.get("source_external_id") and r["source_external_id"] not in live_source_ids
+                      ][:_REMOVAL_CHECK_CAP]
+        if not candidates:
+            continue
+        checked += len(candidates)
+        found = {}
+        if access_token:
+            try:
+                found = fetch_submissions_by_ids(
+                    session, access_token, [r["source_external_id"] for r in candidates], user_agent)
+            except Exception as exc:
+                logger.warning("reddit_import: removal verification failed for %s: %s", table, exc)
+                continue
+        for row in candidates:
+            sub = found.get(row["source_external_id"])
+            if sub is not None and not sub.is_removed_or_deleted:
+                continue  # still live upstream
+            _, st = supabase_request(
+                "patch", f"/rest/v1/{table}?id=eq.{row['id']}",
+                data={"status": "source_removed", "is_approved": False,
+                      "source_removed_at": now.isoformat()},
+            )
+            if st < 400:
+                removed += 1
+    return {"removed": removed, "checked": checked}
 
 
 # --- Orchestration ----------------------------------------------------------
@@ -286,22 +279,27 @@ def run():
         subs = fetch_new_submissions(_SESSION, token, subreddit, max_posts, user_agent)
         counts["fetched"] = len(subs)
 
-        parsed_list = []
+        # Parse + group eligible listings by category (dedupe is per-table).
+        by_category = {cat: [] for cat in LISTING_TABLES}
         for sub in subs:
-            parsed = parse_sale_post(sub, now)
-            if parsed:
-                parsed_list.append(parsed)
+            parsed = parse_listing(sub, now)
+            if parsed and parsed.category in by_category:
+                by_category[parsed.category].append(parsed)
             else:
                 counts["skipped"] += 1
-        counts["eligible"] = len(parsed_list)
+        counts["eligible"] = sum(len(v) for v in by_category.values())
 
-        existing_map = _fetch_existing_by_source_ids([p.source_id for p in parsed_list])
-        for parsed in parsed_list:
-            try:
-                _upsert_car(parsed, owner_id, existing_map, now, counts)
-            except Exception:
-                counts["failed"] += 1
-                logger.exception("reddit_import: upsert error for %s", parsed.source_id)
+        for cat, parsed_list in by_category.items():
+            if not parsed_list:
+                continue
+            table = LISTING_TABLES[cat]["table"]
+            existing_map = _fetch_existing_by_source_ids(table, [p.source_id for p in parsed_list])
+            for parsed in parsed_list:
+                try:
+                    _upsert_listing(parsed, owner_id, existing_map, now, counts)
+                except Exception:
+                    counts["failed"] += 1
+                    logger.exception("reddit_import: upsert error for %s", parsed.source_id)
 
         live_ids = {sub.id for sub in subs}
         counts["removed"] = sync_removed_imports(_SESSION, token, live_ids, user_agent, now)["removed"]

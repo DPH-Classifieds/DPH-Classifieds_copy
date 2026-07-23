@@ -198,6 +198,58 @@ class FetchTests(unittest.TestCase):
             fetch_new_submissions(session, "tok", "sub", 100, "ua")
 
 
+from services.reddit_import import parse_listing, build_imported_payload
+
+
+class MultiCategoryTests(unittest.TestCase):
+    def _p(self, title, id="x"):
+        return parse_listing(submission(title=title, id=id, images=[IMG]), NOW)
+
+    def test_car_selftext_full_of_part_nouns_is_still_a_car(self):
+        sub = submission(title="WTS: 2018 BMW 120i GCC AED 39,000",
+                         selftext="New tyres, wheels, brakes, exhaust, leather seats", id="c", images=[IMG])
+        p = parse_listing(sub, NOW)
+        self.assertEqual(p.category, "car")
+
+    def test_bike_make_routes_to_bikes(self):
+        p = self._p("WTS: Ducati Panigale V2 2022 AED 75,000")
+        self.assertEqual(p.category, "bike")
+        built = build_imported_payload(p, "owner", NOW)
+        self.assertEqual(built["config"]["table"], "bikes")
+        self.assertEqual(built["payload"]["bike_brand"], "Ducati")
+        self.assertEqual(built["payload"]["price"], 75000)
+
+    def test_ambiguous_make_needs_bike_signal(self):
+        self.assertEqual(self._p("WTS BMW S1000RR 2021 AED 60,000").category, "bike")
+        self.assertEqual(self._p("WTS BMW 320i 2019 AED 60,000").category, "car")
+
+    def test_part_keyword_in_title_routes_to_parts(self):
+        p = self._p("WTS BBS wheels for BMW AED 3,000")
+        self.assertEqual(p.category, "part")
+        built = build_imported_payload(p, "owner", NOW)
+        self.assertEqual(built["config"]["table"], "car_parts")
+        self.assertEqual(built["payload"]["part_type"], "Wheels & Tires")
+
+    def test_plate_routes_to_license_plates(self):
+        p = self._p("WTS number plate 12345 Dubai AED 25,000")
+        self.assertEqual(p.category, "plate")
+        built = build_imported_payload(p, "owner", NOW)
+        self.assertEqual(built["config"]["table"], "license_plates")
+        self.assertEqual(built["payload"]["number"], "12345")
+
+    def test_every_category_payload_carries_source_contract(self):
+        for title in ["WTS 2018 BMW 120i AED 39,000", "WTS Yamaha MT-09 2022 AED 40,000",
+                      "WTS exhaust for Golf AED 2,000", "WTS plate 5555 AED 30,000"]:
+            p = self._p(title)
+            self.assertIsNotNone(p, title)
+            built = build_imported_payload(p, "owner-uuid", NOW)
+            pay = built["payload"]
+            self.assertEqual(pay["source_platform"], "reddit")
+            self.assertEqual(pay["user_id"], "owner-uuid")
+            self.assertEqual(pay["status"], "approved")
+            self.assertTrue(pay["source_url"].startswith("https://www.reddit.com/r/"))
+
+
 OWNER_ID = "11111111-1111-1111-1111-111111111111"
 _ENV = {
     "REDDIT_IMPORT_ENABLED": "true",

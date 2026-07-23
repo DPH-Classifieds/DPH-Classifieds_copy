@@ -297,6 +297,7 @@ const normalizeBike = (bike) => {
     id: bike.id,
     categoryKey: 'bikes',
     categoryLabel: 'Bike',
+    sourcePlatform: bike.source_platform || null,
     title,
     subtitle: [bikeType, bike.engine_size || bike.engine_capacity ? `${bike.engine_size || bike.engine_capacity} cc` : null, location]
       .filter(Boolean)
@@ -332,6 +333,7 @@ const normalizePart = (part) => {
     id: part.id,
     categoryKey: 'car-parts',
     categoryLabel: 'Car Part',
+    sourcePlatform: part.source_platform || null,
     title,
     subtitle: [category, location].filter(Boolean).join(' • '),
     description: normalizeText(part.description || 'Part listing ready to compare.'),
@@ -365,6 +367,7 @@ const normalizePlate = (plate) => {
     id: plate.id,
     categoryKey: 'plates',
     categoryLabel: 'Plate',
+    sourcePlatform: plate.source_platform || null,
     title,
     subtitle: [`${digits || plateNumber.length || 'N/A'} digits`, plateCode ? `Code ${plateCode}` : null, location]
       .filter(Boolean)

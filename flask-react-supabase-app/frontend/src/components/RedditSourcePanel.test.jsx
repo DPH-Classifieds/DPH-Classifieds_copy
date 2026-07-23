@@ -21,6 +21,19 @@ describe('RedditSourcePanel', () => {
     expect(link).toHaveAttribute('href', 'https://www.reddit.com/r/DubaiPetrolHeads/comments/a/title/');
   });
 
+  it('tags the event with the given listing type (bike/plate/part)', () => {
+    render(
+      <RedditSourcePanel
+        car={{ id: 'bike-1', source_platform: 'reddit', source_url: 'https://www.reddit.com/r/x/1/' }}
+        listingType="bike"
+        listingId="bike-1"
+      />
+    );
+    const link = screen.getByRole('link', { name: /view original reddit post/i });
+    expect(link).toHaveAttribute('data-listing-type', 'bike');
+    expect(link).toHaveAttribute('data-listing-id', 'bike-1');
+  });
+
   it('does not render for a member listing', () => {
     const { container } = render(<RedditSourcePanel car={{ id: 'car-2', source_platform: null }} />);
     expect(container).toBeEmptyDOMElement();

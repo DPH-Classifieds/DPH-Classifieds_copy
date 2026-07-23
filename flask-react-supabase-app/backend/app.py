@@ -19860,28 +19860,46 @@ def get_admin_reddit_import_analytics(current_user):
             return jsonify(cached), 200
         cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
 
-        # 1. Imported cars: totals, live/removed, and per-listing title/link/views.
-        car_rows, _car_status = _fetch_all_rows(
-            "/rest/v1/cars",
-            {
-                "select": "id,listing_title,source_url,source_removed_at,view_count",
-                "source_platform": "eq.reddit",
-                "order": "source_last_seen_at.desc",
-            },
-        )
-        car_rows = car_rows or []
-        total = len(car_rows)
-        live = sum(1 for c in car_rows if not c.get("source_removed_at"))
-        total_views = sum(int(c.get("view_count") or 0) for c in car_rows)
-        car_by_id = {str(c.get("id")): c for c in car_rows}
+        # 1. Imported listings across every category: totals, live/removed, links.
+        _REDDIT_TABLES = [
+            ("cars", "car", "listing_title"),
+            ("bikes", "bike", None),  # title built from make/model
+            ("license_plates", "plate", "listing_title"),
+            ("car_parts", "part", "name"),
+        ]
+        listing_by_id = {}
+        total = live = total_views = 0
+        for table, ltype, title_col in _REDDIT_TABLES:
+            select_cols = ["id", "source_url", "source_removed_at", "view_count"]
+            if title_col:
+                select_cols.append(title_col)
+            if table == "bikes":
+                select_cols += ["make", "model"]
+            rows, _s = _fetch_all_rows(
+                f"/rest/v1/{table}",
+                {"select": ",".join(select_cols), "source_platform": "eq.reddit",
+                 "order": "source_last_seen_at.desc"},
+            )
+            for r in (rows or []):
+                total += 1
+                if not r.get("source_removed_at"):
+                    live += 1
+                total_views += int(r.get("view_count") or 0)
+                if title_col:
+                    title = r.get(title_col)
+                else:
+                    title = " ".join(x for x in [r.get("make"), r.get("model")] if x) or None
+                listing_by_id[str(r.get("id"))] = {
+                    "title": title, "source_url": r.get("source_url"),
+                    "views": int(r.get("view_count") or 0), "listing_type": ltype,
+                }
 
-        # 2. reddit_post_open events in the window (listing-scoped, canonical).
+        # 2. reddit_post_open events in the window (any imported category).
         events, _ev_status = _fetch_all_rows(
             "/rest/v1/platform_events",
             {
                 "select": "listing_id,visitor_id,occurred_at",
                 "event_name": "eq.reddit_post_open",
-                "listing_type": "eq.car",
                 "occurred_at": f"gte.{cutoff}",
                 "order": "occurred_at.desc",
             },
@@ -19901,12 +19919,13 @@ def get_admin_reddit_import_analytics(current_user):
         daily_opens = [{"date": day, "count": daily[day]} for day in sorted(daily)]
         top_listings = []
         for listing_id, opens in sorted(per_listing.items(), key=lambda kv: -kv[1])[:5]:
-            car = car_by_id.get(listing_id, {})
+            item = listing_by_id.get(listing_id, {})
             top_listings.append({
                 "listing_id": listing_id,
-                "title": car.get("listing_title") or "(listing removed)",
-                "source_url": car.get("source_url"),
-                "views": int(car.get("view_count") or 0),
+                "title": item.get("title") or "(listing removed)",
+                "listing_type": item.get("listing_type"),
+                "source_url": item.get("source_url"),
+                "views": int(item.get("views") or 0),
                 "opens": opens,
             })
 
