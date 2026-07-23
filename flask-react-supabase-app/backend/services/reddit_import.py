@@ -49,6 +49,10 @@ _MAKE_ALIASES = {
     "acura": "Acura", "lincoln": "Lincoln", "buick": "Buick", "skoda": "Skoda",
     "seat": "SEAT", "opel": "Opel", "citroen": "Citroen", "isuzu": "Isuzu",
     "bugatti": "Bugatti", "lotus": "Lotus", "abarth": "Abarth",
+    "mg": "MG", "byd": "BYD", "chery": "Chery", "geely": "Geely",
+    "haval": "Haval", "changan": "Changan", "hummer": "Hummer",
+    "daihatsu": "Daihatsu", "mahindra": "Mahindra", "polestar": "Polestar",
+    "lucid": "Lucid", "rivian": "Rivian",
 }
 # Match makes longest-first.
 _MAKE_ALIASES_BY_LEN = sorted(_MAKE_ALIASES.items(), key=lambda kv: -len(kv[0]))
@@ -228,6 +232,21 @@ def _extract_images(data: dict) -> list:
     preview = (data.get("preview") or {}).get("images") or []
     for img in preview:
         src = ((img or {}).get("source") or {}).get("url") or ""
+        if _is_allowed_image(src):
+            urls.append(src)
+    # Reddit *gallery* posts (how most car sales post photos): the image URLs
+    # live in media_metadata, ordered by gallery_data.items. data.url is just the
+    # /gallery/ permalink, so without this branch every gallery sale is skipped.
+    media_metadata = data.get("media_metadata") or {}
+    gallery_items = ((data.get("gallery_data") or {}).get("items")) or []
+    ordered_ids = [it.get("media_id") for it in gallery_items if it.get("media_id")]
+    if not ordered_ids and isinstance(media_metadata, dict):
+        ordered_ids = list(media_metadata.keys())
+    for media_id in ordered_ids:
+        meta = media_metadata.get(media_id) or {}
+        if meta.get("status") != "valid" or meta.get("e") != "Image":
+            continue
+        src = (meta.get("s") or {}).get("u") or ""
         if _is_allowed_image(src):
             urls.append(src)
     # De-dup preserving order.

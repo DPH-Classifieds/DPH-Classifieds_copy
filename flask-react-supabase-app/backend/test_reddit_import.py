@@ -117,6 +117,26 @@ class ParserTests(unittest.TestCase):
         })
         self.assertEqual(sub.images, ["https://preview.redd.it/ok.jpg"])
 
+    def test_gallery_post_images_are_extracted(self):
+        # Real car sales post as galleries: image URLs live in media_metadata,
+        # ordered by gallery_data. data.url is only the /gallery/ permalink.
+        sub = RedditSubmission.from_api({
+            "id": "g1", "name": "t3_g1",
+            "title": "WTS: 2018 BMW 120i GCC AED 39,000", "author": "s",
+            "permalink": "/r/DubaiPetrolHeads/comments/g1/t/", "created_utc": 1,
+            "url": "https://www.reddit.com/gallery/g1",
+            "is_gallery": True,
+            "gallery_data": {"items": [{"media_id": "aaa"}, {"media_id": "bbb"}]},
+            "media_metadata": {
+                "aaa": {"status": "valid", "e": "Image", "s": {"u": "https://preview.redd.it/aaa.jpg?width=1080"}},
+                "bbb": {"status": "valid", "e": "Image", "s": {"u": "https://preview.redd.it/bbb.jpg?width=1080"}},
+            },
+        })
+        self.assertEqual(sub.images[0], "https://preview.redd.it/aaa.jpg?width=1080")
+        parsed = parse_sale_post(sub, NOW)
+        self.assertIsNotNone(parsed)
+        self.assertTrue(parsed.image_url.startswith("https://preview.redd.it/aaa"))
+
     def test_payload_uses_real_columns_and_safe_fallbacks(self):
         parsed = parse_sale_post(complete_post("abc"), NOW)
         payload = build_imported_car_payload(parsed, "owner-uuid", NOW)
