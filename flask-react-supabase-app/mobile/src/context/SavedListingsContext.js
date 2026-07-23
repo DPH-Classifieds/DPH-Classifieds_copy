@@ -40,7 +40,9 @@ export const SavedListingsProvider = ({ children }) => {
         // saved listings never showed up.
         const grouped = { cars: [], bikes: [], plates: [], parts: [] };
         data.items.forEach((it) => {
-          const key = KEY[it.listing_type];
+          // Cards carry categoryKey (plural, e.g. 'cars') and/or listingType
+          // (singular, e.g. 'car'); older shapes used listing_type.
+          const key = KEY[it.categoryKey || it.listingType || it.listing_type];
           if (key) grouped[key].push({ ...it, listing_type: key });
         });
         setSavedListings(grouped);

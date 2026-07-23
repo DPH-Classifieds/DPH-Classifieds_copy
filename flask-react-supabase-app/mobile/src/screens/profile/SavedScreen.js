@@ -72,6 +72,9 @@ function SavedSearchCard({ search, index, onPress, onDelete }) {
 }
 
 const getImageUri = (item) => {
+  // Backend saved cards expose a normalized `image`; raw listing objects use
+  // images[]/image_url. Support both.
+  if (item.image) return resolveMediaUrl(item.image);
   if (item.images && item.images.length > 0) {
     if (typeof item.images[0] === 'string') return resolveMediaUrl(item.images[0]);
     return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
@@ -80,10 +83,12 @@ const getImageUri = (item) => {
 };
 
 const getItemTitle = (item) => {
+  // Saved cards already carry a display title; prefer it over raw-field guessing.
+  if (item.title) return item.title;
   if (item.listing_type === 'cars' || item.car_manufacturer) return `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Car';
   if (item.listing_type === 'bikes' || item.bike_brand) return `${item.bike_brand || ''} ${item.bike_model || ''}`.trim() || 'Bike';
   if (item.listing_type === 'plates' || item.city) return [item.city, item.code, item.number || item.digits].filter(Boolean).join(' ') || 'Plate';
-  return item.part_type || item.name || item.title || 'Listing';
+  return item.part_type || item.name || 'Listing';
 };
 
 const getItemPrice = (item) => item.expected_selling_price || item.price || 0;
@@ -122,7 +127,7 @@ function SavedCard({ item, index, onPress, onUnsave }) {
           </View>
           <View style={styles.cardInfo}>
             <Text style={styles.cardTitle} numberOfLines={1}>{getItemTitle(item)}</Text>
-            <Text style={styles.cardPrice}>{formatPrice(getItemPrice(item))}</Text>
+            <Text style={styles.cardPrice}>{item.priceLabel || formatPrice(getItemPrice(item))}</Text>
           </View>
         </AnimatedCard>
       </PressableScale>
