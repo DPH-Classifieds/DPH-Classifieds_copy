@@ -137,6 +137,7 @@ function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.chipScroll}
       contentContainerStyle={styles.chipRow}
     >
       {tabs.map((tab, index) => {
@@ -358,6 +359,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // flexGrow:0 stops the horizontal ScrollView from stretching vertically and
+  // pushing the chips down; it now hugs its content right under the header.
+  chipScroll: {
+    flexGrow: 0,
   },
   chipRow: {
     flexDirection: 'row',
