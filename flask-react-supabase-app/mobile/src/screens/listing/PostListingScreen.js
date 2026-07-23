@@ -656,7 +656,7 @@ export default function PostListingScreen({ navigation, route }) {
 
   const pickImages = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: false,
       selectionLimit: 1,
       quality: 0.7,
@@ -1213,7 +1213,7 @@ export default function PostListingScreen({ navigation, route }) {
         'Phone Verification Required',
         'Please verify your phone number before posting a listing.',
         [
-          { text: 'Verify Now', onPress: () => router.push('/VerifyPhone') },
+          { text: 'Verify Now', onPress: () => router.push('/(auth)/VerifyPhone') },
           { text: 'Cancel', style: 'cancel' },
         ]
       );

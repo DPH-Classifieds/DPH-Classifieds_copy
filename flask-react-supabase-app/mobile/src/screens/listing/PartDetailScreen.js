@@ -107,7 +107,7 @@ export default function PartDetailScreen({ route, navigation }) {
     const phone = part?.contact_number || part?.contact_phone;
     if (phone) {
       trackLeadEvent('parts', part.id, 'call_click');
-      Linking.openURL(`tel:${phone}`);
+      Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Call failed', 'Unable to open the phone dialer.'));
     }
   }, [part, user, navigation]);
 

@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from './apiClient';
+import { router } from 'expo-router';
 
 const ENABLED_KEY = 'dph_push_enabled'; // user toggle, defaults on
 const TOKEN_KEY = 'dph_push_token'; // last token synced to backend (dedupe)
@@ -104,33 +105,25 @@ export const setPushEnabledPref = async (enabled) => {
 // Translate a notification's data payload into a navigation action. Backend
 // push payloads set { listing_type, listing_id } for listing deep-links or
 // { screen } to open a profile-stack screen.
-const DETAIL_SCREEN_BY_TYPE = {
-  car: 'CarDetail',
-  bike: 'BikeDetail',
-  plate: 'PlateDetail',
-  part: 'PartDetail',
+const DETAIL_PATH_BY_TYPE = {
+  car: '/(tabs)/(explore)/CarDetail',
+  bike: '/(tabs)/(explore)/BikeDetail',
+  plate: '/(tabs)/(explore)/PlateDetail',
+  part: '/(tabs)/(explore)/PartDetail',
 };
 
-export const routeFromNotificationData = (navigationRef, data) => {
-  if (!navigationRef?.current || !data) return;
+// Route a notification tap under Expo Router (uses the global router; no
+// navigationRef needed). Maps listing_type -> the explore-group detail route.
+export const routeFromNotificationData = (data) => {
+  if (!data) return;
   try {
-    const detailScreen = DETAIL_SCREEN_BY_TYPE[data.listing_type];
-    if (detailScreen && data.listing_id) {
-      navigationRef.current.navigate('Main', {
-        screen: 'Explore',
-        params: {
-          screen: detailScreen,
-          params: { listingId: data.listing_id, id: data.listing_id },
-        },
-      });
+    const pathname = DETAIL_PATH_BY_TYPE[data.listing_type];
+    if (pathname && data.listing_id) {
+      router.push({ pathname, params: { listingId: String(data.listing_id) } });
       return;
     }
-    if (data.screen) {
-      navigationRef.current.navigate('Main', {
-        screen: 'Profile',
-        params: { screen: data.screen, params: data.params || {} },
-      });
-    }
+    // Non-listing notifications may carry an explicit route path (e.g. "/(auth)/...").
+    if (data.path) router.push(String(data.path));
   } catch (e) {
     if (__DEV__) console.warn('routeFromNotificationData failed', e);
   }
@@ -139,7 +132,7 @@ export const routeFromNotificationData = (navigationRef, data) => {
 // Wires tap-to-open handlers. Returns a cleanup fn. Handles both the
 // cold-start case (app opened from a killed state via a notification) and the
 // warm case (tapped while backgrounded).
-export const attachNotificationResponseHandler = (navigationRef) => {
+export const attachNotificationResponseHandler = () => {
   const handle = async (response, persist) => {
     const request = response?.notification?.request;
     const data = request?.content?.data;
@@ -154,7 +147,7 @@ export const attachNotificationResponseHandler = (navigationRef) => {
         if (id) await AsyncStorage.setItem(HANDLED_NOTIF_KEY, id);
       } catch { /* ignore — worst case a duplicate nav */ }
     }
-    routeFromNotificationData(navigationRef, data);
+    routeFromNotificationData(data);
   };
   Notifications.getLastNotificationResponseAsync().then((response) => {
     if (response) setTimeout(() => handle(response, true), 400);

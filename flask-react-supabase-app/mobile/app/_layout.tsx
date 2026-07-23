@@ -3,6 +3,7 @@
 // had, then renders a headerless Stack whose only child is the (tabs) group —
 // Expo Router owns the NavigationContainer, so we must NOT add our own.
 import 'react-native-gesture-handler';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +14,7 @@ import { posthog } from '../src/utils/posthogClient';
 import { AuthProvider } from '../src/context/AuthContext';
 import { SavedListingsProvider } from '../src/context/SavedListingsContext';
 import ErrorBoundary from '../src/components/ui/ErrorBoundary';
+import { attachNotificationResponseHandler } from '../src/utils/pushNotifications';
 
 // Anchor the root "/" match to the (tabs) group so cold start lands on the
 // (explore) tab, not (auth)/index's Redirect-to-Login. Route groups are URL-
@@ -21,6 +23,10 @@ import ErrorBoundary from '../src/components/ui/ErrorBoundary';
 export const unstable_settings = { anchor: '(tabs)' };
 
 export default function RootLayout() {
+  // Route notification taps (warm + cold start) into the app. Uses the global
+  // expo-router `router` internally, so no navigation ref is needed.
+  useEffect(() => attachNotificationResponseHandler(), []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>

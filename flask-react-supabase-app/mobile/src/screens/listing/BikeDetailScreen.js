@@ -104,7 +104,7 @@ export default function BikeDetailScreen({ route, navigation }) {
     const phone = bike?.contact_phone || bike?.car_owner_phone_number;
     if (phone) {
       trackLeadEvent('bike', bike.id, 'call_click');
-      Linking.openURL(`tel:${phone}`);
+      Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Call failed', 'Unable to open the phone dialer.'));
     }
   }, [bike, user, navigation]);
 

@@ -11,6 +11,10 @@ export default function ProfileStackLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="Settings" options={{ title: 'Settings' }} />
       <Stack.Screen name="MyListings" options={{ title: 'My Listings' }} />
+      <Stack.Screen name="CarDetail" options={{ title: 'Car Listing' }} />
+      <Stack.Screen name="BikeDetail" options={{ title: 'Bike Listing' }} />
+      <Stack.Screen name="PlateDetail" options={{ title: 'Plate Listing' }} />
+      <Stack.Screen name="PartDetail" options={{ title: 'Part Listing' }} />
       <Stack.Screen name="PrivacyPolicy" options={{ title: 'Privacy Policy' }} />
       <Stack.Screen name="TermsOfService" options={{ title: 'Terms of Service' }} />
       <Stack.Screen name="About" options={{ title: 'About' }} />

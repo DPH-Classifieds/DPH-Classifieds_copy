@@ -1,7 +1,8 @@
 import * as tf from '@tensorflow/tfjs-react-native';
 import * as nsfwjs from 'nsfwjs';
 import * as blazeface from '@tensorflow-models/blazeface';
-import * as FileSystem from 'expo-file-system';
+// SDK 54 moved readAsStringAsync/EncodingType to the legacy entry point.
+import * as FileSystem from 'expo-file-system/legacy';
 import { decodeJpeg } from '@tensorflow/tfjs-react-native';
 
 let nsfwModel = null;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Linking, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
@@ -46,7 +46,7 @@ export default function BuyingRequestDetailScreen({ route, navigation }) {
   const handleCall = async () => {
     if (!request?.contact_phone) return;
     await trackLeadEvent('buying_request', requestId, 'call_click');
-    Linking.openURL(`tel:${request.contact_phone}`);
+    Linking.openURL(`tel:${request.contact_phone}`).catch(() => Alert.alert('Call failed', 'Unable to open the phone dialer.'));
   };
 
   if (loading) {

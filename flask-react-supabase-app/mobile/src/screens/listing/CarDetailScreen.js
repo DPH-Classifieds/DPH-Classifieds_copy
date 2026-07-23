@@ -165,7 +165,7 @@ export default function CarDetailScreen({ route, navigation }) {
     const phone = car?.car_owner_phone_number || car?.contact_phone;
     if (phone) {
       trackLeadEvent('car', car.id, 'call_click');
-      Linking.openURL(`tel:${phone}`);
+      Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Call failed', 'Unable to open the phone dialer.'));
     }
   }, [car, user, navigation]);
 

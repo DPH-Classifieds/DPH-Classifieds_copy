@@ -131,7 +131,7 @@ export default function PlateDetailScreen({ route, navigation }) {
     const phone = plate?.contact_phone || plate?.phone;
     if (phone) {
       trackLeadEvent('plate', plate.id, 'call_click');
-      Linking.openURL(`tel:${phone}`);
+      Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Call failed', 'Unable to open the phone dialer.'));
     }
   }, [plate, user, navigation]);
 

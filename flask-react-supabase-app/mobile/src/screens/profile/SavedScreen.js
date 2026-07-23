@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated from 'react-native-reanimated';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
@@ -210,11 +211,16 @@ export default function SavedScreen({ navigation }) {
   };
 
   const handleOpenSearch = (search) => {
-    navigation.navigate('index', {
-      savedSearch: {
-        category: search.category,
-        query: search.query_text,
-        filters: search.filters || {},
+    // Switch to the Explore tab and apply the saved search. Params must be
+    // primitive under Expo Router, so the search is passed as a JSON string.
+    router.push({
+      pathname: '/(tabs)/(explore)',
+      params: {
+        savedSearch: JSON.stringify({
+          category: search.category,
+          query: search.query_text,
+          filters: search.filters || {},
+        }),
       },
     });
   };

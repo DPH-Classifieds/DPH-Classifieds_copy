@@ -13,6 +13,7 @@ export default function SavedStackLayout() {
       <Stack.Screen name="BikeDetail" options={{ title: 'Bike Listing' }} />
       <Stack.Screen name="PlateDetail" options={{ title: 'Plate Listing' }} />
       <Stack.Screen name="PartDetail" options={{ title: 'Part Listing' }} />
+      <Stack.Screen name="EditListing" options={{ title: 'Edit Listing' }} />
     </Stack>
   );
 }

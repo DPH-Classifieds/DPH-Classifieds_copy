@@ -381,7 +381,7 @@ export default function CarListScreen({ navigation }) {
     <CarCard
       item={item}
       index={index}
-      onPress={() => navigation.navigate('CarDetail', { carId: item.id })}
+      onPress={() => navigation.navigate('CarDetail', { listingId: item.id })}
     />
   ), [navigation]);
 

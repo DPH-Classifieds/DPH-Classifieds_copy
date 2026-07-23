@@ -503,7 +503,11 @@ export default function ExploreScreen({ navigation, route }) {
   // Re-apply filters when arriving from a saved search (SavedScreen's
   // Searches tab navigates here with these params).
   useEffect(() => {
-    const saved = route?.params?.savedSearch;
+    const raw = route?.params?.savedSearch;
+    if (!raw) return;
+    // Expo Router serializes params to strings, so a saved search arrives as JSON.
+    let saved = raw;
+    if (typeof raw === 'string') { try { saved = JSON.parse(raw); } catch { saved = null; } }
     if (!saved) return;
     if (saved.category) setActiveTab(saved.category);
     setSearch(saved.query || '');
