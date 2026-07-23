@@ -23,6 +23,7 @@ import DealerSettings from './components/dealer/DealerSettings';
 import DealerInviteAccept from './components/dealer/DealerInviteAccept';
 import DealerInfoRequest from './components/dealer/DealerInfoRequest';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
+import PostHogPageview from './components/PostHogPageview';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
 import SavedListingsNotice from './components/SavedListingsNotice';
 import AnnouncementBanner from './components/AnnouncementBanner';
@@ -257,6 +258,7 @@ function App() {
           <AuthHashHandler />
           <ScrollToTop />
           <PlatformAnalyticsTracker />
+          <PostHogPageview />
           <UserBehaviorTracker />
           <div className="app">
             <SiteChrome>

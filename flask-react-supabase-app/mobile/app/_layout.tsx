@@ -8,6 +8,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Toast from 'react-native-toast-message';
 import { PostHogProvider } from 'posthog-react-native';
+import { posthog } from '../src/utils/posthogClient';
 // Existing app code (JS) reused as-is.
 import { AuthProvider } from '../src/context/AuthContext';
 import { SavedListingsProvider } from '../src/context/SavedListingsContext';
@@ -24,8 +25,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
         <PostHogProvider
-          apiKey={process.env.EXPO_PUBLIC_POSTHOG_API_KEY}
-          options={{ host: process.env.EXPO_PUBLIC_POSTHOG_HOST }}
+          client={posthog}
           autocapture={{ captureScreens: false, captureTouches: true }}
         >
           <AuthProvider>

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from './apiClient';
+import { posthog } from './posthogClient';
 
 const VISITOR_KEY = 'dph_platform_visitor_id';
 
@@ -62,6 +63,21 @@ const LISTING_TYPE_BY_ROUTE = {
 };
 
 export const trackMobilePlatformEvent = async (eventName, payload = {}) => {
+  // Dual-send: same event into PostHog. page_view/listing_view are screen
+  // views, so use posthog.screen(); everything else is a product capture().
+  const posthogProps = {
+    route: payload.route,
+    page_path: payload.page_path,
+    page_kind: payload.page_kind,
+    listing_type: payload.listing_type,
+    listing_id: payload.listing_id,
+    ...payload.metadata,
+  };
+  if (eventName === 'page_view' || eventName === 'listing_view') {
+    posthog?.screen(payload.route || eventName, posthogProps);
+  } else {
+    posthog?.capture(eventName, posthogProps);
+  }
   try {
     const visitorId = await ensureVisitorId();
     await apiClient.post('/api/analytics/events', {

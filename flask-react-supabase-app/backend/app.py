@@ -22152,6 +22152,12 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
 
     for item_type, config in LISTING_TABLE_CONFIG.items():
         table = config["table"]
+        base_params = {
+            "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
+            "status": "in.(approved,active)",
+            "is_archived": "eq.false",
+            "deleted_at": "is.null",
+        }
         records, status = supabase_request(
             "get",
             f"/rest/v1/{table}",
@@ -22162,13 +22168,27 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                     "last_extended_at,sold_status,deleted_at,"
                     "expiry_reminder_sent_at,expired_email_sent_at"
                 ),
-                "expires_at": f"lte.{_isoformat_utc(reminder_threshold)}",
-                "status": "in.(approved,active)",
-                "is_archived": "eq.false",
-                "deleted_at": "is.null",
+                **base_params,
             },
             use_service_role=True,
         )
+        if status >= 400 and _looks_like_missing_column(
+            records, "expiry_reminder_sent_at", "expired_email_sent_at"
+        ):
+            # Migration not applied — retry without cooldown columns (degraded, no idempotency)
+            records, status = supabase_request(
+                "get",
+                f"/rest/v1/{table}",
+                params={
+                    "select": (
+                        "id,user_id,user_email,contact_email,listing_title,expires_at,"
+                        "expired_at,retention_expires_at,status,is_archived,"
+                        "last_extended_at,sold_status,deleted_at"
+                    ),
+                    **base_params,
+                },
+                use_service_role=True,
+            )
         if status >= 400 or not records:
             continue
 
@@ -22223,7 +22243,11 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                 if lifecycle["is_expired"]
                 else "expiry_reminder_sent_at"
             )
-            if record.get(email_field):
+            # Cooldown columns only present when migration applied; degrade to no-idempotency otherwise
+            cooldown_cols_present = (
+                "expiry_reminder_sent_at" in record or "expired_email_sent_at" in record
+            )
+            if cooldown_cols_present and record.get(email_field):
                 _log_listing_expiry_decision(
                     "skipping_listing_expiry_job",
                     listingId=listing_id,
@@ -22243,23 +22267,24 @@ def _run_listing_expiry_reminders_once(reminder_days_before=2):
                 )
                 continue
 
-            claimed_record = _claim_listing_expiry_email(
-                table,
-                listing_id,
-                expires_at,
-                email_field,
-                mark_expired=lifecycle["is_expired"] and not record.get("expired_at"),
-            )
-            if not claimed_record:
-                _log_listing_expiry_decision(
-                    "skipping_listing_expiry_job",
-                    listingId=listing_id,
-                    table=table,
-                    reason="atomic_claim_failed",
-                    emailField=email_field,
+            if cooldown_cols_present:
+                claimed_record = _claim_listing_expiry_email(
+                    table,
+                    listing_id,
+                    expires_at,
+                    email_field,
+                    mark_expired=lifecycle["is_expired"] and not record.get("expired_at"),
                 )
-                continue
-            record.update(claimed_record)
+                if not claimed_record:
+                    _log_listing_expiry_decision(
+                        "skipping_listing_expiry_job",
+                        listingId=listing_id,
+                        table=table,
+                        reason="atomic_claim_failed",
+                        emailField=email_field,
+                    )
+                    continue
+                record.update(claimed_record)
 
             listing_title = _listing_display_title(record)
             if lifecycle["is_expired"]:

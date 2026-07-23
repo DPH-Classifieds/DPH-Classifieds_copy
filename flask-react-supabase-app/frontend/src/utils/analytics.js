@@ -3,10 +3,15 @@
 // matching env var is missing so the site keeps working before the IDs are
 // provisioned. See docs/ANALYTICS_SETUP.md for setup.
 
+import posthog from 'posthog-js';
+
 const GA4_ID = process.env.REACT_APP_GA4_MEASUREMENT_ID;
 const CLARITY_ID = process.env.REACT_APP_CLARITY_PROJECT_ID;
+const POSTHOG_KEY = process.env.REACT_APP_POSTHOG_KEY;
+const POSTHOG_HOST = process.env.REACT_APP_POSTHOG_HOST || 'https://eu.i.posthog.com';
 
 let initialized = false;
+let posthogReady = false;
 
 function loadScript(src, attrs = {}) {
   return new Promise((resolve, reject) => {
@@ -45,12 +50,44 @@ function initClarity() {
   })(window, document, 'clarity', 'script', CLARITY_ID);
 }
 
+function initPosthog() {
+  if (!POSTHOG_KEY) return;
+  posthog.init(POSTHOG_KEY, {
+    api_host: POSTHOG_HOST,
+    // We fire pageviews manually on route changes (SPA); disable the
+    // built-in listener so we don't double-count.
+    capture_pageview: false,
+  });
+  posthogReady = true;
+}
+
 export function initAnalytics() {
   if (initialized) return;
   initialized = true;
   try { initGa4(); } catch (err) { /* swallow — never block app boot */ }
   try { initClarity(); } catch (err) { /* swallow */ }
+  try { initPosthog(); } catch (err) { /* swallow */ }
 }
+
+// Fire a PostHog pageview. Called from the route-change tracker.
+export function trackPageview() {
+  if (!posthogReady) return;
+  try { posthog.capture('$pageview'); } catch (err) { /* swallow */ }
+}
+
+// Identify the logged-in user in PostHog on login. No-ops until init runs.
+export function identifyUser(distinctId, props = {}) {
+  if (!posthogReady || !distinctId) return;
+  try { posthog.identify(String(distinctId), props); } catch (err) { /* swallow */ }
+}
+
+// Reset PostHog identity on logout.
+export function resetUser() {
+  if (!posthogReady) return;
+  try { posthog.reset(); } catch (err) { /* swallow */ }
+}
+
+export { posthog };
 
 // Fire a GA4 custom event. Mirrors the Measurement Protocol used by mobile
 // so event names stay consistent across web and mobile.
