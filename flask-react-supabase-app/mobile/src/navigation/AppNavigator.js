@@ -1,11 +1,22 @@
 import React, { useRef, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { buildNavigationStateChangeHandler, trackMobilePlatformEvent } from '../utils/platformTracker';
 import { attachNotificationResponseHandler } from '../utils/pushNotifications';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+// Real native iOS tab bar (genuine UITabBarController via react-native-screens),
+// gets iOS 26's Liquid Glass material automatically since it's actual OS chrome,
+// not a JS approximation. React Navigation's own "unstable" API — flagged by
+// them as experimental/might change without notice. iOS-only: it needs SF
+// Symbols or bundled image assets for icons (no arbitrary React components),
+// and Liquid Glass itself is an iOS-only concept, so Android keeps the
+// existing BlurView tab bar below.
+import { createNativeBottomTabNavigator } from '@react-navigation/bottom-tabs/unstable';
+import * as RNScreens from 'react-native-screens';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
@@ -87,6 +98,10 @@ const screenOptions = {
   // name (e.g. "ExploreMain", "ProfileMain") as the iOS back label.
   headerBackTitle: '',
   headerBackTitleVisible: false,
+  // Swipe-to-go-back on both platforms — native-stack only enables this by
+  // default on iOS; Android needs it explicitly turned on.
+  gestureEnabled: true,
+  gestureDirection: 'horizontal',
 };
 
 function AuthStack() {
@@ -227,14 +242,26 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        // Glass/translucent tab bar (closest cross-platform equivalent to iOS's
+        // Liquid Glass — there's no such literal API in Expo/React Navigation,
+        // so this pairs a transparent absolute bar with a native BlurView).
         tabBarStyle: {
-          backgroundColor: '#000000',
+          position: 'absolute',
+          backgroundColor: 'transparent',
           borderTopColor: 'rgba(255,255,255,0.15)',
           borderTopWidth: 0.5,
           paddingBottom: 8,
           paddingTop: 8,
           height: 60,
+          elevation: 0,
         },
+        tabBarBackground: () => (
+          <BlurView
+            tint="dark"
+            intensity={Platform.OS === 'ios' ? 80 : 100}
+            style={StyleSheet.absoluteFill}
+          />
+        ),
         tabBarActiveTintColor: '#4CAF50',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.4)',
         tabBarIcon: ({ focused, color, size }) => {
@@ -255,8 +282,61 @@ function MainTabs() {
   );
 }
 
-export default function AppNavigator() {
-  const navigationRef = useRef(null);
+const NativeTab = createNativeBottomTabNavigator();
+
+const sfIcon = (name, filledName) => ({ focused }) => ({
+  type: 'sfSymbol',
+  name: focused ? filledName : name,
+});
+
+// iOS-only: real UITabBarController via react-native-screens, so it renders
+// with genuine Liquid Glass on iOS 26+ automatically — no styling needed on
+// our end, the OS does it. Icons must be SF Symbols here (no custom React
+// components), unlike the JS tab bar above.
+function MainTabsNative() {
+  return (
+    <NativeTab.Navigator tabBarActiveTintColor="#4CAF50">
+      <NativeTab.Screen
+        name="Explore"
+        component={ExploreStack}
+        options={{ tabBarLabel: 'Explore', tabBarIcon: sfIcon('safari', 'safari.fill') }}
+      />
+      <NativeTab.Screen
+        name="Post"
+        component={AuthGatePostStack}
+        options={{ tabBarLabel: 'Sell', tabBarIcon: sfIcon('plus.circle', 'plus.circle.fill') }}
+      />
+      <NativeTab.Screen
+        name="Saved"
+        component={AuthGateSavedStack}
+        options={{ tabBarLabel: 'Saved', tabBarIcon: sfIcon('heart', 'heart.fill') }}
+      />
+      <NativeTab.Screen
+        name="Profile"
+        component={AuthGateProfileStack}
+        options={{ tabBarLabel: 'Profile', tabBarIcon: sfIcon('person', 'person.fill') }}
+      />
+    </NativeTab.Navigator>
+  );
+}
+
+// The native iOS 26 Liquid Glass tab bar (createNativeBottomTabNavigator)
+// needs BOTH:
+//   1. react-native-screens' `Tabs` API (added in 4.20; Expo 54 pins 4.16,
+//      which exports BottomTabs, not Tabs). Without it `<Tabs.Host>` in the
+//      /unstable navigator throws "Cannot read property 'Host' of undefined".
+//   2. A real build with that native module — Expo Go bundles rn-screens 4.16
+//      natively and can never render native tabs, so we exclude it explicitly
+//      (the JS `Tabs` export could exist while the native view does not).
+// When either is missing, fall back to the cross-platform JS BlurView tab bar.
+// ponytail: guard, not delete — native tabs light up automatically in a dev build once deps support them.
+const inExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const nativeTabsAvailable = Platform.OS === 'ios' && RNScreens.Tabs != null && !inExpoGo;
+const MainTabsForPlatform = nativeTabsAvailable ? MainTabsNative : MainTabs;
+
+export default function AppNavigator({ navigationRef: sharedNavigationRef }) {
+  const ownNavigationRef = useRef(null);
+  const navigationRef = sharedNavigationRef || ownNavigationRef;
   const handleStateChange = useMemo(
     () => buildNavigationStateChangeHandler(navigationRef),
     []
@@ -276,7 +356,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer ref={navigationRef} onStateChange={handleStateChange}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen name="Main" component={MainTabsForPlatform} />
         <Stack.Screen
           name="Auth"
           component={AuthStack}

@@ -3,10 +3,17 @@
 Used by the dashboard endpoints and the nightly aggregator worker.
 Mirrors the dedupe semantics finalised in the admin-stats refactor:
 - impressions: dedupe by (visitor_id, listing_id, day)
-- leads: dedupe by (visitor_id, listing_id, action, 24h-bucket-from-first-event)
+- leads: genuine buyer-intent contact actions only (call_click / whatsapp_click /
+  form_submit) — VIN opens/reveals are spec reveals, NOT leads — deduped by
+  (visitor_id, listing_id, action, 24h-bucket-from-first-event)
 """
 from datetime import datetime, timezone
 from typing import Iterable, Mapping
+
+# Genuine buyer-intent contact actions: phone-call taps and WhatsApp taps.
+# VIN opens/reveals are excluded on purpose; form_submit is a generic UX event
+# (not a listing contact) so it is not a lead either.
+CONTACT_LEAD_ACTIONS = frozenset({"call_click", "whatsapp_click"})
 
 
 def _parse(ts: str) -> datetime:
@@ -25,9 +32,11 @@ def dedupe_impressions(events: Iterable[Mapping]) -> int:
     return len(seen)
 
 
-def dedupe_leads(events: Iterable[Mapping]) -> int:
+def dedupe_leads(events: Iterable[Mapping], actions=CONTACT_LEAD_ACTIONS) -> int:
     by_key = {}
     for e in events:
+        if actions is not None and (e.get("action") or "") not in actions:
+            continue
         key = (e.get("visitor_id") or "",
                e.get("listing_type") or "",
                e.get("listing_id") or "",

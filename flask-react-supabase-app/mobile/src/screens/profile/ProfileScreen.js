@@ -4,10 +4,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../utils/apiClient';
 import { formatDate } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import AnimatedCard from '../../components/ui/AnimatedCard';
@@ -85,7 +86,7 @@ export default function ProfileScreen({ navigation }) {
     {
       icon: 'heart-outline',
       label: 'Saved Listings',
-      onPress: () => navigation.getParent()?.navigate('Saved'),
+      onPress: () => router.push('/(saved)'),
     },
     {
       icon: 'settings-outline',
@@ -144,6 +145,7 @@ export default function ProfileScreen({ navigation }) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_CLEARANCE }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
         }

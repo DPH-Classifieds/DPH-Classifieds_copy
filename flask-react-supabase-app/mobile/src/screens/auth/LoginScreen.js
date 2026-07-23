@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -41,21 +42,21 @@ export default function LoginScreen({ navigation, route }) {
     });
 
   const navigateAfterAuth = (signedInUser) => {
-    const rootNav = navigation.getParent();
     if (!signedInUser?.phone_verified) {
-      navigation.navigate('VerifyPhone', {
-        phone: signedInUser?.phone || '',
-        countryCode: signedInUser?.country_code || '+971',
-        purpose: 'profile_verify',
-        redirect: redirect || 'Profile',
+      // Push phone verification within the (auth) modal group.
+      router.push({
+        pathname: '/(auth)/VerifyPhone',
+        params: {
+          phone: signedInUser?.phone || '',
+          countryCode: signedInUser?.country_code || '+971',
+          purpose: 'profile_verify',
+          redirect: redirect || 'Profile',
+        },
       });
       return;
     }
-    if (redirect && rootNav) {
-      rootNav.navigate('Main', { screen: redirect });
-    } else if (rootNav) {
-      rootNav.goBack();
-    }
+    // Auth done: dismiss the (auth) modal and show the app (Explore tab).
+    router.replace('/(tabs)/(explore)');
   };
 
   const handleGoogle = async () => {

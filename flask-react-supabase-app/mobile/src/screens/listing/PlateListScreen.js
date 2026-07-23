@@ -40,6 +40,21 @@ const CITY_CODES = {
   'Other': 'م',
 };
 
+// Full Arabic emirate name shown on the plate visual, matching the web
+// UAELicensePlate component (single-letter CITY_CODES above is too
+// ambiguous to read as "the emirate" on its own).
+const CITY_NAMES_AR = {
+  'Abu Dhabi': 'أبو ظبي',
+  'Dubai': 'دبي',
+  'Sharjah': 'الشارقة',
+  'Ajman': 'عجمان',
+  'Umm Al Quwain': 'أم القيوين',
+  'Ras Al Khaimah': 'رأس الخيمة',
+  'Fujairah': 'الفجيرة',
+  'Al Ain': 'العين',
+  'Other': 'الإمارات',
+};
+
 const SORT_OPTIONS = [
   { label: 'Newest', order: 'created_at.desc' },
   { label: 'Oldest', order: 'created_at.asc' },
@@ -58,16 +73,19 @@ const getImageUri = (item) => {
 
 function PlateCard({ item, index, onPress }) {
   const { animatedStyle } = useStaggeredEntrance(index);
-  const cityCode = CITY_CODES[item.city] || 'م';
+  const cityNameAr = CITY_NAMES_AR[item.city] || CITY_CODES[item.city] || 'الإمارات';
   return (
     <Animated.View style={animatedStyle}>
       <PressableScale onPress={onPress}>
         <View style={styles.card}>
           <View style={styles.plateVisual}>
             <View style={styles.plateBox}>
-              <Text style={styles.plateCityCode}>{cityCode}</Text>
-              <View style={styles.plateDivider} />
-              <Text style={styles.plateNumber}>{item.code || ''}{item.digits || item.number || ''}</Text>
+              {!!item.code && <Text style={styles.plateCode}>{item.code}</Text>}
+              <View style={styles.plateMiddle}>
+                <Text style={styles.plateUae}>U.A.E</Text>
+                <Text style={styles.plateCityArabic} numberOfLines={1} adjustsFontSizeToFit>{cityNameAr}</Text>
+              </View>
+              <Text style={styles.plateNumber} numberOfLines={1} adjustsFontSizeToFit>{item.number || item.digits || ''}</Text>
             </View>
           </View>
           <View style={styles.cardInfo}>
@@ -313,13 +331,15 @@ const styles = StyleSheet.create({
   },
   plateVisual: { alignItems: 'center', marginBottom: SPACING.md },
   plateBox: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff',
     borderRadius: 8, borderWidth: 2, borderColor: '#333333',
-    paddingHorizontal: 20, paddingVertical: 14, minWidth: 180,
+    paddingHorizontal: 14, paddingVertical: 12, minWidth: 220, maxWidth: '100%', gap: 8,
   },
-  plateCityCode: { color: '#1a1a1a', fontSize: 24, fontWeight: '900', marginHorizontal: 8 },
-  plateDivider: { width: 2, height: 30, backgroundColor: '#333333', marginHorizontal: 8 },
-  plateNumber: { color: '#1a1a1a', fontSize: 22, fontWeight: '700', letterSpacing: 2 },
+  plateCode: { color: '#1a1a1a', fontSize: 22, fontWeight: '900' },
+  plateMiddle: { alignItems: 'center', paddingHorizontal: 6, borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#333333' },
+  plateUae: { color: '#1a1a1a', fontSize: 9, fontWeight: '700', letterSpacing: 1 },
+  plateCityArabic: { color: '#1a1a1a', fontSize: 15, fontWeight: '700', maxWidth: 70 },
+  plateNumber: { color: '#1a1a1a', fontSize: 22, fontWeight: '700', letterSpacing: 2, flexShrink: 1 },
   cardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardCity: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
   cardPrice: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700' },

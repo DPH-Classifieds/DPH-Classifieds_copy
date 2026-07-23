@@ -21,6 +21,18 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "2W3Z4VUY3P",
+        "ascAppId": "6792704990",
+        "ascApiKeyPath": "./credentials/AuthKey_ZRXZ99TW54.p8",
+        "ascApiKeyId": "ZRXZ99TW54",
+        "ascApiKeyIssuerId": "b960e658-0fe9-4339-a4d3-3c437ffbf637"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./credentials/play-service-account.json",
+        "track": "internal"
+      }
+    }
   }
 }

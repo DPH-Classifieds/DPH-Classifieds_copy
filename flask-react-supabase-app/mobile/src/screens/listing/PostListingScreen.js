@@ -19,6 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import MapView, { Marker } from '../../utils/mapComponents';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -697,7 +698,6 @@ export default function PostListingScreen({ navigation, route }) {
     partsArea,
     selectedLocation,
     titleManuallyEdited,
-    whatsappSameAsPhone,
   }), [
     category,
     images,
@@ -715,7 +715,6 @@ export default function PostListingScreen({ navigation, route }) {
     partsArea,
     selectedLocation,
     titleManuallyEdited,
-    whatsappSameAsPhone,
   ]);
 
   const applyDraftSnapshot = useCallback((draft) => {
@@ -764,9 +763,6 @@ export default function PostListingScreen({ navigation, route }) {
 
     if (typeof payload.titleManuallyEdited === 'boolean') {
       setTitleManuallyEdited(payload.titleManuallyEdited);
-    }
-    if (typeof payload.whatsappSameAsPhone === 'boolean') {
-      setWhatsappSameAsPhone(payload.whatsappSameAsPhone);
     }
     if (payload.savedAt) {
       setLastDraftSave(new Date(payload.savedAt));
@@ -1217,7 +1213,7 @@ export default function PostListingScreen({ navigation, route }) {
         'Phone Verification Required',
         'Please verify your phone number before posting a listing.',
         [
-          { text: 'Verify Now', onPress: () => navigation.navigate('Profile', { screen: 'VerifyPhone' }) },
+          { text: 'Verify Now', onPress: () => router.push('/VerifyPhone') },
           { text: 'Cancel', style: 'cancel' },
         ]
       );
@@ -1428,6 +1424,18 @@ export default function PostListingScreen({ navigation, route }) {
             </TouchableOpacity>
           ))}
         </View>
+        <TouchableOpacity
+          style={styles.wantedCard}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('PostBuyingRequest')}
+        >
+          <Ionicons name="search-outline" size={22} color={COLORS.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.wantedTitle}>Looking to buy instead?</Text>
+            <Text style={styles.wantedSubtitle}>Post a buying request and let sellers find you.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -2471,6 +2479,7 @@ export default function PostListingScreen({ navigation, route }) {
       <ImageCropperModal
         visible={cropperVisible}
         imageUri={cropperUri}
+        moderating={moderating}
         onConfirm={async (uri) => {
           // ponytail: moderate after crop so we check the final image, not the raw picker URI
           let allow = true;
@@ -2599,6 +2608,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border,
   },
   categoryLabel: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: 12 },
+  wantedCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: SPACING.md, marginTop: 4, padding: SPACING.md,
+    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  wantedTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  wantedSubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
   formHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,

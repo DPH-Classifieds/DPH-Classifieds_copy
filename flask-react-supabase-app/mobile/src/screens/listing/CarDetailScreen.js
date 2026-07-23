@@ -10,6 +10,7 @@ import {
   Linking,
   Alert,
   Modal,
+  ScrollView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -22,6 +23,7 @@ import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatPriceUSD, formatNumber, formatDate } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
@@ -90,9 +92,37 @@ export default function CarDetailScreen({ route, navigation }) {
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
   const isOwner = user && (user.id === car?.user_id || user.id === car?.seller_id);
+  const canViewVin = isOwner || user?.phone_verified;
+  const [vinVisible, setVinVisible] = useState(false);
 
   const carId = car?.id || car?.listing_id || listingId;
   const saved = isSaved('car', carId);
+
+  // Matches the web: even eligible (owner/phone-verified) users must tap to
+  // reveal — vin_open fires on every attempt, vin_reveal only once actually
+  // shown, so the admin panel can tell "curious" clicks from real reveals.
+  const handleVinReveal = () => {
+    trackLeadEvent('car', car.id, 'vin_open');
+    if (canViewVin) {
+      setVinVisible(true);
+      trackLeadEvent('car', car.id, 'vin_reveal');
+    } else if (!user) {
+      // Logged out: prompt login, not phone verification.
+      Alert.alert('Login Required', 'Please log in to see the full VIN.', [
+        { text: 'Log In', onPress: () => router.push('/Login') },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    } else {
+      Alert.alert(
+        'Verify to Reveal VIN',
+        'Verify your phone number to see the full VIN.',
+        [
+          { text: 'Verify', onPress: () => router.push('/(auth)/VerifyPhone') },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    }
+  };
 
   useEffect(() => {
     if (routeListing) {
@@ -271,26 +301,17 @@ export default function CarDetailScreen({ route, navigation }) {
           {car.vin_number && (
             <View style={styles.vinSection}>
               <Text style={styles.vinLabel}>VIN Number</Text>
-              {user?.phone_verified ? (
+              {vinVisible && canViewVin ? (
                 <Text style={styles.vinValue}>{car.vin_number}</Text>
               ) : (
                 <View>
                   <Text style={styles.vinMasked}>
                     {'•'.repeat(Math.max(0, car.vin_number.length - 4))}{car.vin_number.slice(-4)}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Alert.alert(
-                        'Verify to Reveal VIN',
-                        'Verify your phone number to see the full VIN.',
-                        [
-                          { text: 'Verify', onPress: () => navigation.navigate('Profile', { screen: 'VerifyPhone' }) },
-                          { text: 'Cancel', style: 'cancel' },
-                        ]
-                      );
-                    }}
-                  >
-                    <Text style={styles.vinRevealBtn}>Reveal Full VIN</Text>
+                  <TouchableOpacity onPress={handleVinReveal}>
+                    <Text style={styles.vinRevealBtn}>
+                      {canViewVin ? 'Tap to Reveal VIN' : 'Reveal Full VIN'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               )}

@@ -177,5 +177,29 @@ class PlatformAnalyticsRouteTests(unittest.TestCase):
         self.assertEqual(mock_supabase_request.call_count, 1)
 
 
+class LeadDefinitionTests(unittest.TestCase):
+    def test_total_leads_excludes_vin_events(self):
+        # A "lead" is a genuine buyer-intent contact action only. VIN opens/reveals
+        # are spec reveals and must NOT inflate total_leads.
+        self.assertNotIn("vin_open", backend.CONTACT_LEAD_ACTIONS)
+        self.assertNotIn("vin_reveal", backend.CONTACT_LEAD_ACTIONS)
+        # form_submit is a generic UX event, not a listing contact — not a lead.
+        self.assertEqual(
+            backend.CONTACT_LEAD_ACTIONS,
+            {"call_click", "whatsapp_click"},
+        )
+
+        lead_event_counts = {
+            "call_click": 26,
+            "whatsapp_click": 37,
+            "vin_open": 261,
+            "vin_reveal": 132,
+        }
+        total_leads = sum(
+            lead_event_counts.get(a, 0) for a in backend.CONTACT_LEAD_ACTIONS
+        )
+        self.assertEqual(total_leads, 63)  # 26 + 37, not 456
+
+
 if __name__ == "__main__":
     unittest.main()

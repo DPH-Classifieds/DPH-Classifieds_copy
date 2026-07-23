@@ -16,9 +16,13 @@ const RATIOS = [
   { label: '1:1', value: 1 },
 ];
 
-export default function ImageCropperModal({ visible, imageUri, onConfirm, onCancel }) {
+export default function ImageCropperModal({ visible, imageUri, onConfirm, onCancel, moderating = false }) {
   const [ratio, setRatio] = useState(null);
   const [processing, setProcessing] = useState(false);
+  // "Use Photo" awaits compression only — onConfirm (which also runs nudity/face
+  // moderation upstream) isn't awaited, so without this the spinner disappears
+  // and the modal looks idle while moderation is still silently running.
+  const busy = processing || moderating;
 
   const previewHeight = ratio ? PREVIEW_SIZE / ratio : PREVIEW_SIZE * 0.75;
 
@@ -43,9 +47,9 @@ export default function ImageCropperModal({ visible, imageUri, onConfirm, onCanc
           <PressableScale onPress={onCancel} haptic="light" style={styles.cancelBtn}>
             <Text style={styles.cancelText}>Cancel</Text>
           </PressableScale>
-          <Text style={styles.title}>Adjust Photo</Text>
-          <PressableScale onPress={handleConfirm} haptic="success" style={styles.confirmBtn} disabled={processing}>
-            {processing
+          <Text style={styles.title}>{moderating ? 'Checking photo…' : 'Adjust Photo'}</Text>
+          <PressableScale onPress={handleConfirm} haptic="success" style={styles.confirmBtn} disabled={busy}>
+            {busy
               ? <ActivityIndicator size="small" color={COLORS.black} />
               : <Text style={styles.confirmText}>Use Photo</Text>}
           </PressableScale>

@@ -1,31 +1,74 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import Animated from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
 import { toastApiError } from '../../utils/toast';
+import apiClient from '../../utils/apiClient';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { formatPrice } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AnimatedCard from '../../components/ui/AnimatedCard';
-import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
+import { SPRING_FAST } from '../../constants/motion';
 import { resolveMediaUrl } from '../../utils/media';
 
-const TABS = ['Cars', 'Bikes', 'Plates', 'Parts'];
-const TAB_KEYS = ['cars', 'bikes', 'plates', 'parts'];
+const TABS = ['Cars', 'Bikes', 'Plates', 'Parts', 'Searches'];
+const TAB_KEYS = ['cars', 'bikes', 'plates', 'parts', 'searches'];
+// Per-tab accent icon so the segmented control reads at a glance, not just text.
+const TAB_ICONS = ['car-sport', 'bicycle', 'pricetag', 'construct', 'search'];
+
+const buildSearchTitle = (search) => {
+  if (search?.name) return search.name;
+  if (search?.query_text) return search.query_text;
+  if (search?.category) return `${search.category} search`;
+  return 'Saved search';
+};
+
+const buildSearchSubtitle = (search) => {
+  const parts = [];
+  if (search?.category) parts.push(search.category);
+  if (search?.query_text) parts.push(`"${search.query_text}"`);
+  const filterCount = search?.filters && typeof search.filters === 'object' ? Object.keys(search.filters).length : 0;
+  if (filterCount) parts.push(`${filterCount} filter${filterCount === 1 ? '' : 's'}`);
+  return parts.join(' • ') || 'Saved from Explore';
+};
+
+function SavedSearchCard({ search, index, onPress, onDelete }) {
+  const { animatedStyle } = useStaggeredEntrance(index);
+  return (
+    <Animated.View style={animatedStyle}>
+      <PressableScale onPress={onPress}>
+        <View style={styles.searchCard}>
+          <View style={styles.searchCardIcon}>
+            <Ionicons name="search" size={18} color={COLORS.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.searchCardTitle} numberOfLines={1}>{buildSearchTitle(search)}</Text>
+            <Text style={styles.searchCardSubtitle} numberOfLines={1}>{buildSearchSubtitle(search)}</Text>
+          </View>
+          <TouchableOpacity onPress={onDelete} style={styles.searchDeleteBtn} hitSlop={8}>
+            <Ionicons name="trash-outline" size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
@@ -38,7 +81,7 @@ const getImageUri = (item) => {
 const getItemTitle = (item) => {
   if (item.listing_type === 'cars' || item.car_manufacturer) return `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Car';
   if (item.listing_type === 'bikes' || item.bike_brand) return `${item.bike_brand || ''} ${item.bike_model || ''}`.trim() || 'Bike';
-  if (item.listing_type === 'plates' || item.city) return [item.city, item.code, item.digits || item.number].filter(Boolean).join(' ') || 'Plate';
+  if (item.listing_type === 'plates' || item.city) return [item.city, item.code, item.number || item.digits].filter(Boolean).join(' ') || 'Plate';
   return item.part_type || item.name || item.title || 'Listing';
 };
 
@@ -48,8 +91,18 @@ const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDe
 
 function SavedCard({ item, index, onPress, onUnsave }) {
   const { animatedStyle } = useStaggeredEntrance(index);
+  // Local pop on the heart when un-saving, before the item animates out.
+  const heartScale = useSharedValue(1);
+  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
+  const handleUnsave = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    heartScale.value = withSpring(1.35, SPRING_FAST, () => {
+      heartScale.value = withSpring(1, SPRING_FAST);
+    });
+    onUnsave();
+  };
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[styles.cardWrap, animatedStyle]}>
       <PressableScale onPress={onPress}>
         <AnimatedCard style={styles.card}>
           {getImageUri(item) ? (
@@ -60,12 +113,10 @@ function SavedCard({ item, index, onPress, onUnsave }) {
             </View>
           )}
           <View style={styles.cardOverlay}>
-            <TouchableOpacity
-              style={styles.heartButton}
-              onPress={onUnsave}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="heart" size={20} color={COLORS.error} />
+            <TouchableOpacity style={styles.heartButton} onPress={handleUnsave} activeOpacity={0.7} hitSlop={6}>
+              <Animated.View style={heartStyle}>
+                <Ionicons name="heart" size={18} color={COLORS.error} />
+              </Animated.View>
             </TouchableOpacity>
           </View>
           <View style={styles.cardInfo}>
@@ -78,22 +129,98 @@ function SavedCard({ item, index, onPress, onUnsave }) {
   );
 }
 
+// Animated segmented control: a single accent pill slides between segments with
+// a spring, instead of hard-swapping background colors. Width is measured on
+// layout so it works at any screen size.
+function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
+  const [barWidth, setBarWidth] = useState(0);
+  const segW = barWidth ? barWidth / tabs.length : 0;
+  const x = useSharedValue(0);
+
+  useEffect(() => {
+    x.value = withSpring(activeIndex * segW, SPRING_FAST);
+  }, [activeIndex, segW, x]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+    width: segW,
+  }));
+
+  return (
+    <View style={styles.segment} onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}>
+      {segW > 0 && <Animated.View style={[styles.segmentPill, pillStyle]} pointerEvents="none" />}
+      {tabs.map((tab, index) => {
+        const active = index === activeIndex;
+        return (
+          <TouchableOpacity
+            key={tab}
+            style={styles.segmentItem}
+            onPress={() => onSelect(index)}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={TAB_ICONS[index]}
+              size={15}
+              color={active ? COLORS.accent : COLORS.textMuted}
+            />
+            <Text style={[styles.segmentText, active && styles.segmentTextActive]} numberOfLines={1}>
+              {tab}
+            </Text>
+            {counts[index] > 0 && (
+              <View style={[styles.segmentBadge, active && styles.segmentBadgeActive]}>
+                <Text style={[styles.segmentBadgeText, active && styles.segmentBadgeTextActive]}>
+                  {counts[index]}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function SavedScreen({ navigation }) {
   const { savedListings, loading, toggleSaveListing, savedCounts, loadSavedListings } = useSavedListings();
   const [activeTab, setActiveTab] = useState('Cars');
   const [refreshing, setRefreshing] = useState(false);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [searchesLoading, setSearchesLoading] = useState(false);
+
+  const fetchSavedSearches = useCallback(async () => {
+    try {
+      setSearchesLoading(true);
+      const data = await apiClient.get('/api/user/saved-searches');
+      setSavedSearches(Array.isArray(data?.searches) ? data.searches : []);
+    } catch (err) {
+      toastApiError(err);
+    } finally {
+      setSearchesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchSavedSearches(); }, [fetchSavedSearches]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      if (loadSavedListings) await loadSavedListings();
+      if (activeTab === 'Searches') await fetchSavedSearches();
+      else if (loadSavedListings) await loadSavedListings();
     } finally {
       setRefreshing(false);
     }
-  }, [loadSavedListings]);
+  }, [activeTab, loadSavedListings, fetchSavedSearches]);
 
-  const activeKey = TAB_KEYS[TABS.indexOf(activeTab)];
+  const activeIndex = TABS.indexOf(activeTab);
+  const activeKey = TAB_KEYS[activeIndex];
   const items = savedListings[activeKey] || [];
+  const counts = TAB_KEYS.map((key) => (key === 'searches' ? savedSearches.length : (savedCounts[key] || 0)));
+  const totalSaved = TAB_KEYS.slice(0, 4).reduce((sum, key) => sum + (savedCounts[key] || 0), 0);
+
+  const selectTab = (index) => {
+    Haptics.selectionAsync();
+    setActiveTab(TABS[index]);
+  };
 
   const handleUnsave = async (item) => {
     const type = item.listing_type || activeKey;
@@ -109,59 +236,102 @@ export default function SavedScreen({ navigation }) {
     />
   );
 
-  if (loading) {
+  const handleDeleteSearch = (search) => {
+    Alert.alert('Delete saved search?', buildSearchTitle(search), [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const identifier = search.id ?? search.search_key;
+            await apiClient.delete(`/api/user/saved-searches/${identifier}`);
+            setSavedSearches((prev) => prev.filter((s) => s !== search));
+          } catch (err) {
+            toastApiError(err);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleOpenSearch = (search) => {
+    navigation.navigate('index', {
+      savedSearch: {
+        category: search.category,
+        query: search.query_text,
+        filters: search.filters || {},
+      },
+    });
+  };
+
+  const renderSearch = ({ item, index }) => (
+    <SavedSearchCard
+      search={item}
+      index={index}
+      onPress={() => handleOpenSearch(item)}
+      onDelete={() => handleDeleteSearch(item)}
+    />
+  );
+
+  if (activeTab !== 'Searches' && loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <LoadingSpinner message="Loading saved listings..." />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenEntrance>
         <View style={styles.header}>
-          <Text style={styles.title}>Saved</Text>
+          <View>
+            <Text style={styles.title}>Saved</Text>
+            <Text style={styles.subtitle}>
+              {totalSaved > 0 ? `${totalSaved} listing${totalSaved === 1 ? '' : 's'} saved` : 'Tap the heart on any listing'}
+            </Text>
+          </View>
+          <View style={styles.headerBadge}>
+            <Ionicons name="heart" size={16} color={COLORS.accent} />
+          </View>
         </View>
 
-        <View style={styles.tabBar}>
-          {TABS.map((tab, index) => {
-            const key = TAB_KEYS[index];
-            const count = savedCounts[key] || 0;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.tab, activeTab === tab && styles.activeTab]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                  {tab}{count > 0 ? ` (${count})` : ''}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <SegmentedTabs tabs={TABS} activeIndex={activeIndex} counts={counts} onSelect={selectTab} />
 
-        <FlashList
-          estimatedItemSize={260}
-          data={items}
-          renderItem={renderListing}
-          keyExtractor={(item) => String(item.id || item.listing_id)}
-          numColumns={2}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="heart-outline"
-              title={`No saved ${activeTab.toLowerCase()}`}
-              message="Items you save will appear here."
-            />
-          }
-        />
+        {activeTab === 'Searches' && searchesLoading ? (
+          <LoadingSpinner message="Loading saved searches..." size="small" />
+        ) : (
+          <FlashList
+            estimatedItemSize={activeTab === 'Searches' ? 72 : 220}
+            data={activeTab === 'Searches' ? savedSearches : items}
+            renderItem={activeTab === 'Searches' ? renderSearch : renderListing}
+            keyExtractor={(item, index) => activeTab === 'Searches'
+              ? String(item.id || item.search_key || index)
+              : String(item.id || item.listing_id)}
+            numColumns={activeTab === 'Searches' ? 1 : 2}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+            }
+            ListEmptyComponent={
+              activeTab === 'Searches' ? (
+                <EmptyState
+                  icon="search-outline"
+                  title="No saved searches"
+                  message="Save a search from Explore to get back to it quickly."
+                />
+              ) : (
+                <EmptyState
+                  icon="heart-outline"
+                  title={`No saved ${activeTab.toLowerCase()}`}
+                  message="Items you save will appear here."
+                />
+              )
+            }
+          />
+        )}
       </ScreenEntrance>
     </SafeAreaView>
   );
@@ -173,6 +343,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.black,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
@@ -181,48 +354,90 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.hero,
     fontWeight: '700',
     color: COLORS.white,
+    letterSpacing: -0.5,
   },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: 8,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface,
-  },
-  activeTab: {
-    backgroundColor: COLORS.primary,
-  },
-  tabText: {
+  subtitle: {
     fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  headerBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segment: {
+    flexDirection: 'row',
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.pill,
+    padding: 4,
+  },
+  segmentPill: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.pill,
+  },
+  segmentItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 9,
+  },
+  segmentText: {
+    fontSize: FONT_SIZES.xs,
     fontWeight: '600',
+    color: COLORS.textMuted,
+  },
+  segmentTextActive: {
+    color: COLORS.accent,
+  },
+  segmentBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: COLORS.surfaceHigher,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentBadgeActive: {
+    backgroundColor: COLORS.accent,
+  },
+  segmentBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: COLORS.textSecondary,
   },
-  activeTabText: {
-    color: COLORS.accent,
+  segmentBadgeTextActive: {
+    color: COLORS.black,
   },
   listContent: {
     padding: SPACING.md,
-    paddingBottom: 40,
+    paddingBottom: TAB_BAR_CLEARANCE,
   },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: SPACING.md,
+  cardWrap: {
+    flex: 1,
+    maxWidth: '50%',
+    padding: 5,
   },
   card: {
-    width: '48.5%',
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
     overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
-    height: 120,
+    height: 130,
     backgroundColor: COLORS.surfaceHigher,
   },
   imagePlaceholder: {
@@ -231,14 +446,14 @@ const styles = StyleSheet.create({
   },
   cardOverlay: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
   },
   heartButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -252,8 +467,40 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardPrice: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.md,
     fontWeight: '700',
     color: COLORS.accent,
+  },
+  searchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  searchCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchCardTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.white,
+    textTransform: 'capitalize',
+  },
+  searchCardSubtitle: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  searchDeleteBtn: {
+    padding: 6,
   },
 });

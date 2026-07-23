@@ -423,7 +423,10 @@ def listing_analytics(current_user, listing_type, listing_id):
 
     calls = dedupe_leads([e for e in lead_events if e.get("action") == "call_click"])
     whatsapp = dedupe_leads([e for e in lead_events if e.get("action") == "whatsapp_click"])
-    vin = dedupe_leads([e for e in lead_events if e.get("action") in ("vin_open", "vin_reveal")])
+    vin = dedupe_leads(
+        [e for e in lead_events if e.get("action") in ("vin_open", "vin_reveal")],
+        actions={"vin_open", "vin_reveal"},
+    )
 
     # Engagement-without-contact: sessions with >30s OR >3 image events that produced no lead.
     sessions = defaultdict(lambda: {"dur": 0, "image_events": 0, "had_lead": False})

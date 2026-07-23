@@ -19,10 +19,12 @@ import Animated from 'react-native-reanimated';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
-import { toastApiError } from '../../utils/toast';
+import { router } from 'expo-router';
+import { toastApiError, showSuccess, showInfo } from '../../utils/toast';
 import apiClient from '../../utils/apiClient';
+import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import { formatPrice, formatNumber } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
 import {
   CAR_MAKES,
   CAR_MODELS,
@@ -123,7 +125,7 @@ const normalizeItem = (category, item) => {
     };
   }
   if (category === 'plates') {
-    const plateNum = [item.city, item.code, item.digits || item.number].filter(Boolean).join(' ');
+    const plateNum = [item.city, item.code, item.number || item.digits].filter(Boolean).join(' ');
     return {
       id: item.id,
       category: 'plates',
@@ -462,7 +464,7 @@ function ExploreCard({ item, index, onPress, onSave, saved }) {
   );
 }
 
-export default function ExploreScreen({ navigation }) {
+export default function ExploreScreen({ navigation, route }) {
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -491,11 +493,27 @@ export default function ExploreScreen({ navigation }) {
   const [pickerState, setPickerState] = useState({ visible: false, title: '', options: [], onSelect: () => {}, selectedValue: '' });
 
   const { isSaved, toggleSaveListing } = useSavedListings();
+  const { requireAuth, AuthPromptModal } = useAuthPrompt(navigation);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // Re-apply filters when arriving from a saved search (SavedScreen's
+  // Searches tab navigates here with these params).
+  useEffect(() => {
+    const saved = route?.params?.savedSearch;
+    if (!saved) return;
+    if (saved.category) setActiveTab(saved.category);
+    setSearch(saved.query || '');
+    const filters = saved.filters || {};
+    if (saved.category === 'cars') setCarFilters(prev => ({ ...prev, ...filters }));
+    else if (saved.category === 'bikes') setBikeFilters(prev => ({ ...prev, ...filters }));
+    else if (saved.category === 'plates') setPlateFilters(prev => ({ ...prev, ...filters }));
+    else if (saved.category === 'parts') setPartFilters(prev => ({ ...prev, ...filters }));
+    navigation.setParams({ savedSearch: undefined });
+  }, [route?.params?.savedSearch, navigation]);
 
   const openPicker = useCallback((type, title, options, onSelect, selectedValue) => {
     setPickerState({ visible: true, title, options, onSelect, selectedValue });
@@ -676,6 +694,35 @@ export default function ExploreScreen({ navigation }) {
     setPartFilters(INITIAL_PART_FILTERS);
   }, []);
 
+  const currentFiltersForTab = () => {
+    if (activeTab === 'cars') return carFilters;
+    if (activeTab === 'bikes') return bikeFilters;
+    if (activeTab === 'plates') return plateFilters;
+    if (activeTab === 'parts') return partFilters;
+    return {};
+  };
+
+  const handleSaveSearch = () => {
+    if (!search.trim() && activeTab === 'all' && activeFilterCount === 0) {
+      showInfo('Nothing to save', 'Add a query or choose a category first.');
+      return;
+    }
+    requireAuth(async () => {
+      try {
+        await apiClient.post('/api/user/saved-searches', {
+          category: activeTab,
+          route_path: '/explore',
+          query: search.trim(),
+          filters: currentFiltersForTab(),
+          result_count: normalizedItems.length,
+        });
+        showSuccess('Search saved', 'Find it under Saved → Searches.');
+      } catch (err) {
+        toastApiError(err);
+      }
+    });
+  };
+
   const normalizedItems = useMemo(() => {
     let items = [];
     if (activeTab === 'all') {
@@ -749,7 +796,7 @@ export default function ExploreScreen({ navigation }) {
       <TouchableOpacity
         style={styles.ctaCard}
         activeOpacity={0.8}
-        onPress={() => navigation.navigate('PostListing')}
+        onPress={() => router.push('/(post)')}
       >
         <View style={styles.ctaContent}>
           <View style={styles.ctaLeft}>
@@ -841,8 +888,15 @@ export default function ExploreScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       )}
+
+      {(search.trim() || activeTab !== 'all' || activeFilterCount > 0) && (
+        <TouchableOpacity style={styles.saveSearchBtn} onPress={handleSaveSearch} activeOpacity={0.7}>
+          <Ionicons name="bookmark-outline" size={14} color={COLORS.accent} />
+          <Text style={styles.saveSearchText}>Save this search</Text>
+        </TouchableOpacity>
+      )}
     </View>
-  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters]);
+  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -921,6 +975,7 @@ export default function ExploreScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </BottomSheet>
+      <AuthPromptModal />
     </SafeAreaView>
   );
 }
@@ -995,8 +1050,15 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.pill,
   },
   clearAllText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+  saveSearchBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    marginHorizontal: SPACING.md, marginBottom: SPACING.sm,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: BORDER_RADIUS.pill,
+    borderWidth: 1, borderColor: COLORS.borderLight,
+  },
+  saveSearchText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
 
-  listContent: { paddingBottom: SPACING.xxl },
+  listContent: { paddingBottom: TAB_BAR_CLEARANCE },
 
   card: {
     backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl,

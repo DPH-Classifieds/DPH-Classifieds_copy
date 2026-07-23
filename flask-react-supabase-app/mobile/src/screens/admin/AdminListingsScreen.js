@@ -77,7 +77,7 @@ const getTitle = (item) => {
   }
   if (item.car_manufacturer) return `${item.car_manufacturer} ${item.car_model || ''}`.trim() || 'Car';
   if (item.bike_brand) return `${item.bike_brand} ${item.bike_model || ''}`.trim() || 'Bike';
-  if (item.city) return [item.city, item.code, item.digits || item.number].filter(Boolean).join(' ') || 'Plate';
+  if (item.city) return [item.city, item.code, item.number || item.digits].filter(Boolean).join(' ') || 'Plate';
   return item.part_type || item.part_name || 'Part';
 };
 

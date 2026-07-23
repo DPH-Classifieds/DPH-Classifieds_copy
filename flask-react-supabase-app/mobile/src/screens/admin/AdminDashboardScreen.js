@@ -82,16 +82,6 @@ export default function AdminDashboardScreen({ navigation }) {
   const [error, setError] = useState('');
   const [days, setDays] = useState(30);
 
-  if (!user?.is_admin && !user?.is_super_admin) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
-        <Ionicons name="lock-closed" size={48} color={COLORS.textMuted} />
-        <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: '600', marginTop: 16 }}>Access Denied</Text>
-        <Text style={{ color: COLORS.textSecondary, marginTop: 8 }}>You don't have admin privileges.</Text>
-      </SafeAreaView>
-    );
-  }
-
   const loadDashboard = useCallback(async ({ hadCache = false } = {}) => {
     try {
       setError('');
@@ -283,6 +273,16 @@ export default function AdminDashboardScreen({ navigation }) {
   }, [recentEvents]);
 
   const chartMax = Math.max(1, ...leadMix.map((i) => i.value), ...weeklyActivity.map((i) => i.total), ...pendingByType.map((i) => i.value));
+
+  if (!user?.is_admin && !user?.is_super_admin) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
+        <Ionicons name="lock-closed" size={48} color={COLORS.textMuted} />
+        <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: '600', marginTop: 16 }}>Access Denied</Text>
+        <Text style={{ color: COLORS.textSecondary, marginTop: 8 }}>You don't have admin privileges.</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (

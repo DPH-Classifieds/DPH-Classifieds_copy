@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
@@ -10,20 +11,16 @@ export default function RequireAuth({ children, navigation, redirectRoute }) {
 
   if (user) return children;
 
-  const navigateToAuth = (screen, params) => {
-    if (!navigation) return;
-    const rootNav = navigation.getParent()?.getParent()?.getParent() || navigation.getParent()?.getParent() || navigation.getParent() || navigation;
-    rootNav.navigate('Auth', { screen, params });
-  };
-
+  // expo-router: push the auth modal screens. navigation.navigate('Auth', ...)
+  // is React-Navigation syntax and no-ops in this app.
   const handleLogin = () => {
     setShowPrompt(false);
-    navigateToAuth('Login', { redirect: redirectRoute });
+    router.push('/Login');
   };
 
   const handleSignup = () => {
     setShowPrompt(false);
-    navigateToAuth('Signup', { redirect: redirectRoute });
+    router.push('/Signup');
   };
 
   return (
@@ -84,10 +81,7 @@ export function useAuthPrompt(navigation) {
   const handleLogin = () => {
     setShowPrompt(false);
     setPendingAction(null);
-    if (navigation) {
-      const rootNav = navigation.getParent()?.getParent()?.getParent() || navigation.getParent()?.getParent() || navigation.getParent() || navigation;
-      rootNav.navigate('Auth', { screen: 'Login' });
-    }
+    router.push('/Login');
   };
 
   const handleConfirm = () => {
@@ -98,25 +92,39 @@ export function useAuthPrompt(navigation) {
     }
   };
 
-  const AuthPromptModal = () => (
-    <Modal visible={showPrompt} transparent animationType="fade" onRequestClose={() => { setShowPrompt(false); setPendingAction(null); }}>
+  const handleCancel = () => { setShowPrompt(false); setPendingAction(null); };
+
+  // ponytail: memoized wrapper keeps a STABLE component type across renders, so
+  // React reconciles the sibling Modal instead of unmount/remount. Remounting a
+  // sibling native Modal was thrashing the lightbox presentation (the photo-viewer
+  // loop). Identity only changes when showPrompt does.
+  const AuthPromptModal = useCallback(
+    () => <AuthPromptModalView visible={showPrompt} onLogin={handleLogin} onCancel={handleCancel} />,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showPrompt]
+  );
+
+  return { requireAuth, AuthPromptModal };
+}
+
+function AuthPromptModalView({ visible, onLogin, onCancel }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Ionicons name="log-in-outline" size={36} color={COLORS.accent} />
           <Text style={styles.modalTitle}>Log In Required</Text>
           <Text style={styles.modalSubtitle}>You need to be logged in to do this.</Text>
-          <TouchableOpacity style={styles.modalLoginBtn} onPress={handleLogin} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.modalLoginBtn} onPress={onLogin} activeOpacity={0.8}>
             <Text style={styles.modalLoginBtnText}>Log In</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setShowPrompt(false); setPendingAction(null); }}>
+          <TouchableOpacity style={styles.modalCancelBtn} onPress={onCancel}>
             <Text style={styles.modalCancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
-
-  return { requireAuth, AuthPromptModal };
 }
 
 const styles = StyleSheet.create({

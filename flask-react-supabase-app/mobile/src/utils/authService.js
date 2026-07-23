@@ -35,6 +35,7 @@ export const getAccessToken = async () => {
   }
 };
 
+export const setAuthHeader = (token) => {};
 
 export const signIn = async (email, password, cfToken) => {
   try {

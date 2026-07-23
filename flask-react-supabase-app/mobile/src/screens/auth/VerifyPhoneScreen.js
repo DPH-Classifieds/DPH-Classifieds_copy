@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import apiClient from '../../utils/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
@@ -99,21 +100,11 @@ export default function VerifyPhoneScreen({ navigation, route }) {
       if (updateUser) {
         await updateUser(me || { ...user, phone_verified: true });
       }
-      const rootNav = navigation.getParent();
       Alert.alert('Success', 'Phone number verified successfully!', [
         {
           text: 'OK',
-          onPress: () => {
-            if (redirect && rootNav) {
-              rootNav.navigate('Main', { screen: redirect });
-              return;
-            }
-            if (rootNav) {
-              rootNav.goBack();
-              return;
-            }
-            navigation.goBack();
-          },
+          // Verification done: dismiss the (auth) modal and show the app.
+          onPress: () => router.replace('/(tabs)/(explore)'),
         },
       ]);
     } catch (err) {

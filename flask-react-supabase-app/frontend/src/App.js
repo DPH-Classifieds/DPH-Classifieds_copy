@@ -149,6 +149,7 @@ const AdminDealershipDetail = lazy(() => import('./components/admin/AdminDealers
 const AdminDealerAuditLog = lazy(() => import('./components/admin/AdminDealerAuditLog'));
 const AdminReports = lazy(() => import('./components/AdminReports'));
 const AdminMetrics = lazy(() => import('./components/AdminMetrics'));
+const AdminVinOpens = lazy(() => import('./components/admin/AdminVinOpens'));
 const AdminTools = lazy(() => import('./components/AdminTools'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
@@ -339,6 +340,7 @@ function App() {
                 <Route path="dealerships/audit-log" element={<AdminDealerAuditLog />} />
                 <Route path="dealerships/:id" element={<AdminDealershipDetail />} />
                 <Route path="reports" element={<AdminReports />} />
+                <Route path="vin-opens" element={<AdminVinOpens />} />
                 <Route path="metrics" element={<AdminMetrics />} />
                 <Route path="tools" element={<AdminTools />} />
               </Route>

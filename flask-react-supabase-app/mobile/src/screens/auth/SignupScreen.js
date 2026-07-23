@@ -12,6 +12,7 @@ import {
   Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -101,16 +102,19 @@ export default function SignupScreen({ navigation }) {
     try {
       await signInWithGoogle();
       const me = await apiClient.get('/api/auth/me').catch(() => null);
-      const rootNav = navigation.getParent();
       if (!me?.phone_verified) {
-        navigation.navigate('VerifyPhone', {
-          phone: me?.phone || '',
-          countryCode: me?.country_code || '+971',
-          purpose: 'profile_verify',
-          redirect: 'Profile',
+        router.push({
+          pathname: '/(auth)/VerifyPhone',
+          params: {
+            phone: me?.phone || '',
+            countryCode: me?.country_code || '+971',
+            purpose: 'profile_verify',
+            redirect: 'Profile',
+          },
         });
-      } else if (rootNav) {
-        rootNav.goBack();
+      } else {
+        // Auth done: dismiss the (auth) modal and show the app (Explore tab).
+        router.replace('/(tabs)/(explore)');
       }
     } catch (err) {
       const message = err?.message || 'Google sign-up failed. Please try again.';

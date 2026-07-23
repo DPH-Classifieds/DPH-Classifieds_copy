@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../constants/config';
 import * as authService from './authService';
+import { supabase } from './supabaseClient';
 
 const AUTH_DATA_KEY = 'auth_data';
 
@@ -31,16 +32,30 @@ const isTokenExpired = (token) => {
 const getBestAccessToken = async () => {
   try {
     const raw = await AsyncStorage.getItem(AUTH_DATA_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const token = parsed?.access_token;
-    if (!token) return null;
-    if (isTokenExpired(token)) {
-      const refreshed = await authService.refreshToken();
-      return refreshed?.data?.access_token || null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const token = parsed?.access_token;
+      if (token) {
+        if (isTokenExpired(token)) {
+          const refreshed = await authService.refreshToken();
+          if (refreshed?.data?.access_token) return refreshed.data.access_token;
+        } else {
+          return token;
+        }
+      }
     }
-    return token;
   } catch (error) {
+    // fall through to the Supabase session below
+  }
+  // authService's auth_data is only populated by email/password sign-in.
+  // Google/OAuth sign-in only ever creates a Supabase session, so without
+  // this fallback every apiClient call for those users went out with no
+  // Authorization header at all — silently unauthenticated, not just for
+  // saved listings/searches but every authed endpoint.
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
     return null;
   }
 };

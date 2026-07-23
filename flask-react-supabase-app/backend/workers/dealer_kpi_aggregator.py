@@ -134,7 +134,7 @@ def run():
                 "detail_views": dedupe_impressions(agg["det"]),
                 "call_clicks": dedupe_leads(agg["calls"]),
                 "whatsapp_clicks": dedupe_leads(agg["wa"]),
-                "vin_reveals": dedupe_leads(agg["vin"]),
+                "vin_reveals": dedupe_leads(agg["vin"], actions={"vin_open", "vin_reveal"}),
             })
 
     if not upserts:

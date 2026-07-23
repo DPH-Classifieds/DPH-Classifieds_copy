@@ -340,6 +340,11 @@ REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_MB", "10")) * 1024 * 1024
 )
 LEAD_EVENT_ACTIONS = {"call_click", "whatsapp_click", "vin_open", "vin_reveal"}
+# A genuine "lead" is a buyer-intent contact action only: a phone-call tap or a
+# WhatsApp tap. VIN opens/reveals are spec/detail reveals (surfaced separately as
+# vin_open/vin_reveal counts), NOT leads. (form_submit is a generic UX event — any
+# form, e.g. login/post/search — not a listing contact, so it is not a lead.)
+CONTACT_LEAD_ACTIONS = {"call_click", "whatsapp_click"}
 # Events written on and after this migration are the canonical, idempotent
 # source. ``lead_events`` remains only as a pre-cutover history fallback so a
 # single contact cannot be counted once in each table.
@@ -1060,14 +1065,15 @@ def _fetch_listing_lifecycle_rows():
     rows_by_type = {}
 
     def _load_rows(label, table_name):
-        rows, status_code = supabase_request(
-            "get",
+        # Page through every row: a single request caps at PostgREST's
+        # db-max-rows (typically 1000), which silently truncated the lifecycle
+        # totals (cars_total, active/pending/sold counts) once any listing
+        # table crossed 1000 rows.
+        rows, status_code = _fetch_all_rows(
             f"/rest/v1/{table_name}",
-            params={
+            {
                 "select": "id,status,is_approved," + LISTING_LIFECYCLE_SELECT,
-                "limit": "1000",
             },
-            use_service_role=True,
         )
         if status_code >= 400:
             logger.warning(
@@ -18211,67 +18217,55 @@ def get_admin_metrics_overview(current_user):
         if events_status >= 400:
             return jsonify({"error": "Failed to fetch analytics events"}), events_status
 
-        car_rows_resp, car_status = supabase_request(
-            "get",
+        # Page through the full tables: a single request caps at PostgREST's
+        # db-max-rows (~1000), which under-counted total_listings / GMV /
+        # unique_sellers / new_users once a table crossed that threshold.
+        car_rows_resp, car_status = _fetch_all_rows(
             "/rest/v1/cars",
-            params={
+            {
                 "select": "id,car_manufacturer,car_model,make_year,body_type,vehicle_type,expected_selling_price,view_count,status,user_id,created_at",
                 "order": "created_at.desc",
-                "limit": "1000",
             },
-            use_service_role=True,
         )
         if car_status >= 400:
             car_rows_resp = []
 
-        plate_rows_resp, plate_status = supabase_request(
-            "get",
+        plate_rows_resp, plate_status = _fetch_all_rows(
             "/rest/v1/license_plates",
-            params={
+            {
                 "select": "id,city,code,number,digits,price,plate_format,view_count,status,user_id,created_at",
                 "order": "created_at.desc",
-                "limit": "1000",
             },
-            use_service_role=True,
         )
         if plate_status >= 400:
             plate_rows_resp = []
 
-        bike_rows_resp, bike_status = supabase_request(
-            "get",
+        bike_rows_resp, bike_status = _fetch_all_rows(
             "/rest/v1/bikes",
-            params={
+            {
                 "select": "id,make,model,make_year,body_type,vehicle_type,price,view_count,status,user_id,created_at",
                 "order": "created_at.desc",
-                "limit": "1000",
             },
-            use_service_role=True,
         )
         if bike_status >= 400:
             bike_rows_resp = []
 
-        part_rows_resp, part_status = supabase_request(
-            "get",
+        part_rows_resp, part_status = _fetch_all_rows(
             "/rest/v1/car_parts",
-            params={
+            {
                 "select": "id,title,name,price,view_count,status,user_id,created_at",
                 "order": "created_at.desc",
-                "limit": "1000",
             },
-            use_service_role=True,
         )
         if part_status >= 400:
             part_rows_resp = []
 
-        user_rows_resp, user_status = supabase_request(
-            "get",
+        user_rows_resp, user_status = _fetch_all_rows(
             "/rest/v1/users",
-            params={
+            {
                 "select": "id,username,display_name,first_name,last_name,email,created_at,is_dealer,account_status,phone_verified,email_verified",
                 "order": "created_at.desc",
-                "limit": "2000",
             },
-            use_service_role=True,
         )
         if user_status >= 400:
             user_rows_resp = []
@@ -18679,16 +18673,14 @@ def admin_health(current_user):
 def _fetch_rows(path, params):
     """Service-role GET helper for admin aggregations.
 
-    Hoisted to module level so unit tests can patch it in isolation when
-    exercising /api/admin/stats and similar endpoints.
+    Pages through the full result set: PostgREST caps a single request at
+    db-max-rows (typically 1000) regardless of the requested ``limit``, so a
+    plain GET silently truncated total_users / total_dealers / total_reports
+    once a table crossed 1000 rows. Hoisted to module level so unit tests can
+    patch it in isolation when exercising /api/admin/stats.
     """
-    rows, status = supabase_request(
-        "get",
-        path,
-        params=params,
-        use_service_role=True,
-    )
-    return rows or [] if status < 400 else []
+    rows, status = _fetch_all_rows(path, params)
+    return rows if status < 400 else []
 
 
 def _fetch_all_rows(path, params, *, page_size=1000, max_rows=250000):
@@ -18984,7 +18976,7 @@ def get_admin_stats(current_user):
             "total_views": view_counts_by_type.get("__total__", 0),
             "total_users": total_users,
             "total_reports": total_reports,
-            "total_leads": sum(lead_event_counts.values()),
+            "total_leads": sum(lead_event_counts.get(a, 0) for a in CONTACT_LEAD_ACTIONS),
             "total_calls": len(lead_unique_actors.get("call_click", set())),
             "total_call_events": lead_event_counts.get("call_click", 0),
             "total_whatsapp": len(lead_unique_actors.get("whatsapp_click", set())),

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard,
   Car,
@@ -35,6 +35,11 @@ const RolePill = ({ role }) => {
 
 const DealerSidebar = () => {
   const { dealership, role } = useDealer();
+  const [searchParams] = useSearchParams();
+  // Admins impersonate a dealership via ?as=<id>; preserve it across nav so
+  // every tab keeps sending X-Acting-As-Dealership. Dropping it → 400 acting_as_required.
+  const as = searchParams.get('as');
+  const q = as ? `?as=${as}` : '';
 
   const initials = dealership?.name
     ? dealership.name.slice(0, 2).toUpperCase()
@@ -77,7 +82,7 @@ const DealerSidebar = () => {
           return (
             <NavLink
               key={item.to}
-              to={item.to}
+              to={`${item.to}${q}`}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border-l-2 ${
                   isActive

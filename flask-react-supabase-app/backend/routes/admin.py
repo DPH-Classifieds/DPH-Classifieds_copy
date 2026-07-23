@@ -2098,6 +2098,101 @@ def get_lead_metrics():
         return jsonify({"error": str(e)}), 500
 
 
+@admin_bp.route("/vin-opens", methods=["GET"])
+@admin_required
+def get_vin_open_events():
+    """VIN-open events (car-only) joined to listing + user for the admin drill-down.
+
+    Reads the canonical platform_events store, not lead_events. User join uses the
+    display-map helper (no PostgREST users(...) embed). VIN + title come from a
+    batched cars fetch on listing_id (VIN opens fire on cars only).
+    """
+    try:
+        days = max(min(int(request.args.get("days", 30)), 90), 1)
+        limit = max(min(int(request.args.get("limit", 100)), 500), 1)
+        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+
+        events_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/platform_events",
+            headers=_admin_headers(),
+            params={
+                "select": "id,event_name,listing_type,listing_id,user_id,visitor_id,platform,occurred_at",
+                "event_name": "eq.vin_open",
+                "occurred_at": f"gte.{cutoff}",
+                "order": "occurred_at.desc",
+                "limit": str(limit),
+            },
+            timeout=20,
+        )
+        events = events_resp.json() if events_resp.status_code == 200 else []
+
+        events = _admin_enrich_activity_rows(events, "user_id")
+
+        # Batch-fetch cars for VIN + title (chunked in.() like _admin_owned_listing_stats).
+        listing_ids = list(
+            {str(e.get("listing_id")) for e in events if e.get("listing_id")}
+        )
+        car_map = {}
+        for index in range(0, len(listing_ids), 50):
+            chunk = listing_ids[index : index + 50]
+            car_resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/cars",
+                headers=_admin_headers(),
+                params={
+                    "select": "id,vin_number,car_manufacturer,car_model,make_year,listing_title",
+                    "id": f"in.({','.join(chunk)})",
+                },
+                timeout=20,
+            )
+            if car_resp.status_code != 200:
+                continue
+            for row in car_resp.json() or []:
+                car_map[str(row.get("id"))] = row
+
+        out_events = []
+        for e in events:
+            car = car_map.get(str(e.get("listing_id"))) or {}
+            title = (
+                car.get("listing_title")
+                or " ".join(
+                    str(p)
+                    for p in (
+                        car.get("car_manufacturer"),
+                        car.get("car_model"),
+                        car.get("make_year"),
+                    )
+                    if p
+                ).strip()
+                or "Untitled car"
+            )
+            out_events.append(
+                {
+                    "id": e.get("id"),
+                    "occurred_at": e.get("occurred_at"),
+                    "listing_type": e.get("listing_type") or "car",
+                    "listing_id": e.get("listing_id"),
+                    "listing_title": title,
+                    "vin": car.get("vin_number"),
+                    "user_id": e.get("user_id"),
+                    "actor_name": e.get("actor_name"),
+                    "actor_username": e.get("actor_username"),
+                    "actor_email": e.get("actor_email"),
+                    "platform": e.get("platform"),
+                }
+            )
+
+        return jsonify(
+            {
+                "window_days": days,
+                "count": len(out_events),
+                "events": out_events,
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error fetching VIN-open events: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @admin_bp.route("/users/<user_id>/overview", methods=["GET"])
 @admin_required
 def get_user_overview(user_id):

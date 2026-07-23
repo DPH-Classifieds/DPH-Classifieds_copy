@@ -35,7 +35,7 @@ const getImageUri = (item) => {
 const getCarTitle = (item) => `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Untitled Car';
 const getBikeTitle = (item) => `${item.bike_brand || ''} ${item.bike_model || ''}`.trim() || 'Untitled Bike';
 const getPlateTitle = (item) => {
-  const parts = [item.city, item.code, item.digits || item.number].filter(Boolean);
+  const parts = [item.city, item.code, item.number || item.digits].filter(Boolean);
   return parts.join(' ') || 'Untitled Plate';
 };
 const getPartTitle = (item) => item.part_type || item.brand || 'Untitled Part';

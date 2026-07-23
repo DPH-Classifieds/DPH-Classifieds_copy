@@ -22,6 +22,7 @@ import {
   Loader2,
   ImageOff,
   Clock,
+  Fingerprint,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -318,6 +319,7 @@ const AdminDashboard = () => {
     [stats],
   );
 
+  const vinOpens      = clampNumber(totals.vin_open);
   const totalLeads    = clampNumber(stats.total_leads    || totals.qualified_leads || totals.call_click || 0);
   const totalCalls    = clampNumber(stats.total_calls    || totals.call_click  || 0);
   const totalWhatsapp = clampNumber(stats.total_whatsapp || totals.whatsapp_click || 0);
@@ -548,6 +550,25 @@ const AdminDashboard = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* ── 2b. VIN opens ────────────────────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }}>
+        <GlassCard
+          className="cursor-pointer hover:bg-white/[0.06] transition-colors"
+          onClick={() => navigate('/admin/vin-opens')}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">VIN opens</p>
+            <Fingerprint size={14} className="text-white/30" />
+          </div>
+          <p className="text-2xl font-semibold tabular-nums text-white">
+            {vinOpens.toLocaleString('en-AE')}
+          </p>
+          <p className="mt-1 text-[11px] text-white/40 flex items-center gap-1">
+            View events <ChevronRight size={11} />
+          </p>
+        </GlassCard>
+      </motion.div>
 
       {/* ── 3. Pending review queue ──────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>

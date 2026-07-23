@@ -10,6 +10,7 @@ import {
   Linking,
   Alert,
   Modal,
+  ScrollView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
