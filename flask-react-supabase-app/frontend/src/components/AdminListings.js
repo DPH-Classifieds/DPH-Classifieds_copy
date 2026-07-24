@@ -34,6 +34,13 @@ const statusRank = (l) => STATUS_SORT_ORDER[l._table_status || l.status] ?? 10;
 
 const ALL_TYPES = ['all', 'cars', 'bikes', 'parts', 'plates', 'drafts', 'buying_requests'];
 const ALL_STATUSES = ['all', 'pending', 'draft', 'approved', 'rejected', 'expired', 'deleted'];
+const ALL_SOURCES = ['all', 'member', 'dealer', 'reddit'];
+const SOURCE_OPTIONS = [
+  { key: 'all', label: 'All' },
+  { key: 'member', label: 'Member' },
+  { key: 'dealer', label: 'Dealer' },
+  { key: 'reddit', label: 'Reddit' },
+];
 const STATUS_OPTIONS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
@@ -144,6 +151,8 @@ const AdminListings = () => {
     : selectedTypes.length > 0 ? selectedTypes : ['all'];
   const selectedStatuses = parseParamList(searchParams.get('statuses'), ALL_STATUSES);
   const effectiveStatuses = selectedStatuses.includes('all') ? ['all'] : (selectedStatuses.length > 0 ? selectedStatuses : ['all']);
+  const selectedSources = parseParamList(searchParams.get('source'), ALL_SOURCES);
+  const effectiveSources = selectedSources.includes('all') ? ['all'] : (selectedSources.length > 0 ? selectedSources : ['all']);
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [listings, setListings] = useState([]);
@@ -207,9 +216,11 @@ const AdminListings = () => {
       // but those stubs had no owner email / title / nudge timestamp — which
       // broke the "Send renewal nudge" button and the detail page. Just ask
       // the search endpoint directly so each row is a real listing record.
+      const sourcesToFetch = effectiveSources.includes('all') ? [] : effectiveSources;
+      const sourceQuery = sourcesToFetch.length > 0 ? `&source=${sourcesToFetch.join(',')}` : '';
       const mainQuery = statusesToFetch.length > 0
-        ? `/api/admin/listings-search?statuses=${statusesToFetch.join(',')}&types=${typesToFetch.join(',')}`
-        : `/api/admin/listings-search?types=${typesToFetch.join(',')}`;
+        ? `/api/admin/listings-search?statuses=${statusesToFetch.join(',')}&types=${typesToFetch.join(',')}${sourceQuery}`
+        : `/api/admin/listings-search?types=${typesToFetch.join(',')}${sourceQuery}`;
 
       const mainResponse = await apiClient.get(mainQuery).catch(() => {
         const fallbackPromises = [];
@@ -239,7 +250,7 @@ const AdminListings = () => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, effectiveTypes.join(','), effectiveStatuses.join(',')]);
+  }, [authLoading, effectiveTypes.join(','), effectiveStatuses.join(','), effectiveSources.join(',')]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -851,6 +862,15 @@ const AdminListings = () => {
             allowed={ALL_STATUSES}
           />
         </div>
+        <div className="space-y-2">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium">Source</p>
+          <ChipFilter
+            options={SOURCE_OPTIONS}
+            activeKeys={effectiveSources}
+            paramKey="source"
+            allowed={ALL_SOURCES}
+          />
+        </div>
       </GlassCard>
 
       {/* Table */}
@@ -961,6 +981,12 @@ const AdminListings = () => {
                           >
                             {seller}
                           </p>
+                          {listing.source_kind === 'reddit' && (
+                            <span className="mt-1 inline-block rounded-full border border-orange-500/30 bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium text-orange-300">Reddit import</span>
+                          )}
+                          {listing.source_kind === 'dealer' && (
+                            <span className="mt-1 inline-block rounded-full border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-300">Dealer</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-white/60 text-sm">{views.toLocaleString()}</p>

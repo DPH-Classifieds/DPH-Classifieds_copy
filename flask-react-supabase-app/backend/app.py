@@ -420,7 +420,7 @@ ADMIN_LISTING_SELECTS = {
     "car": (
         "id,user_id,user_email,listing_title,car_manufacturer,car_model,"
         "trim,make_year,expected_selling_price,created_at,updated_at,status,is_approved,"
-        "view_count,renewal_nudge_sent_at,"
+        "view_count,renewal_nudge_sent_at,is_dealer,source_platform,source_url,"
         + LISTING_LIFECYCLE_SELECT
         + ",car_images("
         + LISTING_IMAGE_SELECTS["cars"]
@@ -429,7 +429,7 @@ ADMIN_LISTING_SELECTS = {
     "bike": (
         "id,user_id,user_email,bike_brand,bike_model,year,"
         "bike_type,price,created_at,updated_at,status,is_approved,"
-        "view_count,renewal_nudge_sent_at,"
+        "view_count,renewal_nudge_sent_at,is_dealer,source_platform,source_url,"
         + LISTING_LIFECYCLE_SELECT
         + ",bike_images("
         + LISTING_IMAGE_SELECTS["bikes"]
@@ -437,7 +437,7 @@ ADMIN_LISTING_SELECTS = {
     ),
     "part": (
         "id,user_id,user_email,name,part_type,price,created_at,updated_at,status,is_approved,"
-        "view_count,renewal_nudge_sent_at,"
+        "view_count,renewal_nudge_sent_at,is_dealer,source_platform,source_url,"
         + LISTING_LIFECYCLE_SELECT
         + ",part_images("
         + LISTING_IMAGE_SELECTS["car_parts"]
@@ -446,6 +446,7 @@ ADMIN_LISTING_SELECTS = {
     "plate": (
         "id,user_id,user_email,listing_title,city,code,digits,number,"
         "price,contact_name,contact_phone,created_at,updated_at,status,is_approved,view_count,renewal_nudge_sent_at,"
+        "is_dealer,source_platform,source_url,"
         + LISTING_LIFECYCLE_SELECT
     ),
     "buying_request": (
@@ -20297,6 +20298,15 @@ def get_admin_listing_history(current_user):
         return jsonify({"error": "Failed to fetch listing history"}), 500
 
 
+def _listing_source_kind(row):
+    """Classify a listing by who posted it: reddit import, dealer, or member."""
+    if str(row.get("source_platform") or "").lower() == "reddit":
+        return "reddit"
+    if row.get("is_dealer"):
+        return "dealer"
+    return "member"
+
+
 @app.route("/api/admin/listings-search", methods=["GET"])
 @token_required
 def admin_listings_search(current_user):
@@ -20307,6 +20317,11 @@ def admin_listings_search(current_user):
 
         raw_types = request.args.get("types", "")
         raw_statuses = request.args.get("statuses", "")
+        requested_sources = {
+            (value or "").strip().lower()
+            for value in request.args.get("source", "").split(",")
+            if (value or "").strip() and (value or "").strip().lower() != "all"
+        } & {"member", "dealer", "reddit"}
 
         requested_types = [
             (value or "").strip().lower()
@@ -20381,6 +20396,9 @@ def admin_listings_search(current_user):
                     try:
                         owner_row = owner_map.get(str(row.get("user_id"))) if row.get("user_id") else None
                         draft_listing = _build_draft_listing_summary(row, owner_row=owner_row)
+                        draft_listing["source_kind"] = "member"
+                        if requested_sources and "member" not in requested_sources:
+                            continue
                         if requested_statuses and not any(
                             _admin_listing_matches_status(draft_listing, status)
                             for status in requested_statuses
@@ -20450,7 +20468,10 @@ def admin_listings_search(current_user):
                     preview["display_status"] = display_status
                     preview["listing_type"] = f"{listing_type}s" if listing_type != "part" else "parts"
                     preview["_table_status"] = preview.get("status")
+                    preview["source_kind"] = _listing_source_kind(preview)
 
+                    if requested_sources and preview["source_kind"] not in requested_sources:
+                        continue
                     if requested_statuses and not any(
                         _admin_listing_matches_status(preview, status)
                         for status in requested_statuses
