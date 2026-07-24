@@ -19953,6 +19953,70 @@ def get_admin_reddit_import_analytics(current_user):
         return jsonify({"error": "Failed to fetch Reddit import analytics"}), 500
 
 
+def _vin_title(lt, row):
+    """Readable listing title for the VIN-reveal viewer UI."""
+    if lt == "car":
+        parts = [row.get("make_year"), row.get("car_manufacturer"), row.get("car_model")]
+    elif lt == "bike":
+        parts = [row.get("year"), row.get("bike_brand"), row.get("bike_model")]
+    elif lt == "plate":
+        return (f"{row.get('code') or ''} {row.get('number') or ''}").strip() or str(row.get("id", ""))
+    elif lt == "part":
+        return row.get("part_name") or row.get("name") or str(row.get("id", ""))
+    else:
+        return str(row.get("id", ""))
+    parts = [str(p) for p in parts if p]
+    return " ".join(parts) or str(row.get("id", ""))
+
+
+def _vin_listing_summary(normalized_type, item_id):
+    """Title + primary thumbnail + public URL for one listing (viewer header)."""
+    cfg = ADMIN_REPORT_TYPE_CONFIG.get(normalized_type)
+    summary = {"title": str(item_id), "image_url": None, "public_url": None}
+    if not cfg:
+        return summary
+    summary["public_url"] = f"{cfg['public_prefix']}/{item_id}"
+    try:
+        row_resp, sc = supabase_request(
+            "get", f"/rest/v1/{cfg['table']}?id=eq.{item_id}&select={cfg['select']}&limit=1",
+            use_service_role=True)
+        if sc < 400 and isinstance(row_resp, list) and row_resp:
+            summary["title"] = _vin_title(normalized_type, row_resp[0])
+    except Exception as exc:
+        logger.warning("VIN summary title fetch failed for %s/%s: %s", normalized_type, item_id, exc)
+    try:
+        img_resp, isc = supabase_request(
+            "get", f"/rest/v1/{cfg['img_table']}?{cfg['img_fk']}=eq.{item_id}"
+                   f"&select={cfg['img_fk']},url,display_url,image_url&limit=1",
+            use_service_role=True)
+        if isc < 400 and isinstance(img_resp, list) and img_resp:
+            summary["image_url"] = (img_resp[0].get("display_url")
+                                    or img_resp[0].get("image_url") or img_resp[0].get("url"))
+    except Exception as exc:
+        logger.warning("VIN summary image fetch failed for %s/%s: %s", normalized_type, item_id, exc)
+    return summary
+
+
+def _load_vin_activity_for_listing(normalized_type, item_id, days):
+    """Targeted VIN-reveal activity for ONE listing — filters at the DB by
+    listing_id + vin_reveal so we don't load the whole window's analytics."""
+    cutoff = (_utc_now() - datetime.timedelta(days=days)).isoformat()
+    platform_events, ps = _fetch_all_rows(
+        "/rest/v1/platform_events",
+        {"select": "event_name,listing_type,listing_id,user_id,visitor_id,session_id,created_at",
+         "event_name": "eq.vin_reveal", "listing_id": f"eq.{item_id}",
+         "created_at": f"gte.{cutoff}", "order": "created_at.desc"})
+    legacy_events, ls = _fetch_all_rows(
+        "/rest/v1/lead_events",
+        {"select": "action,listing_type,listing_id,user_id,session_id,payload,created_at",
+         "action": "eq.vin_reveal", "listing_id": f"eq.{item_id}",
+         "created_at": f"gte.{cutoff}", "order": "created_at.desc"})
+    if ps >= 400 or ls >= 400:
+        raise RuntimeError("Failed to load VIN reveal events")
+    analytics = build_contact_analytics(platform_events or [], legacy_events or [], days, _utc_now())
+    return build_vin_listing_activity(analytics, normalized_type, item_id)
+
+
 @app.route("/api/admin/contact-analytics/vin-listings/<item_type>/<item_id>", methods=["GET"])
 @token_required
 def get_admin_vin_listing_activity(current_user, item_type, item_id):
@@ -19964,21 +20028,26 @@ def get_admin_vin_listing_activity(current_user, item_type, item_id):
         return jsonify({"error": "Invalid listing type"}), 400
     try:
         days = max(min(int(request.args.get("days", 30)), 90), 1)
-        activity = build_vin_listing_activity(
-            _load_admin_contact_analytics(days), normalized_type, item_id
-        )
-        # Only authenticated account ids enrich to a display name. Visitor and
-        # session ids deliberately remain an anonymous label in admin UI.
+        activity = _load_vin_activity_for_listing(normalized_type, item_id, days)
         rows = [{**row, "user_id": row["actor_id"]} for row in activity]
         rows = _admin_enrich_activity_rows(rows, "user_id")
         for row in rows:
-            if not row.get("actor_username"):
+            # A VIN reveal requires a logged-in, phone-verified account, so a
+            # resolved account row always shows its name (falling back to the
+            # username, or "Verified user" when no display name is set). Only a
+            # pure visitor/session id with no account row is truly anonymous.
+            if row.get("actor_username") or row.get("actor_email"):
+                if row.get("actor_name") in (None, "", "Guest", "Unknown user"):
+                    row["actor_name"] = row.get("actor_username") or "Verified user"
+            else:
                 row["actor_name"] = "Anonymous visitor"
             row.pop("actor_email", None)
             row.pop("actor_id", None)
             row.pop("user_id", None)
         return jsonify({"window_days": days, "listing_type": normalized_type,
-                        "listing_id": str(item_id), "actors": rows}), 200
+                        "listing_id": str(item_id),
+                        "listing": _vin_listing_summary(normalized_type, item_id),
+                        "actors": rows}), 200
     except Exception as exc:
         logger.error("Failed loading VIN listing activity: %s", exc)
         return jsonify({"error": "Failed to fetch VIN reveal activity"}), 500
