@@ -49,14 +49,19 @@ BEGIN
     -- 4. Allow the 'source_removed' lifecycle status used to unpublish removed imports.
     --    Drop any existing status CHECK (matched by definition, not a guessed name),
     --    then re-add NOT VALID with the full allowlist + source_removed.
+    --    Match by column + a known value, NOT the literal "status IN": Postgres
+    --    normalizes IN(...) to "status = ANY (ARRAY[...])" in pg_get_constraintdef,
+    --    so "%status IN%" never matches and the re-add below collides.
     FOR r IN
       SELECT conname FROM pg_constraint
       WHERE conrelid = ('public.' || t)::regclass AND contype = 'c'
-        AND pg_get_constraintdef(oid) ILIKE '%status IN%'
+        AND pg_get_constraintdef(oid) ILIKE '%status%'
         AND pg_get_constraintdef(oid) ILIKE '%pending%'
     LOOP
       EXECUTE format('ALTER TABLE public.%1$I DROP CONSTRAINT %2$I', t, r.conname);
     END LOOP;
+    -- Guarantee the canonical name is free even if the loop above missed it.
+    EXECUTE format('ALTER TABLE public.%1$I DROP CONSTRAINT IF EXISTS %2$I', t, t || '_status_check');
     EXECUTE format(
       'ALTER TABLE public.%1$I ADD CONSTRAINT %2$I CHECK (status IS NULL OR status IN ('
       || '''pending'',''pending_auto_review'',''approved'',''active'','

@@ -410,8 +410,11 @@ class WorkerTests(unittest.TestCase):
         self.assertNotIn("+971", blob)
         self.assertNotIn("example.com", blob)
         self.assertNotIn("service history", blob.lower())  # no raw selftext
-        # Image is a direct reddit-hosted URL.
-        self.assertIn("redd.it", image_posts[0]["data"]["image_url"])
+        # Images are bulk-inserted as a list; the first is the primary, reddit-hosted URL.
+        imgs = image_posts[0]["data"]
+        self.assertIsInstance(imgs, list)
+        self.assertIn("redd.it", imgs[0]["image_url"])
+        self.assertTrue(imgs[0]["is_primary"])
 
     @patch("workers.reddit_import_worker.fetch_new_submissions")
     def test_owner_mismatch_records_failed_run_and_aborts(self, mock_fetch):

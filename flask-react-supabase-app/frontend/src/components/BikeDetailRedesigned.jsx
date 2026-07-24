@@ -480,12 +480,12 @@ const BikeDetailRedesigned = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (bike?.seller_name || bike?.contact_name || bike?.user_email || '').charAt(0).toUpperCase()
+                  (isRedditSourced(bike) ? 'DPH Classifieds' : (bike?.seller_name || bike?.contact_name || bike?.user_email || '')).charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {bike?.seller_name || bike?.contact_name || 'Private Seller'}
+                  {isRedditSourced(bike) ? 'DPH Classifieds' : (bike?.seller_name || bike?.contact_name || 'Private Seller')}
                 </div>
               </div>
               <div className="cd-divider"></div>

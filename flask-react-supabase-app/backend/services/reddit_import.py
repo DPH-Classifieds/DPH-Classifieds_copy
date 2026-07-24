@@ -599,17 +599,18 @@ class ParsedListing:
     created_utc: float
     image_url: Optional[str]
     price_aed: int
+    image_urls: list = field(default_factory=list)  # all gallery images, primary first
     fields: dict = field(default_factory=dict)  # category-specific parsed values
 
 
 def _common(submission, category, price, summary_parts):
-    """Shared attribution/description assembly for any category."""
-    author_label = f"u/{submission.author}" if submission.author else "a Reddit user"
+    """Shared attribution/description assembly for any category.
+    Posted by DPH Classifieds; no individual seller is named."""
     summary = " · ".join(summary_parts)
     description = (
-        f"Imported from Reddit (r/DubaiPetrolHeads). Original post by {author_label}. "
+        f"Posted by DPH Classifieds, imported from r/DubaiPetrolHeads. "
         f"{summary}. Listing details are supplied by the original Reddit post — "
-        f"verify them with the seller on Reddit before transacting."
+        f"see the linked post for full details before transacting."
     )
     return description
 
@@ -646,7 +647,8 @@ def parse_listing(submission, now):
     safe_title = _scrub_pii(title)[:200]
     base = dict(
         source_id=submission.id, source_url=source_url, author=submission.author,
-        created_utc=submission.created_utc, image_url=submission.images[0], price_aed=price,
+        created_utc=submission.created_utc, image_url=submission.images[0],
+        image_urls=submission.images[:12], price_aed=price,  # ponytail: cap gallery at 12
     )
 
     if category in ("car", "bike"):

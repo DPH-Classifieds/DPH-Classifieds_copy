@@ -685,12 +685,12 @@ const CarDetail = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (car?.seller_name || car?.dealer_name || car?.contact_name || car?.user_email || '').charAt(0).toUpperCase()
+                  (isRedditSourced(car) ? 'DPH Classifieds' : (car?.seller_name || car?.dealer_name || car?.contact_name || car?.user_email || '')).charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {car?.seller_name || car?.dealer_name || car?.contact_name || 'Private Seller'}
+                  {isRedditSourced(car) ? 'DPH Classifieds' : (car?.seller_name || car?.dealer_name || car?.contact_name || 'Private Seller')}
                 </div>
               </div>
               <div className="cd-divider"></div>

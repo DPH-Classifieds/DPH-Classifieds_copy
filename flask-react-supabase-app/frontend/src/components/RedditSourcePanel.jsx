@@ -20,16 +20,15 @@ export function isRedditSourced(car) {
 // tag the analytics event to the right category.
 export default function RedditSourcePanel({ car, listingType = 'car', listingId }) {
   if (!isRedditSourced(car)) return null;
-  const author = car.source_author ? `u/${car.source_author}` : 'a Reddit user';
   const id = listingId != null ? listingId : car.id;
   return (
     <div className="cd-reddit-source">
       <div className="cd-reddit-source-head">
         <span className="cd-badge cd-badge-reddit">Reddit</span>
-        <span className="cd-reddit-source-attr">Imported from Reddit · Original post by {author}</span>
+        <span className="cd-reddit-source-attr">Posted by DPH Classifieds · imported from r/DubaiPetrolHeads</span>
       </div>
       <p className="cd-reddit-source-disclaimer">
-        Listing details are supplied by the original post; verify them with the seller on Reddit.
+        Listing details are supplied by the original Reddit post; see the linked post for full details.
       </p>
       <a
         href={car.source_url}

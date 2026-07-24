@@ -156,9 +156,16 @@ def _fetch_existing_by_source_ids(table, source_ids):
     return {r["source_external_id"]: r["id"] for r in body if r.get("source_external_id")}
 
 
-def _sync_primary_image(config, row_id, image_url):
-    """Ensure exactly one primary imported image matching the current source URL."""
-    if not (row_id and image_url):
+def _sync_images(config, row_id, image_urls):
+    """Sync the full imported gallery (first = primary). Idempotent: leaves the
+    rows untouched when the set already matches, else replaces them wholesale."""
+    urls = [u for u in (image_urls or []) if u]
+    # de-dup preserving order
+    seen, desired = set(), []
+    for u in urls:
+        if u not in seen:
+            seen.add(u); desired.append(u)
+    if not (row_id and desired):
         return
     images_table, fk = config["images_table"], config["fk"]
     body, status = supabase_request(
@@ -166,14 +173,13 @@ def _sync_primary_image(config, row_id, image_url):
         params={"select": f"id,image_url", fk: f"eq.{row_id}"},
     )
     existing = body if (status < 400 and isinstance(body, list)) else []
-    if any(img.get("image_url") == image_url for img in existing):
+    if {img.get("image_url") for img in existing} == set(desired):
         return  # unchanged
     if existing:
         supabase_request("delete", f"/rest/v1/{images_table}?{fk}=eq.{row_id}")
-    supabase_request(
-        "post", f"/rest/v1/{images_table}",
-        data={fk: row_id, "image_url": image_url, "url": image_url, "is_primary": True},
-    )
+    rows = [{fk: row_id, "image_url": u, "url": u, "is_primary": (i == 0)}
+            for i, u in enumerate(desired)]
+    supabase_request("post", f"/rest/v1/{images_table}", data=rows)
 
 
 def _upsert_listing(parsed, owner_id, existing_map, now, counts):
@@ -196,7 +202,7 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts):
             return
         row_id = body[0].get("id")
         counts["created"] += 1
-    _sync_primary_image(config, row_id, parsed.image_url)
+    _sync_images(config, row_id, parsed.image_urls or ([parsed.image_url] if parsed.image_url else []))
 
 
 # --- Removal sync -----------------------------------------------------------

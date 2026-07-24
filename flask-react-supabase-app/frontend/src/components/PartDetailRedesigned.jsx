@@ -444,12 +444,12 @@ const PartDetailRedesigned = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (part?.seller_name || part?.contact_name || part?.user_email || '').charAt(0).toUpperCase()
+                  (isRedditSourced(part) ? 'DPH Classifieds' : (part?.seller_name || part?.contact_name || part?.user_email || '')).charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {part?.seller_name || part?.contact_name || 'Private Seller'}
+                  {isRedditSourced(part) ? 'DPH Classifieds' : (part?.seller_name || part?.contact_name || 'Private Seller')}
                 </div>
               </div>
               <div className="cd-divider"></div>
