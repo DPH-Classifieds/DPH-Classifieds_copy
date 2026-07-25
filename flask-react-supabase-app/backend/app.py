@@ -16672,6 +16672,24 @@ def _auto_review_enabled() -> bool:
     return raw in ("1", "true", "yes", "on")
 
 
+_REDDIT_LISTING_TABLES = ("cars", "bikes", "car_parts", "license_plates")
+
+
+def _reddit_listings_visible() -> bool:
+    """Whether Reddit-imported listings are publicly shown. Redis flag
+    (admin toggle) first, env fallback. Default visible."""
+    rc = _get_redis_cache_client()
+    if rc:
+        try:
+            val = rc.get("reddit:visible")
+            if val is not None:
+                return val == "1"
+        except Exception:
+            pass
+    raw = (os.getenv("REDDIT_LISTINGS_VISIBLE") or "true").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
 def _initial_listing_status():
     """Initial status for a freshly-submitted listing. If the auto-review
     worker is enabled, lands at 'pending_auto_review' so the worker picks
@@ -22658,6 +22676,57 @@ def admin_auto_review_settings(current_user):
     if rc:
         try:
             redis_val = rc.get("ar:enabled")
+        except Exception:
+            pass
+    if redis_val is not None:
+        return jsonify({"enabled": redis_val == "1", "source": "redis", "env_enabled": env_enabled}), 200
+    return jsonify({"enabled": env_enabled, "source": "env", "env_enabled": env_enabled}), 200
+
+
+@app.route("/api/admin/reddit-listings/settings", methods=["GET", "PATCH"])
+@token_required
+def admin_reddit_listings_settings(current_user):
+    """Kill switch for Reddit-imported listings' public visibility. Hiding
+    bulk-sets is_approved=false on every reddit row across all listing tables
+    (they vanish from every public view, which all filter is_approved=true);
+    showing restores is_approved=true. The worker respects the same flag so it
+    won't re-show them on the next import tick."""
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Admin access required"}), 403
+
+    env_enabled = (os.getenv("REDDIT_LISTINGS_VISIBLE") or "true").strip().lower() in ("1", "true", "yes", "on")
+    rc = _get_redis_cache_client()
+
+    if request.method == "PATCH":
+        body = request.get_json(silent=True) or {}
+        enabled = bool(body.get("enabled", False))
+        if not rc:
+            return jsonify({"error": "Redis unavailable — set REDDIT_LISTINGS_VISIBLE env var instead"}), 503
+        try:
+            rc.set("reddit:visible", "1" if enabled else "0")
+        except Exception as exc:
+            return jsonify({"error": f"Redis error: {exc}"}), 500
+        # Bulk-flip existing reddit rows so the change is immediate.
+        updated = 0
+        for table in _REDDIT_LISTING_TABLES:
+            _, status_code = supabase_request(
+                "patch", f"/rest/v1/{table}?source_platform=eq.reddit",
+                data={"is_approved": enabled}, use_service_role=True,
+            )
+            if status_code >= 400:
+                logger.warning("reddit visibility: failed to update %s (%s)", table, status_code)
+            else:
+                updated += 1
+        for t in ("cars", "bikes", "parts", "plates"):
+            _invalidate_public_inventory_cache(t)
+        return jsonify({"enabled": enabled, "source": "redis", "tables_updated": updated}), 200
+
+    # GET
+    redis_val = None
+    if rc:
+        try:
+            redis_val = rc.get("reddit:visible")
         except Exception:
             pass
     if redis_val is not None:

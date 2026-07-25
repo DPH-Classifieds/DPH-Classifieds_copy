@@ -182,9 +182,28 @@ def _sync_images(config, row_id, image_urls):
     supabase_request("post", f"/rest/v1/{images_table}", data=rows)
 
 
-def _upsert_listing(parsed, owner_id, existing_map, now, counts):
+def _reddit_visible():
+    """Respect the admin kill switch: Redis flag reddit:visible (set from the
+    admin UI), env fallback. Default visible. Keeps imports from re-showing
+    listings an admin has switched off."""
+    url = os.getenv("REDIS_URL")
+    if url:
+        try:
+            import redis  # backend dep; present in the worker image
+            val = redis.from_url(url, socket_connect_timeout=2).get("reddit:visible")
+            if val is not None:
+                raw = val.decode() if isinstance(val, bytes) else str(val)
+                return raw == "1"
+        except Exception as exc:
+            logger.warning("reddit_import: redis visibility check failed (%s); defaulting to env", exc)
+    raw = (os.getenv("REDDIT_LISTINGS_VISIBLE") or "true").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
     built = build_imported_payload(parsed, owner_id, now)
     config, payload = built["config"], built["payload"]
+    payload["is_approved"] = bool(visible)  # honor the admin kill switch
     table = config["table"]
     row_id = existing_map.get(parsed.source_id)
     if row_id:
@@ -295,6 +314,9 @@ def run():
                 counts["skipped"] += 1
         counts["eligible"] = sum(len(v) for v in by_category.values())
 
+        visible = _reddit_visible()
+        if not visible:
+            logger.info("reddit_import: visibility OFF — importing as hidden (is_approved=false)")
         for cat, parsed_list in by_category.items():
             if not parsed_list:
                 continue
@@ -302,7 +324,7 @@ def run():
             existing_map = _fetch_existing_by_source_ids(table, [p.source_id for p in parsed_list])
             for parsed in parsed_list:
                 try:
-                    _upsert_listing(parsed, owner_id, existing_map, now, counts)
+                    _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=visible)
                 except Exception:
                     counts["failed"] += 1
                     logger.exception("reddit_import: upsert error for %s", parsed.source_id)

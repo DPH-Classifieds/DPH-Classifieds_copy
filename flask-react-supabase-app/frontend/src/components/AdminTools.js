@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Zap,
   Bot,
+  Rss,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -137,6 +138,7 @@ const AdminTools = () => {
     refreshUser: initialToolState(),
     flushCache: initialToolState(),
     autoReview: initialToolState(),
+    redditVisibility: initialToolState(),
   });
 
   // Auto-review toggle state: null = loading, true/false = known
@@ -151,6 +153,20 @@ const AdminTools = () => {
         setArSource(data.source);
       })
       .catch(() => setArEnabled(false));
+  }, []);
+
+  // Reddit imported-listings visibility kill switch
+  const [redditEnabled, setRedditEnabled] = useState(null);
+  const [redditToggleLoading, setRedditToggleLoading] = useState(false);
+  const [redditSource, setRedditSource] = useState(null);
+
+  useEffect(() => {
+    apiClient.get('/api/admin/reddit-listings/settings')
+      .then(data => {
+        setRedditEnabled(data.enabled);
+        setRedditSource(data.source);
+      })
+      .catch(() => setRedditEnabled(false));
   }, []);
 
   const updateTool = useCallback((id, patch) => {
@@ -251,6 +267,24 @@ const AdminTools = () => {
       setArToggleLoading(false);
     }
   }, [arEnabled, successToast, errorToast]);
+
+  // ── tool: reddit imported-listings visibility ─────────────────────────────
+  const toggleRedditVisibility = useCallback(async () => {
+    const newVal = !redditEnabled;
+    setRedditEnabled(newVal);
+    setRedditToggleLoading(true);
+    try {
+      const res = await apiClient.patch('/api/admin/reddit-listings/settings', { enabled: newVal });
+      setRedditEnabled(res.enabled);
+      setRedditSource(res.source);
+      successToast('redditVisibility', `Reddit listings ${res.enabled ? 'shown ✓' : 'hidden from site'}`);
+    } catch (err) {
+      setRedditEnabled(!newVal); // revert
+      errorToast('redditVisibility', `Failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setRedditToggleLoading(false);
+    }
+  }, [redditEnabled, successToast, errorToast]);
 
   // ── tool: run auto-review now ─────────────────────────────────────────────
   const runAutoReview = useCallback(async () => {
@@ -361,6 +395,55 @@ const AdminTools = () => {
             runLabel="Run now"
           />
 
+        </div>
+      </motion.div>
+
+      {/* ── Section: Reddit imported listings ────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.075 }}
+      >
+        <SectionLabel>Reddit imported listings</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <GlassCard className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <Rss size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-white leading-snug">Show Reddit listings on site</p>
+                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                  When off, every Reddit-imported listing is hidden from the public site (cars, bikes, plates, parts) — they stay in the database and the 4-hourly import keeps running in the background, just hidden. Turn on when you're ready to go live.
+                  {redditSource === 'env' && (
+                    <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-auto pt-1">
+              <button
+                type="button"
+                onClick={toggleRedditVisibility}
+                disabled={redditEnabled === null || redditToggleLoading}
+                aria-label={redditEnabled ? 'Hide Reddit listings' : 'Show Reddit listings'}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                  redditEnabled ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                    redditEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-sm font-medium text-white/70">
+                {redditEnabled === null ? 'Loading…' : redditEnabled ? 'Shown on site' : 'Hidden'}
+                {redditToggleLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+              </span>
+            </div>
+
+            <InlineToast toast={toolStates.redditVisibility.toast} />
+          </GlassCard>
         </div>
       </motion.div>
 
