@@ -272,6 +272,7 @@ const AdminListingDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [hideEmpty, setHideEmpty] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [soldSubType, setSoldSubType] = useState('sold_on_dph');
   const [moderationNote, setModerationNote] = useState('');
@@ -447,9 +448,15 @@ const AdminListingDetail = () => {
     const priceValue = listing.display_price ?? listing.price ?? listing.expected_selling_price;
     const extras = listingExtrasFromRecord(listing);
 
+    const sourceLabel = listing.source_platform === 'reddit'
+      ? 'Reddit import'
+      : (listing.is_dealer ? 'Dealer' : (listing.source_platform || 'Member'));
     const identitySection = {
       title: 'Core Listing',
       fields: [
+        buildField('Source', sourceLabel),
+        buildField('Original post', listing.source_url, 'link'),
+        buildField('Posted by', listing.source_author ? `u/${listing.source_author}` : null),
         buildField('Title', titleValue),
         buildField('Status', listing.status || 'pending'),
         buildField('Listing type', listingTypeLabel),
@@ -892,12 +899,42 @@ const AdminListingDetail = () => {
               </GlassCard>
 
               {/* Full schema sections */}
+              <div className="flex items-center justify-end mb-2">
+                <button
+                  type="button"
+                  onClick={() => setHideEmpty((v) => !v)}
+                  className="px-3 py-1 rounded-full text-xs font-medium border border-white/10 bg-white/[0.04] text-white/60 hover:text-white/90"
+                >
+                  {hideEmpty ? 'Show empty fields' : 'Hide empty fields'}
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {detailSections.map((section) => (
+                {detailSections
+                  .map((section) => ({
+                    ...section,
+                    fields: hideEmpty
+                      ? section.fields.filter((f) => {
+                          const r = formatFieldValue(f.value, f.format);
+                          return !(r === 'Not set' || r === 'None');
+                        })
+                      : section.fields,
+                  }))
+                  .filter((section) => section.fields.length > 0)
+                  .map((section) => (
                   <GlassCard key={section.title}>
                     <SectionLabel>{section.title}</SectionLabel>
                     {section.fields.map((field) => {
                       const rendered = formatFieldValue(field.value, field.format);
+                      if (field.format === 'link' && field.value) {
+                        return (
+                          <div key={field.label} className="flex items-start justify-between gap-3 py-2 border-b border-white/[0.04] last:border-0">
+                            <span className="text-xs text-white/40 shrink-0">{field.label}</span>
+                            <a href={String(field.value)} target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-300 hover:text-emerald-200 text-right break-all">
+                              Open ↗
+                            </a>
+                          </div>
+                        );
+                      }
                       if (field.format === 'chips' && Array.isArray(rendered)) {
                         return (
                           <div key={field.label} className="py-2 border-b border-white/[0.04] last:border-0">

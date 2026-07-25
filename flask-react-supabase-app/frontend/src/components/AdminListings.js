@@ -910,7 +910,9 @@ const AdminListings = () => {
                   : pagedListings.map((listing, i) => {
                     const thumb = getListingImage(listing);
                     const title = getListingTitle(listing);
-                    const seller = listing.user_email || listing.seller_email || '—';
+                    const seller = listing.source_kind === 'reddit'
+                      ? 'DPH Classifieds'
+                      : (listing.user_email || listing.seller_email || '—');
                     const views = Number(listing.view_count ?? listing.views ?? 0);
                     // Moderation truths (pending/draft/rejected/sold/deleted/suspended/archived)
                     // ALWAYS win over the lifecycle-derived display_status from the backend —
@@ -976,7 +978,7 @@ const AdminListings = () => {
                         <td className="px-4 py-3"><StatusBadge status={displayStatus} /></td>
                         <td className="px-4 py-3 max-w-[260px]">
                           <p
-                            className="text-white/60 text-sm font-mono whitespace-normal break-all leading-snug"
+                            className="text-white/70 text-sm truncate leading-snug"
                             title={seller}
                           >
                             {seller}
