@@ -19972,6 +19972,110 @@ def get_admin_reddit_import_analytics(current_user):
         return jsonify({"error": "Failed to fetch Reddit import analytics"}), 500
 
 
+_REDDIT_VERIFY_CONFIG = {
+    "car": {
+        "table": "cars", "img_table": "car_images", "img_fk": "car_id", "public_prefix": "/cars",
+        "select": ("id,listing_title,car_manufacturer,car_model,trim,make_year,"
+                   "expected_selling_price,kilometer_driven,regional_spec,car_city,fuel_type,"
+                   "transmission_type,horsepower,steering_side,body_type,vehicle_type,vin_number,"
+                   "source_url,source_author,source_created_at,is_approved,status,created_at"),
+        "core": ["car_manufacturer", "car_model", "make_year", "expected_selling_price"],
+        "spec": ["regional_spec", "fuel_type", "transmission_type", "horsepower", "steering_side", "body_type"],
+    },
+    "bike": {
+        "table": "bikes", "img_table": "bike_images", "img_fk": "bike_id", "public_prefix": "/bikes",
+        "select": ("id,bike_brand,bike_model,year,price,mileage,condition,bike_type,location,"
+                   "vin_number,source_url,source_author,source_created_at,is_approved,status,created_at"),
+        "core": ["bike_brand", "bike_model", "year", "price"],
+        "spec": ["condition", "bike_type", "location"],
+    },
+    "part": {
+        "table": "car_parts", "img_table": "part_images", "img_fk": "part_id", "public_prefix": "/car-parts",
+        "select": ("id,name,part_type,condition,price,location,"
+                   "source_url,source_author,source_created_at,is_approved,status,created_at"),
+        "core": ["name", "part_type", "price"],
+        "spec": ["condition", "location"],
+    },
+    "plate": {
+        "table": "license_plates", "img_table": "plate_images", "img_fk": "plate_id", "public_prefix": "/plates",
+        "select": ("id,listing_title,number,code,digits,city,price,"
+                   "source_url,source_author,source_created_at,is_approved,status,created_at"),
+        "core": ["number", "price"],
+        "spec": ["code", "city"],
+    },
+}
+
+_INCOMPLETE_VALUES = {None, "", "unspecified", "any format", "0"}
+
+
+def _reddit_field_incomplete(value):
+    if value is None:
+        return True
+    return str(value).strip().lower() in _INCOMPLETE_VALUES
+
+
+@app.route("/api/admin/reddit-listings", methods=["GET"])
+@token_required
+def get_admin_reddit_listings(current_user):
+    """Every Reddit-imported listing (including hidden ones) with the fields,
+    photos and source link needed to verify each import in the admin panel."""
+    if not _require_admin_api_user(current_user):
+        return jsonify({"error": "Unauthorized - Admin access required"}), 403
+    try:
+        listings = []
+        summary = {"total": 0, "hidden": 0, "with_vin": 0, "incomplete": 0}
+        for lt, cfg in _REDDIT_VERIFY_CONFIG.items():
+            rows, sc = supabase_request(
+                "get", f"/rest/v1/{cfg['table']}",
+                params={"select": cfg["select"], "source_platform": "eq.reddit",
+                        "order": "source_created_at.desc"},
+                use_service_role=True)
+            if sc >= 400 or not isinstance(rows, list):
+                logger.warning("reddit-listings: fetch failed for %s (%s)", cfg["table"], sc)
+                continue
+            ids = [str(r["id"]) for r in rows if r.get("id")]
+            images_by_id = {}
+            for i in range(0, len(ids), 60):
+                chunk = ids[i:i + 60]
+                img_rows, isc = supabase_request(
+                    "get", f"/rest/v1/{cfg['img_table']}",
+                    params={"select": f"{cfg['img_fk']},url,display_url,image_url,is_primary",
+                            cfg["img_fk"]: f"in.({','.join(chunk)})"},
+                    use_service_role=True)
+                if isc < 400 and isinstance(img_rows, list):
+                    for im in img_rows:
+                        url = im.get("display_url") or im.get("image_url") or im.get("url")
+                        if url:
+                            images_by_id.setdefault(str(im.get(cfg["img_fk"])), []).append(url)
+            for r in rows:
+                rid = str(r.get("id"))
+                missing = [f for f in (cfg["core"] + cfg["spec"]) if _reddit_field_incomplete(r.get(f))]
+                vin = r.get("vin_number")
+                fields = {k: r.get(k) for k in (cfg["core"] + cfg["spec"])}
+                listings.append({
+                    "id": rid, "listing_type": lt, "title": _vin_title(lt, r),
+                    "price": r.get("expected_selling_price") or r.get("price"),
+                    "fields": fields, "missing_fields": missing, "vin_number": vin,
+                    "images": images_by_id.get(rid, []),
+                    "source_url": r.get("source_url"), "source_author": r.get("source_author"),
+                    "public_url": f"{cfg['public_prefix']}/{rid}",
+                    "is_approved": bool(r.get("is_approved")), "status": r.get("status"),
+                    "source_created_at": r.get("source_created_at"),
+                })
+                summary["total"] += 1
+                if not r.get("is_approved"):
+                    summary["hidden"] += 1
+                if vin:
+                    summary["with_vin"] += 1
+                if missing:
+                    summary["incomplete"] += 1
+        listings.sort(key=lambda x: x.get("source_created_at") or "", reverse=True)
+        return jsonify({"summary": summary, "listings": listings}), 200
+    except Exception as exc:
+        logger.error("Failed to load reddit listings for verification: %s", exc)
+        return jsonify({"error": "Failed to fetch reddit listings"}), 500
+
+
 def _vin_title(lt, row):
     """Readable listing title for the VIN-reveal viewer UI."""
     if lt == "car":

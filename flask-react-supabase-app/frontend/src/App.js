@@ -152,6 +152,7 @@ const AdminReports = lazy(() => import('./components/AdminReports'));
 const AdminMetrics = lazy(() => import('./components/AdminMetrics'));
 const AdminVinOpens = lazy(() => import('./components/admin/AdminVinOpens'));
 const AdminTools = lazy(() => import('./components/AdminTools'));
+const AdminRedditVerify = lazy(() => import('./components/admin/AdminRedditVerify'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./components/TermsOfUse'));
 const ExplorePage = lazy(() => import('./components/ExplorePage'));
@@ -345,6 +346,7 @@ function App() {
                 <Route path="vin-opens" element={<AdminVinOpens />} />
                 <Route path="metrics" element={<AdminMetrics />} />
                 <Route path="tools" element={<AdminTools />} />
+                <Route path="reddit-verify" element={<AdminRedditVerify />} />
               </Route>
 
               {/* Dealer routes */}

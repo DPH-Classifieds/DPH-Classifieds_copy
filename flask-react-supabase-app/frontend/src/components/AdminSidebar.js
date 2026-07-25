@@ -9,6 +9,7 @@ import {
   MessageSquareWarning,
   BarChart3,
   Wrench,
+  Rss,
   ExternalLink,
   LogOut,
   ChevronUp,
@@ -17,6 +18,7 @@ import {
 const menuItems = [
   { path: '/admin',            label: 'Dashboard',    icon: LayoutDashboard,      exact: true },
   { path: '/admin/listings',   label: 'Listings',     icon: FileText },
+  { path: '/admin/reddit-verify', label: 'Reddit verify', icon: Rss },
   { path: '/admin/dealers',    label: 'Dealers',      icon: Store },
   { path: '/admin/dealerships',label: 'Dealerships',  icon: Building2 },
   { path: '/admin/users',      label: 'Users',        icon: Users },
