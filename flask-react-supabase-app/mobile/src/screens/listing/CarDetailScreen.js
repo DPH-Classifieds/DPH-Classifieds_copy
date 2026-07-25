@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
+import RedditSourcePanel, { isRedditSourced } from '../../components/RedditSourcePanel';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -359,22 +360,26 @@ export default function CarDetailScreen({ route, navigation }) {
                 </Text>
               </View>
               <View>
-                <Text style={styles.sellerName}>{car.seller_name || car.seller?.name || 'Seller'}</Text>
+                <Text style={styles.sellerName}>{isRedditSourced(car) ? 'DPH Classifieds' : (car.seller_name || car.seller?.name || 'Seller')}</Text>
                 <Text style={styles.sellerMember}>
                   Member since {formatDate(car.seller?.created_at || car.created_at)}
                 </Text>
               </View>
             </View>
-            <View style={styles.sellerActions}>
-              <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
-                <Ionicons name="call" size={18} color={COLORS.white} />
-                <Text style={styles.callButtonText}>Call Now</Text>
-              </PressableScale>
-              <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
-                <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
-                <Text style={styles.whatsappButtonText}>WhatsApp</Text>
-              </PressableScale>
-            </View>
+            {isRedditSourced(car) ? (
+              <RedditSourcePanel item={car} />
+            ) : (
+              <View style={styles.sellerActions}>
+                <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
+                  <Ionicons name="call" size={18} color={COLORS.white} />
+                  <Text style={styles.callButtonText}>Call Now</Text>
+                </PressableScale>
+                <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
+                  <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
+                  <Text style={styles.whatsappButtonText}>WhatsApp</Text>
+                </PressableScale>
+              </View>
+            )}
             {isOwner && (
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
                 <Button title="Edit" onPress={() => navigation.navigate('EditListing', { editMode: true, listingType: 'car', listingId: car.id })} variant="secondary" size="sm" />

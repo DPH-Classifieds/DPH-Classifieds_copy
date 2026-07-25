@@ -249,13 +249,22 @@ def _extract_images(data: dict) -> list:
         src = (meta.get("s") or {}).get("u") or ""
         if _is_allowed_image(src):
             urls.append(src)
-    # De-dup preserving order.
+    # De-dup preserving order, rewriting each to a hotlinkable host.
     seen, out = set(), []
     for u in urls:
+        u = _to_hotlinkable(u)
         if u not in seen:
             seen.add(u)
             out.append(u)
     return out
+
+
+def _to_hotlinkable(url: str) -> str:
+    """preview.redd.it returns 403 to browser <img> requests (no hotlinking);
+    i.redd.it serves the same file publicly under the same basename. Rewrite so
+    imported images actually render on the site and app."""
+    m = re.match(r"https://preview\.redd\.it/([^/?#]+)", url or "")
+    return f"https://i.redd.it/{m.group(1)}" if m else url
 
 
 def _is_allowed_image(url: str) -> bool:

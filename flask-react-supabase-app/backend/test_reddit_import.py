@@ -115,7 +115,8 @@ class ParserTests(unittest.TestCase):
             "url": "https://evil.example/pic.jpg",
             "preview": {"images": [{"source": {"url": "https://preview.redd.it/ok.jpg"}}]},
         })
-        self.assertEqual(sub.images, ["https://preview.redd.it/ok.jpg"])
+        # preview.redd.it is rewritten to the hotlinkable i.redd.it CDN.
+        self.assertEqual(sub.images, ["https://i.redd.it/ok.jpg"])
 
     def test_gallery_post_images_are_extracted(self):
         # Real car sales post as galleries: image URLs live in media_metadata,
@@ -132,10 +133,12 @@ class ParserTests(unittest.TestCase):
                 "bbb": {"status": "valid", "e": "Image", "s": {"u": "https://preview.redd.it/bbb.jpg?width=1080"}},
             },
         })
-        self.assertEqual(sub.images[0], "https://preview.redd.it/aaa.jpg?width=1080")
+        # Gallery preview URLs are rewritten to hotlinkable i.redd.it (basename,
+        # query dropped) so browser <img> tags load them (preview.redd.it 403s).
+        self.assertEqual(sub.images[0], "https://i.redd.it/aaa.jpg")
         parsed = parse_sale_post(sub, NOW)
         self.assertIsNotNone(parsed)
-        self.assertTrue(parsed.image_url.startswith("https://preview.redd.it/aaa"))
+        self.assertTrue(parsed.image_url.startswith("https://i.redd.it/aaa"))
 
     def test_payload_uses_real_columns_and_safe_fallbacks(self):
         parsed = parse_sale_post(complete_post("abc"), NOW)

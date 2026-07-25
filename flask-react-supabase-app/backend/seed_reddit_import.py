@@ -92,6 +92,10 @@ def main():
         else:
             skipped += 1
 
+    # Respect the admin kill switch so a backfill never un-hides listings the
+    # admin has switched off (env REDDIT_LISTINGS_VISIBLE / redis reddit:visible).
+    visible = w._reddit_visible()
+    print(f"  visibility: {'shown' if visible else 'HIDDEN'}")
     counts = {k: 0 for k in ("created", "updated", "failed")}
     for cat, plist in by_category.items():
         if not plist:
@@ -99,7 +103,7 @@ def main():
         table = LISTING_TABLES[cat]["table"]
         existing = w._fetch_existing_by_source_ids(table, [p.source_id for p in plist])
         for parsed in plist:
-            w._upsert_listing(parsed, owner_id, existing, now, counts)
+            w._upsert_listing(parsed, owner_id, existing, now, counts, visible=visible)
         print(f"  {cat:5}: {len(plist)} eligible")
 
     print(f"\nDone. created={counts['created']} updated={counts['updated']} "
