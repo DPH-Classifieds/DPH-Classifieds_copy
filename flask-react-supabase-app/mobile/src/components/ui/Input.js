@@ -14,6 +14,7 @@ export default function Input({
   multiline = false,
   keyboardType = 'default',
   style,
+  ...rest
 }) {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -46,6 +47,7 @@ export default function Input({
           keyboardType={keyboardType}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          {...rest}
         />
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
