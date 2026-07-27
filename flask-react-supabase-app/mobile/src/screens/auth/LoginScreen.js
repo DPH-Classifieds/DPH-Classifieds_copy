@@ -80,10 +80,10 @@ export default function LoginScreen({ navigation, route }) {
 
   const validate = () => {
     const newErrors = {};
+    // Accept either an email or a username — the backend /api/auth/login
+    // resolves a username to its email before authenticating.
     if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Enter a valid email address';
+      newErrors.email = 'Email or username is required';
     }
     if (!password) {
       newErrors.password = 'Password is required';
