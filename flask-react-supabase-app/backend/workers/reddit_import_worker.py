@@ -230,12 +230,23 @@ def _enrich_car_with_vin(payload):
         logger.warning("reddit_import: VIN decode failed for %s: %s", vin, exc)
         return
     decoded = result.get("decoded") or {}
+    sources = payload.get("import_field_sources") or {}
     if result.get("is_valid") and decoded:
         if decoded.get("make"):
             payload["car_manufacturer"] = _titlecase_make(decoded["make"])
+            sources["car_manufacturer"] = "vin"
         if decoded.get("model"):
             payload["car_model"] = str(decoded["model"]).strip()
-        payload.update(map_decoded_to_listing(decoded))  # spec sheet
+            sources["car_model"] = "vin"
+        mapped = map_decoded_to_listing(decoded)
+        payload.update(mapped)  # spec sheet
+        for k in mapped:
+            sources[k] = "vin"
+    elif decoded.get("make_source") == "wmi" and decoded.get("make"):
+        # No clean decode, but WMI still guarantees the manufacturer.
+        payload["car_manufacturer"] = _titlecase_make(decoded["make"])
+        sources["car_manufacturer"] = "vin"
+    payload["import_field_sources"] = sources
     if not payload.get("make_year"):
         yr = resolve_vin_year(vin, payload.get("make_year"))
         if yr:
@@ -265,7 +276,28 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
             return
         row_id = body[0].get("id")
         counts["created"] += 1
+    _record_price_history(config, row_id, payload.get("expected_selling_price") or payload.get("price"))
     _sync_images(config, row_id, parsed.image_urls or ([parsed.image_url] if parsed.image_url else []))
+
+
+def _record_price_history(config, row_id, new_price):
+    """Log a price point when it's new or changed vs the last recorded value.
+    Best-effort: a missing table (migration not yet applied) is ignored."""
+    if new_price is None or not row_id:
+        return
+    body, st = supabase_request(
+        "get", "/rest/v1/listing_price_history",
+        params={"select": "price", "listing_id": f"eq.{row_id}",
+                "order": "recorded_at.desc", "limit": "1"})
+    if st < 400 and isinstance(body, list) and body:
+        try:
+            if float(body[0].get("price")) == float(new_price):
+                return  # unchanged since last record
+        except (TypeError, ValueError):
+            pass
+    supabase_request("post", "/rest/v1/listing_price_history", data={
+        "listing_type": config["listing_type"], "listing_id": row_id,
+        "price": new_price, "source": "import"})
 
 
 # --- Removal sync -----------------------------------------------------------

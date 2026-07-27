@@ -872,6 +872,22 @@ def build_imported_payload(parsed, owner_id, now):
                 payload[k] = extras[k]
         if f.get("vin"):
             payload["vin_number"] = f["vin"]
+        # Provenance: where each field came from. The worker flips fields it
+        # overwrites from a clean VIN decode to 'vin'.
+        sources = {"car_manufacturer": "title", "car_model": "title", "make_year": "title",
+                   "expected_selling_price": "post", "listing_title": "post",
+                   "regional_spec": "description" if extras.get("regional_spec") else "default",
+                   "steering_side": "description" if extras.get("steering_side") else "default",
+                   "car_city": "default", "vehicle_type": "default"}
+        if f.get("mileage_km") is not None:
+            sources["kilometer_driven"] = "description"
+        for k in ("fuel_type", "transmission_type", "color", "engine_capacity",
+                  "cylinders", "doors", "service_history"):
+            if extras.get(k) is not None:
+                sources[k] = "description"
+        if f.get("vin"):
+            sources["vin_number"] = "post"
+        payload["import_field_sources"] = sources
     elif parsed.category == "bike":
         payload = {**src,
             "make": f["make"], "model": f["model"], "bike_brand": f["make"], "bike_model": f["model"],

@@ -17,6 +17,16 @@ const FIELD_LABELS = {
 
 const TYPE_LABEL = { car: 'Car', bike: 'Bike', part: 'Part', plate: 'Plate' };
 
+// Provenance badge: where the value came from.
+const SOURCE_STYLE = {
+  vin: 'bg-emerald-500/15 text-emerald-300',
+  description: 'bg-sky-500/15 text-sky-300',
+  title: 'bg-white/10 text-white/50',
+  post: 'bg-white/10 text-white/50',
+  default: 'bg-amber-500/15 text-amber-300',
+};
+const SOURCE_LABEL = { vin: 'VIN', description: 'desc', title: 'title', post: 'post', default: 'default' };
+
 const fmtValue = (key, value) => {
   if (value === null || value === undefined || value === '') return '—';
   if (key === 'expected_selling_price' || key === 'price') {
@@ -139,18 +149,31 @@ const AdminRedditVerify = () => {
                       </div>
                       <p className="text-white font-medium truncate mt-1">{l.title}</p>
                       <p className="text-sm text-orange-300 font-semibold">{fmtValue('price', l.price)}</p>
+                      {Array.isArray(l.price_history) && l.price_history.length > 1 && (
+                        <p className="text-[11px] text-white/45 mt-0.5">
+                          {l.price_history.length} price points · was {fmtValue('price', l.price_history[0].price)}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                    {entries.map(([key, value]) => (
+                    {entries.map(([key, value]) => {
+                      const src = l.field_sources?.[key];
+                      return (
                       <div key={key} className="flex items-baseline justify-between gap-2 border-b border-white/[0.04] pb-1">
                         <span className="text-[11px] text-white/40">{FIELD_LABELS[key] || key}</span>
-                        <span className={`text-xs text-right ${missing.has(key) ? 'text-amber-400' : 'text-white/80'}`}>
-                          {missing.has(key) ? 'Missing' : fmtValue(key, value)}
+                        <span className="flex items-center gap-1.5 text-right">
+                          {src && !missing.has(key) && (
+                            <span className={`rounded px-1 py-0.5 text-[9px] font-medium ${SOURCE_STYLE[src] || 'bg-white/10 text-white/40'}`}>{SOURCE_LABEL[src] || src}</span>
+                          )}
+                          <span className={`text-xs ${missing.has(key) ? 'text-amber-400' : 'text-white/80'}`}>
+                            {missing.has(key) ? 'Missing' : fmtValue(key, value)}
+                          </span>
                         </span>
                       </div>
-                    ))}
+                      );
+                    })}
                     {l.listing_type === 'car' && (
                       <div className="flex items-baseline justify-between gap-2 border-b border-white/[0.04] pb-1 col-span-2">
                         <span className="text-[11px] text-white/40">VIN</span>

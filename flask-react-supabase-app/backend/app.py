@@ -19975,12 +19975,10 @@ def get_admin_reddit_import_analytics(current_user):
 _REDDIT_VERIFY_CONFIG = {
     "car": {
         "table": "cars", "img_table": "car_images", "img_fk": "car_id", "public_prefix": "/cars",
-        "select": ("id,listing_title,car_manufacturer,car_model,trim,make_year,"
-                   "expected_selling_price,kilometer_driven,regional_spec,car_city,fuel_type,"
-                   "transmission_type,horsepower,steering_side,body_type,vehicle_type,vin_number,"
-                   "source_url,source_author,source_created_at,is_approved,status,created_at"),
         "core": ["car_manufacturer", "car_model", "make_year", "expected_selling_price"],
-        "spec": ["regional_spec", "fuel_type", "transmission_type", "horsepower", "steering_side", "body_type"],
+        "spec": ["trim", "body_type", "fuel_type", "transmission_type", "cylinders",
+                 "engine_capacity", "horsepower", "drivetrain", "doors", "seating_capacity",
+                 "color", "kilometer_driven", "regional_spec", "steering_side", "service_history"],
     },
     "bike": {
         "table": "bikes", "img_table": "bike_images", "img_fk": "bike_id", "public_prefix": "/bikes",
@@ -20014,6 +20012,29 @@ def _reddit_field_incomplete(value):
     return str(value).strip().lower() in _INCOMPLETE_VALUES
 
 
+def _reddit_price_points(listing_ids):
+    """{listing_id: [{price, recorded_at}, ...]} oldest-first. Best-effort:
+    returns {} if the price-history table isn't there yet."""
+    out = {}
+    ids = [i for i in listing_ids if i]
+    if not ids:
+        return out
+    for i in range(0, len(ids), 80):
+        chunk = ids[i:i + 80]
+        rows, sc = supabase_request(
+            "get", "/rest/v1/listing_price_history",
+            params={"select": "listing_id,price,recorded_at",
+                    "listing_id": f"in.({','.join(chunk)})",
+                    "order": "recorded_at.asc"},
+            use_service_role=True)
+        if sc >= 400 or not isinstance(rows, list):
+            continue
+        for row in rows:
+            out.setdefault(str(row.get("listing_id")), []).append(
+                {"price": row.get("price"), "recorded_at": row.get("recorded_at")})
+    return out
+
+
 @app.route("/api/admin/reddit-listings", methods=["GET"])
 @token_required
 def get_admin_reddit_listings(current_user):
@@ -20025,15 +20046,18 @@ def get_admin_reddit_listings(current_user):
         listings = []
         summary = {"total": 0, "hidden": 0, "with_vin": 0, "incomplete": 0}
         for lt, cfg in _REDDIT_VERIFY_CONFIG.items():
+            # select=* stays resilient to the import_field_sources column not
+            # existing yet (before the provenance migration is applied).
             rows, sc = supabase_request(
                 "get", f"/rest/v1/{cfg['table']}",
-                params={"select": cfg["select"], "source_platform": "eq.reddit",
+                params={"select": "*", "source_platform": "eq.reddit",
                         "order": "source_created_at.desc"},
                 use_service_role=True)
             if sc >= 400 or not isinstance(rows, list):
                 logger.warning("reddit-listings: fetch failed for %s (%s)", cfg["table"], sc)
                 continue
             ids = [str(r["id"]) for r in rows if r.get("id")]
+            price_points = _reddit_price_points(ids)
             images_by_id = {}
             for i in range(0, len(ids), 60):
                 chunk = ids[i:i + 60]
@@ -20056,6 +20080,8 @@ def get_admin_reddit_listings(current_user):
                     "id": rid, "listing_type": lt, "title": _vin_title(lt, r),
                     "price": r.get("expected_selling_price") or r.get("price"),
                     "fields": fields, "missing_fields": missing, "vin_number": vin,
+                    "field_sources": r.get("import_field_sources") or {},
+                    "price_history": price_points.get(rid, []),
                     "images": images_by_id.get(rid, []),
                     "source_url": r.get("source_url"), "source_author": r.get("source_author"),
                     "public_url": f"{cfg['public_prefix']}/{rid}",

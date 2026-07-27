@@ -422,6 +422,18 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(car.get("service_history"), "Full service history")
         self.assertEqual(car.get("kilometer_driven"), 88000)
         self.assertEqual(car.get("regional_spec"), "GCC")
+        # Provenance is recorded per field (this post has no VIN -> title/description).
+        sources = car.get("import_field_sources") or {}
+        self.assertEqual(sources.get("car_manufacturer"), "title")
+        self.assertEqual(sources.get("service_history"), "description")
+        # Title says "GCC", so regional spec is inherited, not the UAE default.
+        self.assertEqual(sources.get("regional_spec"), "description")
+        self.assertEqual(sources.get("steering_side"), "default")  # not stated
+        # Price is tracked end to end.
+        price_posts = [c for c in db.calls
+                       if c["path"] == "/rest/v1/listing_price_history" and c["method"] == "post"]
+        self.assertEqual(len(price_posts), 1)
+        self.assertEqual(price_posts[0]["data"]["price"], 39000)
         # Images are bulk-inserted as a list; the first is the primary, reddit-hosted URL.
         imgs = image_posts[0]["data"]
         self.assertIsInstance(imgs, list)
