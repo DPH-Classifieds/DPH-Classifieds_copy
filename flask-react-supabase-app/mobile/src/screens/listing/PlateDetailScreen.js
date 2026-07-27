@@ -19,7 +19,8 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import { ListingDetailSkeleton } from '../../components/ui/ListingSkeleton';
+import { getCachedListing } from '../../utils/listingCache';
 import PressableScale from '../../components/ui/PressableScale';
 import RedditSourcePanel, { isRedditSourced } from '../../components/RedditSourcePanel';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,8 +80,9 @@ const getImageUri = (item) => {
 
 export default function PlateDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
-  const [plate, setPlate] = useState(routeListing || null);
-  const [loading, setLoading] = useState(!routeListing);
+  const initialPlate = routeListing || getCachedListing('plates', listingId) || null;
+  const [plate, setPlate] = useState(initialPlate);
+  const [loading, setLoading] = useState(!initialPlate);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
@@ -93,23 +95,21 @@ export default function PlateDetailScreen({ route, navigation }) {
   const saved = isSaved('plate', plateId);
 
   useEffect(() => {
-    if (routeListing) {
-      setPlate(routeListing);
-      setLoading(false);
-    }
-    const fetchPlate = async () => {
+    const id = listingId || routeListing?.id;
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
       try {
-        if (!routeListing) setLoading(true);
-        const data = await apiClient.get(`/api/plates/${listingId}`);
-        setPlate(data);
+        const data = await apiClient.get(`/api/plates/${id}`);
+        if (!cancelled && data) setPlate((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        Alert.alert('Error', 'Failed to load plate details.');
+        if (!cancelled && !initialPlate) Alert.alert('Error', 'Failed to load plate details.');
       } finally {
-        if (!routeListing) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
-    if (listingId) fetchPlate();
-  }, [listingId, routeListing]);
+    })();
+    return () => { cancelled = true; };
+  }, [listingId]);
 
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -145,7 +145,7 @@ export default function PlateDetailScreen({ route, navigation }) {
     }
   }, [plate, user, navigation]);
 
-  if (loading) return <LoadingSpinner message="Loading plate details..." />;
+  if (loading && !plate) return <ListingDetailSkeleton />;
   if (!plate) return <LoadingSpinner message="Plate not found" />;
 
   const cityNameAr = CITY_NAMES_AR[plate.city] || CITY_CODES[plate.city] || 'الإمارات';
@@ -153,7 +153,6 @@ export default function PlateDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScreenEntrance>
       <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false}>
         <View style={styles.imageSection}>
           {images.length > 0 ? (
@@ -296,7 +295,6 @@ export default function PlateDetailScreen({ route, navigation }) {
         <RecommendedListings listingType="plate" listingId={plate.id} navigation={navigation} />
       </Animated.ScrollView>
 
-      </ScreenEntrance>
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.lightboxContainer}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>

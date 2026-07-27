@@ -23,6 +23,7 @@ import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
+import { prefetchListingWindow } from '../../utils/listingCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
@@ -381,9 +382,17 @@ export default function CarListScreen({ navigation }) {
     <CarCard
       item={item}
       index={index}
-      onPress={() => navigation.navigate('CarDetail', { listingId: item.id })}
+      onPress={() => navigation.navigate('CarDetail', { listingId: item.id, listing: item })}
     />
   ), [navigation]);
+
+  // Sliding window: preload the detail (freshest fields + images) for cards as
+  // they scroll into view, so opening any of them feels instant. Fires for the
+  // first 5-6 on mount too.
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    prefetchListingWindow('cars', viewableItems.map((v) => v.item).filter(Boolean));
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -434,6 +443,8 @@ export default function CarListScreen({ navigation }) {
             showsVerticalScrollIndicator={false}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.4}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" />}
             ListFooterComponent={loadingMore ? <ActivityIndicator color="#4CAF50" style={{ padding: 20 }} /> : null}
             ListEmptyComponent={!loading ? <EmptyState title="No cars found" description="Try adjusting your filters" /> : null}

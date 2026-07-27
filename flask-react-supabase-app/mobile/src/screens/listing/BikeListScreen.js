@@ -20,6 +20,7 @@ import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/them
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
+import { prefetchListingWindow } from '../../utils/listingCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
@@ -275,9 +276,14 @@ export default function BikeListScreen({ navigation }) {
     <BikeCard
       item={item}
       index={index}
-      onPress={() => navigation.navigate('BikeDetail', { listingId: item.id })}
+      onPress={() => navigation.navigate('BikeDetail', { listingId: item.id, listing: item })}
     />
   );
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    prefetchListingWindow('bikes', viewableItems.map((v) => v.item).filter(Boolean));
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -317,6 +323,8 @@ export default function BikeListScreen({ navigation }) {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.3}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
             ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={COLORS.accent} /></View> : null}
             ListEmptyComponent={
               <EmptyState icon="bicycle-outline" title="No bikes found" message="Try adjusting your filters" actionLabel="Clear Filters" onAction={clearFilters} />

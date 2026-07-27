@@ -19,7 +19,6 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
 import RedditSourcePanel, { isRedditSourced } from '../../components/RedditSourcePanel';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +35,8 @@ import { ensureContactAccess } from '../../utils/contactAccess';
 import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { ListingDetailSkeleton } from '../../components/ui/ListingSkeleton';
+import { getCachedListing } from '../../utils/listingCache';
 import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
@@ -51,26 +52,24 @@ const CAR_EXTRAS = [
   'Keyless Entry', 'Apple CarPlay',
 ];
 
+// Mirrors the web Car Specifications card so the mobile detail shows the same
+// information. Make/Model/Year live in the title; the rest render as a grid.
 const SPEC_LABELS = {
+  trim: 'Trim',
+  body_type: 'Body Type',
+  color: 'Color',
+  kilometer_driven: 'Mileage',
   fuel_type: 'Fuel Type',
   transmission: 'Transmission',
-  kilometer_driven: 'Mileage',
-  color: 'Color',
-  exterior_color: 'Exterior Color',
-  interior_color: 'Interior Color',
-  body_type: 'Body Type',
-  horsepower: 'Horsepower',
-  engine_size: 'Engine',
-  engine_capacity: 'Engine Capacity',
   cylinders: 'Cylinders',
+  horsepower: 'Horsepower',
+  engine_capacity: 'Engine',
   doors: 'Doors',
-  seats: 'Seats',
+  seating_capacity: 'Seats',
+  steering_side: 'Steering Side',
+  regional_spec: 'Regional Specs',
   warranty: 'Warranty',
   service_history: 'Service History',
-  number_of_owners: 'Owners',
-  registration_status: 'Registration',
-  gcc_specs: 'GCC Specs',
-  specs_type: 'Specs Type',
 };
 
 const normalizeImages = (images = []) =>
@@ -84,8 +83,11 @@ const normalizeImages = (images = []) =>
 
 export default function CarDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
-  const [car, setCar] = useState(routeListing || null);
-  const [loading, setLoading] = useState(!routeListing);
+  // Render instantly from the list item / prefetch cache; the network fetch
+  // below only enriches (full images, seller photo, freshest fields).
+  const initialCar = routeListing || getCachedListing('cars', listingId) || null;
+  const [car, setCar] = useState(initialCar);
+  const [loading, setLoading] = useState(!initialCar);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
@@ -127,23 +129,22 @@ export default function CarDetailScreen({ route, navigation }) {
   };
 
   useEffect(() => {
-    if (routeListing) {
-      setCar(routeListing);
-      setLoading(false);
-    }
-    const fetchCar = async () => {
+    const id = listingId || routeListing?.id;
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
       try {
-        if (!routeListing) setLoading(true);
-        const data = await apiClient.get(`/api/cars/${listingId}`);
-        setCar(data);
+        const data = await apiClient.get(`/api/cars/${id}`);
+        // Merge so list-only fields survive and detail fields (images, seller) win.
+        if (!cancelled && data) setCar((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        Alert.alert('Error', 'Failed to load car details.');
+        if (!cancelled && !initialCar) Alert.alert('Error', 'Failed to load car details.');
       } finally {
-        if (!routeListing) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
-    if (listingId) fetchCar();
-  }, [listingId, routeListing]);
+    })();
+    return () => { cancelled = true; };
+  }, [listingId]);
 
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -179,7 +180,7 @@ export default function CarDetailScreen({ route, navigation }) {
     }
   }, [car, user, navigation]);
 
-  if (loading) return <LoadingSpinner message="Loading car details..." />;
+  if (loading && !car) return <ListingDetailSkeleton />;
   if (!car) return <LoadingSpinner message="Car not found" />;
 
   const imageUris = normalizeImages(car.images);
@@ -190,17 +191,21 @@ export default function CarDetailScreen({ route, navigation }) {
   const title = `${car.make_year || ''} ${car.car_manufacturer || ''} ${car.car_model || ''}${car.trim ? ' ' + car.trim : ''}`.trim() || 'Untitled Car';
 
   const specs = [
-    { key: 'fuel_type', value: car.fuel_type },
-    { key: 'transmission', value: car.transmission },
-    { key: 'kilometer_driven', value: car.kilometer_driven ? `${formatNumber(car.kilometer_driven)} km` : null },
-    { key: 'color', value: car.color || car.exterior_color },
+    { key: 'trim', value: car.trim },
     { key: 'body_type', value: car.body_type },
+    { key: 'color', value: car.color || car.exterior_color },
+    { key: 'kilometer_driven', value: car.kilometer_driven ? `${formatNumber(car.kilometer_driven)} km` : null },
+    { key: 'fuel_type', value: car.fuel_type },
+    { key: 'transmission', value: car.transmission_type || car.transmission },
+    { key: 'cylinders', value: car.cylinders },
     { key: 'horsepower', value: car.horsepower ? `${car.horsepower} hp` : null },
-    { key: 'engine_size', value: car.engine_size },
-    { key: 'engine_capacity', value: car.engine_capacity },
-    { key: 'number_of_owners', value: car.number_of_owners },
-    { key: 'registration_status', value: car.registration_status },
-    { key: 'specs_type', value: car.specs_type || (car.gcc_specs ? 'GCC Specs' : null) },
+    { key: 'engine_capacity', value: car.engine_capacity || car.engine_size },
+    { key: 'doors', value: car.doors },
+    { key: 'seating_capacity', value: car.seating_capacity },
+    { key: 'steering_side', value: car.steering_side },
+    { key: 'regional_spec', value: car.regional_spec || car.specs_type || (car.gcc_specs ? 'GCC Specs' : null) },
+    { key: 'warranty', value: car.warranty },
+    { key: 'service_history', value: car.service_history },
   ].filter(s => s.value);
 
   const extras = (() => {
@@ -213,13 +218,12 @@ export default function CarDetailScreen({ route, navigation }) {
 
   const badges = [];
   if (car.is_featured) badges.push({ label: 'Featured', variant: 'success' });
-  if (car.gcc_specs || car.gcc_specifications || car.specs_type === 'GCC') badges.push({ label: 'GCC Specs', variant: 'info' });
+  if (car.gcc_specs || car.gcc_specifications || car.specs_type === 'GCC' || (car.regional_spec || '').includes('GCC')) badges.push({ label: 'GCC Specs', variant: 'info' });
   if (car.is_insured) badges.push({ label: 'Insured', variant: 'warning' });
   if (car.is_imported) badges.push({ label: 'Imported', variant: 'default' });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScreenEntrance>
       <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false}>
         <View style={styles.imageSection}>
           <ScrollView
@@ -400,7 +404,6 @@ export default function CarDetailScreen({ route, navigation }) {
         <RecommendedListings listingType="car" listingId={car.id} navigation={navigation} />
       </Animated.ScrollView>
 
-      </ScreenEntrance>
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.lightboxContainer}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>

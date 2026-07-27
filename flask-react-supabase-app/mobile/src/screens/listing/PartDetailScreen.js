@@ -19,7 +19,8 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import { ListingDetailSkeleton } from '../../components/ui/ListingSkeleton';
+import { getCachedListing } from '../../utils/listingCache';
 import PressableScale from '../../components/ui/PressableScale';
 import RedditSourcePanel, { isRedditSourced } from '../../components/RedditSourcePanel';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,8 +56,9 @@ const getImageUri = (item) => {
 
 export default function PartDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
-  const [part, setPart] = useState(routeListing || null);
-  const [loading, setLoading] = useState(!routeListing);
+  const initialPart = routeListing || getCachedListing('parts', listingId) || null;
+  const [part, setPart] = useState(initialPart);
+  const [loading, setLoading] = useState(!initialPart);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
@@ -69,23 +71,21 @@ export default function PartDetailScreen({ route, navigation }) {
   const saved = isSaved('part', partId);
 
   useEffect(() => {
-    if (routeListing) {
-      setPart(routeListing);
-      setLoading(false);
-    }
-    const fetchPart = async () => {
+    const id = listingId || routeListing?.id;
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
       try {
-        if (!routeListing) setLoading(true);
-        const data = await apiClient.get(`/api/parts/${listingId}`);
-        setPart(data);
+        const data = await apiClient.get(`/api/parts/${id}`);
+        if (!cancelled && data) setPart((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        Alert.alert('Error', 'Failed to load part details.');
+        if (!cancelled && !initialPart) Alert.alert('Error', 'Failed to load part details.');
       } finally {
-        if (!routeListing) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
-    if (listingId) fetchPart();
-  }, [listingId, routeListing]);
+    })();
+    return () => { cancelled = true; };
+  }, [listingId]);
 
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -121,7 +121,7 @@ export default function PartDetailScreen({ route, navigation }) {
     }
   }, [part, user, navigation]);
 
-  if (loading) return <LoadingSpinner message="Loading part details..." />;
+  if (loading && !part) return <ListingDetailSkeleton />;
   if (!part) return <LoadingSpinner message="Part not found" />;
 
   const images = part.images || [];
@@ -129,7 +129,6 @@ export default function PartDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScreenEntrance>
       <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false}>
         <View style={styles.imageSection}>
           {images.length > 0 ? (
@@ -278,7 +277,6 @@ export default function PartDetailScreen({ route, navigation }) {
         <RecommendedListings listingType="parts" listingId={part.id} navigation={navigation} />
       </Animated.ScrollView>
 
-      </ScreenEntrance>
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.lightboxContainer}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>

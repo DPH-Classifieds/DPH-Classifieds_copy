@@ -78,6 +78,27 @@ export function AdminStatsSkeleton() {
   );
 }
 
+// Matches the listing detail layout (hero image, price, title, spec grid) so
+// the deep-link / recommended-tap load path shows structure, not a spinner.
+export function ListingDetailSkeleton() {
+  return (
+    <View style={styles.detailContainer}>
+      <ShimmerBox style={styles.detailHero} />
+      <View style={styles.detailBody}>
+        <ShimmerBox style={styles.detailPrice} />
+        <ShimmerBox style={styles.detailTitle} />
+        <View style={styles.detailSpecGrid}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ShimmerBox key={i} style={styles.detailSpecTile} />
+          ))}
+        </View>
+        <ShimmerBox style={styles.detailLine} />
+        <ShimmerBox style={styles.detailLineShort} />
+      </View>
+    </View>
+  );
+}
+
 export default function ListingSkeleton({ count = 4 }) {
   return (
     <View style={styles.container}>
@@ -110,4 +131,13 @@ const styles = StyleSheet.create({
   statTile: { flex: 1, height: 64, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, padding: SPACING.md },
   adminStatTile: { width: '47%', height: 72, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+  detailContainer: { flex: 1, backgroundColor: COLORS.background },
+  detailHero: { width: '100%', height: 320, backgroundColor: SHIMMER_DARK },
+  detailBody: { padding: SPACING.md },
+  detailPrice: { height: 26, borderRadius: 8, width: '45%', marginBottom: 12, backgroundColor: SHIMMER_DARK },
+  detailTitle: { height: 18, borderRadius: 7, width: '75%', marginBottom: 20, backgroundColor: SHIMMER_DARK },
+  detailSpecGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: 20 },
+  detailSpecTile: { width: '47%', height: 56, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+  detailLine: { height: 14, borderRadius: 6, width: '100%', marginBottom: 10, backgroundColor: SHIMMER_DARK },
+  detailLineShort: { height: 14, borderRadius: 6, width: '60%', backgroundColor: SHIMMER_DARK },
 });

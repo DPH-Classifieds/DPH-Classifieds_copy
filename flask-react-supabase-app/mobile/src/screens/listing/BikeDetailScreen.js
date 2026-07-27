@@ -19,7 +19,8 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import ScreenEntrance from '../../components/ui/ScreenEntrance';
+import { ListingDetailSkeleton } from '../../components/ui/ListingSkeleton';
+import { getCachedListing } from '../../utils/listingCache';
 import PressableScale from '../../components/ui/PressableScale';
 import RedditSourcePanel, { isRedditSourced } from '../../components/RedditSourcePanel';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,8 +53,9 @@ const getImageUri = (item) => {
 
 export default function BikeDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
-  const [bike, setBike] = useState(routeListing || null);
-  const [loading, setLoading] = useState(!routeListing);
+  const initialBike = routeListing || getCachedListing('bikes', listingId) || null;
+  const [bike, setBike] = useState(initialBike);
+  const [loading, setLoading] = useState(!initialBike);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
@@ -66,23 +68,21 @@ export default function BikeDetailScreen({ route, navigation }) {
   const saved = isSaved('bike', bikeId);
 
   useEffect(() => {
-    if (routeListing) {
-      setBike(routeListing);
-      setLoading(false);
-    }
-    const fetchBike = async () => {
+    const id = listingId || routeListing?.id;
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
       try {
-        if (!routeListing) setLoading(true);
-        const data = await apiClient.get(`/api/bikes/${listingId}`);
-        setBike(data);
+        const data = await apiClient.get(`/api/bikes/${id}`);
+        if (!cancelled && data) setBike((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        Alert.alert('Error', 'Failed to load bike details.');
+        if (!cancelled && !initialBike) Alert.alert('Error', 'Failed to load bike details.');
       } finally {
-        if (!routeListing) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
-    if (listingId) fetchBike();
-  }, [listingId, routeListing]);
+    })();
+    return () => { cancelled = true; };
+  }, [listingId]);
 
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -118,14 +118,13 @@ export default function BikeDetailScreen({ route, navigation }) {
     }
   }, [bike, user, navigation]);
 
-  if (loading) return <LoadingSpinner message="Loading bike details..." />;
+  if (loading && !bike) return <ListingDetailSkeleton />;
   if (!bike) return <LoadingSpinner message="Bike not found" />;
 
   const images = bike.images || [];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScreenEntrance>
       <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false}>
         <View style={styles.imageSection}>
           <ScrollView
@@ -292,7 +291,6 @@ export default function BikeDetailScreen({ route, navigation }) {
         <RecommendedListings listingType="bike" listingId={bike.id} navigation={navigation} />
       </Animated.ScrollView>
 
-      </ScreenEntrance>
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.lightboxContainer}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
