@@ -200,8 +200,24 @@ class VINDecoder:
             "model": result.get("Model") or result.get("model"),
             "year": result.get("ModelYear") or result.get("year"),
             "model_year": result.get("ModelYear") or result.get("model_year"),
+            # Extended fields used to auto-fill a car listing's spec section.
+            "trim": result.get("Trim") or result.get("Trim2"),
+            "series": result.get("Series") or result.get("Series2"),
+            "body_class": result.get("BodyClass"),
+            "vehicle_type": result.get("VehicleType"),
+            "fuel_primary": result.get("FuelTypePrimary"),
+            "fuel_secondary": result.get("FuelTypeSecondary"),
+            "electrification": result.get("ElectrificationLevel"),
+            "cylinders": result.get("EngineCylinders"),
+            "displacement_l": result.get("DisplacementL"),
+            "drive_type": result.get("DriveType"),
+            "transmission_style": result.get("TransmissionStyle"),
+            "engine_hp": result.get("EngineHP"),
+            "doors": result.get("Doors"),
+            "seats": result.get("Seats"),
+            "plant_country": result.get("PlantCountry"),
         }
-        decoded = {key: value for key, value in decoded.items() if value}
+        decoded = {key: value for key, value in decoded.items() if value and str(value).strip()}
 
         errors = []
         error_code = str(result.get("ErrorCode") or "").strip()
@@ -222,3 +238,155 @@ class VINDecoder:
             params = None if "format=" in url.lower() else {"format": "json"}
             return url, params
         return f"{self.decoder_base_url.rstrip('/')}/{vin}", {"format": "json"}
+
+
+# --- Local, offline VIN structure decode (works for ANY market) -------------
+# WMI first char -> region/country of manufacture (ISO 3780). A weak signal for
+# a listing, but guarantees an origin even when NHTSA can't decode a GCC/JDM VIN.
+_WMI_REGION = {
+    "1": "USA", "4": "USA", "5": "USA", "7": "USA", "2": "Canada", "3": "Mexico",
+    "6": "Australia", "8": "Argentina", "9": "Brazil",
+    "J": "Japan", "K": "South Korea", "L": "China", "M": "India", "N": "Turkey",
+    "R": "Taiwan", "S": "United Kingdom", "T": "Europe", "U": "Romania",
+    "V": "Europe", "W": "Germany", "X": "Russia", "Y": "Sweden", "Z": "Italy",
+}
+
+
+def vin_country(vin):
+    """Country/region of manufacture from the WMI (VIN char 1). Universal."""
+    v = str(vin or "").upper()
+    if not VIN_ALLOWED_RE.match(v):
+        return None
+    return _WMI_REGION.get(v[0])
+
+
+def resolve_vin_year(vin, hint_year=None):
+    """Model year from position 10, disambiguating the 30-year cycle with a hint
+    (e.g. the year in the post title). Universal — correct even when NHTSA's
+    ModelYear is wrong for a non-US VIN."""
+    cands = decode_vin_year(vin)
+    if not cands:
+        return None
+    if hint_year:
+        try:
+            hint = int(hint_year)
+            match = min(cands, key=lambda y: abs(y - hint))
+            if abs(match - hint) <= 1:
+                return match
+        except (TypeError, ValueError):
+            pass
+    return max(cands)  # newest plausible when no hint
+
+
+def _int(value):
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+
+
+def _map_body_type(v):
+    v = (v or "").lower()
+    if not v:
+        return None
+    if any(k in v for k in ("sport utility", "suv", "mpv", "multipurpose")):
+        return "SUV"
+    if "sedan" in v or "saloon" in v:
+        return "Sedan"
+    if "hatchback" in v or "liftback" in v:
+        return "Hatchback"
+    if "convertible" in v or "cabriolet" in v or "roadster" in v or "spyder" in v:
+        return "Convertible"
+    if "coupe" in v:
+        return "Coupe"
+    if "wagon" in v or "estate" in v:
+        return "Wagon"
+    if "van" in v or "minivan" in v:
+        return "Van"
+    if "pickup" in v or "truck" in v:
+        return "Truck"
+    return "Other"
+
+
+def _map_fuel(primary, electrification=None):
+    p = (primary or "").lower()
+    e = (electrification or "").lower()
+    # NHTSA ElectrificationLevel uses HEV/PHEV/MHEV for hybrids, BEV for electric.
+    if "hybrid" in e or "hybrid" in p or "hev" in e or "plug-in" in e:
+        return "Hybrid"
+    if "diesel" in p:
+        return "Diesel"
+    if "electric" in p or "bev" in e:
+        return "Electric"
+    if any(k in p for k in ("gasoline", "petrol", "flex", "ethanol", "e85")):
+        return "Petrol"
+    return "Other" if p else None
+
+
+def _map_transmission(v):
+    v = (v or "").lower()
+    if not v:
+        return None
+    if "manual" in v and "automated" not in v:
+        return "Manual"
+    if any(k in v for k in ("automat", "cvt", "dct", "dual-clutch", "dual clutch")):
+        return "Automatic"
+    return None
+
+
+def _map_drive(v):
+    v = (v or "").lower()
+    if not v:
+        return None
+    if "awd" in v or "all-wheel" in v or "all wheel" in v:
+        return "All Wheel Drive"
+    if "4wd" in v or "4-wheel" in v or "4x4" in v or "four-wheel" in v or "four wheel" in v:
+        return "Four Wheel Drive"
+    if "fwd" in v or "front" in v:
+        return "Front Wheel Drive"
+    if "rwd" in v or "rear" in v:
+        return "Rear Wheel Drive"
+    return None
+
+
+def map_decoded_to_listing(decoded):
+    """Map an NHTSA `decoded` dict to canonical car-listing spec columns, using
+    the exact enum values the listing form expects. Only clean, mappable values
+    are returned; callers fill the rest from the description or leave blank."""
+    if not decoded:
+        return {}
+    out = {}
+    body = _map_body_type(decoded.get("body_class"))
+    if body:
+        out["body_type"] = body
+    fuel = _map_fuel(decoded.get("fuel_primary"), decoded.get("electrification"))
+    if fuel:
+        out["fuel_type"] = fuel
+    trans = _map_transmission(decoded.get("transmission_style"))
+    if trans:
+        out["transmission_type"] = trans
+    drive = _map_drive(decoded.get("drive_type"))
+    if drive:
+        out["drivetrain"] = drive
+    cyl = _int(decoded.get("cylinders"))
+    if cyl:
+        out["cylinders"] = cyl
+    disp = decoded.get("displacement_l")
+    if disp:
+        try:
+            out["engine_capacity"] = f"{float(disp):.1f}L"
+        except (TypeError, ValueError):
+            pass
+    hp = _int(decoded.get("engine_hp"))
+    if hp:
+        out["horsepower"] = str(hp)
+    doors = _int(decoded.get("doors"))
+    if doors:
+        out["doors"] = doors
+    seats = _int(decoded.get("seats"))
+    if seats:
+        out["seating_capacity"] = seats
+    trim = decoded.get("trim")
+    if trim:
+        out["trim"] = str(trim).strip()[:60]
+    return out

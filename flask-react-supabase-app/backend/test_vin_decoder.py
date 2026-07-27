@@ -157,5 +157,41 @@ class VINDecoderTests(unittest.TestCase):
         self.assertNotIn("1HGCM82633A00I352", cache)
 
 
+class MappingTests(unittest.TestCase):
+    def test_maps_nhtsa_decoded_to_listing_enums(self):
+        from services.vin_decoder import map_decoded_to_listing
+        mapped = map_decoded_to_listing({
+            "body_class": "Sport Utility Vehicle [SUV]/Multipurpose Vehicle [MPV]",
+            "fuel_primary": "Gasoline", "transmission_style": "Automatic",
+            "drive_type": "4WD/4-Wheel Drive/4x4", "cylinders": "8",
+            "displacement_l": "5.6", "engine_hp": "400", "doors": "4",
+            "seats": "8", "trim": "PLATINUM-CP",
+        })
+        self.assertEqual(mapped["body_type"], "SUV")
+        self.assertEqual(mapped["fuel_type"], "Petrol")
+        self.assertEqual(mapped["transmission_type"], "Automatic")
+        self.assertEqual(mapped["drivetrain"], "Four Wheel Drive")
+        self.assertEqual(mapped["cylinders"], 8)
+        self.assertEqual(mapped["engine_capacity"], "5.6L")
+        self.assertEqual(mapped["horsepower"], "400")
+        self.assertEqual(mapped["doors"], 4)
+        self.assertEqual(mapped["seating_capacity"], 8)
+
+    def test_country_and_year_are_universal(self):
+        from services.vin_decoder import vin_country, resolve_vin_year
+        self.assertEqual(vin_country("WBAJG3101JEE24467"), "Germany")
+        self.assertEqual(vin_country("JN8AY2DB3P9831507"), "Japan")
+        # position-10 'J' -> 1988 or 2018; title hint disambiguates to 2018
+        self.assertEqual(resolve_vin_year("WBAJG3101JEE24467", 2018), 2018)
+
+    def test_diesel_and_hybrid_fuel_mapping(self):
+        from services.vin_decoder import map_decoded_to_listing
+        self.assertEqual(map_decoded_to_listing({"fuel_primary": "Diesel"})["fuel_type"], "Diesel")
+        self.assertEqual(
+            map_decoded_to_listing({"fuel_primary": "Gasoline", "electrification": "Strong HEV"})["fuel_type"],
+            "Hybrid",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

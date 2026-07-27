@@ -624,6 +624,79 @@ def _common(submission, category, price, summary_parts):
     return description
 
 
+_VIN_TOKEN = re.compile(r"\b([A-HJ-NPR-Z0-9]{17})\b")
+_VIN_LABELLED = re.compile(r"(?:VIN|CHASSIS)[\s:#.\-]*([A-HJ-NPR-Z0-9]{17})", re.IGNORECASE)
+
+
+def extract_vin(text):
+    """Pull a plausible 17-char VIN from post text. Prefers one that follows a
+    VIN/chassis label; requires a letter+digit mix so 17-digit numbers aren't
+    mistaken for a VIN. Returns None if none found."""
+    if not text:
+        return None
+    up = text.upper()
+    labelled = _VIN_LABELLED.search(up)
+    if labelled and not labelled.group(1).isdigit():
+        return labelled.group(1)
+    for m in _VIN_TOKEN.finditer(up):
+        v = m.group(1)
+        if any(c.isalpha() for c in v) and any(c.isdigit() for c in v):
+            return v
+    return None
+
+
+_COLORS = ("white", "black", "silver", "grey", "gray", "blue", "red", "green",
+           "brown", "beige", "gold", "orange", "yellow", "purple", "maroon",
+           "bronze", "burgundy", "navy", "champagne", "pearl")
+
+
+def parse_description_extras(text):
+    """Inherit listing fields the seller stated in the post that a VIN can't give
+    (regional spec, steering, colour) or can corroborate (fuel, transmission).
+    Returns only fields confidently found — never guesses."""
+    low = (text or "").lower()
+    out = {}
+    if re.search(r"\bgcc\b", low):
+        out["regional_spec"] = "GCC"
+    elif re.search(r"\b(us|usa|american|north american)\s*spec", low):
+        out["regional_spec"] = "North American"
+    elif "canadian spec" in low or "canada spec" in low:
+        out["regional_spec"] = "North American"
+    elif re.search(r"\b(euro|european)\s*spec", low):
+        out["regional_spec"] = "European"
+    elif re.search(r"\b(japanese|japan)\s*spec", low) or "jdm" in low:
+        out["regional_spec"] = "Japanese"
+    elif "korean spec" in low:
+        out["regional_spec"] = "Korean"
+    elif "chinese spec" in low or "china spec" in low:
+        out["regional_spec"] = "Chinese"
+
+    if re.search(r"\b(rhd|right[\s-]?hand)\b", low):
+        out["steering_side"] = "Right"
+    elif re.search(r"\b(lhd|left[\s-]?hand)\b", low):
+        out["steering_side"] = "Left"
+
+    if re.search(r"\bdiesel\b", low):
+        out["fuel_type"] = "Diesel"
+    elif re.search(r"\b(electric|ev)\b", low):
+        out["fuel_type"] = "Electric"
+    elif re.search(r"\b(hybrid|phev)\b", low):
+        out["fuel_type"] = "Hybrid"
+    elif re.search(r"\b(petrol|gasoline)\b", low):
+        out["fuel_type"] = "Petrol"
+
+    if re.search(r"\bmanual\b", low):
+        out["transmission_type"] = "Manual"
+    elif re.search(r"\b(automatic|\bauto\b|cvt|dct|tiptronic|paddle shift)\b", low):
+        out["transmission_type"] = "Automatic"
+
+    for c in _COLORS:
+        if re.search(rf"\b{c}\b", low):
+            out["color"] = "Grey" if c in ("grey", "gray") else c.capitalize()
+            break
+    return out
+
+
 def parse_listing(submission, now):
     """Classify then parse a sale post into a ParsedListing, or None if not
     publishable (missing required fields / no safe image / unknown category)."""
@@ -668,10 +741,15 @@ def parse_listing(submission, now):
         make, model = mm[0], mm[1]
         mileage = _parse_mileage(combined)
         parts = [f"{year} {make} {model}", f"AED {price:,}"] + ([f"{mileage:,} km"] if mileage else [])
+        fields = {"make": make, "model": model, "year": year, "mileage_km": mileage}
+        if category == "car":
+            # VIN + seller-stated details, decoded/merged in the worker (network I/O).
+            fields["vin"] = extract_vin(combined)
+            fields["extras"] = parse_description_extras(combined)
         return ParsedListing(
             category=category, title=safe_title or f"{year} {make} {model}",
             description=_common(submission, category, price, parts), **base,
-            fields={"make": make, "model": model, "year": year, "mileage_km": mileage},
+            fields=fields,
         )
 
     if category == "part":
@@ -736,14 +814,26 @@ def build_imported_payload(parsed, owner_id, now):
     f = parsed.fields
 
     if parsed.category == "car":
+        extras = f.get("extras") or {}
         payload = {**src,
             "car_manufacturer": f["make"], "car_model": f["model"], "make_year": f["year"],
             "expected_selling_price": parsed.price_aed, "listing_title": parsed.title,
             "car_description": parsed.description,
             "kilometer_driven": f.get("mileage_km") if f.get("mileage_km") is not None else 0,
-            "regional_spec": "Unspecified", "car_city": _DUBAI, "fuel_type": "Unspecified",
-            "transmission_type": "Unspecified", "horsepower": "Unspecified",
-            "steering_side": "Unspecified", "vehicle_type": "Used"}
+            # Seller-stated details inherited from the post; VIN-decoded specs
+            # overlay these in the worker when the VIN decodes cleanly. Regional
+            # spec / steering default to the UAE-market norm when unstated.
+            "regional_spec": extras.get("regional_spec") or "GCC",
+            "car_city": _DUBAI,
+            "fuel_type": extras.get("fuel_type") or "Unspecified",
+            "transmission_type": extras.get("transmission_type") or "Unspecified",
+            "horsepower": "Unspecified",
+            "steering_side": extras.get("steering_side") or "Left",
+            "vehicle_type": "Used"}
+        if extras.get("color"):
+            payload["color"] = extras["color"]
+        if f.get("vin"):
+            payload["vin_number"] = f["vin"]
     elif parsed.category == "bike":
         payload = {**src,
             "make": f["make"], "model": f["model"], "bike_brand": f["make"], "bike_model": f["model"],

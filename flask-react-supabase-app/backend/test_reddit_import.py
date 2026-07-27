@@ -12,8 +12,10 @@ from services.reddit_import import (
     RedditSubmission,
     build_imported_car_payload,
     canonical_reddit_url,
+    extract_vin,
     fetch_new_submissions,
     get_app_access_token,
+    parse_description_extras,
     parse_sale_post,
 )
 
@@ -432,6 +434,33 @@ class WorkerTests(unittest.TestCase):
             result = w.run()
         self.assertEqual(result["status"], "failed")
         mock_fetch.assert_not_called()
+
+
+class VinAndDescriptionTests(unittest.TestCase):
+    def test_extract_vin_prefers_labelled_and_rejects_all_digits(self):
+        self.assertEqual(extract_vin("Selling my car. VIN: JN8AY2DB3P9831507 clean title"),
+                         "JN8AY2DB3P9831507")
+        # a bare 17-char alnum token still works
+        self.assertEqual(extract_vin("chassis WBAJG3101JEE24467 gcc"), "WBAJG3101JEE24467")
+        # a 17-digit number is not a VIN
+        self.assertIsNone(extract_vin("call me 12345678901234567"))
+        self.assertIsNone(extract_vin("no vin here"))
+
+    def test_description_extras_inherits_stated_fields(self):
+        e = parse_description_extras("2018 BMW X1, GCC specs, automatic, petrol, white, LHD")
+        self.assertEqual(e["regional_spec"], "GCC")
+        self.assertEqual(e["transmission_type"], "Automatic")
+        self.assertEqual(e["fuel_type"], "Petrol")
+        self.assertEqual(e["color"], "White")
+        self.assertEqual(e["steering_side"], "Left")
+
+    def test_description_extras_handles_diesel_manual_jdm(self):
+        e = parse_description_extras("Japanese spec import, manual, diesel, RHD, grey")
+        self.assertEqual(e["regional_spec"], "Japanese")
+        self.assertEqual(e["transmission_type"], "Manual")
+        self.assertEqual(e["fuel_type"], "Diesel")
+        self.assertEqual(e["steering_side"], "Right")
+        self.assertEqual(e["color"], "Grey")
 
 
 if __name__ == "__main__":

@@ -200,10 +200,54 @@ def _reddit_visible():
     return raw in ("1", "true", "yes", "on")
 
 
+_VIN_DECODER = None
+
+
+def _get_vin_decoder():
+    global _VIN_DECODER
+    if _VIN_DECODER is None:
+        from services.vin_decoder import VINDecoder
+        _VIN_DECODER = VINDecoder()
+    return _VIN_DECODER
+
+
+def _titlecase_make(make):
+    m = str(make or "").strip()
+    return m.title() if m.isupper() or m.islower() else m
+
+
+def _enrich_car_with_vin(payload):
+    """Overlay VIN-decoded details onto a car payload. Clean NHTSA decode is
+    authoritative for make/model + the spec sheet; a non-clean/GCC VIN leaves
+    the title + description-derived values in place. Never raises."""
+    vin = payload.get("vin_number")
+    if not vin:
+        return
+    from services.vin_decoder import map_decoded_to_listing, resolve_vin_year
+    try:
+        result = _get_vin_decoder().validate_and_decode(vin)
+    except Exception as exc:
+        logger.warning("reddit_import: VIN decode failed for %s: %s", vin, exc)
+        return
+    decoded = result.get("decoded") or {}
+    if result.get("is_valid") and decoded:
+        if decoded.get("make"):
+            payload["car_manufacturer"] = _titlecase_make(decoded["make"])
+        if decoded.get("model"):
+            payload["car_model"] = str(decoded["model"]).strip()
+        payload.update(map_decoded_to_listing(decoded))  # spec sheet
+    if not payload.get("make_year"):
+        yr = resolve_vin_year(vin, payload.get("make_year"))
+        if yr:
+            payload["make_year"] = yr
+
+
 def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
     built = build_imported_payload(parsed, owner_id, now)
     config, payload = built["config"], built["payload"]
     payload["is_approved"] = bool(visible)  # honor the admin kill switch
+    if config["table"] == "cars":
+        _enrich_car_with_vin(payload)
     table = config["table"]
     row_id = existing_map.get(parsed.source_id)
     if row_id:
