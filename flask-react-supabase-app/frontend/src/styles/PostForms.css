@@ -242,6 +242,12 @@
   color: var(--pf-muted);
 }
 
+/* Contact/WhatsApp phone fields sit alone in a 2-col row; span the full row so
+   the number input isn't squeezed into half the width on narrower laptops. */
+.post-form .form-group:has(> .phone-input-group) {
+  grid-column: 1 / -1;
+}
+
 .phone-input-group {
   display: flex;
   align-items: stretch;
@@ -249,13 +255,14 @@
   flex-wrap: nowrap;
 }
 
+/* The code (e.g. +971) is short — a fixed 150px starved the number input. */
 .phone-input-group > .searchable-select-wrapper {
-  flex: 0 0 150px;
+  flex: 0 0 clamp(96px, 30%, 118px);
   min-width: 0;
 }
 
 .phone-input-group > .country-code-select {
-  flex: 0 0 150px;
+  flex: 0 0 clamp(96px, 30%, 118px);
   min-width: 0;
   -webkit-appearance: none;
   -moz-appearance: none;
