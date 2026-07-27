@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -10,6 +9,7 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
 import { prefetchListingWindow } from '../../utils/listingCache';
+import { swrGet, swrSet } from '../../utils/swrCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
@@ -43,6 +44,13 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 15;
 
+// SWR: cache only the default (unfiltered, unsearched) first page for instant return.
+const LIST_CACHE_KEY = 'parts:list:default';
+const LIST_CACHE_TTL = 120;
+const isDefaultView = (filters, searchVal) =>
+  !searchVal &&
+  !Object.entries(filters).some(([k, v]) => (k === 'sort' ? v && v !== 'Newest' : v !== '' && v !== null));
+
 const CONDITION_VARIANT = { New: 'success', Used: 'warning', Refurbished: 'info' };
 
 const getImageUri = (item) => {
@@ -61,7 +69,7 @@ function PartCard({ item, index, onPress }) {
         <View style={styles.card}>
           <View style={styles.cardImageContainer}>
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.cardImage} resizeMode="cover" />
+              <Image source={{ uri: imageUri }} style={styles.cardImage} contentFit="cover" />
             ) : (
               <View style={styles.cardImagePlaceholder}>
                 <Ionicons name="construct" size={32} color="rgba(255,255,255,0.2)" />
@@ -113,18 +121,20 @@ export default function PartListScreen({ navigation }) {
     return `/api/parts?${params.join('&')}`;
   }, []);
 
-  const fetchParts = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false) => {
+  const fetchParts = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
       if (isRefresh) setRefreshing(true);
-      else if (pageNum === 1) setLoading(true);
-      else setLoadingMore(true);
+      else if (pageNum === 1 && !silent) setLoading(true);
+      else if (pageNum !== 1) setLoadingMore(true);
 
       const data = await apiClient.get(buildQuery(pageNum, searchVal, filters));
       if (!mountedRef.current) return;
 
       const items = Array.isArray(data) ? data : (data?.parts || data?.listings || data?.data || []);
-      if (pageNum === 1) setParts(items);
-      else setParts(prev => [...prev, ...items]);
+      if (pageNum === 1) {
+        setParts(items);
+        if (isDefaultView(filters, searchVal)) swrSet(LIST_CACHE_KEY, items, LIST_CACHE_TTL);
+      } else setParts(prev => [...prev, ...items]);
       setHasMore(items.length >= PAGE_SIZE);
       setPage(pageNum);
     } catch (err) {
@@ -134,7 +144,16 @@ export default function PartListScreen({ navigation }) {
     }
   }, [buildQuery, activeFilters]);
 
-  useEffect(() => { fetchParts(1); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cached = await swrGet(LIST_CACHE_KEY, LIST_CACHE_TTL);
+      const hasCached = !!cached?.value?.length;
+      if (!cancelled && hasCached) { setParts(cached.value); setLoading(false); }
+      if (!cancelled) fetchParts(1, '', activeFilters, false, hasCached);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSearch = useCallback((text) => {
     setSearch(text);

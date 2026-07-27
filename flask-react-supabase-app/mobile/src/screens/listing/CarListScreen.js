@@ -4,13 +4,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
   StyleSheet,
   ActivityIndicator,
   Modal,
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +24,7 @@ import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
 import { prefetchListingWindow } from '../../utils/listingCache';
+import { swrGet, swrSet } from '../../utils/swrCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
@@ -53,6 +54,14 @@ const CAR_CITIES = [...UAE_EMIRATES, 'Al Ain'];
 const PAGE_SIZE = 15;
 const years = getYearOptions();
 
+// SWR: cache only the default (unfiltered, unsearched) first page so returning
+// to the list shows results instantly, then revalidates in the background.
+const LIST_CACHE_KEY = 'cars:list:default';
+const LIST_CACHE_TTL = 120;
+const isDefaultView = (filters, searchVal) =>
+  !searchVal &&
+  !Object.entries(filters).some(([k, v]) => (k === 'sort' ? v && v !== 'Newest' : v !== '' && v !== null));
+
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
     return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
@@ -70,7 +79,7 @@ function CarCard({ item, index, onPress }) {
         <View style={styles.card}>
           <View style={styles.imageContainer}>
             {uri ? (
-              <Image source={{ uri }} style={styles.cardImage} resizeMode="cover" />
+              <Image source={{ uri }} style={styles.cardImage} contentFit="cover" />
             ) : (
               <View style={styles.imagePlaceholder}>
                 <Ionicons name="car" size={40} color="rgba(255,255,255,0.2)" />
@@ -149,11 +158,11 @@ export default function CarListScreen({ navigation }) {
     return `/api/cars?${params.join('&')}`;
   }, []);
 
-  const fetchCars = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false) => {
+  const fetchCars = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
       if (isRefresh) setRefreshing(true);
-      else if (pageNum === 1) setLoading(true);
-      else setLoadingMore(true);
+      else if (pageNum === 1 && !silent) setLoading(true);
+      else if (pageNum !== 1) setLoadingMore(true);
 
       const data = await apiClient.get(buildQuery(pageNum, searchVal, filters));
       if (!mountedRef.current) return;
@@ -161,6 +170,7 @@ export default function CarListScreen({ navigation }) {
       const items = Array.isArray(data) ? data : (data?.cars || data?.listings || data?.data || []);
       if (pageNum === 1) {
         setCars(items);
+        if (isDefaultView(filters, searchVal)) swrSet(LIST_CACHE_KEY, items, LIST_CACHE_TTL);
       } else {
         setCars(prev => [...prev, ...items]);
       }
@@ -177,11 +187,22 @@ export default function CarListScreen({ navigation }) {
     }
   }, [buildQuery, activeFilters]);
 
+  // Hydrate the default view from cache instantly, then revalidate.
   useEffect(() => {
-    fetchCars(1);
+    let cancelled = false;
+    (async () => {
+      const cached = await swrGet(LIST_CACHE_KEY, LIST_CACHE_TTL);
+      const hasCached = !!cached?.value?.length;
+      if (!cancelled && hasCached) { setCars(cached.value); setLoading(false); }
+      if (!cancelled) fetchCars(1, '', activeFilters, false, hasCached);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
+  // Refetch on filter change — but not on the initial mount (handled above).
+  const didMountFilters = useRef(false);
   useEffect(() => {
+    if (!didMountFilters.current) { didMountFilters.current = true; return; }
     setCars([]);
     setPage(1);
     setHasMore(true);
@@ -447,7 +468,7 @@ export default function CarListScreen({ navigation }) {
             viewabilityConfig={viewabilityConfig}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" />}
             ListFooterComponent={loadingMore ? <ActivityIndicator color="#4CAF50" style={{ padding: 20 }} /> : null}
-            ListEmptyComponent={!loading ? <EmptyState title="No cars found" description="Try adjusting your filters" /> : null}
+            ListEmptyComponent={!loading ? <EmptyState icon="car-sport-outline" title="No cars found" message="Try adjusting your filters or search." /> : null}
           />
         )}
         {renderFilterModal()}

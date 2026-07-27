@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -10,6 +9,7 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +21,7 @@ import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
 import { prefetchListingWindow } from '../../utils/listingCache';
+import { swrGet, swrSet } from '../../utils/swrCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
@@ -52,6 +53,13 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 15;
 
+// SWR: cache only the default (unfiltered, unsearched) first page for instant return.
+const LIST_CACHE_KEY = 'bikes:list:default';
+const LIST_CACHE_TTL = 120;
+const isDefaultView = (filters, searchVal) =>
+  !searchVal &&
+  !Object.entries(filters).some(([k, v]) => (k === 'sort' ? v && v !== 'Newest' : v !== '' && v !== null));
+
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
     return resolveMediaUrl(item.images[0].url || item.images[0].image_url || item.images[0].display_url);
@@ -68,7 +76,7 @@ function BikeCard({ item, index, onPress }) {
         <View style={styles.card}>
           <View style={styles.imageContainer}>
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+              <Image source={{ uri: imageUri }} style={styles.image} contentFit="cover" />
             ) : (
               <View style={styles.imagePlaceholder}>
                 <Ionicons name="bicycle" size={40} color="rgba(255,255,255,0.2)" />
@@ -129,18 +137,20 @@ export default function BikeListScreen({ navigation }) {
     return `/api/bikes?${params.join('&')}`;
   }, []);
 
-  const fetchBikes = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false) => {
+  const fetchBikes = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
       if (isRefresh) setRefreshing(true);
-      else if (pageNum === 1) setLoading(true);
-      else setLoadingMore(true);
+      else if (pageNum === 1 && !silent) setLoading(true);
+      else if (pageNum !== 1) setLoadingMore(true);
 
       const data = await apiClient.get(buildQuery(pageNum, searchVal, filters));
       if (!mountedRef.current) return;
 
       const items = Array.isArray(data) ? data : (data?.bikes || data?.listings || data?.data || []);
-      if (pageNum === 1) setBikes(items);
-      else setBikes(prev => [...prev, ...items]);
+      if (pageNum === 1) {
+        setBikes(items);
+        if (isDefaultView(filters, searchVal)) swrSet(LIST_CACHE_KEY, items, LIST_CACHE_TTL);
+      } else setBikes(prev => [...prev, ...items]);
       setHasMore(items.length >= PAGE_SIZE);
       setPage(pageNum);
     } catch (err) {
@@ -154,7 +164,16 @@ export default function BikeListScreen({ navigation }) {
     }
   }, [buildQuery, activeFilters]);
 
-  useEffect(() => { fetchBikes(1); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cached = await swrGet(LIST_CACHE_KEY, LIST_CACHE_TTL);
+      const hasCached = !!cached?.value?.length;
+      if (!cancelled && hasCached) { setBikes(cached.value); setLoading(false); }
+      if (!cancelled) fetchBikes(1, '', activeFilters, false, hasCached);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSearch = useCallback((text) => {
     setSearch(text);

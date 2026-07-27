@@ -3,7 +3,6 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -12,6 +11,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -36,10 +36,10 @@ import { ensureContactAccess } from '../../utils/contactAccess';
 import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import Badge from '../../components/ui/Badge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
+import PriceHistory from '../../components/ui/PriceHistory';
 import ListingMap from '../../components/ui/ListingMap';
 import { resolveMediaUrl } from '../../utils/media';
 
@@ -79,7 +79,9 @@ export default function PartDetailScreen({ route, navigation }) {
         const data = await apiClient.get(`/api/parts/${id}`);
         if (!cancelled && data) setPart((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        if (!cancelled && !initialPart) Alert.alert('Error', 'Failed to load part details.');
+        if (cancelled) return;
+        if (err?.status === 404) setPart(null);
+        else if (!initialPart) Alert.alert('Error', 'Failed to load part details.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -125,7 +127,12 @@ export default function PartDetailScreen({ route, navigation }) {
   if (!part) return <LoadingSpinner message="Part not found" />;
 
   const images = part.images || [];
-  const compatibleVehicles = part.compatible_makes || [];
+  // Web/backend use `compatibility`; older data used `compatible_makes`. Accept
+  // either, and split a comma-separated string into pills.
+  const rawCompat = part.compatibility ?? part.compatible_makes ?? part.compatible_models ?? [];
+  const compatibleVehicles = Array.isArray(rawCompat)
+    ? rawCompat
+    : (typeof rawCompat === 'string' ? rawCompat.split(',').map((s) => s.trim()).filter(Boolean) : []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -147,7 +154,7 @@ export default function PartDetailScreen({ route, navigation }) {
                   <View key={i} style={styles.imageSlide}>
                     {uri ? (
                       <TouchableOpacity onPress={() => { setPreviewImageIndex(i); setPreviewImage(uri); }} activeOpacity={0.9}>
-                        <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                        <Image source={{ uri }} style={styles.image} contentFit="cover" />
                       </TouchableOpacity>
                     ) : (
                       <View style={styles.imagePlaceholder}>
@@ -230,7 +237,7 @@ export default function PartDetailScreen({ route, navigation }) {
             </View>
           ) : null}
 
-          <LoanCalculator price={part.price} />
+          <PriceHistory listingType="parts" listingId={partId} />
 
           <View style={styles.sellerCard}>
             <View style={styles.sellerInfo}>
@@ -320,7 +327,7 @@ export default function PartDetailScreen({ route, navigation }) {
               const uri = resolveMediaUrl(item.url || item.image_url || item.display_url) || item.url || item.image_url || item.display_url;
               return (
                 <View style={styles.lightboxPage}>
-                  <Image source={{ uri }} style={styles.lightboxImage} resizeMode="contain" />
+                  <Image source={{ uri }} style={styles.lightboxImage} contentFit="contain" />
                 </View>
               );
             }}

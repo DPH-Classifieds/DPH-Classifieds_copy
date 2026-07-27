@@ -7171,6 +7171,7 @@ def update_car(current_user, car_id):
 
         if "expected_selling_price" in update_data and update_data["expected_selling_price"] is not None:
             _maybe_record_price_drop("cars", car_id, update_data["expected_selling_price"])
+            _record_price_point("cars", car_id, update_data["expected_selling_price"])
 
         # Update the car using PATCH for partial update
         data, status_code = supabase_request(
@@ -11846,6 +11847,103 @@ def _maybe_record_price_drop(listing_type, listing_id, new_price):
     )
 
 
+def _record_price_point(listing_type, listing_id, new_price, source="seller"):
+    """Append a point to listing_price_history when the price is new or changed
+    vs the last recorded value. Powers the per-listing price-history endpoint.
+    Best-effort: a missing table (migration not yet applied) is ignored."""
+    if new_price is None or not listing_id:
+        return
+    try:
+        if float(new_price) <= 0:
+            return
+    except (TypeError, ValueError):
+        return
+    body, st = supabase_request(
+        "get", "/rest/v1/listing_price_history",
+        params={"select": "price", "listing_id": f"eq.{listing_id}",
+                "order": "recorded_at.desc", "limit": "1"},
+        use_service_role=True,
+    )
+    if st < 400 and isinstance(body, list) and body:
+        try:
+            if float(body[0].get("price")) == float(new_price):
+                return  # unchanged since the last record
+        except (TypeError, ValueError):
+            pass
+    supabase_request(
+        "post", "/rest/v1/listing_price_history",
+        data={"listing_type": listing_type, "listing_id": str(listing_id),
+              "price": new_price, "source": source},
+        use_service_role=True,
+    )
+
+
+_PRICE_HISTORY_TABLES = {
+    "cars": ("cars", "expected_selling_price"),
+    "bikes": ("bikes", "price"),
+    "plates": ("license_plates", "price"),
+    "parts": ("car_parts", "price"),
+}
+
+
+@app.route("/api/<string:listing_type>/<string:listing_id>/price-history", methods=["GET"])
+def get_listing_price_history(listing_type, listing_id):
+    """Public price history + analysis for one listing. Always returns at least
+    the current price; the history table is optional (falls back gracefully if
+    the migration hasn't been applied)."""
+    cfg = _PRICE_HISTORY_TABLES.get(listing_type)
+    if not cfg:
+        return jsonify({"error": "Unknown listing type"}), 404
+    table, price_col = cfg
+
+    # Only expose price history for a public (approved) listing.
+    cur, csc = supabase_request(
+        "get", f"/rest/v1/{table}",
+        params={"select": f"{price_col},is_approved", "id": f"eq.{listing_id}"},
+        use_service_role=True,
+    )
+    if csc >= 400 or not isinstance(cur, list) or not cur or not cur[0].get("is_approved"):
+        return jsonify({"error": "Listing not found"}), 404
+    current = cur[0].get(price_col)
+
+    rows, sc = supabase_request(
+        "get", "/rest/v1/listing_price_history",
+        params={"select": "price,recorded_at,source", "listing_id": f"eq.{listing_id}",
+                "order": "recorded_at.asc"},
+        use_service_role=True,
+    )
+    raw = rows if (sc < 400 and isinstance(rows, list)) else []
+
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    series = []
+    for p in raw:
+        val = _num(p.get("price"))
+        if val is not None:
+            series.append({"price": val, "recorded_at": p.get("recorded_at"),
+                           "source": p.get("source")})
+    cur_num = _num(current)
+    if cur_num is not None and (not series or series[-1]["price"] != cur_num):
+        series.append({"price": cur_num, "recorded_at": None, "source": "current"})
+
+    prices = [s["price"] for s in series]
+    analysis = None
+    if prices:
+        first, last = prices[0], prices[-1]
+        analysis = {
+            "first": first, "current": last,
+            "min": min(prices), "max": max(prices),
+            "change": round(last - first, 2),
+            "change_pct": round((last - first) / first * 100, 1) if first else 0,
+            "points": len(prices),
+        }
+    return jsonify({"points": series, "analysis": analysis}), 200
+
+
 def _saved_searches_for_price_drop(listing_type, listing, new_price):
     """Return saved search rows whose filters match this price-dropped listing."""
     cat_map = {"cars": "cars", "bikes": "bikes", "car_parts": "parts", "license_plates": "plates"}
@@ -14512,6 +14610,7 @@ def update_bike(current_user, bike_id):
 
         if "price" in update_data and update_data["price"] is not None:
             _maybe_record_price_drop("bikes", bike_id, update_data["price"])
+            _record_price_point("bikes", bike_id, update_data["price"])
 
         # Update the bike using PATCH for partial update
         data, status_code = supabase_request(
@@ -14923,6 +15022,7 @@ def update_plate(current_user, plate_id):
 
         if "price" in update_data and update_data["price"] is not None:
             _maybe_record_price_drop("license_plates", plate_id, update_data["price"])
+            _record_price_point("license_plates", plate_id, update_data["price"])
 
         # Update — include user_id filter so the query is a no-op if the caller
         # does not own this plate (belt-and-suspenders alongside RLS).
@@ -15546,6 +15646,7 @@ def update_part(current_user, part_id):
 
         if "price" in update_data and update_data["price"] is not None:
             _maybe_record_price_drop("car_parts", part_id, update_data["price"])
+            _record_price_point("car_parts", part_id, update_data["price"])
 
         # Update the part
         data, status_code = supabase_request(

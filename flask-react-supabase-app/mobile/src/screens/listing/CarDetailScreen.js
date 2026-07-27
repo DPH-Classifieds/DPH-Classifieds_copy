@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Image,
   StyleSheet,
   Dimensions,
   Linking,
@@ -12,6 +11,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -38,6 +38,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { ListingDetailSkeleton } from '../../components/ui/ListingSkeleton';
 import { getCachedListing } from '../../utils/listingCache';
 import LoanCalculator from '../../components/ui/LoanCalculator';
+import PriceHistory from '../../components/ui/PriceHistory';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
@@ -138,7 +139,11 @@ export default function CarDetailScreen({ route, navigation }) {
         // Merge so list-only fields survive and detail fields (images, seller) win.
         if (!cancelled && data) setCar((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        if (!cancelled && !initialCar) Alert.alert('Error', 'Failed to load car details.');
+        if (cancelled) return;
+        // Sold/removed listing opened from a stale list/cache: drop it so the
+        // "not found" state shows instead of leaving a phantom listing.
+        if (err?.status === 404) setCar(null);
+        else if (!initialCar) Alert.alert('Error', 'Failed to load car details.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -238,7 +243,7 @@ export default function CarDetailScreen({ route, navigation }) {
             {imageUris.length > 0 ? imageUris.map((uri, index) => (
               <View key={`${uri}-${index}`} style={styles.imageSlide}>
                 <TouchableOpacity onPress={() => { setPreviewImageIndex(index); setPreviewImage(uri); }} activeOpacity={0.9}>
-                  <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                  <Image source={{ uri }} style={styles.image} contentFit="cover" />
                 </TouchableOpacity>
               </View>
             )) : (
@@ -354,6 +359,8 @@ export default function CarDetailScreen({ route, navigation }) {
             </View>
           )}
 
+          <PriceHistory listingType="cars" listingId={carId} />
+
           <LoanCalculator price={car.expected_selling_price || car.price} />
 
           <View style={styles.sellerCard}>
@@ -445,7 +452,7 @@ export default function CarDetailScreen({ route, navigation }) {
             showsHorizontalScrollIndicator={false}
             renderItem={({ item }) => (
               <View style={styles.lightboxPage}>
-                <Image source={{ uri: item }} style={styles.lightboxImage} resizeMode="contain" />
+                <Image source={{ uri: item }} style={styles.lightboxImage} contentFit="contain" />
               </View>
             )}
             onMomentumScrollEnd={(e) => {

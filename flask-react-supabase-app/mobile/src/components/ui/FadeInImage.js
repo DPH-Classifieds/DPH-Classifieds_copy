@@ -1,23 +1,14 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/theme';
 
-export default function FadeInImage({ source, style, resizeMode = 'cover', ...props }) {
-  const opacity = useSharedValue(0);
+// expo-image gives us a native cross-fade (transition) + memory/disk cache, so
+// this is now a thin wrapper: same API as before (source/style/resizeMode +
+// error fallback), but images fade in smoothly and are cached across launches.
+export default function FadeInImage({ source, style, resizeMode = 'cover', contentFit, transition = 250, ...props }) {
   const [hasError, setHasError] = useState(false);
-
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
-  const handleLoad = () => {
-    opacity.value = withTiming(1, { duration: 300 });
-  };
-
-  const handleError = () => {
-    setHasError(true);
-    opacity.value = withTiming(1, { duration: 150 });
-  };
 
   if (hasError) {
     return (
@@ -28,12 +19,13 @@ export default function FadeInImage({ source, style, resizeMode = 'cover', ...pr
   }
 
   return (
-    <Animated.Image
+    <Image
       source={source}
-      style={[style, animatedStyle]}
-      resizeMode={resizeMode}
-      onLoad={handleLoad}
-      onError={handleError}
+      style={style}
+      contentFit={contentFit || resizeMode}
+      transition={transition}
+      cachePolicy="memory-disk"
+      onError={() => setHasError(true)}
       {...props}
     />
   );

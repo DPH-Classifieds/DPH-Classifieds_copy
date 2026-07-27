@@ -39,6 +39,7 @@ import FadeInImage from '../../components/ui/FadeInImage';
 import BottomSheet from '../../components/ui/BottomSheet';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { resolveMediaUrl } from '../../utils/media';
+import { prefetchListing } from '../../utils/listingCache';
 import { swrGet, swrSet } from '../../utils/swrCache';
 
 // Cache key for the no-filter initial Explore payload.
@@ -790,6 +791,15 @@ export default function ExploreScreen({ navigation, route }) {
     );
   }, [navigation, isSaved, toggleSaveListing]);
 
+  // Warm the images of the landing feed's visible cards (first ~5-6 on app open,
+  // then a sliding window as the user scrolls) so opening any of them is instant.
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    viewableItems.forEach((v) => {
+      if (v.item?.category && v.item?.raw) prefetchListing(v.item.category, v.item.raw);
+    });
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+
   const renderCTA = useCallback(() => (
     <>
       {loadingMore && (
@@ -863,9 +873,10 @@ export default function ExploreScreen({ navigation, route }) {
 
       <View style={styles.controlsRow}>
         <TouchableOpacity
-          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
-          onPress={() => activeTab !== 'all' ? setFilterSheetOpen(true) : null}
-          activeOpacity={activeTab === 'all' ? 1 : 0.7}
+          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive, activeTab === 'all' && { opacity: 0.4 }]}
+          onPress={() => setFilterSheetOpen(true)}
+          disabled={activeTab === 'all'}
+          activeOpacity={0.7}
         >
           <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? COLORS.accent : COLORS.textSecondary} />
           <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>
@@ -923,6 +934,8 @@ export default function ExploreScreen({ navigation, route }) {
           }
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           ListFooterComponent={renderCTA}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

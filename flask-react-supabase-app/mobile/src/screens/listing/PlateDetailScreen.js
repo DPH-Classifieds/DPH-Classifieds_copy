@@ -3,7 +3,6 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -12,6 +11,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -35,10 +35,10 @@ import { openWhatsapp, formatWhatsappNumber } from '../../utils/whatsapp';
 import { ensureContactAccess } from '../../utils/contactAccess';
 import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
+import PriceHistory from '../../components/ui/PriceHistory';
 import ListingMap from '../../components/ui/ListingMap';
 import { resolveMediaUrl } from '../../utils/media';
 
@@ -103,7 +103,9 @@ export default function PlateDetailScreen({ route, navigation }) {
         const data = await apiClient.get(`/api/plates/${id}`);
         if (!cancelled && data) setPlate((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        if (!cancelled && !initialPlate) Alert.alert('Error', 'Failed to load plate details.');
+        if (cancelled) return;
+        if (err?.status === 404) setPlate(null);
+        else if (!initialPlate) Alert.alert('Error', 'Failed to load plate details.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -171,7 +173,7 @@ export default function PlateDetailScreen({ route, navigation }) {
                   <View key={i} style={styles.imageSlide}>
                     {uri ? (
                       <TouchableOpacity onPress={() => { setPreviewImageIndex(i); setPreviewImage(uri); }} activeOpacity={0.9}>
-                        <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                        <Image source={{ uri }} style={styles.image} contentFit="cover" />
                       </TouchableOpacity>
                     ) : (
                       <View style={styles.imagePlaceholder}>
@@ -224,6 +226,9 @@ export default function PlateDetailScreen({ route, navigation }) {
           <Text style={styles.price}>{formatPrice(plate.price)}</Text>
           <Text style={styles.usdPrice}>{formatPriceUSD(plate.price)}</Text>
           <Text style={styles.cityLabel}>{plate.city || 'Unknown City'}</Text>
+          {plate.plate_format ? (
+            <Text style={styles.cityLabel}>Format: {plate.plate_format}</Text>
+          ) : null}
 
           {(plate.description || plate.plate_description) ? (
             <View style={styles.section}>
@@ -248,7 +253,7 @@ export default function PlateDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          <LoanCalculator price={plate.price} />
+          <PriceHistory listingType="plates" listingId={plateId} />
 
           <View style={styles.sellerCard}>
             <View style={styles.sellerInfo}>
@@ -338,7 +343,7 @@ export default function PlateDetailScreen({ route, navigation }) {
               const uri = resolveMediaUrl(item.url || item.image_url || item.display_url) || item.url || item.image_url || item.display_url;
               return (
                 <View style={styles.lightboxPage}>
-                  <Image source={{ uri }} style={styles.lightboxImage} resizeMode="contain" />
+                  <Image source={{ uri }} style={styles.lightboxImage} contentFit="contain" />
                 </View>
               );
             }}

@@ -1,37 +1,30 @@
-// Instant-open cache for listing detail screens.
+// Instant-open support for listing detail screens.
 //
-// The list endpoints already return every column + the full images array, so a
-// list item is enough to render a detail screen with no spinner. This cache
-// lets list screens preload the freshest detail record (seller photo, view
-// count) and warm the image loader for the first N visible cards, so opening a
-// listing feels instant and stays instant as the user scrolls (sliding window).
+// The list endpoints already return every column + the full images array, so
+// the list item passed on navigation is enough to render a detail screen with
+// no spinner and no refetch for data. The only heavy thing not yet on-device
+// when a card is tapped is its *other* photos (the list only drew the first
+// thumbnail). So the "preload" that actually matters is warming the image
+// loader for cards in/near the viewport — that's what makes opening a listing
+// and swiping its gallery feel instant. Data needs no prefetch.
 
-import { Image } from 'react-native';
-import apiClient from './apiClient';
+import { Image } from 'expo-image';
 import { resolveMediaUrl } from './media';
 
-const ENDPOINTS = {
-  cars: '/api/cars',
-  bikes: '/api/bikes',
-  plates: '/api/plates',
-  parts: '/api/parts',
-};
-
-// ponytail: flat Map with FIFO eviction. User asked for ~5 preloaded; 40 is a
-// harmless ceiling that survives fast scrolling. Swap for an LRU only if memory
-// ever shows up in a profile.
+// ponytail: flat Map + Set, FIFO eviction. User asked for ~5 preloaded; 40 is a
+// harmless ceiling that survives fast scrolling. LRU only if a profile says so.
 const MAX_ENTRIES = 40;
-const cache = new Map();       // "type:id" -> merged record
-const inFlight = new Map();    // "type:id" -> Promise (dedupe concurrent fetches)
+const IMAGES_PER_LISTING = 6; // warm the first few; nobody swipes 20 before opening
+const cache = new Map();      // "type:id" -> list item (fallback for the rare id-only open)
+const warmed = new Set();     // image URIs already handed to Image.prefetch
 
 const keyOf = (type, id) => `${type}:${id}`;
 
 const store = (type, id, record) => {
   if (!id || !record) return;
   const k = keyOf(type, id);
-  const prev = cache.get(k);
-  cache.delete(k); // re-insert so it moves to the newest slot
-  cache.set(k, prev ? { ...prev, ...record } : record);
+  cache.delete(k);            // re-insert => moves to newest slot
+  cache.set(k, record);
   while (cache.size > MAX_ENTRIES) cache.delete(cache.keys().next().value);
 };
 
@@ -39,42 +32,25 @@ export const getCachedListing = (type, id) => cache.get(keyOf(type, id)) || null
 
 const warmImages = (item) => {
   const images = Array.isArray(item?.images) ? item.images : [];
-  images.slice(0, 6).forEach((img) => {
+  images.slice(0, IMAGES_PER_LISTING).forEach((img) => {
     const uri = resolveMediaUrl(
       typeof img === 'string' ? img : img?.url || img?.image_url || img?.display_url,
     );
-    if (uri) Image.prefetch(uri).catch(() => {});
+    if (uri && !warmed.has(uri)) {
+      warmed.add(uri);
+      Image.prefetch(uri).catch(() => {});
+    }
   });
 };
 
-// Seed the cache from a list item and (once) fetch the full detail + warm its
-// images in the background. Safe to call repeatedly for the same item.
 export const prefetchListing = (type, item) => {
   const id = item?.id || item?.listing_id;
-  const base = ENDPOINTS[type];
-  if (!id || !base) return;
-
+  if (!id) return;
   store(type, id, item);
   warmImages(item);
-
-  const k = keyOf(type, id);
-  if (cache.get(k)?.__full || inFlight.has(k)) return;
-
-  const p = apiClient
-    .get(`${base}/${id}`)
-    .then((data) => {
-      if (data) {
-        store(type, id, { ...data, __full: true });
-        warmImages(data);
-      }
-      return data;
-    })
-    .catch(() => {})
-    .finally(() => inFlight.delete(k));
-  inFlight.set(k, p);
 };
 
-// Prefetch a window of items (called from list onViewableItemsChanged / mount).
+// Called from list onViewableItemsChanged / mount — warms the visible window.
 export const prefetchListingWindow = (type, items) => {
   (items || []).forEach((item) => prefetchListing(type, item));
 };

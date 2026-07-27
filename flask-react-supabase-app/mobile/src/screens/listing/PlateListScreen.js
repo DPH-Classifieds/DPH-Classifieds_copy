@@ -22,6 +22,7 @@ import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
 import { prefetchListingWindow } from '../../utils/listingCache';
+import { swrGet, swrSet } from '../../utils/swrCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
@@ -64,6 +65,13 @@ const SORT_OPTIONS = [
 ];
 
 const PAGE_SIZE = 15;
+
+// SWR: cache only the default (unfiltered, unsearched) first page for instant return.
+const LIST_CACHE_KEY = 'plates:list:default';
+const LIST_CACHE_TTL = 120;
+const isDefaultView = (filters, searchVal) =>
+  !searchVal &&
+  !Object.entries(filters).some(([k, v]) => (k === 'sort' ? v && v !== 'Newest' : v !== '' && v !== null));
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
@@ -126,18 +134,20 @@ export default function PlateListScreen({ navigation }) {
     return `/api/plates?${params.join('&')}`;
   }, []);
 
-  const fetchPlates = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false) => {
+  const fetchPlates = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
       if (isRefresh) setRefreshing(true);
-      else if (pageNum === 1) setLoading(true);
-      else setLoadingMore(true);
+      else if (pageNum === 1 && !silent) setLoading(true);
+      else if (pageNum !== 1) setLoadingMore(true);
 
       const data = await apiClient.get(buildQuery(pageNum, searchVal, filters));
       if (!mountedRef.current) return;
 
       const items = Array.isArray(data) ? data : (data?.plates || data?.listings || data?.data || []);
-      if (pageNum === 1) setPlates(items);
-      else setPlates(prev => [...prev, ...items]);
+      if (pageNum === 1) {
+        setPlates(items);
+        if (isDefaultView(filters, searchVal)) swrSet(LIST_CACHE_KEY, items, LIST_CACHE_TTL);
+      } else setPlates(prev => [...prev, ...items]);
       setHasMore(items.length >= PAGE_SIZE);
       setPage(pageNum);
     } catch (err) {
@@ -147,7 +157,16 @@ export default function PlateListScreen({ navigation }) {
     }
   }, [buildQuery, activeFilters]);
 
-  useEffect(() => { fetchPlates(1); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cached = await swrGet(LIST_CACHE_KEY, LIST_CACHE_TTL);
+      const hasCached = !!cached?.value?.length;
+      if (!cancelled && hasCached) { setPlates(cached.value); setLoading(false); }
+      if (!cancelled) fetchPlates(1, '', activeFilters, false, hasCached);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSearch = useCallback((text) => {
     setSearch(text);

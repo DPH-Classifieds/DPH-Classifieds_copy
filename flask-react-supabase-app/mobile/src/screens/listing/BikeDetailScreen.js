@@ -3,7 +3,6 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -12,6 +11,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -39,6 +39,7 @@ import LoanCalculator from '../../components/ui/LoanCalculator';
 import ReportButton from '../../components/ui/ReportButton';
 import Button from '../../components/ui/Button';
 import RecommendedListings from '../../components/RecommendedListings';
+import PriceHistory from '../../components/ui/PriceHistory';
 import ListingMap from '../../components/ui/ListingMap';
 import { resolveMediaUrl } from '../../utils/media';
 
@@ -76,7 +77,9 @@ export default function BikeDetailScreen({ route, navigation }) {
         const data = await apiClient.get(`/api/bikes/${id}`);
         if (!cancelled && data) setBike((prev) => ({ ...(prev || {}), ...data }));
       } catch (err) {
-        if (!cancelled && !initialBike) Alert.alert('Error', 'Failed to load bike details.');
+        if (cancelled) return;
+        if (err?.status === 404) setBike(null);
+        else if (!initialBike) Alert.alert('Error', 'Failed to load bike details.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -122,6 +125,12 @@ export default function BikeDetailScreen({ route, navigation }) {
   if (!bike) return <LoadingSpinner message="Bike not found" />;
 
   const images = bike.images || [];
+  const bikeFeatures = (() => {
+    const f = bike.features ?? bike.extras;
+    if (Array.isArray(f)) return f;
+    if (typeof f === 'string') { try { return JSON.parse(f); } catch { return []; } }
+    return [];
+  })();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -142,7 +151,7 @@ export default function BikeDetailScreen({ route, navigation }) {
                 <View key={i} style={styles.imageSlide}>
                   {uri ? (
                     <TouchableOpacity onPress={() => { setPreviewImageIndex(i); setPreviewImage(uri); }} activeOpacity={0.9}>
-                      <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                      <Image source={{ uri }} style={styles.image} contentFit="cover" />
                     </TouchableOpacity>
                   ) : (
                     <View style={styles.imagePlaceholder}>
@@ -218,7 +227,32 @@ export default function BikeDetailScreen({ route, navigation }) {
                 <Text style={styles.specValue}>{bike.fuel_type}</Text>
               </View>
             ) : null}
+            {bike.cylinders ? (
+              <View style={styles.specItem}>
+                <Text style={styles.specLabel}>Cylinders</Text>
+                <Text style={styles.specValue}>{bike.cylinders}</Text>
+              </View>
+            ) : null}
+            {bike.wheels ? (
+              <View style={styles.specItem}>
+                <Text style={styles.specLabel}>Wheels</Text>
+                <Text style={styles.specValue}>{bike.wheels}</Text>
+              </View>
+            ) : null}
           </View>
+
+          {bikeFeatures.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Features</Text>
+              <View style={styles.featuresRow}>
+                {bikeFeatures.map((feat, i) => (
+                  <View key={i} style={styles.featurePill}>
+                    <Text style={styles.featurePillText}>{feat}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {(bike.description || bike.bike_description) ? (
             <View style={styles.section}>
@@ -243,6 +277,8 @@ export default function BikeDetailScreen({ route, navigation }) {
               />
             </View>
           ) : null}
+
+          <PriceHistory listingType="bikes" listingId={bikeId} />
 
           <LoanCalculator price={bike.expected_selling_price || bike.price} />
 
@@ -334,7 +370,7 @@ export default function BikeDetailScreen({ route, navigation }) {
               const uri = resolveMediaUrl(item.url || item.image_url || item.display_url) || item.url || item.image_url || item.display_url;
               return (
                 <View style={styles.lightboxPage}>
-                  <Image source={{ uri }} style={styles.lightboxImage} resizeMode="contain" />
+                  <Image source={{ uri }} style={styles.lightboxImage} contentFit="contain" />
                 </View>
               );
             }}
@@ -380,6 +416,9 @@ const styles = StyleSheet.create({
   specValue: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
   section: { marginBottom: 16 },
   sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
+  featuresRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  featurePill: { backgroundColor: COLORS.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border },
+  featurePillText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
   description: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 22 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   locationText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
