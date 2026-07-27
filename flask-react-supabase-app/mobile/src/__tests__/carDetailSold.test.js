@@ -29,6 +29,7 @@ jest.mock('../utils/media', () => ({ resolveMediaUrl: (u) => u }));
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import apiClient from '../utils/apiClient';
+import { prefetchListing } from '../utils/listingCache';
 import CarDetailScreen from '../screens/listing/CarDetailScreen';
 
 const nav = { navigate: jest.fn(), goBack: jest.fn() };
@@ -64,4 +65,21 @@ test('a non-404 error keeps the listing rendered (no phantom removal)', async ()
   // Title still renders from the initial listing; not dropped to "not found".
   expect(await screen.findByText(/Toyota Supra/)).toBeTruthy();
   expect(screen.queryByText('Car not found')).toBeNull();
+});
+
+test('a stringified listing param is ignored; renders from cache without crashing', async () => {
+  // expo-router serializes object params to "[object Object]"; that string must
+  // NOT become `car` (else car.trim === String.prototype.trim and the spec grid
+  // renders a function -> "Functions are not valid as a React child" crash).
+  const car = {
+    id: 'c9', car_manufacturer: 'Toyota', car_model: 'Supra', make_year: 2021,
+    trim: 'GR', transmission_type: 'Automatic', expected_selling_price: 200000, images: [],
+  };
+  prefetchListing('cars', car);
+  apiClient.get.mockResolvedValueOnce(car);
+
+  render(<CarDetailScreen navigation={nav} route={{ params: { listingId: 'c9', listing: '[object Object]' } }} />);
+
+  expect(await screen.findByText('GR')).toBeTruthy();          // trim spec renders as a string
+  expect(await screen.findByText('Automatic')).toBeTruthy();
 });

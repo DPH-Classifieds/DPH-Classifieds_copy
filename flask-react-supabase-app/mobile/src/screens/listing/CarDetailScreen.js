@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  PanResponder,
 } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
@@ -86,13 +87,22 @@ export default function CarDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
   // Render instantly from the list item / prefetch cache; the network fetch
   // below only enriches (full images, seller photo, freshest fields).
-  const initialCar = routeListing || getCachedListing('cars', listingId) || null;
+  // expo-router serializes object params to strings, so only trust an object.
+  const initialCar = (routeListing && typeof routeListing === 'object' ? routeListing : null)
+    || getCachedListing('cars', listingId) || null;
   const [car, setCar] = useState(initialCar);
   const [loading, setLoading] = useState(!initialCar);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const lightboxListRef = useRef(null);
+  // Swipe down on the full-screen photo to dismiss; horizontal swipes still page.
+  const lightboxPan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 12 && g.dy > Math.abs(g.dx) * 1.6,
+      onPanResponderRelease: (_, g) => { if (g.dy > 90) setPreviewImage(null); },
+    })
+  ).current;
   const [showFullDescription, setShowFullDescription] = useState(false);
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
@@ -211,7 +221,7 @@ export default function CarDetailScreen({ route, navigation }) {
     { key: 'regional_spec', value: car.regional_spec || car.specs_type || (car.gcc_specs ? 'GCC Specs' : null) },
     { key: 'warranty', value: car.warranty },
     { key: 'service_history', value: car.service_history },
-  ].filter(s => s.value);
+  ].filter((s) => typeof s.value === 'string' || typeof s.value === 'number');
 
   const extras = (() => {
     if (Array.isArray(car.extras)) return car.extras;
@@ -412,7 +422,7 @@ export default function CarDetailScreen({ route, navigation }) {
       </Animated.ScrollView>
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <View style={styles.lightboxContainer}>
+        <View style={styles.lightboxContainer} {...lightboxPan.panHandlers}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>

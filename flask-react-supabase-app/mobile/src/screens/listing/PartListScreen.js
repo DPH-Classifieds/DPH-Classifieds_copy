@@ -21,7 +21,7 @@ import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
-import { prefetchListingWindow } from '../../utils/listingCache';
+import { prefetchListing, prefetchListingWindow } from '../../utils/listingCache';
 import { swrGet, swrSet } from '../../utils/swrCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
@@ -255,7 +255,7 @@ export default function PartListScreen({ navigation }) {
     <PartCard
       item={item}
       index={index}
-      onPress={() => navigation.navigate('PartDetail', { listingId: item.id, listing: item })}
+      onPress={() => { prefetchListing('parts', item); navigation.navigate('PartDetail', { listingId: item.id }); }}
     />
   );
 
