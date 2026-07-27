@@ -15,6 +15,7 @@
 .git-credentials
 .netrc
 .npmrc
+!flask-react-supabase-app/mobile/.npmrc
 .pypirc
 .terraformrc
 .terraformrc.*
@@ -60,10 +61,20 @@ flask-react-supabase-app/supabase/supabase/
 *.docx
 *.pdf
 *.mp4
+*.MP4
 *.png
+*.PNG
 *.jpg
+*.JPG
 *.jpeg
+*.JPEG
+# tracked app icons EAS Build needs to read during prebuild - the patterns
+# above are meant for repo-root clutter, not these. Directory-only negation
+# (trailing slash) doesn't re-include files matched by a separate *.ext rule,
+# so this must be a recursive glob, not just the directory path.
+!flask-react-supabase-app/mobile/assets/**
 **/.DS_Store
+**/node_modules/
 **/__pycache__/
 *.py[cod]
 *.pyc
