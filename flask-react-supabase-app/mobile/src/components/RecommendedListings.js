@@ -6,6 +6,10 @@ import apiClient from '../utils/apiClient';
 import { formatPrice } from '../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';
 import { resolveMediaUrl } from '../utils/media';
+import { prefetchListing } from '../utils/listingCache';
+
+// Detail screens cache by plural type; recommendations use the singular.
+const CACHE_TYPE = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
 
 export default function RecommendedListings({ listingType, listingId, navigation }) {
   const [items, setItems] = useState([]);
@@ -24,7 +28,7 @@ export default function RecommendedListings({ listingType, listingId, navigation
   const renderItem = ({ item }) => {
     const detailRoute = { car: 'CarDetail', bike: 'BikeDetail', plate: 'PlateDetail', parts: 'PartDetail' }[listingType];
     return (
-      <TouchableOpacity style={styles.card} onPress={() => navigation.push(detailRoute, { listingId: item.id, listing: item })}>
+      <TouchableOpacity style={styles.card} onPress={() => { prefetchListing(CACHE_TYPE[listingType], item); navigation.push(detailRoute, { listingId: item.id }); }}>
         {item.images?.[0] ? (
           <Image
             source={{

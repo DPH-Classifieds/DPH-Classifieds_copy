@@ -784,7 +784,7 @@ export default function ExploreScreen({ navigation, route }) {
       <ExploreCard
         item={item}
         index={index}
-        onPress={() => navigation.navigate(detailScreen, { listingId: item.id, listing: item.raw })}
+        onPress={() => { prefetchListing(item.category, item.raw); navigation.navigate(detailScreen, { listingId: item.id }); }}
         onSave={() => toggleSaveListing(item.category, item.raw)}
         saved={saved}
       />

@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  PanResponder,
 } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
@@ -80,13 +81,20 @@ const getImageUri = (item) => {
 
 export default function PlateDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
-  const initialPlate = routeListing || getCachedListing('plates', listingId) || null;
+  const initialPlate = (routeListing && typeof routeListing === 'object' ? routeListing : null)
+    || getCachedListing('plates', listingId) || null;
   const [plate, setPlate] = useState(initialPlate);
   const [loading, setLoading] = useState(!initialPlate);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const lightboxListRef = useRef(null);
+  const lightboxPan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 12 && g.dy > Math.abs(g.dx) * 1.6,
+      onPanResponderRelease: (_, g) => { if (g.dy > 90) setPreviewImage(null); },
+    })
+  ).current;
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
   const isOwner = user && (user.id === plate?.user_id || user.id === plate?.seller_id);
@@ -301,7 +309,7 @@ export default function PlateDetailScreen({ route, navigation }) {
       </Animated.ScrollView>
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <View style={styles.lightboxContainer}>
+        <View style={styles.lightboxContainer} {...lightboxPan.panHandlers}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>

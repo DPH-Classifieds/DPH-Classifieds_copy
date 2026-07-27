@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, Image, Modal, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { compressImage } from '../../utils/imageCompressor';
 import PressableScale from './PressableScale';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
@@ -8,23 +7,14 @@ import { showError } from '../../utils/toast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PREVIEW_SIZE = SCREEN_WIDTH - SPACING.md * 2;
-
-const RATIOS = [
-  { label: 'Free', value: null },
-  { label: '4:3', value: 4 / 3 },
-  { label: '16:9', value: 16 / 9 },
-  { label: '1:1', value: 1 },
-];
+const PREVIEW_HEIGHT = PREVIEW_SIZE * 0.75;
 
 export default function ImageCropperModal({ visible, imageUri, onConfirm, onCancel, moderating = false }) {
-  const [ratio, setRatio] = useState(null);
   const [processing, setProcessing] = useState(false);
   // "Use Photo" awaits compression only — onConfirm (which also runs nudity/face
   // moderation upstream) isn't awaited, so without this the spinner disappears
   // and the modal looks idle while moderation is still silently running.
   const busy = processing || moderating;
-
-  const previewHeight = ratio ? PREVIEW_SIZE / ratio : PREVIEW_SIZE * 0.75;
 
   const handleConfirm = async () => {
     if (!imageUri) return;
@@ -47,7 +37,7 @@ export default function ImageCropperModal({ visible, imageUri, onConfirm, onCanc
           <PressableScale onPress={onCancel} haptic="light" style={styles.cancelBtn}>
             <Text style={styles.cancelText}>Cancel</Text>
           </PressableScale>
-          <Text style={styles.title}>{moderating ? 'Checking photo…' : 'Adjust Photo'}</Text>
+          <Text style={styles.title}>{moderating ? 'Checking photo…' : 'Add Photo'}</Text>
           <PressableScale onPress={handleConfirm} haptic="success" style={styles.confirmBtn} disabled={busy}>
             {busy
               ? <ActivityIndicator size="small" color={COLORS.black} />
@@ -59,26 +49,10 @@ export default function ImageCropperModal({ visible, imageUri, onConfirm, onCanc
           {imageUri ? (
             <Image
               source={{ uri: imageUri }}
-              style={{ width: PREVIEW_SIZE, height: previewHeight, borderRadius: BORDER_RADIUS.lg }}
+              style={{ width: PREVIEW_SIZE, height: PREVIEW_HEIGHT, borderRadius: BORDER_RADIUS.lg }}
               resizeMode="cover"
             />
           ) : null}
-        </View>
-
-        <View style={styles.ratioRow}>
-          <Text style={styles.ratioLabel}>Aspect ratio</Text>
-          <View style={styles.ratioChips}>
-            {RATIOS.map((r) => (
-              <PressableScale
-                key={r.label}
-                onPress={() => setRatio(r.value)}
-                haptic="light"
-                style={[styles.chip, ratio === r.value && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, ratio === r.value && styles.chipTextActive]}>{r.label}</Text>
-              </PressableScale>
-            ))}
-          </View>
         </View>
       </View>
     </Modal>
@@ -94,11 +68,4 @@ const styles = StyleSheet.create({
   confirmBtn: { backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 16, paddingVertical: 8 },
   confirmText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: COLORS.black },
   preview: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.md },
-  ratioRow: { padding: SPACING.md },
-  ratioLabel: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textMuted, marginBottom: SPACING.sm },
-  ratioChips: { flexDirection: 'row', gap: SPACING.sm },
-  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border },
-  chipActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  chipText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-  chipTextActive: { color: COLORS.black },
 });

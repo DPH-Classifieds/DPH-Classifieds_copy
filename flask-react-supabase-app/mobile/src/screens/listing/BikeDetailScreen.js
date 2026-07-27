@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  PanResponder,
 } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
@@ -54,13 +55,20 @@ const getImageUri = (item) => {
 
 export default function BikeDetailScreen({ route, navigation }) {
   const { listing: routeListing, listingId } = route.params || {};
-  const initialBike = routeListing || getCachedListing('bikes', listingId) || null;
+  const initialBike = (routeListing && typeof routeListing === 'object' ? routeListing : null)
+    || getCachedListing('bikes', listingId) || null;
   const [bike, setBike] = useState(initialBike);
   const [loading, setLoading] = useState(!initialBike);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const lightboxListRef = useRef(null);
+  const lightboxPan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 12 && g.dy > Math.abs(g.dx) * 1.6,
+      onPanResponderRelease: (_, g) => { if (g.dy > 90) setPreviewImage(null); },
+    })
+  ).current;
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
   const isOwner = user && (user.id === bike?.user_id || user.id === bike?.seller_id);
@@ -328,7 +336,7 @@ export default function BikeDetailScreen({ route, navigation }) {
       </Animated.ScrollView>
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <View style={styles.lightboxContainer}>
+        <View style={styles.lightboxContainer} {...lightboxPan.panHandlers}>
           <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>

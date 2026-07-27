@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import apiClient from '../utils/apiClient';
 import { useAuth } from './AuthContext';
-import { toastApiError } from '../utils/toast';
+import { toastApiError, showInfo } from '../utils/toast';
 
 const SavedListingsContext = createContext();
 
@@ -88,7 +88,10 @@ export const SavedListingsProvider = ({ children }) => {
   }), [savedListings]);
 
   const toggleSaveListing = useCallback(async (type, listing) => {
-    if (!user) return false;
+    if (!user) {
+      showInfo('Sign in to save', 'Create an account to keep track of listings you like.');
+      return false;
+    }
     const normalizedType = normalizeType(type);
     const pluralType = pluralizeType(normalizedType);
     const id = listing.id || listing.listing_id;
