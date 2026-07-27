@@ -264,12 +264,19 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
     if row_id:
         update = {k: v for k, v in payload.items() if k != "source_created_at"}
         _, status = supabase_request("patch", f"/rest/v1/{table}?id=eq.{row_id}", data=update)
+        if status >= 400 and "import_field_sources" in update:
+            # provenance column not yet added (migration pending) — retry without it
+            update.pop("import_field_sources")
+            _, status = supabase_request("patch", f"/rest/v1/{table}?id=eq.{row_id}", data=update)
         if status >= 400:
             counts["failed"] += 1
             return
         counts["updated"] += 1
     else:
         body, status = supabase_request("post", f"/rest/v1/{table}", data=payload)
+        if (status >= 400 or not (isinstance(body, list) and body)) and "import_field_sources" in payload:
+            payload = {k: v for k, v in payload.items() if k != "import_field_sources"}
+            body, status = supabase_request("post", f"/rest/v1/{table}", data=payload)
         if status >= 400 or not (isinstance(body, list) and body):
             counts["failed"] += 1
             logger.warning("reddit_import: %s insert failed status=%s body=%s", table, status, str(body)[:200])
