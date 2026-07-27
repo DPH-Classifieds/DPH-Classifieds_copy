@@ -348,9 +348,26 @@ def _resolve_make_model(title: str) -> Optional[tuple]:
     return None
 
 
+# Multi-word models the single-token grab would otherwise truncate
+# ("Land Cruiser" -> "Land"). Longest first so "Range Rover Sport" wins.
+_MULTIWORD_MODELS = sorted((
+    "land cruiser prado", "range rover sport", "range rover velar",
+    "range rover evoque", "grand cherokee", "grand wagoneer", "grand vitara",
+    "grand carnival", "land cruiser", "range rover", "santa fe", "fj cruiser",
+    "model 3", "model s", "model x", "model y", "c class", "e class", "s class",
+    "g class", "gt coupe", "grand caravan", "outlander phev",
+), key=len, reverse=True)
+
+
 def _first_model_token(tail: str) -> Optional[str]:
-    for tok in re.split(r"[\s/,:;\-–—|()]+", tail):
-        cleaned = tok.strip().strip(".!?")
+    low_tail = " ".join(tail.lower().split())
+    for mw in _MULTIWORD_MODELS:
+        if low_tail == mw or low_tail.startswith(mw + " "):
+            return mw.title()
+    # NOTE: hyphen intentionally NOT a separator, so "CX-5", "CR-V", "F-Pace",
+    # "X-Trail" survive intact instead of truncating to "CX"/"CR"/"F"/"X".
+    for tok in re.split(r"[\s/,:;–—|()]+", tail):
+        cleaned = tok.strip().strip(".!?").strip("-")
         if not cleaned:
             continue
         low = cleaned.lower()
@@ -694,6 +711,24 @@ def parse_description_extras(text):
         if re.search(rf"\b{c}\b", low):
             out["color"] = "Grey" if c in ("grey", "gray") else c.capitalize()
             break
+
+    m = re.search(r"\b(\d\.\d)\s*(?:l|litre|liter)\b", low)
+    if m:
+        out["engine_capacity"] = f"{m.group(1)}L"
+    m = (re.search(r"\bv(\d{1,2})\b", low) or re.search(r"\b(\d{1,2})\s*(?:cyl|cylinder)", low)
+         or re.search(r"\binline[\s-]?(\d)\b", low))
+    if m:
+        try:
+            n = int(m.group(1))
+            if 2 <= n <= 16:
+                out["cylinders"] = n
+        except ValueError:
+            pass
+    m = re.search(r"\b([2-5])\s*[-\s]?door\b", low) or re.search(r"\b([2-5])dr\b", low)
+    if m:
+        out["doors"] = int(m.group(1))
+    if re.search(r"\bfull service history\b|\bfsh\b|\bfully? serviced\b|\bagency (?:service|maintained|serviced)\b|\bdealer (?:serviced|maintained)\b", low):
+        out["service_history"] = "Full service history"
     return out
 
 
@@ -832,6 +867,9 @@ def build_imported_payload(parsed, owner_id, now):
             "vehicle_type": "Used"}
         if extras.get("color"):
             payload["color"] = extras["color"]
+        for k in ("engine_capacity", "cylinders", "doors", "service_history"):
+            if extras.get(k) is not None:
+                payload[k] = extras[k]
         if f.get("vin"):
             payload["vin_number"] = f["vin"]
     elif parsed.category == "bike":

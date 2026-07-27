@@ -412,9 +412,16 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(car["user_id"], OWNER_ID)
         self.assertEqual(car["car_manufacturer"], "BMW")
         blob = json.dumps(car)
+        # PII must never leak, and raw selftext prose must not be dumped.
         self.assertNotIn("+971", blob)
+        self.assertNotIn("501234567", blob)
         self.assertNotIn("example.com", blob)
-        self.assertNotIn("service history", blob.lower())  # no raw selftext
+        self.assertNotIn("Contact me", blob)
+        self.assertNotIn("Clean car", blob)
+        # But structured facts ARE inherited from the description.
+        self.assertEqual(car.get("service_history"), "Full service history")
+        self.assertEqual(car.get("kilometer_driven"), 88000)
+        self.assertEqual(car.get("regional_spec"), "GCC")
         # Images are bulk-inserted as a list; the first is the primary, reddit-hosted URL.
         imgs = image_posts[0]["data"]
         self.assertIsInstance(imgs, list)

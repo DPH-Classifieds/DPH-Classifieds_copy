@@ -110,6 +110,13 @@ class VINDecoder:
 
         remote = self._remote_decode(normalized_vin)
         base_result["decoded"] = remote["decoded"]
+        # Guarantee a make from the WMI when NHTSA has no record (Chinese/GCC-only).
+        if not base_result["decoded"].get("make"):
+            wmi_make = vin_manufacturer(normalized_vin)
+            if wmi_make:
+                base_result["decoded"]["make"] = wmi_make
+                base_result["decoded"]["make_source"] = "wmi"
+        base_result["decoded"]["country"] = vin_country(normalized_vin)
         base_result["errors"].extend(remote["errors"])
         base_result["is_valid"] = not base_result["errors"]
         base_result["valid"] = base_result["is_valid"]
@@ -258,6 +265,58 @@ def vin_country(vin):
     if not VIN_ALLOWED_RE.match(v):
         return None
     return _WMI_REGION.get(v[0])
+
+
+# WMI (VIN chars 1-3) -> manufacturer. Guarantees a make even when NHTSA has no
+# record (e.g. Chinese/GCC-only vehicles). Focused on the UAE market + globals;
+# unknown prefixes fall back to country only. Keyed by 3-char, then 2-char.
+_WMI_MAKE = {
+    # Japan
+    "JT": "Toyota", "JTD": "Toyota", "JTE": "Toyota", "JTM": "Toyota", "JF1": "Subaru",
+    "JF2": "Subaru", "JTH": "Lexus", "JTJ": "Lexus", "JTG": "Lexus", "JN": "Nissan",
+    "JN1": "Nissan", "JN6": "Nissan", "JN8": "Nissan", "JNK": "Infiniti", "JNR": "Infiniti",
+    "JHM": "Honda", "JHL": "Honda", "JHG": "Honda", "JM1": "Mazda", "JM3": "Mazda",
+    "JMZ": "Mazda", "JA": "Mitsubishi", "JMB": "Mitsubishi", "JS": "Suzuki", "JD": "Daihatsu",
+    # Germany
+    "WBA": "BMW", "WBS": "BMW", "WBX": "BMW", "WBY": "BMW", "WMW": "MINI",
+    "WDB": "Mercedes-Benz", "WDD": "Mercedes-Benz", "WDC": "Mercedes-Benz",
+    "W1K": "Mercedes-Benz", "W1N": "Mercedes-Benz", "WDF": "Mercedes-Benz",
+    "WAU": "Audi", "WA1": "Audi", "TRU": "Audi", "WVW": "Volkswagen", "WVG": "Volkswagen",
+    "WV1": "Volkswagen", "WV2": "Volkswagen", "WP0": "Porsche", "WP1": "Porsche",
+    "W0L": "Opel", "WF0": "Ford",
+    # Korea
+    "KMH": "Hyundai", "KM8": "Hyundai", "KMF": "Hyundai", "KNA": "Kia", "KND": "Kia",
+    "KNM": "Renault Samsung", "KL": "GM Korea",
+    # UK / Europe
+    "SAL": "Land Rover", "SAJ": "Jaguar", "SAD": "Jaguar", "SCA": "Rolls-Royce",
+    "SCB": "Bentley", "SCC": "Lotus", "SCF": "Aston Martin", "SAR": "Rover",
+    "ZFF": "Ferrari", "ZHW": "Lamborghini", "ZAM": "Maserati", "ZFA": "Fiat",
+    "ZAR": "Alfa Romeo", "YV1": "Volvo", "YV4": "Volvo", "VF1": "Renault",
+    "VF3": "Peugeot", "VF7": "Citroen", "VF6": "Renault Trucks",
+    # China (the key gap NHTSA can't fill)
+    "LGW": "Great Wall", "LGB": "Dongfeng", "LGX": "BYD", "LC0": "BYD", "L6T": "Geely",
+    "LB3": "Geely", "LVS": "Ford China", "LVV": "Chery", "LVT": "Chery", "LSV": "SAIC-VW",
+    "LSJ": "MG", "LS5": "Changan", "LFV": "FAW-VW", "LFP": "FAW", "LJ1": "JAC",
+    "LZW": "Wuling", "L5Y": "Zhongtong", "LNB": "Baic", "LDC": "Dongfeng-PSA",
+    "LMG": "GAC", "LPA": "NIO", "LW9": "Xpeng",
+    # North America (common imports)
+    "1G": "GM", "1GC": "Chevrolet", "1FA": "Ford", "1FT": "Ford", "1FM": "Ford",
+    "1C4": "Jeep", "1J4": "Jeep", "2C4": "Chrysler", "1N4": "Nissan", "5N1": "Nissan",
+    "3N1": "Nissan", "5XX": "Kia", "5NP": "Hyundai", "2LM": "Lincoln", "1L": "Lincoln",
+    "1GY": "Cadillac", "1G6": "Cadillac", "2T": "Toyota", "4T": "Toyota", "5T": "Toyota",
+    "1HG": "Honda", "2HG": "Honda", "5FN": "Honda", "19U": "Acura", "JH4": "Acura",
+    "2G1": "Chevrolet", "3G": "GM", "5UX": "BMW", "4US": "BMW", "55S": "Mercedes-Benz",
+    "4JG": "Mercedes-Benz",
+}
+
+
+def vin_manufacturer(vin):
+    """Manufacturer from the WMI. Tries 3-char then 2-char prefix. Universal
+    fallback for when NHTSA returns no make (e.g. Chinese/GCC-only VINs)."""
+    v = str(vin or "").upper()
+    if not VIN_ALLOWED_RE.match(v):
+        return None
+    return _WMI_MAKE.get(v[:3]) or _WMI_MAKE.get(v[:2])
 
 
 def resolve_vin_year(vin, hint_year=None):
