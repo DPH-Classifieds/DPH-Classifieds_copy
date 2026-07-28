@@ -11492,6 +11492,15 @@ def _send_draft_listing_reminder(user_id, listing_type, listing, table, now_iso)
         },
         use_service_role=True,
     )
+    # Mirror the reminder to a push notification (best-effort, non-fatal).
+    # Drafts aren't public, so deep-link to the Sell tab to finish/publish
+    # rather than a detail screen.
+    _notify_user_push(
+        user_id,
+        "Finish your listing ✍️",
+        f"Your {listing_type} listing is still a draft — tap to finish and publish it.",
+        data={"path": "/(tabs)/(post)"},
+    )
     logger.info("Draft listing reminder sent user=%s type=%s id=%s subject=%r",
                 user_id, listing_type, row_id, subject)
     return True
@@ -11585,6 +11594,13 @@ def _run_listing_draft_reminders_once(first_age_hours=24, repeat_age_hours=48, a
                 "reminder_email_claimed_at": None,
             },
             use_service_role=True,
+        )
+        # Mirror the reminder to a push notification (best-effort, non-fatal).
+        _notify_user_push(
+            user_id,
+            "Finish your listing ✍️",
+            f"Your {_draft_type_from_row(draft)} draft is waiting — tap to finish and publish it.",
+            data={"path": "/(tabs)/(post)"},
         )
         logger.info("Draft wizard reminder sent user=%s draft=%s subject=%r", user_id, row_id, subject)
 
