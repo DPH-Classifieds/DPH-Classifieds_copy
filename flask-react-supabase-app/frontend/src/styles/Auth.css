@@ -1,17 +1,20 @@
 .auth-container {
-  --auth-bg: #06110b;
-  --auth-surface: rgba(10, 24, 16, 0.92);
-  --auth-surface-strong: rgba(13, 31, 21, 0.98);
-  --auth-surface-soft: rgba(18, 42, 29, 0.9);
-  --auth-line: rgba(177, 228, 182, 0.14);
-  --auth-line-strong: rgba(177, 228, 182, 0.28);
-  --auth-text: #eef7ef;
-  --auth-text-muted: rgba(226, 239, 229, 0.72);
-  --auth-accent: #8fe694;
-  --auth-accent-strong: #57bc60;
-  --auth-danger: #ff8f8f;
+  /* Aligned to the listing forms' scheme (PostForms.css): flat near-black
+     fields/cards, neutral borders, single green accent — so sign-up / login
+     match the sell pages. */
+  --auth-bg: #0a0a0a;
+  --auth-surface: #0e0e0e;
+  --auth-surface-strong: #161616;
+  --auth-surface-soft: #1a1a1a;
+  --auth-line: #2a2a2a;
+  --auth-line-strong: #3a3a3a;
+  --auth-text: #f0f0f0;
+  --auth-text-muted: #8a8a8a;
+  --auth-accent: #4ade80;
+  --auth-accent-strong: #22c55e;
+  --auth-danger: #ef4444;
   --auth-danger-bg: rgba(107, 23, 23, 0.5);
-  --auth-success: #9be8a4;
+  --auth-success: #4ade80;
   --auth-success-bg: rgba(19, 62, 33, 0.56);
   display: flex;
   justify-content: center;
@@ -19,18 +22,18 @@
   min-height: calc(100vh - 60px);
   padding: 40px 16px 72px;
   background:
-    radial-gradient(circle at top center, rgba(87, 188, 96, 0.18), transparent 24%),
-    linear-gradient(180deg, #08140d 0%, #030806 100%);
+    radial-gradient(72rem 36rem at 50% -20%, rgba(74, 222, 128, 0.09), transparent 58%),
+    linear-gradient(180deg, #0a0a0a 0%, #090909 100%);
 }
 
 .auth-card {
   width: 100%;
   max-width: 480px;
   padding: 30px;
-  background: linear-gradient(180deg, var(--auth-surface-strong) 0%, var(--auth-surface) 100%);
+  background: var(--auth-surface);
   border: 1px solid var(--auth-line);
-  border-radius: 28px;
-  box-shadow: inset 0 1px 0 rgba(236, 249, 237, 0.04), 0 30px 70px rgba(0, 0, 0, 0.34);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
   color: var(--auth-text);
 }
 
@@ -118,9 +121,9 @@
 
 .form-section {
   padding: 18px;
-  background: linear-gradient(180deg, rgba(17, 39, 27, 0.92) 0%, rgba(11, 24, 17, 0.94) 100%);
-  border: 1px solid rgba(177, 228, 182, 0.08);
-  border-radius: 22px;
+  background: #141414;
+  border: 1px solid #262626;
+  border-radius: 14px;
   margin-bottom: 16px;
 }
 
@@ -130,7 +133,7 @@
   color: var(--auth-text);
   margin: 0 0 14px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(177, 228, 182, 0.08);
+  border-bottom: 1px solid #2a2a2a;
 }
 
 .form-row {
@@ -162,9 +165,9 @@
   font-size: 16px;
   line-height: 1.35;
   border: 1px solid var(--auth-line);
-  border-radius: 14px;
+  border-radius: 10px;
   min-height: 50px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--auth-surface-soft);
   color: var(--auth-text);
   caret-color: var(--auth-accent);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -181,8 +184,8 @@
 .form-group input::placeholder,
 .form-group select::placeholder,
 .phone-number-input::placeholder {
-  color: rgba(226, 239, 229, 0.44);
-  -webkit-text-fill-color: rgba(226, 239, 229, 0.44);
+  color: #555555;
+  -webkit-text-fill-color: #555555;
 }
 
 .form-group input:focus,
@@ -191,9 +194,9 @@
 .country-code-select:focus,
 .auth-container select:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--auth-accent);
   box-shadow: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: #202020;
 }
 
 .form-group input:disabled,
@@ -757,9 +760,12 @@
   gap: 10px;
 }
 
-.country-code-select {
-  flex: 0 0 auto;
-  width: 138px;
+/* Scoped under .phone-input-group so this beats the base `.auth-container
+   select { width: 100% }` rule (higher specificity); otherwise the country
+   select expands to full width and crushes the phone input. */
+.phone-input-group .country-code-select {
+  flex: 0 0 150px;
+  width: 150px;
   padding-right: 36px;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23b1e4b6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='1.5 2 6 6.5 10.5 2'/></svg>");
   background-repeat: no-repeat;
@@ -966,7 +972,8 @@
     flex-direction: column;
   }
 
-  .country-code-select {
+  .phone-input-group .country-code-select {
+    flex-basis: auto;
     width: 100%;
   }
 

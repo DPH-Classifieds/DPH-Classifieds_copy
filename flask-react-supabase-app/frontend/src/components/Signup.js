@@ -559,13 +559,7 @@ const Signup = () => {
       <div className="auth-card signup-card">
         <h1 className="auth-title">Create Your Account</h1>
         <p className="auth-subtitle">Join thousands of buyers and sellers</p>
-        <p className="auth-inline-note">
-          Can&apos;t find a car model while posting?{' '}
-          <Link to="/request-car-model" className="inline-help-link">
-            Request it here
-          </Link>
-        </p>
-        
+
         {successMessage && <div className="auth-success">{successMessage}</div>}
 
         <button
@@ -862,9 +856,9 @@ const Signup = () => {
                   className="country-code-select"
                   aria-label="Country code"
                 >
-                  {COUNTRY_CODES.map(({ code, country }) => (
+                  {COUNTRY_CODES.map(({ code, country, flag }) => (
                     <option key={code} value={code}>
-                      {code} {country}
+                      {flag} {code} {country}
                     </option>
                   ))}
                 </select>
