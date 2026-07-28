@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import PressableScale from './PressableScale';
 import FadeInImage from './FadeInImage';
+import UAEPlate from './UAEPlate';
 import { formatPrice } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
@@ -25,13 +26,28 @@ export default function ListingCard({ item, index, onPress, onSave, saved }) {
   const category = item.category || item.listing_type || item.categoryKey;
   const catColor = CATEGORY_COLORS[category] || COLORS.accent;
   const priceText = item.priceLabel || (item.price ? formatPrice(item.price) : 'Price on request');
+  // Plates have no photo — render the generated plate visual (same as web/detail)
+  // instead of the gray placeholder. Explore wraps the raw plate in `raw`.
+  const isPlate = category === 'plates' || category === 'plate';
+  const plate = isPlate ? (item.raw || item) : null;
 
   return (
     <Animated.View style={animatedStyle}>
       <PressableScale onPress={onPress}>
         <View style={styles.card}>
           <View style={styles.cardImageWrap}>
-            {item.image ? (
+            {isPlate ? (
+              <View style={styles.cardPlateWrap}>
+                <UAEPlate
+                  city={plate.city}
+                  code={plate.code}
+                  number={plate.number || plate.digits}
+                  sold={plate.status === 'sold'}
+                  height={116}
+                  style={styles.cardPlate}
+                />
+              </View>
+            ) : item.image ? (
               <FadeInImage source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
             ) : (
               <View style={styles.cardImagePlaceholder}>
@@ -101,6 +117,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  cardPlateWrap: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.surfaceDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  cardPlate: { width: '100%' },
   cardCatBadge: {
     position: 'absolute',
     top: 8,

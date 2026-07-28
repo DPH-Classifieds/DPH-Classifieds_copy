@@ -7,6 +7,7 @@ import { formatPrice } from '../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';
 import { resolveMediaUrl } from '../utils/media';
 import { prefetchListing } from '../utils/listingCache';
+import UAEPlate from './ui/UAEPlate';
 
 // Detail screens cache by plural type; recommendations use the singular.
 const CACHE_TYPE = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
@@ -29,7 +30,11 @@ export default function RecommendedListings({ listingType, listingId, navigation
     const detailRoute = { car: 'CarDetail', bike: 'BikeDetail', plate: 'PlateDetail', parts: 'PartDetail' }[listingType];
     return (
       <TouchableOpacity style={styles.card} onPress={() => { prefetchListing(CACHE_TYPE[listingType], item); navigation.push(detailRoute, { listingId: item.id }); }}>
-        {item.images?.[0] ? (
+        {listingType === 'plate' ? (
+          <View style={[styles.image, styles.platePlaceholder]}>
+            <UAEPlate city={item.city} code={item.code} number={item.number || item.digits} height={70} style={styles.recPlate} />
+          </View>
+        ) : item.images?.[0] ? (
           <Image
             source={{
               uri: resolveMediaUrl(
@@ -63,6 +68,8 @@ const styles = StyleSheet.create({
   card: { width: 160, marginRight: 12, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
   image: { width: 160, height: 100, backgroundColor: COLORS.surfaceHigher },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
+  platePlaceholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  recPlate: { width: '100%' },
   price: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '700', paddingHorizontal: 10, paddingTop: 8 },
   title: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingBottom: 8 },
 });
