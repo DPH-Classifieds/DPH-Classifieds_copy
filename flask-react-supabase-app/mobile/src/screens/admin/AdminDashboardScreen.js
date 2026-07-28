@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
-  Linking,
-  Alert,
-  AppState,
-  useWindowDimensions,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Linking, Alert, AppState, useWindowDimensions } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Polyline, Rect } from 'react-native-svg';
@@ -708,7 +698,7 @@ const styles = StyleSheet.create({
   timeRangePill: { flex: 1, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: COLORS.surface, minHeight: 44, justifyContent: 'center' },
   timeRangePillActive: { backgroundColor: COLORS.accent },
   timeRangeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.textSecondary },
-  timeRangeTextActive: { color: COLORS.white },
+  timeRangeTextActive: { color: COLORS.background },
   healthBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -757,7 +747,7 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 20, fontWeight: '700', color: COLORS.white, marginTop: 16 },
   errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
   retryBtn: { marginTop: 20, backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.md },
+  retryText: { color: COLORS.background, fontWeight: '600', fontSize: FONT_SIZES.md },
   liveVisitorsHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
   },

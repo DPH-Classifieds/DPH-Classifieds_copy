@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import Text from './AppText';
 import apiClient from '../../utils/apiClient';
 import { toastApiError, showSuccess } from '../../utils/toast';
 import PressableScale from './PressableScale';

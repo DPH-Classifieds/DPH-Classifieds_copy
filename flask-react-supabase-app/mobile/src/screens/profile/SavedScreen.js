@@ -1,13 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
-  Alert,
-  ScrollView,
-} from 'react-native';
+import { View, TouchableOpacity, StyleSheet, RefreshControl, Alert, ScrollView } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';

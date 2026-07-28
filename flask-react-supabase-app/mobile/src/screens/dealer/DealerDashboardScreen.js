@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
@@ -206,7 +200,7 @@ const styles = StyleSheet.create({
   windowPill: { flex: 1, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: COLORS.surface, minHeight: 44, justifyContent: 'center' },
   windowPillActive: { backgroundColor: COLORS.accent },
   windowText: { fontSize: FONT_SIZES.sm, fontWeight: '600', color: COLORS.textSecondary },
-  windowTextActive: { color: COLORS.white },
+  windowTextActive: { color: COLORS.background },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
   kpiCard: { width: '48%', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
   kpiValue: { fontSize: 24, fontWeight: '700', color: COLORS.white, marginBottom: 4 },
@@ -224,5 +218,5 @@ const styles = StyleSheet.create({
   footNote: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, textAlign: 'center', paddingHorizontal: SPACING.lg, marginTop: SPACING.lg },
   errorText: { color: COLORS.error, fontSize: FONT_SIZES.sm, textAlign: 'center' },
   retryBtn: { marginTop: 12, alignSelf: 'center', backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: COLORS.white, fontWeight: '600' },
+  retryText: { color: COLORS.background, fontWeight: '600' },
 });

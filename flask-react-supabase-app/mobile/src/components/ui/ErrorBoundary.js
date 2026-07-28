@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.pill,
   },
   buttonText: {
-    color: COLORS.white,
+    color: COLORS.background,
     fontSize: FONT_SIZES.md,
     fontWeight: '700',
   },

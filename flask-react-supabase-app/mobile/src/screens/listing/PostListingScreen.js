@@ -1,21 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Modal,
-  FlatList,
-  Switch,
-  TextInput,
-  Dimensions,
-  Image,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, FlatList, Switch, TextInput, Dimensions, Image } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -2617,7 +2602,7 @@ export default function PostListingScreen({ navigation, route }) {
                 activeOpacity={0.7}
               >
                 <Text style={styles.wizardNavBtnPrimaryText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
+                <Ionicons name="arrow-forward" size={16} color={COLORS.background} />
               </TouchableOpacity>
             </View>
           )}
@@ -2684,7 +2669,7 @@ const styles = StyleSheet.create({
   wizardNavBtnPrimary: { backgroundColor: COLORS.accent },
   wizardNavBtnSecondary: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
   wizardNavBtnDisabled: { opacity: 0.4 },
-  wizardNavBtnPrimaryText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.md },
+  wizardNavBtnPrimaryText: { color: COLORS.background, fontWeight: '700', fontSize: FONT_SIZES.md },
   wizardNavBtnSecondaryText: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.md },
   formContent: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
   section: { marginBottom: 8 },

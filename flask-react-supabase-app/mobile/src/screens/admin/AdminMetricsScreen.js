@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
@@ -507,12 +508,12 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 20, fontWeight: '700', color: COLORS.white, marginTop: 16 },
   errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
   retryBtn: { marginTop: 20, backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.md },
+  retryText: { color: COLORS.background, fontWeight: '600', fontSize: FONT_SIZES.md },
   windowRow: { flexDirection: 'row', gap: 8, marginBottom: SPACING.md },
   windowBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: '#272729', alignItems: 'center' },
   windowBtnActive: { backgroundColor: COLORS.accent },
   windowBtnText: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', fontWeight: '500' },
-  windowBtnTextActive: { color: COLORS.white, fontWeight: '700' },
+  windowBtnTextActive: { color: COLORS.background, fontWeight: '700' },
   sectionHeader: { marginBottom: SPACING.sm, marginTop: SPACING.md },
   sectionLabel: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
   sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.white },

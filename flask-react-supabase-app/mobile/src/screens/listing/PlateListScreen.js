@@ -1,15 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  RefreshControl,
-} from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, RefreshControl } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { FlashList } from '@shopify/flash-list';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';

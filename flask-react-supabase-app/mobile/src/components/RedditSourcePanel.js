@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Linking, Alert } from 'react-native';
+import { View, StyleSheet, Linking, Alert } from 'react-native';
+import Text from './ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from './ui/PressableScale';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';

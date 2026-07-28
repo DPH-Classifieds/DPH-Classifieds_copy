@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../utils/supabaseClient';
 import Button from '../../components/ui/Button';

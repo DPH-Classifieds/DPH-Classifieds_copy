@@ -1,17 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Linking,
-  Alert,
-  Modal,
-  ScrollView,
-  PanResponder,
-} from 'react-native';
+import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, Modal, ScrollView, PanResponder } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,

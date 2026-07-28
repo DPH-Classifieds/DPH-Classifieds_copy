@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { resolveMediaUrl } from '../../utils/media';
 
 const PALETTE = [

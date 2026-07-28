@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
-  ScrollView,
-} from 'react-native';
+import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, ScrollView } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
@@ -201,7 +194,7 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surface, marginRight: 8 },
   chipActive: { backgroundColor: COLORS.accent },
   chipText: { fontSize: FONT_SIZES.sm, fontWeight: '600', color: COLORS.textSecondary },
-  chipTextActive: { color: COLORS.white },
+  chipTextActive: { color: COLORS.background },
   listContent: { paddingHorizontal: SPACING.md, paddingBottom: 40 },
   totalText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
   row: {
@@ -221,6 +214,6 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
   errorText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginTop: 12, textAlign: 'center' },
   retryBtn: { marginTop: 16, backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: COLORS.white, fontWeight: '600' },
+  retryText: { color: COLORS.background, fontWeight: '600' },
   footerText: { color: COLORS.textMuted, textAlign: 'center', paddingVertical: 16 },
 });

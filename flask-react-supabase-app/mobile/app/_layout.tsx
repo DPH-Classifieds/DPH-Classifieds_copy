@@ -7,6 +7,14 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import Toast from 'react-native-toast-message';
 import { PostHogProvider } from 'posthog-react-native';
 import { posthog } from '../src/utils/posthogClient';
@@ -26,6 +34,17 @@ export default function RootLayout() {
   // Route notification taps (warm + cold start) into the app. Uses the global
   // expo-router `router` internally, so no navigation ref is needed.
   useEffect(() => attachNotificationResponseHandler(), []);
+
+  // Brand typeface (DPHClassifieds Brand Kit). Gate the first render until the
+  // faces are ready so text doesn't flash in the system font, then swap.
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

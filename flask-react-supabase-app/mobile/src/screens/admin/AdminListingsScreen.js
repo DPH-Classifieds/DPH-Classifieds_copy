@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  Alert,
-  StyleSheet,
-  RefreshControl,
-  ScrollView,
-} from 'react-native';
+import { View, TouchableOpacity, Image, Alert, StyleSheet, RefreshControl, ScrollView } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -320,7 +312,7 @@ export default function AdminListingsScreen({ navigation }) {
                 <Ionicons
                   name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
                   size={14}
-                  color={active ? COLORS.white : COLORS.textSecondary}
+                  color={active ? COLORS.background : COLORS.textSecondary}
                   style={{ marginRight: 4 }}
                 />
                 <Text style={[styles.typeTabText, active && styles.activeTypeTabText]}>
@@ -348,7 +340,7 @@ export default function AdminListingsScreen({ navigation }) {
                 <Ionicons
                   name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
                   size={14}
-                  color={active ? COLORS.white : COLORS.textSecondary}
+                  color={active ? COLORS.background : COLORS.textSecondary}
                   style={{ marginRight: 4 }}
                 />
                 <Text style={[styles.statusTabText, active && styles.activeStatusTabText]}>
@@ -448,7 +440,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   activeTypeTabText: {
-    color: COLORS.white,
+    color: COLORS.background,
   },
   statusTabBar: {
     flexDirection: 'row',
@@ -474,7 +466,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   activeStatusTabText: {
-    color: COLORS.white,
+    color: COLORS.background,
   },
   kpiRow: {
     flexDirection: 'row',

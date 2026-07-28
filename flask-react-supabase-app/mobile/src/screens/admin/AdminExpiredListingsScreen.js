@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity,
-  Image, RefreshControl, ScrollView,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image, RefreshControl, ScrollView } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
@@ -220,7 +218,7 @@ const styles = StyleSheet.create({
   tab:           { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: '#1c1c1e' },
   tabActive:     { backgroundColor: COLORS.accent },
   tabText:       { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
-  tabTextActive: { color: COLORS.white, fontWeight: '700' },
+  tabTextActive: { color: COLORS.background, fontWeight: '700' },
   chip:          { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: '#1c1c1e', borderWidth: 1, borderColor: '#2a2a2a' },
   chipActive:    { backgroundColor: '#2a2a2a', borderColor: COLORS.accent },
   chipText:      { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
@@ -229,7 +227,7 @@ const styles = StyleSheet.create({
   dayBtn:        { flex: 1, paddingVertical: 6, borderRadius: 8, backgroundColor: '#1c1c1e', alignItems: 'center' },
   dayBtnActive:  { backgroundColor: COLORS.accent },
   dayBtnText:    { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
-  dayBtnTextActive: { color: COLORS.white, fontWeight: '700' },
+  dayBtnTextActive: { color: COLORS.background, fontWeight: '700' },
   card:          { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, marginHorizontal: SPACING.md, marginVertical: 4, padding: SPACING.sm },
   cardContent:   { flexDirection: 'row', gap: SPACING.sm },
   thumbnail:     { width: 60, height: 60, borderRadius: BORDER_RADIUS.md },
@@ -249,7 +247,7 @@ const styles = StyleSheet.create({
   emptyText:     { color: 'rgba(255,255,255,0.3)', fontSize: FONT_SIZES.md, textAlign: 'center', marginTop: 12 },
   errorText:     { color: COLORS.error, fontSize: FONT_SIZES.md, textAlign: 'center', marginTop: 12 },
   retryBtn:      { marginTop: 16, backgroundColor: COLORS.accent, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8 },
-  retryText:     { color: COLORS.white, fontWeight: '600' },
+  retryText:     { color: COLORS.background, fontWeight: '600' },
   loadMoreBtn:   { margin: SPACING.md, padding: SPACING.sm, backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, alignItems: 'center' },
   loadMoreText:  { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
 });

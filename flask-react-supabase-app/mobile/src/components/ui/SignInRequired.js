@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/theme';
@@ -26,5 +27,5 @@ const styles = StyleSheet.create({
   title: { color: COLORS.white, fontSize: 22, fontWeight: '700', marginTop: 8 },
   subtitle: { color: 'rgba(255,255,255,0.65)', fontSize: 15, textAlign: 'center' },
   btn: { backgroundColor: COLORS.accent, paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12, marginTop: 16 },
-  btnText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  btnText: { color: COLORS.background, fontSize: 16, fontWeight: '700' },
 });

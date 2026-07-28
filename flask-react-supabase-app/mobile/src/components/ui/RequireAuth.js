@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '700', color: COLORS.white, marginTop: 16 },
   subtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, marginTop: 8, textAlign: 'center' },
   loginBtn: { marginTop: 24, backgroundColor: COLORS.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
-  loginBtnText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.md },
+  loginBtnText: { color: COLORS.background, fontWeight: '700', fontSize: FONT_SIZES.md },
   signupBtn: { marginTop: 12, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
   signupBtnText: { color: COLORS.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.white, marginTop: 8 },
   modalSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', textAlign: 'center' },
   modalLoginBtn: { marginTop: 8, backgroundColor: COLORS.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
-  modalLoginBtnText: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.md },
+  modalLoginBtnText: { color: COLORS.background, fontWeight: '700', fontSize: FONT_SIZES.md },
   modalSignupBtn: { paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
   modalSignupBtnText: { color: COLORS.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
   modalCancelBtn: { marginTop: 4, paddingVertical: 8 },

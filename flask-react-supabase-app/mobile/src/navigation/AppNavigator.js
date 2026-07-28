@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import Text from '../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { buildNavigationStateChangeHandler, trackMobilePlatformEvent } from '../utils/platformTracker';

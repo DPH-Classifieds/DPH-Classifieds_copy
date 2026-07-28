@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Image,
-  StyleSheet,
-  SafeAreaView,
-  Alert,
-} from 'react-native';
+import { View, ScrollView, FlatList, TouchableOpacity, RefreshControl, Image, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatNumber } from '../../utils/formatters';

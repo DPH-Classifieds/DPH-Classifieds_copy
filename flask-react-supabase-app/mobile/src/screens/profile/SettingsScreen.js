@@ -1,18 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  Image,
-  TextInput,
-  Switch,
-  Modal,
-  FlatList,
-  RefreshControl,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Image, TextInput, Switch, Modal, FlatList, RefreshControl } from 'react-native';
+import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -306,7 +294,7 @@ export default function SettingsScreen({ navigation }) {
               </View>
             )}
             <View style={styles.photoBadge}>
-              <Ionicons name="pencil" size={12} color={COLORS.white} />
+              <Ionicons name="pencil" size={12} color={COLORS.background} />
             </View>
           </TouchableOpacity>
           <Text style={styles.photoHint}>Tap to change photo</Text>

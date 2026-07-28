@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View, Text, Modal, StyleSheet, Image as RNImage, ActivityIndicator,
-  PanResponder, ScrollView,
-} from 'react-native';
+import { View, Modal, StyleSheet, Image as RNImage, ActivityIndicator, PanResponder, ScrollView } from 'react-native';
+import Text from './AppText';
 import { Canvas, Image as SkiaImage, ColorMatrix, useImage } from '@shopify/react-native-skia';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from './PressableScale';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal, View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { Modal, View, StyleSheet, ActivityIndicator } from 'react-native';
+import Text from '../components/ui/AppText';
 import { WebView } from 'react-native-webview';
 import { COLORS } from '../constants/theme';
 
