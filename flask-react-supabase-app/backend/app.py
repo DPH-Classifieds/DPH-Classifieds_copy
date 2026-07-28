@@ -669,7 +669,7 @@ def _invalidate_public_inventory_cache(item_type):
         "cars": ["/api/cars", "/api/homepage/preview", "/api/recommendations", "/api/sitemap.xml"],
         "bikes": ["/api/bikes", "/api/sitemap.xml"],
         "parts": ["/api/parts", "/api/sitemap.xml"],
-        "plates": ["/api/plates", "/api/sitemap.xml"],
+        "plates": ["/api/plates", "/api/license-plates", "/api/sitemap.xml"],
         "buying_requests": ["/api/buying-requests"],
     }
     _invalidate_api_cache_prefixes(public_prefixes.get(item_type, [f"/api/{item_type}"]))
@@ -8955,8 +8955,12 @@ def get_license_plates():
         code = request.args.get("code")
         digits = request.args.get("digits")
 
-        # Build query
-        query = "/rest/v1/license_plates?select=*"
+        # Build query — public endpoint, so mirror the other list endpoints:
+        # only approved rows, and is_approved=eq.true so the admin "hide reddit
+        # listings" toggle (bulk-sets is_approved=false on reddit rows) removes
+        # them here too. Without these predicates this endpoint leaked reddit
+        # (and unapproved) plates.
+        query = "/rest/v1/license_plates?select=*&status=eq.approved&is_approved=eq.true"
 
         # Add filters if provided
         if city and city != "All cities":
@@ -14820,9 +14824,12 @@ def get_plates():
         order = request.args.get("order", "created_at.desc")
 
         # Build query - only get approved plates
+        # is_approved=eq.true is required so the admin "hide reddit listings"
+        # toggle (which bulk-sets is_approved=false on source_platform=reddit
+        # rows) actually removes them here, matching /api/cars|bikes|parts.
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
-            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&order={order}"
+            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&is_approved=eq.true&order={order}"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
             "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at,"
             "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
