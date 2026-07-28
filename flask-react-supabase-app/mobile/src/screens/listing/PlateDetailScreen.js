@@ -23,6 +23,7 @@ import Animated, {
 import { ListingDetailSkeleton } from '../../components/ui/ListingSkeleton';
 import { getCachedListing } from '../../utils/listingCache';
 import PressableScale from '../../components/ui/PressableScale';
+import UAEPlate from '../../components/ui/UAEPlate';
 import RedditSourcePanel, { isRedditSourced } from '../../components/RedditSourcePanel';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -44,33 +45,6 @@ import ListingMap from '../../components/ui/ListingMap';
 import { resolveMediaUrl } from '../../utils/media';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const CITY_CODES = {
-  'Abu Dhabi': 'أ',
-  'Dubai': 'د',
-  'Sharjah': 'ش',
-  'Ajman': 'ع',
-  'Umm Al Quwain': 'و',
-  'Ras Al Khaimah': 'ر',
-  'Fujairah': 'ف',
-  'Al Ain': 'ك',
-  'Other': 'م',
-};
-
-// Full Arabic emirate name shown on the plate visual, matching the web
-// UAELicensePlate component (single-letter CITY_CODES above is too
-// ambiguous to read as "the emirate" on its own).
-const CITY_NAMES_AR = {
-  'Abu Dhabi': 'أبو ظبي',
-  'Dubai': 'دبي',
-  'Sharjah': 'الشارقة',
-  'Ajman': 'عجمان',
-  'Umm Al Quwain': 'أم القيوين',
-  'Ras Al Khaimah': 'رأس الخيمة',
-  'Fujairah': 'الفجيرة',
-  'Al Ain': 'العين',
-  'Other': 'الإمارات',
-};
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
@@ -158,8 +132,8 @@ export default function PlateDetailScreen({ route, navigation }) {
   if (loading && !plate) return <ListingDetailSkeleton />;
   if (!plate) return <LoadingSpinner message="Plate not found" />;
 
-  const cityNameAr = CITY_NAMES_AR[plate.city] || CITY_CODES[plate.city] || 'الإمارات';
   const images = plate.images || [];
+  const plateSold = plate.status === 'sold';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -194,14 +168,14 @@ export default function PlateDetailScreen({ route, navigation }) {
             </ScrollView>
           ) : (
             <View style={styles.plateVisualContainer}>
-              <View style={styles.plateBox}>
-                {!!plate.code && <Text style={styles.plateCode}>{plate.code}</Text>}
-                <View style={styles.plateMiddle}>
-                  <Text style={styles.plateUae}>U.A.E</Text>
-                  <Text style={styles.plateCityArabic} numberOfLines={1} adjustsFontSizeToFit>{cityNameAr}</Text>
-                </View>
-                <Text style={styles.plateDigits} numberOfLines={1} adjustsFontSizeToFit>{plate.number || plate.digits || ''}</Text>
-              </View>
+              <UAEPlate
+                city={plate.city}
+                code={plate.code}
+                number={plate.number || plate.digits}
+                sold={plateSold}
+                height={130}
+                style={styles.plateHero}
+              />
             </View>
           )}
           {images.length > 1 && (
@@ -221,14 +195,14 @@ export default function PlateDetailScreen({ route, navigation }) {
 
         <View style={styles.content}>
           <View style={styles.plateDisplay}>
-            <View style={styles.plateBoxDetail}>
-              {!!plate.code && <Text style={styles.plateCodeDetail}>{plate.code}</Text>}
-              <View style={styles.plateMiddleDetail}>
-                <Text style={styles.plateUaeDetail}>U.A.E</Text>
-                <Text style={styles.plateCityArabicDetail} numberOfLines={1} adjustsFontSizeToFit>{cityNameAr}</Text>
-              </View>
-              <Text style={styles.plateDigitsDetail} numberOfLines={1} adjustsFontSizeToFit>{plate.number || plate.digits || ''}</Text>
-            </View>
+            <UAEPlate
+              city={plate.city}
+              code={plate.code}
+              number={plate.number || plate.digits}
+              sold={plateSold}
+              height={130}
+              style={styles.plateFill}
+            />
           </View>
 
           <Text style={styles.price}>{formatPrice(plate.price)}</Text>
@@ -373,7 +347,9 @@ const styles = StyleSheet.create({
   imageSlide: { width: SCREEN_WIDTH, height: 280 },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceDark },
-  plateVisualContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  plateVisualContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.lg },
+  plateHero: { width: '100%' },
+  plateFill: { width: '100%' },
   paginationDots: { flexDirection: 'row', position: 'absolute', bottom: 12, alignSelf: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
   dotActive: { backgroundColor: COLORS.accent, width: 10, height: 10, borderRadius: 5 },
@@ -387,28 +363,6 @@ const styles = StyleSheet.create({
   },
   content: { padding: SPACING.md },
   plateDisplay: { alignItems: 'center', marginBottom: SPACING.md },
-  plateBox: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff',
-    borderRadius: 12, borderWidth: 3, borderColor: '#333333',
-    paddingHorizontal: 18, paddingVertical: 18, minWidth: 260, maxWidth: '100%', gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
-  },
-  plateCode: { color: '#1a1a1a', fontSize: 30, fontWeight: '900' },
-  plateMiddle: { alignItems: 'center', paddingHorizontal: 8, borderLeftWidth: 2, borderRightWidth: 2, borderColor: '#333333' },
-  plateUae: { color: '#1a1a1a', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  plateCityArabic: { color: '#1a1a1a', fontSize: 18, fontWeight: '700', maxWidth: 90 },
-  plateDigits: { color: '#1a1a1a', fontSize: 28, fontWeight: '700', letterSpacing: 3, flexShrink: 1 },
-  plateBoxDetail: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff',
-    borderRadius: 12, borderWidth: 3, borderColor: '#333333',
-    paddingHorizontal: 18, paddingVertical: 18, minWidth: 260, maxWidth: '100%', gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
-  },
-  plateCodeDetail: { color: '#1a1a1a', fontSize: 30, fontWeight: '900' },
-  plateMiddleDetail: { alignItems: 'center', paddingHorizontal: 8, borderLeftWidth: 2, borderRightWidth: 2, borderColor: '#333333' },
-  plateUaeDetail: { color: '#1a1a1a', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  plateCityArabicDetail: { color: '#1a1a1a', fontSize: 18, fontWeight: '700', maxWidth: 90 },
-  plateDigitsDetail: { color: '#1a1a1a', fontSize: 28, fontWeight: '700', letterSpacing: 3, flexShrink: 1 },
   price: { color: COLORS.white, fontSize: 24, fontWeight: '700', marginBottom: 4 },
   usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
   cityLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 16 },

@@ -61,7 +61,7 @@ import {
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import ImageCropperModal from '../../components/ui/ImageCropperModal';
+import PhotoEditorModal from '../../components/ui/PhotoEditorModal';
 import { compressImage } from '../../utils/imageCompressor';
 import { toastApiError } from '../../utils/toast';
 import { moderateImage } from '../../utils/imageModeration';
@@ -376,7 +376,7 @@ function CollapsibleSection({ title, expanded, onToggle, children, hidden }) {
   );
 }
 
-function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages }) {
+function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, onEditImage }) {
   return (
     <View style={styles.section}>
       <View style={styles.imageHeader}>
@@ -395,7 +395,13 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages }) 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
           {images.map((uri, i) => (
             <View key={`${uri}-${i}`} style={styles.imageThumb}>
-              <Image source={{ uri }} style={styles.imageThumbImage} resizeMode="cover" />
+              <TouchableOpacity activeOpacity={0.8} onPress={() => onEditImage(i)} style={styles.imageThumbImage}>
+                <Image source={{ uri }} style={styles.imageThumbImage} resizeMode="cover" />
+                <View style={styles.imageEditBadge}>
+                  <Ionicons name="create-outline" size={13} color={COLORS.white} />
+                  <Text style={styles.imageEditText}>Edit</Text>
+                </View>
+              </TouchableOpacity>
               {i === 0 && (
                 <View style={styles.imageCoverBadge}>
                   <Ionicons name="star" size={10} color={COLORS.white} />
@@ -426,7 +432,7 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages }) 
         </ScrollView>
       )}
       {images.length > 0 && (
-        <Text style={styles.imageHint}>Tap arrows to reorder. First photo is the cover.</Text>
+        <Text style={styles.imageHint}>Tap a photo to crop &amp; edit. Arrows reorder. First photo is the cover.</Text>
       )}
     </View>
   );
@@ -439,8 +445,10 @@ export default function PostListingScreen({ navigation, route }) {
   const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
-  const [cropperUri, setCropperUri] = useState(null);
-  const [cropperVisible, setCropperVisible] = useState(false);
+  // Photo editor: `editorUri` is the image being edited; `editIndex` is null for
+  // a freshly picked image (append on save) or its slot for tap-to-edit (replace).
+  const [editorUri, setEditorUri] = useState(null);
+  const [editIndex, setEditIndex] = useState(null);
   const [moderating, setModerating] = useState(false);
 
   const [carEmirate, setCarEmirate] = useState('Dubai');
@@ -655,17 +663,59 @@ export default function PostListingScreen({ navigation, route }) {
   );
 
   const pickImages = useCallback(async () => {
+    const remaining = 10 - images.length;
+    if (remaining <= 0) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsMultipleSelection: false,
-      selectionLimit: 1,
-      quality: 0.7,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.8,
     });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setCropperUri(result.assets[0].uri);
-      setCropperVisible(true);
+    if (result.canceled || !result.assets?.length) return;
+
+    // Compress + run the same on-device nudity/face check as the web app on
+    // every picked photo before it enters the list (parity with web's
+    // processFiles). Moderation fails open on error, matching web.
+    setModerating(true);
+    try {
+      const accepted = [];
+      let blocked = 0;
+      for (const asset of result.assets) {
+        let uri = asset.uri;
+        try { uri = (await compressImage(uri)).uri; } catch { /* keep original */ }
+        try {
+          const r = await moderateImage(uri);
+          if (r.blocked) { blocked++; continue; }
+        } catch { /* ponytail: fail-open on moderation error, matches web */ }
+        accepted.push(uri);
+      }
+      if (accepted.length) setImages(prev => [...prev, ...accepted].slice(0, 10));
+      if (blocked) {
+        Alert.alert(
+          'Some photos blocked',
+          `${blocked} photo${blocked > 1 ? 's were' : ' was'} removed — explicit content or a face was detected. Please use vehicle-only photos.`
+        );
+      }
+    } finally {
+      setModerating(false);
     }
   }, [images.length]);
+
+  const openEditor = useCallback((index) => {
+    setEditIndex(index);
+    setEditorUri(images[index]);
+  }, [images]);
+
+  const handleEditorSave = useCallback((uri) => {
+    setImages(prev => {
+      if (editIndex == null || editIndex >= prev.length) return prev;
+      const next = [...prev];
+      next[editIndex] = uri;
+      return next;
+    });
+    setEditorUri(null);
+    setEditIndex(null);
+  }, [editIndex]);
 
   const removeImage = (index) => {
     setImages(prev => prev.filter((_, i) => i !== index));
@@ -1909,7 +1959,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.car_images} onToggle={() => toggleSection('car_images')} hidden={!isSectionVisible('car_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2102,7 +2152,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.bike_images} onToggle={() => toggleSection('bike_images')} hidden={!isSectionVisible('bike_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2242,7 +2292,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.plate_images} onToggle={() => toggleSection('plate_images')} hidden={!isSectionVisible('plate_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2386,7 +2436,7 @@ export default function PostListingScreen({ navigation, route }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Images" expanded={expandedSections.parts_images} onToggle={() => toggleSection('parts_images')} hidden={!isSectionVisible('parts_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} />
+        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2476,36 +2526,18 @@ export default function PostListingScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {renderMapPickerModal()}
-      <ImageCropperModal
-        visible={cropperVisible}
-        imageUri={cropperUri}
-        moderating={moderating}
-        onConfirm={async (uri) => {
-          // ponytail: moderate after crop so we check the final image, not the raw picker URI
-          let allow = true;
-          setModerating(true);
-          try {
-            const r = await moderateImage(uri);
-            if (r.blocked) {
-              const reason = r.reasons.includes('nudity')
-                ? 'Explicit content is not allowed.'
-                : 'Faces detected — please use vehicle-only photos.';
-              Alert.alert('Photo Blocked', reason);
-              allow = false;
-            }
-          } catch {
-            // ponytail: fail-open on moderation error
-          }
-          setModerating(false);
-          setCropperVisible(false);
-          setCropperUri(null);
-          if (allow) setImages(prev => [...prev, uri]);
-        }}
-        onCancel={() => {
-          setCropperVisible(false);
-          setCropperUri(null);
-        }}
+      <PhotoEditorModal
+        visible={!!editorUri}
+        imageUri={editorUri}
+        onSave={handleEditorSave}
+        onCancel={() => { setEditorUri(null); setEditIndex(null); }}
       />
+      {moderating && (
+        <View style={styles.moderatingOverlay} pointerEvents="auto">
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.moderatingText}>Checking photos…</Text>
+        </View>
+      )}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -2545,6 +2577,9 @@ export default function PostListingScreen({ navigation, route }) {
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          // Lets the iOS 26 native tab bar track this scroll view and minimize
+          // on scroll-down, matching the browse/detail screens.
+          contentInsetAdjustmentBehavior="automatic"
         >
           {category === 'car' && renderCarForm()}
           {category === 'bike' && renderBikeForm()}
@@ -2595,6 +2630,15 @@ export default function PostListingScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  moderatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    zIndex: 20,
+  },
+  moderatingText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
   header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
   headerTitle: { color: COLORS.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
   headerSubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginTop: 4 },
@@ -2712,6 +2756,23 @@ const styles = StyleSheet.create({
   imageThumbImage: {
     width: '100%',
     height: '100%',
+  },
+  imageEditBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  imageEditText: {
+    color: COLORS.white,
+    fontSize: 9,
+    fontWeight: '700',
   },
   imageCoverBadge: {
     position: 'absolute',
