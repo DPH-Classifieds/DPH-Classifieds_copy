@@ -4509,7 +4509,19 @@ def _send_infobip_sms(to_phone, message):
                 f"Infobip SMS send failed: {response.status_code} {response.text}"
             )
             return False, {"status": response.status_code, "details": response.text}
-        return True, response.json()
+        # Infobip returns 200 even when it rejects delivery to a specific number
+        # (e.g. no route for a newer MNP range like +97158). The real verdict is
+        # the per-message status group, not the HTTP code — treat REJECTED /
+        # UNDELIVERABLE as a failure so it surfaces instead of looking "sent".
+        body = response.json()
+        message_status = (body.get("messages") or [{}])[0].get("status") or {}
+        status_group = str(message_status.get("groupName", "")).upper()
+        if status_group in ("REJECTED", "UNDELIVERABLE"):
+            logger.error(
+                f"Infobip rejected delivery to {destination_phone}: {message_status}"
+            )
+            return False, {"status": "rejected", "details": message_status}
+        return True, body
     except Exception as exc:
         logger.error(f"Infobip SMS send error: {exc}", exc_info=True)
         return False, {"message": str(exc)}
