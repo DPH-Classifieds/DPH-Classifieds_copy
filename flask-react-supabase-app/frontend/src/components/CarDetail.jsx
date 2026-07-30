@@ -12,6 +12,7 @@ import ReportButton from './ReportButton';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
+import RedditCarDetail from './RedditCarDetail';
 import SeoMeta from './SeoMeta';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
@@ -483,6 +484,12 @@ const CarDetail = () => {
         <Link to="/cars" className="cd-back-button">Back to Listings</Link>
       </div>
     );
+  }
+
+  // Reddit imports carry minimal data — render the clean, focused view instead
+  // of the full seller/spec/loan page (which would be mostly empty).
+  if (isRedditSourced(car)) {
+    return <RedditCarDetail car={car} />;
   }
 
   const galleryImages = getGalleryImages();

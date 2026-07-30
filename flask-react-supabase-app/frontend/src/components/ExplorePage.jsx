@@ -22,6 +22,7 @@ const EXPLORE_MODE_TO_API_KEY = {
   bikes: 'bikes',
   'car-parts': 'parts',
   plates: 'plates',
+  reddit: 'reddit',
 };
 
 const FALLBACK_KEYS = {
@@ -29,6 +30,7 @@ const FALLBACK_KEYS = {
   bikes: ['bikes', 'data'],
   parts: ['parts', 'car_parts', 'data'],
   plates: ['plates', 'license_plates', 'data'],
+  reddit: ['cars', 'data'], // reddit imports are cars, served by /api/cars
 };
 
 const INIT_PAGES = {
@@ -36,6 +38,7 @@ const INIT_PAGES = {
   bikes: { offset: 0, hasMore: true },
   parts: { offset: 0, hasMore: true },
   plates: { offset: 0, hasMore: true },
+  reddit: { offset: 0, hasMore: true },
 };
 
 const fetchJsonWithCache = async (url, ttlMs = INVENTORY_CACHE_TTL_MS) => {
@@ -88,6 +91,7 @@ const exploreModes = [
   { key: 'car-parts', label: 'Car Parts', description: 'Parts, upgrades, and accessories.' },
   { key: 'plates', label: 'Plates', description: 'Premium UAE number plates.' },
   { key: 'bikes', label: 'Bikes', description: 'Sport, cruiser, and specialty bikes.' },
+  { key: 'reddit', label: 'Reddit', description: 'Cars imported from r/DubaiPetrolHeads.' },
 ];
 
 const carInitialFilters = {
@@ -438,6 +442,7 @@ const ExplorePage = () => {
     bikes: [],
     parts: [],
     plates: [],
+    reddit: [],
   });
   const [pages, setPages] = useState(INIT_PAGES);
   const [loading, setLoading] = useState(true);
@@ -501,7 +506,10 @@ const ExplorePage = () => {
   // ── fetch one page for one API category ──────────────────────────────────
   const fetchPage = useCallback(async (apiKey, offset) => {
     const ttl = offset === 0 ? INVENTORY_CACHE_TTL_MS : 30_000;
-    const url = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
+    // reddit is a filtered view of /api/cars, not its own endpoint.
+    const endpoint = apiKey === 'reddit' ? 'cars' : apiKey;
+    const redditFilter = apiKey === 'reddit' ? '&source_platform=reddit' : '';
+    const url = `${API_URL}/api/${endpoint}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc${redditFilter}`;
     const data = await fetchJsonWithCache(url, ttl);
     return extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
   }, []);
@@ -519,7 +527,7 @@ const ExplorePage = () => {
         targets.map((apiKey) => fetchPage(apiKey, 0))
       );
       if (!mounted) return;
-      const nextInventory = { cars: [], bikes: [], parts: [], plates: [] };
+      const nextInventory = { cars: [], bikes: [], parts: [], plates: [], reddit: [] };
       const nextPages = { ...INIT_PAGES };
       const failed = [];
 
@@ -602,6 +610,7 @@ const ExplorePage = () => {
       bikes: inventory.bikes.map(normalizeBike),
       parts: inventory.parts.map(normalizePart),
       plates: inventory.plates.map(normalizePlate),
+      reddit: inventory.reddit.map(normalizeCar),
     }),
     [inventory]
   );
@@ -623,6 +632,7 @@ const ExplorePage = () => {
       'car-parts': normalizedInventory.parts.length,
       plates: normalizedInventory.plates.length,
       bikes: normalizedInventory.bikes.length,
+      reddit: normalizedInventory.reddit.length,
     }),
     [allItems.length, normalizedInventory]
   );
@@ -644,6 +654,12 @@ const ExplorePage = () => {
 
         return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
       });
+    }
+
+    if (activeMode === 'reddit') {
+      return [...normalizedInventory.reddit].sort(
+        (left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)
+      );
     }
 
     if (activeMode === 'cars') {

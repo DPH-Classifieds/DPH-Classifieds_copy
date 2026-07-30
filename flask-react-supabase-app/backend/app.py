@@ -6118,6 +6118,7 @@ def get_cars():
             "seating_capacity",
             "horsepower",
             "engine_capacity",
+            "source_platform",  # powers the Reddit browse tab (?source_platform=reddit)
         ]
 
         # Add additional filters from request args that are in the allowed list

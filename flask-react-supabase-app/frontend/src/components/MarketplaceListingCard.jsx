@@ -18,6 +18,7 @@ const resolveListingType = (item) => {
 const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
   const listingType = resolveListingType(item);
   const listingId = item.id;
+  const isReddit = (item.sourcePlatform || item.source_platform) === 'reddit';
 
   const isCarListing = item?.categoryKey === 'cars';
   const carMetaParts = isCarListing
@@ -113,7 +114,7 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           </div>
         )}
         <span className="explore-v2-card-badge">{item.categoryLabel}</span>
-        {(item.sourcePlatform || item.source_platform) === 'reddit' ? (
+        {isReddit ? (
           <span className="explore-v2-card-badge-reddit">Reddit</span>
         ) : null}
         {hasGallery ? (
@@ -143,7 +144,7 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
 
         <div className="explore-v2-card-actions">
           <Link to={item.route} state={item.routeState} className="explore-v2-button explore-v2-button-primary">
-            View Listing
+            {isReddit ? 'View Reddit' : 'View Listing'}
           </Link>
         </div>
       </div>
