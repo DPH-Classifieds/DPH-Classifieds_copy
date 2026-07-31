@@ -7,7 +7,7 @@ import { cn } from "../../lib/utils"
 import { getAccessToken } from "../../utils/supabaseClient"
 import { formatVerificationPhone } from "../../utils/countryCodes"
 import {
-  isMsg91Enabled,
+  shouldUseMsg91,
   ensureMsg91Widget,
   toMsg91Identifier,
   msg91SendOtp,
@@ -56,10 +56,12 @@ export function OTPVerification({
 
   const closeHandler = onClose || onCancel
   const effectiveCountryCode = UAE_COUNTRY_CODE
-  // When MSG91 is configured, the widget sends & verifies the OTP client-side and
-  // the backend only validates the returned JWT. Otherwise fall back to the
-  // Infobip SMS flow (/start + /verify) unchanged.
-  const useMsg91 = isMsg91Enabled()
+  // Route through MSG91 only for numbers in the configured prefix set (default 058);
+  // the widget sends & verifies client-side and the backend validates the JWT. All
+  // other numbers fall back to the Infobip SMS flow (/start + /verify) unchanged.
+  // Decision is per-number and stable between send and verify (phone can't change
+  // mid-session without a reset), so start and verify always agree on the path.
+  const useMsg91 = shouldUseMsg91(phoneInput || phone)
   const displayPhone = useMemo(() => {
     return (
       phoneVerification?.masked_phone

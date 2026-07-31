@@ -10,10 +10,25 @@
 const WIDGET_ID = process.env.REACT_APP_MSG91_WIDGET_ID
 const TOKEN_AUTH = process.env.REACT_APP_MSG91_TOKEN_AUTH
 const SCRIPT_SRC = "https://verify.msg91.com/otp-provider.js"
+// Comma-separated MSG91 identifier prefixes (country code, no '+') to route through
+// MSG91. Default: only 058/du (971 58). Everything else stays on Infobip. Set to
+// "971" to send all UAE mobiles through MSG91 once it's trusted.
+const PREFIXES = (process.env.REACT_APP_MSG91_PREFIXES || "97158")
+  .split(",")
+  .map((p) => p.replace(/\D/g, ""))
+  .filter(Boolean)
 
 let initPromise = null
 
 export const isMsg91Enabled = () => Boolean(WIDGET_ID && TOKEN_AUTH)
+
+// True only when MSG91 is configured AND this number is in the routed prefix set.
+// Keeps the switchover to one prefix at a time; other numbers fall back to Infobip.
+export const shouldUseMsg91 = (rawPhone) => {
+  if (!isMsg91Enabled()) return false
+  const identifier = toMsg91Identifier(rawPhone)
+  return PREFIXES.some((prefix) => identifier.startsWith(prefix))
+}
 
 // Convert any UAE input into MSG91's identifier format: country code, digits only,
 // no '+'. e.g. "+971 50 123 4567" / "0501234567" -> "971501234567".
