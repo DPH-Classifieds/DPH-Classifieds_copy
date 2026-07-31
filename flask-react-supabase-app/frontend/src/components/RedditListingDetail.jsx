@@ -4,6 +4,7 @@ import { resolveMediaUrl } from '../utils/media';
 import SeoMeta from './SeoMeta';
 import RedditSourcePanel from './RedditSourcePanel';
 import SavedListingToggleButton from './SavedListingToggleButton';
+import ImageLightbox from './ImageLightbox';
 import { buildListingSeo } from '../utils/seo';
 import './CarDetailRedesigned.css';
 import './RedditListingDetail.css';
@@ -119,6 +120,7 @@ const PinIcon = () => (
 export default function RedditListingDetail({ listing, listingType = 'car' }) {
   const { id } = useParams();
   const [active, setActive] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const cfg = TYPE_CONFIG[listingType] || TYPE_CONFIG.car;
   const images = useMemo(() => resolveImages(listing), [listing]);
 
@@ -167,6 +169,8 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
                   alt={title}
                   loading="lazy"
                   decoding="async"
+                  style={{ cursor: 'zoom-in' }}
+                  onClick={() => setLightboxOpen(true)}
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = PLACEHOLDER_IMAGE;
@@ -271,6 +275,9 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
           </aside>
         </div>
       </div>
+      {lightboxOpen && (
+        <ImageLightbox images={images} startIndex={active} onClose={() => setLightboxOpen(false)} />
+      )}
     </div>
   );
 }

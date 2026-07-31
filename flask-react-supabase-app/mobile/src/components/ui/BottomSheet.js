@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import Text from './AppText';
 import Animated, {
   useSharedValue,
@@ -9,7 +9,7 @@ import Animated, {
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
@@ -54,32 +54,38 @@ export default function BottomSheet({ visible, onClose, title, children, maxHeig
 
   if (!visible) return null;
 
+  // Rendered in a Modal so the sheet floats above the native (Liquid Glass) tab
+  // bar — inline it would sit behind the tab bar and short sheets (e.g. Sort)
+  // get their lower options covered. GestureHandlerRootView is required for the
+  // drag-to-dismiss gesture to work inside a Modal.
   return (
-    <>
-      <Animated.View style={[styles.backdrop, backdropStyle]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
-      </Animated.View>
-      <Animated.View style={[styles.sheet, { maxHeight: maxHeight || SCREEN_HEIGHT * 0.7 }, sheetStyle]}>
-        <GestureDetector gesture={panGesture}>
-          <View>
-            <View style={styles.handle}>
-              <View style={styles.handleBar} />
-            </View>
-            {title && (
-              <View style={styles.header}>
-                <Text style={styles.title}>{title}</Text>
-                <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name="close" size={22} color={COLORS.textSecondary} />
-                </TouchableOpacity>
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <GestureHandlerRootView style={StyleSheet.absoluteFill}>
+        <Animated.View style={[styles.backdrop, backdropStyle]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
+        </Animated.View>
+        <Animated.View style={[styles.sheet, { maxHeight: maxHeight || SCREEN_HEIGHT * 0.7 }, sheetStyle]}>
+          <GestureDetector gesture={panGesture}>
+            <View>
+              <View style={styles.handle}>
+                <View style={styles.handleBar} />
               </View>
-            )}
-          </View>
-        </GestureDetector>
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {children}
-        </ScrollView>
-      </Animated.View>
-    </>
+              {title && (
+                <View style={styles.header}>
+                  <Text style={styles.title}>{title}</Text>
+                  <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </GestureDetector>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {children}
+          </ScrollView>
+        </Animated.View>
+      </GestureHandlerRootView>
+    </Modal>
   );
 }
 

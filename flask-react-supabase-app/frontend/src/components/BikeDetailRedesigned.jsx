@@ -9,6 +9,7 @@ import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
 import RedditListingDetail from './RedditListingDetail';
+import ImageLightbox from './ImageLightbox';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
@@ -33,6 +34,7 @@ const BikeDetailRedesigned = () => {
   const [loading, setLoading] = useState(() => !preloadedBike);
   const [error, setError] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [loanCalculator, setLoanCalculator] = useState({
     bikePrice: 0,
@@ -336,6 +338,8 @@ const BikeDetailRedesigned = () => {
                 <img
                   src={getMainImageUrl()}
                   alt={getDisplayTitle()}
+                  style={{ cursor: 'zoom-in' }}
+                  onClick={() => setLightboxOpen(true)}
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = PLACEHOLDER_IMAGE;
@@ -662,6 +666,9 @@ const BikeDetailRedesigned = () => {
 
         <ReportButton listingId={id} listingType="bike" />
       </div>
+      {lightboxOpen && (
+        <ImageLightbox images={getGalleryImages()} startIndex={activeImageIndex} onClose={() => setLightboxOpen(false)} />
+      )}
     </div>
   );
 };

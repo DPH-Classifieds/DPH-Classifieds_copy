@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput, Keyboard, Platform, UIManager, ActivityIndicator } from 'react-native';
+import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput, Keyboard, Platform, UIManager, ActivityIndicator, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,8 +55,10 @@ const CATEGORIES = [
 
 const SORT_OPTIONS = [
   { key: 'newest', label: 'Newest', icon: 'time-outline' },
-  { key: 'price_low', label: 'Price: Low', icon: 'trending-down-outline' },
-  { key: 'price_high', label: 'Price: High', icon: 'trending-up-outline' },
+  { key: 'oldest', label: 'Oldest', icon: 'hourglass-outline' },
+  { key: 'price_low', label: 'Price: Low to High', icon: 'trending-down-outline' },
+  { key: 'price_high', label: 'Price: High to Low', icon: 'trending-up-outline' },
+  { key: 'featured', label: 'Featured first', icon: 'star-outline' },
 ];
 
 const EMIRATES = [
@@ -105,6 +107,7 @@ const normalizeItem = (category, item) => {
       location: item.car_city || item.area || '',
       image: getImageUri(item),
       is_featured: item.is_featured,
+      created_at: item.created_at,
       raw: item,
     };
   }
@@ -118,6 +121,7 @@ const normalizeItem = (category, item) => {
       location: item.car_city || item.area || '',
       image: getImageUri(item),
       is_featured: item.featured,
+      created_at: item.created_at,
       raw: item,
     };
   }
@@ -132,6 +136,7 @@ const normalizeItem = (category, item) => {
       location: item.city || '',
       image: getImageUri(item),
       is_featured: item.featured,
+      created_at: item.created_at,
       raw: item,
     };
   }
@@ -145,6 +150,7 @@ const normalizeItem = (category, item) => {
       location: item.city || '',
       image: getImageUri(item),
       is_featured: item.featured,
+      created_at: item.created_at,
       raw: item,
     };
   }
@@ -778,16 +784,18 @@ export default function ExploreScreen({ navigation, route }) {
       );
     }
 
+    const ts = (d) => (d ? new Date(d).getTime() : 0);
     if (sortBy === 'price_low') {
       items.sort((a, b) => (a.price || 0) - (b.price || 0));
     } else if (sortBy === 'price_high') {
       items.sort((a, b) => (b.price || 0) - (a.price || 0));
+    } else if (sortBy === 'oldest') {
+      items.sort((a, b) => ts(a.created_at) - ts(b.created_at));
+    } else if (sortBy === 'featured') {
+      items.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
     } else {
-      items.sort((a, b) => {
-        if (a.is_featured && !b.is_featured) return -1;
-        if (!a.is_featured && b.is_featured) return 1;
-        return 0;
-      });
+      // newest
+      items.sort((a, b) => ts(b.created_at) - ts(a.created_at));
     }
 
     return items;
@@ -881,23 +889,30 @@ export default function ExploreScreen({ navigation, route }) {
         </View>
       </View>
 
-      <View style={styles.catRow} ref={catRef} collapsable={false}>
-        {CATEGORIES.map(cat => {
-          const isActive = activeTab === cat.key;
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              style={[styles.catPill, isActive && styles.catPillActive]}
-              onPress={() => handleCategoryPress(cat.key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name={cat.icon} size={14} color={isActive ? COLORS.accent : COLORS.textSecondary} />
-              <Text style={[styles.catPillLabel, isActive && styles.catPillLabelActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={styles.catRowWrap} ref={catRef} collapsable={false}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.catRow}
+          keyboardShouldPersistTaps="handled"
+        >
+          {CATEGORIES.map(cat => {
+            const isActive = activeTab === cat.key;
+            return (
+              <TouchableOpacity
+                key={cat.key}
+                style={[styles.catPill, isActive && styles.catPillActive]}
+                onPress={() => handleCategoryPress(cat.key)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={cat.icon} size={14} color={isActive ? COLORS.accent : COLORS.textSecondary} />
+                <Text style={[styles.catPillLabel, isActive && styles.catPillLabelActive]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <View style={styles.controlsRow} ref={controlsRef} collapsable={false}>
@@ -928,6 +943,21 @@ export default function ExploreScreen({ navigation, route }) {
         </View>
       </View>
 
+      <TouchableOpacity
+        style={styles.redditBanner}
+        onPress={() => navigation.navigate('RedditList')}
+        activeOpacity={0.85}
+      >
+        <View style={styles.redditIconWrap}>
+          <Ionicons name="logo-reddit" size={20} color="#ff4500" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.redditBannerTitle}>Reddit imports</Text>
+          <Text style={styles.redditBannerSub}>Cars pulled from r/DubaiPetrolHeads</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+      </TouchableOpacity>
+
       {activeFilterCount > 0 && activeTab !== 'all' && (
         <View style={styles.activeChips}>
           <TouchableOpacity style={styles.clearAllChip} onPress={resetFilters}>
@@ -944,7 +974,7 @@ export default function ExploreScreen({ navigation, route }) {
         </TouchableOpacity>
       )}
     </View>
-  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns]);
+  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns, navigation]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -1063,9 +1093,24 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.md },
 
+  catRowWrap: { marginBottom: SPACING.md },
   catRow: {
-    flexDirection: 'row', paddingHorizontal: SPACING.md, gap: 8, marginBottom: SPACING.md,
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, gap: 8,
   },
+
+  redditBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    marginHorizontal: SPACING.md, marginBottom: SPACING.md,
+    paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: 'rgba(255,69,0,0.08)', borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1, borderColor: 'rgba(255,69,0,0.35)',
+  },
+  redditIconWrap: {
+    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,69,0,0.14)',
+  },
+  redditBannerTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '700' },
+  redditBannerSub: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 1 },
   catPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingVertical: 8,
