@@ -6,6 +6,14 @@ import { KeyRound, Loader2, RefreshCw, ShieldCheck, X } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { getAccessToken } from "../../utils/supabaseClient"
 import { formatVerificationPhone } from "../../utils/countryCodes"
+import {
+  isMsg91Enabled,
+  ensureMsg91Widget,
+  toMsg91Identifier,
+  msg91SendOtp,
+  msg91RetryOtp,
+  msg91VerifyOtp,
+} from "../../utils/msg91Widget"
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"
 const OTP_LENGTH = 6
@@ -48,6 +56,10 @@ export function OTPVerification({
 
   const closeHandler = onClose || onCancel
   const effectiveCountryCode = UAE_COUNTRY_CODE
+  // When MSG91 is configured, the widget sends & verifies the OTP client-side and
+  // the backend only validates the returned JWT. Otherwise fall back to the
+  // Infobip SMS flow (/start + /verify) unchanged.
+  const useMsg91 = isMsg91Enabled()
   const displayPhone = useMemo(() => {
     return (
       phoneVerification?.masked_phone
@@ -166,6 +178,31 @@ export function OTPVerification({
     setError("")
     setMessage("Sending verification code...")
 
+    if (useMsg91) {
+      try {
+        await ensureMsg91Widget()
+        // Resend if a session already exists, otherwise a fresh send.
+        if (verificationId) await msg91RetryOtp(null)
+        else await msg91SendOtp(toMsg91Identifier(phoneInput))
+        setVerificationId((prev) => prev || "msg91")
+        setPhoneVerification((prev) => prev || {
+          verification_id: "msg91",
+          phone: phoneInput,
+          purpose,
+          listing_id: listingId,
+          status: "pending",
+          masked_phone: phoneInput ? `***${String(phoneInput).slice(-4)}` : null,
+        })
+        setMessage("Verification code sent.")
+        setCooldownRemaining(RESEND_COOLDOWN)
+      } catch (sendError: any) {
+        setError(sendError?.message || sendError?.type || "Failed to send verification code")
+      } finally {
+        setStarting(false)
+      }
+      return
+    }
+
     try {
       const token = await getAccessToken()
       const response = await fetch(`${API_URL}/api/phone-verifications/start`, {
@@ -250,18 +287,35 @@ export function OTPVerification({
       }
 
       const token = await getAccessToken()
-      const response = await fetch(`${API_URL}/api/phone-verifications/verify`, {
+      // MSG91: verify the code with the widget, then hand the JWT to the backend
+      // to validate + run the verified-phone side-effects.
+      const accessToken = useMsg91 ? await msg91VerifyOtp(code) : null
+
+      const endpoint = useMsg91
+        ? "/api/phone-verifications/verify-token"
+        : "/api/phone-verifications/verify"
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          verification_id: verificationId,
-          code,
-          purpose,
-          listing_id: listingId,
-        }),
+        body: JSON.stringify(
+          useMsg91
+            ? {
+                access_token: accessToken,
+                phone: phoneInput,
+                country_code: UAE_COUNTRY_CODE,
+                purpose,
+                listing_id: listingId,
+              }
+            : {
+                verification_id: verificationId,
+                code,
+                purpose,
+                listing_id: listingId,
+              }
+        ),
       })
 
       const data = await response.json()

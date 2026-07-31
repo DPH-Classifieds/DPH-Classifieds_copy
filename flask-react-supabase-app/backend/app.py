@@ -255,6 +255,14 @@ INFOBIP_BASE_URL = _normalize_base_url(
 )
 INFOBIP_API_KEY = os.getenv("INFOBIP_API_KEY")
 INFOBIP_SENDER = os.getenv("INFOBIP_SENDER", "ServiceSMS")
+
+# MSG91 OTP widget: the client-side widget sends & verifies the OTP and hands the
+# frontend a JWT; the backend validates that JWT here before trusting it.
+MSG91_AUTHKEY = os.getenv("MSG91_AUTHKEY")
+MSG91_VERIFY_TOKEN_URL = os.getenv(
+    "MSG91_VERIFY_TOKEN_URL",
+    "https://control.msg91.com/api/v5/widget/verifyAccessToken",
+)
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
@@ -4526,6 +4534,48 @@ def _send_infobip_sms(to_phone, message):
     except Exception as exc:
         logger.error(f"Infobip SMS send error: {exc}", exc_info=True)
         return False, {"message": str(exc)}
+
+
+def _extract_msg91_identifier(body):
+    """Pull the verified phone/email out of an MSG91 verifyAccessToken response.
+
+    MSG91's success shape isn't strongly documented, so walk the common places
+    (top-level and nested under 'message'/'data') for an 'identifier' field.
+    Returns None if absent — callers fall back to the account phone.
+    """
+    if not isinstance(body, dict):
+        return None
+    for container in (body, body.get("message"), body.get("data")):
+        if isinstance(container, dict):
+            ident = container.get("identifier") or container.get("mobile")
+            if ident:
+                return str(ident)
+    return None
+
+
+def _verify_msg91_access_token(access_token):
+    """Validate an MSG91 OTP-widget JWT server-side. Returns (ok: bool, data: dict)."""
+    if not MSG91_AUTHKEY:
+        return False, {"message": "MSG91_AUTHKEY is not configured"}
+    if not access_token:
+        return False, {"message": "access token is required"}
+    try:
+        response = requests.post(
+            MSG91_VERIFY_TOKEN_URL,
+            headers={"Content-Type": "application/json"},
+            json={"authkey": MSG91_AUTHKEY, "access-token": access_token},
+            timeout=15,
+        )
+        body = response.json() if response.content else {}
+    except Exception as exc:
+        logger.error(f"MSG91 verifyAccessToken error: {exc}", exc_info=True)
+        return False, {"message": str(exc)}
+    # MSG91 returns HTTP 200 with type:'error' for a bad/expired token (e.g. code
+    # 701) and type:'success' when valid. Trust the type field, not the HTTP code.
+    if response.status_code >= 400 or str(body.get("type", "")).lower() == "error":
+        logger.warning(f"MSG91 token rejected: {body}")
+        return False, body
+    return True, body
 
 
 def _get_user_profile_for_verification(user_id):
@@ -10769,6 +10819,146 @@ def verify_phone_verification():
     except Exception as verification_err:
         logger.error(f"Failed to verify phone code: {verification_err}", exc_info=True)
         return jsonify({"message": "Failed to verify code"}), 500
+
+
+@app.route("/api/phone-verifications/verify-token", methods=["POST"])
+def verify_phone_verification_token():
+    """MSG91 widget path: the client verified the OTP with MSG91 and got a JWT.
+    Validate that JWT server-side, then run the same verified-phone side-effects
+    as the SMS path (_finalize_phone_verification). No code is checked here — the
+    proof of possession is the MSG91-issued token."""
+    current_user = _get_optional_user_id_from_auth_header()
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    user_agent = request.headers.get("User-Agent", "")
+
+    if _auth_rate_limited(client_ip):
+        return jsonify(
+            {"message": "Too many verification attempts. Please try again later."}
+        ), 429
+    if not current_user:
+        return jsonify({"message": "Authentication required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    access_token = str(
+        data.get("access_token") or data.get("access-token") or ""
+    ).strip()
+    purpose = str(data.get("purpose") or "vin_reveal").strip()
+    listing_id = data.get("listing_id")
+    phone = data.get("phone")
+    country_code = data.get("country_code")
+
+    if purpose not in PHONE_VERIFICATION_PURPOSES:
+        return jsonify({"message": "Invalid verification purpose"}), 400
+    if not access_token:
+        return jsonify({"message": "Verification token is required"}), 400
+
+    ok, msg91_body = _verify_msg91_access_token(access_token)
+    if not ok:
+        return jsonify(
+            {"message": "Phone verification could not be confirmed. Please try again."}
+        ), 400
+
+    profile = _get_user_profile_for_verification(current_user) or {}
+    verified_phone = _normalize_phone_number(
+        phone or profile.get("phone"), country_code or profile.get("country_code")
+    )
+    # MSG91 may echo the verified identifier (country code, no '+'). If it does, it
+    # must match the phone we're about to trust — stops a token minted for number A
+    # from verifying number B on the account.
+    msg91_identifier = _extract_msg91_identifier(msg91_body)
+    if msg91_identifier:
+        identifier_digits = re.sub(r"[^\d]", "", msg91_identifier)
+        if verified_phone and identifier_digits != re.sub(r"[^\d]", "", verified_phone):
+            logger.warning(
+                "MSG91 identifier %s does not match claimed phone %s",
+                msg91_identifier,
+                verified_phone,
+            )
+            return jsonify(
+                {"message": "Verified number does not match your account phone."}
+            ), 400
+        if not verified_phone:
+            verified_phone = _normalize_phone_number(identifier_digits, "+971")
+
+    if not verified_phone:
+        return jsonify({"message": "A valid phone number is required"}), 400
+    if not _is_uae_phone(verified_phone):
+        return jsonify(
+            {"message": "Only UAE phone numbers are supported for OTP verification"}
+        ), 400
+
+    now = _utc_now()
+    resolved_country = (
+        country_code
+        or _infer_country_code_from_phone(verified_phone)
+        or "+971"
+    )
+
+    # Audit row so widget verifications sit alongside the SMS ones. Non-fatal:
+    # the flags below are what actually gate the app, so a failed insert only logs.
+    verification_id = None
+    try:
+        insert_response, insert_status = supabase_request(
+            "post",
+            "/rest/v1/phone_verifications",
+            data={
+                "user_id": current_user,
+                "phone": verified_phone,
+                "purpose": purpose,
+                "listing_id": listing_id,
+                "status": "verified",
+                "code_hash": "msg91_widget",
+                "code_salt": "msg91_widget",
+                "attempt_count": 1,
+                "send_count": 1,
+                "expires_at": _isoformat_utc(now),
+                "verified_at": _isoformat_utc(now),
+                "last_sent_at": _isoformat_utc(now),
+                "verified_ip": client_ip,
+                "verified_user_agent": user_agent,
+                "last_error": None,
+                "metadata": {"provider": "msg91_widget", "country_code": resolved_country},
+                "updated_at": _isoformat_utc(now),
+            },
+            use_service_role=True,
+        )
+        if insert_status < 400:
+            rec = (
+                insert_response[0]
+                if isinstance(insert_response, list) and insert_response
+                else insert_response
+            )
+            verification_id = (rec or {}).get("id")
+    except Exception as audit_err:
+        logger.error(f"Failed to write MSG91 verification audit row: {audit_err}")
+
+    _sync_user_verification_flags(
+        current_user,
+        phone_verified=True,
+        phone_verified_at=_isoformat_utc(now),
+        phone=verified_phone,
+        country_code=country_code,
+    )
+    try:
+        _sync_phone_to_listings(current_user, verified_phone)
+    except Exception as sync_err:
+        logger.error(
+            f"Failed to sync phone to listings after MSG91 verification: {sync_err}"
+        )
+
+    return jsonify(
+        {
+            "message": "Phone verified successfully",
+            "verification": {
+                "verification_id": verification_id,
+                "status": "verified",
+                "phone": verified_phone,
+                "purpose": purpose,
+                "listing_id": listing_id,
+                "verified_at": _isoformat_utc(now),
+            },
+        }
+    ), 200
 
 
 @app.route("/api/auth/logout", methods=["POST"])
