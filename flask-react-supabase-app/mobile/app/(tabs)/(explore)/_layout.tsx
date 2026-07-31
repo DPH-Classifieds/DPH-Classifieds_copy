@@ -13,13 +13,18 @@ export default function ExploreStackLayout() {
         headerTitleStyle: { fontWeight: '600' },
         contentStyle: { backgroundColor: '#000000' },
         animation: 'slide_from_right',
+        fullScreenGestureEnabled: true,
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="CarList" options={{ title: 'Cars' }} />
-      <Stack.Screen name="BikeList" options={{ title: 'Bikes' }} />
-      <Stack.Screen name="PlateList" options={{ title: 'Plates' }} />
-      <Stack.Screen name="PartList" options={{ title: 'Car Parts' }} />
+      {/* List screens render their own compact header (back arrow + layout
+          toggle) via ListHeader, so hide the native one — it showed an "index"
+          back label and doubled the top inset. */}
+      <Stack.Screen name="CarList" options={{ headerShown: false }} />
+      <Stack.Screen name="BikeList" options={{ headerShown: false }} />
+      <Stack.Screen name="PlateList" options={{ headerShown: false }} />
+      <Stack.Screen name="PartList" options={{ headerShown: false }} />
+      <Stack.Screen name="RedditList" options={{ headerShown: false }} />
       <Stack.Screen name="CarDetail" options={{ title: 'Car Listing' }} />
       <Stack.Screen name="BikeDetail" options={{ title: 'Bike Listing' }} />
       <Stack.Screen name="PlateDetail" options={{ title: 'Plate Listing' }} />

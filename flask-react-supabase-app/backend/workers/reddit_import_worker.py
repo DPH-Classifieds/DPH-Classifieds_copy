@@ -231,18 +231,27 @@ def _enrich_car_with_vin(payload):
         return
     decoded = result.get("decoded") or {}
     sources = payload.get("import_field_sources") or {}
+
+    def _fillable(key):
+        # Never overwrite a value the seller explicitly wrote in the post; VIN
+        # decode only fills fields that are missing / Unspecified.
+        if sources.get(key) == "post":
+            return False
+        return payload.get(key) in (None, "", "Unspecified", "N/A")
+
     if result.get("is_valid") and decoded:
-        if decoded.get("make"):
+        if decoded.get("make") and _fillable("car_manufacturer"):
             payload["car_manufacturer"] = _titlecase_make(decoded["make"])
             sources["car_manufacturer"] = "vin"
-        if decoded.get("model"):
+        if decoded.get("model") and _fillable("car_model"):
             payload["car_model"] = str(decoded["model"]).strip()
             sources["car_model"] = "vin"
         mapped = map_decoded_to_listing(decoded)
-        payload.update(mapped)  # spec sheet
-        for k in mapped:
-            sources[k] = "vin"
-    elif decoded.get("make_source") == "wmi" and decoded.get("make"):
+        for k, v in mapped.items():  # spec sheet — fill gaps only
+            if _fillable(k):
+                payload[k] = v
+                sources[k] = "vin"
+    elif decoded.get("make_source") == "wmi" and decoded.get("make") and _fillable("car_manufacturer"):
         # No clean decode, but WMI still guarantees the manufacturer.
         payload["car_manufacturer"] = _titlecase_make(decoded["make"])
         sources["car_manufacturer"] = "vin"

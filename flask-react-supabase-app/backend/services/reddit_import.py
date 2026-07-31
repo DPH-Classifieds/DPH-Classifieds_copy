@@ -12,6 +12,7 @@ Safety contract:
 """
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -96,6 +97,7 @@ class RedditSubmission:
     is_crosspost: bool = False
     removed_by_category: Optional[str] = None
     removed: bool = False
+    link_flair_text: Optional[str] = None
 
     @property
     def is_removed_or_deleted(self) -> bool:
@@ -125,6 +127,7 @@ class RedditSubmission:
             is_crosspost=bool(data.get("crosspost_parent")),
             removed_by_category=data.get("removed_by_category"),
             removed=bool(data.get("removed")),
+            link_flair_text=data.get("link_flair_text"),
         )
 
 
@@ -142,6 +145,8 @@ class ParsedRedditCar:
     created_utc: float
     image_url: Optional[str]
     mileage_km: Optional[int] = None
+    vin: Optional[str] = None
+    regional_spec: Optional[str] = None
 
 
 # --- OAuth + fetch (thin, bounded) -----------------------------------------
@@ -282,30 +287,61 @@ def _scrub_pii(text: str) -> str:
     return _WS_RE.sub(" ", text).strip()
 
 
+def _scrub_pii_keep_lines(text: str) -> str:
+    """Like _scrub_pii but preserves the post's line breaks so the stored
+    description renders with the same layout as the original Reddit post.
+    Reddit selftext arrives HTML-escaped (&amp;, &#39;, &#x200B;) — decode it so
+    the listing shows exactly what the poster wrote."""
+    text = html.unescape(text or "")
+    text = text.replace("\u200b", "").replace("\r\n", "\n").replace("\r", "\n")
+    text = _URL_RE.sub(" ", text)
+    text = _EMAIL_RE.sub(" ", text)
+    text = _PHONE_RE.sub(" ", text)
+    text = re.sub(r"[ \t]+", " ", text)      # collapse spaces/tabs, keep newlines
+    text = re.sub(r"\n[ \t]+", "\n", text)   # trim leading space on each line
+    text = re.sub(r"\n{3,}", "\n\n", text)   # cap blank-line runs
+    return text.strip()
+
+
+def _in_price_range(digits: str) -> Optional[int]:
+    digits = digits.replace(",", "").replace(" ", "")
+    if digits.isdigit() and MIN_PRICE_AED <= int(digits) <= MAX_PRICE_AED:
+        return int(digits)
+    return None
+
+
 def _parse_price_aed(text: str) -> Optional[int]:
     low = text.lower()
-    # "85k" / "85 k" (thousands) — require an AED cue somewhere OR standalone k form.
-    for m in re.finditer(r"(?<![\d.])(\d{1,4})\s?k\b", low):
-        val = int(m.group(1)) * 1000
-        if MIN_PRICE_AED <= val <= MAX_PRICE_AED:
+    # 1. Explicit "Price:" label is the most reliable signal in these structured
+    #    posts. Handles "Price: AED 325,000 [neg]" and "Price: 12,000 AED".
+    m = re.search(r"price[^\dA-Za-z]{0,4}(?:aed|dhs?|dirhams?)?\s*([\d][\d,]*\d)", low)
+    if m:
+        val = _in_price_range(m.group(1))
+        if val:
             return val
-    # "AED 85,000" / "aed85000" — the prefixed form is unambiguous; prefer it so
-    # "2022 AED 75,000" doesn't grab the year via the suffix form below.
+    # 2. "AED 85,000" prefixed — unambiguous.
     m = re.search(r"(?:aed|dhs?|dirhams?)\s*([\d,]{3,})", low)
     if m:
-        digits = m.group(1).replace(",", "")
-        if digits.isdigit() and MIN_PRICE_AED <= int(digits) <= MAX_PRICE_AED:
-            return int(digits)
-    # "85,000 AED" (suffix). A bare 4-digit token with no thousands separator that
-    # looks like a model year is not a price ("2022 AED" -> skip).
+        val = _in_price_range(m.group(1))
+        if val:
+            return val
+    # 3. "85,000 AED" suffix. A bare 4-digit token with no separator that looks
+    #    like a model year is not a price ("2022 AED" -> skip).
     for m in re.finditer(r"([\d,]{3,})\s*(?:aed|dhs?|dirhams?)", low):
         raw = m.group(1)
         digits = raw.replace(",", "")
-        if not digits.isdigit():
+        if "," not in raw and len(digits) == 4 and digits.isdigit() and MIN_YEAR <= int(digits) <= 2100:
             continue
-        val = int(digits)
-        if "," not in raw and len(digits) == 4 and MIN_YEAR <= val <= 2100:
-            continue  # year-like, not a price
+        val = _in_price_range(raw)
+        if val:
+            return val
+    # 4. "AED 85k" / "85k AED" thousands shorthand — ONLY next to an AED cue, so a
+    #    mileage like "64k kms" is never mistaken for a price.
+    m = re.search(r"(?:aed|dhs?|dirhams?)\s*(\d{1,4})\s?k\b", low) or re.search(
+        r"(\d{1,4})\s?k\s*(?:aed|dhs?|dirhams?)", low
+    )
+    if m:
+        val = int(m.group(1)) * 1000
         if MIN_PRICE_AED <= val <= MAX_PRICE_AED:
             return val
     return None
@@ -322,17 +358,23 @@ def _parse_year(text: str, now: datetime) -> Optional[int]:
 
 def _parse_mileage(text: str) -> Optional[int]:
     low = text.lower()
-    m = re.search(r"([\d,]{2,})\s?(?:km|kms|kilometres|kilometers)\b", low)
+    # 1. Labeled odometer/mileage is the reliable signal ("Odometer: 71,350",
+    #    "Mileage: 239,000 km"). Beats an in-body "service done at 64k kms".
+    m = re.search(r"(?:odometer|mileage|kms?\s*driven)\s*[:\-]?\s*([\d][\d,]*\d)", low)
     if m:
         digits = m.group(1).replace(",", "")
-        if digits.isdigit():
-            val = int(digits)
-            if 0 < val <= 2_000_000:
-                return val
-    # "88k km"
+        if digits.isdigit() and 0 < int(digits) <= 2_000_000:
+            return int(digits)
+    # 2. "88k km" shorthand.
     m = re.search(r"(\d{1,4})\s?k\s?(?:km|kms)\b", low)
     if m:
         return int(m.group(1)) * 1000
+    # 3. Plain "239,000 km".
+    m = re.search(r"([\d,]{2,})\s?(?:km|kms|kilometres|kilometers)\b", low)
+    if m:
+        digits = m.group(1).replace(",", "")
+        if digits.isdigit() and 0 < int(digits) <= 2_000_000:
+            return int(digits)
     return None
 
 
@@ -393,6 +435,79 @@ def _looks_like_sale(text: str) -> bool:
     return True
 
 
+def _is_wts_flair(submission) -> bool:
+    """Only import posts on the subreddit's Selling (WTS) flair."""
+    flair = str(getattr(submission, "link_flair_text", "") or "").strip().lower()
+    if "wts" in flair or "sell" in flair:
+        return True
+    # Flair is often unset on older posts; the format also mandates a WTS: title.
+    return str(getattr(submission, "title", "") or "").strip().lower().startswith("wts")
+
+
+_LABEL_VALUE_RE_CACHE = {}
+_VIN_RE = re.compile(r"\b([A-HJ-NPR-Z0-9]{17})\b")
+
+
+def _labeled(text: str, *labels: str) -> Optional[str]:
+    """Return the value after a 'Label:' line in the standard sell format.
+
+    Tolerates leading bullets/spaces ("• Make: Toyota") and both ':' and '-'.
+    """
+    for label in labels:
+        m = re.search(rf"(?im)^[\s•\-\*]*{re.escape(label)}\s*[:\-]\s*(.+?)\s*$", text or "")
+        if m:
+            val = m.group(1).strip()
+            if val and val.lower() not in ("n/a", "na", "-", "none"):
+                return val
+    return None
+
+
+def _labeled_make(text: str) -> Optional[str]:
+    raw = _labeled(text, "make", "brand")
+    if not raw:
+        return None
+    low = raw.lower()
+    for alias, canonical in _MAKE_ALIASES_BY_LEN:
+        if alias in low:
+            return canonical
+    return None  # unknown label -> caller falls back to the title
+
+
+def _labeled_year(text: str, now: datetime) -> Optional[int]:
+    raw = _labeled(text, "year")
+    if raw:
+        m = re.search(r"\d{4}", raw)
+        if m:
+            year = int(m.group())
+            if MIN_YEAR <= year <= now.year + 1:
+                return year
+    return None
+
+
+def _labeled_regional_spec(text: str) -> Optional[str]:
+    raw = _labeled(text, "regional spec", "regional specs", "spec", "specs")
+    if not raw:
+        return None
+    low = raw.lower()
+    if "gcc" in low:
+        return "GCC"
+    if "american" in low or low.strip() == "us" or "usa" in low:
+        return "American"
+    if "euro" in low:
+        return "European"
+    if "japan" in low:
+        return "Japanese"
+    if "canad" in low:
+        return "Canadian"
+    return raw[:40]
+
+
+def _extract_vin(text: str) -> Optional[str]:
+    candidate = _labeled(text, "vin", "chassis", "chassis number") or ""
+    m = _VIN_RE.search(candidate) or _VIN_RE.search(text or "")
+    return m.group(1).upper() if m else None
+
+
 def parse_sale_post(submission: RedditSubmission, now: datetime) -> Optional[ParsedRedditCar]:
     """Return a ParsedRedditCar only for a clearly eligible sale post, else None."""
     if submission is None:
@@ -406,19 +521,31 @@ def parse_sale_post(submission: RedditSubmission, now: datetime) -> Optional[Par
     if not title:
         return None
 
-    combined = f"{title}\n{submission.selftext or ''}"
+    # Only import posts on the Selling (WTS) flair, per the subreddit's format.
+    if not _is_wts_flair(submission):
+        return None
+
+    selftext = submission.selftext or ""
+    combined = f"{title}\n{selftext}"
     if not _looks_like_sale(combined):
         return None
 
-    price = _parse_price_aed(combined)
-    year = _parse_year(title, now) or _parse_year(combined, now)
+    # Prefer the standard-format labels ("Make:", "Model:", "Year:") — they carry
+    # the full value (e.g. "Camry SE") — falling back to title parsing.
     mm = _resolve_make_model(title)
-    if not (price and year and mm):
+    make = _labeled_make(selftext) or (mm[0] if mm else None)
+    model = _labeled(selftext, "model") or (mm[1] if mm else None)
+    if model:
+        model = model[:100]
+    year = _labeled_year(selftext, now) or _parse_year(title, now) or _parse_year(combined, now)
+    price = _parse_price_aed(combined)
+    if not (price and year and make and model):
         return None
     if not submission.images:
         return None
 
-    make, model = mm
+    vin = _extract_vin(selftext)
+    regional_spec = _labeled_regional_spec(selftext)
     mileage = _parse_mileage(combined)
     try:
         source_url = canonical_reddit_url(submission.permalink)
@@ -426,16 +553,16 @@ def parse_sale_post(submission: RedditSubmission, now: datetime) -> Optional[Par
         return None
 
     safe_title = _scrub_pii(title)[:200] or f"{year} {make} {model}"
-    parts = [f"{year} {make} {model}", f"AED {price:,}"]
-    if mileage:
-        parts.append(f"{mileage:,} km")
-    summary = " · ".join(parts)
-    author_label = f"u/{submission.author}" if submission.author else "a Reddit user"
-    description = (
-        f"Imported from Reddit (r/DubaiPetrolHeads). Original post by {author_label}. "
-        f"{summary}. Listing details are supplied by the original Reddit post — "
-        f"verify them with the seller on Reddit before transacting."
-    )
+    # The description is the original post body, verbatim (PII scrubbed, line
+    # breaks kept). Fall back to a short summary only when the post has no body.
+    body = _scrub_pii_keep_lines(submission.selftext or "")[:5000]
+    if body:
+        description = body
+    else:
+        parts = [f"{year} {make} {model}", f"AED {price:,}"]
+        if mileage:
+            parts.append(f"{mileage:,} km")
+        description = " · ".join(parts)
 
     return ParsedRedditCar(
         source_id=submission.id,
@@ -450,6 +577,8 @@ def parse_sale_post(submission: RedditSubmission, now: datetime) -> Optional[Par
         created_utc=submission.created_utc,
         image_url=submission.images[0],
         mileage_km=mileage,
+        vin=vin,
+        regional_spec=regional_spec,
     )
 
 
@@ -479,8 +608,8 @@ def build_imported_car_payload(parsed: ParsedRedditCar, owner_id: str, now: date
         "expected_selling_price": parsed.price_aed,
         "listing_title": parsed.title,
         "car_description": parsed.description,
-        # Required-but-unknown spec fields: never inferred, stored as Unspecified.
-        "regional_spec": _UNSPECIFIED,
+        # From the post's labels when present, else honest Unspecified.
+        "regional_spec": parsed.regional_spec or _UNSPECIFIED,
         "car_city": _UNSPECIFIED,
         "fuel_type": _UNSPECIFIED,
         "transmission_type": _UNSPECIFIED,
@@ -494,6 +623,14 @@ def build_imported_car_payload(parsed: ParsedRedditCar, owner_id: str, now: date
         "is_approved": True,
         "is_dealer": False,
     }
+    if parsed.vin:
+        payload["vin_number"] = parsed.vin
+    # Mark post-supplied fields so VIN decode fills only the gaps, never overrides
+    # what the seller explicitly wrote.
+    sources = {"car_manufacturer": "post", "car_model": "post", "make_year": "post"}
+    if parsed.regional_spec:
+        sources["regional_spec"] = "post"
+    payload["import_field_sources"] = sources
     return payload
 
 

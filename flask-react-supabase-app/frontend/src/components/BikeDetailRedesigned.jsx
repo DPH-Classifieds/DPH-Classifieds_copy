@@ -8,6 +8,7 @@ import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
+import RedditListingDetail from './RedditListingDetail';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
@@ -277,6 +278,10 @@ const BikeDetailRedesigned = () => {
         <Link to="/bikes" className="cd-back-button">Back to Listings</Link>
       </div>
     );
+  }
+
+  if (isRedditSourced(bike)) {
+    return <RedditListingDetail listing={bike} listingType="bike" />;
   }
 
   const galleryImages = getGalleryImages();

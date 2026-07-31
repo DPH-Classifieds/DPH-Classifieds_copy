@@ -268,6 +268,74 @@
   flex-direction: column;
   gap: 8px;
 }
+.explore-v2-field > span {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+.explore-v2-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ex-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  appearance: none;
+}
+.explore-v2-input:focus {
+  border-color: rgba(139, 214, 180, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+.explore-v2-input option {
+  color: #111;
+}
+.explore-v2-results-section .explore-v2-filter-panel {
+  margin-bottom: 18px;
+}
+
+/* Reddit price filter: quick buttons + slider */
+.rp-price-field {
+  grid-column: 1 / -1;
+}
+.rp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rp-preset {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ex-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.rp-preset:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.rp-preset.is-active {
+  background: #8bd6b4;
+  border-color: #8bd6b4;
+  color: #062015;
+}
+.rp-slider {
+  width: 100%;
+  margin-top: 12px;
+  accent-color: #8bd6b4;
+  cursor: pointer;
+}
+.rp-slider-label {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
 
 .explore-v2-field-full {
   width: 100%;

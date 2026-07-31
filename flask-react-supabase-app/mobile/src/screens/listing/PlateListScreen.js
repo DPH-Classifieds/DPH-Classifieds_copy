@@ -18,6 +18,8 @@ import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
 import UAEPlate from '../../components/ui/UAEPlate';
+import ListHeader from '../../components/ui/ListHeader';
+import { useGridColumns } from '../../hooks/useGridColumns';
 import { toastApiError } from '../../utils/toast';
 
 const DIGIT_OPTIONS = ['Any', '1', '2', '3', '4', '5'];
@@ -45,10 +47,11 @@ const getImageUri = (item) => {
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
-function PlateCard({ item, index, onPress }) {
+function PlateCard({ item, index, onPress, columns }) {
   const { animatedStyle } = useStaggeredEntrance(index);
+  const grid = columns === 2;
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[animatedStyle, grid && styles.cardGrid]}>
       <PressableScale onPress={onPress}>
         <View style={styles.card}>
           <View style={styles.plateVisual}>
@@ -81,6 +84,7 @@ export default function PlateListScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [filterModal, setFilterModal] = useState(null);
   const [activeFilters, setActiveFilters] = useState({ city: '', digits: '', sort: 'Newest' });
+  const { columns, toggleColumns } = useGridColumns();
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -239,6 +243,7 @@ export default function PlateListScreen({ navigation }) {
     <PlateCard
       item={item}
       index={index}
+      columns={columns}
       onPress={() => { prefetchListing('plates', item); navigation.navigate('PlateDetail', { listingId: item.id }); }}
     />
   );
@@ -251,9 +256,12 @@ export default function PlateListScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenEntrance>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Browse Plates</Text>
-        </View>
+        <ListHeader
+          title="Browse Plates"
+          onBack={() => navigation.goBack()}
+          columns={columns}
+          onToggleColumns={toggleColumns}
+        />
         <View style={styles.searchContainer}>
           <SearchBar value={search} onChangeText={handleSearch} placeholder="Search plates..." />
         </View>
@@ -274,11 +282,13 @@ export default function PlateListScreen({ navigation }) {
           <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.accent} /></View>
         ) : (
           <FlashList
-            estimatedItemSize={260}
+            key={`cols-${columns}`}
+            numColumns={columns}
+            estimatedItemSize={columns === 2 ? 210 : 260}
             data={plates}
             renderItem={renderPlateCard}
             keyExtractor={(item, idx) => String(item.id || idx)}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
             onEndReached={handleLoadMore}
@@ -299,8 +309,6 @@ export default function PlateListScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.sm },
-  headerTitle: { color: COLORS.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
   searchContainer: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
   filtersRow: { marginBottom: SPACING.sm },
   filtersContent: { paddingHorizontal: SPACING.md, gap: SPACING.sm },
@@ -317,9 +325,11 @@ const styles = StyleSheet.create({
   },
   clearFiltersText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '500' },
   listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xxl },
+  listContentGrid: { paddingHorizontal: SPACING.md - SPACING.xs, paddingBottom: SPACING.xxl },
   card: {
     backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, padding: SPACING.md, overflow: 'hidden',
   },
+  cardGrid: { flex: 1, marginHorizontal: SPACING.xs },
   plateVisual: { alignItems: 'center', marginBottom: SPACING.md },
   plateFill: { width: '100%' },
   cardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

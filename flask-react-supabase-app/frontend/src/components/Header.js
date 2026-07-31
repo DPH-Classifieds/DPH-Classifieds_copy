@@ -4,6 +4,7 @@ import {
   Bike,
   CarFront,
   ChevronRight,
+  Flame,
   MenuIcon,
   Package,
   Plus,
@@ -54,6 +55,12 @@ const browseLinks = [
     description: 'Discover motorcycles and specialty bikes.',
     href: '/bikes',
     icon: Bike,
+  },
+  {
+    title: 'Reddit',
+    description: 'Cars imported from r/DubaiPetrolHeads.',
+    href: '/explore?category=reddit',
+    icon: Flame,
   },
 ];
 

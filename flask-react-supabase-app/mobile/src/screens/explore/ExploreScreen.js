@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput, Keyboard, Platform, UIManager, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +28,10 @@ import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
 import BottomSheet from '../../components/ui/BottomSheet';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { useAuth } from '../../context/AuthContext';
+import { useGridColumns } from '../../hooks/useGridColumns';
+import { LayoutToggleButton } from '../../components/ui/ListHeader';
+import CoachMarks from '../../components/ui/CoachMarks';
 import { resolveMediaUrl } from '../../utils/media';
 import { prefetchListing } from '../../utils/listingCache';
 import { swrGet, swrSet } from '../../utils/swrCache';
@@ -44,6 +49,7 @@ const CATEGORIES = [
   { key: 'bikes', label: 'Bikes', icon: 'bicycle-outline' },
   { key: 'plates', label: 'Plates', icon: 'key-outline' },
   { key: 'parts', label: 'Parts', icon: 'construct-outline' },
+  { key: 'reddit', label: 'Reddit', icon: 'logo-reddit' },
   { key: 'wanted', label: 'Wanted', icon: 'search-outline' },
 ];
 
@@ -78,6 +84,7 @@ const CATEGORY_COLORS = {
   bikes: '#2196f3',
   plates: '#ff9800',
   parts: '#9c27b0',
+  reddit: '#ff4500',
 };
 
 const getImageUri = (item) => {
@@ -145,7 +152,7 @@ const normalizeItem = (category, item) => {
 };
 
 const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
-const LIST_SCREENS = { cars: 'CarList', bikes: 'BikeList', plates: 'PlateList', parts: 'PartList', wanted: 'BuyingRequests' };
+const LIST_SCREENS = { cars: 'CarList', bikes: 'BikeList', plates: 'PlateList', parts: 'PartList', reddit: 'RedditList', wanted: 'BuyingRequests' };
 const LISTING_PAGE_SIZE = 18;
 
 function PickerContent({ options, onSelect, onClose, selectedValue }) {
@@ -397,14 +404,15 @@ const fcStyles = StyleSheet.create({
   resetText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
 });
 
-function ExploreCard({ item, index, onPress, onSave, saved }) {
+function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const catColor = CATEGORY_COLORS[item.category] || COLORS.accent;
+  const grid = columns === 2;
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[animatedStyle, grid && styles.cardOuterGrid]}>
       <PressableScale onPress={onPress}>
-        <View style={styles.card}>
-          <View style={styles.cardImageWrap}>
+        <View style={[styles.card, grid && styles.cardGrid]}>
+          <View style={[styles.cardImageWrap, grid && styles.cardImageWrapGrid]}>
             {item.image ? (
               <FadeInImage source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
             ) : (
@@ -484,6 +492,37 @@ export default function ExploreScreen({ navigation, route }) {
 
   const { isSaved, toggleSaveListing } = useSavedListings();
   const { requireAuth, AuthPromptModal } = useAuthPrompt(navigation);
+  const { user } = useAuth();
+  const { columns, toggleColumns } = useGridColumns();
+
+  // First-login guided tour: spotlight the search, categories and the
+  // filter/sort/layout controls once, then remember it's been seen.
+  const searchRef = useRef(null);
+  const catRef = useRef(null);
+  const controlsRef = useRef(null);
+  const [tourVisible, setTourVisible] = useState(false);
+  const tourScheduledRef = useRef(false);
+  useEffect(() => {
+    if (!user || loading || tourScheduledRef.current) return;
+    let cancelled = false;
+    let timer;
+    AsyncStorage.getItem('onboarding_tour_seen_v1').then((seen) => {
+      if (cancelled || seen) return;
+      tourScheduledRef.current = true;
+      timer = setTimeout(() => { if (!cancelled) setTourVisible(true); }, 800);
+    });
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [user, loading]);
+  const finishTour = useCallback(() => {
+    setTourVisible(false);
+    AsyncStorage.setItem('onboarding_tour_seen_v1', '1');
+  }, []);
+  const tourSteps = useMemo(() => [
+    { ref: searchRef, title: 'Search everything', text: 'Find cars, bikes, plates and parts from one search box.' },
+    { ref: catRef, title: 'Browse by category', text: 'Tap a category to jump straight to those listings.' },
+    { ref: controlsRef, title: 'Filter, sort & layout', text: 'Narrow and reorder results — and tap the grid icon to switch between one or two listings per row.' },
+    { title: 'Sell, save & manage', text: 'Use the tabs below to post a listing, view your saved favourites, and manage your profile.' },
+  ], []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -773,12 +812,13 @@ export default function ExploreScreen({ navigation, route }) {
       <ExploreCard
         item={item}
         index={index}
+        columns={columns}
         onPress={() => { prefetchListing(item.category, item.raw); navigation.navigate(detailScreen, { listingId: item.id }); }}
         onSave={() => toggleSaveListing(item.category, item.raw)}
         saved={saved}
       />
     );
-  }, [navigation, isSaved, toggleSaveListing]);
+  }, [navigation, isSaved, toggleSaveListing, columns]);
 
   // Warm the images of the landing feed's visible cards (first ~5-6 on app open,
   // then a sliding window as the user scrolls) so opening any of them is instant.
@@ -821,7 +861,7 @@ export default function ExploreScreen({ navigation, route }) {
         <Text style={styles.heroTitle}>Find Your Next Ride</Text>
       </View>
 
-      <View style={styles.searchWrap}>
+      <View style={styles.searchWrap} ref={searchRef} collapsable={false}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color={COLORS.textMuted} />
           <TextInput
@@ -841,7 +881,7 @@ export default function ExploreScreen({ navigation, route }) {
         </View>
       </View>
 
-      <View style={styles.catRow}>
+      <View style={styles.catRow} ref={catRef} collapsable={false}>
         {CATEGORIES.map(cat => {
           const isActive = activeTab === cat.key;
           return (
@@ -860,7 +900,7 @@ export default function ExploreScreen({ navigation, route }) {
         })}
       </View>
 
-      <View style={styles.controlsRow}>
+      <View style={styles.controlsRow} ref={controlsRef} collapsable={false}>
         <TouchableOpacity
           style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive, activeTab === 'all' && { opacity: 0.4 }]}
           onPress={() => setFilterSheetOpen(true)}
@@ -873,15 +913,19 @@ export default function ExploreScreen({ navigation, route }) {
           </Text>
         </TouchableOpacity>
 
-        <Text style={styles.resultCount}>
-          {normalizedItems.length} {normalizedItems.length === 1 ? 'result' : 'results'}
-        </Text>
+        <View style={styles.controlsRight}>
+          <Text style={styles.resultCount}>
+            {normalizedItems.length} {normalizedItems.length === 1 ? 'result' : 'results'}
+          </Text>
 
-        <TouchableOpacity style={styles.sortBtn} onPress={() => setSortSheetOpen(true)} activeOpacity={0.7}>
-          <Ionicons name={currentSort?.icon || 'swap-vertical'} size={14} color={COLORS.textSecondary} />
-          <Text style={styles.sortBtnText}>{currentSort?.label || 'Sort'}</Text>
-          <Ionicons name="chevron-down" size={12} color={COLORS.textMuted} />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.sortBtn} onPress={() => setSortSheetOpen(true)} activeOpacity={0.7}>
+            <Ionicons name={currentSort?.icon || 'swap-vertical'} size={14} color={COLORS.textSecondary} />
+            <Text style={styles.sortBtnText}>{currentSort?.label || 'Sort'}</Text>
+            <Ionicons name="chevron-down" size={12} color={COLORS.textMuted} />
+          </TouchableOpacity>
+
+          <LayoutToggleButton columns={columns} onToggle={toggleColumns} />
+        </View>
       </View>
 
       {activeFilterCount > 0 && activeTab !== 'all' && (
@@ -900,7 +944,7 @@ export default function ExploreScreen({ navigation, route }) {
         </TouchableOpacity>
       )}
     </View>
-  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch]);
+  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -909,12 +953,13 @@ export default function ExploreScreen({ navigation, route }) {
         <ListingSkeleton />
       ) : (
         <FlashList
-          estimatedItemSize={260}
+          key={`cols-${columns}`}
+          estimatedItemSize={columns === 2 ? 210 : 260}
           data={normalizedItems}
           renderItem={renderItem}
           keyExtractor={(item, idx) => `${item.category || 'listing'}-${item.id || idx}`}
-          numColumns={1}
-          contentContainerStyle={styles.listContent}
+          numColumns={columns}
+          contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
           keyboardShouldPersistTaps="handled"
@@ -982,6 +1027,7 @@ export default function ExploreScreen({ navigation, route }) {
         ))}
       </BottomSheet>
       <AuthPromptModal />
+      <CoachMarks visible={tourVisible} steps={tourSteps} onDone={finishTour} />
     </SafeAreaView>
   );
 }
@@ -1033,6 +1079,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: SPACING.md, marginBottom: SPACING.md,
   },
+  controlsRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   filterBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingVertical: 7,
@@ -1065,13 +1112,17 @@ const styles = StyleSheet.create({
   saveSearchText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
 
   listContent: { paddingBottom: TAB_BAR_CLEARANCE },
+  listContentGrid: { paddingBottom: TAB_BAR_CLEARANCE, paddingHorizontal: SPACING.md - SPACING.xs },
 
   card: {
     backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl,
     overflow: 'hidden', marginHorizontal: SPACING.md, marginBottom: SPACING.md,
     borderWidth: 1, borderColor: COLORS.borderLight,
   },
+  cardOuterGrid: { flex: 1, marginHorizontal: SPACING.xs },
+  cardGrid: { marginHorizontal: 0 },
   cardImageWrap: { height: 210, position: 'relative' },
+  cardImageWrapGrid: { height: 130 },
   cardImage: { width: '100%', height: '100%' },
   cardImagePlaceholder: {
     width: '100%', height: '100%', backgroundColor: COLORS.surfaceDark,
