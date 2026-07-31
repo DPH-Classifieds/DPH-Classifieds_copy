@@ -943,21 +943,6 @@ export default function ExploreScreen({ navigation, route }) {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.redditBanner}
-        onPress={() => navigation.navigate('RedditList')}
-        activeOpacity={0.85}
-      >
-        <View style={styles.redditIconWrap}>
-          <Ionicons name="logo-reddit" size={20} color="#ff4500" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.redditBannerTitle}>Reddit imports</Text>
-          <Text style={styles.redditBannerSub}>Cars pulled from r/DubaiPetrolHeads</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-      </TouchableOpacity>
-
       {activeFilterCount > 0 && activeTab !== 'all' && (
         <View style={styles.activeChips}>
           <TouchableOpacity style={styles.clearAllChip} onPress={resetFilters}>
@@ -974,7 +959,7 @@ export default function ExploreScreen({ navigation, route }) {
         </TouchableOpacity>
       )}
     </View>
-  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns, navigation]);
+  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -1097,20 +1082,6 @@ const styles = StyleSheet.create({
   catRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, gap: 8,
   },
-
-  redditBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-    marginHorizontal: SPACING.md, marginBottom: SPACING.md,
-    paddingHorizontal: 14, paddingVertical: 12,
-    backgroundColor: 'rgba(255,69,0,0.08)', borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1, borderColor: 'rgba(255,69,0,0.35)',
-  },
-  redditIconWrap: {
-    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,69,0,0.14)',
-  },
-  redditBannerTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '700' },
-  redditBannerSub: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 1 },
   catPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingVertical: 8,

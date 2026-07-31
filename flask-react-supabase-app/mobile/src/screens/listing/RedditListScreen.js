@@ -10,11 +10,20 @@ import { formatPrice, formatNumber } from '../../utils/formatters';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { resolveMediaUrl } from '../../utils/media';
 import PressableScale from '../../components/ui/PressableScale';
+import { LayoutToggleButton } from '../../components/ui/ListHeader';
+import { useGridColumns } from '../../hooks/useGridColumns';
 import { prefetchListing } from '../../utils/listingCache';
 import { toastApiError } from '../../utils/toast';
 
 const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 const ENDPOINTS = [['cars', '/api/cars'], ['bikes', '/api/bikes'], ['plates', '/api/plates'], ['parts', '/api/parts']];
+const TYPES = [
+  { label: 'All', key: 'all' },
+  { label: 'Cars', key: 'cars' },
+  { label: 'Bikes', key: 'bikes' },
+  { label: 'Plates', key: 'plates' },
+  { label: 'Parts', key: 'parts' },
+];
 const PRICE_RANGES = [
   { label: 'All', min: 0, max: 0 },
   { label: 'Under 50k', min: 0, max: 50000 },
@@ -24,6 +33,7 @@ const PRICE_RANGES = [
 ];
 const SORTS = [
   { label: 'Newest', key: 'newest' },
+  { label: 'Oldest', key: 'oldest' },
   { label: 'Price ↑', key: 'price-low' },
   { label: 'Price ↓', key: 'price-high' },
 ];
@@ -43,7 +53,7 @@ const normalize = (category, raw) => {
       id: raw.id, category,
       title: `${raw.car_manufacturer || ''} ${raw.car_model || ''}`.trim() || raw.listing_title || 'Car',
       subtitle: [raw.make_year, raw.kilometer_driven ? `${formatNumber(raw.kilometer_driven)} km` : null, raw.regional_spec !== 'Unspecified' ? raw.regional_spec : null].filter(Boolean).join(' · '),
-      price: raw.expected_selling_price, image: imageOf(raw), raw,
+      price: raw.expected_selling_price, image: imageOf(raw), created_at: raw.created_at, raw,
     };
   }
   if (category === 'bikes') {
@@ -51,21 +61,21 @@ const normalize = (category, raw) => {
       id: raw.id, category,
       title: `${raw.bike_brand || ''} ${raw.bike_model || ''}`.trim() || 'Bike',
       subtitle: [raw.year, raw.engine_size ? `${raw.engine_size} cc` : null].filter(Boolean).join(' · '),
-      price: raw.price, image: imageOf(raw), raw,
+      price: raw.price, image: imageOf(raw), created_at: raw.created_at, raw,
     };
   }
   if (category === 'plates') {
     return {
       id: raw.id, category,
       title: [raw.city, raw.code, raw.number].filter(Boolean).join(' ') || 'Plate',
-      subtitle: raw.plate_format || '', price: raw.price, image: imageOf(raw), raw,
+      subtitle: raw.plate_format || '', price: raw.price, image: imageOf(raw), created_at: raw.created_at, raw,
     };
   }
   return {
     id: raw.id, category,
     title: raw.name || raw.part_type || 'Part',
     subtitle: [raw.condition, raw.part_type].filter(Boolean).join(' · '),
-    price: raw.price, image: imageOf(raw), raw,
+    price: raw.price, image: imageOf(raw), created_at: raw.created_at, raw,
   };
 };
 
@@ -75,6 +85,8 @@ export default function RedditListScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [priceRange, setPriceRange] = useState(PRICE_RANGES[0]);
   const [sort, setSort] = useState('newest');
+  const [type, setType] = useState('all');
+  const { columns, toggleColumns } = useGridColumns();
 
   const load = useCallback(async () => {
     const results = await Promise.all(
@@ -109,7 +121,9 @@ export default function RedditListScreen({ navigation }) {
   }, [load]);
 
   const visible = useMemo(() => {
+    const ts = (d) => (d ? new Date(d).getTime() : 0);
     let list = items.filter((it) => {
+      if (type !== 'all' && it.category !== type) return false;
       const p = Number(it.price) || 0;
       if (priceRange.min && p < priceRange.min) return false;
       if (priceRange.max && p > priceRange.max) return false;
@@ -117,8 +131,10 @@ export default function RedditListScreen({ navigation }) {
     });
     if (sort === 'price-low') list = [...list].sort((a, b) => (a.price || 0) - (b.price || 0));
     else if (sort === 'price-high') list = [...list].sort((a, b) => (b.price || 0) - (a.price || 0));
+    else if (sort === 'oldest') list = [...list].sort((a, b) => ts(a.created_at) - ts(b.created_at));
+    else list = [...list].sort((a, b) => ts(b.created_at) - ts(a.created_at)); // newest
     return list;
-  }, [items, priceRange, sort]);
+  }, [items, type, priceRange, sort]);
 
   const renderItem = useCallback(({ item }) => (
     <PressableScale
@@ -151,10 +167,16 @@ export default function RedditListScreen({ navigation }) {
           <Ionicons name="chevron-back" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reddit Listings</Text>
-        <View style={{ width: 24 }} />
+        <LayoutToggleButton columns={columns} onToggle={toggleColumns} />
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters} contentContainerStyle={styles.filtersContent}>
+        {TYPES.map((t) => (
+          <TouchableOpacity key={t.key} onPress={() => setType(t.key)} style={[styles.chip, type === t.key && styles.chipActive]}>
+            <Text style={[styles.chipText, type === t.key && styles.chipTextActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+        <View style={styles.divider} />
         {PRICE_RANGES.map((r) => (
           <TouchableOpacity key={r.label} onPress={() => setPriceRange(r)} style={[styles.chip, priceRange.label === r.label && styles.chipActive]}>
             <Text style={[styles.chipText, priceRange.label === r.label && styles.chipTextActive]}>{r.label}</Text>
@@ -177,11 +199,12 @@ export default function RedditListScreen({ navigation }) {
         </View>
       ) : (
         <FlashList
+          key={`cols-${columns}`}
           data={visible}
           keyExtractor={(it) => `${it.category}-${it.id}`}
           renderItem={renderItem}
-          numColumns={2}
-          estimatedItemSize={240}
+          numColumns={columns}
+          estimatedItemSize={columns === 2 ? 240 : 320}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
         />
