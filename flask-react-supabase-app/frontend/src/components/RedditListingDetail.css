@@ -1,0 +1,13 @@
+/* Reddit-specific tweaks layered on top of the shared cd- listing styles. */
+
+/* Preserve the original Reddit post's line breaks in the description card. */
+.cd-description.rcd-description-body {
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+/* Source attribution pill in the meta strip. */
+.cd-meta-item.rcd-source-pill {
+  color: #ff4500;
+  font-weight: 600;
+}

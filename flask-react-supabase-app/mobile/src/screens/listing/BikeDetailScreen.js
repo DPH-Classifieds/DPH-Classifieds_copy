@@ -54,8 +54,12 @@ export default function BikeDetailScreen({ route, navigation }) {
   const lightboxListRef = useRef(null);
   const lightboxPan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 12 && g.dy > Math.abs(g.dx) * 1.6,
+      // Capture so a vertical drag dismisses even though the paged FlatList
+      // underneath would otherwise own the gesture; horizontal drags return
+      // false and fall through so paging still works.
+      onMoveShouldSetPanResponderCapture: (_, g) => g.dy > 12 && g.dy > Math.abs(g.dx) * 1.6,
       onPanResponderRelease: (_, g) => { if (g.dy > 90) setPreviewImage(null); },
+      onPanResponderTerminationRequest: () => false,
     })
   ).current;
   const { toggleSaveListing, isSaved } = useSavedListings();

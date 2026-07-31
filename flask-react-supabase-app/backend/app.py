@@ -410,6 +410,7 @@ LISTING_LIFECYCLE_SELECT = (
 PUBLIC_CAR_PREVIEW_SELECT = (
     "id,user_id,car_manufacturer,car_model,trim,make_year,car_city,"
     "expected_selling_price,kilometer_driven,created_at,status,is_approved,view_count,"
+    "source_platform,source_url,"  # needed for the Reddit badge + 'View Reddit' card CTA
     "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
     "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
     "car_images("
@@ -6096,8 +6097,24 @@ def get_cars():
             "is_approved": "eq.true",  # Double check with is_approved field
         }
 
+        # Dev preview: when LOCAL_SHOW_HIDDEN_REDDIT=1 (never set in production),
+        # let the Reddit tab surface imports that are still hidden
+        # (is_approved=false) so they can be reviewed before the visibility toggle
+        # is flipped. No effect in prod, where the env var is unset.
+        if (
+            request.args.get("source_platform") == "reddit"
+            and os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1"
+        ):
+            params.pop("is_approved", None)
+
         # Remove any parameters starting with underscore (like _t)
         filtered_params = {k: v for k, v in params.items() if not k.startswith("_")}
+
+        # Reddit imports show ONLY in the dedicated Reddit browse tab. Exclude them
+        # from the normal cars feed unless the caller explicitly asks for them.
+        # (or-clause keeps rows whose source_platform is null — i.e. all real cars.)
+        if request.args.get("source_platform") != "reddit":
+            filtered_params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
         # Define allowed filter fields that exist in the cars table
         allowed_filters = [
@@ -6352,6 +6369,16 @@ def get_car_by_id(car_id):
 
         is_owner = requesting_user and car.get("user_id") == requesting_user
         is_public = car.get("is_approved") and car.get("listing_state") == "active"
+
+        # Dev preview (LOCAL_SHOW_HIDDEN_REDDIT=1, never set in prod): allow viewing
+        # a hidden (is_approved=false) Reddit import's detail page for review.
+        if (
+            not is_public
+            and str(car.get("source_platform") or "").lower() == "reddit"
+            and car.get("listing_state") == "active"
+            and os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1"
+        ):
+            is_public = True
 
         if not is_owner and not is_public:
             return jsonify({"error": "Car not found"}), 404
@@ -13060,6 +13087,15 @@ def get_bikes():
         # Filter out any underscore parameters
         params = {k: v for k, v in params.items() if not k.startswith("_")}
 
+        # Reddit imports appear only in the dedicated Reddit tab. Exclude them from
+        # the normal bikes feed unless explicitly requested (?source_platform=reddit).
+        if request.args.get("source_platform") == "reddit":
+            params["source_platform"] = "eq.reddit"
+            if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
+                params.pop("is_approved", None)  # dev preview of hidden imports
+        else:
+            params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
+
         logger.info(f"Fetching bikes with params: {params}")
 
         try:
@@ -13085,6 +13121,7 @@ def get_bikes():
                 f"{app.config['SUPABASE_URL']}/rest/v1/bikes?{query_string}"
                 "&select=id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
                 "color,price,location,area,emirate,description,contact_number,country_code,"
+                "source_platform,source_url,"
                 "status,is_approved,created_at,updated_at,"
                 "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
                 "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"
@@ -14856,11 +14893,21 @@ def get_plates():
         # is_approved=eq.true is required so the admin "hide reddit listings"
         # toggle (which bulk-sets is_approved=false on source_platform=reddit
         # rows) actually removes them here, matching /api/cars|bikes|parts.
+        # Reddit imports appear only in the dedicated Reddit tab.
+        if request.args.get("source_platform") == "reddit":
+            approved_clause = "status=eq.approved"
+            if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") != "1":
+                approved_clause += "&is_approved=eq.true"
+            source_clause = "&source_platform=eq.reddit"
+        else:
+            approved_clause = "status=eq.approved&is_approved=eq.true"
+            source_clause = "&or=(source_platform.is.null,source_platform.neq.reddit)"
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
-            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?status=eq.approved&is_approved=eq.true&order={order}"
+            f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?{approved_clause}&order={order}"
+            f"{source_clause}"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
-            "description,contact_phone,contact_name,country_code,status,is_approved,created_at,updated_at,"
+            "description,contact_phone,contact_name,country_code,source_platform,source_url,status,is_approved,created_at,updated_at,"
             "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
             "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at"
         )
@@ -15154,6 +15201,14 @@ def get_parts():
         # Filter out any underscore parameters
         params = {k: v for k, v in params.items() if not k.startswith("_")}
 
+        # Reddit imports appear only in the dedicated Reddit tab.
+        if request.args.get("source_platform") == "reddit":
+            params["source_platform"] = "eq.reddit"
+            if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
+                params.pop("is_approved", None)
+        else:
+            params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
+
         logger.info(f"Fetching parts with params: {params}")
 
         try:
@@ -15178,7 +15233,7 @@ def get_parts():
             url = (
                 f"{app.config['SUPABASE_URL']}/rest/v1/car_parts?{query_string}"
                 "&select=id,user_id,name,part_type,condition,price,location,area,emirate,"
-                "description,contact_number,country_code,status,is_approved,created_at,updated_at,"
+                "description,contact_number,country_code,source_platform,source_url,status,is_approved,created_at,updated_at,"
                 "compatible_makes,compatible_models,compatible_years,"
                 "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
                 "sold_status,sold_status_set_at,sold_response_deadline,last_extended_at,"

@@ -133,12 +133,21 @@ const bikeInitialFilters = {
   sortBy: 'newest',
 };
 
+const PRICE_PRESETS = [
+  { label: 'All', min: 0, max: 0 },
+  { label: 'Under 50k', min: 0, max: 50000 },
+  { label: '50k–100k', min: 50000, max: 100000 },
+  { label: '100k–200k', min: 100000, max: 200000 },
+  { label: '200k+', min: 200000, max: 0 },
+];
+
 const categoryMeta = {
   all: { heroTitle: 'Search the full UAE marketplace with one premium browse surface.' },
   cars: { heroTitle: 'Browse cars with make-aware filters and a cleaner path to detail.' },
   'car-parts': { heroTitle: 'Compare parts and accessories without losing the showroom feel.' },
   plates: { heroTitle: 'Surface premium UAE plates with focused city and code filters.' },
   bikes: { heroTitle: 'Explore motorcycles with the same premium rhythm as the car journey.' },
+  reddit: { heroTitle: 'Cars imported from r/DubaiPetrolHeads, in one clean browse surface.' },
 };
 
 const mapExploreModeToSellCtaCategory = (modeKey) => {
@@ -458,6 +467,7 @@ const ExplorePage = () => {
   const [partsFilters, setPartsFilters] = useState(partsInitialFilters);
   const [plateFilters, setPlateFilters] = useState(plateInitialFilters);
   const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
+  const [redditFilters, setRedditFilters] = useState(carInitialFilters);
   const [heroQuery, setHeroQuery] = useState('');
   const [savingSearch, setSavingSearch] = useState(false);
   const [savedSearchNotice, setSavedSearchNotice] = useState('');
@@ -506,10 +516,25 @@ const ExplorePage = () => {
   // ── fetch one page for one API category ──────────────────────────────────
   const fetchPage = useCallback(async (apiKey, offset) => {
     const ttl = offset === 0 ? INVENTORY_CACHE_TTL_MS : 30_000;
-    // reddit is a filtered view of /api/cars, not its own endpoint.
-    const endpoint = apiKey === 'reddit' ? 'cars' : apiKey;
-    const redditFilter = apiKey === 'reddit' ? '&source_platform=reddit' : '';
-    const url = `${API_URL}/api/${endpoint}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc${redditFilter}`;
+    // Reddit tab aggregates every source_platform=reddit listing across all four
+    // types into one feed, each row tagged so it can be normalized correctly.
+    // ponytail: fetches up to 250/type in one page (curated import feed is small);
+    // raise the cap if Reddit inventory ever grows past that.
+    if (apiKey === 'reddit') {
+      const types = [['cars', 'car'], ['bikes', 'bike'], ['parts', 'part'], ['plates', 'plate']];
+      const chunks = await Promise.all(
+        types.map(async ([ep, type]) => {
+          const url = `${API_URL}/api/${ep}?limit=250&offset=0&order=created_at.desc&source_platform=reddit`;
+          const data = await fetchJsonWithCache(url, ttl);
+          return extractInventoryCollection(data, FALLBACK_KEYS[ep] || ['data']).map((row) => ({
+            ...row,
+            _redditType: type,
+          }));
+        })
+      );
+      return chunks.flat();
+    }
+    const url = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
     const data = await fetchJsonWithCache(url, ttl);
     return extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
   }, []);
@@ -610,7 +635,12 @@ const ExplorePage = () => {
       bikes: inventory.bikes.map(normalizeBike),
       parts: inventory.parts.map(normalizePart),
       plates: inventory.plates.map(normalizePlate),
-      reddit: inventory.reddit.map(normalizeCar),
+      reddit: inventory.reddit.map((row) => {
+        if (row._redditType === 'bike') return normalizeBike(row);
+        if (row._redditType === 'part') return normalizePart(row);
+        if (row._redditType === 'plate') return normalizePlate(row);
+        return normalizeCar(row);
+      }),
     }),
     [inventory]
   );
@@ -637,6 +667,18 @@ const ExplorePage = () => {
     [allItems.length, normalizedInventory]
   );
 
+  const redditMakes = useMemo(
+    () => [...new Set(
+      normalizedInventory.reddit.map((item) => normalizeText(item.raw?.car_manufacturer)).filter(Boolean)
+    )].sort(),
+    [normalizedInventory.reddit]
+  );
+
+  const redditPriceMax = useMemo(() => {
+    const top = Math.max(0, ...normalizedInventory.reddit.map((item) => item.numericPrice || 0));
+    return Math.max(50000, Math.ceil(top / 10000) * 10000);
+  }, [normalizedInventory.reddit]);
+
   const filteredItems = useMemo(() => {
     if (activeMode === 'all') {
       const query = globalQuery.trim().toLowerCase();
@@ -657,9 +699,27 @@ const ExplorePage = () => {
     }
 
     if (activeMode === 'reddit') {
-      return [...normalizedInventory.reddit].sort(
-        (left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)
-      );
+      return normalizedInventory.reddit
+        .filter((item) => {
+          const raw = item.raw;
+          const query = redditFilters.query.trim().toLowerCase();
+          const minPrice = toNumeric(redditFilters.priceMin);
+          const maxPrice = toNumeric(redditFilters.priceMax);
+          if (redditFilters.manufacturer && normalizeText(raw.car_manufacturer || raw.make) !== redditFilters.manufacturer) {
+            return false;
+          }
+          if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
+            return false;
+          }
+          if (maxPrice !== null && (item.numericPrice === null || item.numericPrice > maxPrice)) {
+            return false;
+          }
+          if (query && !item.searchableText.includes(query)) {
+            return false;
+          }
+          return true;
+        })
+        .sort((left, right) => compareBySort(left, right, redditFilters.sortBy));
     }
 
     if (activeMode === 'cars') {
@@ -796,6 +856,7 @@ const ExplorePage = () => {
     normalizedInventory,
     partsFilters,
     plateFilters,
+    redditFilters,
   ]);
 
   const resultsDescription =
@@ -812,6 +873,7 @@ const ExplorePage = () => {
       'car-parts': partsFilters,
       plates: plateFilters,
       bikes: bikeFilters,
+      reddit: redditFilters,
     };
     const filters = filtersByMode[activeMode] || {};
     const query = filters.query || globalQuery || heroQuery || '';
@@ -834,6 +896,7 @@ const ExplorePage = () => {
     heroQuery,
     partsFilters,
     plateFilters,
+    redditFilters,
   ]);
 
   const handleModeChange = (modeKey) => {
@@ -892,7 +955,7 @@ const ExplorePage = () => {
         <div className="explore-v2-shell">
           <div className="explore-v2-hero-copy">
             <span className="explore-v2-kicker">Marketplace Hub</span>
-            <h1>{categoryMeta[activeMode].heroTitle}</h1>
+            <h1>{(categoryMeta[activeMode] || categoryMeta.all).heroTitle}</h1>
             <p>
               Explore is now the dedicated marketplace layer on the navbar. Browse everything at once,
               or switch into a category and let the filters adapt around the inventory that actually
@@ -952,6 +1015,93 @@ const ExplorePage = () => {
             {savedSearchNotice ? <span className="explore-v2-save-search-note">{savedSearchNotice}</span> : null}
           </div>
         </div>
+
+        {activeMode === 'reddit' && (
+          <div className="explore-v2-filter-panel">
+            <div className="explore-v2-filter-grid">
+              <label className="explore-v2-field">
+                <span>Search</span>
+                <input
+                  className="explore-v2-input"
+                  type="search"
+                  value={redditFilters.query}
+                  onChange={(e) => setRedditFilters((prev) => ({ ...prev, query: e.target.value }))}
+                  placeholder="Make, model, keyword"
+                />
+              </label>
+              <label className="explore-v2-field">
+                <span>Make</span>
+                <select
+                  className="explore-v2-input"
+                  value={redditFilters.manufacturer}
+                  onChange={(e) => setRedditFilters((prev) => ({ ...prev, manufacturer: e.target.value }))}
+                >
+                  <option value="">All makes</option>
+                  {redditMakes.map((make) => (
+                    <option key={make} value={make}>{make}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="explore-v2-field">
+                <span>Sort</span>
+                <select
+                  className="explore-v2-input"
+                  value={redditFilters.sortBy}
+                  onChange={(e) => setRedditFilters((prev) => ({ ...prev, sortBy: e.target.value }))}
+                >
+                  <option value="newest">Newest</option>
+                  <option value="price-low">Price: low to high</option>
+                  <option value="price-high">Price: high to low</option>
+                </select>
+              </label>
+              <div className="explore-v2-field rp-price-field">
+                <span>Price (AED)</span>
+                <div className="rp-presets">
+                  {PRICE_PRESETS.map((p) => {
+                    const active =
+                      redditFilters.priceMin === (p.min ? String(p.min) : '') &&
+                      redditFilters.priceMax === (p.max ? String(p.max) : '');
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        className={`rp-preset ${active ? 'is-active' : ''}`}
+                        onClick={() =>
+                          setRedditFilters((prev) => ({
+                            ...prev,
+                            priceMin: p.min ? String(p.min) : '',
+                            priceMax: p.max ? String(p.max) : '',
+                          }))
+                        }
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <input
+                  className="rp-slider"
+                  type="range"
+                  min="0"
+                  max={redditPriceMax}
+                  step="5000"
+                  value={redditFilters.priceMax ? Number(redditFilters.priceMax) : redditPriceMax}
+                  onChange={(e) =>
+                    setRedditFilters((prev) => ({
+                      ...prev,
+                      priceMax: Number(e.target.value) >= redditPriceMax ? '' : e.target.value,
+                    }))
+                  }
+                />
+                <div className="rp-slider-label">
+                  {redditFilters.priceMax
+                    ? `Up to AED ${Number(redditFilters.priceMax).toLocaleString()}`
+                    : 'Any price'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="explore-v2-state-card">

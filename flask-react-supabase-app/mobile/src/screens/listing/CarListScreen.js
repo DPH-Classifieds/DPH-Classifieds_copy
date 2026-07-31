@@ -19,6 +19,8 @@ import { swrGet, swrSet } from '../../utils/swrCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
+import ListHeader from '../../components/ui/ListHeader';
+import { useGridColumns } from '../../hooks/useGridColumns';
 import { toastApiError } from '../../utils/toast';
 
 const PRICE_RANGES = [
@@ -60,15 +62,16 @@ const getImageUri = (item) => {
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
-function CarCard({ item, index, onPress }) {
+function CarCard({ item, index, onPress, columns }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const uri = getImageUri(item);
   const title = item.listing_title || `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Untitled Car';
+  const grid = columns === 2;
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[animatedStyle, grid && styles.cardGrid]}>
       <PressableScale onPress={onPress} haptic="light">
         <View style={styles.card}>
-          <View style={styles.imageContainer}>
+          <View style={[styles.imageContainer, grid && styles.imageContainerGrid]}>
             {uri ? (
               <Image source={{ uri }} style={styles.cardImage} contentFit="cover" />
             ) : (
@@ -86,7 +89,7 @@ function CarCard({ item, index, onPress }) {
             <Text style={styles.cardTitle} numberOfLines={1}>
               {title}
             </Text>
-            <Text style={styles.cardSubtitle}>
+            <Text style={styles.cardSubtitle} numberOfLines={1}>
               {item.make_year || ''} | {formatNumber(item.kilometer_driven)} km | {item.fuel_type || 'Petrol'}
             </Text>
             <Text style={styles.cardPrice}>{formatPrice(item.expected_selling_price)}</Text>
@@ -122,6 +125,7 @@ export default function CarListScreen({ navigation }) {
     city: '',
     sort: 'Newest',
   });
+  const { columns, toggleColumns } = useGridColumns();
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -394,9 +398,10 @@ export default function CarListScreen({ navigation }) {
     <CarCard
       item={item}
       index={index}
+      columns={columns}
       onPress={() => { prefetchListing('cars', item); navigation.navigate('CarDetail', { listingId: item.id }); }}
     />
-  ), [navigation]);
+  ), [navigation, columns]);
 
   // Sliding window: preload the detail (freshest fields + images) for cards as
   // they scroll into view, so opening any of them feels instant. Fires for the
@@ -409,9 +414,12 @@ export default function CarListScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenEntrance>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Browse Cars</Text>
-        </View>
+        <ListHeader
+          title="Browse Cars"
+          onBack={() => navigation.goBack()}
+          columns={columns}
+          onToggleColumns={toggleColumns}
+        />
         <View style={styles.searchContainer}>
           <SearchBar
             value={search}
@@ -447,11 +455,13 @@ export default function CarListScreen({ navigation }) {
           </View>
         ) : (
           <FlashList
+            key={`cols-${columns}`}
+            numColumns={columns}
             data={visibleCars}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={280}
+            estimatedItemSize={columns === 2 ? 210 : 280}
             renderItem={renderCarItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
             showsVerticalScrollIndicator={false}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.4}
@@ -472,16 +482,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  header: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.sm,
-  },
-  headerTitle: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '700',
   },
   searchContainer: {
     paddingHorizontal: SPACING.md,
@@ -533,15 +533,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.xxl,
   },
+  listContentGrid: {
+    paddingHorizontal: SPACING.md - SPACING.xs,
+    paddingBottom: SPACING.xxl,
+  },
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.md,
     overflow: 'hidden',
   },
+  cardGrid: {
+    flex: 1,
+    marginHorizontal: SPACING.xs,
+  },
   imageContainer: {
     height: 160,
     backgroundColor: COLORS.surfaceHigher,
+  },
+  imageContainerGrid: {
+    height: 120,
   },
   cardImage: {
     width: '100%',

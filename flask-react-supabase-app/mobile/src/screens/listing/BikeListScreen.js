@@ -17,6 +17,8 @@ import { swrGet, swrSet } from '../../utils/swrCache';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
+import ListHeader from '../../components/ui/ListHeader';
+import { useGridColumns } from '../../hooks/useGridColumns';
 import { toastApiError } from '../../utils/toast';
 
 const BIKE_BRANDS = [
@@ -59,14 +61,15 @@ const getImageUri = (item) => {
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
-function BikeCard({ item, index, onPress }) {
+function BikeCard({ item, index, onPress, columns }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const imageUri = getImageUri(item);
+  const grid = columns === 2;
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[animatedStyle, grid && styles.cardGrid]}>
       <PressableScale onPress={onPress}>
         <View style={styles.card}>
-          <View style={styles.imageContainer}>
+          <View style={[styles.imageContainer, grid && styles.imageContainerGrid]}>
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={styles.image} contentFit="cover" />
             ) : (
@@ -79,7 +82,7 @@ function BikeCard({ item, index, onPress }) {
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.bike_brand} {item.bike_model}
             </Text>
-            <Text style={styles.cardSubtitle}>
+            <Text style={styles.cardSubtitle} numberOfLines={1}>
               {item.make_year}{item.engine_capacity ? ` | ${item.engine_capacity}` : ''}{item.fuel_type ? ` | ${item.fuel_type}` : ' | Petrol'}
             </Text>
             <Text style={styles.cardPrice}>{formatPrice(item.expected_selling_price)}</Text>
@@ -105,6 +108,7 @@ export default function BikeListScreen({ navigation }) {
     priceRange: null,
     sort: 'Newest',
   });
+  const { columns, toggleColumns } = useGridColumns();
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -287,6 +291,7 @@ export default function BikeListScreen({ navigation }) {
     <BikeCard
       item={item}
       index={index}
+      columns={columns}
       onPress={() => { prefetchListing('bikes', item); navigation.navigate('BikeDetail', { listingId: item.id }); }}
     />
   );
@@ -299,9 +304,12 @@ export default function BikeListScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenEntrance>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Browse Bikes</Text>
-        </View>
+        <ListHeader
+          title="Browse Bikes"
+          onBack={() => navigation.goBack()}
+          columns={columns}
+          onToggleColumns={toggleColumns}
+        />
         <View style={styles.searchContainer}>
           <SearchBar value={search} onChangeText={handleSearch} placeholder="Search bikes..." />
         </View>
@@ -325,11 +333,13 @@ export default function BikeListScreen({ navigation }) {
           </View>
         ) : (
           <FlashList
-            estimatedItemSize={260}
+            key={`cols-${columns}`}
+            numColumns={columns}
+            estimatedItemSize={columns === 2 ? 210 : 260}
             data={bikes}
             renderItem={renderBikeCard}
             keyExtractor={(item, idx) => String(item.id || idx)}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
             onEndReached={handleLoadMore}
@@ -350,8 +360,6 @@ export default function BikeListScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.sm },
-  headerTitle: { color: COLORS.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
   searchContainer: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
   filtersRow: { marginBottom: SPACING.sm },
   filtersContent: { paddingHorizontal: SPACING.md, gap: SPACING.sm },
@@ -368,8 +376,11 @@ const styles = StyleSheet.create({
   },
   clearFiltersText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '500' },
   listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xxl },
+  listContentGrid: { paddingHorizontal: SPACING.md - SPACING.xs, paddingBottom: SPACING.xxl },
   card: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, overflow: 'hidden' },
+  cardGrid: { flex: 1, marginHorizontal: SPACING.xs },
   imageContainer: { height: 160 },
+  imageContainerGrid: { height: 120 },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceDark },
   cardBody: { padding: SPACING.md },
