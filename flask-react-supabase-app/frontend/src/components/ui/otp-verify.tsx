@@ -16,11 +16,13 @@ import {
 } from "../../utils/msg91Widget"
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"
-const OTP_LENGTH = 6
+// MSG91 widget is configured for 4-digit OTPs; the Infobip flow uses 6.
+const OTP_LENGTH_DEFAULT = 6
+const OTP_LENGTH_MSG91 = 4
 const RESEND_COOLDOWN = 50
 const UAE_COUNTRY_CODE = "+971"
 
-const emptyOtp = () => Array.from({ length: OTP_LENGTH }, () => "")
+const emptyOtp = (len = OTP_LENGTH_DEFAULT) => Array.from({ length: len }, () => "")
 
 export function OTPVerification({
   mode = "modal",
@@ -62,6 +64,7 @@ export function OTPVerification({
   // Decision is per-number and stable between send and verify (phone can't change
   // mid-session without a reset), so start and verify always agree on the path.
   const useMsg91 = shouldUseMsg91(phoneInput || phone)
+  const otpLength = useMsg91 ? OTP_LENGTH_MSG91 : OTP_LENGTH_DEFAULT
   const displayPhone = useMemo(() => {
     return (
       phoneVerification?.masked_phone
@@ -74,12 +77,19 @@ export function OTPVerification({
     setPhoneInput(phone || "")
     setPhoneVerification(null)
     setVerified(false)
-    setOtp(emptyOtp())
+    setOtp(emptyOtp(otpLength))
     setMessage("")
     setError("")
     setCooldownRemaining(0)
     autoStartedRef.current = false
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialVerificationId, phone, purpose, listingId])
+
+  // Keep the input count in sync when the routed provider (and thus OTP length)
+  // changes — e.g. the number is edited from an 058 (MSG91, 4) to an 050 (Infobip, 6).
+  useEffect(() => {
+    setOtp((prev) => (prev.length === otpLength ? prev : emptyOtp(otpLength)))
+  }, [otpLength])
 
   useEffect(() => {
     if (cooldownRemaining <= 0) return
@@ -150,14 +160,14 @@ export function OTPVerification({
 
     setOtp((prev) => {
       const next = [...prev]
-      const chars = digits.slice(0, OTP_LENGTH - index).split("")
+      const chars = digits.slice(0, otpLength - index).split("")
       chars.forEach((char, offset) => {
         next[index + offset] = char
       })
       return next
     })
 
-    const nextFocus = Math.min(index + digits.length, OTP_LENGTH - 1)
+    const nextFocus = Math.min(index + digits.length, otpLength - 1)
     window.requestAnimationFrame(() => {
       inputRefs.current[nextFocus]?.focus()
     })
@@ -170,7 +180,7 @@ export function OTPVerification({
     if (event.key === "ArrowLeft" && index > 0) {
       inputRefs.current[index - 1]?.focus()
     }
-    if (event.key === "ArrowRight" && index < OTP_LENGTH - 1) {
+    if (event.key === "ArrowRight" && index < otpLength - 1) {
       inputRefs.current[index + 1]?.focus()
     }
   }
@@ -284,8 +294,8 @@ export function OTPVerification({
 
     try {
       const code = otp.join("")
-      if (code.length !== OTP_LENGTH) {
-        throw new Error(`Enter the ${OTP_LENGTH}-digit code`)
+      if (code.length !== otpLength) {
+        throw new Error(`Enter the ${otpLength}-digit code`)
       }
 
       const token = await getAccessToken()
@@ -338,18 +348,18 @@ export function OTPVerification({
   }
 
   const handlePaste = (event) => {
-    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH)
+    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, otpLength)
     if (!pasted) return
     event.preventDefault()
     setOtp(() => {
-      const next = emptyOtp()
+      const next = emptyOtp(otpLength)
       pasted.split("").forEach((digit, index) => {
         next[index] = digit
       })
       return next
     })
     window.requestAnimationFrame(() => {
-      inputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus()
+      inputRefs.current[Math.min(pasted.length, otpLength - 1)]?.focus()
     })
   }
 
@@ -365,7 +375,7 @@ export function OTPVerification({
     autoStartedRef.current = true // stay manual; don't auto-resend to the old number
     setVerificationId(null)
     setPhoneVerification(null)
-    setOtp(emptyOtp())
+    setOtp(emptyOtp(otpLength))
     setMessage("")
     setError("")
     setCooldownRemaining(0)
@@ -377,7 +387,7 @@ export function OTPVerification({
   const busy = loading || starting
 
   const codeInputs = (
-    <div className="grid grid-cols-6 gap-2 sm:gap-3">
+    <div className={cn("grid gap-2 sm:gap-3", otpLength === 4 ? "grid-cols-4" : "grid-cols-6")}>
       {otp.map((digit, index) => (
         <input
           key={index}
@@ -523,7 +533,7 @@ export function OTPVerification({
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
-                  Enter the 6-digit code
+                  Enter the {otpLength}-digit code
                 </span>
                 <button
                   type="button"
@@ -542,7 +552,7 @@ export function OTPVerification({
               <button
                 type="submit"
                 className="auth-button primary-button"
-                disabled={loading || otp.join("").length !== OTP_LENGTH}
+                disabled={loading || otp.join("").length !== otpLength}
               >
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
