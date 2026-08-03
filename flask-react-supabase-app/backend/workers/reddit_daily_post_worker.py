@@ -20,7 +20,7 @@ Cars only for now; extend LISTING_QUERIES to add bikes/parts/plates.
 """
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 
@@ -96,32 +96,41 @@ def _listing_url(row, site_url=SITE_URL) -> str:
     return f"{site_url}/cars/{str(row.get('id') or '').strip()}"
 
 
-def _listing_line(row, site_url=SITE_URL) -> str:
-    parts = [str(row.get(k) or "").strip()
-             for k in ("make_year", "car_manufacturer", "car_model")]
-    name = " ".join(p for p in parts if p) or "Car"
-    return f"- **{name}** — {_format_price(row.get('expected_selling_price'))} — [View]({_listing_url(row, site_url)})"
+def _cell(value) -> str:
+    """Table-cell-safe: strip and neutralize the pipe that would break a column."""
+    return str(value or "").replace("|", "/").strip()
+
+
+def _listing_row(row, site_url=SITE_URL) -> str:
+    return (f"| {_cell(row.get('make_year'))} | {_cell(row.get('car_manufacturer'))} "
+            f"| {_cell(row.get('car_model'))} | {_format_price(row.get('expected_selling_price'))} "
+            f"| [View]({_listing_url(row, site_url)}) |")
 
 
 def build_post(rows, date_label, site_url=SITE_URL, max_rows=50):
     shown = rows[:max_rows]
-    lines = [_listing_line(r, site_url) for r in shown]
-    if len(rows) > max_rows:
-        lines.append(f"- …and {len(rows) - max_rows} more at https://www.dphclassifieds.com")
+    header = "| Year | Make | Model | Price | Link |\n|---|---|---|---|---|"
+    table = "\n".join([header] + [_listing_row(r, site_url) for r in shown])
     n = len(rows)
-    title = f"🚗 Cars listed on DPH Classifieds — {date_label}"
-    body = f"{n} new car{'' if n == 1 else 's'} listed:\n\n" + "\n".join(lines) + FOOTER
+    extra = (f"\n\n…and {n - max_rows} more at https://www.dphclassifieds.com"
+             if n > max_rows else "")
+    title = f"🚗 New cars on DPH Classifieds — {date_label}"
+    body = f"{n} new car{'' if n == 1 else 's'} listed:\n\n{table}{extra}{FOOTER}"
     return title, body
 
 
 # --- Guard / audit -----------------------------------------------------------
 
-def _already_recorded(post_date):
+def _last_post_date():
+    """Most recent recorded run date (posted or skipped_empty), or None. Drives
+    the every-N-days cadence."""
     body, status = supabase_request(
         "get", "/rest/v1/reddit_daily_posts",
-        params={"select": "id", "post_date": f"eq.{post_date}", "limit": "1"},
+        params={"select": "post_date", "order": "post_date.desc", "limit": "1"},
     )
-    return status < 400 and isinstance(body, list) and bool(body)
+    if status < 400 and isinstance(body, list) and body:
+        return body[0].get("post_date")
+    return None
 
 
 def _record(post_date, subreddit, status, count=0, post=None, error=None):
@@ -143,8 +152,10 @@ def _window(days=1):
     start_today = dubai_now.replace(hour=0, minute=0, second=0, microsecond=0)
     until = start_today - DUBAI_OFFSET                      # back to UTC
     since = until - timedelta(days=days)
-    label = ((start_today - timedelta(days=1)).strftime("%-d %b %Y")
-             if days == 1 else f"last {days} days")
+    last_day = start_today - timedelta(days=1)              # most recent full day covered
+    first_day = start_today - timedelta(days=days)          # earliest full day covered
+    label = (last_day.strftime("%-d %b %Y") if days == 1
+             else f"{first_day.strftime('%-d %b')}–{last_day.strftime('%-d %b %Y')}")
     return since.isoformat(), until.isoformat(), label
 
 
@@ -182,14 +193,21 @@ def run():
         post_hour = int(os.getenv("REDDIT_DAILY_POST_HOUR", "9"))
     except ValueError:
         post_hour = 9
+    try:
+        every_days = max(1, int(os.getenv("REDDIT_DAILY_POST_EVERY_DAYS", "2")))
+    except ValueError:
+        every_days = 2
 
     dubai_now = _now() + DUBAI_OFFSET
     if dubai_now.hour < post_hour:
         return {"status": "not_time", "hour": dubai_now.hour}
 
-    post_date = dubai_now.date().isoformat()  # one post per Dubai calendar day
-    if _already_recorded(post_date):
-        return {"status": "already_posted", "date": post_date}
+    post_date = dubai_now.date().isoformat()  # UNIQUE guard against same-day double post
+    last = _last_post_date()
+    if last:
+        gap = (dubai_now.date() - date.fromisoformat(last)).days
+        if gap < every_days:
+            return {"status": "too_soon", "last": last, "gap": gap, "every_days": every_days}
 
     client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
     client_secret = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
@@ -204,8 +222,9 @@ def run():
         logger.error("reddit_daily_post: missing config %s", ", ".join(missing))
         return {"status": "failed", "error": "missing configuration"}
 
-    # Window = the previous full Dubai day: [today 00:00 - 24h, today 00:00).
-    since_iso, until_iso, yesterday_label = _window(1)
+    # Window = the previous `every_days` full Dubai days (new additions since the
+    # last post): [today 00:00 - every_days, today 00:00).
+    since_iso, until_iso, window_label = _window(every_days)
     try:
         rows = _fetch_listings(since_iso, until_iso)
     except Exception as exc:
@@ -214,14 +233,14 @@ def run():
 
     if not rows:
         _record(post_date, subreddit, "skipped_empty", count=0)
-        logger.info("reddit_daily_post: no listings for %s — skipped", yesterday_label)
+        logger.info("reddit_daily_post: no listings for %s — skipped", window_label)
         return {"status": "skipped_empty", "date": post_date}
 
     try:
         max_rows = int(os.getenv("REDDIT_DAILY_POST_MAX", "50"))
     except ValueError:
         max_rows = 50
-    title, body = build_post(rows, yesterday_label, SITE_URL, max_rows)
+    title, body = build_post(rows, window_label, SITE_URL, max_rows)
 
     try:
         token = get_user_access_token(_SESSION, client_id, client_secret, refresh_token, user_agent)
@@ -233,7 +252,7 @@ def run():
 
     _record(post_date, subreddit, "posted", count=len(rows), post=post)
     logger.info("reddit_daily_post: posted %s cars for %s → %s",
-                len(rows), yesterday_label, post.get("url"))
+                len(rows), window_label, post.get("url"))
     return {"status": "posted", "count": len(rows), "url": post.get("url")}
 
 
