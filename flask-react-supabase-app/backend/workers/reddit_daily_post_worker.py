@@ -96,27 +96,49 @@ def _listing_url(row, site_url=SITE_URL) -> str:
     return f"{site_url}/cars/{str(row.get('id') or '').strip()}"
 
 
+_HEADERS = ["Year", "Make", "Model", "Price", "Link"]
+# year & link centered, make/model left, price right — renders aligned on Reddit.
+_ALIGN = "|:---:|:---|:---|---:|:---:|"
+
+
 def _cell(value) -> str:
     """Table-cell-safe: strip and neutralize the pipe that would break a column."""
     return str(value or "").replace("|", "/").strip()
 
 
-def _listing_row(row, site_url=SITE_URL) -> str:
-    return (f"| {_cell(row.get('make_year'))} | {_cell(row.get('car_manufacturer'))} "
-            f"| {_cell(row.get('car_model'))} | {_format_price(row.get('expected_selling_price'))} "
-            f"| [View]({_listing_url(row, site_url)}) |")
+def _row_cells(row, site_url=SITE_URL, link_as_url=False):
+    """One listing → 5 cells. Markdown gets a [View](url) link; the console
+    preview (link_as_url) gets the bare URL so it's readable/clickable."""
+    link = _listing_url(row, site_url)
+    return [
+        _cell(row.get("make_year")),
+        _cell(row.get("car_manufacturer")),
+        _cell(row.get("car_model")),
+        _format_price(row.get("expected_selling_price")),
+        link if link_as_url else f"[View]({link})",
+    ]
 
 
 def build_post(rows, date_label, site_url=SITE_URL, max_rows=50):
     shown = rows[:max_rows]
-    header = "| Year | Make | Model | Price | Link |\n|---|---|---|---|---|"
-    table = "\n".join([header] + [_listing_row(r, site_url) for r in shown])
+    lines = ["| " + " | ".join(_HEADERS) + " |", _ALIGN]
+    lines += ["| " + " | ".join(_row_cells(r, site_url)) + " |" for r in shown]
     n = len(rows)
     extra = (f"\n\n…and {n - max_rows} more at https://www.dphclassifieds.com"
              if n > max_rows else "")
     title = f"🚗 New cars on DPH Classifieds — {date_label}"
-    body = f"{n} new car{'' if n == 1 else 's'} listed:\n\n{table}{extra}{FOOTER}"
+    body = (f"**{n} new car{'' if n == 1 else 's'} listed**\n\n"
+            + "\n".join(lines) + extra + FOOTER)
     return title, body
+
+
+def _ascii_table(headers, rows):
+    """Padded, aligned plain-text table for the console preview."""
+    cols = list(zip(*([headers] + rows))) if rows else [(h,) for h in headers]
+    widths = [max(len(str(c)) for c in col) for col in cols]
+    fmt = lambda cells: " | ".join(str(c).ljust(widths[i]) for i, c in enumerate(cells))
+    sep = "-+-".join("-" * w for w in widths)
+    return "\n".join([fmt(headers), sep] + [fmt(r) for r in rows])
 
 
 # --- Guard / audit -----------------------------------------------------------
@@ -259,10 +281,13 @@ def run():
 def _preview(days):
     since_iso, until_iso, label = _window(days)
     rows = _fetch_listings(since_iso, until_iso)
-    title, body = build_post(rows, label, SITE_URL, int(os.getenv("REDDIT_DAILY_POST_MAX", "50")))
-    print(f"\n[{len(rows)} listing(s) in window {since_iso} .. {until_iso}]\n")
-    print(title, "\n")
-    print(body)
+    max_rows = int(os.getenv("REDDIT_DAILY_POST_MAX", "50"))
+    title, _ = build_post(rows, label, SITE_URL, max_rows)
+    cells = [_row_cells(r, SITE_URL, link_as_url=True) for r in rows[:max_rows]]
+    print(f"\n{title}")
+    print(f"{len(rows)} listing(s) in window {since_iso} .. {until_iso}\n")
+    print(_ascii_table(_HEADERS, cells) if cells else "(no listings)")
+    print("\n(renders as an aligned table on Reddit; run --post-now to publish)")
 
 
 def _post_now(days=1):
