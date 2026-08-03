@@ -166,6 +166,51 @@ def get_app_access_token(session: requests.Session, client_id: str, client_secre
     return token
 
 
+def get_user_access_token(session: requests.Session, client_id: str, client_secret: str,
+                          refresh_token: str, user_agent: str) -> str:
+    """User-context token via refresh_token grant. Unlike the app-only
+    client_credentials token, this carries the DPH account's identity and can
+    write (submit posts). Obtain the refresh_token once via
+    scripts/reddit_get_refresh_token.py; it does not expire."""
+    response = session.post(
+        TOKEN_URL,
+        auth=(client_id, client_secret),
+        data={"grant_type": "refresh_token", "refresh_token": refresh_token},
+        headers={"User-Agent": user_agent},
+        timeout=20,
+    )
+    response.raise_for_status()
+    token = (response.json() or {}).get("access_token")
+    if not token:
+        raise ValueError("reddit token response missing access_token")
+    return token
+
+
+def submit_self_post(session, access_token, subreddit, title, body_md, user_agent, flair_id=None):
+    """Submit a self (text) post. Returns {"id": t3_..., "url": ...}. Raises on
+    Reddit-reported errors (e.g. RATELIMIT, SUBREDDIT_REQUIRED_FLAIR)."""
+    data = {
+        "sr": subreddit, "kind": "self", "api_type": "json",
+        "title": (title or "")[:300], "text": body_md or "",
+        "resubmit": "true", "sendreplies": "false",
+    }
+    if flair_id:
+        data["flair_id"] = flair_id
+    response = session.post(
+        f"{OAUTH_BASE_URL}/api/submit",
+        data=data,
+        headers={"Authorization": f"Bearer {access_token}", "User-Agent": user_agent},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = (response.json() or {}).get("json") or {}
+    errors = payload.get("errors") or []
+    if errors:
+        raise ValueError(f"reddit submit errors: {errors}")
+    out = payload.get("data") or {}
+    return {"id": out.get("name") or out.get("id"), "url": out.get("url")}
+
+
 def fetch_new_submissions(session, access_token, subreddit, limit, user_agent):
     response = session.get(
         f"{OAUTH_BASE_URL}/r/{subreddit}/new",

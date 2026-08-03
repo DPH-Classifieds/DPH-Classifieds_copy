@@ -172,6 +172,7 @@ def main():
         from workers.inventory_import_worker import run as _run_inventory_import_once
         from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
         from workers.reddit_import_worker import run as _run_reddit_import_once
+        from workers.reddit_daily_post_worker import run as _run_reddit_daily_post_once
         from workers.webhook_delivery_worker import run as _run_webhook_delivery_once
         from workers.auto_review_worker import run as _run_auto_review_once
         from health_monitoring import (
@@ -235,6 +236,9 @@ def main():
     )
     reddit_import_interval_seconds = int(
         os.getenv("REDDIT_IMPORT_INTERVAL_SECONDS", str(4 * 60 * 60))
+    )
+    reddit_daily_post_interval_seconds = int(
+        os.getenv("REDDIT_DAILY_POST_INTERVAL_SECONDS", str(60 * 60))
     )
     webhook_delivery_interval_seconds = int(
         os.getenv("WEBHOOK_DELIVERY_INTERVAL_SECONDS", "5")
@@ -377,6 +381,16 @@ def main():
         name="reddit-import",
         daemon=True,
     )
+    reddit_daily_post_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "reddit_daily_post_worker",
+            _run_reddit_daily_post_once,
+            reddit_daily_post_interval_seconds,
+        ),
+        name="reddit-daily-post",
+        daemon=True,
+    )
     webhook_delivery_thread = threading.Thread(
         target=scheduled_loop,
         args=(
@@ -417,6 +431,7 @@ def main():
     inventory_import_thread.start()
     dealer_api_poll_thread.start()
     reddit_import_thread.start()
+    reddit_daily_post_thread.start()
     webhook_delivery_thread.start()
     auto_review_thread.start()
     price_drop_alert_thread.start()
@@ -437,6 +452,12 @@ def main():
         "Reddit import worker registered (interval=%ss enabled=%s) — no fetch while disabled",
         reddit_import_interval_seconds,
         str(os.getenv("REDDIT_IMPORT_ENABLED", "false")),
+    )
+    logger.info(
+        "Reddit daily post worker registered (interval=%ss enabled=%s hour=%s) — no post while disabled",
+        reddit_daily_post_interval_seconds,
+        str(os.getenv("REDDIT_DAILY_POST_ENABLED", "false")),
+        str(os.getenv("REDDIT_DAILY_POST_HOUR", "9")),
     )
 
     cleanup_thread = None
@@ -483,6 +504,7 @@ def main():
         inventory_import_thread.join(timeout=5)
         dealer_api_poll_thread.join(timeout=5)
         reddit_import_thread.join(timeout=5)
+        reddit_daily_post_thread.join(timeout=5)
         webhook_delivery_thread.join(timeout=5)
         auto_review_thread.join(timeout=5)
         price_drop_alert_thread.join(timeout=5)
