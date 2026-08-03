@@ -246,10 +246,11 @@ def _preview(days):
     print(body)
 
 
-def _post_now():
+def _post_now(days=1):
     """Real submit to REDDIT_DAILY_POST_SUBREDDIT, bypassing the hour + once-a-day
-    gates. Does NOT write a guard row, so it never blocks the scheduled 9am post."""
-    since_iso, until_iso, label = _window(1)
+    gates. Does NOT write a guard row, so it never blocks the scheduled 9am post.
+    `days` widens the window (test aid); the scheduled job always uses 1 day."""
+    since_iso, until_iso, label = _window(days)
     rows = _fetch_listings(since_iso, until_iso)
     if not rows:
         print("No listings in window — nothing to post. Try --preview --days 7 to see data.")
@@ -270,15 +271,15 @@ if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO)
     argv = sys.argv[1:]
+    days = 1
+    if "--days" in argv:
+        try:
+            days = int(argv[argv.index("--days") + 1])
+        except (ValueError, IndexError):
+            days = 1
     if "--preview" in argv:
-        days = 1
-        if "--days" in argv:
-            try:
-                days = int(argv[argv.index("--days") + 1])
-            except (ValueError, IndexError):
-                days = 1
         _preview(days)
     elif "--post-now" in argv:
-        _post_now()
+        _post_now(days)
     else:
         logger.info("reddit_daily_post_worker: %s", run())
