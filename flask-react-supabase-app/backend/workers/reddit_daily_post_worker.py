@@ -40,7 +40,7 @@ FOOTER = "\n\n---\n\n*Posted automatically by DPH Classifieds — https://www.dp
 # and the query loop + url builder already handle the rest.
 LISTING_QUERIES = [
     {"table": "cars", "type": "car",
-     "select": "id,car_manufacturer,car_model,make_year,expected_selling_price,source_platform,source_url,created_at"},
+     "select": "id,car_manufacturer,car_model,make_year,kilometer_driven,expected_selling_price,source_platform,source_url,created_at"},
 ]
 
 _SESSION = requests.Session()
@@ -96,9 +96,9 @@ def _listing_url(row, site_url=SITE_URL) -> str:
     return f"{site_url}/cars/{str(row.get('id') or '').strip()}"
 
 
-_HEADERS = ["Year", "Make", "Model", "Price", "Link"]
-# year & link centered, make/model left, price right — renders aligned on Reddit.
-_ALIGN = "|:---:|:---|:---|---:|:---:|"
+_HEADERS = ["Year", "Make", "Model", "Mileage", "Price", "Link"]
+# year & link centered, make/model left, mileage/price right — aligned on Reddit.
+_ALIGN = "|:---:|:---|:---|---:|---:|:---:|"
 
 
 def _cell(value) -> str:
@@ -106,14 +106,25 @@ def _cell(value) -> str:
     return str(value or "").replace("|", "/").strip()
 
 
+def _format_mileage(value) -> str:
+    try:
+        n = int(float(value))
+        if n > 0:
+            return f"{n:,} km"
+    except (TypeError, ValueError):
+        pass
+    return "—"
+
+
 def _row_cells(row, site_url=SITE_URL, link_as_url=False):
-    """One listing → 5 cells. Markdown gets a [View](url) link; the console
+    """One listing → 6 cells. Markdown gets a [View](url) link; the console
     preview (link_as_url) gets the bare URL so it's readable/clickable."""
     link = _listing_url(row, site_url)
     return [
         _cell(row.get("make_year")),
         _cell(row.get("car_manufacturer")),
         _cell(row.get("car_model")),
+        _format_mileage(row.get("kilometer_driven")),
         _format_price(row.get("expected_selling_price")),
         link if link_as_url else f"[View]({link})",
     ]
