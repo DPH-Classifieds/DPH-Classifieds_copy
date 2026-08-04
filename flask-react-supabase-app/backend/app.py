@@ -8765,6 +8765,31 @@ def _build_public_listing_url(listing_type, listing_id):
     return f"{base}{path}"
 
 
+@app.route("/api/reddit/daily-roundup", methods=["GET"])
+def api_reddit_daily_roundup():
+    """Pre-built Reddit roundup post (title + markdown body) for the Devvit app to
+    submit. Reuses the worker's window/fetch/format so formatting has ONE source of
+    truth. Read-only + stateless (does not touch the reddit_daily_posts guard).
+    Auth: shared secret in the X-Roundup-Token header (env REDDIT_ROUNDUP_TOKEN)."""
+    token = os.getenv("REDDIT_ROUNDUP_TOKEN", "")
+    if not token or request.headers.get("X-Roundup-Token") != token:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        days = max(1, min(int(request.args.get("days", "2")), 30))
+    except (TypeError, ValueError):
+        days = 2
+    from workers.reddit_daily_post_worker import (
+        _window, _fetch_listings, build_post, SITE_URL,
+    )
+    since_iso, until_iso, label = _window(days)
+    rows = _fetch_listings(since_iso, until_iso)
+    title, body = build_post(rows, label, SITE_URL)
+    return jsonify({
+        "title": title, "body": body, "count": len(rows),
+        "window": {"since": since_iso, "until": until_iso, "label": label},
+    })
+
+
 def _send_report_admin_notification(report, reporter_email=None):
     from_email = os.getenv("RESEND_FROM_EMAIL")
     to_email = os.getenv("RESEND_TO_EMAIL")
