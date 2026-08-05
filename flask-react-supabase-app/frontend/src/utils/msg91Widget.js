@@ -11,9 +11,9 @@ const WIDGET_ID = process.env.REACT_APP_MSG91_WIDGET_ID
 const TOKEN_AUTH = process.env.REACT_APP_MSG91_TOKEN_AUTH
 const SCRIPT_SRC = "https://verify.msg91.com/otp-provider.js"
 // Comma-separated MSG91 identifier prefixes (country code, no '+') to route through
-// MSG91. Default: only 058/du (971 58). Everything else stays on Infobip. Set to
-// "971" to send all UAE mobiles through MSG91 once it's trusted.
-const PREFIXES = (process.env.REACT_APP_MSG91_PREFIXES || "97158")
+// MSG91. Default: all UAE mobiles (971) — Infobip no longer delivers to UAE, so
+// everything goes via MSG91. Narrow to e.g. "97158" to send only 058 through MSG91.
+const PREFIXES = (process.env.REACT_APP_MSG91_PREFIXES || "971")
   .split(",")
   .map((p) => p.replace(/\D/g, ""))
   .filter(Boolean)
