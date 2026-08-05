@@ -6,6 +6,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import apiClient from '../../utils/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import {
+  shouldUseMsg91,
+  toMsg91Identifier,
+  msg91SendOtp,
+  msg91RetryOtp,
+  msg91VerifyOtp,
+  MSG91_OTP_LENGTH,
+} from '../../utils/msg91';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
@@ -23,6 +31,10 @@ export default function VerifyPhoneScreen({ navigation, route }) {
   const [phoneNumber, setPhoneNumber] = useState(route?.params?.phone || user?.phone || '');
   const [otp, setOtp] = useState('');
   const [verificationId, setVerificationId] = useState(route?.params?.verificationId || '');
+  // MSG91 request id (widget flow); empty on the Infobip flow.
+  const [reqId, setReqId] = useState('');
+  const useMsg91 = shouldUseMsg91(phoneNumber, countryCode);
+  const otpLength = useMsg91 ? MSG91_OTP_LENGTH : 6;
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(60);
@@ -52,6 +64,15 @@ export default function VerifyPhoneScreen({ navigation, route }) {
 
     setLoading(true);
     try {
+      if (useMsg91) {
+        // Widget flow: the SDK sends the OTP; backend isn't touched until verify.
+        const id = await msg91SendOtp(toMsg91Identifier(phoneNumber.trim(), countryCode));
+        setReqId(id);
+        setStep('otp');
+        setCountdown(60);
+        setCanResend(false);
+        return;
+      }
       const response = await apiClient.post('/api/phone-verifications/start', {
         phone: phoneNumber.trim(),
         country_code: countryCode,
@@ -73,22 +94,38 @@ export default function VerifyPhoneScreen({ navigation, route }) {
   };
 
   const handleVerify = async () => {
-    if (!otp.trim() || otp.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit code');
+    if (!otp.trim() || otp.length !== otpLength) {
+      Alert.alert('Error', `Please enter a valid ${otpLength}-digit code`);
       return;
     }
-    if (!verificationId) {
+    if (!useMsg91 && !verificationId) {
+      Alert.alert('Error', 'Please request a verification code first');
+      return;
+    }
+    if (useMsg91 && !reqId) {
       Alert.alert('Error', 'Please request a verification code first');
       return;
     }
 
     setLoading(true);
     try {
-      await apiClient.post('/api/phone-verifications/verify', {
-        verification_id: verificationId,
-        code: otp.trim(),
-        purpose,
-      });
+      if (useMsg91) {
+        // Widget flow: verify with the SDK, then hand the JWT to the backend to
+        // validate + run the verified-phone side-effects.
+        const accessToken = await msg91VerifyOtp(reqId, otp.trim());
+        await apiClient.post('/api/phone-verifications/verify-token', {
+          access_token: accessToken,
+          phone: phoneNumber.trim(),
+          country_code: countryCode,
+          purpose,
+        });
+      } else {
+        await apiClient.post('/api/phone-verifications/verify', {
+          verification_id: verificationId,
+          code: otp.trim(),
+          purpose,
+        });
+      }
       const me = await apiClient.get('/api/auth/me').catch(() => null);
       if (updateUser) {
         await updateUser(me || { ...user, phone_verified: true });
@@ -110,6 +147,13 @@ export default function VerifyPhoneScreen({ navigation, route }) {
   const handleResendCode = async () => {
     setResendLoading(true);
     try {
+      if (useMsg91) {
+        await msg91RetryOtp(reqId);
+        setCountdown(60);
+        setCanResend(false);
+        Alert.alert('Success', 'Verification code sent again!');
+        return;
+      }
       const response = await apiClient.post('/api/phone-verifications/start', {
         verification_id: verificationId,
         phone: phoneNumber.trim(),
@@ -187,16 +231,16 @@ export default function VerifyPhoneScreen({ navigation, route }) {
           ) : (
             <View style={styles.stepContainer}>
               <Text style={styles.description}>
-                We've sent a 6-digit code to {countryCode} {phoneNumber}
+                We've sent a {otpLength}-digit code to {countryCode} {phoneNumber}
               </Text>
 
               <Input
                 label="Verification Code *"
                 value={otp}
                 onChangeText={setOtp}
-                placeholder="000000"
+                placeholder={'0'.repeat(otpLength)}
                 keyboardType="numeric"
-                maxLength={6}
+                maxLength={otpLength}
               />
 
               <Button
