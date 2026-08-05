@@ -1,0 +1,72 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "dph-roundup-web",
+  "post": {
+    "entrypoints": {
+      "default": {
+        "entry": "splash.html"
+      },
+      "game": {
+        "entry": "game.html"
+      }
+    }
+  },
+  "server": {},
+  "permissions": {
+    "http": {
+      "enable": true,
+      "domains": [
+        "api.dphclassifieds.com",
+        "dphclassifieds.com",
+        "example.com",
+        "api.github.com"
+      ]
+    }
+  },
+  "settings": {
+    "global": {
+      "roundupUrl": {
+        "type": "string",
+        "label": "Backend roundup URL (e.g. https://api.dphclassifieds.com/api/reddit/daily-roundup)"
+      },
+      "roundupToken": {
+        "type": "string",
+        "label": "X-Roundup-Token secret (matches REDDIT_ROUNDUP_TOKEN on the backend)"
+      }
+    },
+    "subreddit": {
+      "targetSubreddit": {
+        "type": "string",
+        "label": "Subreddit to post to without r/ (blank = this subreddit)"
+      }
+    }
+  },
+  "scheduler": {
+    "tasks": {
+      "roundup": {
+        "endpoint": "/internal/cron/roundup",
+        "cron": "0 9 */2 * *"
+      }
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "DPH: post roundup now",
+        "description": "Fetch the latest DPH car roundup and post it.",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/on/menu/roundup"
+      }
+    ]
+  },
+  "triggers": {
+    "onAppInstall": "/internal/on/app/install"
+  },
+  "scripts": {
+    "dev": "npm run watch"
+  },
+  "dev": {
+    "subreddit": "dph_roundup_web_dev2"
+  }
+}
