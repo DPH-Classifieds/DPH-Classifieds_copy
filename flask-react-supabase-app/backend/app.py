@@ -4520,12 +4520,31 @@ def _send_infobip_sms(to_phone, message):
             return False, {"status": response.status_code, "details": response.text}
         # Infobip returns 200 even when it rejects delivery to a specific number
         # (e.g. no route for a newer MNP range like +97158). The real verdict is
-        # the per-message status group, not the HTTP code — treat REJECTED /
-        # UNDELIVERABLE as a failure so it surfaces instead of looking "sent".
+        # the per-message status group, not the HTTP code.
+        # ponytail: this only catches send-time verdicts. A message accepted as
+        # PENDING can still be silently dropped by the carrier later (unregistered
+        # UAE sender / no credit) — that only shows up in a delivery report. Wire an
+        # Infobip DLR webhook if you need to catch post-accept drops.
         body = response.json()
-        message_status = (body.get("messages") or [{}])[0].get("status") or {}
+        messages = body.get("messages") or []
+        message_status = (messages[0] if messages else {}).get("status") or {}
         status_group = str(message_status.get("groupName", "")).upper()
-        if status_group in ("REJECTED", "UNDELIVERABLE"):
+        # Always log the accepted status so silent drops are at least traceable.
+        logger.info(
+            "Infobip send to %s -> group=%s (%s)",
+            destination_phone,
+            status_group or "NONE",
+            message_status.get("name") or message_status.get("description") or "",
+        )
+        # Nothing accepted at all = failure (empty messages / no status group).
+        if not messages or not status_group:
+            logger.error(
+                f"Infobip returned no accepted message for {destination_phone}: {body}"
+            )
+            return False, {"status": "no_message_accepted", "details": body}
+        # Treat every non-affirmative send-time verdict as a failure. Affirmative
+        # groups are PENDING (accepted, will attempt) and DELIVERED.
+        if status_group not in ("PENDING", "DELIVERED"):
             logger.error(
                 f"Infobip rejected delivery to {destination_phone}: {message_status}"
             )
