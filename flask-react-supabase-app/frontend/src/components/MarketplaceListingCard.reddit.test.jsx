@@ -58,4 +58,31 @@ describe('MarketplaceListingCard — reddit normalization', () => {
     });
     expect(screen.getByText('Genuine OEM part, barely used.')).toBeInTheDocument();
   });
+
+  it('leaves reddit CAR cards unchanged: year·km·location, no blurb, Reddit badge', () => {
+    renderCard({
+      id: 'c1',
+      categoryKey: 'cars',
+      categoryLabel: 'Car',
+      source_platform: 'reddit',
+      year: 2016,
+      kilometers: 178435,
+      location: 'Dubai',
+      description: 'Posted by DPH Classifieds, imported from r/DubaiPetrolHeads. ...',
+      route: '/cars/c1',
+      priceLabel: 'AED 35,000',
+      title: 'Honda Accord',
+      image: '/x.jpg',
+    });
+    expect(screen.getByText('2016 • 178,435 km • Dubai')).toBeInTheDocument();
+    expect(screen.queryByText(/Posted by DPH Classifieds/i)).toBeNull();
+    expect(screen.getByText('Reddit')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /View Reddit/i })).toBeInTheDocument();
+  });
+
+  it('non-reddit listing shows "View Listing", not "View Reddit"', () => {
+    renderCard({ ...redditPart, id: 'p3', source_platform: undefined });
+    expect(screen.getByRole('link', { name: /View Listing/i })).toBeInTheDocument();
+    expect(screen.queryByText('Reddit')).toBeNull();
+  });
 });
