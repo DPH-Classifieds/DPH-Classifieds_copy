@@ -15,6 +15,7 @@ import {
   MSG91_OTP_LENGTH,
 } from '../../utils/msg91';
 import Input from '../../components/ui/Input';
+import OtpInput from '../../components/ui/OtpInput';
 import Button from '../../components/ui/Button';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
@@ -30,6 +31,7 @@ export default function VerifyPhoneScreen({ navigation, route }) {
   );
   const [phoneNumber, setPhoneNumber] = useState(route?.params?.phone || user?.phone || '');
   const [otp, setOtp] = useState('');
+  const [otpErrorNonce, setOtpErrorNonce] = useState(0);
   const [verificationId, setVerificationId] = useState(route?.params?.verificationId || '');
   // MSG91 request id (widget flow); empty on the Infobip flow.
   const [reqId, setReqId] = useState('');
@@ -138,6 +140,8 @@ export default function VerifyPhoneScreen({ navigation, route }) {
         },
       ]);
     } catch (err) {
+      setOtp('');
+      setOtpErrorNonce((n) => n + 1); // shake the boxes
       Alert.alert('Error', err.message || 'Invalid verification code. Please try again.');
     } finally {
       setLoading(false);
@@ -234,13 +238,11 @@ export default function VerifyPhoneScreen({ navigation, route }) {
                 We've sent a {otpLength}-digit code to {countryCode} {phoneNumber}
               </Text>
 
-              <Input
-                label="Verification Code *"
+              <OtpInput
                 value={otp}
                 onChangeText={setOtp}
-                placeholder={'0'.repeat(otpLength)}
-                keyboardType="numeric"
-                maxLength={otpLength}
+                length={otpLength}
+                errorNonce={otpErrorNonce}
               />
 
               <Button
