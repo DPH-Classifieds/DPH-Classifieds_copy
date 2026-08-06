@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { KeyRound, Loader2, RefreshCw, ShieldCheck, X } from "lucide-react"
+import { Check, Loader2, ShieldCheck, X } from "lucide-react"
 import { motion, useAnimationControls } from "motion/react"
 
 import { cn } from "../../lib/utils"
@@ -107,6 +107,14 @@ export function OTPVerification({
 
     return () => window.clearInterval(timer)
   }, [cooldownRemaining])
+
+  // Auto-verify once the full code is entered (reference UX: no explicit button).
+  useEffect(() => {
+    if (hasSession && !verified && !loading && !starting && otp.join("").length === otpLength) {
+      void verifyCode()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp])
 
   useEffect(() => {
     if (!open || verified) return
@@ -307,7 +315,7 @@ export function OTPVerification({
     }
   }
 
-  const verifyCode = async (event) => {
+  const verifyCode = async (event?) => {
     if (event) {
       event.preventDefault()
     }
@@ -418,10 +426,7 @@ export function OTPVerification({
   const busy = loading || starting
 
   const codeInputs = (
-    <motion.div
-      animate={shakeControls}
-      className={cn("grid gap-2 sm:gap-3", otpLength === 4 ? "grid-cols-4" : "grid-cols-6")}
-    >
+    <motion.div animate={shakeControls} className="flex items-center justify-center gap-2.5 sm:gap-3">
       {otp.map((digit, index) => (
         <motion.input
           key={index}
@@ -442,185 +447,155 @@ export function OTPVerification({
           transition={{ type: "spring", stiffness: 700, damping: 22, delay: index * 0.05 }}
           whileFocus={{ y: -4, scale: 1.05 }}
           className={cn(
-            "aspect-square w-full rounded-2xl border text-center text-xl font-semibold text-white outline-none transition-colors duration-150",
+            "rounded-2xl border text-center font-semibold text-white caret-[#8bd6b4] outline-none transition-colors duration-150",
+            otpLength <= 4 ? "h-16 w-14 text-3xl" : "h-14 w-11 text-2xl",
             "focus:border-[#8bd6b4]/70 focus:bg-white/[0.08] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.18)]",
-            digit ? "border-[#8bd6b4]/45 bg-white/[0.06]" : "border-white/10 bg-white/[0.03]"
+            digit ? "border-[#8bd6b4]/50 bg-white/[0.07]" : "border-white/10 bg-white/[0.03]"
           )}
         />
       ))}
     </motion.div>
   )
 
-  const cancelButton =
-    !hideClose && closeHandler ? (
-      <button type="button" className="auth-button auth-button-secondary" onClick={closeHandler}>
-        Cancel
-      </button>
-    ) : null
-
   const body = (
     <form className={cn("phone-verification-flow", className)} onSubmit={verifyCode}>
-      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,28,19,0.98)_0%,rgba(7,15,10,0.98)_100%)] p-6 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-8">
-        <div className="mb-6 flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#8bd6b4]/20 bg-[#0e2418] text-[#8bd6b4]">
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#8bd6b4]/15 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#bfeac8]">
-              <KeyRound className="h-3.5 w-3.5" />
-              Secure verification
-            </div>
-            <h3 id="otp-verification-title" className="text-2xl font-semibold tracking-[-0.04em] text-white">{title}</h3>
-            <p className="mt-2 text-sm leading-6 text-white/65">{description}</p>
-            <p className="mt-2 text-xs leading-5 text-[#bfeac8]">OTP is supported for UAE numbers only (+971).</p>
-          </div>
-          {!hideClose && closeHandler ? (
-            <button
-              type="button"
-              onClick={closeHandler}
-              aria-label="Close verification"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition hover:bg-white/[0.08] hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-
-        {message ? (
-          <div className="mb-4 rounded-2xl border border-[#8bd6b4]/12 bg-[#0d2217] px-4 py-3 text-sm text-[#c8f0d2]">
-            {message}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mb-4 rounded-2xl border border-[#ff8f8f]/20 bg-[rgba(107,23,23,0.5)] px-4 py-3 text-sm text-[#ffb3b3]">
-            {error}
-          </div>
+      <div className="relative mx-auto w-full max-w-md rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,28,19,0.98)_0%,rgba(7,15,10,0.98)_100%)] p-7 text-white shadow-[0_30px_80px_-24px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-9">
+        {!hideClose && closeHandler ? (
+          <button
+            type="button"
+            onClick={closeHandler}
+            aria-label="Close verification"
+            className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-white/[0.08] hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
         ) : null}
 
         {verified ? (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#8bd6b4]/20 bg-[#0d2217] px-4 py-8 text-center">
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
             <motion.div
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 24 }}
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#8bd6b4]/15 text-[#8bd6b4] ring-4 ring-[#8bd6b4]/10"
+              transition={{ type: "spring", stiffness: 500, damping: 22 }}
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8bd6b4] text-[#05100a] ring-8 ring-[#8bd6b4]/12"
             >
-              <ShieldCheck className="h-7 w-7" />
+              <Check className="h-8 w-8" strokeWidth={3} />
             </motion.div>
             <motion.p
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
-              className="text-base font-semibold text-white"
+              className="text-xl font-semibold text-white"
             >
               Phone verified
             </motion.p>
             <p className="text-sm text-white/60">{message || "You're all set."}</p>
           </div>
         ) : !hasSession ? (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div>
-              <label htmlFor="phone-verification-phone" className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
-                Phone number
-              </label>
-              <input
-                id="phone-verification-phone"
-                type="tel"
-                value={phoneInput}
-                onChange={(event) => setPhoneInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && phoneInput && !busy) {
-                    event.preventDefault()
-                    void sendOrResend()
-                  }
-                }}
-                placeholder="+971 50 123 4567"
-                autoComplete="tel"
-                autoFocus
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-base text-white outline-none transition placeholder:text-white/30 focus:border-[#8bd6b4]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]"
-              />
-              <p className="mt-2 text-xs leading-5 text-white/45">
-                Enter it however you like — we normalize it before sending the SMS.
-              </p>
+          <div className="flex flex-col items-center text-center animate-in fade-in duration-200">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[#8bd6b4]/20 bg-[#0e2418] text-[#8bd6b4] ring-4 ring-[#8bd6b4]/10">
+              <ShieldCheck className="h-8 w-8" />
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <h3 id="otp-verification-title" className="text-2xl font-semibold tracking-[-0.03em] text-white">{title}</h3>
+            <p className="mt-2 text-sm leading-6 text-white/60">
+              Enter your UAE number (+971) to get a verification code.
+            </p>
+            <input
+              id="phone-verification-phone"
+              type="tel"
+              value={phoneInput}
+              onChange={(event) => setPhoneInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && phoneInput && !busy) {
+                  event.preventDefault()
+                  void sendOrResend()
+                }
+              }}
+              placeholder="+971 50 123 4567"
+              autoComplete="tel"
+              autoFocus
+              className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-center text-base text-white outline-none transition placeholder:text-white/30 focus:border-[#8bd6b4]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]"
+            />
+            <div className="mt-2 h-5 text-sm font-medium text-[#ffb3b3]">{error || ""}</div>
+            <button
+              type="button"
+              className="auth-button primary-button mt-2 w-full"
+              onClick={sendOrResend}
+              disabled={busy || !phoneInput}
+            >
+              {busy ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending code...
+                </span>
+              ) : (
+                "Send code"
+              )}
+            </button>
+            {!hideClose && closeHandler ? (
               <button
                 type="button"
-                className="auth-button primary-button"
-                onClick={sendOrResend}
-                disabled={busy || !phoneInput}
+                onClick={closeHandler}
+                className="mt-3 text-xs text-white/45 transition hover:text-white/70"
               >
-                {busy ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending code...
-                  </span>
-                ) : (
-                  "Send code"
-                )}
+                Cancel
               </button>
-              {cancelButton}
-            </div>
+            ) : null}
           </div>
         ) : (
-          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-1 duration-200">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#8bd6b4]/12 bg-[#0b1a12] px-4 py-3">
-              <div className="min-w-0">
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Code sent to</span>
-                <strong className="mt-0.5 block break-all text-base font-semibold text-white">{displayPhone || "your phone"}</strong>
-              </div>
-              <button
-                type="button"
-                onClick={changeNumber}
-                disabled={busy}
-                className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-[#bfeac8] transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
-              >
-                Change
-              </button>
-            </div>
+          <div className="flex flex-col items-center text-center animate-in fade-in duration-200">
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[#8bd6b4]/20 bg-[#0e2418] text-[#8bd6b4] ring-4 ring-[#8bd6b4]/10"
+            >
+              <ShieldCheck className="h-8 w-8" />
+            </motion.div>
+            <h3 id="otp-verification-title" className="text-2xl font-semibold tracking-[-0.03em] text-white">
+              Enter verification code
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-white/60">
+              We sent a {otpLength}-digit code to
+              <br />
+              <span className="font-semibold text-white">{displayPhone || "your phone"}</span>
+            </p>
 
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
-                  Enter the {otpLength}-digit code
-                </span>
+            <div className="mt-7">{codeInputs}</div>
+
+            <div className="mt-3 h-5 text-sm font-medium text-[#ffb3b3]">{error || ""}</div>
+
+            {loading ? (
+              <div className="inline-flex items-center gap-2 text-sm text-[#bfeac8]">
+                <Loader2 className="h-4 w-4 animate-spin" /> Verifying...
+              </div>
+            ) : null}
+
+            <div className="mt-5 text-sm text-white/55">
+              Didn&apos;t get a code?{" "}
+              {cooldownRemaining > 0 ? (
+                <span className="text-white/40">Resend in {cooldownRemaining}s</span>
+              ) : (
                 <button
                   type="button"
                   onClick={sendOrResend}
-                  disabled={busy || cooldownRemaining > 0}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#bfeac8] transition hover:text-white disabled:text-white/35"
+                  disabled={busy}
+                  className="font-semibold text-[#bfeac8] transition hover:underline disabled:opacity-40"
                 >
-                  <RefreshCw className={cn("h-3.5 w-3.5", starting && "animate-spin")} />
-                  {cooldownRemaining > 0 ? `Resend in ${cooldownRemaining}s` : "Resend"}
+                  Click to resend
                 </button>
-              </div>
-              {codeInputs}
+              )}
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <button
-                type="submit"
-                className="auth-button primary-button"
-                disabled={loading || otp.join("").length !== otpLength}
-              >
-                {loading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Verifying...
-                  </span>
-                ) : (
-                  "Verify code"
-                )}
-              </button>
-              {cancelButton}
-            </div>
+            <button
+              type="button"
+              onClick={changeNumber}
+              disabled={busy}
+              className="mt-3 text-xs text-white/45 transition hover:text-white/70 disabled:opacity-40"
+            >
+              Change number
+            </button>
           </div>
         )}
-
-        <div className="mt-6 border-t border-white/10 pt-4 text-xs leading-5 text-white/45">
-          By continuing, you confirm this phone number belongs to your account.
-        </div>
       </div>
     </form>
   )
