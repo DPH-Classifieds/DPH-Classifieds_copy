@@ -34,13 +34,13 @@ class InfobipPayloadTests(unittest.TestCase):
 
         response = Mock()
         response.status_code = 200
-        response.json.return_value = {"messages": []}
+        response.json.return_value = {"messages": [{"status": {"groupName": "PENDING", "name": "PENDING_ACCEPTED"}}]}
         mock_post.return_value = response
 
         sent, result = backend._send_infobip_sms("+971 50 123 4567", "Hello")
 
         self.assertTrue(sent)
-        self.assertEqual(result, {"messages": []})
+        self.assertEqual(result, {"messages": [{"status": {"groupName": "PENDING", "name": "PENDING_ACCEPTED"}}]})
         self.assertTrue(mock_post.called)
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(
@@ -56,13 +56,13 @@ class InfobipPayloadTests(unittest.TestCase):
 
         response = Mock()
         response.status_code = 200
-        response.json.return_value = {"messages": []}
+        response.json.return_value = {"messages": [{"status": {"groupName": "PENDING", "name": "PENDING_ACCEPTED"}}]}
         mock_post.return_value = response
 
         sent, result = backend._send_infobip_sms("+971 50 123 4567", "Hello")
 
         self.assertTrue(sent)
-        self.assertEqual(result, {"messages": []})
+        self.assertEqual(result, {"messages": [{"status": {"groupName": "PENDING", "name": "PENDING_ACCEPTED"}}]})
         self.assertTrue(mock_post.called)
         self.assertTrue(mock_post.call_args.args[0].startswith("https://eedd6r.api.infobip.com/sms/3/messages"))
 
