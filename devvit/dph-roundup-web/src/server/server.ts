@@ -151,6 +151,7 @@ async function postRoundup(): Promise<{
     body: string
     count: number
     cycle_id?: string
+    content_hash?: string
     schema?: string
   }
   try {
@@ -168,8 +169,12 @@ async function postRoundup(): Promise<{
   if (!data.count) return {count: 0, skipped: true}
 
   const cycleId = data.cycle_id
-  if (!cycleId) throw Error('GitHub bridge payload has no cycle_id')
-  const postedKey = `roundup:posted:${targetSub}:${cycleId}`
+  const contentHash = data.content_hash
+  if (!cycleId || !contentHash)
+    throw Error('GitHub bridge payload has no cycle_id/content_hash')
+  // A changed prepared post is a new revision for a moderator-initiated test,
+  // while the unchanged scheduled payload remains exactly-once.
+  const postedKey = `roundup:posted:${targetSub}:${cycleId}:${contentHash}`
   if (await redis.get(postedKey)) {
     return {count: data.count, skipped: true}
   }

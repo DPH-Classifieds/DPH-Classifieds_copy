@@ -20,6 +20,7 @@ Cars only for now; extend LISTING_QUERIES to add bikes/parts/plates.
 """
 import logging
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 
 import requests
@@ -34,7 +35,11 @@ SUPABASE_SERVICE_KEY = (
 )
 SITE_URL = os.getenv("SITE_URL", "https://www.dphclassifieds.com").rstrip("/")
 DUBAI_OFFSET = timedelta(hours=4)  # ponytail: UAE is UTC+4 year-round, no DST → no tzdata dep.
-FOOTER = "\n\n---\n\n*Posted automatically by DPH Classifieds — https://www.dphclassifieds.com*"
+FOOTER = (
+    "\n\n---\n\n"
+    "*For a smoother viewing experience, browse all listings on "
+    "[dphclassifieds.com](https://www.dphclassifieds.com).*"
+)
 
 # To expand beyond cars: add {"table","type","make","model","year","price"} rows here
 # and the query loop + url builder already handle the rest.
@@ -107,8 +112,13 @@ def _cell(value) -> str:
 
 
 def _format_mileage(value) -> str:
+    """Format numeric mileage and common Reddit shorthand (e.g. ``139k``)."""
+    raw = str(value or "").strip().lower().replace(",", "")
+    # Reddit sale posts commonly write 2k, 20k, or 139k. Accept an optional
+    # space and optional trailing km without treating unrelated text as a value.
+    shorthand = re.fullmatch(r"(\d+(?:\.\d+)?)\s*k(?:\s*km)?", raw)
     try:
-        n = int(float(value))
+        n = int(float(shorthand.group(1)) * 1000) if shorthand else int(float(raw))
         if n > 0:
             return f"{n:,} km"
     except (TypeError, ValueError):
@@ -117,16 +127,17 @@ def _format_mileage(value) -> str:
 
 
 def _row_cells(row, site_url=SITE_URL, link_as_url=False):
-    """One listing → 6 cells. Markdown gets a [View](url) link; the console
-    preview (link_as_url) gets the bare URL so it's readable/clickable."""
+    """One listing → 6 cells with an explicit source-aware link label."""
     link = _listing_url(row, site_url)
+    is_reddit = str(row.get("source_platform") or "").strip().lower() == "reddit"
+    link_label = "Reddit link" if is_reddit else "View on DPH Classifieds"
     return [
         _cell(row.get("make_year")),
         _cell(row.get("car_manufacturer")),
         _cell(row.get("car_model")),
         _format_mileage(row.get("kilometer_driven")),
         _format_price(row.get("expected_selling_price")),
-        link if link_as_url else f"[View]({link})",
+        link if link_as_url else f"[{link_label}]({link})",
     ]
 
 
@@ -137,7 +148,7 @@ def build_post(rows, date_label, site_url=SITE_URL, max_rows=50):
     n = len(rows)
     extra = (f"\n\n…and {n - max_rows} more at https://www.dphclassifieds.com"
              if n > max_rows else "")
-    title = f"🚗 New cars on DPH Classifieds — {date_label}"
+    title = f"New cars on DPH Classifieds — {date_label}"
     body = (f"**{n} new car{'' if n == 1 else 's'} listed**\n\n"
             + "\n".join(lines) + extra + FOOTER)
     return title, body

@@ -1,6 +1,6 @@
 """Self-check for the daily-post formatting: price, source-aware links, title/body."""
 from workers.reddit_daily_post_worker import (
-    _format_price, _listing_url, _row_cells, _ascii_table, build_post,
+    _format_mileage, _format_price, _listing_url, _row_cells, _ascii_table, build_post,
 )
 
 SITE = "https://www.dphclassifieds.com"
@@ -21,6 +21,13 @@ def test_link_routing():
     assert _listing_url(reddit, SITE) == "https://www.reddit.com/r/x/y"
 
 
+def test_mileage_normalizes_reddit_shorthand():
+    assert _format_mileage("139k") == "139,000 km"
+    assert _format_mileage("20K") == "20,000 km"
+    assert _format_mileage("2k km") == "2,000 km"
+    assert _format_mileage("137,000") == "137,000 km"
+
+
 def test_row_and_post():
     rows = [
         {"id": "1", "make_year": 2021, "car_manufacturer": "Nissan", "car_model": "GT-R",
@@ -29,7 +36,7 @@ def test_row_and_post():
          "make_year": 2018, "car_manufacturer": "BMW", "car_model": "M3",
          "expected_selling_price": None},
     ]
-    assert _row_cells(rows[0], SITE) == ["2021", "Nissan", "GT-R", "42,000 km", "AED 450,000", f"[View]({SITE}/cars/1)"]
+    assert _row_cells(rows[0], SITE) == ["2021", "Nissan", "GT-R", "42,000 km", "AED 450,000", f"[View on DPH Classifieds]({SITE}/cars/1)"]
     assert _row_cells(rows[1], SITE)[3] == "—"                # missing mileage
     # preview mode swaps the markdown link for the bare URL (last cell)
     assert _row_cells(rows[0], SITE, link_as_url=True)[-1] == f"{SITE}/cars/1"
@@ -41,7 +48,10 @@ def test_row_and_post():
     assert "|:---:|:---|:---|---:|---:|:---:|" in body                  # alignment row
     assert "Price on request" in body                         # null-price row
     assert "https://www.reddit.com/r/x/z" in body             # reddit row links out
-    assert body.count("[View](") == 2                         # one link per listing
+    assert "[View on DPH Classifieds]" in body
+    assert "[Reddit link](https://www.reddit.com/r/x/z)" in body
+    assert "For a smoother viewing experience" in body
+    assert "🚗" not in title
 
     # pipe in a field can't break the table; singular grammar for one row
     _, body1 = build_post([{"id": "9", "car_model": "A|B", "expected_selling_price": 5000}], "x", SITE)
@@ -61,5 +71,5 @@ def test_ascii_table_aligns():
 
 
 if __name__ == "__main__":
-    test_price(); test_link_routing(); test_row_and_post(); test_ascii_table_aligns()
+    test_price(); test_link_routing(); test_mileage_normalizes_reddit_shorthand(); test_row_and_post(); test_ascii_table_aligns()
     print("ok")
