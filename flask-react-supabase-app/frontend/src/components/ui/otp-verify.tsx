@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { KeyRound, Loader2, RefreshCw, ShieldCheck, X } from "lucide-react"
+import { motion, useAnimationControls } from "motion/react"
 
 import { cn } from "../../lib/utils"
 import { getAccessToken } from "../../utils/supabaseClient"
@@ -52,6 +53,8 @@ export function OTPVerification({
   const [verified, setVerified] = useState(false)
   const [cooldownRemaining, setCooldownRemaining] = useState(0)
   const inputRefs = useRef([])
+  // Drives the shake-on-wrong-code animation for the whole digit row.
+  const shakeControls = useAnimationControls()
   // ponytail: fire auto-start at most once per context; failed starts must NOT
   // re-trigger the effect (that caused the /start request storm → 400s then 429s).
   const autoStartedRef = useRef(false)
@@ -363,6 +366,13 @@ export function OTPVerification({
       }
     } catch (verifyError) {
       setError(verifyError?.message || "Failed to verify code")
+      // Shake the row and clear it so the user can retype immediately.
+      void shakeControls.start({
+        x: [0, -9, 8, -6, 5, 0],
+        transition: { duration: 0.4, ease: "easeInOut" },
+      })
+      setOtp(emptyOtp(otpLength))
+      window.requestAnimationFrame(() => inputRefs.current[0]?.focus())
     } finally {
       setLoading(false)
     }
@@ -408,9 +418,12 @@ export function OTPVerification({
   const busy = loading || starting
 
   const codeInputs = (
-    <div className={cn("grid gap-2 sm:gap-3", otpLength === 4 ? "grid-cols-4" : "grid-cols-6")}>
+    <motion.div
+      animate={shakeControls}
+      className={cn("grid gap-2 sm:gap-3", otpLength === 4 ? "grid-cols-4" : "grid-cols-6")}
+    >
       {otp.map((digit, index) => (
-        <input
+        <motion.input
           key={index}
           ref={(el) => {
             inputRefs.current[index] = el
@@ -424,14 +437,18 @@ export function OTPVerification({
           onPaste={handlePaste}
           maxLength={1}
           aria-label={`Verification digit ${index + 1}`}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 700, damping: 22, delay: index * 0.05 }}
+          whileFocus={{ y: -4, scale: 1.05 }}
           className={cn(
-            "aspect-square w-full rounded-2xl border text-center text-xl font-semibold text-white outline-none transition-all duration-150",
-            "focus:border-[#8bd6b4]/60 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.15)] focus:scale-[1.04]",
-            digit ? "border-[#8bd6b4]/40 bg-white/[0.06]" : "border-white/10 bg-white/[0.03]"
+            "aspect-square w-full rounded-2xl border text-center text-xl font-semibold text-white outline-none transition-colors duration-150",
+            "focus:border-[#8bd6b4]/70 focus:bg-white/[0.08] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.18)]",
+            digit ? "border-[#8bd6b4]/45 bg-white/[0.06]" : "border-white/10 bg-white/[0.03]"
           )}
         />
       ))}
-    </div>
+    </motion.div>
   )
 
   const cancelButton =
@@ -481,11 +498,23 @@ export function OTPVerification({
         ) : null}
 
         {verified ? (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#8bd6b4]/20 bg-[#0d2217] px-4 py-8 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#8bd6b4]/15 text-[#8bd6b4]">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <p className="text-base font-semibold text-white">Phone verified</p>
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#8bd6b4]/20 bg-[#0d2217] px-4 py-8 text-center">
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 24 }}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#8bd6b4]/15 text-[#8bd6b4] ring-4 ring-[#8bd6b4]/10"
+            >
+              <ShieldCheck className="h-7 w-7" />
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.3 }}
+              className="text-base font-semibold text-white"
+            >
+              Phone verified
+            </motion.p>
             <p className="text-sm text-white/60">{message || "You're all set."}</p>
           </div>
         ) : !hasSession ? (
