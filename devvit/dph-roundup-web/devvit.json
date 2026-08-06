@@ -41,7 +41,7 @@
     "tasks": {
       "roundup": {
         "endpoint": "/internal/cron/roundup",
-        "cron": "0 9 */2 * *"
+        "cron": "0 15 */2 * *"
       }
     }
   },
