@@ -1,6 +1,6 @@
 import {once} from 'node:events'
 import type {IncomingMessage, ServerResponse} from 'node:http'
-import {context, reddit, settings} from '@devvit/web/server'
+import {context, reddit, redis, settings} from '@devvit/web/server'
 import type {
   PartialJsonValue,
   TriggerResponse,
@@ -104,39 +104,76 @@ async function routeAppInstall(): Promise<TriggerResponse> {
 }
 
 /**
- * Fetch the pre-built roundup from the DPH backend and submit it. All data and
- * formatting live in the Flask backend; this stays a thin poster.
+ * Fetch the pre-built roundup from the GitHub bridge and submit it. Railway
+ * writes the bridge file; Devvit never needs to reach the Railway hostname.
  */
 async function postRoundup(): Promise<{
   count: number
   url?: string
   skipped?: boolean
 }> {
-  const roundupUrl = await settings.get<string>('roundupUrl')
-  const roundupToken = await settings.get<string>('roundupToken')
+  const githubRepo = (await settings.get<string>('githubRepo'))?.trim()
+  const githubPath = (await settings.get<string>('githubPath'))?.trim()
+  const githubBranch =
+    (await settings.get<string>('githubBranch'))?.trim() || 'main'
+  const githubToken = (await settings.get<string>('githubToken'))?.trim()
   const targetSub =
     (await settings.get<string>('targetSubreddit')) || context.subredditName
-  if (!roundupUrl || !roundupToken)
-    throw Error('roundupUrl / roundupToken not set in app settings')
+  if (!githubRepo || !githubPath)
+    throw Error('githubRepo / githubPath not set in app settings')
   if (!targetSub) throw Error('no target subreddit')
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(githubRepo))
+    throw Error('githubRepo must be owner/repo')
 
-  const res = await fetch(`${roundupUrl}?days=2`, {
-    headers: {'X-Roundup-Token': roundupToken},
-  })
-  if (!res.ok) throw Error(`roundup fetch failed: ${res.status}`)
-
-  const data = (await res.json()) as {
+  const path = githubPath.split('/').map(encodeURIComponent).join('/')
+  const res = await fetch(
+    `https://api.github.com/repos/${githubRepo}/contents/${path}?ref=${encodeURIComponent(githubBranch)}`,
+    {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        ...(githubToken ? {Authorization: `Bearer ${githubToken}`} : {}),
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    },
+  )
+  if (!res.ok) throw Error(`GitHub roundup fetch failed: ${res.status}`)
+  const source = (await res.json()) as {content?: string; encoding?: string}
+  if (source.encoding !== 'base64' || !source.content)
+    throw Error('GitHub bridge response has no base64 content')
+  let data: {
     title: string
     body: string
     count: number
+    cycle_id?: string
+    schema?: string
   }
+  try {
+    data = JSON.parse(Buffer.from(source.content, 'base64').toString('utf8'))
+  } catch {
+    throw Error('GitHub bridge JSON is invalid')
+  }
+  if (
+    data.schema !== 'dph-reddit-roundup/v1' ||
+    !data.title ||
+    !data.body ||
+    !Number.isInteger(data.count)
+  )
+    throw Error('GitHub bridge payload is invalid')
   if (!data.count) return {count: 0, skipped: true}
+
+  const cycleId = data.cycle_id
+  if (!cycleId) throw Error('GitHub bridge payload has no cycle_id')
+  const postedKey = `roundup:posted:${targetSub}:${cycleId}`
+  if (await redis.get(postedKey)) {
+    return {count: data.count, skipped: true}
+  }
 
   const post = await reddit.submitPost({
     subredditName: targetSub,
     title: data.title,
     text: data.body,
   })
+  await redis.set(postedKey, post.id)
   return {count: data.count, url: post.url}
 }
 

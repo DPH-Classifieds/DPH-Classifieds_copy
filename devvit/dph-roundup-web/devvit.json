@@ -15,18 +15,27 @@
   "permissions": {
     "http": {
       "enable": true,
-      "domains": ["devvit-api.dphclassifieds.com"]
+      "domains": ["api.github.com"]
     }
   },
   "settings": {
     "global": {
-      "roundupUrl": {
+      "githubRepo": {
         "type": "string",
-        "label": "Backend roundup URL (e.g. https://api.dphclassifieds.com/api/reddit/daily-roundup)"
+        "label": "GitHub bridge repository (owner/repo)"
       },
-      "roundupToken": {
+      "githubPath": {
         "type": "string",
-        "label": "X-Roundup-Token secret (matches REDDIT_ROUNDUP_TOKEN on the backend)"
+        "label": "GitHub bridge JSON path (e.g. dph-roundup.json)"
+      },
+      "githubBranch": {
+        "type": "string",
+        "label": "GitHub bridge branch (e.g. main)"
+      },
+      "githubToken": {
+        "type": "string",
+        "isSecret": true,
+        "label": "Optional read-only GitHub token (leave blank for a public bridge repo)"
       }
     },
     "subreddit": {

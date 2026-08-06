@@ -173,6 +173,7 @@ def main():
         from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
         from workers.reddit_import_worker import run as _run_reddit_import_once
         from workers.reddit_daily_post_worker import run as _run_reddit_daily_post_once
+        from workers.reddit_roundup_bridge_worker import run as _run_reddit_roundup_bridge_once
         from workers.webhook_delivery_worker import run as _run_webhook_delivery_once
         from workers.auto_review_worker import run as _run_auto_review_once
         from health_monitoring import (
@@ -239,6 +240,9 @@ def main():
     )
     reddit_daily_post_interval_seconds = int(
         os.getenv("REDDIT_DAILY_POST_INTERVAL_SECONDS", str(60 * 60))
+    )
+    reddit_roundup_bridge_interval_seconds = int(
+        os.getenv("REDDIT_ROUNDUP_BRIDGE_INTERVAL_SECONDS", str(60 * 60))
     )
     webhook_delivery_interval_seconds = int(
         os.getenv("WEBHOOK_DELIVERY_INTERVAL_SECONDS", "5")
@@ -391,6 +395,16 @@ def main():
         name="reddit-daily-post",
         daemon=True,
     )
+    reddit_roundup_bridge_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "reddit_roundup_bridge_worker",
+            _run_reddit_roundup_bridge_once,
+            reddit_roundup_bridge_interval_seconds,
+        ),
+        name="reddit-roundup-bridge",
+        daemon=True,
+    )
     webhook_delivery_thread = threading.Thread(
         target=scheduled_loop,
         args=(
@@ -432,6 +446,7 @@ def main():
     dealer_api_poll_thread.start()
     reddit_import_thread.start()
     reddit_daily_post_thread.start()
+    reddit_roundup_bridge_thread.start()
     webhook_delivery_thread.start()
     auto_review_thread.start()
     price_drop_alert_thread.start()
@@ -458,6 +473,11 @@ def main():
         reddit_daily_post_interval_seconds,
         str(os.getenv("REDDIT_DAILY_POST_ENABLED", "false")),
         str(os.getenv("REDDIT_DAILY_POST_HOUR", "9")),
+    )
+    logger.info(
+        "Reddit roundup GitHub bridge registered (interval=%ss enabled=%s) — prepares Devvit payload only",
+        reddit_roundup_bridge_interval_seconds,
+        str(os.getenv("REDDIT_ROUNDUP_BRIDGE_ENABLED", "false")),
     )
 
     cleanup_thread = None
