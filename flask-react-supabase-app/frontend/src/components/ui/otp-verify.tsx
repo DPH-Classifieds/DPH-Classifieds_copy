@@ -63,7 +63,11 @@ export function OTPVerification({
   // other numbers fall back to the Infobip SMS flow (/start + /verify) unchanged.
   // Decision is per-number and stable between send and verify (phone can't change
   // mid-session without a reset), so start and verify always agree on the path.
-  const useMsg91 = shouldUseMsg91(phoneInput || phone)
+  // Backend is authoritative: if /start says a number is MSG91-routed, we honor it
+  // even when our own prefix config disagreed. This kills the "code sent, no box"
+  // dead-end caused by frontend/backend prefix mismatch.
+  const [serverForcedMsg91, setServerForcedMsg91] = useState(false)
+  const useMsg91 = shouldUseMsg91(phoneInput || phone) || serverForcedMsg91
   const otpLength = useMsg91 ? OTP_LENGTH_MSG91 : OTP_LENGTH_DEFAULT
   const displayPhone = useMemo(() => {
     return (
@@ -77,6 +81,7 @@ export function OTPVerification({
     setPhoneInput(phone || "")
     setPhoneVerification(null)
     setVerified(false)
+    setServerForcedMsg91(false)
     setOtp(emptyOtp(otpLength))
     setMessage("")
     setError("")
@@ -260,6 +265,22 @@ export function OTPVerification({
       }
 
       const nextVerificationId = data.phone_verification?.verification_id || null
+      // Backend routed this number to the MSG91 widget (no server SMS, no id).
+      // Honor it: run the widget send so the code UI appears, instead of a dead
+      // "code sent" with no input box.
+      if (!nextVerificationId && data.phone_verification?.provider === "msg91_widget") {
+        await ensureMsg91Widget()
+        await msg91SendOtp(toMsg91Identifier(phoneInput))
+        setServerForcedMsg91(true)
+        setVerificationId("msg91")
+        setPhoneVerification(data.phone_verification)
+        setMessage("Verification code sent.")
+        setCooldownRemaining(RESEND_COOLDOWN)
+        return
+      }
+      if (!nextVerificationId) {
+        throw new Error("Verification could not be started. Please try again.")
+      }
       setVerificationId(nextVerificationId || verificationId)
       setPhoneVerification(data.phone_verification || null)
       setMessage("Verification code sent.")
