@@ -36,11 +36,20 @@ export default function AdminToolsScreen() {
   const [autoReviewToast, setAutoReviewToast] = useState(null);
   const [flushRunning, setFlushRunning] = useState(false);
   const [flushToast, setFlushToast] = useState(null);
+  const [roeEnabled, setRoeEnabled] = useState(null);
+  const [roeToggleLoading, setRoeToggleLoading] = useState(false);
+  const [roeToast, setRoeToast] = useState(null);
 
   useEffect(() => {
     apiClient.get('/api/admin/auto-review/settings')
       .then((data) => setArEnabled(Boolean(data?.enabled)))
       .catch(() => setArEnabled(false));
+  }, []);
+
+  useEffect(() => {
+    apiClient.get('/api/admin/reddit-explore/settings')
+      .then((data) => setRoeEnabled(Boolean(data?.enabled)))
+      .catch(() => setRoeEnabled(false));
   }, []);
 
   const toggleAutoReview = useCallback(async () => {
@@ -57,6 +66,21 @@ export default function AdminToolsScreen() {
       setArToggleLoading(false);
     }
   }, [arEnabled]);
+
+  const toggleRedditOnExplore = useCallback(async () => {
+    const newVal = !roeEnabled;
+    setRoeEnabled(newVal);
+    setRoeToggleLoading(true);
+    try {
+      const res = await apiClient.patch('/api/admin/reddit-explore/settings', { enabled: newVal });
+      setRoeEnabled(Boolean(res?.enabled));
+    } catch (err) {
+      setRoeEnabled(!newVal);
+      setRoeToast({ type: 'error', msg: `Failed: ${err.message || 'Unknown error'}` });
+    } finally {
+      setRoeToggleLoading(false);
+    }
+  }, [roeEnabled]);
 
   const runAutoReview = useCallback(async () => {
     setAutoReviewRunning(true);
@@ -121,6 +145,33 @@ export default function AdminToolsScreen() {
           runLabel="Run now"
           toast={autoReviewToast}
         />
+
+        <Text style={styles.sectionLabel}>Reddit imported listings</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="logo-reddit" size={22} color={COLORS.textMuted} />
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Show Reddit on Explore</Text>
+              <Text style={styles.cardDescription}>
+                When on, Reddit-imported listings are mixed into the main Explore feed. When off, they stay in the Reddit tab only. (Requires Reddit listings to be visible on the site.)
+              </Text>
+            </View>
+          </View>
+          <View style={styles.toggleRow}>
+            <Switch
+              value={Boolean(roeEnabled)}
+              onValueChange={toggleRedditOnExplore}
+              disabled={roeEnabled === null || roeToggleLoading}
+            />
+            <Text style={styles.toggleLabel}>
+              {roeEnabled === null ? 'Loading…' : roeEnabled ? 'On Explore feed' : 'Reddit tab only'}
+              {roeToggleLoading ? ' · Saving…' : ''}
+            </Text>
+          </View>
+          {roeToast && (
+            <Text style={[styles.toast, roeToast.type === 'error' && styles.toastError]}>{roeToast.msg}</Text>
+          )}
+        </View>
 
         <Text style={styles.sectionLabel}>Cache</Text>
         <ToolCard
