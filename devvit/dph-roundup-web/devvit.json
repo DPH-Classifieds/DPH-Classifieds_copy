@@ -53,6 +53,13 @@
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/on/menu/roundup"
+      },
+      {
+        "label": "DPH: force repost current roundup (testing)",
+        "description": "Moderator-only test repost; limited to one attempt every 10 minutes.",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/on/menu/force-roundup"
       }
     ]
   },

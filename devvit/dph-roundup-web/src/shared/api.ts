@@ -16,6 +16,7 @@ export const Endpoint = {
   OnMenuNewPost: 'internal/on/menu/new-post',
   OnCronRoundup: 'internal/cron/roundup',
   OnMenuRoundup: 'internal/on/menu/roundup',
+  OnMenuForceRoundup: 'internal/on/menu/force-roundup',
 } as const
 
 export const EndpointMethod = {
@@ -25,4 +26,5 @@ export const EndpointMethod = {
   [Endpoint.OnMenuNewPost]: 'POST',
   [Endpoint.OnCronRoundup]: 'POST',
   [Endpoint.OnMenuRoundup]: 'POST',
+  [Endpoint.OnMenuForceRoundup]: 'POST',
 } as const satisfies {[endpoint: string]: 'GET' | 'POST'}

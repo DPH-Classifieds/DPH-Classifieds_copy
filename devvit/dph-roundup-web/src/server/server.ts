@@ -66,6 +66,9 @@ async function route(
       case Endpoint.OnMenuRoundup:
         rsp = await routeMenuRoundup()
         break
+      case Endpoint.OnMenuForceRoundup:
+        rsp = await routeMenuForceRoundup()
+        break
       default:
         endpoint satisfies never
         rsp = {error: 'not found', status: 404}
@@ -107,7 +110,9 @@ async function routeAppInstall(): Promise<TriggerResponse> {
  * Fetch the pre-built roundup from the GitHub bridge and submit it. Railway
  * writes the bridge file; Devvit never needs to reach the Railway hostname.
  */
-async function postRoundup(): Promise<{
+const FORCE_REPOST_COOLDOWN_MS = 10 * 60 * 1000
+
+async function postRoundup(force = false): Promise<{
   count: number
   url?: string
   skipped?: boolean
@@ -175,7 +180,15 @@ async function postRoundup(): Promise<{
   // A changed prepared post is a new revision for a moderator-initiated test,
   // while the unchanged scheduled payload remains exactly-once.
   const postedKey = `roundup:posted:${targetSub}:${cycleId}:${contentHash}`
-  if (await redis.get(postedKey)) {
+  const forceKey = `roundup:force:last:${targetSub}`
+  if (force) {
+    const lastForce = Number(await redis.get(forceKey))
+    const remaining = FORCE_REPOST_COOLDOWN_MS - (Date.now() - lastForce)
+    if (Number.isFinite(lastForce) && remaining > 0)
+      throw Error(
+        `force repost cooldown: retry in ${Math.ceil(remaining / 60000)} min`,
+      )
+  } else if (await redis.get(postedKey)) {
     return {count: data.count, skipped: true}
   }
 
@@ -185,6 +198,7 @@ async function postRoundup(): Promise<{
     text: data.body,
   })
   await redis.set(postedKey, post.id)
+  if (force) await redis.set(forceKey, `${Date.now()}`)
   return {count: data.count, url: post.url}
 }
 
@@ -213,6 +227,21 @@ async function routeMenuRoundup(): Promise<UiResponse> {
     // Surface the real error in the toast so it's visible without playtest logs.
     const msg = err instanceof Error ? err.message : String(err)
     return {showToast: {text: `Roundup failed: ${msg}`.slice(0, 450)}}
+  }
+}
+
+async function routeMenuForceRoundup(): Promise<UiResponse> {
+  try {
+    const r = await postRoundup(true)
+    return {
+      showToast: {
+        text: `Test reposted ${r.count} cars.`,
+        appearance: 'success',
+      },
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return {showToast: {text: `Force repost failed: ${msg}`.slice(0, 450)}}
   }
 }
 
