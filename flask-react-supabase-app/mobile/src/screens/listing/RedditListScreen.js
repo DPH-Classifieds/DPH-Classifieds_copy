@@ -16,6 +16,7 @@ import { prefetchListing } from '../../utils/listingCache';
 import { toastApiError } from '../../utils/toast';
 
 const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
+const CATEGORY_LABEL = { cars: 'CAR', bikes: 'BIKE', plates: 'PLATE', parts: 'PART' };
 const ENDPOINTS = [['cars', '/api/cars'], ['bikes', '/api/bikes'], ['plates', '/api/plates'], ['parts', '/api/parts']];
 const TYPES = [
   { label: 'All', key: 'all' },
@@ -149,6 +150,9 @@ export default function RedditListScreen({ navigation }) {
           ) : (
             <View style={styles.imagePlaceholder}><Ionicons name="pricetag" size={28} color="rgba(255,255,255,0.2)" /></View>
           )}
+          {CATEGORY_LABEL[item.category] ? (
+            <View style={styles.categoryBadge}><Text style={styles.categoryBadgeText}>{CATEGORY_LABEL[item.category]}</Text></View>
+          ) : null}
           <View style={styles.redditBadge}><Text style={styles.redditBadgeText}>Reddit</Text></View>
         </View>
         <View style={styles.cardBody}>
@@ -233,8 +237,10 @@ const styles = StyleSheet.create({
   imageWrap: { aspectRatio: 4 / 3, backgroundColor: COLORS.surfaceDark },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  redditBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: '#ff4500', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  redditBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#ff4500', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   redditBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(5,16,10,0.72)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  categoryBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   cardBody: { padding: 10, gap: 3 },
   cardTitle: { color: COLORS.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '700' },
   cardSubtitle: { color: COLORS.textMuted, fontSize: FONT_SIZES.sm },
