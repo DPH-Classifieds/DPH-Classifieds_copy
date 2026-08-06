@@ -112,30 +112,32 @@ async function postRoundup(): Promise<{
   url?: string
   skipped?: boolean
 }> {
-  const githubRepo = (await settings.get<string>('githubRepo'))?.trim()
-  const githubPath = (await settings.get<string>('githubPath'))?.trim()
-  const githubBranch =
-    (await settings.get<string>('githubBranch'))?.trim() || 'main'
-  const githubToken = (await settings.get<string>('githubToken'))?.trim()
+  const githubUrl = (await settings.get<string>('roundupUrl'))?.trim()
+  const githubToken = (await settings.get<string>('roundupToken'))?.trim()
   const targetSub =
     (await settings.get<string>('targetSubreddit')) || context.subredditName
-  if (!githubRepo || !githubPath)
-    throw Error('githubRepo / githubPath not set in app settings')
+  if (!githubUrl) throw Error('roundupUrl is not set in app settings')
   if (!targetSub) throw Error('no target subreddit')
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(githubRepo))
-    throw Error('githubRepo must be owner/repo')
-
-  const path = githubPath.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(
-    `https://api.github.com/repos/${githubRepo}/contents/${path}?ref=${encodeURIComponent(githubBranch)}`,
-    {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        ...(githubToken ? {Authorization: `Bearer ${githubToken}`} : {}),
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    },
+  let githubApi: URL
+  try {
+    githubApi = new URL(githubUrl)
+  } catch {
+    throw Error('roundupUrl must be a valid GitHub API URL')
+  }
+  if (
+    githubApi.protocol !== 'https:' ||
+    githubApi.hostname !== 'api.github.com'
   )
+    throw Error('roundupUrl must use api.github.com')
+  if (!githubApi.pathname.startsWith('/repos/'))
+    throw Error('roundupUrl must be a GitHub repository Contents API URL')
+  const res = await fetch(githubApi.toString(), {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      ...(githubToken ? {Authorization: `Bearer ${githubToken}`} : {}),
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  })
   if (!res.ok) throw Error(`GitHub roundup fetch failed: ${res.status}`)
   const source = (await res.json()) as {content?: string; encoding?: string}
   if (source.encoding !== 'base64' || !source.content)

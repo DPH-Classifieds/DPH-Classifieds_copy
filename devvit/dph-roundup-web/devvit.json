@@ -20,22 +20,14 @@
   },
   "settings": {
     "global": {
-      "githubRepo": {
+      "roundupUrl": {
         "type": "string",
-        "label": "GitHub bridge repository (owner/repo)"
+        "label": "GitHub roundup JSON API URL (api.github.com/repos/.../contents/...)",
       },
-      "githubPath": {
-        "type": "string",
-        "label": "GitHub bridge JSON path (e.g. dph-roundup.json)"
-      },
-      "githubBranch": {
-        "type": "string",
-        "label": "GitHub bridge branch (e.g. main)"
-      },
-      "githubToken": {
+      "roundupToken": {
         "type": "string",
         "isSecret": true,
-        "label": "Optional read-only GitHub token (leave blank for a public bridge repo)"
+        "label": "Optional read-only GitHub token (blank for the public bridge repo)"
       }
     },
     "subreddit": {
@@ -57,7 +49,7 @@
     "items": [
       {
         "label": "DPH: post roundup now",
-        "description": "Fetch the latest DPH car roundup and post it.",
+        "description": "Fetch the prepared DPH car roundup and post it.",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/on/menu/roundup"
