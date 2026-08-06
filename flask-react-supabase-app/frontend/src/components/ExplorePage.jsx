@@ -442,10 +442,12 @@ const scoreAllMatch = (item, query) => {
   return score;
 };
 
-const ExplorePage = () => {
+const ExplorePage = ({ forcedCategory } = {}) => {
   const location = useLocation();
   const { user } = useAuth();
-  const initialCategory = new URLSearchParams(location.search).get('category') || 'all';
+  // forcedCategory lets a dedicated route (e.g. /reddit) pin the mode without a
+  // ?category= query param, so the URL stays clean.
+  const initialCategory = forcedCategory || new URLSearchParams(location.search).get('category') || 'all';
   const [inventory, setInventory] = useState({
     cars: [],
     bikes: [],
@@ -476,7 +478,7 @@ const ExplorePage = () => {
     const params = new URLSearchParams(location.search);
     const q = params.get('q') || '';
     const city = params.get('city') || '';
-    const cat = params.get('category') || 'all';
+    const cat = forcedCategory || params.get('category') || 'all';
 
     if (q) {
       setGlobalQuery(q);
@@ -493,7 +495,7 @@ const ExplorePage = () => {
     if (cat && exploreModes.some((m) => m.key === cat)) {
       setActiveMode(cat);
     }
-  }, [location.search]);
+  }, [location.search, forcedCategory]);
 
   const seoData = buildStaticSeo({
     title: activeMode === 'all'
@@ -503,7 +505,7 @@ const ExplorePage = () => {
       activeMode === 'all'
         ? 'Browse the full UAE marketplace with a premium explore surface for cars, bikes, car parts, and plates.'
         : `Browse ${exploreModes.find((mode) => mode.key === activeMode)?.label?.toLowerCase() || 'listings'} in the UAE marketplace on DPH Classifieds.`,
-    path: '/explore',
+    path: forcedCategory === 'reddit' ? '/reddit' : '/explore',
     keywords: [
       'UAE marketplace',
       'used cars UAE',

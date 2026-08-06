@@ -139,6 +139,7 @@ const AdminTools = () => {
     flushCache: initialToolState(),
     autoReview: initialToolState(),
     redditVisibility: initialToolState(),
+    redditOnExplore: initialToolState(),
   });
 
   // Auto-review toggle state: null = loading, true/false = known
@@ -167,6 +168,20 @@ const AdminTools = () => {
         setRedditSource(data.source);
       })
       .catch(() => setRedditEnabled(false));
+  }, []);
+
+  // Reddit-on-explore toggle: mix Reddit listings into the main explore feed
+  const [redditOnExplore, setRedditOnExplore] = useState(null);
+  const [redditExploreLoading, setRedditExploreLoading] = useState(false);
+  const [redditExploreSource, setRedditExploreSource] = useState(null);
+
+  useEffect(() => {
+    apiClient.get('/api/admin/reddit-explore/settings')
+      .then(data => {
+        setRedditOnExplore(data.enabled);
+        setRedditExploreSource(data.source);
+      })
+      .catch(() => setRedditOnExplore(false));
   }, []);
 
   const updateTool = useCallback((id, patch) => {
@@ -285,6 +300,24 @@ const AdminTools = () => {
       setRedditToggleLoading(false);
     }
   }, [redditEnabled, successToast, errorToast]);
+
+  // ── tool: reddit listings on the main explore feed ────────────────────────
+  const toggleRedditOnExplore = useCallback(async () => {
+    const newVal = !redditOnExplore;
+    setRedditOnExplore(newVal);
+    setRedditExploreLoading(true);
+    try {
+      const res = await apiClient.patch('/api/admin/reddit-explore/settings', { enabled: newVal });
+      setRedditOnExplore(res.enabled);
+      setRedditExploreSource(res.source);
+      successToast('redditOnExplore', `Reddit ${res.enabled ? 'now shown on Explore ✓' : 'kept to its own tab'}`);
+    } catch (err) {
+      setRedditOnExplore(!newVal); // revert
+      errorToast('redditOnExplore', `Failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setRedditExploreLoading(false);
+    }
+  }, [redditOnExplore, successToast, errorToast]);
 
   // ── tool: run auto-review now ─────────────────────────────────────────────
   const runAutoReview = useCallback(async () => {
@@ -443,6 +476,45 @@ const AdminTools = () => {
             </div>
 
             <InlineToast toast={toolStates.redditVisibility.toast} />
+          </GlassCard>
+
+          <GlassCard className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <Rss size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-white leading-snug">Show Reddit listings on Explore</p>
+                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                  When on, Reddit-imported listings are mixed into the main Explore feed alongside normal listings. When off, they stay in their own Reddit tab only. (Requires "Show Reddit listings on site" to also be on.)
+                  {redditExploreSource === 'env' && (
+                    <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-auto pt-1">
+              <button
+                type="button"
+                onClick={toggleRedditOnExplore}
+                disabled={redditOnExplore === null || redditExploreLoading}
+                aria-label={redditOnExplore ? 'Hide Reddit from Explore' : 'Show Reddit on Explore'}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                  redditOnExplore ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                    redditOnExplore ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-sm font-medium text-white/70">
+                {redditOnExplore === null ? 'Loading…' : redditOnExplore ? 'On Explore feed' : 'Reddit tab only'}
+                {redditExploreLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+              </span>
+            </div>
+
+            <InlineToast toast={toolStates.redditOnExplore.toast} />
           </GlassCard>
         </div>
       </motion.div>

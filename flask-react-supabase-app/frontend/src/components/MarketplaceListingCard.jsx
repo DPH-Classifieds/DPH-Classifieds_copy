@@ -138,7 +138,7 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           {isCarListing ? carMetaParts.join(' • ') : item.subtitle}
         </p>
 
-        {!isCarListing && item.description ? (
+        {!isCarListing && !isReddit && item.description ? (
           <p className="explore-v2-card-description">{item.description}</p>
         ) : null}
 

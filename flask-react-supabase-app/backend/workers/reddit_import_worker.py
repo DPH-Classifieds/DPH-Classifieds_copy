@@ -282,6 +282,24 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
             return
         counts["updated"] += 1
     else:
+        # VIN dedup: if a DPH (non-reddit) car already carries this VIN, prefer the
+        # DPH listing and do NOT post the Reddit duplicate. Import-time only — it
+        # prevents the row ever existing, so every surface stays correct.
+        # ponytail: dedupes against DPH cars present AT import time; a DPH car added
+        # after this reddit import won't retroactively hide it.
+        if table == "cars" and payload.get("vin_number"):
+            vin = payload["vin_number"]
+            existing, dstatus = supabase_request(
+                "get",
+                f"/rest/v1/cars?select=id&vin_number=eq.{vin}"
+                "&or=(source_platform.is.null,source_platform.neq.reddit)&limit=1",
+            )
+            if dstatus < 400 and isinstance(existing, list) and existing:
+                counts["skipped"] = counts.get("skipped", 0) + 1
+                logger.info(
+                    "reddit_import: skipped car VIN=%s — DPH listing already exists", vin
+                )
+                return
         body, status = supabase_request("post", f"/rest/v1/{table}", data=payload)
         if (status >= 400 or not (isinstance(body, list) and body)) and "import_field_sources" in payload:
             payload = {k: v for k, v in payload.items() if k != "import_field_sources"}

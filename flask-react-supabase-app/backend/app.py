@@ -6221,7 +6221,7 @@ def get_cars():
         # Reddit imports show ONLY in the dedicated Reddit browse tab. Exclude them
         # from the normal cars feed unless the caller explicitly asks for them.
         # (or-clause keeps rows whose source_platform is null — i.e. all real cars.)
-        if request.args.get("source_platform") != "reddit":
+        if request.args.get("source_platform") != "reddit" and not _reddit_on_explore():
             filtered_params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
         # Define allowed filter fields that exist in the cars table
@@ -13388,7 +13388,7 @@ def get_bikes():
             params["source_platform"] = "eq.reddit"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
                 params.pop("is_approved", None)  # dev preview of hidden imports
-        else:
+        elif not _reddit_on_explore():
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
         logger.info(f"Fetching bikes with params: {params}")
@@ -15196,7 +15196,7 @@ def get_plates():
             source_clause = "&source_platform=eq.reddit"
         else:
             approved_clause = "status=eq.approved&is_approved=eq.true"
-            source_clause = "&or=(source_platform.is.null,source_platform.neq.reddit)"
+            source_clause = "" if _reddit_on_explore() else "&or=(source_platform.is.null,source_platform.neq.reddit)"
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?{approved_clause}&order={order}"
@@ -15501,7 +15501,7 @@ def get_parts():
             params["source_platform"] = "eq.reddit"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
                 params.pop("is_approved", None)
-        else:
+        elif not _reddit_on_explore():
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
         logger.info(f"Fetching parts with params: {params}")
@@ -17174,6 +17174,22 @@ def _reddit_listings_visible() -> bool:
         except Exception:
             pass
     raw = (os.getenv("REDDIT_LISTINGS_VISIBLE") or "true").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def _reddit_on_explore() -> bool:
+    """Whether Reddit-imported listings are mixed into the MAIN explore feed
+    (in addition to their dedicated Reddit tab). Redis flag (admin toggle) first,
+    env fallback. Default off — Reddit stays in its own tab unless turned on."""
+    rc = _get_redis_cache_client()
+    if rc:
+        try:
+            val = rc.get("reddit:on_explore")
+            if val is not None:
+                return val == "1"
+        except Exception:
+            pass
+    raw = (os.getenv("REDDIT_ON_EXPLORE") or "false").strip().lower()
     return raw in ("1", "true", "yes", "on")
 
 
@@ -23344,6 +23360,46 @@ def admin_reddit_listings_settings(current_user):
     if rc:
         try:
             redis_val = rc.get("reddit:visible")
+        except Exception:
+            pass
+    if redis_val is not None:
+        return jsonify({"enabled": redis_val == "1", "source": "redis", "env_enabled": env_enabled}), 200
+    return jsonify({"enabled": env_enabled, "source": "env", "env_enabled": env_enabled}), 200
+
+
+@app.route("/api/admin/reddit-explore/settings", methods=["GET", "PATCH"])
+@token_required
+def admin_reddit_explore_settings(current_user):
+    """Toggle whether Reddit-imported listings are mixed into the MAIN explore
+    feed. Unlike the visibility kill-switch, this does NOT touch is_approved on
+    rows — the list endpoints read the flag at request time. Requires reddit
+    listings to also be visible (reddit:visible) to actually show."""
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Admin access required"}), 403
+
+    env_enabled = (os.getenv("REDDIT_ON_EXPLORE") or "false").strip().lower() in ("1", "true", "yes", "on")
+    rc = _get_redis_cache_client()
+
+    if request.method == "PATCH":
+        body = request.get_json(silent=True) or {}
+        enabled = bool(body.get("enabled", False))
+        if not rc:
+            return jsonify({"error": "Redis unavailable — set REDDIT_ON_EXPLORE env var instead"}), 503
+        try:
+            rc.set("reddit:on_explore", "1" if enabled else "0")
+        except Exception as exc:
+            return jsonify({"error": f"Redis error: {exc}"}), 500
+        # Refresh the public feed so the change is immediate.
+        for t in ("cars", "bikes", "parts", "plates"):
+            _invalidate_public_inventory_cache(t)
+        return jsonify({"enabled": enabled, "source": "redis"}), 200
+
+    # GET
+    redis_val = None
+    if rc:
+        try:
+            redis_val = rc.get("reddit:on_explore")
         except Exception:
             pass
     if redis_val is not None:

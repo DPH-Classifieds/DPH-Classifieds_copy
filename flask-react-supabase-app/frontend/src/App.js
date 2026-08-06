@@ -296,6 +296,7 @@ function App() {
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-use" element={<TermsOfUse />} />
               <Route path="/explore" element={<ExplorePage />} />
+              <Route path="/reddit" element={<ExplorePage forcedCategory="reddit" />} />
               <Route path="/buying-requests" element={<BuyingRequestsPage />} />
               <Route path="/buying-requests/:id" element={<BuyingRequestDetail />} />
 

@@ -4,7 +4,6 @@ import {
   Bike,
   CarFront,
   ChevronRight,
-  Flame,
   MenuIcon,
   Package,
   Plus,
@@ -24,6 +23,12 @@ import {
   navigationMenuTriggerStyle,
 } from './ui/navigation-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
+
+// Reddit brand mark used in the Browse menu (replaces the generic fire icon).
+// Renders as a component so it drops into the same `item.icon` render sites.
+const RedditIcon = ({ className }) => (
+  <img src="/reddit-logo.png" alt="Reddit" className={className} style={{ objectFit: 'contain' }} />
+);
 
 const browseLinks = [
   {
@@ -59,8 +64,8 @@ const browseLinks = [
   {
     title: 'Reddit',
     description: 'Cars imported from r/DubaiPetrolHeads.',
-    href: '/explore?category=reddit',
-    icon: Flame,
+    href: '/reddit',
+    icon: RedditIcon,
   },
 ];
 
