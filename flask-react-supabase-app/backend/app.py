@@ -267,10 +267,27 @@ MSG91_VERIFY_TOKEN_URL = os.getenv(
 # sending Infobip SMS for MSG91-routed numbers and let the client widget do the
 # send+verify (matching the frontend). Opt-in so nothing changes until set.
 MSG91_OTP_ENABLED = str(os.getenv("MSG91_OTP_ENABLED", "")).lower() == "true"
+
+
+def _normalize_msg91_prefix(raw):
+    # Prefixes are matched against the normalized identifier (971...), so a local
+    # prefix like "058"/"0" is converted to "97158"/"971". Keeps config forgiving.
+    digits = re.sub(r"[^\d]", "", str(raw or ""))
+    if not digits:
+        return ""
+    if digits.startswith("971"):
+        return digits
+    return f"971{digits.lstrip('0')}"
+
+
 MSG91_OTP_PREFIXES = tuple(
-    p.strip()
-    for p in os.getenv("MSG91_OTP_PREFIXES", "971").split(",")
-    if p.strip()
+    filter(
+        None,
+        (
+            _normalize_msg91_prefix(p)
+            for p in os.getenv("MSG91_OTP_PREFIXES", "971").split(",")
+        ),
+    )
 )
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886

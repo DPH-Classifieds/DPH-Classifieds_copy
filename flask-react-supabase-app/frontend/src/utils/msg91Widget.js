@@ -10,12 +10,20 @@
 const WIDGET_ID = process.env.REACT_APP_MSG91_WIDGET_ID
 const TOKEN_AUTH = process.env.REACT_APP_MSG91_TOKEN_AUTH
 const SCRIPT_SRC = "https://verify.msg91.com/otp-provider.js"
-// Comma-separated MSG91 identifier prefixes (country code, no '+') to route through
-// MSG91. Default: all UAE mobiles (971) — Infobip no longer delivers to UAE, so
-// everything goes via MSG91. Narrow to e.g. "97158" to send only 058 through MSG91.
+// Comma-separated prefixes to route through MSG91. Matched against the MSG91
+// identifier (country code + number, e.g. 97158...), so config is normalized to
+// that form: a local prefix like "058" or "0" becomes "97158"/"971". Default "971"
+// = all UAE mobiles (Infobip no longer delivers to UAE). Narrow to "97158"/"058"
+// for 058 only.
+const normalizePrefix = (raw) => {
+  const d = String(raw).replace(/\D/g, "")
+  if (!d) return ""
+  if (d.startsWith("971")) return d
+  return `971${d.replace(/^0+/, "")}`
+}
 const PREFIXES = (process.env.REACT_APP_MSG91_PREFIXES || "971")
   .split(",")
-  .map((p) => p.replace(/\D/g, ""))
+  .map(normalizePrefix)
   .filter(Boolean)
 
 let initPromise = null

@@ -11,9 +11,17 @@
 
 const WIDGET_ID = process.env.EXPO_PUBLIC_MSG91_WIDGET_ID;
 const TOKEN_AUTH = process.env.EXPO_PUBLIC_MSG91_TOKEN_AUTH;
+// Matched against the MSG91 identifier (97158...), so normalize local prefixes:
+// "058"/"0" -> "97158"/"971". Default "971" = all UAE.
+const normalizePrefix = (raw) => {
+  const d = String(raw).replace(/\D/g, '');
+  if (!d) return '';
+  if (d.startsWith('971')) return d;
+  return `971${d.replace(/^0+/, '')}`;
+};
 const PREFIXES = (process.env.EXPO_PUBLIC_MSG91_PREFIXES || '971')
   .split(',')
-  .map((p) => p.replace(/\D/g, ''))
+  .map(normalizePrefix)
   .filter(Boolean);
 
 export const MSG91_OTP_LENGTH = 4;
