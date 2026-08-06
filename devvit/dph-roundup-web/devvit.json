@@ -15,7 +15,10 @@
   "permissions": {
     "http": {
       "enable": true,
-      "domains": ["dphclassifieds-production-986b.up.railway.app"]
+      "domains": [
+        "dphclassifieds-production-986b.up.railway.app",
+        "api.github.com"
+      ]
     }
   },
   "settings": {

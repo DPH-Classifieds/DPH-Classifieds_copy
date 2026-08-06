@@ -151,21 +151,22 @@ async function routeCronRoundup(): Promise<TriggerResponse> {
 }
 
 async function routeMenuRoundup(): Promise<UiResponse> {
+  const parts: string[] = []
+  // Control probe: does a normal allowlisted domain work on THIS install?
+  try {
+    const p = await fetch('https://api.github.com')
+    parts.push(`github:${p.status}`)
+  } catch (err) {
+    parts.push(`github:ERR ${err instanceof Error ? err.message : err}`)
+  }
+  // The real backend call (Railway domain from roundupUrl setting).
   try {
     const r = await postRoundup()
-    return {
-      showToast: {
-        text: r.skipped
-          ? 'No new listings to post.'
-          : `Posted ${r.count} cars.`,
-        appearance: 'success',
-      },
-    }
+    parts.push(r.skipped ? 'backend:empty' : `backend:posted ${r.count}`)
   } catch (err) {
-    // Surface the real error in the toast so it's visible without playtest logs.
-    const msg = err instanceof Error ? err.message : String(err)
-    return {showToast: {text: `Roundup failed: ${msg}`.slice(0, 450)}}
+    parts.push(`backend:ERR ${err instanceof Error ? err.message : err}`)
   }
+  return {showToast: {text: parts.join(' | ').slice(0, 450)}}
 }
 
 async function readJson<T>(reqMsg: IncomingMessage): Promise<T> {
