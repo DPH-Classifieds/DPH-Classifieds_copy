@@ -250,12 +250,6 @@ def _normalize_base_url(value, default_scheme="https"):
     return raw_value
 
 
-INFOBIP_BASE_URL = _normalize_base_url(
-    os.getenv("INFOBIP_BASE_URL", "https://api.infobip.com")
-)
-INFOBIP_API_KEY = os.getenv("INFOBIP_API_KEY")
-INFOBIP_SENDER = os.getenv("INFOBIP_SENDER", "ServiceSMS")
-
 # MSG91 OTP widget: the client-side widget sends & verifies the OTP and hands the
 # frontend a JWT; the backend validates that JWT here before trusting it.
 MSG91_AUTHKEY = os.getenv("MSG91_AUTHKEY")
@@ -2189,30 +2183,6 @@ def _send_renewal_nudge_email(user_email, listing_title, item_type, item_id):
         payload["reply_to"] = reply_to
 
     return _send_resend_email(payload, email_type="renewal_nudge")
-
-
-def _send_renewal_nudge_sms(phone, item_type, item_id, country_code=None):
-    if not phone:
-        return False, {"message": "Missing phone"}
-    # Strictly ASCII (no em-dash) so the message stays in GSM-7 encoding (160
-    # chars/segment) instead of UCS-2 (70 chars/segment) which triples cost
-    # and segment count. Also drop the utm_source query param: UAE carriers
-    # (Etisalat in particular) filter SMS with long tracker URLs aggressively.
-    # The landing page reads the unmarked URL just fine.
-    landing_url = _renewal_landing_url(item_type, item_id).split("?", 1)[0]
-    body = (
-        f"DPH Classifieds: your listing has expired. "
-        f"Renew or mark sold: {landing_url}"
-    )
-    normalized = _normalize_phone_number(phone, country_code) or phone
-    return _send_infobip_sms(normalized, body)
-
-
-def _send_renewal_nudge_whatsapp(phone, item_type, item_id, country_code=None):
-    # Placeholder: WhatsApp channel is not configured yet. Wire up Infobip WA or
-    # Twilio here once a sender is approved, and surface the result the same way
-    # _send_infobip_sms does (returns (ok: bool, response: dict)).
-    return False, {"message": "WhatsApp channel not configured"}
 
 
 def _resolve_listing_owner_email(record, fallback_user_id=None):
@@ -4472,98 +4442,13 @@ def _hash_phone_verification_code(code, salt):
 
 
 def _send_infobip_sms(to_phone, message):
-    if not INFOBIP_API_KEY:
-        return False, {"message": "INFOBIP_API_KEY is not configured"}
-
-    normalized_phone = _normalize_phone_number(to_phone)
-    destination_phone = normalized_phone or str(to_phone or "")
-    infobip_base_url = _normalize_base_url(INFOBIP_BASE_URL, default_scheme="https")
-
-    otp_dev_mode = str(os.getenv("OTP_DEV_MODE", "")).lower() == "true"
-    skip_sms = str(os.getenv("SKIP_SMS", "")).lower() == "true"
-    flask_env = str(os.getenv("FLASK_ENV", "")).lower()
-
-    # Development mode: log code to console instead of sending SMS.
-    # In production, never short-circuit to console mode.
-    if flask_env != "production" and (otp_dev_mode or skip_sms):
-        print("\n" + "=" * 60)
-        print("📱 DEVELOPMENT MODE - SMS NOT SENT")
-        print("=" * 60)
-        print(f"Phone: {normalized_phone}")
-        print(f"Message: {message}")
-        print("=" * 60 + "\n")
-        return True, {
-            "status": "dev_mode",
-            "message": "SMS logged to console in dev mode",
-        }
-
-    if flask_env == "production" and (otp_dev_mode or skip_sms):
-        logger.warning(
-            "OTP dev flags detected in production environment; ignoring and sending via Infobip."
-        )
-
-    payload = {
-        "messages": [
-            {
-                "sender": INFOBIP_SENDER,
-                "destinations": [{"to": destination_phone}],
-                "content": {"text": message},
-            }
-        ]
-    }
-    headers = {
-        "Authorization": f"App {INFOBIP_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-
-    try:
-        response = requests.post(
-            f"{infobip_base_url}/sms/3/messages",
-            headers=headers,
-            json=payload,
-            timeout=15,
-        )
-        if response.status_code >= 400:
-            logger.error(
-                f"Infobip SMS send failed: {response.status_code} {response.text}"
-            )
-            return False, {"status": response.status_code, "details": response.text}
-        # Infobip returns 200 even when it rejects delivery to a specific number
-        # (e.g. no route for a newer MNP range like +97158). The real verdict is
-        # the per-message status group, not the HTTP code.
-        # ponytail: this only catches send-time verdicts. A message accepted as
-        # PENDING can still be silently dropped by the carrier later (unregistered
-        # UAE sender / no credit) — that only shows up in a delivery report. Wire an
-        # Infobip DLR webhook if you need to catch post-accept drops.
-        body = response.json()
-        messages = body.get("messages") or []
-        message_status = (messages[0] if messages else {}).get("status") or {}
-        status_group = str(message_status.get("groupName", "")).upper()
-        # Always log the accepted status so silent drops are at least traceable.
-        logger.info(
-            "Infobip send to %s -> group=%s (%s)",
-            destination_phone,
-            status_group or "NONE",
-            message_status.get("name") or message_status.get("description") or "",
-        )
-        # Nothing accepted at all = failure (empty messages / no status group).
-        if not messages or not status_group:
-            logger.error(
-                f"Infobip returned no accepted message for {destination_phone}: {body}"
-            )
-            return False, {"status": "no_message_accepted", "details": body}
-        # Treat every non-affirmative send-time verdict as a failure. Affirmative
-        # groups are PENDING (accepted, will attempt) and DELIVERED.
-        if status_group not in ("PENDING", "DELIVERED"):
-            logger.error(
-                f"Infobip rejected delivery to {destination_phone}: {message_status}"
-            )
-            return False, {"status": "rejected", "details": message_status}
-        return True, body
-    except Exception as exc:
-        logger.error(f"Infobip SMS send error: {exc}", exc_info=True)
-        return False, {"message": str(exc)}
+    # Infobip has been removed — it no longer delivers to UAE. Phone OTP now runs
+    # entirely through the MSG91 widget (client-side send + /api/phone-verifications/
+    # verify-token). There is no server-side SMS provider; this stub only exists so
+    # the retired server-side OTP fallback fails loudly instead of silently.
+    raise RuntimeError(
+        "SMS provider removed — phone verification is handled by the MSG91 widget."
+    )
 
 
 def _extract_msg91_identifier(body):
@@ -22967,12 +22852,6 @@ def _run_dealer_doc_expiry_reminders_once(reminder_days_before=30):
                             f'font-weight:600">Upload new {doc_label}</a></p>'
                         ),
                     })
-                # SMS
-                if owner.get("phone"):
-                    _send_infobip_sms(
-                        _normalize_phone_number(owner.get("phone"), owner.get("country_code")),
-                        f"DPH Classifieds: {headline}. Re-upload at {renew_url}",
-                    )
                 # Stamp reminder so we don't spam.
                 supabase_request(
                     "patch",
