@@ -10,21 +10,11 @@
 const WIDGET_ID = process.env.REACT_APP_MSG91_WIDGET_ID
 const TOKEN_AUTH = process.env.REACT_APP_MSG91_TOKEN_AUTH
 const SCRIPT_SRC = "https://verify.msg91.com/otp-provider.js"
-// Comma-separated prefixes to route through MSG91. Matched against the MSG91
-// identifier (country code + number, e.g. 97158...), so config is normalized to
-// that form: a local prefix like "058" or "0" becomes "97158"/"971". Default "971"
-// = all UAE mobiles (Infobip no longer delivers to UAE). Narrow to "97158"/"058"
-// for 058 only.
-const normalizePrefix = (raw) => {
-  const d = String(raw).replace(/\D/g, "")
-  if (!d) return ""
-  if (d.startsWith("971")) return d
-  return `971${d.replace(/^0+/, "")}`
-}
-const PREFIXES = (process.env.REACT_APP_MSG91_PREFIXES || "971")
-  .split(",")
-  .map(normalizePrefix)
-  .filter(Boolean)
+// Infobip is retired for UAE (it accepts then never delivers), so EVERY UAE number
+// routes to MSG91 when the widget is configured. The prefix env is intentionally
+// ignored — a stale REACT_APP_MSG91_PREFIXES value must not re-split traffic back to
+// dead Infobip. Re-introduce env narrowing here only if Infobip is ever revived.
+const PREFIXES = ["971"]
 
 let initPromise = null
 

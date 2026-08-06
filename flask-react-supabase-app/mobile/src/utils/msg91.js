@@ -11,18 +11,10 @@
 
 const WIDGET_ID = process.env.EXPO_PUBLIC_MSG91_WIDGET_ID;
 const TOKEN_AUTH = process.env.EXPO_PUBLIC_MSG91_TOKEN_AUTH;
-// Matched against the MSG91 identifier (97158...), so normalize local prefixes:
-// "058"/"0" -> "97158"/"971". Default "971" = all UAE.
-const normalizePrefix = (raw) => {
-  const d = String(raw).replace(/\D/g, '');
-  if (!d) return '';
-  if (d.startsWith('971')) return d;
-  return `971${d.replace(/^0+/, '')}`;
-};
-const PREFIXES = (process.env.EXPO_PUBLIC_MSG91_PREFIXES || '971')
-  .split(',')
-  .map(normalizePrefix)
-  .filter(Boolean);
+// Infobip retired for UAE — every UAE number routes to MSG91 when configured. The
+// prefix env is intentionally ignored so a stale value can't re-split traffic to
+// dead Infobip.
+const PREFIXES = ['971'];
 
 export const MSG91_OTP_LENGTH = 4;
 

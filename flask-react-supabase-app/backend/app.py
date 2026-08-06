@@ -266,29 +266,14 @@ MSG91_VERIFY_TOKEN_URL = os.getenv(
 # When true, server-issued verification flows (profile phone-change, /start) STOP
 # sending Infobip SMS for MSG91-routed numbers and let the client widget do the
 # send+verify (matching the frontend). Opt-in so nothing changes until set.
-MSG91_OTP_ENABLED = str(os.getenv("MSG91_OTP_ENABLED", "")).lower() == "true"
-
-
-def _normalize_msg91_prefix(raw):
-    # Prefixes are matched against the normalized identifier (971...), so a local
-    # prefix like "058"/"0" is converted to "97158"/"971". Keeps config forgiving.
-    digits = re.sub(r"[^\d]", "", str(raw or ""))
-    if not digits:
-        return ""
-    if digits.startswith("971"):
-        return digits
-    return f"971{digits.lstrip('0')}"
-
-
-MSG91_OTP_PREFIXES = tuple(
-    filter(
-        None,
-        (
-            _normalize_msg91_prefix(p)
-            for p in os.getenv("MSG91_OTP_PREFIXES", "971").split(",")
-        ),
-    )
-)
+# MSG91 handles OTP whenever the authkey is present (Infobip is retired for UAE and
+# never delivers). Kept as an explicit off-switch, defaulting ON when authkey is set.
+MSG91_OTP_ENABLED = str(
+    os.getenv("MSG91_OTP_ENABLED", "true" if MSG91_AUTHKEY else "")
+).lower() == "true"
+# Every UAE number goes through MSG91. Prefix env intentionally ignored so a stale
+# value can't route traffic back to dead Infobip.
+MSG91_OTP_PREFIXES = ("971",)
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
