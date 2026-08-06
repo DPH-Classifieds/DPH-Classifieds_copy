@@ -151,26 +151,21 @@ async function routeCronRoundup(): Promise<TriggerResponse> {
 }
 
 async function routeMenuRoundup(): Promise<UiResponse> {
-  const parts: string[] = []
-  // Isolation probes: does fetch work for a reserved test domain vs a real one?
-  for (const url of ['https://example.com', 'https://api.github.com']) {
-    try {
-      const p = await fetch(url)
-      parts.push(`${new URL(url).hostname}:${p.status}`)
-    } catch (err) {
-      parts.push(
-        `${new URL(url).hostname}:ERR ${err instanceof Error ? err.message : err}`,
-      )
-    }
-  }
-  // The real roundup (posts if the backend fetch succeeds).
   try {
     const r = await postRoundup()
-    parts.push(r.skipped ? 'backend:empty' : `backend:posted ${r.count}`)
+    return {
+      showToast: {
+        text: r.skipped
+          ? 'No new listings to post.'
+          : `Posted ${r.count} cars.`,
+        appearance: 'success',
+      },
+    }
   } catch (err) {
-    parts.push(`backend:ERR ${err instanceof Error ? err.message : err}`)
+    // Surface the real error in the toast so it's visible without playtest logs.
+    const msg = err instanceof Error ? err.message : String(err)
+    return {showToast: {text: `Roundup failed: ${msg}`.slice(0, 450)}}
   }
-  return {showToast: {text: parts.join(' | ').slice(0, 450)}}
 }
 
 async function readJson<T>(reqMsg: IncomingMessage): Promise<T> {
