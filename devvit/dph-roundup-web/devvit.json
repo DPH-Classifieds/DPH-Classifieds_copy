@@ -22,7 +22,7 @@
     "global": {
       "roundupUrl": {
         "type": "string",
-        "label": "GitHub roundup JSON API URL (api.github.com/repos/.../contents/...)",
+        "label": "GitHub roundup JSON API URL (api.github.com/repos/.../contents/...)"
       },
       "roundupToken": {
         "type": "string",
