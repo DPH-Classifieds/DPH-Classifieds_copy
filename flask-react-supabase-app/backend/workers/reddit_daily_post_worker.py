@@ -38,7 +38,7 @@ DUBAI_OFFSET = timedelta(hours=4)  # ponytail: UAE is UTC+4 year-round, no DST �
 FOOTER = (
     "\n\n---\n\n"
     "*For a smoother viewing experience, browse all listings on "
-    "[dphclassifieds.com](https://www.dphclassifieds.com).*"
+    "[dphclassifieds.com](https://www.dphclassifieds.com/explore).*"
 )
 
 # To expand beyond cars: add {"table","type","make","model","year","price"} rows here
@@ -95,15 +95,13 @@ def _format_price(value) -> str:
 
 
 def _listing_url(row, site_url=SITE_URL) -> str:
-    """Every roundup row opens its DPH listing detail page.
-
-    Imported Reddit cars retain their original-post CTA inside that page, but
-    the roundup itself consistently brings readers into the DPH experience.
-    """
+    """Reddit imports open their source post; DPH rows open the DPH detail."""
+    if str(row.get("source_platform") or "").strip().lower() == "reddit":
+        return str(row.get("source_url") or "").strip() or f"{site_url}"
     return f"{site_url}/cars/{str(row.get('id') or '').strip()}"
 
 
-_HEADERS = ["Year", "Make", "Model", "Mileage", "Price", "Link"]
+_HEADERS = ["Year", "Make", "Model", "Odometer", "Price", "Link"]
 # year & link centered, make/model left, mileage/price right — aligned on Reddit.
 _ALIGN = "|:---:|:---|:---|---:|---:|:---:|"
 
@@ -129,15 +127,17 @@ def _format_mileage(value) -> str:
 
 
 def _row_cells(row, site_url=SITE_URL, link_as_url=False):
-    """One listing → 6 cells with a consistent DPH detail-page link."""
+    """One listing → 6 cells with a source-aware destination and label."""
     link = _listing_url(row, site_url)
+    is_reddit = str(row.get("source_platform") or "").strip().lower() == "reddit"
+    link_label = "Reddit link" if is_reddit else "View on DPH Classifieds"
     return [
         _cell(row.get("make_year")),
         _cell(row.get("car_manufacturer")),
         _cell(row.get("car_model")),
         _format_mileage(row.get("kilometer_driven")),
         _format_price(row.get("expected_selling_price")),
-        link if link_as_url else f"[View on DPH Classifieds]({link})",
+        link if link_as_url else f"[{link_label}]({link})",
     ]
 
 

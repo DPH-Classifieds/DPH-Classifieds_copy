@@ -18,7 +18,7 @@ def test_link_routing():
     dph = {"id": "abc-123", "source_platform": None}
     reddit = {"id": "reddit-123", "source_platform": "reddit", "source_url": "https://www.reddit.com/r/x/y"}
     assert _listing_url(dph, SITE) == f"{SITE}/cars/abc-123"
-    assert _listing_url(reddit, SITE) == f"{SITE}/cars/reddit-123"
+    assert _listing_url(reddit, SITE) == "https://www.reddit.com/r/x/y"
 
 
 def test_mileage_normalizes_reddit_shorthand():
@@ -44,12 +44,12 @@ def test_row_and_post():
     title, body = build_post(rows, "1–2 Aug 2026", SITE)
     assert "1–2 Aug 2026" in title
     assert body.startswith("**2 new cars listed**")
-    assert "| Year | Make | Model | Mileage | Price | Link |" in body   # labeled header
+    assert "| Year | Make | Model | Odometer | Price | Link |" in body # labeled header
     assert "|:---:|:---|:---|---:|---:|:---:|" in body                  # alignment row
     assert "Price on request" in body                         # null-price row
-    assert "https://www.reddit.com/r/x/z" not in body          # roundups stay on DPH
+    assert "[Reddit link](https://www.reddit.com/r/x/z)" in body
     assert "[View on DPH Classifieds]" in body
-    assert f"[View on DPH Classifieds]({SITE}/cars/reddit-row)" in body
+    assert "https://www.dphclassifieds.com/explore" in body
     assert "For a smoother viewing experience" in body
     assert "🚗" not in title
 
