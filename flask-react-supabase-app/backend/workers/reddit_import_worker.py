@@ -15,7 +15,7 @@ dealer_api_source_poller pattern. Cache invalidation is left to the public
 """
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -35,6 +35,11 @@ SUPABASE_SERVICE_KEY = (
     os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SERVICE_KEY", "")
 )
 DEFAULT_SUBREDDIT = os.getenv("REDDIT_IMPORT_SUBREDDIT", "DubaiPetrolHeads")
+# Reddit listings drop off the site after this many days on it (0 disables).
+try:
+    _REDDIT_MAX_AGE_DAYS = int(os.getenv("REDDIT_LISTING_MAX_AGE_DAYS", "7"))
+except ValueError:
+    _REDDIT_MAX_AGE_DAYS = 7
 EXPECTED_OWNER_EMAIL = os.getenv("REDDIT_IMPORT_OWNER_EMAIL", "admin@dphclassifieds.com").strip().lower()
 
 _SESSION = requests.Session()
@@ -378,6 +383,30 @@ def sync_removed_imports(session, access_token, live_source_ids, user_agent, now
     return {"removed": removed, "checked": checked}
 
 
+def _expire_stale_reddit(now):
+    """Unpublish Reddit rows that have been on the site longer than the max age
+    (default 7 days, by created_at). Sets status='expired' so they leave every
+    public feed (all require status=approved) and stay gone even if the Reddit
+    visibility toggle later flips is_approved back on."""
+    if _REDDIT_MAX_AGE_DAYS <= 0:
+        return {"expired": 0}
+    cutoff = (now - timedelta(days=_REDDIT_MAX_AGE_DAYS)).isoformat()
+    expired = 0
+    for cat, config in LISTING_TABLES.items():
+        table = config["table"]
+        body, st = supabase_request(
+            "patch", f"/rest/v1/{table}",
+            params={"source_platform": "eq.reddit", "status": "eq.approved",
+                    "created_at": f"lt.{cutoff}"},
+            data={"status": "expired", "is_approved": False},
+        )
+        if st < 400 and isinstance(body, list):
+            expired += len(body)
+    if expired:
+        logger.info("reddit_import: expired %s listing(s) older than %s days", expired, _REDDIT_MAX_AGE_DAYS)
+    return {"expired": expired}
+
+
 # --- Orchestration ----------------------------------------------------------
 
 def run():
@@ -408,7 +437,7 @@ def run():
 
     now = _now()
     run_id = _start_run(subreddit)
-    counts = {k: 0 for k in ("fetched", "eligible", "created", "updated", "skipped", "removed", "failed")}
+    counts = {k: 0 for k in ("fetched", "eligible", "created", "updated", "skipped", "removed", "expired", "failed")}
     try:
         token = get_app_access_token(_SESSION, client_id, client_secret, user_agent)
         subs = fetch_new_submissions(_SESSION, token, subreddit, max_posts, user_agent)
@@ -441,6 +470,7 @@ def run():
 
         live_ids = {sub.id for sub in subs}
         counts["removed"] = sync_removed_imports(_SESSION, token, live_ids, user_agent, now)["removed"]
+        counts["expired"] = _expire_stale_reddit(now)["expired"]
 
         did_work = counts["created"] + counts["updated"]
         status = "succeeded" if counts["failed"] == 0 else ("partial" if did_work else "failed")
