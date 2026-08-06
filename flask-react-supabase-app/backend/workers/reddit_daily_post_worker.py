@@ -95,9 +95,11 @@ def _format_price(value) -> str:
 
 
 def _listing_url(row, site_url=SITE_URL) -> str:
-    """Reddit imports link to the original post; member listings link to DPH."""
-    if str(row.get("source_platform") or "").strip().lower() == "reddit":
-        return str(row.get("source_url") or "").strip() or f"{site_url}"
+    """Every roundup row opens its DPH listing detail page.
+
+    Imported Reddit cars retain their original-post CTA inside that page, but
+    the roundup itself consistently brings readers into the DPH experience.
+    """
     return f"{site_url}/cars/{str(row.get('id') or '').strip()}"
 
 
@@ -127,17 +129,15 @@ def _format_mileage(value) -> str:
 
 
 def _row_cells(row, site_url=SITE_URL, link_as_url=False):
-    """One listing → 6 cells with an explicit source-aware link label."""
+    """One listing → 6 cells with a consistent DPH detail-page link."""
     link = _listing_url(row, site_url)
-    is_reddit = str(row.get("source_platform") or "").strip().lower() == "reddit"
-    link_label = "Reddit link" if is_reddit else "View on DPH Classifieds"
     return [
         _cell(row.get("make_year")),
         _cell(row.get("car_manufacturer")),
         _cell(row.get("car_model")),
         _format_mileage(row.get("kilometer_driven")),
         _format_price(row.get("expected_selling_price")),
-        link if link_as_url else f"[{link_label}]({link})",
+        link if link_as_url else f"[View on DPH Classifieds]({link})",
     ]
 
 

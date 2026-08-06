@@ -16,9 +16,9 @@ def test_price():
 
 def test_link_routing():
     dph = {"id": "abc-123", "source_platform": None}
-    reddit = {"source_platform": "reddit", "source_url": "https://www.reddit.com/r/x/y"}
+    reddit = {"id": "reddit-123", "source_platform": "reddit", "source_url": "https://www.reddit.com/r/x/y"}
     assert _listing_url(dph, SITE) == f"{SITE}/cars/abc-123"
-    assert _listing_url(reddit, SITE) == "https://www.reddit.com/r/x/y"
+    assert _listing_url(reddit, SITE) == f"{SITE}/cars/reddit-123"
 
 
 def test_mileage_normalizes_reddit_shorthand():
@@ -32,7 +32,7 @@ def test_row_and_post():
     rows = [
         {"id": "1", "make_year": 2021, "car_manufacturer": "Nissan", "car_model": "GT-R",
          "kilometer_driven": 42000, "expected_selling_price": 450000, "source_platform": None},
-        {"source_platform": "reddit", "source_url": "https://www.reddit.com/r/x/z",
+        {"id": "reddit-row", "source_platform": "reddit", "source_url": "https://www.reddit.com/r/x/z",
          "make_year": 2018, "car_manufacturer": "BMW", "car_model": "M3",
          "expected_selling_price": None},
     ]
@@ -47,9 +47,9 @@ def test_row_and_post():
     assert "| Year | Make | Model | Mileage | Price | Link |" in body   # labeled header
     assert "|:---:|:---|:---|---:|---:|:---:|" in body                  # alignment row
     assert "Price on request" in body                         # null-price row
-    assert "https://www.reddit.com/r/x/z" in body             # reddit row links out
+    assert "https://www.reddit.com/r/x/z" not in body          # roundups stay on DPH
     assert "[View on DPH Classifieds]" in body
-    assert "[Reddit link](https://www.reddit.com/r/x/z)" in body
+    assert f"[View on DPH Classifieds]({SITE}/cars/reddit-row)" in body
     assert "For a smoother viewing experience" in body
     assert "🚗" not in title
 
