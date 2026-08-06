@@ -1130,7 +1130,9 @@ const AccountSettings = () => {
                 verificationId={phoneVerificationSession.verificationId}
                 onVerified={handlePhoneVerificationSuccess}
                 onClose={() => setPhoneVerificationSession(null)}
-                autoStart={false}
+                // MSG91 numbers come back with no verification_id — the widget must
+                // do the send itself, so auto-start when the server didn't pre-send.
+                autoStart={!phoneVerificationSession.verificationId}
               />
             )}
           </div>

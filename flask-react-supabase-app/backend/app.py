@@ -263,6 +263,15 @@ MSG91_VERIFY_TOKEN_URL = os.getenv(
     "MSG91_VERIFY_TOKEN_URL",
     "https://control.msg91.com/api/v5/widget/verifyAccessToken",
 )
+# When true, server-issued verification flows (profile phone-change, /start) STOP
+# sending Infobip SMS for MSG91-routed numbers and let the client widget do the
+# send+verify (matching the frontend). Opt-in so nothing changes until set.
+MSG91_OTP_ENABLED = str(os.getenv("MSG91_OTP_ENABLED", "")).lower() == "true"
+MSG91_OTP_PREFIXES = tuple(
+    p.strip()
+    for p in os.getenv("MSG91_OTP_PREFIXES", "971").split(",")
+    if p.strip()
+)
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_ALLOWED_YEAR = 1886
 MAX_DESCRIPTION_WORDS = 300
@@ -4595,6 +4604,34 @@ def _verify_msg91_access_token(access_token):
         logger.warning(f"MSG91 token rejected: {body}")
         return False, body
     return True, body
+
+
+def _msg91_handles_phone(phone, country_code=None):
+    """True when this number should be verified by the MSG91 client widget instead
+    of a server-issued Infobip SMS. Gated by MSG91_OTP_ENABLED + prefix match."""
+    if not (MSG91_OTP_ENABLED and MSG91_AUTHKEY):
+        return False
+    normalized = _normalize_phone_number(phone, country_code)
+    digits = re.sub(r"[^\d]", "", normalized or "")
+    return any(digits.startswith(prefix) for prefix in MSG91_OTP_PREFIXES)
+
+
+def _msg91_pending_verification(phone, country_code, purpose, listing_id=None):
+    """Payload telling the frontend a verification is required but NOT server-sent —
+    the widget performs the send. Deliberately carries no verification_id so the
+    client widget owns the flow (verify lands on /verify-token)."""
+    normalized = _normalize_phone_number(phone, country_code) or str(phone or "")
+    digits = re.sub(r"[^\d]", "", normalized)
+    masked = f"***{digits[-4:]}" if len(digits) >= 4 else None
+    return {
+        "verification_id": None,
+        "status": "pending",
+        "phone": normalized,
+        "masked_phone": masked,
+        "purpose": purpose,
+        "listing_id": listing_id,
+        "provider": "msg91_widget",
+    }
 
 
 def _get_user_profile_for_verification(user_id):
@@ -9430,13 +9467,20 @@ def update_user_profile(current_user):
                     phone_verification = None
 
                     if phone_changed and requested_phone:
-                        try:
+                        pv_country = update_payload.get(
+                            "country_code", existing_user.get("country_code")
+                        )
+                        if _msg91_handles_phone(requested_phone, pv_country):
+                            # MSG91 owns send+verify client-side — don't send Infobip.
+                            phone_verification = _msg91_pending_verification(
+                                requested_phone, pv_country, "phone_change"
+                            )
+                        else:
+                          try:
                             verification_result = _issue_phone_verification(
                                 user_id=current_user,
                                 phone=requested_phone,
-                                country_code=update_payload.get(
-                                    "country_code", existing_user.get("country_code")
-                                ),
+                                country_code=pv_country,
                                 purpose="phone_change",
                                 metadata={
                                     "source": "account_settings",
@@ -9446,7 +9490,7 @@ def update_user_profile(current_user):
                             phone_verification = _phone_verification_response(
                                 verification_result["verification"]
                             )
-                        except Exception as verification_err:
+                          except Exception as verification_err:
                             logger.error(
                                 f"Failed to start phone verification after profile update: {verification_err}",
                                 exc_info=True,
@@ -10769,6 +10813,21 @@ def start_phone_verification():
     )
     if not verification_phone:
         return jsonify({"message": "A valid phone number is required"}), 400
+
+    if _msg91_handles_phone(verification_phone, country_code or profile.get("country_code")):
+        # MSG91 owns send+verify client-side — return "required" with no id so the
+        # widget performs the send; never touch Infobip for these numbers.
+        return jsonify(
+            {
+                "message": "Verification handled by MSG91 widget",
+                "phone_verification": _msg91_pending_verification(
+                    verification_phone,
+                    country_code or profile.get("country_code"),
+                    purpose,
+                    listing_id,
+                ),
+            }
+        ), 200
 
     try:
         issued = _issue_phone_verification(

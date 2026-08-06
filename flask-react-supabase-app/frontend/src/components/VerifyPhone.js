@@ -62,7 +62,8 @@ const VerifyPhone = () => {
       countryCode={countryCode}
       purpose={purpose}
       verificationId={verificationId || null}
-      autoStart={false}
+      // No server verification_id (MSG91) -> the widget must send; auto-start it.
+      autoStart={!verificationId}
       onVerified={handleVerified}
       continueLabel={purpose === 'signup' ? 'Continue to email confirmation' : 'Finish verification'}
     />
