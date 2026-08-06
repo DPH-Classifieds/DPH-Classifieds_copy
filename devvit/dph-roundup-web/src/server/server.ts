@@ -131,12 +131,16 @@ async function postRoundup(): Promise<{
     throw Error('roundupUrl must use api.github.com')
   if (!githubApi.pathname.startsWith('/repos/'))
     throw Error('roundupUrl must be a GitHub repository Contents API URL')
+  // The app previously stored its Railway shared secret in roundupToken. Only
+  // forward an explicit GitHub token; never leak that retired backend secret.
+  const githubHeaders: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  if (/^(ghp_|github_pat_)/.test(githubToken || ''))
+    githubHeaders.Authorization = `Bearer ${githubToken}`
   const res = await fetch(githubApi.toString(), {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      ...(githubToken ? {Authorization: `Bearer ${githubToken}`} : {}),
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
+    headers: githubHeaders,
   })
   if (!res.ok) throw Error(`GitHub roundup fetch failed: ${res.status}`)
   const source = (await res.json()) as {content?: string; encoding?: string}
