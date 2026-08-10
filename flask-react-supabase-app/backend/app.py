@@ -133,6 +133,16 @@ Image.MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "25000000"))
 CONTACT_RATE_LIMIT_WINDOW_SEC = int(os.getenv("CONTACT_RATE_LIMIT_WINDOW_SEC", "3600"))
 CONTACT_RATE_LIMIT_MAX = int(os.getenv("CONTACT_RATE_LIMIT_MAX", "5"))
 CONTACT_RATE_LIMIT = defaultdict(deque)
+
+# Anonymous phone/WhatsApp taps are public (no login) — this limiter is the
+# anti-scraper backstop: generous enough that a real buyer comparing many
+# listings never hits it, tight enough to stop a bot harvesting numbers in bulk.
+# Keyed on IP and visitor_id separately so a fingerprint-reusing, IP-rotating
+# scraper still trips. Distinct namespace from CONTACT_RATE_LIMIT so it never
+# cross-contaminates the (much tighter) contact-message limit.
+CONTACT_LEAD_RATE_LIMIT_WINDOW_SEC = int(os.getenv("CONTACT_LEAD_RATE_LIMIT_WINDOW_SEC", "3600"))
+CONTACT_LEAD_RATE_LIMIT_MAX = int(os.getenv("CONTACT_LEAD_RATE_LIMIT_MAX", "40"))
+CONTACT_LEAD_RATE_LIMIT = defaultdict(deque)
 AUTH_RATE_LIMIT_WINDOW_SEC = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SEC", "300"))
 AUTH_RATE_LIMIT_MAX = int(os.getenv("AUTH_RATE_LIMIT_MAX", "5"))
 AUTH_RATE_LIMIT = defaultdict(deque)
@@ -4278,6 +4288,48 @@ def _contact_rate_limited(client_ip):
         return True
     entries.append(now)
     return False
+
+
+def _contact_lead_rate_limited(rl_key):
+    """Anti-scraper limiter for anonymous phone/WhatsApp click tracking. `rl_key`
+    is a namespaced key ('ip:1.2.3.4' or 'vid:<visitor_id>'), not just an IP, so
+    the same limiter guards both dimensions independently."""
+    if not rl_key:
+        return False
+    redis_limited = _redis_fixed_window_rate_limited(
+        "contact_lead", rl_key, CONTACT_LEAD_RATE_LIMIT_WINDOW_SEC, CONTACT_LEAD_RATE_LIMIT_MAX
+    )
+    if redis_limited is not None:
+        return redis_limited
+    now = time.time()
+    window_start = now - CONTACT_LEAD_RATE_LIMIT_WINDOW_SEC
+    entries = CONTACT_LEAD_RATE_LIMIT[rl_key]
+    while entries and entries[0] < window_start:
+        entries.popleft()
+    if len(entries) >= CONTACT_LEAD_RATE_LIMIT_MAX:
+        return True
+    entries.append(now)
+    return False
+
+
+# Non-browser clients (curl/python-requests/headless) are the bulk-scraper case.
+# A real buyer's browser UA never contains these tokens, so this is a cheap,
+# zero-friction bot signal stored on every anonymous contact click for detection
+# — we rate-limit on it too weakly to false-block, so it's a marker, not a gate.
+_PROBABLE_BOT_UA_RE = re.compile(
+    r"(headlesschrome|phantomjs|puppeteer|playwright|selenium|python-requests|"
+    r"python-urllib|scrapy|go-http|okhttp|libwww|axios/|node-fetch|curl/|wget/|"
+    r"httpie|bot\b|spider|crawler|scraper)",
+    re.IGNORECASE,
+)
+
+
+def _probable_bot_user_agent(user_agent):
+    """True when the User-Agent looks like a script/headless client rather than a
+    real browser. Absent UA is treated as suspicious (browsers always send one)."""
+    if not user_agent or not user_agent.strip():
+        return True
+    return bool(_PROBABLE_BOT_UA_RE.search(user_agent))
 
 
 def _auth_rate_limited(client_ip):
@@ -19536,6 +19588,18 @@ def track_listing_lead_event(item_type, item_id):
         if action not in LEAD_EVENT_ACTIONS:
             return jsonify({"error": "Invalid action"}), 400
 
+        # Anti-scraper guard on the anonymous contact taps (call/WhatsApp). Rate
+        # limit per IP and per visitor_id so bulk number-harvesting trips even if
+        # the scraper rotates one dimension. ponytail: 40/hour ceiling; escalate to
+        # Turnstile (_verify_turnstile_token) only if abuse survives this.
+        if action in CONTACT_LEAD_ACTIONS:
+            client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+            visitor_id = (payload.get("visitor_id") or "").strip()
+            if _contact_lead_rate_limited(f"ip:{client_ip}") or (
+                visitor_id and _contact_lead_rate_limited(f"vid:{visitor_id}")
+            ):
+                return jsonify({"error": "Too many requests. Please try again later."}), 429
+
         listing_resp, listing_status = supabase_request(
             "get",
             f"/rest/v1/{table_name}",
@@ -19549,9 +19613,14 @@ def track_listing_lead_event(item_type, item_id):
 
         user_id = _get_optional_user_id_from_auth_header()
         try:
+            client_meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
             canonical = normalize_analytics_event({
                 **payload, "event_name": action, "listing_type": normalized_type,
-                "listing_id": item_id, "metadata": {"source": payload.get("source")},
+                "listing_id": item_id, "metadata": {
+                    **client_meta,
+                    "source": payload.get("source"),
+                    "is_probable_bot": _probable_bot_user_agent(request.headers.get("User-Agent")),
+                },
             }, user_id)
         except AnalyticsEventError as exc:
             return jsonify({"error": str(exc)}), 400

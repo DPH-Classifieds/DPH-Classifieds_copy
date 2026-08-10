@@ -2,6 +2,15 @@ let nsfwModel = null;
 let faceModel = null;
 let loadPromise = null;
 
+// Block thresholds — tune here. nsfw* are nsfwjs class probabilities,
+// FACE is the blazeface per-detection probability.
+export const THRESHOLDS = {
+  Porn: 0.60,
+  Hentai: 0.60,
+  Sexy: 0.70,
+  FACE: 0.75,
+};
+
 // Exported for test resets only — not for production use
 export function _resetModels() {
   nsfwModel = null;
@@ -24,6 +33,10 @@ async function loadModels() {
       nsfwModel = nsfw;
       faceModel = face;
     });
+    // Don't cache a rejected load — otherwise one transient CDN/model failure
+    // leaves moderation silently disabled for the whole session. Reset so the
+    // next moderateImage() retries the load.
+    loadPromise.catch(() => { loadPromise = null; });
   }
   await loadPromise;
 }
@@ -55,13 +68,13 @@ export async function moderateImage(file) {
   const reasons = [];
 
   const prob = Object.fromEntries(predictions.map(p => [p.className, p.probability]));
-  if ((prob.Porn || 0) > 0.60) reasons.push('nudity');
-  if ((prob.Hentai || 0) > 0.60) reasons.push('nudity');
-  if ((prob.Sexy || 0) > 0.70) reasons.push('nudity');
+  if ((prob.Porn || 0) > THRESHOLDS.Porn) reasons.push('nudity');
+  if ((prob.Hentai || 0) > THRESHOLDS.Hentai) reasons.push('nudity');
+  if ((prob.Sexy || 0) > THRESHOLDS.Sexy) reasons.push('nudity');
 
   const faceDetected = faces.some(f => {
     const p = Array.isArray(f.probability) ? f.probability[0] : (f.probability ?? 1);
-    return p > 0.75;
+    return p > THRESHOLDS.FACE;
   });
   if (faceDetected) reasons.push('face');
 

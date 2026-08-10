@@ -23,6 +23,49 @@ def _row(id_="abc", **over):
     return base
 
 
+class ImageRejectTests(unittest.TestCase):
+    def test_offending_urls_map_indices_and_dedupe(self):
+        analysis = ImageAnalysis(
+            ok=False,
+            reasons=[
+                FailReason("nsfw_image", {"image_index": 0}),
+                FailReason("face_detected_in_image", {"image_index": 2}),
+                FailReason("nsfw_image", {"image_index": 0}),  # dup
+            ],
+        )
+        urls = ["u0", "u1", "u2"]
+        got = worker._offending_image_urls(analysis, urls, [b"", b"", b""])
+        self.assertEqual(got, ["u0", "u2"])
+
+    def test_offending_urls_empty_when_downloads_dropped(self):
+        # bytes shorter than urls → alignment unreliable → skip per-image delete
+        analysis = ImageAnalysis(
+            ok=False, reasons=[FailReason("nsfw_image", {"image_index": 0})]
+        )
+        got = worker._offending_image_urls(analysis, ["u0", "u1"], [b""])
+        self.assertEqual(got, [])
+
+    def test_downgrade_routes_face_to_reject(self):
+        decision = Decision.queue([FailReason("face_detected_in_image", {})])
+        with patch.object(worker, "_reject_listing_for_images") as reject:
+            worker.downgrade_to_pending_for("cars", _row(), decision)
+        reject.assert_called_once()
+
+    def test_downgrade_non_image_reason_uses_pending_not_reject(self):
+        decision = Decision.queue([FailReason("no_trust_tier", {})])
+        sb = MagicMock(return_value=({}, 200))
+        with patch.object(worker, "_reject_listing_for_images") as reject, \
+                patch.object(worker, "_supabase_request", return_value=sb), \
+                patch("app._send_new_listing_admin_notification"), \
+                patch("app.get_user_email", return_value="x@y.com"):
+            worker.downgrade_to_pending_for("cars", _row(), decision)
+        reject.assert_not_called()
+        # patched the listing status to pending
+        self.assertTrue(
+            any("status" in (c.kwargs.get("data") or {}) for c in sb.call_args_list)
+        )
+
+
 class WorkerProcessOnceTests(unittest.TestCase):
     def test_dry_run_records_decision_but_never_approves(self):
         approver = MagicMock()

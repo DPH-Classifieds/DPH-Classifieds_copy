@@ -8,7 +8,10 @@ EVENT_NAMES = {
     "link_click", "button_click", "app_open", "reddit_post_open",
 }
 LISTING_EVENTS = {"listing_view", "call_click", "whatsapp_click", "vin_open", "vin_reveal", "reddit_post_open"}
-METADATA_KEYS = {"source", "route", "schema_version", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "target_domain", "import_source"}
+METADATA_KEYS = {"source", "route", "schema_version", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "target_domain", "import_source",
+    # Anti-scraper / bot signals stored on anonymous contact clicks (server sets
+    # is_probable_bot from the UA; the rest are optional client behavioral hints).
+    "is_probable_bot", "has_pointer_move", "has_scroll", "dwell_ms", "webdriver", "ua_headless"}
 TYPE_ALIASES = {"cars": "car", "bikes": "bike", "plates": "plate", "parts": "part", "car-parts": "part"}
 
 

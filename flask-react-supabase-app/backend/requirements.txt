@@ -15,3 +15,9 @@ brotli==1.1.0
 redis==5.1.1
 posthog>=7.0.0
 cryptography>=43,<46
+# Self-hosted image moderation (auto-review worker only; lazy-imported).
+# Pin opencv to 4.x — 5.0 dropped cv2.CascadeClassifier from the top-level module.
+nudenet==3.4.2
+opencv-python-headless==4.11.0.86
+onnxruntime==1.28.0
+numpy==2.4.6

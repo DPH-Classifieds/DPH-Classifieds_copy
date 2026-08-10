@@ -290,6 +290,11 @@ def build_signals_for(listing_kind, row):
     image_analysis = evaluate_image_blockers(
         image_bytes, provider, face_confidence_threshold=face_threshold,
     )
+    # Stash the URLs of any nudity/face images so the reject path can delete
+    # exactly those objects. Same `row` object reaches downgrade_to_pending_for.
+    row["_ar_offending_image_urls"] = _offending_image_urls(
+        image_analysis, image_urls, image_bytes
+    )
 
     normalized_listing = normalize_listing_fields(listing_kind, row)
     current_year = datetime.now().year
@@ -345,15 +350,27 @@ def build_signals_for(listing_kind, row):
     }
 
 
+def _decision_outcome(decision):
+    """('approved'|'rejected'|'queued', 'auto_approved'|'auto_rejected'|'auto_queued').
+    Nudity/face are hard rejects (see downgrade_to_pending_for), so label them as
+    such in the audit log rather than lumping them under 'queued'."""
+    if decision.approved:
+        return "approved", "auto_approved"
+    if _IMAGE_BLOCK_LABELS & set(decision.as_label_list()):
+        return "rejected", "auto_rejected"
+    return "queued", "auto_queued"
+
+
 def record_decision_for(type_label, row, decision):
     sb = _supabase_request()
+    decision_label, state_label = _decision_outcome(decision)
     sb(
         "post",
         "/rest/v1/auto_review_decisions",
         data={
             "listing_type": type_label,
             "listing_id": str(row.get("id")),
-            "decision": "approved" if decision.approved else "queued",
+            "decision": decision_label,
             "reasons": decision.as_label_list(),
             "signals": decision.signals or {},
         },
@@ -365,14 +382,104 @@ def record_decision_for(type_label, row, decision):
         f"/rest/v1/{table}?id=eq.{row.get('id')}",
         data={
             "auto_review_reasons": decision.as_label_list(),
-            "auto_review_state": "auto_approved" if decision.approved else "auto_queued",
+            "auto_review_state": state_label,
             "auto_review_decided_at": _now_iso(),
         },
         use_service_role=True,
     )
 
 
+# Nudity/face are hard blocks: reject the listing and delete the photo, rather
+# than routing to manual review like other queue reasons.
+_IMAGE_BLOCK_LABELS = {"nsfw_image", "face_detected_in_image"}
+
+_IMAGE_REJECTION_NOTE = (
+    "One or more photos were removed and this listing was rejected because "
+    "explicit content or a person's face was detected. Please re-submit using "
+    "photos that show the vehicle only."
+)
+
+
+def _offending_image_urls(image_analysis, image_urls, image_bytes):
+    """URLs of the images that tripped a nudity/face block. image_index is an
+    index into image_bytes; it only aligns with image_urls when every image
+    downloaded. If a download was dropped the alignment is unreliable, so we
+    return [] (still reject the listing, but don't risk deleting the wrong file)."""
+    if image_analysis is None or image_analysis.ok:
+        return []
+    if len(image_bytes) != len(image_urls):
+        return []
+    urls = []
+    for reason in image_analysis.reasons:
+        if reason.label in _IMAGE_BLOCK_LABELS:
+            idx = reason.details.get("image_index")
+            if isinstance(idx, int) and 0 <= idx < len(image_urls):
+                urls.append(image_urls[idx])
+    return list(dict.fromkeys(urls))  # dedupe, keep order
+
+
+def _delete_listing_image(sb, images_table, url):
+    from urllib.parse import quote
+    try:
+        if "listing-images/" in url:
+            object_path = url.split("listing-images/", 1)[-1].split("?")[0]
+            sb(
+                "delete",
+                f"/storage/v1/object/listing-images/{quote(object_path)}",
+                use_service_role=True,
+            )
+        sb(
+            "delete",
+            f"/rest/v1/{images_table}",
+            params={"image_url": f"eq.{url}"},
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("Failed to delete offending image %s: %s", url, exc)
+
+
+def _reject_listing_for_images(type_label, row, decision):
+    sb = _supabase_request()
+    table = ITEM_TYPE_TO_TABLE[type_label]
+    images_table = ITEM_TYPE_TO_IMAGES_TABLE[type_label]
+
+    for url in row.get("_ar_offending_image_urls") or []:
+        _delete_listing_image(sb, images_table, url)
+
+    sb(
+        "patch",
+        f"/rest/v1/{table}?id=eq.{row.get('id')}",
+        data={
+            "status": "rejected",
+            "rejection_note": _IMAGE_REJECTION_NOTE,
+            "auto_review_reasons": decision.as_label_list(),
+            "auto_review_state": "auto_rejected",
+            "auto_review_decided_at": _now_iso(),
+        },
+        use_service_role=True,
+    )
+
+    # Notify the user their listing was rejected (reuses the admin-reject email).
+    try:
+        from app import _send_listing_status_email, get_user_email
+        user_email = row.get("user_email") or row.get("contact_email")
+        if not user_email and row.get("user_id"):
+            user_email = get_user_email(row["user_id"])
+        if user_email:
+            row["rejection_note"] = _IMAGE_REJECTION_NOTE
+            _send_listing_status_email(
+                user_email, type_label.rstrip("s"), row, "rejected"
+            )
+    except Exception as exc:
+        logger.warning("Failed to send auto-reject email: %s", exc)
+
+
 def downgrade_to_pending_for(type_label, row, decision):
+    # Nudity/face → hard reject + delete photo, not manual review.
+    if _IMAGE_BLOCK_LABELS & set(decision.as_label_list()):
+        _reject_listing_for_images(type_label, row, decision)
+        return
+
     sb = _supabase_request()
     table = ITEM_TYPE_TO_TABLE[type_label]
     sb(

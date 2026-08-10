@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
 import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
@@ -13,9 +12,9 @@ import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
-import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
 import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
+import { getBotSignals } from '../utils/botSignals';
 import UAELicensePlate from './UAELicensePlate';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -24,7 +23,6 @@ const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
 const PlateDetailRedesigned = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const location = useLocation();
   const preloadedPlate = location.state?.listing ?? null;
   const [plate, setPlate] = useState(() => preloadedPlate);
@@ -120,17 +118,10 @@ const PlateDetailRedesigned = () => {
     }));
   };
 
-  const handleCallClick = () => ensureContactAccess({
-    user,
-    navigate,
-    nextRoute: `${location.pathname}${location.search}`,
-  });
-
-  const handleWhatsappClick = () => ensureContactAccess({
-    user,
-    navigate,
-    nextRoute: `${location.pathname}${location.search}`,
-  });
+  // Public phone + WhatsApp: no login / phone-verify. Click is still tracked
+  // anonymously by the onClick handlers below.
+  const handleCallClick = () => true;
+  const handleWhatsappClick = () => true;
 
   const formatPrice = (price) => {
     if (!price) return 'Price on request';
@@ -163,7 +154,7 @@ const PlateDetailRedesigned = () => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action, source: 'plate_detail', payload: { listing_id: id }, ...getWebAnalyticsIdentity() }),
+        body: JSON.stringify({ action, source: 'plate_detail', payload: { listing_id: id }, metadata: getBotSignals(), ...getWebAnalyticsIdentity() }),
         keepalive: true,
       });
     } catch (error) {

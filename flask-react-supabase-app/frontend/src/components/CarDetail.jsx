@@ -22,9 +22,9 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
-import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
 import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
+import { getBotSignals } from '../utils/botSignals';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -253,6 +253,7 @@ const CarDetail = () => {
           action,
           source: 'car_detail',
           payload,
+          metadata: getBotSignals(),
           ...getWebAnalyticsIdentity(),
         }),
         keepalive: true,
@@ -419,20 +420,15 @@ const CarDetail = () => {
   const canViewVin = isOwner || isPhoneVerified;
   const visibleVin = vinVisible ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
 
-  const handleCallClick = (event) => {
-    if (!ensureContactAccess({ user, navigate, nextRoute: `${location.pathname}${location.search}` })) {
-      event?.preventDefault?.();
-      return false;
-    }
+  // Phone + WhatsApp are public: no login / phone-verify required. The click is
+  // still tracked anonymously (trackLeadEvent posts visitor/session identity, no
+  // token needed). VIN reveal below stays phone-verified — separate path.
+  const handleCallClick = () => {
     trackLeadEvent('call_click', { listing_id: id });
     return true;
   };
 
-  const handleWhatsappClick = (event) => {
-    if (!ensureContactAccess({ user, navigate, nextRoute: `${location.pathname}${location.search}` })) {
-      event?.preventDefault?.();
-      return false;
-    }
+  const handleWhatsappClick = () => {
     trackLeadEvent('whatsapp_click', { listing_id: id });
     return true;
   };

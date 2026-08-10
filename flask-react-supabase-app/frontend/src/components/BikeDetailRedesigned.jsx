@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './ui/searchable-select';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/supabaseClient';
 import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
@@ -14,9 +13,9 @@ import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
 import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
-import { ensureContactAccess } from '../utils/contactAccess';
 import { forwardLeadToGa4 } from '../utils/analytics';
 import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
+import { getBotSignals } from '../utils/botSignals';
 import { resolveMediaUrl } from '../utils/media';
 import useSwipe from '../hooks/useSwipe';
 
@@ -27,7 +26,6 @@ const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 const BikeDetailRedesigned = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const location = useLocation();
   const preloadedBike = location.state?.listing ?? null;
   const [bike, setBike] = useState(() => preloadedBike);
@@ -129,17 +127,10 @@ const BikeDetailRedesigned = () => {
     }));
   };
 
-  const handleCallClick = () => ensureContactAccess({
-    user,
-    navigate,
-    nextRoute: `${location.pathname}${location.search}`,
-  });
-
-  const handleWhatsappClick = () => ensureContactAccess({
-    user,
-    navigate,
-    nextRoute: `${location.pathname}${location.search}`,
-  });
+  // Public phone + WhatsApp: no login / phone-verify. Click is still tracked
+  // anonymously by the onClick handlers below.
+  const handleCallClick = () => true;
+  const handleWhatsappClick = () => true;
 
   const formatPrice = (price) => {
     if (!price) return 'Price on request';
@@ -183,7 +174,7 @@ const BikeDetailRedesigned = () => {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action, source: 'bike_detail', payload: { listing_id: id }, ...getWebAnalyticsIdentity() }),
+        body: JSON.stringify({ action, source: 'bike_detail', payload: { listing_id: id }, metadata: getBotSignals(), ...getWebAnalyticsIdentity() }),
         keepalive: true,
       });
     } catch (error) {

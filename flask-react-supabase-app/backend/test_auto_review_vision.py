@@ -2,6 +2,7 @@ import unittest
 
 from services.auto_review.vision import (
     GoogleVisionProvider,
+    LocalVisionProvider,
     NullVisionProvider,
     VisionResult,
     select_vision_provider,
@@ -38,6 +39,13 @@ class SelectProviderTests(unittest.TestCase):
                     ),
                     NullVisionProvider,
                 )
+
+    def test_local_provider_selected(self):
+        # Selection must not import the heavy CV deps (lazy-loaded in analyze()).
+        provider = select_vision_provider(
+            env={"AUTO_REVIEW_VISION_PROVIDER": "local"}
+        )
+        self.assertIsInstance(provider, LocalVisionProvider)
 
     def test_unknown_provider_raises(self):
         with self.assertRaises(ValueError):
