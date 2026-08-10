@@ -330,7 +330,7 @@ function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setB
           <Text style={fcStyles.resetText}>Reset</Text>
         </TouchableOpacity>
       </View>
-      {activeTab === 'cars' && renderCar()}
+      {(activeTab === 'cars' || activeTab === 'all') && renderCar()}
       {activeTab === 'bikes' && renderBike()}
       {activeTab === 'plates' && renderPlate()}
       {activeTab === 'parts' && renderPart()}
@@ -447,13 +447,13 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
               </View>
             )}
           </View>
-          <View style={styles.cardBody}>
+          <View style={[styles.cardBody, grid && styles.cardBodyGrid]}>
             <Text style={styles.cardPrice}>
               {item.price ? formatPrice(item.price) : 'Price on request'}
             </Text>
             <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
             {item.subtitle ? (
-              <Text style={styles.cardSubtitle} numberOfLines={2}>{item.subtitle}</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={grid ? 1 : 2}>{item.subtitle}</Text>
             ) : null}
             {item.location ? (
               <View style={styles.cardLocationRow}>
@@ -565,11 +565,14 @@ export default function ExploreScreen({ navigation, route }) {
   const buildFilterParams = useCallback(() => {
     const params = {};
     if (activeTab === 'cars' || activeTab === 'all') {
-      if (carFilters.manufacturer) params.manufacturer = carFilters.manufacturer;
-      if (carFilters.model) params.model = carFilters.model;
-      if (carFilters.city) params.city = carFilters.city;
-      if (carFilters.min_price) params.min_price = carFilters.min_price;
-      if (carFilters.max_price) params.max_price = carFilters.max_price;
+      // Use the backend's actual car filter param names (get_cars allowed_filters).
+      // These keys are car-specific, so they're harmlessly ignored by the
+      // bike/plate/part endpoints that share this query string.
+      if (carFilters.manufacturer) params.car_manufacturer = carFilters.manufacturer;
+      if (carFilters.model) params.car_model = carFilters.model;
+      if (carFilters.city) params.car_city = carFilters.city;
+      if (carFilters.min_price) params.price_from = carFilters.min_price;
+      if (carFilters.max_price) params.price_to = carFilters.max_price;
     }
     if (activeTab === 'bikes' || activeTab === 'all') {
       if (bikeFilters.type) params.bike_type = bikeFilters.type;
@@ -917,9 +920,8 @@ export default function ExploreScreen({ navigation, route }) {
 
       <View style={styles.controlsRow} ref={controlsRef} collapsable={false}>
         <TouchableOpacity
-          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive, activeTab === 'all' && { opacity: 0.4 }]}
+          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
           onPress={() => setFilterSheetOpen(true)}
-          disabled={activeTab === 'all'}
           activeOpacity={0.7}
         >
           <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? COLORS.accent : COLORS.textSecondary} />
@@ -969,7 +971,7 @@ export default function ExploreScreen({ navigation, route }) {
       ) : (
         <FlashList
           key={`cols-${columns}`}
-          estimatedItemSize={columns === 2 ? 210 : 260}
+          estimatedItemSize={columns === 2 ? 294 : 260}
           data={normalizedItems}
           renderItem={renderItem}
           keyExtractor={(item, idx) => `${item.category || 'listing'}-${item.id || idx}`}
@@ -1163,6 +1165,11 @@ const styles = StyleSheet.create({
   cardFeaturedText: { color: COLORS.black, fontSize: 9, fontWeight: '700' },
 
   cardBody: { paddingHorizontal: 14, paddingVertical: 14 },
+  // Grid (2-col) cards get a fixed body height so both FlashList columns stay
+  // aligned regardless of title/subtitle length or mixed categories. Content is
+  // top-aligned; shorter cards just leave whitespace. overflow clips the rare
+  // 2-line-title + subtitle + location combo.
+  cardBodyGrid: { height: 148, overflow: 'hidden' },
   cardPrice: {
     color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6,
   },

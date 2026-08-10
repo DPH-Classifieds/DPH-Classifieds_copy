@@ -61,6 +61,7 @@ const CarList = () => {
     seating_capacity: '',
     horsepower: '',
     engine_capacity: '',
+    exclude_reddit: false,
     extras: []
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -316,6 +317,7 @@ const CarList = () => {
       seating_capacity: '',
       horsepower: '',
       engine_capacity: '',
+      exclude_reddit: false,
       extras: []
     };
     setFilters(clearedFilters);
@@ -379,6 +381,21 @@ const CarList = () => {
               <option value="kilometer_driven.desc">Mileage: High to Low</option>
             </SearchableSelect>
           </div>
+          <label
+            className="hide-reddit-toggle"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            <input
+              type="checkbox"
+              checked={!!filters.exclude_reddit}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setFilters((prev) => ({ ...prev, exclude_reddit: checked }));
+                fetchCars({ reset: true, offset: 0, filterParams: { exclude_reddit: checked } });
+              }}
+            />
+            <span>Hide Reddit listings</span>
+          </label>
 	        </div>
 	        
 	        <form onSubmit={applyFilters} className={filtersOpenMobile ? 'filters-open' : ''}>

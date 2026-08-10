@@ -6158,7 +6158,12 @@ def get_cars():
         # Reddit imports show ONLY in the dedicated Reddit browse tab. Exclude them
         # from the normal cars feed unless the caller explicitly asks for them.
         # (or-clause keeps rows whose source_platform is null — i.e. all real cars.)
-        if request.args.get("source_platform") != "reddit" and not _reddit_on_explore():
+        # A client can also force exclusion via ?exclude_reddit=true — this wins even
+        # when the admin reddit_on_explore flag mixes Reddit into the main feed, so a
+        # user who doesn't want to see Reddit cars always can opt out.
+        requesting_reddit = request.args.get("source_platform") == "reddit"
+        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
+        if _should_hide_reddit(requesting_reddit, exclude_reddit, _reddit_on_explore()):
             filtered_params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
         # Define allowed filter fields that exist in the cars table
@@ -9893,6 +9898,21 @@ def upload_profile_photo(current_user):
             return jsonify({"message": upload_error}), status_code
 
         logger.info(f"Profile photo uploaded successfully: {public_url}")
+
+        # Persist to the user's row so the avatar survives refresh / re-login.
+        # The mobile client only updated local state, so without this write the
+        # photo reverted on the next backend sync. Making the upload endpoint
+        # authoritative fixes every caller regardless of what they PUT afterward.
+        persist_resp, persist_status = supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{current_user}",
+            data={"profile_photo_url": public_url},
+            use_service_role=True,
+        )
+        if persist_status >= 400:
+            logger.error("Failed to persist profile_photo_url: %s", persist_resp)
+            return jsonify({"message": "Failed to save profile photo"}), 500
+
         return jsonify(
             {"message": "Photo uploaded successfully", "profile_photo_url": public_url}
         ), 200
@@ -17128,6 +17148,17 @@ def _reddit_on_explore() -> bool:
             pass
     raw = (os.getenv("REDDIT_ON_EXPLORE") or "false").strip().lower()
     return raw in ("1", "true", "yes", "on")
+
+
+def _should_hide_reddit(requesting_reddit, exclude_reddit, reddit_on_explore):
+    """Whether to exclude Reddit-sourced rows from a normal listing feed.
+    - Never hide when the caller explicitly requests the Reddit tab.
+    - Otherwise hide when the client opts out (exclude_reddit) OR Reddit isn't
+      globally mixed into explore. exclude_reddit wins over the admin flag so a
+      user can always choose not to see Reddit cars."""
+    if requesting_reddit:
+        return False
+    return bool(exclude_reddit) or not reddit_on_explore
 
 
 def _initial_listing_status():

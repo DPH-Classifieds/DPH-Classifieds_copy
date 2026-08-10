@@ -40,13 +40,13 @@ export const SPACING = {
   xxl: 48,
 };
 
-// Android's tab bar floats over content (position: 'absolute', for the
-// BlurView glass effect in AppNavigator), so screens need extra bottom
-// padding or their last items sit behind it. iOS now uses a real native
-// UITabBarController (react-native-screens' native bottom tabs, for Liquid
-// Glass on iOS 26+), which insets scrollable content correctly on its own —
-// adding the same padding there would just double up as dead whitespace.
-export const TAB_BAR_CLEARANCE = Platform.OS === 'ios' ? 0 : 100;
+// Small comfort gap so a screen's last scroll item isn't flush against the tab
+// bar. Both platforms now use tab bars that occupy/inset layout space (iOS
+// native UITabBarController; Android in-layout JS <Tabs>), so content already
+// sits above the bar + gesture nav — this is just breathing room, NOT the old
+// 100px hack that compensated for the removed absolute BlurView bar in the (now
+// dead) AppNavigator.
+export const TAB_BAR_CLEARANCE = Platform.OS === 'ios' ? 0 : 24;
 
 export const BORDER_RADIUS = {
   sm: 5,

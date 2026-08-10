@@ -22,25 +22,12 @@ import PressableScale from '../../components/ui/PressableScale';
 import ListHeader from '../../components/ui/ListHeader';
 import { useGridColumns } from '../../hooks/useGridColumns';
 import { toastApiError } from '../../utils/toast';
-
-const PRICE_RANGES = [
-  { label: 'Any', min: 0, max: 0 },
-  { label: 'Under 20k', min: 0, max: 20000 },
-  { label: '20k - 50k', min: 20000, max: 50000 },
-  { label: '50k - 100k', min: 50000, max: 100000 },
-  { label: '100k - 200k', min: 100000, max: 200000 },
-  { label: '200k - 500k', min: 200000, max: 500000 },
-  { label: 'Above 500k', min: 500000, max: 0 },
-];
-
-const SORT_OPTIONS = [
-  { label: 'Newest', order: 'created_at.desc' },
-  { label: 'Oldest', order: 'created_at.asc' },
-  { label: 'Price: Low to High', order: 'expected_selling_price.asc' },
-  { label: 'Price: High to Low', order: 'expected_selling_price.desc' },
-  { label: 'Year: Newest', order: 'make_year.desc' },
-  { label: 'Mileage: Lowest', order: 'kilometer_driven.asc' },
-];
+import {
+  CARS_SORT_OPTIONS as SORT_OPTIONS,
+  CARS_PRICE_RANGES as PRICE_RANGES,
+  CARS_KM_RANGES as KM_RANGES,
+  buildCarsQuery,
+} from '../../utils/carsQuery';
 
 const CAR_CITIES = [...UAE_EMIRATES, 'Al Ain'];
 
@@ -53,7 +40,11 @@ const LIST_CACHE_KEY = 'cars:list:default';
 const LIST_CACHE_TTL = 120;
 const isDefaultView = (filters, searchVal) =>
   !searchVal &&
-  !Object.entries(filters).some(([k, v]) => (k === 'sort' ? v && v !== 'Newest' : v !== '' && v !== null));
+  !Object.entries(filters).some(([k, v]) => {
+    if (k === 'sort') return v && v !== 'Newest';
+    if (k === 'hideReddit') return v === true;
+    return v !== '' && v !== null;
+  });
 
 const getImageUri = (item) => {
   if (item.images && item.images.length > 0) {
@@ -119,10 +110,12 @@ export default function CarListScreen({ navigation }) {
     yearFrom: '',
     yearTo: '',
     priceRange: null,
+    mileageRange: null,
     fuel: '',
     transmission: '',
     bodyType: '',
     city: '',
+    hideReddit: false,
     sort: 'Newest',
   });
   const { columns, toggleColumns } = useGridColumns();
@@ -133,25 +126,9 @@ export default function CarListScreen({ navigation }) {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const buildQuery = useCallback((pageNum, _searchVal, filters) => {
-    const offset = (pageNum - 1) * PAGE_SIZE;
-    const params = [`limit=${PAGE_SIZE}`, `offset=${offset}`];
-    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
-    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
-    if (filters.make) params.push(`car_manufacturer=${encodeURIComponent(filters.make)}`);
-    if (filters.model) params.push(`car_model=${encodeURIComponent(filters.model)}`);
-    if (filters.bodyType) params.push(`body_type=${encodeURIComponent(filters.bodyType)}`);
-    if (filters.city) params.push(`car_city=${encodeURIComponent(filters.city)}`);
-    if (filters.yearFrom) params.push(`make_year_from=${filters.yearFrom}`);
-    if (filters.yearTo) params.push(`make_year_to=${filters.yearTo}`);
-    if (filters.fuel) params.push(`fuel_type=${encodeURIComponent(filters.fuel)}`);
-    if (filters.transmission) params.push(`transmission_type=${encodeURIComponent(filters.transmission)}`);
-    if (filters.priceRange) {
-      if (filters.priceRange.min > 0) params.push(`price_from=${filters.priceRange.min}`);
-      if (filters.priceRange.max > 0) params.push(`price_to=${filters.priceRange.max}`);
-    }
-    return `/api/cars?${params.join('&')}`;
-  }, []);
+  const buildQuery = useCallback((pageNum, _searchVal, filters) => (
+    buildCarsQuery(pageNum, PAGE_SIZE, filters)
+  ), []);
 
   const fetchCars = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
@@ -236,15 +213,23 @@ export default function CarListScreen({ navigation }) {
   const clearFilters = () => {
     const cleared = {
       make: '', model: '', yearFrom: '', yearTo: '', priceRange: null,
-      fuel: '', transmission: '', bodyType: '', city: '', sort: 'Newest',
+      mileageRange: null, fuel: '', transmission: '', bodyType: '', city: '',
+      hideReddit: false, sort: 'Newest',
     };
     setActiveFilters(cleared);
     setFilterModal(null);
     fetchCars(1, search, cleared);
   };
 
+  const toggleHideReddit = () => {
+    const newFilters = { ...activeFilters, hideReddit: !activeFilters.hideReddit };
+    setActiveFilters(newFilters);
+    fetchCars(1, search, newFilters);
+  };
+
   const hasActiveFilters = Object.entries(activeFilters).some(([k, v]) => {
     if (k === 'sort') return v && v !== 'Newest';
+    if (k === 'hideReddit') return v === true;
     return v !== '' && v !== null;
   });
 
@@ -320,6 +305,10 @@ export default function CarListScreen({ navigation }) {
       title = 'Price Range';
       selected = activeFilters.priceRange?.label || 'Any';
       options = PRICE_RANGES.map(r => r.label);
+    } else if (filterModal === 'mileageRange') {
+      title = 'Mileage';
+      selected = activeFilters.mileageRange?.label || 'Any';
+      options = KM_RANGES.map(r => r.label);
     } else if (filterModal === 'fuel') {
       title = 'Fuel Type';
       selected = activeFilters.fuel;
@@ -364,17 +353,19 @@ export default function CarListScreen({ navigation }) {
                 <Text style={styles.modalEmptyText}>No matches</Text>
               )}
               {shownOptions.map((opt) => {
-                const isSelected = filterModal === 'priceRange'
-                  ? (activeFilters.priceRange?.label || 'Any') === opt
+                const isRange = filterModal === 'priceRange' || filterModal === 'mileageRange';
+                const isSelected = isRange
+                  ? ((activeFilters[filterModal]?.label) || 'Any') === opt
                   : selected === (opt === 'All' ? '' : opt);
                 return (
                   <TouchableOpacity
                     key={opt}
                     style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
                     onPress={() => {
-                      if (filterModal === 'priceRange') {
-                        const range = PRICE_RANGES.find(r => r.label === opt);
-                        applyFilter('priceRange', range.label === 'Any' ? null : range);
+                      if (isRange) {
+                        const ranges = filterModal === 'priceRange' ? PRICE_RANGES : KM_RANGES;
+                        const range = ranges.find(r => r.label === opt);
+                        applyFilter(filterModal, range.label === 'Any' ? null : range);
                       } else {
                         applyFilter(filterModal, opt === 'All' ? '' : opt);
                       }
@@ -439,8 +430,22 @@ export default function CarListScreen({ navigation }) {
             {renderFilterChip('Year To', 'yearTo', !!activeFilters.yearTo)}
             {renderFilterChip('City', 'city', !!activeFilters.city)}
             {renderFilterChip('Price', 'priceRange', !!activeFilters.priceRange)}
+            {renderFilterChip('Mileage', 'mileageRange', !!activeFilters.mileageRange)}
             {renderFilterChip('Fuel', 'fuel', !!activeFilters.fuel)}
             {renderFilterChip('Transmission', 'transmission', !!activeFilters.transmission)}
+            <TouchableOpacity
+              style={[styles.filterChip, activeFilters.hideReddit && styles.filterChipActive]}
+              onPress={toggleHideReddit}
+            >
+              <Ionicons
+                name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
+                size={14}
+                color={activeFilters.hideReddit ? COLORS.accent : COLORS.textMuted}
+              />
+              <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
+                {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
+              </Text>
+            </TouchableOpacity>
             {hasActiveFilters && (
               <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
                 <Ionicons name="close-circle" size={14} color={COLORS.accent} />
