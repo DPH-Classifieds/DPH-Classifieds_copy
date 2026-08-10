@@ -18,6 +18,17 @@ const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
 const MAX_INPUT_PIXELS = 25_000_000; // 25 MP source cap (memory guard)
 
+// Crop aspect options offered on photo listings (car/bike/part). "Original"
+// keeps the source ratio so portrait 9:16 photos are preserved. Same options for
+// every listing type — the browse cards normalise the on-screen shape.
+const ASPECT_OPTIONS = [
+  { key: 'original', label: 'Original', value: null },
+  { key: 'landscape', label: 'Landscape', value: 16 / 10 },
+  { key: 'portrait', label: 'Portrait', value: 9 / 16 },
+  { key: 'square', label: 'Square', value: 1 },
+];
+const aspectValueFor = (key) => ASPECT_OPTIONS.find((o) => o.key === key)?.value ?? null;
+
 /**
  * UnifiedCropper — single component used by every post-listing flow plus
  * AccountSettings. See docs/superpowers/specs/2026-06-05-unified-cropper-design.md.
@@ -33,6 +44,14 @@ const MAX_INPUT_PIXELS = 25_000_000; // 25 MP source cap (memory guard)
 export default function UnifiedCropper({ kind, images, isOpen, onClose, onComplete }) {
   const cfg = useMemo(() => getKindConfig(kind), [kind]);
   const isSingleProfile = kind === 'profile' || (images && images.length === 1 && kind === 'profile');
+  // Fixed-shape kinds (round profile, plate) keep their forced aspect; photo
+  // listings let the user pick, defaulting to the source ratio.
+  const allowAspectChoice = cfg.shape !== 'round' && kind !== 'plate';
+  const [aspectChoice, setAspectChoice] = useState('original');
+  const [mediaAspect, setMediaAspect] = useState(null);
+  const effectiveAspect = !allowAspectChoice
+    ? cfg.aspect
+    : (aspectChoice === 'original' ? (mediaAspect || cfg.aspect) : aspectValueFor(aspectChoice));
 
   // Normalise: caller can pass File[] or wrapped objects.
   const normalisedImages = useMemo(() => {
@@ -142,7 +161,10 @@ export default function UnifiedCropper({ kind, images, isOpen, onClose, onComple
         if (imgEl.width * imgEl.height > MAX_INPUT_PIXELS) {
           throw new Error(`Image ${file.name || i + 1} is too large (over 25 megapixels). Please resize before uploading.`);
         }
-        const pixelCrop = state.croppedAreaPixels || defaultCenteredCrop(imgEl, cfg.aspect);
+        const cropAspect = !allowAspectChoice
+          ? cfg.aspect
+          : (aspectChoice === 'original' ? (imgEl.width / imgEl.height) : aspectValueFor(aspectChoice));
+        const pixelCrop = state.croppedAreaPixels || defaultCenteredCrop(imgEl, cropAspect);
         const blob = await getCroppedBlob(imgEl, pixelCrop, cfg, state.rotation);
         const { file: croppedFile, previewUrl } = blobToFile(blob, kind);
         previewUrlsRef.current.push(previewUrl);
@@ -156,7 +178,7 @@ export default function UnifiedCropper({ kind, images, isOpen, onClose, onComple
     } finally {
       setIsProcessing(false);
     }
-  }, [normalisedImages, perImageState, cfg, kind, isProcessing, onComplete]);
+  }, [normalisedImages, perImageState, cfg, kind, isProcessing, onComplete, allowAspectChoice, aspectChoice]);
 
   const handleCancel = useCallback(() => {
     cancelRef.current = true;
@@ -195,12 +217,18 @@ export default function UnifiedCropper({ kind, images, isOpen, onClose, onComple
             crop={activeState.crop}
             zoom={activeState.zoom}
             rotation={activeState.rotation}
-            aspect={cfg.aspect}
+            aspect={effectiveAspect}
             cropShape={cfg.shape === 'round' ? 'round' : 'rect'}
             showGrid={cfg.shape === 'rect'}
             onCropChange={handleCropChange}
             onZoomChange={handleZoomChange}
             onCropComplete={handleCropComplete}
+            onMediaLoaded={(mediaSize) =>
+              setMediaAspect(
+                (mediaSize.naturalWidth || mediaSize.width) /
+                  (mediaSize.naturalHeight || mediaSize.height)
+              )
+            }
           />
         </div>
 
@@ -219,6 +247,29 @@ export default function UnifiedCropper({ kind, images, isOpen, onClose, onComple
             ↻ Rotate
           </button>
         </div>
+
+        {allowAspectChoice && (
+          <div className="ucrop-aspect" style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', padding: '4px 12px' }}>
+            {ASPECT_OPTIONS.map((o) => (
+              <button
+                type="button"
+                key={o.key}
+                onClick={() => setAspectChoice(o.key)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  border: `1px solid ${aspectChoice === o.key ? '#4CAF50' : 'rgba(255,255,255,0.25)'}`,
+                  background: aspectChoice === o.key ? 'rgba(76,175,80,0.15)' : 'transparent',
+                  color: aspectChoice === o.key ? '#4CAF50' : 'rgba(255,255,255,0.7)',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {showThumbnails && (
           <div className="ucrop-thumbs" data-testid="cropper-thumbnail-strip">

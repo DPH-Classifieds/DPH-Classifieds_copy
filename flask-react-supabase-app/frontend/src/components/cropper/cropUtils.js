@@ -82,44 +82,39 @@ export async function normaliseImageOrientation(file) {
  */
 export function getCroppedBlob(image, pixelCrop, kindConfig, rotation = 0) {
   return new Promise((resolve, reject) => {
+    // Preserve the cropped region's aspect ratio (portrait, square or landscape)
+    // instead of forcing a fixed landscape frame. Downscale only to keep the
+    // long side within the kind's max dimension. The on-screen card frames
+    // normalise the displayed shape via object-fit: cover.
+    const maxDim = Math.max(kindConfig.outputWidth, kindConfig.outputHeight);
+    const scale = Math.min(1, maxDim / Math.max(pixelCrop.width, pixelCrop.height));
+    const drawW = Math.max(1, Math.round(pixelCrop.width * scale));
+    const drawH = Math.max(1, Math.round(pixelCrop.height * scale));
+
+    const rot = (((rotation || 0) % 360) + 360) % 360;
+    const swap = rot === 90 || rot === 270;
+
     const canvas = document.createElement('canvas');
-    canvas.width = kindConfig.outputWidth;
-    canvas.height = kindConfig.outputHeight;
+    canvas.width = swap ? drawH : drawW;
+    canvas.height = swap ? drawW : drawH;
     const ctx = canvas.getContext('2d');
     if (!ctx) return reject(new Error('Canvas 2D context unavailable'));
 
-    const radians = ((rotation || 0) % 360) * (Math.PI / 180);
-    if (radians === 0) {
-      ctx.drawImage(
-        image,
-        pixelCrop.x,
-        pixelCrop.y,
-        pixelCrop.width,
-        pixelCrop.height,
-        0,
-        0,
-        kindConfig.outputWidth,
-        kindConfig.outputHeight
-      );
-    } else {
-      // Rotate around the centre of the output canvas
-      ctx.save();
-      ctx.translate(kindConfig.outputWidth / 2, kindConfig.outputHeight / 2);
-      ctx.rotate(radians);
-      ctx.translate(-kindConfig.outputWidth / 2, -kindConfig.outputHeight / 2);
-      ctx.drawImage(
-        image,
-        pixelCrop.x,
-        pixelCrop.y,
-        pixelCrop.width,
-        pixelCrop.height,
-        0,
-        0,
-        kindConfig.outputWidth,
-        kindConfig.outputHeight
-      );
-      ctx.restore();
-    }
+    // Draw the crop centred, rotating around the canvas centre. Works for 0/90/
+    // 180/270 with the swapped canvas dims above.
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(rot * (Math.PI / 180));
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      -drawW / 2,
+      -drawH / 2,
+      drawW,
+      drawH
+    );
 
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error('Crop blob generation failed'))),

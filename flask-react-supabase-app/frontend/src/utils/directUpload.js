@@ -12,7 +12,6 @@ export const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 const STORAGE_CACHE_CONTROL = '31536000';
 const LISTING_DISPLAY_WIDTH = 1600;
 const LISTING_DISPLAY_HEIGHT = 1000;
-const LISTING_DISPLAY_RATIO = LISTING_DISPLAY_WIDTH / LISTING_DISPLAY_HEIGHT;
 const TUS_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -162,41 +161,31 @@ const uploadSignedAsset = async ({
   return signed;
 };
 
+const LISTING_DISPLAY_MAX = Math.max(LISTING_DISPLAY_WIDTH, LISTING_DISPLAY_HEIGHT);
+
 const buildListingDisplayVariant = async (file, cropSettings = {}) => {
   const image = await loadImageElement(file);
   const normalizedCrop = normalizeCropSettings(cropSettings);
-  const focalX = (normalizedCrop.focal_x / 100) * image.width;
-  const focalY = (normalizedCrop.focal_y / 100) * image.height;
-  const zoom = normalizedCrop.zoom;
 
-  const widerThanTarget = (image.width / image.height) >= LISTING_DISPLAY_RATIO;
-  const baseCropHeight = widerThanTarget ? image.height : Math.round(image.width / LISTING_DISPLAY_RATIO);
-  const baseCropWidth = widerThanTarget ? Math.round(baseCropHeight * LISTING_DISPLAY_RATIO) : image.width;
-  const cropWidth = Math.max(1, Math.round(baseCropWidth / zoom));
-  const cropHeight = Math.max(1, Math.round(baseCropHeight / zoom));
-  const left = Math.round(clamp(focalX - (cropWidth / 2), 0, image.width - cropWidth));
-  const top = Math.round(clamp(focalY - (cropHeight / 2), 0, image.height - cropHeight));
+  // The file passed in is already the user's final crop (UnifiedCropper handles
+  // shape/aspect, including portrait). Preserve that aspect ratio here — just
+  // downscale to fit within the max display box. The old code re-cropped to a
+  // fixed 16:10 landscape frame, which discarded the top/bottom of portrait
+  // photos; the browse-card frames already normalise the on-screen shape.
+  const scale = Math.min(1, LISTING_DISPLAY_MAX / Math.max(image.width, image.height));
+  const outWidth = Math.max(1, Math.round(image.width * scale));
+  const outHeight = Math.max(1, Math.round(image.height * scale));
 
   const canvas = document.createElement('canvas');
-  canvas.width = LISTING_DISPLAY_WIDTH;
-  canvas.height = LISTING_DISPLAY_HEIGHT;
+  canvas.width = outWidth;
+  canvas.height = outHeight;
 
   const context = canvas.getContext('2d');
   if (!context) {
     throw new Error('Canvas rendering is unavailable in this browser.');
   }
 
-  context.drawImage(
-    image,
-    left,
-    top,
-    cropWidth,
-    cropHeight,
-    0,
-    0,
-    LISTING_DISPLAY_WIDTH,
-    LISTING_DISPLAY_HEIGHT
-  );
+  context.drawImage(image, 0, 0, image.width, image.height, 0, 0, outWidth, outHeight);
 
   const blob = await new Promise((resolve, reject) => {
     canvas.toBlob((nextBlob) => {
@@ -216,14 +205,14 @@ const buildListingDisplayVariant = async (file, cropSettings = {}) => {
       source_width: image.width,
       source_height: image.height,
       crop_box: {
-        left,
-        top,
-        right: left + cropWidth,
-        bottom: top + cropHeight,
+        left: 0,
+        top: 0,
+        right: image.width,
+        bottom: image.height,
       },
-      zoom,
-      display_width: LISTING_DISPLAY_WIDTH,
-      display_height: LISTING_DISPLAY_HEIGHT,
+      zoom: normalizedCrop.zoom,
+      display_width: outWidth,
+      display_height: outHeight,
     },
   };
 };

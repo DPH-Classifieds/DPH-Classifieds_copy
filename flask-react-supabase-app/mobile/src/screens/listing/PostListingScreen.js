@@ -1291,7 +1291,7 @@ export default function PostListingScreen({ navigation, route }) {
       }
 
       if (category === 'car') {
-        if (!carForm.car_manufacturer || !carForm.car_model || !carForm.make_year || !carForm.expected_selling_price || !carForm.kilometer_driven || !carForm.body_type || !carForm.color || !carForm.regional_spec || !carForm.car_owner_phone_number || !carForm.car_description || !carForm.fuel_type || carForm.fuel_type === 'Other' || !carForm.transmission_type) {
+        if (!carForm.car_manufacturer || !carForm.car_model || !carForm.make_year || !carForm.expected_selling_price || !carForm.kilometer_driven || !carForm.body_type || !carForm.color || !carForm.regional_spec || !carForm.car_owner_phone_number || !carForm.car_description || !carForm.fuel_type || !carForm.transmission_type) {
           Alert.alert('Required', 'Please complete all required car fields.');
           setLoading(false);
           return;
