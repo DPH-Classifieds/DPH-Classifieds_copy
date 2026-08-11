@@ -389,6 +389,13 @@ def _parse_price_aed(text: str) -> Optional[int]:
         val = int(m.group(1)) * 1000
         if MIN_PRICE_AED <= val <= MAX_PRICE_AED:
             return val
+    # 5. Bare thousands shorthand "85k" / "85 K" with NO currency cue — accept only
+    #    when it is NOT a mileage figure (km/kms/kilometre/miles right after), so a
+    #    real price like "…120i 85k" imports but "64k kms" stays mileage.
+    for m in re.finditer(r"(?<!\d)(\d{1,4})\s?k\b(?!\s*(?:km|kilomet|mile|mi\b))", low):
+        val = int(m.group(1)) * 1000
+        if MIN_PRICE_AED <= val <= MAX_PRICE_AED:
+            return val
     return None
 
 
@@ -753,6 +760,32 @@ def _match_keywords(text_low, needles):
     return False
 
 
+def _first_keyword_pos(text_low, needles):
+    """Start index of the earliest matching needle in text_low, else None."""
+    best = None
+    for n in needles:
+        pat = n if "\\" in n else rf"\b{re.escape(n)}\b"
+        m = re.search(pat, text_low)
+        if m and (best is None or m.start() < best):
+            best = m.start()
+    return best
+
+
+def _vehicle_identity_pos(title, title_low, now):
+    """Earliest index of a plausible model-year or a car make alias in the title."""
+    positions = []
+    for m in re.finditer(r"(?<!\d)(\d{4})(?!\d)", title):
+        if MIN_YEAR <= int(m.group(1)) <= now.year + 1:
+            positions.append(m.start())
+            break
+    for alias, _canon in _MAKE_ALIASES_BY_LEN:
+        m = re.search(rf"\b{re.escape(alias)}\b", title_low)
+        if m:
+            positions.append(m.start())
+            break
+    return min(positions) if positions else None
+
+
 def _resolve_bike_make(title):
     """Definite motorcycle marques only (used by classify's first bike check)."""
     for alias, canonical in _BIKE_MAKES_BY_LEN:
@@ -774,24 +807,41 @@ def _resolve_bike_make_any(title):
     return None
 
 
-def classify(submission):
+def classify(submission, now):
     """Return 'part' | 'plate' | 'bike' | 'car' | None for a sale post.
     Classification uses the TITLE only — a car's selftext is full of part nouns
     ('seats', 'wheels', 'tyres'), so title is what states what's being sold.
-    Order matters: a part keyword in the title wins over the car make it mentions."""
-    title_low = (submission.title or "").lower()
-    if _match_keywords(title_low, _PART_KEYWORDS):
+    Precedence: a complete, title-leading vehicle identity (make + model + a
+    model-year) beats an incidental part noun, so '2019 Nissan Patrol, new tyres
+    & brakes' is a car; a post that LEADS with the part ('Recaro seats for 2019
+    Patrol') stays a part."""
+    title = submission.title or ""
+    title_low = title.lower()
+    part_pos = _first_keyword_pos(title_low, _PART_KEYWORDS)
+    plate_pos = _first_keyword_pos(title_low, _PLATE_KEYWORDS)
+    car_mm = _resolve_make_model(title)
+    year = _parse_year(title, now)
+    car_pos = _vehicle_identity_pos(title, title_low, now)
+    # A complete, title-leading vehicle wins over an incidental part word.
+    # ponytail: naive position rule; a genuine 'YEAR MAKE MODEL <part>' parts post
+    # (e.g. '2008 BMW M3 wheels') still reads as a car. Upgrade path: a dedicated
+    # Parts flair, or require the part word not to immediately follow the model.
+    car_wins = bool(
+        car_mm and year and car_pos is not None
+        and (part_pos is None or car_pos <= part_pos)
+    )
+    if part_pos is not None and not car_wins:
         return "part"
-    if _match_keywords(title_low, _PLATE_KEYWORDS):
+    if plate_pos is not None:
         return "plate"
-    if _resolve_bike_make(submission.title):
+    if _resolve_bike_make(title):
         return "bike"
     # Ambiguous marque only counts as a bike with an explicit bike signal.
     for alias in _BIKE_AMBIGUOUS:
         if re.search(rf"\b{alias}\b", title_low):
             if _match_keywords(title_low, _BIKE_SIGNAL_WORDS) or any(h in title_low for h in _BIKE_MODEL_HINTS):
                 return "bike"
-    if _resolve_make_model(submission.title):
+    if car_mm:
         return "car"
     return None
 
@@ -939,7 +989,7 @@ def parse_listing(submission, now):
     price = _parse_price_aed(combined)
     if not price:
         return None  # every category requires a price
-    category = classify(submission)
+    category = classify(submission, now)
     if category is None:
         return None
 

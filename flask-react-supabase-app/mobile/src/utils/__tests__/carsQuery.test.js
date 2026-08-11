@@ -29,9 +29,9 @@ describe('buildCarsQueryParams', () => {
       const p = buildCarsQueryParams(1, 15, { ...base, sort: label });
       return p.find((x) => x.startsWith('order=')).replace('order=', '');
     };
-    expect(order('Year: Oldest')).toBe('make_year.asc');
-    expect(order('Mileage: Highest')).toBe('kilometer_driven.desc');
-    expect(order('Year: Newest')).toBe('make_year.desc');
+    expect(order('Year: Low to High')).toBe('make_year.asc');
+    expect(order('KM: High to Low')).toBe('kilometer_driven.desc');
+    expect(order('Year: High to Low')).toBe('make_year.desc');
   });
 
   test('mileage range maps to kilometer_from/to (only nonzero bounds)', () => {

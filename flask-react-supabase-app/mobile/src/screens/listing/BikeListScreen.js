@@ -38,11 +38,15 @@ const PRICE_RANGES = [
   { label: 'Above 100k', min: 100000, max: 0 },
 ];
 
+// Bikes table columns are year / mileage / price (NOT make_year /
+// kilometer_driven / expected_selling_price — those 400 and empty the list).
 const SORT_OPTIONS = [
   { label: 'Newest', order: 'created_at.desc' },
   { label: 'Oldest', order: 'created_at.asc' },
-  { label: 'Price: Low to High', order: 'expected_selling_price.asc' },
-  { label: 'Price: High to Low', order: 'expected_selling_price.desc' },
+  { label: 'Price: Low to High', order: 'price.asc' },
+  { label: 'Price: High to Low', order: 'price.desc' },
+  { label: 'Year: High to Low', order: 'year.desc' },
+  { label: 'KM: High to Low', order: 'mileage.desc' },
 ];
 
 const PAGE_SIZE = 15;

@@ -6,10 +6,10 @@ export const CARS_SORT_OPTIONS = [
   { label: 'Oldest', order: 'created_at.asc' },
   { label: 'Price: Low to High', order: 'expected_selling_price.asc' },
   { label: 'Price: High to Low', order: 'expected_selling_price.desc' },
-  { label: 'Year: Newest', order: 'make_year.desc' },
-  { label: 'Year: Oldest', order: 'make_year.asc' },
-  { label: 'Mileage: Lowest', order: 'kilometer_driven.asc' },
-  { label: 'Mileage: Highest', order: 'kilometer_driven.desc' },
+  { label: 'Year: High to Low', order: 'make_year.desc' },
+  { label: 'Year: Low to High', order: 'make_year.asc' },
+  { label: 'KM: Low to High', order: 'kilometer_driven.asc' },
+  { label: 'KM: High to Low', order: 'kilometer_driven.desc' },
 ];
 
 export const CARS_PRICE_RANGES = [

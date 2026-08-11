@@ -235,6 +235,21 @@ class MultiCategoryTests(unittest.TestCase):
         self.assertEqual(built["config"]["table"], "car_parts")
         self.assertEqual(built["payload"]["part_type"], "Wheels & Tires")
 
+    def test_car_with_part_noun_in_title_is_still_a_car(self):
+        # A whole-vehicle identity that LEADS the title beats an incidental part word.
+        for t in [
+            "WTS 2019 Nissan Patrol GCC, new tyres, brakes & wheels AED 120,000",
+            "WTS: 2016 Range Rover Vogue, full service history, new brakes AED 150,000",
+            "WTS 2020 Ford Mustang GT, full wrap, AED 130,000",
+            "WTS 2015 Nissan GTR, upgraded turbo AED 300,000",
+            "WTS 2018 Mercedes C300 Recaro seats AED 95,000",
+        ]:
+            self.assertEqual(self._p(t).category, "car", t)
+
+    def test_part_leading_title_still_routes_to_part(self):
+        self.assertEqual(self._p("WTS BBS wheels for BMW AED 3,000").category, "part")
+        self.assertEqual(self._p("WTS Recaro seats for 2018 Golf GTI AED 4,000").category, "part")
+
     def test_plate_routes_to_license_plates(self):
         p = self._p("WTS number plate 12345 Dubai AED 25,000")
         self.assertEqual(p.category, "plate")
