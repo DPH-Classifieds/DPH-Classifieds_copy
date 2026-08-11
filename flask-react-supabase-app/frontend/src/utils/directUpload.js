@@ -31,6 +31,24 @@ const getFileExtension = (fileName = '', fallback = 'jpg') => {
   return normalized || fallback;
 };
 
+const HEIC_MIME = /image\/hei[cf]/i;
+const HEIC_EXT = /\.(heic|heif)$/i;
+
+// iPhones upload HEIC/HEIF by default and every browser except Safari fails to
+// decode it — so a raw HEIC lands in storage as a broken image and the
+// display-variant canvas step (which reads via <img>) can't process it either.
+// Convert to JPEG in the browser up front so downstream sees a normal JPEG.
+export const ensureUploadableImage = async (file) => {
+  if (!file) return file;
+  const isHeic = HEIC_MIME.test(file.type || '') || HEIC_EXT.test(file.name || '');
+  if (!isHeic) return file;
+  const { default: heic2any } = await import('heic2any');
+  const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+  const blob = Array.isArray(converted) ? converted[0] : converted;
+  const newName = `${String(file.name || 'photo').replace(HEIC_EXT, '')}.jpg`;
+  return new File([blob], newName, { type: 'image/jpeg', lastModified: Date.now() });
+};
+
 const normalizeCropSettings = (cropSettings = {}) => ({
   focal_x: clamp(Number(cropSettings.focal_x ?? cropSettings.focalX ?? 50) || 50, 0, 100),
   focal_y: clamp(Number(cropSettings.focal_y ?? cropSettings.focalY ?? 50) || 50, 0, 100),
@@ -258,7 +276,7 @@ export const uploadListingImagesDirect = async (files, { userId, cropSettings = 
   const uploadedImages = [];
 
   for (let index = 0; index < files.length; index += 1) {
-    const file = files[index];
+    const file = await ensureUploadableImage(files[index]);
     const crop = cropSettings[index] || {};
     const originalPath = buildStorageObjectPath({
       userId,
@@ -318,7 +336,7 @@ export const uploadListingImageUrlsDirect = async (files, { userId, onProgress }
   const uploadedUrls = [];
 
   for (let index = 0; index < files.length; index += 1) {
-    const file = files[index];
+    const file = await ensureUploadableImage(files[index]);
     const objectPath = buildStorageObjectPath({
       userId,
       fileName: file.name,
@@ -342,7 +360,8 @@ export const uploadListingImageUrlsDirect = async (files, { userId, onProgress }
   return uploadedUrls;
 };
 
-export const uploadProfilePhotoDirect = async (file, { userId } = {}) => {
+export const uploadProfilePhotoDirect = async (rawFile, { userId } = {}) => {
+  const file = await ensureUploadableImage(rawFile);
   const objectPath = buildStorageObjectPath({
     userId,
     fileName: file.name,
@@ -359,7 +378,8 @@ export const uploadProfilePhotoDirect = async (file, { userId } = {}) => {
   return upload.public_url;
 };
 
-export const uploadRegistrationDocument = async (file, { userId } = {}) => {
+export const uploadRegistrationDocument = async (rawFile, { userId } = {}) => {
+  const file = await ensureUploadableImage(rawFile);
   const objectPath = buildStorageObjectPath({
     userId,
     fileName: file.name,

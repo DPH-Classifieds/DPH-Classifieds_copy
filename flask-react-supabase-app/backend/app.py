@@ -1959,7 +1959,7 @@ def _friendly_db_error(raw_data, status_code, listing_type="listing"):
         friendly = "A similar listing already exists."
     elif raw_code == "23502" or "null value" in msg or "not-null" in msg:
         friendly = "Some required information is missing. Please check all fields and try again."
-    elif raw_code in ("42P01", "42703"):
+    elif raw_code in ("42P01", "42703", "PGRST204", "PGRST205") or "schema cache" in msg:
         friendly = "A configuration error prevented saving. Please contact support."
     elif raw_code == "23514" or "violates check constraint" in msg:
         friendly = "One of the submitted values is not allowed. Please contact support if this persists."
@@ -4403,7 +4403,10 @@ def _require_whatsapp_prefill_and_phone_alignment(payload, listing_type):
         if not normalized:
             raise ValueError("A valid contact phone number is required")
         payload["car_owner_phone_number"] = normalized
-        payload["contact_phone"] = normalized
+        # cars has no contact_phone column (car_owner_phone_number is canonical).
+        # Setting it here leaked into any cars write that isn't column-whitelisted,
+        # producing PGRST204 "Could not find the 'contact_phone' column of 'cars'".
+        payload.pop("contact_phone", None)
         payload["whatsapp_number"] = _normalize_phone_number(
             payload.get("whatsapp_number") or normalized,
             payload.get("country_code"),
@@ -4947,11 +4950,16 @@ def _resend_phone_verification(verification_record):
 
 def _sync_phone_to_listings(user_id, new_phone):
     """Sync a verified phone number to all of the user's listings across all types."""
+    # Each list must name ONLY columns that exist on that table — this helper
+    # writes them verbatim with no whitelist, so a stray column 400s the whole
+    # PATCH (PGRST204) and silently drops the real phone update. cars has no
+    # contact_phone (car_owner_phone_number is canonical); car_parts has no
+    # contact_phone either (contact_number is canonical).
     tables_and_fields = [
-        ("cars", ["car_owner_phone_number", "contact_phone"]),
+        ("cars", ["car_owner_phone_number"]),
         ("bikes", ["contact_number", "contact_phone"]),
         ("license_plates", ["contact_phone"]),
-        ("car_parts", ["contact_number", "contact_phone"]),
+        ("car_parts", ["contact_number"]),
     ]
     for table, phone_fields in tables_and_fields:
         try:
@@ -7273,7 +7281,8 @@ def update_car(current_user, car_id):
         )
 
         if status_code >= 400:
-            return jsonify(data), status_code
+            friendly_data, friendly_status = _friendly_db_error(data, status_code, "car")
+            return jsonify(friendly_data), friendly_status
 
         # Handle image updates for FormData requests
         if is_form_data and (new_images or keep_image_ids):
@@ -7948,6 +7957,16 @@ def upload_to_supabase_storage(
 
         allowed_types = set(LISTING_IMAGE_ALLOWED_MIME_TYPES)
         normalized_mimetype = (file.mimetype or "").lower()
+        # Browsers/desktop drag-and-drop sometimes send an empty or generic
+        # "application/octet-stream" content type for a perfectly valid image.
+        # Fall back to the file extension so those aren't wrongly rejected.
+        _ext_mime = {
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+            ".gif": "image/gif", ".webp": "image/webp",
+        }
+        if normalized_mimetype not in allowed_types:
+            ext = os.path.splitext(file.filename or "")[1].lower()
+            normalized_mimetype = _ext_mime.get(ext, normalized_mimetype)
         if normalized_mimetype not in allowed_types:
             return None, "Unsupported image type"
 
@@ -14944,7 +14963,8 @@ def update_bike(current_user, bike_id):
         )
 
         if status_code >= 400:
-            return jsonify(data), status_code
+            friendly_data, friendly_status = _friendly_db_error(data, status_code, "bike")
+            return jsonify(friendly_data), friendly_status
 
         # Update images if provided. Snapshot the existing rows first, attempt
         # the insert, and only drop the originals once the replacements have
@@ -15370,7 +15390,8 @@ def update_plate(current_user, plate_id):
         )
 
         if status_code >= 400:
-            return jsonify(data), status_code
+            friendly_data, friendly_status = _friendly_db_error(data, status_code, "plate")
+            return jsonify(friendly_data), friendly_status
 
         # Fetch full plate data for email
         refreshed_resp, refreshed_status = supabase_request(
@@ -16001,7 +16022,8 @@ def update_part(current_user, part_id):
         )
 
         if status_code >= 400:
-            return jsonify(data), status_code
+            friendly_data, friendly_status = _friendly_db_error(data, status_code, "part")
+            return jsonify(friendly_data), friendly_status
 
         # Handle image updates from JSON payload (uploaded URLs). Snapshot
         # existing rows, insert replacements, then delete the originals only
