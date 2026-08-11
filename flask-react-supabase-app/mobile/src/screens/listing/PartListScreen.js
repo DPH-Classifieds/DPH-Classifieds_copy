@@ -98,7 +98,7 @@ export default function PartListScreen({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const [filterModal, setFilterModal] = useState(null);
-  const [activeFilters, setActiveFilters] = useState({ condition: '', partType: '', sort: 'Newest' });
+  const [activeFilters, setActiveFilters] = useState({ condition: '', partType: '', sort: 'Newest', hideReddit: false });
   const { columns, toggleColumns } = useGridColumns();
   const mountedRef = useRef(true);
 
@@ -114,6 +114,7 @@ export default function PartListScreen({ navigation }) {
     if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
     if (filters.condition) params.push(`condition=${encodeURIComponent(filters.condition)}`);
     if (filters.partType) params.push(`part_type=${encodeURIComponent(filters.partType)}`);
+    if (filters.hideReddit) params.push('exclude_reddit=true');
     return `/api/parts?${params.join('&')}`;
   }, []);
 
@@ -175,7 +176,7 @@ export default function PartListScreen({ navigation }) {
   };
 
   const clearFilters = () => {
-    const cleared = { condition: '', partType: '', sort: 'Newest' };
+    const cleared = { condition: '', partType: '', sort: 'Newest', hideReddit: false };
     setActiveFilters(cleared);
     setFilterModal(null);
     setParts([]);
@@ -186,6 +187,7 @@ export default function PartListScreen({ navigation }) {
 
   const hasActiveFilters = Object.entries(activeFilters).some(([k, v]) => {
     if (k === 'sort') return v && v !== 'Newest';
+    if (k === 'hideReddit') return v === true;
     return v !== '';
   });
 
@@ -278,6 +280,19 @@ export default function PartListScreen({ navigation }) {
             {renderFilterChip(activeFilters.sort !== 'Newest' ? activeFilters.sort : 'Sort', 'sort', activeFilters.sort !== 'Newest')}
             {renderFilterChip('Condition', 'condition', !!activeFilters.condition)}
             {renderFilterChip('Part Type', 'partType', !!activeFilters.partType)}
+            <TouchableOpacity
+              style={[styles.filterChip, activeFilters.hideReddit && styles.filterChipActive]}
+              onPress={() => applyFilter('hideReddit', !activeFilters.hideReddit)}
+            >
+              <Ionicons
+                name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
+                size={14}
+                color={activeFilters.hideReddit ? COLORS.accent : COLORS.textMuted}
+              />
+              <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
+                {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
+              </Text>
+            </TouchableOpacity>
             {hasActiveFilters && (
               <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
                 <Ionicons name="close-circle" size={14} color={COLORS.accent} />

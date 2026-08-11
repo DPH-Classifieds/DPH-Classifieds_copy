@@ -107,6 +107,7 @@ export default function BikeListScreen({ navigation }) {
     type: '',
     priceRange: null,
     sort: 'Newest',
+    hideReddit: false,
   });
   const { columns, toggleColumns } = useGridColumns();
   const mountedRef = useRef(true);
@@ -130,6 +131,7 @@ export default function BikeListScreen({ navigation }) {
         params.push(`min_price=${filters.priceRange.min}`);
       }
     }
+    if (filters.hideReddit) params.push('exclude_reddit=true');
     return `/api/bikes?${params.join('&')}`;
   }, []);
 
@@ -198,7 +200,7 @@ export default function BikeListScreen({ navigation }) {
   };
 
   const clearFilters = () => {
-    const cleared = { brand: '', type: '', priceRange: null, sort: 'Newest' };
+    const cleared = { brand: '', type: '', priceRange: null, sort: 'Newest', hideReddit: false };
     setActiveFilters(cleared);
     setFilterModal(null);
     setBikes([]);
@@ -209,6 +211,7 @@ export default function BikeListScreen({ navigation }) {
 
   const hasActiveFilters = Object.entries(activeFilters).some(([k, v]) => {
     if (k === 'sort') return v && v !== 'Newest';
+    if (k === 'hideReddit') return v === true;
     return v !== '' && v !== null;
   });
 
@@ -319,6 +322,19 @@ export default function BikeListScreen({ navigation }) {
             {renderFilterChip('Brand', 'brand', !!activeFilters.brand)}
             {renderFilterChip('Type', 'type', !!activeFilters.type)}
             {renderFilterChip('Price Range', 'priceRange', !!activeFilters.priceRange)}
+            <TouchableOpacity
+              style={[styles.filterChip, activeFilters.hideReddit && styles.filterChipActive]}
+              onPress={() => applyFilter('hideReddit', !activeFilters.hideReddit)}
+            >
+              <Ionicons
+                name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
+                size={14}
+                color={activeFilters.hideReddit ? COLORS.accent : COLORS.textMuted}
+              />
+              <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
+                {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
+              </Text>
+            </TouchableOpacity>
             {hasActiveFilters && (
               <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
                 <Ionicons name="close-circle" size={14} color={COLORS.accent} />

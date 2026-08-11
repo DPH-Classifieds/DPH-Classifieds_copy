@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, Modal, ScrollView, PanResponder } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, ScrollView } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
 import Animated, {
@@ -10,6 +10,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import PressableScale from '../../components/ui/PressableScale';
+import ImageLightbox from '../../components/ImageLightbox';
 import RedditSourcePanel, { isRedditSourced } from '../../components/RedditSourcePanel';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -84,18 +85,6 @@ export default function CarDetailScreen({ route, navigation }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
-  const lightboxListRef = useRef(null);
-  // Swipe down on the full-screen photo to dismiss; horizontal swipes still page.
-  const lightboxPan = useRef(
-    PanResponder.create({
-      // Capture so a vertical drag dismisses even though the paged FlatList
-      // underneath would otherwise own the gesture; horizontal drags return
-      // false and fall through so paging still works.
-      onMoveShouldSetPanResponderCapture: (_, g) => g.dy > 12 && g.dy > Math.abs(g.dx) * 1.6,
-      onPanResponderRelease: (_, g) => { if (g.dy > 90) setPreviewImage(null); },
-      onPanResponderTerminationRequest: () => false,
-    })
-  ).current;
   const [showFullDescription, setShowFullDescription] = useState(false);
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
@@ -414,57 +403,12 @@ export default function CarDetailScreen({ route, navigation }) {
         <RecommendedListings listingType="car" listingId={car.id} navigation={navigation} />
       </Animated.ScrollView>
 
-      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <View style={styles.lightboxContainer} {...lightboxPan.panHandlers}>
-          <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
-            <Ionicons name="close" size={28} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.lightboxCounter}>
-            {previewImageIndex + 1} / {imageUris.length}
-          </Text>
-          {previewImageIndex > 0 && (
-            <TouchableOpacity style={styles.lightboxPrev} onPress={() => {
-              const newIndex = previewImageIndex - 1;
-              lightboxListRef.current?.scrollToIndex({ index: newIndex, animated: true });
-              setPreviewImageIndex(newIndex);
-            }}>
-              <Ionicons name="chevron-back" size={32} color="#fff" />
-            </TouchableOpacity>
-          )}
-          {previewImageIndex < imageUris.length - 1 && (
-            <TouchableOpacity style={styles.lightboxNext} onPress={() => {
-              const newIndex = previewImageIndex + 1;
-              lightboxListRef.current?.scrollToIndex({ index: newIndex, animated: true });
-              setPreviewImageIndex(newIndex);
-            }}>
-              <Ionicons name="chevron-forward" size={32} color="#fff" />
-            </TouchableOpacity>
-          )}
-          <FlatList
-            ref={lightboxListRef}
-            data={imageUris}
-            horizontal
-            pagingEnabled
-            initialScrollIndex={previewImageIndex}
-            getItemLayout={(_, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
-              index,
-            })}
-            keyExtractor={(uri, index) => `${uri}-${index}`}
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <View style={styles.lightboxPage}>
-                <Image source={{ uri: item }} style={styles.lightboxImage} contentFit="contain" />
-              </View>
-            )}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-              setPreviewImageIndex(index);
-            }}
-          />
-        </View>
-      </Modal>
+      <ImageLightbox
+        images={imageUris}
+        visible={!!previewImage}
+        initialIndex={previewImageIndex}
+        onClose={() => setPreviewImage(null)}
+      />
       <AuthPromptModal />
     </SafeAreaView>
   );

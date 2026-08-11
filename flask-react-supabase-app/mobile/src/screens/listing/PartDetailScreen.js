@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, Modal, ScrollView, PanResponder } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, ScrollView } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
 import Animated, {
@@ -32,6 +32,7 @@ import RecommendedListings from '../../components/RecommendedListings';
 import PriceHistory from '../../components/ui/PriceHistory';
 import ListingMap from '../../components/ui/ListingMap';
 import { resolveMediaUrl } from '../../utils/media';
+import ImageLightbox from '../../components/ImageLightbox';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -53,17 +54,6 @@ export default function PartDetailScreen({ route, navigation }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
-  const lightboxListRef = useRef(null);
-  const lightboxPan = useRef(
-    PanResponder.create({
-      // Capture so a vertical drag dismisses even though the paged FlatList
-      // underneath would otherwise own the gesture; horizontal drags return
-      // false and fall through so paging still works.
-      onMoveShouldSetPanResponderCapture: (_, g) => g.dy > 12 && g.dy > Math.abs(g.dx) * 1.6,
-      onPanResponderRelease: (_, g) => { if (g.dy > 90) setPreviewImage(null); },
-      onPanResponderTerminationRequest: () => false,
-    })
-  ).current;
   const { toggleSaveListing, isSaved } = useSavedListings();
   const { user } = useAuth();
   const isOwner = user && (user.id === part?.user_id || user.id === part?.seller_id);
@@ -128,6 +118,9 @@ export default function PartDetailScreen({ route, navigation }) {
   if (!part) return <LoadingSpinner message="Part not found" />;
 
   const images = part.images || [];
+  const imageUris = images
+    .map((img) => resolveMediaUrl(img?.url || img?.image_url || img?.display_url))
+    .filter(Boolean);
   // Web/backend use `compatibility`; older data used `compatible_makes`. Accept
   // either, and split a comma-separated string into pills.
   const rawCompat = part.compatibility ?? part.compatible_makes ?? part.compatible_models ?? [];
@@ -285,60 +278,12 @@ export default function PartDetailScreen({ route, navigation }) {
         <RecommendedListings listingType="parts" listingId={part.id} navigation={navigation} />
       </Animated.ScrollView>
 
-      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <View style={styles.lightboxContainer} {...lightboxPan.panHandlers}>
-          <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewImage(null)}>
-            <Ionicons name="close" size={28} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.lightboxCounter}>
-            {previewImageIndex + 1} / {images.length}
-          </Text>
-          {previewImageIndex > 0 && (
-            <TouchableOpacity style={styles.lightboxPrev} onPress={() => {
-              const newIndex = previewImageIndex - 1;
-              lightboxListRef.current?.scrollToIndex({ index: newIndex, animated: true });
-              setPreviewImageIndex(newIndex);
-            }}>
-              <Ionicons name="chevron-back" size={32} color="#fff" />
-            </TouchableOpacity>
-          )}
-          {previewImageIndex < images.length - 1 && (
-            <TouchableOpacity style={styles.lightboxNext} onPress={() => {
-              const newIndex = previewImageIndex + 1;
-              lightboxListRef.current?.scrollToIndex({ index: newIndex, animated: true });
-              setPreviewImageIndex(newIndex);
-            }}>
-              <Ionicons name="chevron-forward" size={32} color="#fff" />
-            </TouchableOpacity>
-          )}
-          <FlatList
-            ref={lightboxListRef}
-            data={images}
-            horizontal
-            pagingEnabled
-            initialScrollIndex={previewImageIndex}
-            getItemLayout={(_, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
-              index,
-            })}
-            keyExtractor={(item, index) => `${item.url || item.image_url || item.display_url || index}-${index}`}
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => {
-              const uri = resolveMediaUrl(item.url || item.image_url || item.display_url) || item.url || item.image_url || item.display_url;
-              return (
-                <View style={styles.lightboxPage}>
-                  <Image source={{ uri }} style={styles.lightboxImage} contentFit="contain" />
-                </View>
-              );
-            }}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-              setPreviewImageIndex(index);
-            }}
-          />
-        </View>
-      </Modal>
+      <ImageLightbox
+        images={imageUris}
+        visible={!!previewImage}
+        initialIndex={previewImageIndex}
+        onClose={() => setPreviewImage(null)}
+      />
       <AuthPromptModal />
     </SafeAreaView>
   );

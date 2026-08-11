@@ -13359,12 +13359,14 @@ def get_bikes():
         params = {k: v for k, v in params.items() if not k.startswith("_")}
 
         # Reddit imports appear only in the dedicated Reddit tab. Exclude them from
-        # the normal bikes feed unless explicitly requested (?source_platform=reddit).
+        # the normal bikes feed unless explicitly requested (?source_platform=reddit),
+        # and honour the per-user ?exclude_reddit=true toggle (mirrors /api/cars).
+        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
         if request.args.get("source_platform") == "reddit":
             params["source_platform"] = "eq.reddit"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
                 params.pop("is_approved", None)  # dev preview of hidden imports
-        elif not _reddit_on_explore():
+        elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
         logger.info(f"Fetching bikes with params: {params}")
@@ -15166,6 +15168,7 @@ def get_plates():
         # toggle (which bulk-sets is_approved=false on source_platform=reddit
         # rows) actually removes them here, matching /api/cars|bikes|parts.
         # Reddit imports appear only in the dedicated Reddit tab.
+        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
         if request.args.get("source_platform") == "reddit":
             approved_clause = "status=eq.approved"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") != "1":
@@ -15173,7 +15176,7 @@ def get_plates():
             source_clause = "&source_platform=eq.reddit"
         else:
             approved_clause = "status=eq.approved&is_approved=eq.true"
-            source_clause = "" if _reddit_on_explore() else "&or=(source_platform.is.null,source_platform.neq.reddit)"
+            source_clause = "" if not _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()) else "&or=(source_platform.is.null,source_platform.neq.reddit)"
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?{approved_clause}&order={order}"
@@ -15474,12 +15477,14 @@ def get_parts():
         # Filter out any underscore parameters
         params = {k: v for k, v in params.items() if not k.startswith("_")}
 
-        # Reddit imports appear only in the dedicated Reddit tab.
+        # Reddit imports appear only in the dedicated Reddit tab; also honour the
+        # per-user ?exclude_reddit=true toggle (mirrors /api/cars).
+        exclude_reddit = request.args.get("exclude_reddit", "").strip().lower() in ("1", "true", "yes", "on")
         if request.args.get("source_platform") == "reddit":
             params["source_platform"] = "eq.reddit"
             if os.getenv("LOCAL_SHOW_HIDDEN_REDDIT") == "1":
                 params.pop("is_approved", None)
-        elif not _reddit_on_explore():
+        elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
         logger.info(f"Fetching parts with params: {params}")
