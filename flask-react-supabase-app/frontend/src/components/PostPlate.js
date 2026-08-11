@@ -12,7 +12,7 @@ import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
 import { moderateImage } from '../utils/imageModeration';
-import { uploadRegistrationDocument } from '../utils/directUpload';
+import { uploadRegistrationDocument, ensureUploadableImage } from '../utils/directUpload';
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
@@ -355,8 +355,15 @@ const PostPlate = () => {
   };
 
   const handleProofFileChange = async (e) => {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
+    // Convert iPhone HEIC (incl. .jpg-mislabeled) to JPEG; PDFs pass through.
+    try {
+      file = await ensureUploadableImage(file);
+    } catch (err) {
+      setError({ message: err?.message || "We couldn't process this photo. Please try another." });
+      return;
+    }
     if (!SUPPORTED_PROOF_TYPES.includes(file.type)) {
       setError({ message: 'Proof document must be a JPG, PNG, WEBP, or PDF file.' });
       return;
@@ -413,8 +420,14 @@ const PostPlate = () => {
   };
 
   const handleRegDocChange = async (e) => {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
+    // Convert HEIC so both the upload and the OCR scan get a readable JPEG.
+    try {
+      file = await ensureUploadableImage(file);
+    } catch (err) {
+      console.warn('HEIC conversion failed for reg doc:', err);
+    }
     setRegDocFile(file);
     setRegDocUrl('');
     setPlateOcrStatus('');

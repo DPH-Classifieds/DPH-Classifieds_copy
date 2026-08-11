@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, ensureUploadableImage } from '../utils/directUpload';
 import { getAccessToken } from '../utils/supabaseClient';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
@@ -93,10 +93,20 @@ export default function PostBuyingRequest() {
     setForm((prev) => ({ ...prev, whatsapp_number: digitsOnly }));
   };
 
-  const addReferenceImages = (incomingFiles) => {
-    const files = Array.from(incomingFiles || []);
-    if (!files.length) return;
+  const addReferenceImages = async (incomingFiles) => {
+    const rawFiles = Array.from(incomingFiles || []);
+    if (!rawFiles.length) return;
     setError('');
+    // Convert iPhone HEIC (incl. .jpg-mislabeled) so previews and upload work.
+    const files = [];
+    for (const raw of rawFiles) {
+      try {
+        files.push(await ensureUploadableImage(raw));
+      } catch (err) {
+        setError(err?.message || `We couldn't process ${raw?.name || 'a photo'}.`);
+      }
+    }
+    if (!files.length) return;
     const imageFiles = files.filter((file) => file.type.startsWith('image/'));
     const oversized = imageFiles.find((file) => file.size > LISTING_IMAGE_MAX_BYTES);
     if (oversized) {

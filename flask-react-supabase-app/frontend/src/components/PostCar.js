@@ -28,7 +28,7 @@ import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import { isVinValid, normalizeVin } from '../utils/vinValidation';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument, ensureUploadableImage } from '../utils/directUpload';
 import { normalizeRegistrationScanResponse } from '../utils/registrationScan';
 import { reportError } from '../utils/reportError';
 import { moderateImage } from '../utils/imageModeration';
@@ -1280,10 +1280,28 @@ const PostCar = () => {
     fileInputRef.current?.click();
   };
 
-  const processFiles = async (files) => {
+  const processFiles = async (rawFiles) => {
+    // Convert iPhone HEIC (including files mislabeled as .jpg) to JPEG up front,
+    // so the type check, moderation, cropping and upload all get a decodable
+    // image. Without this, HEIC silently breaks in the canvas-based steps.
+    const files = [];
+    const heicFailures = [];
+    for (const raw of rawFiles) {
+      try {
+        files.push(await ensureUploadableImage(raw));
+      } catch (err) {
+        heicFailures.push(err?.message || `We couldn't process ${raw?.name || 'a photo'}.`);
+      }
+    }
+    if (heicFailures.length > 0) {
+      setError(heicFailures[0]);
+    }
+
     const nextFiles = files.filter((file) => file && file.type?.startsWith('image/'));
     if (nextFiles.length === 0) {
-      setError('Please select image files only.');
+      if (heicFailures.length === 0) {
+        setError('Please select image files only.');
+      }
       return;
     }
 

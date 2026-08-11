@@ -14,7 +14,7 @@ import {
 import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument, ensureUploadableImage } from '../utils/directUpload';
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
 import { moderateImage } from '../utils/imageModeration';
 import UnifiedCropper from './cropper/UnifiedCropper';
@@ -363,7 +363,19 @@ const PostBike = () => {
   };
 
   const onPickImages = async (e) => {
-    const files = Array.from(e.target.files || []);
+    const rawFiles = Array.from(e.target.files || []);
+    if (!rawFiles.length) return;
+
+    // Convert iPhone HEIC (incl. files mislabeled .jpg) to JPEG before the type
+    // gate, moderation and cropping so none of the canvas steps choke on it.
+    const files = [];
+    for (const raw of rawFiles) {
+      try {
+        files.push(await ensureUploadableImage(raw));
+      } catch (err) {
+        setError(err?.message || `We couldn't process ${raw?.name || 'a photo'}.`);
+      }
+    }
     if (!files.length) return;
 
     const validFiles = [];

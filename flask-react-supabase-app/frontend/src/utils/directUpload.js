@@ -33,19 +33,60 @@ const getFileExtension = (fileName = '', fallback = 'jpg') => {
 
 const HEIC_MIME = /image\/hei[cf]/i;
 const HEIC_EXT = /\.(heic|heif)$/i;
+// HEIF/HEIC ISO-BMFF brands seen in the `ftyp` box (bytes 8–12).
+const HEIC_FTYP_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'heif', 'mif1', 'msf1']);
+
+// Sniff the real bytes, not the name/MIME: iPhones routinely hand us a HEIC
+// whose extension is .jpg and whose MIME the browser reports as image/jpeg,
+// so extension/MIME checks alone miss it (e.g. IMG_1506.jpg). The ISO-BMFF
+// header is `....ftyp<brand>` — check the brand at offset 8.
+const readHeadBytes = (file, n = 16) =>
+  new Promise((resolve) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = () => resolve(new Uint8Array(reader.result || new ArrayBuffer(0)));
+      reader.onerror = () => resolve(new Uint8Array(0));
+      reader.readAsArrayBuffer(file.slice(0, n));
+    } catch (_e) {
+      resolve(new Uint8Array(0));
+    }
+  });
+
+const sniffIsHeic = async (file) => {
+  const head = await readHeadBytes(file, 16);
+  if (head.length < 12) return false;
+  const tag = String.fromCharCode(head[4], head[5], head[6], head[7]);
+  if (tag !== 'ftyp') return false;
+  const brand = String.fromCharCode(head[8], head[9], head[10], head[11]).toLowerCase();
+  return HEIC_FTYP_BRANDS.has(brand);
+};
 
 // iPhones upload HEIC/HEIF by default and every browser except Safari fails to
 // decode it — so a raw HEIC lands in storage as a broken image and the
 // display-variant canvas step (which reads via <img>) can't process it either.
 // Convert to JPEG in the browser up front so downstream sees a normal JPEG.
+// Throws a user-facing Error if the file is HEIC but can't be converted.
 export const ensureUploadableImage = async (file) => {
   if (!file) return file;
-  const isHeic = HEIC_MIME.test(file.type || '') || HEIC_EXT.test(file.name || '');
+  const isHeic =
+    HEIC_MIME.test(file.type || '') ||
+    HEIC_EXT.test(file.name || '') ||
+    (await sniffIsHeic(file));
   if (!isHeic) return file;
-  const { default: heic2any } = await import('heic2any');
-  const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-  const blob = Array.isArray(converted) ? converted[0] : converted;
-  const newName = `${String(file.name || 'photo').replace(HEIC_EXT, '')}.jpg`;
+  let blob;
+  try {
+    const { default: heic2any } = await import('heic2any');
+    const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+    blob = Array.isArray(converted) ? converted[0] : converted;
+  } catch (err) {
+    const e = new Error(
+      "We couldn't process this iPhone (HEIC) photo. Please try a different photo, or set your iPhone camera to “Most Compatible” (Settings › Camera › Formats)."
+    );
+    e.code = 'HEIC_CONVERSION_FAILED';
+    e.cause = err;
+    throw e;
+  }
+  const newName = `${String(file.name || 'photo').replace(HEIC_EXT, '').replace(/\.jpe?g$/i, '')}.jpg`;
   return new File([blob], newName, { type: 'image/jpeg', lastModified: Date.now() });
 };
 

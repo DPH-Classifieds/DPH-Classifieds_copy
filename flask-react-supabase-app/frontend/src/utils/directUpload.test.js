@@ -43,7 +43,23 @@ describe('directUpload helpers', () => {
   });
 
   test('passes non-HEIC images through untouched', async () => {
-    const jpg = new File([new Uint8Array([0])], 'photo.jpg', { type: 'image/jpeg' });
+    // A real JPEG SOI header so the byte-sniff does not misfire.
+    const jpg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0])], 'photo.jpg', {
+      type: 'image/jpeg',
+    });
     expect(await ensureUploadableImage(jpg)).toBe(jpg);
+  });
+
+  test('detects a HEIC mislabeled as .jpg (image/jpeg) by sniffing bytes', async () => {
+    // ISO-BMFF header: [size][ftyp][brand] — matches IMG_1506.jpg (ftypheic).
+    const header = new Uint8Array([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, // ....ftyp
+      0x68, 0x65, 0x69, 0x63, 0x00, 0x00, 0x00, 0x00, // heic....
+    ]);
+    const mislabeled = new File([header], 'IMG_1506.jpg', { type: 'image/jpeg' });
+    const out = await ensureUploadableImage(mislabeled);
+    expect(out).not.toBe(mislabeled);
+    expect(out.type).toBe('image/jpeg');
+    expect(out.name).toBe('IMG_1506.jpg');
   });
 });
