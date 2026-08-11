@@ -410,8 +410,14 @@ def _expire_stale_reddit(now):
 # --- Orchestration ----------------------------------------------------------
 
 def run():
+    # Expire stale Reddit listings FIRST, before any enable/config gate. The
+    # 7-day cutoff must hold even when importing is paused or misconfigured —
+    # otherwise old Reddit posts would stay live on the site forever instead of
+    # dropping off at REDDIT_LISTING_MAX_AGE_DAYS.
+    expired = _expire_stale_reddit(_now())["expired"]
+
     if not _truthy(os.getenv("REDDIT_IMPORT_ENABLED")):
-        return {"status": "disabled"}
+        return {"status": "disabled", "expired": expired}
 
     subreddit = os.getenv("REDDIT_IMPORT_SUBREDDIT", DEFAULT_SUBREDDIT)
     client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
@@ -429,11 +435,11 @@ def run():
     }.items() if not v]
     if missing:
         _record_failed_run(subreddit, f"missing configuration: {', '.join(missing)}")
-        return {"status": "failed", "error": "missing configuration"}
+        return {"status": "failed", "error": "missing configuration", "expired": expired}
 
     if not _validate_owner(owner_id):
         _record_failed_run(subreddit, "owner validation failed (missing UUID or email mismatch)")
-        return {"status": "failed", "error": "owner validation failed"}
+        return {"status": "failed", "error": "owner validation failed", "expired": expired}
 
     now = _now()
     run_id = _start_run(subreddit)
@@ -470,7 +476,8 @@ def run():
 
         live_ids = {sub.id for sub in subs}
         counts["removed"] = sync_removed_imports(_SESSION, token, live_ids, user_agent, now)["removed"]
-        counts["expired"] = _expire_stale_reddit(now)["expired"]
+        # Expiry already ran unconditionally at the top of run(); reuse that count.
+        counts["expired"] = expired
 
         did_work = counts["created"] + counts["updated"]
         status = "succeeded" if counts["failed"] == 0 else ("partial" if did_work else "failed")

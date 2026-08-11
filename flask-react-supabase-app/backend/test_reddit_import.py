@@ -308,10 +308,25 @@ class WorkerTests(unittest.TestCase):
     def tearDown(self):
         self.env_patch.stop()
 
-    def test_disabled_is_a_noop(self):
+    def test_disabled_skips_import_but_still_expires(self):
+        # When importing is disabled, run() must NOT fetch/import, but it MUST
+        # still run the 7-day expiry sweep so old Reddit listings always age out.
         import workers.reddit_import_worker as w
-        with patch.dict("os.environ", {"REDDIT_IMPORT_ENABLED": "false"}):
-            self.assertEqual(w.run(), {"status": "disabled"})
+        stub = MagicMock(return_value=([], 200))
+        with patch.dict("os.environ", {"REDDIT_IMPORT_ENABLED": "false"}), \
+                patch("workers.reddit_import_worker.fetch_new_submissions") as mock_fetch, \
+                patch.object(w, "supabase_request", stub):
+            result = w.run()
+        self.assertEqual(result["status"], "disabled")
+        self.assertIn("expired", result)
+        mock_fetch.assert_not_called()  # no import work when disabled
+        # The expiry sweep issued a PATCH setting status=expired on Reddit rows.
+        expire_calls = [
+            c for c in stub.call_args_list
+            if c.args and c.args[0] == "patch"
+            and c.kwargs.get("data", {}).get("status") == "expired"
+        ]
+        self.assertTrue(expire_calls, "expiry sweep should run even when disabled")
 
     @patch("workers.reddit_import_worker.fetch_submissions_by_ids", return_value={})
     @patch("workers.reddit_import_worker.get_app_access_token", return_value="tok")
