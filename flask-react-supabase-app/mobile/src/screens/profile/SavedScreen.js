@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, TouchableOpacity, StyleSheet, RefreshControl, Alert, ScrollView } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated from 'react-native-reanimated';
 import { useStaggeredEntrance } from '../../hooks/useStaggeredEntrance';
@@ -146,7 +146,14 @@ export default function SavedScreen({ navigation }) {
     }
   }, []);
 
-  useEffect(() => { fetchSavedSearches(); }, [fetchSavedSearches]);
+  // Refetch every time the Saved tab regains focus — the screen stays mounted in
+  // the tab navigator, so a plain mount-only effect left a search created after
+  // first visit invisible until a manual pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      fetchSavedSearches();
+    }, [fetchSavedSearches])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
