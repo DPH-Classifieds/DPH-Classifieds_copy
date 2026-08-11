@@ -887,6 +887,23 @@ def _isoformat_utc(value):
     return value.astimezone(datetime.timezone.utc).isoformat()
 
 
+# Reminder send-window. Reminders used to fire at whatever (night-time) UTC hour a
+# row crossed its 24h/48h eligibility cutoff. Gate every reminder job to an evening
+# window in local time (~7pm) so email + push land at a sane hour for the UAE
+# audience (Asia/Dubai, UTC+4, no DST). All three knobs are env-tunable.
+# ponytail: single fixed offset; add a per-user tz column only if you go multi-region.
+REMINDER_TZ_OFFSET_HOURS = int(os.getenv("REMINDER_TZ_OFFSET_HOURS", "4"))
+REMINDER_SEND_HOUR_START = int(os.getenv("REMINDER_SEND_HOUR_START", "18"))  # 6pm
+REMINDER_SEND_HOUR_END = int(os.getenv("REMINDER_SEND_HOUR_END", "20"))      # 8pm (target ~7pm)
+
+
+def _reminder_window_open(now=None):
+    """True if the local wall clock is inside the evening reminder window."""
+    now = now or _utc_now()
+    local_hour = (now + datetime.timedelta(hours=REMINDER_TZ_OFFSET_HOURS)).hour
+    return REMINDER_SEND_HOUR_START <= local_hour < REMINDER_SEND_HOUR_END
+
+
 def _listing_type_for_table(table_name):
     return next(
         (
@@ -11827,6 +11844,9 @@ def _run_listing_draft_reminders_once(first_age_hours=24, repeat_age_hours=48, a
 
     age_hours: legacy override — sets both cutoffs (used in tests with age_hours=0).
     """
+    # Only send during the evening window in production; tests pass age_hours to bypass.
+    if age_hours is None and not _reminder_window_open():
+        return {"processed": 0, "sent": 0, "skipped": "outside_send_window"}
     if age_hours is not None:
         first_age_hours = age_hours
         repeat_age_hours = age_hours
@@ -12035,6 +12055,8 @@ def _send_saved_car_reminder_email(user_email, listing, subject_override=None):
 
 def _run_saved_car_reminders_once(first_age_hours=24, repeat_age_hours=48, age_hours=None, limit=100):
     """Send saved car reminders: first at 24h, then every 48h. Falls back gracefully if migration not applied."""
+    if age_hours is None and not _reminder_window_open():
+        return {"processed": 0, "sent": 0, "skipped": "outside_send_window"}
     if age_hours is not None:
         first_age_hours = age_hours
         repeat_age_hours = age_hours
@@ -12474,6 +12496,8 @@ def _run_price_drop_alerts_once(limit=50):
 
 def _run_saved_search_alerts_once(first_age_hours=24, repeat_age_hours=48, age_hours=None, limit=100):
     """Alert users about their saved searches: first at 24h, then every 48h when there are matching results."""
+    if age_hours is None and not _reminder_window_open():
+        return {"processed": 0, "sent": 0, "skipped": "outside_send_window"}
     if age_hours is not None:
         first_age_hours = age_hours
         repeat_age_hours = age_hours
@@ -12569,6 +12593,14 @@ def _run_saved_search_alerts_once(first_age_hours=24, repeat_age_hours=48, age_h
                 )
             continue
         sent += 1
+        # Mirror the alert to a push notification (best-effort, non-fatal) so
+        # saved-search alerts reach iOS + Android like draft/saved-car reminders.
+        _notify_user_push(
+            user_id,
+            "New matches for your search 🔔",
+            f"{result_count} new listing{s_plural} match your saved search.",
+            data={"path": search.get("route_path") or "/(tabs)/(explore)"},
+        )
         if migration_applied:
             supabase_request(
                 "patch", f"/rest/v1/saved_searches?id=eq.{row_id}",

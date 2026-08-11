@@ -4,6 +4,7 @@
 // Expo Router owns the NavigationContainer, so we must NOT add our own.
 import 'react-native-gesture-handler';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -23,6 +24,7 @@ import { AuthProvider } from '../src/context/AuthContext';
 import { SavedListingsProvider } from '../src/context/SavedListingsContext';
 import ErrorBoundary from '../src/components/ui/ErrorBoundary';
 import { attachNotificationResponseHandler } from '../src/utils/pushNotifications';
+import { trackMobilePlatformEvent } from '../src/utils/platformTracker';
 
 // Anchor the root "/" match to the (tabs) group so cold start lands on the
 // (explore) tab, not (auth)/index's Redirect-to-Login. Route groups are URL-
@@ -34,6 +36,19 @@ export default function RootLayout() {
   // Route notification taps (warm + cold start) into the app. Uses the global
   // expo-router `router` internally, so no navigation ref is needed.
   useEffect(() => attachNotificationResponseHandler(), []);
+
+  // Emit app_open / app_close so reminder timing can key off real usage (this is
+  // also the only place app_open fires under Expo Router — the old AppNavigator
+  // path is dead code).
+  useEffect(() => {
+    trackMobilePlatformEvent('app_open', { page_kind: 'app_open' });
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') {
+        trackMobilePlatformEvent('app_close', { page_kind: 'app_close' });
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Brand typeface (DPHClassifieds Brand Kit). Gate the first render until the
   // faces are ready so text doesn't flash in the system font, then swap.
