@@ -26,6 +26,7 @@ import ListingSkeleton from '../../components/ui/ListingSkeleton';
 import AnimatedCard from '../../components/ui/AnimatedCard';
 import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
+import UAEPlate from '../../components/ui/UAEPlate';
 import BottomSheet from '../../components/ui/BottomSheet';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
@@ -414,12 +415,26 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const catColor = CATEGORY_COLORS[item.category] || COLORS.accent;
   const grid = columns === 2;
+  // Plates have no photo — render the generated plate graphic (same as the
+  // dedicated plate list / detail) instead of the gray placeholder.
+  const isPlate = item.category === 'plates' || item.category === 'plate';
+  const plate = isPlate ? (item.raw || item) : null;
   return (
     <Animated.View style={[animatedStyle, grid && styles.cardOuterGrid]}>
       <PressableScale onPress={onPress}>
         <View style={[styles.card, grid && styles.cardGrid]}>
           <View style={[styles.cardImageWrap, grid && styles.cardImageWrapGrid]}>
-            {item.image ? (
+            {isPlate ? (
+              <View style={styles.cardPlateWrap}>
+                <UAEPlate
+                  city={plate.city}
+                  code={plate.code}
+                  number={plate.number || plate.digits}
+                  sold={plate.status === 'sold'}
+                  style={{ width: '100%' }}
+                />
+              </View>
+            ) : item.image ? (
               <FadeInImage source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
             ) : (
               <View style={styles.cardImagePlaceholder}>
@@ -1140,6 +1155,14 @@ const styles = StyleSheet.create({
   cardOuterGrid: { flex: 1, marginHorizontal: SPACING.xs },
   cardGrid: { marginHorizontal: 0 },
   cardImageWrap: { height: 210, position: 'relative' },
+  cardPlateWrap: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.surfaceDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
   cardImageWrapGrid: { height: 130 },
   cardImage: { width: '100%', height: '100%' },
   cardImagePlaceholder: {

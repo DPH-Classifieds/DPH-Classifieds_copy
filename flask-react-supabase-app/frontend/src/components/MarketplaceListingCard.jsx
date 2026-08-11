@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import useSwipe from '../hooks/useSwipe';
+import UAELicensePlate from './UAELicensePlate';
 
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
@@ -18,6 +19,9 @@ const resolveListingType = (item) => {
 const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
   const listingType = resolveListingType(item);
   const listingId = item.id;
+  // Plates have no photo by design — render the generated plate graphic instead
+  // of falling into the empty-image text fallback.
+  const plateRaw = listingType === 'plate' ? (item.raw || item) : null;
   const isReddit = (item.sourcePlatform || item.source_platform) === 'reddit';
 
   const isCarListing = item?.categoryKey === 'cars';
@@ -73,7 +77,19 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
         />
       ) : null}
       <Link to={item.route} state={item.routeState} className="explore-v2-card-media" ref={swipeRef}>
-        {galleryImages.length > 0 ? (
+        {plateRaw ? (
+          <div
+            className="explore-v2-card-plate"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '12px' }}
+          >
+            <UAELicensePlate
+              city={plateRaw.city}
+              code={plateRaw.code}
+              number={String(plateRaw.number ?? '')}
+              className={plateRaw.status === 'sold' ? 'sold' : ''}
+            />
+          </div>
+        ) : galleryImages.length > 0 ? (
           hasGallery ? (
             <div
               className="explore-v2-card-track"
