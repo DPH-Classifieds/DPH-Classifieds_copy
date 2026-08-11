@@ -1,6 +1,11 @@
-import * as tf from '@tensorflow/tfjs-react-native';
-import * as nsfwjs from 'nsfwjs';
-import * as blazeface from '@tensorflow-models/blazeface';
+// Core tfjs + the RN backend/platform are safe at top level; nsfwjs/blazeface are
+// NOT — importing them at module top triggers a TensorFlow.js circular-dependency
+// TDZ crash (same issue the web copy documents), which made loadModels() throw and
+// left mobile moderation silently disabled (faces slipped through). They are
+// dynamically imported inside loadModels() below instead.
+import '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-react-native';
 // SDK 54 moved readAsStringAsync/EncodingType to the legacy entry point.
 import * as FileSystem from 'expo-file-system/legacy';
 import { decodeJpeg } from '@tensorflow/tfjs-react-native';
@@ -29,6 +34,10 @@ async function loadModels() {
   if (!loadPromise) {
     loadPromise = (async () => {
       await tf.ready();
+      const [nsfwjs, blazeface] = await Promise.all([
+        import('nsfwjs'),
+        import('@tensorflow-models/blazeface'),
+      ]);
       [nsfwModel, faceModel] = await Promise.all([
         nsfwjs.load(),
         blazeface.load(),
