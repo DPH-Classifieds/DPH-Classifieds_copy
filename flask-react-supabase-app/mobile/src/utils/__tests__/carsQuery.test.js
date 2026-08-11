@@ -53,6 +53,18 @@ describe('buildCarsQueryParams', () => {
     expect(p).toContain('car_city=Dubai');
   });
 
+  test('secondary (web-parity) filters map to backend params', () => {
+    const p = buildCarsQueryParams(1, 15, {
+      ...base, regionalSpec: 'GCC', steering: 'Left', seating: '5',
+      horsepower: '200-299', engineCapacity: '2000-2499cc',
+    });
+    expect(p).toContain('regional_spec=GCC');
+    expect(p).toContain('steering_side=Left');
+    expect(p).toContain('seating_capacity=5');
+    expect(p).toContain('horsepower=200-299');
+    expect(p).toContain('engine_capacity=2000-2499cc');
+  });
+
   test('every sort option has a valid PostgREST order string', () => {
     for (const opt of CARS_SORT_OPTIONS) {
       expect(opt.order).toMatch(/^[a-z_]+\.(asc|desc)$/);

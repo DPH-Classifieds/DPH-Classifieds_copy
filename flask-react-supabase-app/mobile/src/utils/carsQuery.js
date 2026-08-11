@@ -46,6 +46,12 @@ export function buildCarsQueryParams(pageNum, pageSize, filters) {
   if (filters.yearTo) params.push(`make_year_to=${filters.yearTo}`);
   if (filters.fuel) params.push(`fuel_type=${encodeURIComponent(filters.fuel)}`);
   if (filters.transmission) params.push(`transmission_type=${encodeURIComponent(filters.transmission)}`);
+  // Secondary filters (parity with web; backend accepts each as eq.{value}).
+  if (filters.regionalSpec) params.push(`regional_spec=${encodeURIComponent(filters.regionalSpec)}`);
+  if (filters.steering) params.push(`steering_side=${encodeURIComponent(filters.steering)}`);
+  if (filters.seating) params.push(`seating_capacity=${encodeURIComponent(filters.seating)}`);
+  if (filters.horsepower) params.push(`horsepower=${encodeURIComponent(filters.horsepower)}`);
+  if (filters.engineCapacity) params.push(`engine_capacity=${encodeURIComponent(filters.engineCapacity)}`);
   if (filters.priceRange) {
     if (filters.priceRange.min > 0) params.push(`price_from=${filters.priceRange.min}`);
     if (filters.priceRange.max > 0) params.push(`price_to=${filters.priceRange.max}`);

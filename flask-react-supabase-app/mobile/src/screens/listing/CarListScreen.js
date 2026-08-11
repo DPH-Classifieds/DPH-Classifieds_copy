@@ -8,7 +8,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatNumber } from '../../utils/formatters';
-import { CAR_MAKES, CAR_MODELS, BODY_TYPES, FUEL_TYPES, TRANSMISSION_TYPES, UAE_EMIRATES, getYearOptions } from '../../utils/listingConstants';
+import { CAR_MAKES, CAR_MODELS, BODY_TYPES, FUEL_TYPES, TRANSMISSION_TYPES, UAE_EMIRATES, getYearOptions, REGIONAL_SPECS, STEERING_SIDES, SEATING_CAPACITY, HORSEPOWER_OPTIONS, ENGINE_CAPACITY_OPTIONS } from '../../utils/listingConstants';
+
+// Secondary car filters (parity with web) shown in the grouped "More" sheet so
+// the inline chip row stays clean.
+const MORE_FILTERS = [
+  { key: 'yearFrom', label: 'Year From' },
+  { key: 'yearTo', label: 'Year To' },
+  { key: 'city', label: 'City' },
+  { key: 'transmission', label: 'Transmission' },
+  { key: 'regionalSpec', label: 'Regional Spec' },
+  { key: 'steering', label: 'Steering' },
+  { key: 'seating', label: 'Seating' },
+  { key: 'horsepower', label: 'Horsepower' },
+  { key: 'engineCapacity', label: 'Engine' },
+];
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
@@ -115,6 +129,11 @@ export default function CarListScreen({ navigation }) {
     transmission: '',
     bodyType: '',
     city: '',
+    regionalSpec: '',
+    steering: '',
+    seating: '',
+    horsepower: '',
+    engineCapacity: '',
     hideReddit: false,
     sort: 'Newest',
   });
@@ -214,6 +233,7 @@ export default function CarListScreen({ navigation }) {
     const cleared = {
       make: '', model: '', yearFrom: '', yearTo: '', priceRange: null,
       mileageRange: null, fuel: '', transmission: '', bodyType: '', city: '',
+      regionalSpec: '', steering: '', seating: '', horsepower: '', engineCapacity: '',
       hideReddit: false, sort: 'Newest',
     };
     setActiveFilters(cleared);
@@ -266,8 +286,37 @@ export default function CarListScreen({ navigation }) {
     </TouchableOpacity>
   );
 
+  const renderMoreSheet = () => (
+    <Modal visible transparent animationType="fade" onRequestClose={() => setFilterModal(null)}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setFilterModal(null)}>
+        <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>More filters</Text>
+            <TouchableOpacity onPress={() => setFilterModal(null)}>
+              <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalOptions} keyboardShouldPersistTaps="handled">
+            {MORE_FILTERS.map(({ key, label }) => (
+              <TouchableOpacity key={key} style={styles.modalOption} onPress={() => setFilterModal(key)}>
+                <Text style={styles.modalOptionText}>{label}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[styles.modalOptionText, { color: activeFilters[key] ? COLORS.accent : COLORS.textMuted, marginRight: 6 }]}>
+                    {activeFilters[key] || 'Any'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
   const renderFilterModal = () => {
     if (!filterModal) return null;
+    if (filterModal === 'more') return renderMoreSheet();
 
     let options = [];
     let title = '';
@@ -317,6 +366,26 @@ export default function CarListScreen({ navigation }) {
       title = 'Transmission';
       selected = activeFilters.transmission;
       options = ['All', ...TRANSMISSION_TYPES];
+    } else if (filterModal === 'regionalSpec') {
+      title = 'Regional Spec';
+      selected = activeFilters.regionalSpec;
+      options = ['All', ...REGIONAL_SPECS];
+    } else if (filterModal === 'steering') {
+      title = 'Steering';
+      selected = activeFilters.steering;
+      options = ['All', ...STEERING_SIDES];
+    } else if (filterModal === 'seating') {
+      title = 'Seating';
+      selected = activeFilters.seating;
+      options = ['All', ...SEATING_CAPACITY];
+    } else if (filterModal === 'horsepower') {
+      title = 'Horsepower';
+      selected = activeFilters.horsepower;
+      options = ['All', ...HORSEPOWER_OPTIONS];
+    } else if (filterModal === 'engineCapacity') {
+      title = 'Engine';
+      selected = activeFilters.engineCapacity;
+      options = ['All', ...ENGINE_CAPACITY_OPTIONS];
     }
 
     // Long lists (make/model/city, or any >12 options) get a type-to-search box.
@@ -426,13 +495,10 @@ export default function CarListScreen({ navigation }) {
               ? renderFilterChip('Model', 'model', !!activeFilters.model)
               : null}
             {renderFilterChip('Body', 'bodyType', !!activeFilters.bodyType)}
-            {renderFilterChip('Year From', 'yearFrom', !!activeFilters.yearFrom)}
-            {renderFilterChip('Year To', 'yearTo', !!activeFilters.yearTo)}
-            {renderFilterChip('City', 'city', !!activeFilters.city)}
             {renderFilterChip('Price', 'priceRange', !!activeFilters.priceRange)}
             {renderFilterChip('Mileage', 'mileageRange', !!activeFilters.mileageRange)}
             {renderFilterChip('Fuel', 'fuel', !!activeFilters.fuel)}
-            {renderFilterChip('Transmission', 'transmission', !!activeFilters.transmission)}
+            {renderFilterChip('More', 'more', MORE_FILTERS.some(({ key }) => !!activeFilters[key]))}
             <TouchableOpacity
               style={[styles.filterChip, activeFilters.hideReddit && styles.filterChipActive]}
               onPress={toggleHideReddit}
