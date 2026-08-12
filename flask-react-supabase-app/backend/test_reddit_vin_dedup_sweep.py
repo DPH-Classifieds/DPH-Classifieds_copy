@@ -35,7 +35,7 @@ def _wire(monkeypatch, reddit_vins, native_vins):
         params = params or {}
         if method == "get" and params.get("source_platform") == "eq.reddit":
             return ([{"vin_number": v} for v in reddit_vins], 200)
-        if method == "get" and params.get("source_platform") == "neq.reddit":
+        if method == "get" and params.get("or") == "(source_platform.is.null,source_platform.neq.reddit)":
             # Only return VINs (from the requested in.() chunk) that exist natively.
             clause = params.get("vin_number", "")
             hits = [v for v in native_vins if v in clause]
@@ -54,6 +54,13 @@ def test_sweep_expires_only_shared_vins(monkeypatch):
     )
     count = backend._run_reddit_vin_dedup_sweep_once()
     assert count == 1
+    assert expired == ["VIN_SHARED"]
+
+
+def test_sweep_includes_native_rows_with_null_source_platform(monkeypatch):
+    """Native DPH rows store source_platform as SQL NULL, not a string."""
+    expired = _wire(monkeypatch, reddit_vins=["VIN_SHARED"], native_vins=["VIN_SHARED"])
+    assert backend._run_reddit_vin_dedup_sweep_once() == 1
     assert expired == ["VIN_SHARED"]
 
 

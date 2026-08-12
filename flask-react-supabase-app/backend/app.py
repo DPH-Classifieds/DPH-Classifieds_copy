@@ -17338,7 +17338,11 @@ def _run_reddit_vin_dedup_sweep_once():
             "get",
             "/rest/v1/cars",
             params={
-                "source_platform": "neq.reddit",
+                # PostgREST's `neq` does not match SQL NULL. Native DPH
+                # listings use NULL for source_platform, so include both those
+                # rows and any explicitly non-Reddit source in the priority
+                # check.
+                "or": "(source_platform.is.null,source_platform.neq.reddit)",
                 "status": "neq.expired",
                 "vin_number": f"in.({quoted})",
                 "select": "vin_number",
