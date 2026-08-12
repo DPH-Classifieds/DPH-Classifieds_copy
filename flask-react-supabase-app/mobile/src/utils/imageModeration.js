@@ -16,11 +16,16 @@ let loadPromise = null;
 
 // Block thresholds — tune here. Keep in sync with the web copy in
 // frontend/src/utils/imageModeration.js (separate package, can't share).
+// Raised to cut false positives on legit car photos (nsfwjs "Sexy" fires on car
+// curves/skin-tone paint; blazeface on grilles/reflections). The SERVER
+// auto-review (NudeNet exposed-parts @0.5 + Haar face) is the authoritative gate
+// and correctly clears these, so the on-device layer only needs to catch
+// egregious cases. "Sexy" is suggestive-not-explicit — near-disabled.
 export const THRESHOLDS = {
-  Porn: 0.60,
-  Hentai: 0.60,
-  Sexy: 0.70,
-  FACE: 0.75,
+  Porn: 0.85,
+  Hentai: 0.85,
+  Sexy: 0.95,
+  FACE: 0.85,
 };
 
 // Exported for test resets only
@@ -93,6 +98,14 @@ export async function moderateImage(uri) {
     });
     if (faceDetected) reasons.push('face');
 
+    if (reasons.length) {
+      // Log the actual scores so a false positive is diagnosable next time.
+      console.warn('imageModeration blocked', {
+        reasons: [...new Set(reasons)],
+        scores: prob,
+        faces: faces.length,
+      });
+    }
     return { blocked: reasons.length > 0, reasons: [...new Set(reasons)] };
   } finally {
     tf.dispose(tensor);

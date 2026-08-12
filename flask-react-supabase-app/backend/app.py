@@ -8423,7 +8423,15 @@ def _build_listing_title(item_type, listing):
 
 
 def _build_listing_url(item_type, item_id, request_origin=None):
-    base_url = _get_safe_frontend_origin(request_origin).rstrip("/")
+    # Use the caller's origin only when it is a known frontend; otherwise the
+    # canonical site (SITE_URL, www). Do NOT fall back to _get_safe_frontend_origin
+    # here — on the web service allowed_origins[0] is http://localhost:3000 (first
+    # CORS_ORIGINS entry) and FRONTEND_URL is unset, so approval-email "View
+    # Listing" links pointed at localhost; on the worker it is the apex (no-www).
+    if request_origin and request_origin in _get_cors_origins():
+        base_url = request_origin.rstrip("/")
+    else:
+        base_url = SITE_URL.rstrip("/")
     path_map = {
         "cars": "/cars",
         "bikes": "/bikes",
