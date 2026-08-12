@@ -168,6 +168,7 @@ def main():
             _run_saved_search_alerts_once,
             _run_dealer_doc_expiry_reminders_once,
             _run_price_drop_alerts_once,
+            _run_reddit_vin_dedup_sweep_once,
         )
         from workers.inventory_import_worker import run as _run_inventory_import_once
         from workers.dealer_api_source_poller import run as _run_dealer_api_source_poller_once
@@ -252,6 +253,9 @@ def main():
     )
     price_drop_alert_interval_seconds = int(
         os.getenv("PRICE_DROP_ALERT_INTERVAL_SECONDS", "300")
+    )
+    reddit_dedup_interval_seconds = int(
+        os.getenv("REDDIT_DEDUP_INTERVAL_SECONDS", str(60 * 60))
     )
 
     try:
@@ -435,6 +439,16 @@ def main():
         name="price-drop-alerts",
         daemon=True,
     )
+    reddit_dedup_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "reddit_vin_dedup_sweep",
+            _run_reddit_vin_dedup_sweep_once,
+            reddit_dedup_interval_seconds,
+        ),
+        name="reddit-vin-dedup",
+        daemon=True,
+    )
     reminder_thread.start()
     draft_reminder_thread.start()
     saved_car_reminder_thread.start()
@@ -450,6 +464,7 @@ def main():
     webhook_delivery_thread.start()
     auto_review_thread.start()
     price_drop_alert_thread.start()
+    reddit_dedup_thread.start()
     logger.info(
         "Listing lifecycle jobs started (reminders=%ss draft_reminders=%ss saved_car_reminders=%ss saved_search_alerts=%ss sweep=%ss dealer_doc_expiry=%ss)",
         listing_reminder_interval_seconds,
@@ -528,6 +543,7 @@ def main():
         webhook_delivery_thread.join(timeout=5)
         auto_review_thread.join(timeout=5)
         price_drop_alert_thread.join(timeout=5)
+        reddit_dedup_thread.join(timeout=5)
         if cleanup_thread is not None:
             cleanup_thread.join(timeout=5)
 

@@ -17301,6 +17301,59 @@ def _expire_reddit_dupes_for_vin(vin):
     )
 
 
+def _run_reddit_vin_dedup_sweep_once():
+    """Safety-net sweep: expire any live Reddit car whose VIN also has a live
+    native DPH car (priority: DPH over Reddit). The on-approval hook already
+    de-dupes new native cars; this catches ones that slipped through (e.g.
+    imported before the hook existed, or approved out of order). Returns the
+    count of VINs de-duped so the worker can log/back off.
+    ponytail: single indexed pass in chunks; if live Reddit inventory ever
+    exceeds PostgREST's max-rows the tail waits for the next tick — paginate
+    then if it becomes real."""
+    reddit_rows, _ = supabase_request(
+        "get",
+        "/rest/v1/cars",
+        params={
+            "source_platform": "eq.reddit",
+            "status": "neq.expired",
+            "vin_number": "not.is.null",
+            "select": "vin_number",
+            "limit": "100000",
+        },
+        use_service_role=True,
+    )
+    if not isinstance(reddit_rows, list) or not reddit_rows:
+        return 0
+    reddit_vins = sorted(
+        {(r.get("vin_number") or "").strip() for r in reddit_rows if (r.get("vin_number") or "").strip()}
+    )
+    if not reddit_vins:
+        return 0
+
+    deduped = 0
+    for i in range(0, len(reddit_vins), 100):
+        chunk = reddit_vins[i:i + 100]
+        quoted = ",".join(f'"{v}"' for v in chunk)
+        native_rows, _ = supabase_request(
+            "get",
+            "/rest/v1/cars",
+            params={
+                "source_platform": "neq.reddit",
+                "status": "neq.expired",
+                "vin_number": f"in.({quoted})",
+                "select": "vin_number",
+            },
+            use_service_role=True,
+        )
+        if not isinstance(native_rows, list):
+            continue
+        for vin in {(r.get("vin_number") or "").strip() for r in native_rows}:
+            if vin:
+                _expire_reddit_dupes_for_vin(vin)
+                deduped += 1
+    return deduped
+
+
 def _perform_approval(
     item_type,
     item_id,
