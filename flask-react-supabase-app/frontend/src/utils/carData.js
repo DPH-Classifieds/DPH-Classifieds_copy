@@ -300,7 +300,7 @@ const carTrims = {
   'Mercedes-Benz': {
     'A-Class': ['A 180', 'A 200', 'A 220', 'A 250', 'A 35', 'A 45'],
     'B-Class': ['B 180', 'B 200', 'B 220', 'B 250'],
-    'C-Class': ['C 180', 'C 200', 'C 220', 'C 300', 'C 400', 'AMG C 43', 'AMG C 63', 'AMG C 63 S'],
+    'C-Class': ['C 180', 'C 200', 'C 220', 'C 300','C 350', 'C 400', 'AMG C 43', 'AMG C 63', 'AMG C 63 S'],
     'E-Class': ['E 200', 'E 220', 'E 300', 'E 350', 'E 400', 'E 430', 'E 450', 'AMG E 43', 'AMG E 53', 'AMG E 63', 'AMG E 63 S'],
     'S-Class': ['S 350', 'S 400', 'S 450', 'S 500', 'S 560', 'S 580', 'S 600', 'S 650', 'AMG S 63', 'AMG S 65', 'Maybach S 480', 'Maybach S 560', 'Maybach S 680'],
     'GLA': ['GLA 180', 'GLA 200', 'GLA 220', 'GLA 250', 'AMG GLA 35', 'AMG GLA 45'],
