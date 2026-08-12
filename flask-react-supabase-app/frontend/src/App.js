@@ -11,6 +11,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import NotFound from './components/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import PhoneVerifiedRoute from './components/PhoneVerifiedRoute';
+import PhoneGate from './components/PhoneGate';
 import { DealerProvider } from './context/DealerContext';
 import DealerRoute from './components/DealerRoute';
 import DealerLayout from './components/DealerLayout';
@@ -272,6 +273,7 @@ function App() {
             <MainArea>
               <ChunkLoadErrorBoundary>
                 <Suspense fallback={<div className="loading"><LoadingSpinner /></div>}>
+                  <PhoneGate>
                   <Routes>
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
@@ -378,6 +380,7 @@ function App() {
               {/* 404 route */}
               <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </PhoneGate>
                 </Suspense>
               </ChunkLoadErrorBoundary>
             </MainArea>

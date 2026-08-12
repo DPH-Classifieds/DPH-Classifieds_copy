@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Check, Loader2, ShieldCheck, X } from "lucide-react"
 import { motion, useAnimationControls } from "motion/react"
 
@@ -24,6 +25,15 @@ const RESEND_COOLDOWN = 50
 const UAE_COUNTRY_CODE = "+971"
 
 const emptyOtp = (len = OTP_LENGTH_DEFAULT) => Array.from({ length: len }, () => "")
+
+// UAE mobile national significant number is 9 digits (5X XXX XXXX). We only send
+// an OTP once the number is fully typed — a partial number just burns a send
+// attempt against the backend's per-user cap and rate-limits the real number.
+const isCompleteUaePhone = (raw) => {
+  const digits = String(raw || "").replace(/\D/g, "")
+  const national = digits.startsWith("971") ? digits.slice(3) : digits.replace(/^0/, "")
+  return national.length === 9
+}
 
 export function OTPVerification({
   mode = "modal",
@@ -72,6 +82,7 @@ export function OTPVerification({
   const [serverForcedMsg91, setServerForcedMsg91] = useState(false)
   const useMsg91 = shouldUseMsg91(phoneInput || phone) || serverForcedMsg91
   const otpLength = useMsg91 ? OTP_LENGTH_MSG91 : OTP_LENGTH_DEFAULT
+  const phoneComplete = isCompleteUaePhone(phoneInput || phone)
   const displayPhone = useMemo(() => {
     return (
       phoneVerification?.masked_phone
@@ -134,7 +145,9 @@ export function OTPVerification({
       return
     }
 
-    if (!autoStart || !phoneInput || starting || verificationId || autoStartedRef.current) {
+    // Only auto-send once the number is fully entered (a pre-filled phone from
+    // signup/profile is already complete; a half-typed one waits for the button).
+    if (!autoStart || !phoneComplete || starting || verificationId || autoStartedRef.current) {
       return
     }
 
@@ -202,6 +215,12 @@ export function OTPVerification({
   }
 
   const startVerification = async (allowStaleRetry = true) => {
+    // Fresh send (no session yet) must have a complete number. Resends reuse the
+    // existing verificationId, so they're exempt.
+    if (!verificationId && !isCompleteUaePhone(phoneInput)) {
+      setError("Enter your full UAE mobile number.")
+      return
+    }
     setStarting(true)
     setError("")
     setMessage("Sending verification code...")
@@ -506,7 +525,7 @@ export function OTPVerification({
               value={phoneInput}
               onChange={(event) => setPhoneInput(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && phoneInput && !busy) {
+                if (event.key === "Enter" && phoneComplete && !busy) {
                   event.preventDefault()
                   void sendOrResend()
                 }
@@ -521,7 +540,7 @@ export function OTPVerification({
               type="button"
               className="auth-button primary-button mt-2 w-full"
               onClick={sendOrResend}
-              disabled={busy || !phoneInput}
+              disabled={busy || !phoneComplete}
             >
               {busy ? (
                 <span className="inline-flex items-center gap-2">
@@ -601,16 +620,21 @@ export function OTPVerification({
   )
 
   if (mode === "page") {
+    // The OTP `body` is already a self-contained card — render it directly in the
+    // centered auth shell (no second wrapper card) so it stays centered on any
+    // width, including ultrawide.
     return (
       <div className="auth-container">
-        <div className="auth-card check-email-card max-w-[620px] animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-2 duration-300">
           {body}
         </div>
       </div>
     )
   }
 
-  return (
+  // Portal to <body> so the fixed backdrop is always viewport-relative and can't
+  // be shifted off-centre by a transformed/filtered ancestor of the mount point.
+  return createPortal(
     <div
       className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-xl animate-in fade-in duration-200"
       role="dialog"
@@ -624,7 +648,8 @@ export function OTPVerification({
       >
         {body}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

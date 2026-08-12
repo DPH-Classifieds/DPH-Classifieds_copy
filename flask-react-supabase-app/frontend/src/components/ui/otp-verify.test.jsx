@@ -17,7 +17,9 @@ describe("OTPVerification auto-start", () => {
     });
     global.fetch = fetchMock;
 
-    render(<OTPVerification mode="page" phone="+15551234567" purpose="profile_verify" autoStart />);
+    // Complete UAE number so auto-start actually fires; the backend still rejects
+    // it here (mocked 400) so we can assert the failed start fires exactly once.
+    render(<OTPVerification mode="page" phone="+971501234567" purpose="profile_verify" autoStart />);
 
     // Wait for the error from the single failed attempt to render.
     await screen.findByText(/UAE numbers only/i);
@@ -55,6 +57,39 @@ describe("OTPVerification auto-start", () => {
 
     // Step 2: the 6 OTP inputs appear once a code has been sent.
     await waitFor(() => expect(screen.getAllByRole("textbox")).toHaveLength(6));
-    expect(screen.getByText(/code sent to/i)).toBeInTheDocument();
+    expect(screen.getByText(/we sent a .*code to/i)).toBeInTheDocument();
+  });
+
+  test("Send is disabled and never fires for a partial number, enabled once complete", async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+
+    render(<OTPVerification mode="page" purpose="profile_verify" autoStart={false} />);
+
+    const phoneField = screen.getByRole("textbox");
+    const sendBtn = screen.getByRole("button", { name: /send code/i });
+
+    // Partial UAE number -> button disabled, no /start call even if forced.
+    fireEvent.change(phoneField, { target: { value: "+9715012" } });
+    expect(sendBtn).toBeDisabled();
+    fireEvent.click(sendBtn);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // Full 9-digit national number -> button enabled.
+    fireEvent.change(phoneField, { target: { value: "+971501234567" } });
+    expect(sendBtn).not.toBeDisabled();
+  });
+
+  test("page mode renders a single centered card (no nested .auth-card wrapper)", () => {
+    global.fetch = jest.fn();
+    const { container } = render(
+      <OTPVerification mode="page" purpose="profile_verify" autoStart={false} />
+    );
+    // The old double-wrap (auth-card > OTP card) caused the ultrawide off-centre look.
+    expect(container.querySelector(".check-email-card")).toBeNull();
+    expect(container.querySelector(".auth-card")).toBeNull();
+    // The OTP card itself is present, inside the centered auth shell.
+    expect(container.querySelector(".auth-container .phone-verification-flow")).not.toBeNull();
   });
 });
