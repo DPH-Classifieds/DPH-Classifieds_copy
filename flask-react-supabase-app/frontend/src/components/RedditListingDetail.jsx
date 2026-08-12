@@ -121,6 +121,7 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
   const { id } = useParams();
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState('');
   const cfg = TYPE_CONFIG[listingType] || TYPE_CONFIG.car;
   const images = useMemo(() => resolveImages(listing), [listing]);
 
@@ -129,6 +130,26 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
   const description = cfg.description(listing);
   const specRows = cfg.specs(listing).filter(([, v]) => v != null && v !== '');
   const postedDate = listing?.source_created_at || listing?.created_at;
+  const shareUrl = `https://www.dphclassifieds.com${cfg.routeBase}/${id}`;
+
+  const handleShare = async () => {
+    const shareData = { title, text: `${title}\n${shareUrl}`, url: shareUrl };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      if (!navigator.clipboard?.writeText) throw new Error('Sharing is unavailable');
+      await navigator.clipboard.writeText(shareUrl);
+      setShareFeedback('Link copied');
+      window.setTimeout(() => setShareFeedback(''), 2500);
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        setShareFeedback('Could not share link');
+        window.setTimeout(() => setShareFeedback(''), 2500);
+      }
+    }
+  };
 
   const seoData = useMemo(
     () => buildListingSeo(listingType, listing || {}, { canonicalPath: `${cfg.routeBase}/${id}`, location: location || 'UAE' }),
@@ -250,6 +271,9 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
 
               <div className="cd-cta-buttons">
                 <RedditSourcePanel car={listing} listingType={listingType} listingId={id} />
+                <button type="button" className="cd-button cd-button-secondary" onClick={handleShare}>
+                  {shareFeedback || 'Share link'}
+                </button>
                 <SavedListingToggleButton
                   listingType={listingType}
                   listingId={id}

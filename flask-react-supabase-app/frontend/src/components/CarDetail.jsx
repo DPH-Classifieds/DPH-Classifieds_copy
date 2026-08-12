@@ -77,6 +77,7 @@ const CarDetail = () => {
   const [vinVisible, setVinVisible] = useState(false);
   const [verificationPhone, setVerificationPhone] = useState('');
   const [phoneVerificationSession, setPhoneVerificationSession] = useState(null);
+  const [shareFeedback, setShareFeedback] = useState('');
   const seoData = useMemo(
     () =>
       buildListingSeo('car', car || preloadedCar || {}, {
@@ -433,6 +434,31 @@ const CarDetail = () => {
     return true;
   };
 
+  const handleShare = async () => {
+    const url = getWhatsAppListingUrl(`/cars/${id}`, SITE_URL);
+    const title = getDisplayTitle() || 'DPH Classifieds listing';
+    const shareData = { title, text: `${title}\n${url}`, url };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Sharing is unavailable');
+      }
+      await navigator.clipboard.writeText(url);
+      setShareFeedback('Link copied');
+      window.setTimeout(() => setShareFeedback(''), 2500);
+    } catch (error) {
+      // A user closing the native share sheet is not an error worth surfacing.
+      if (error?.name !== 'AbortError') {
+        setShareFeedback('Could not share link');
+        window.setTimeout(() => setShareFeedback(''), 2500);
+      }
+    }
+  };
+
   const handleVinReveal = async () => {
     await trackLeadEvent('vin_open', { listing_id: id });
     if (!user?.id) {
@@ -667,6 +693,9 @@ const CarDetail = () => {
                   >
                     WhatsApp
                   </a>
+                  <button type="button" className="cd-button cd-button-secondary" onClick={handleShare}>
+                    {shareFeedback || 'Share link'}
+                  </button>
                   <SavedListingToggleButton
                     listingType="car"
                     listingId={id}

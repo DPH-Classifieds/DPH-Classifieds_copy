@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, ScrollView } from 'react-native';
+import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, ScrollView, Share } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
 import Animated, {
@@ -187,6 +187,19 @@ export default function CarDetailScreen({ route, navigation }) {
   }
   const title = `${car.make_year || ''} ${car.car_manufacturer || ''} ${car.car_model || ''}${car.trim ? ' ' + car.trim : ''}`.trim() || 'Untitled Car';
 
+  const handleShare = async () => {
+    const url = `https://www.dphclassifieds.com/cars/${carId}`;
+    try {
+      await Share.share({
+        title,
+        message: `${title}\n${url}`,
+        url,
+      });
+    } catch (error) {
+      Alert.alert('Could not share link', 'Please try again.');
+    }
+  };
+
   const specs = [
     { key: 'trim', value: car.trim },
     { key: 'body_type', value: car.body_type },
@@ -255,6 +268,15 @@ export default function CarDetailScreen({ route, navigation }) {
           )}
           <TouchableOpacity style={styles.saveButton} onPress={() => requireAuth(() => handleSave())} activeOpacity={0.7}>
             <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShare}
+            accessibilityRole="button"
+            accessibilityLabel="Share listing link"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-outline" size={22} color={COLORS.white} />
           </TouchableOpacity>
           <View style={styles.reportButtonWrap}>
             <ReportButton listingType="car" listingId={carId} />
@@ -437,6 +459,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 14,
     right: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareButton: {
+    position: 'absolute',
+    top: 14,
+    right: 62,
     width: 40,
     height: 40,
     borderRadius: 20,
