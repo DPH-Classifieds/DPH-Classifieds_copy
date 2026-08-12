@@ -8,6 +8,7 @@ import { carMakes } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import { buildCarPath } from '../utils/listingUrl';
 import { Button } from './ui/button';
 import { ArrowRight } from 'lucide-react';
 import '../styles/HomePage.css';
@@ -74,7 +75,7 @@ const normalizeMarketplaceItem = (categoryKey, item) => {
       id: item.id,
       categoryKey: 'cars',
       categoryLabel: 'Car',
-      route: `/cars/${item.id}`,
+      route: buildCarPath(item),
       routeState: buildListingRouteState(item),
       title,
       year,

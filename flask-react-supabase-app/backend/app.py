@@ -6414,10 +6414,36 @@ def _optional_user_id():
     return None
 
 
+def _resolve_car_listing_id(identifier):
+    """Accept a legacy UUID or the public SEO slug ending in its 8-char prefix."""
+    value = str(identifier or "").strip().lower()
+    if re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value):
+        return value
+
+    match = re.search(r"(?:^|-)([0-9a-f]{8})$", value)
+    if not match:
+        return None
+    prefix = match.group(1)
+    rows, status = supabase_request(
+        "get",
+        "/rest/v1/cars",
+        params={"select": "id", "id": f"like.{prefix}*", "limit": "2"},
+        use_service_role=True,
+    )
+    if status >= 400 or not isinstance(rows, list) or len(rows) != 1:
+        return None
+    return str(rows[0].get("id") or "") or None
+
+
 @app.route("/api/cars/<string:car_id>", methods=["GET"])
 def get_car_by_id(car_id):
     try:
         logger.info(f"Fetching car details for ID: {car_id}")
+
+        resolved_car_id = _resolve_car_listing_id(car_id)
+        if not resolved_car_id:
+            return jsonify({"error": "Car not found"}), 404
+        car_id = resolved_car_id
 
         requesting_user = _optional_user_id()
         cache_key = None

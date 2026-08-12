@@ -36,6 +36,24 @@ import RecommendedListings from '../../components/RecommendedListings';
 import ListingMap from '../../components/ui/ListingMap';
 import { resolveMediaUrl } from '../../utils/media';
 
+const listingSlug = (value) => String(value || '')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '');
+
+const buildPublicCarUrl = (car, fallbackId) => {
+  const id = String(car?.id || fallbackId || '');
+  const description = [car?.make_year, car?.car_manufacturer, car?.car_model, car?.trim, car?.car_city]
+    .map(listingSlug)
+    .filter(Boolean)
+    .join('-')
+    .slice(0, 88)
+    .replace(/-+$/g, '');
+  return `https://www.dphclassifieds.com/cars/${description ? `${description}-` : ''}${id.slice(0, 8).toLowerCase()}`;
+};
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const CAR_EXTRAS = [
@@ -188,7 +206,7 @@ export default function CarDetailScreen({ route, navigation }) {
   const title = `${car.make_year || ''} ${car.car_manufacturer || ''} ${car.car_model || ''}${car.trim ? ' ' + car.trim : ''}`.trim() || 'Untitled Car';
 
   const handleShare = async () => {
-    const url = `https://www.dphclassifieds.com/cars/${carId}`;
+    const url = buildPublicCarUrl(car, carId);
     try {
       await Share.share({
         title,

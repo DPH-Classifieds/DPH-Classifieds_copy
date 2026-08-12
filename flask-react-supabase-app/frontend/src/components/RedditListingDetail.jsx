@@ -6,6 +6,7 @@ import RedditSourcePanel from './RedditSourcePanel';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import ImageLightbox from './ImageLightbox';
 import { buildListingSeo } from '../utils/seo';
+import { buildCarPath } from '../utils/listingUrl';
 import './CarDetailRedesigned.css';
 import './RedditListingDetail.css';
 
@@ -130,7 +131,8 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
   const description = cfg.description(listing);
   const specRows = cfg.specs(listing).filter(([, v]) => v != null && v !== '');
   const postedDate = listing?.source_created_at || listing?.created_at;
-  const shareUrl = `https://www.dphclassifieds.com${cfg.routeBase}/${id}`;
+  const canonicalPath = listingType === 'car' ? buildCarPath(listing) : `${cfg.routeBase}/${id}`;
+  const shareUrl = `https://www.dphclassifieds.com${canonicalPath}`;
 
   const handleShare = async () => {
     const shareData = { title, text: `${title}\n${shareUrl}`, url: shareUrl };
@@ -152,8 +154,8 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
   };
 
   const seoData = useMemo(
-    () => buildListingSeo(listingType, listing || {}, { canonicalPath: `${cfg.routeBase}/${id}`, location: location || 'UAE' }),
-    [listing, listingType, cfg.routeBase, id, location]
+    () => buildListingSeo(listingType, listing || {}, { canonicalPath, location: location || 'UAE' }),
+    [listing, listingType, canonicalPath, location]
   );
 
   return (
@@ -276,7 +278,7 @@ export default function RedditListingDetail({ listing, listingType = 'car' }) {
                 </button>
                 <SavedListingToggleButton
                   listingType={listingType}
-                  listingId={id}
+                  listingId={listing.id || id}
                   listingData={listing}
                   className="saved-listing-button-detail"
                   label="Save listing"

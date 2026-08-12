@@ -8,6 +8,7 @@ import { carMakes, carModels, carTrims } from '../utils/carData';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import { buildCarPath } from '../utils/listingUrl';
 import { buildStaticSeo } from '../utils/seo';
 import './CarList.css';
 import './ExplorePage.css';
@@ -167,7 +168,7 @@ const CarList = () => {
       categoryKey: 'cars',
       categoryLabel: 'Car',
       listingType: 'car',
-      route: `/cars/${car.id}`,
+      route: buildCarPath(car),
       routeState: buildListingRouteState(car),
       title,
       priceLabel: formatPrice(car.expected_selling_price),

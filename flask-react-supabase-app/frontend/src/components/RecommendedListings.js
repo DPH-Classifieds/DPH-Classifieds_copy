@@ -3,6 +3,7 @@ import axios from 'axios';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import LoadingSpinner from './LoadingSpinner';
 import { resolveMediaUrl } from '../utils/media';
+import { buildCarPath } from '../utils/listingUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -37,7 +38,7 @@ const normalizeRecommendedCar = (item) => {
     id: item.id,
     categoryKey: 'cars',
     categoryLabel: 'Car',
-    route: `/cars/${item.id}`,
+    route: buildCarPath(item),
     title,
     priceLabel: formatPrice(item.expected_selling_price || item.price),
     subtitle: [

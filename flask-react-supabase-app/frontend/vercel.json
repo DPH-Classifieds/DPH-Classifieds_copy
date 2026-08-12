@@ -13,6 +13,10 @@
       "destination": "https://api.dphclassifieds.com/api/sitemap.xml"
     },
     {
+      "source": "/cars/(.*)",
+      "destination": "/api/cars/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

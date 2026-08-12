@@ -25,6 +25,7 @@ import { buildWhatsappMessage, getWhatsAppListingUrl } from '../utils/whatsapp';
 import { forwardLeadToGa4 } from '../utils/analytics';
 import { getWebAnalyticsIdentity } from '../utils/analyticsIdentity';
 import { getBotSignals } from '../utils/botSignals';
+import { buildCarPath } from '../utils/listingUrl';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -81,7 +82,7 @@ const CarDetail = () => {
   const seoData = useMemo(
     () =>
       buildListingSeo('car', car || preloadedCar || {}, {
-        canonicalPath: `/cars/${id}`,
+        canonicalPath: buildCarPath(car || preloadedCar || { id }),
         location: (car || preloadedCar)?.car_city || 'UAE',
       }),
     [car, id, preloadedCar]
@@ -121,6 +122,10 @@ const CarDetail = () => {
         }
         
         setCar(response.data);
+        const canonicalPath = buildCarPath(response.data);
+        if (canonicalPath !== `/cars/${id}`) {
+          navigate(canonicalPath, { replace: true, state: { listing: response.data } });
+        }
         
         const price = response.data.expected_selling_price || 0;
         setLoanCalculator(prev => ({
@@ -141,7 +146,7 @@ const CarDetail = () => {
     };
     
     fetchCarDetails();
-  }, [id, preloadedCar]);
+  }, [id, preloadedCar, navigate]);
 
   useEffect(() => {
     const fetchViewerProfile = async () => {
@@ -236,15 +241,16 @@ const CarDetail = () => {
   const getWhatsappPrefillText = () =>
     buildWhatsappMessage({
       template: car?.whatsapp_prefill_text,
-      listingUrl: getWhatsAppListingUrl(`/cars/${id}`, SITE_URL),
+      listingUrl: getWhatsAppListingUrl(buildCarPath(car || { id }), SITE_URL),
       listingLabel: 'car',
     });
 
   const trackLeadEvent = async (action, payload = {}) => {
-    forwardLeadToGa4('car', id, action);
+    const listingId = car?.id || id;
+    forwardLeadToGa4('car', listingId, action);
     try {
       const token = await getAccessToken();
-      await fetch(`${API_URL}/api/listings/car/${id}/lead-events`, {
+      await fetch(`${API_URL}/api/listings/car/${listingId}/lead-events`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -435,7 +441,7 @@ const CarDetail = () => {
   };
 
   const handleShare = async () => {
-    const url = getWhatsAppListingUrl(`/cars/${id}`, SITE_URL);
+    const url = getWhatsAppListingUrl(buildCarPath(car || { id }), SITE_URL);
     const title = getDisplayTitle() || 'DPH Classifieds listing';
     const shareData = { title, text: `${title}\n${url}`, url };
 
@@ -460,14 +466,15 @@ const CarDetail = () => {
   };
 
   const handleVinReveal = async () => {
-    await trackLeadEvent('vin_open', { listing_id: id });
+    const listingId = car?.id || id;
+    await trackLeadEvent('vin_open', { listing_id: listingId });
     if (!user?.id) {
-      navigate(`/login?redirect=${encodeURIComponent(`/cars/${id}`)}`);
+      navigate(`/login?redirect=${encodeURIComponent(buildCarPath(car || { id }))}`);
       return;
     }
     if (canViewVin) {
       setVinVisible(true);
-      await trackLeadEvent('vin_reveal', { listing_id: id, source: 'direct_unlock' });
+      await trackLeadEvent('vin_reveal', { listing_id: listingId, source: 'direct_unlock' });
       return;
     }
     setShowPhoneVerifyModal(true);
@@ -668,7 +675,7 @@ const CarDetail = () => {
                   <RedditSourcePanel car={car} />
                   <SavedListingToggleButton
                     listingType="car"
-                    listingId={id}
+                    listingId={car.id}
                     listingData={car}
                     className="saved-listing-button-detail"
                     label="Save listing"
@@ -698,7 +705,7 @@ const CarDetail = () => {
                   </button>
                   <SavedListingToggleButton
                     listingType="car"
-                    listingId={id}
+                    listingId={car.id}
                     listingData={car}
                     className="saved-listing-button-detail"
                     label="Save listing"
@@ -1059,7 +1066,7 @@ const CarDetail = () => {
           </aside>
         </div>
 
-        <ReportButton listingId={id} listingType="car" />
+        <ReportButton listingId={car.id} listingType="car" />
 
 	        {showPhoneVerifyModal && (
 	          <PhoneVerificationFlow
@@ -1070,7 +1077,7 @@ const CarDetail = () => {
 	            phone={verificationPhone || viewerProfile?.phone || user?.phone || ''}
 	            countryCode={viewerProfile?.country_code || user?.country_code || '+971'}
 	            purpose="vin_reveal"
-	            listingId={id}
+	            listingId={car.id}
 	            verificationId={phoneVerificationSession?.verificationId || null}
 	            onClose={() => {
 	              setShowPhoneVerifyModal(false);
@@ -1093,7 +1100,7 @@ const CarDetail = () => {
 	              } catch (err) {
 	                console.error('Failed to refresh user after phone verification:', err);
 	              }
-	              await trackLeadEvent('vin_reveal', { listing_id: id, verification: result?.verification });
+	              await trackLeadEvent('vin_reveal', { listing_id: car.id, verification: result?.verification });
 	            }}
 	            autoStart
 	          />

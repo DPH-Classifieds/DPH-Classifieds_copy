@@ -9,6 +9,7 @@ import { buildStaticSeo } from '../utils/seo';
 import BrowseSellCta from './BrowseSellCta';
 import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import { buildCarPath } from '../utils/listingUrl';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 
@@ -279,7 +280,7 @@ const normalizeCar = (car) => {
     location,
     priceLabel: formatPrice(price),
     numericPrice: toNumeric(price),
-    route: `/cars/${car.id}`,
+    route: buildCarPath(car),
     routeState: buildListingRouteState(car),
     image: getPrimaryImage(car),
     images: getGalleryImages(car),
