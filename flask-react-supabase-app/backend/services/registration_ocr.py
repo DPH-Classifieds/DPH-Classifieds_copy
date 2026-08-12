@@ -72,6 +72,7 @@ class PaddleOCRServiceProvider:
             configured_timeout = float(os.getenv("OCR_SERVICE_TIMEOUT_SECONDS", "12"))
             attempt_cap = float(os.getenv("OCR_SERVICE_ATTEMPT_TIMEOUT_SECONDS", "8"))
             self.timeout = min(configured_timeout, attempt_cap)
+        self.last_diagnostics = {}
 
     def extract(self, image):
         """Return (text, lines) where lines is [{text, conf}] carrying
@@ -111,6 +112,7 @@ class PaddleOCRServiceProvider:
                     f"OCR service returned {response.status_code}: {response.text[:200]}"
                 )
             payload = response.json() or {}
+            self.last_diagnostics = payload.get("diagnostics") or {}
             return payload.get("text", "") or "", payload.get("lines", []) or []
 
         raise RuntimeError(f"OCR service unavailable: {last_error or 'no response'}")
@@ -730,9 +732,10 @@ def _scan_record(
     confidence,
     needs_review,
     training_image_path=None,
+    ocr_diagnostics=None,
 ):
     metadata = metadata or {}
-    return {
+    payload = {
         "listing_type": metadata.get("listing_type"),
         "listing_id": metadata.get("listing_id"),
         "user_id": metadata.get("user_id"),
@@ -745,6 +748,11 @@ def _scan_record(
         "training_image_path": training_image_path,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    # The target column lands in the learning-foundation migration. Preserve
+    # compatibility with live projects until that migration is intentionally run.
+    if ocr_diagnostics and os.getenv("OCR_DIAGNOSTICS_AUDIT_ENABLED", "false").lower() in ("1", "true", "yes", "on"):
+        payload["ocr_diagnostics"] = ocr_diagnostics
+    return payload
 
 
 def _backfill_fields_from_vin_decoder(fields, confidence, vin_validation):
@@ -814,6 +822,8 @@ def scan_registration_image(
             best_lines = lines
             best_fields = fields
 
+    ocr_diagnostics = dict(getattr(provider, "last_diagnostics", {}) or {})
+
     raw_text = best_raw_text
     fields = best_fields
 
@@ -865,6 +875,7 @@ def scan_registration_image(
         confidence,
         needs_review,
         training_image_path=training_image_path,
+        ocr_diagnostics=ocr_diagnostics,
     )
     persisted = persist(scan_payload)
 

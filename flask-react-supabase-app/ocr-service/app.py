@@ -15,6 +15,7 @@ import io
 import logging
 import os
 import threading
+import time
 
 import numpy as np
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
@@ -25,6 +26,7 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("ocr-service")
 
 OCR_LANG = os.getenv("OCR_LANG", "en")
+OCR_ENGINE_VERSION = os.getenv("OCR_ENGINE_VERSION", "paddleocr-2.7.3")
 OCR_SERVICE_KEY = os.getenv("OCR_SERVICE_KEY", "")
 OCR_MIN_CONFIDENCE = float(os.getenv("OCR_MIN_CONFIDENCE", "0.3"))
 OCR_MAX_CONCURRENCY = int(os.getenv("OCR_MAX_CONCURRENCY", "2"))
@@ -109,7 +111,7 @@ def _run_ocr(image_bytes):
             rows.append((round(top / 10), left, text, float(conf)))
     rows.sort(key=lambda item: (item[0], item[1]))
     text = " ".join(r[2] for r in rows).strip()
-    lines = [{"text": r[2], "conf": round(r[3], 4)} for r in rows]
+    lines = [{"text": r[2], "conf": round(r[3], 4), "reading_order": index} for index, r in enumerate(rows)]
     return text, lines
 
 
@@ -139,6 +141,7 @@ async def scan(
         raise HTTPException(status_code=503, detail="ocr service busy")
     try:
         loop = asyncio.get_running_loop()
+        started = time.monotonic()
         text, lines = await loop.run_in_executor(None, _run_ocr, data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -148,5 +151,15 @@ async def scan(
     finally:
         _semaphore.release()
 
-    # `text` stays for back-compat; `lines` carries per-detection confidence.
-    return {"text": text, "lines": lines}
+    # `text` and `lines` stay backward compatible. Diagnostics are intentionally
+    # non-sensitive metadata for later quality measurement, not user document text.
+    return {
+        "text": text,
+        "lines": lines,
+        "diagnostics": {
+            "engine_version": OCR_ENGINE_VERSION,
+            "language": OCR_LANG,
+            "line_count": len(lines),
+            "latency_ms": round((time.monotonic() - started) * 1000),
+        },
+    }

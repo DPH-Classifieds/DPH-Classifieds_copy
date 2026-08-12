@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import hashlib
 from datetime import datetime, timezone
 
 logger = logging.getLogger("dph-auto-review")
@@ -290,6 +291,7 @@ def build_signals_for(listing_kind, row):
     image_analysis = evaluate_image_blockers(
         image_bytes, provider, face_confidence_threshold=face_threshold,
     )
+    _record_vision_shadow_checks(type_label, row, image_urls, image_bytes)
     # Stash the URLs of any nudity/face images so the reject path can delete
     # exactly those objects. Same `row` object reaches downgrade_to_pending_for.
     row["_ar_offending_image_urls"] = _offending_image_urls(
@@ -348,6 +350,60 @@ def build_signals_for(listing_kind, row):
         "price_outlier": None,
         "user_under_review": False,
     }
+
+
+def _record_vision_shadow_checks(type_label, row, image_urls, image_bytes):
+    """Best-effort audit-only calls to the new self-hosted service.
+
+    This function is deliberately isolated from `image_analysis`: a shadow
+    result cannot approve, queue, reject, or delete a listing. It also stays
+    entirely dormant unless both flags are explicitly enabled after the SQL
+    foundation migration has been applied.
+    """
+    from services.vision_service import VisionServiceClient, vision_service_mode
+
+    if vision_service_mode() != "shadow" or not _env_bool("VISION_SERVICE_AUDIT_ENABLED", False):
+        return
+    if len(image_urls or []) != len(image_bytes or []):
+        logger.warning("vision shadow skipped due to image URL/bytes mismatch listing=%s", row.get("id"))
+        return
+
+    client = VisionServiceClient()
+    if not client.configured:
+        logger.warning("vision shadow requested but VISION_SERVICE_URL is not configured")
+        return
+
+    sb = _supabase_request()
+    for index, (url, blob) in enumerate(zip(image_urls, image_bytes)):
+        try:
+            result = client.analyze(blob, filename=f"listing-{index}.jpg")
+            payload = {
+                "listing_type": type_label,
+                "listing_id": str(row.get("id")),
+                "image_url": url,
+                "image_sha256": hashlib.sha256(blob).hexdigest(),
+                "service_mode": "shadow",
+                "model_version": result["model_version"],
+                "scores": result["scores"],
+                "observations": result["observations"],
+                "recommendation": result["recommendation"],
+                "latency_ms": result["latency_ms"],
+            }
+        except Exception as exc:
+            logger.warning("vision shadow failed listing=%s image=%s: %s", row.get("id"), index, exc)
+            payload = {
+                "listing_type": type_label,
+                "listing_id": str(row.get("id")),
+                "image_url": url,
+                "image_sha256": hashlib.sha256(blob).hexdigest(),
+                "service_mode": "shadow",
+                "model_version": "unavailable",
+                "error_code": "service_unavailable",
+            }
+        try:
+            sb("post", "/rest/v1/moderation_image_checks", data=payload, use_service_role=True)
+        except Exception as exc:
+            logger.warning("vision shadow audit persistence failed listing=%s: %s", row.get("id"), exc)
 
 
 def _decision_outcome(decision):
