@@ -55,6 +55,32 @@ def test_inserts_reddit_car_when_no_dph_vin(monkeypatch):
     assert any(m == "post" for m, _ in calls)
 
 
+def test_existing_reddit_car_stays_hidden_when_dph_vin_exists(monkeypatch):
+    """A later import sync must not re-approve a duplicate it previously hid."""
+    monkeypatch.setattr(
+        w, "build_imported_payload",
+        lambda *_: {"config": {"table": "cars"}, "payload": {"vin_number": "VIN_SHARED"}},
+    )
+    monkeypatch.setattr(w, "_enrich_car_with_vin", lambda _payload: None)
+    monkeypatch.setattr(w, "_record_price_history", lambda *args, **kwargs: None)
+    monkeypatch.setattr(w, "_sync_images", lambda *args, **kwargs: None)
+    calls = []
+
+    def fake_req(method, path, data=None, params=None):
+        calls.append((method, path, data))
+        if method == "get":
+            return ([{"id": "native-dph-car"}], 200)
+        return ([], 200)
+
+    monkeypatch.setattr(w, "supabase_request", fake_req)
+    counts = {"created": 0, "updated": 0, "failed": 0}
+    w._upsert_listing(FakeParsed(), "owner", {"abc123": "reddit-row"}, "now", counts)
+
+    assert counts.get("skipped") == 1
+    assert counts["updated"] == 0
+    assert ("patch", "/rest/v1/cars?id=eq.reddit-row", {"status": "expired", "is_approved": False}) in calls
+
+
 def test_no_vin_skips_the_dedup_query(monkeypatch):
     # A reddit car with no parsed VIN can't dedup — it must insert without a lookup.
     calls = _wire(monkeypatch, "cars", {}, ([{"id": "dph1"}], 200))
