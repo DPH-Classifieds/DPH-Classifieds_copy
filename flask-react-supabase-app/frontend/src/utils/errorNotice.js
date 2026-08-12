@@ -17,6 +17,8 @@ export const buildErrorNotice = (error, fallbackMessage = 'Something went wrong.
 
   return {
     message:
+      error.userMessage ||
+      error.publicMessage ||
       error.message ||
       details?.message ||
       details?.error ||

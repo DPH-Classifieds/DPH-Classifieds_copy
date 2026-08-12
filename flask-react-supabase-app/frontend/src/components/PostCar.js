@@ -1883,7 +1883,7 @@ const PostCar = () => {
                   {croppedImages.map((img, index) => (
                     <div
                       className={`preview-item car-framing-preview ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
-                      key={index}
+                      key={img.previewUrl || img.croppedFile?.name || `pending-image-${index}`}
                       draggable
                       role="button"
                       tabIndex={0}
@@ -1927,7 +1927,7 @@ const PostCar = () => {
                   {existingImages.map((image, index) => (
                     <div
                       className={`preview-item car-framing-preview ${draggedExistingIndex === index ? 'dragging' : ''} ${dragOverExistingIndex === index ? 'drag-over' : ''}`}
-                      key={image.id || `${image.url}-${index}`}
+                      key={image.id || image.image_url || image.url || `existing-image-${index}`}
                       draggable
                       role="button"
                       tabIndex={0}

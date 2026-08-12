@@ -1,24 +1,19 @@
 let nsfwModel = null;
-let faceModel = null;
 let loadPromise = null;
 
 // Block thresholds — tune here. nsfw* are nsfwjs class probabilities,
-// FACE is the blazeface per-detection probability.
-// Raised to cut false positives on legit car photos (nsfwjs "Sexy" fires on car
-// curves/skin-tone paint; blazeface on grilles/reflections). The SERVER
-// auto-review (NudeNet exposed-parts @0.5 + Haar face) is the authoritative gate
-// and correctly clears these; the client only needs to catch egregious cases.
+// This runs only as a fast, user-side guard. Do not use it to infer faces or
+// suggestive content: those lightweight browser models routinely mistake car
+// grilles, reflections and paint for people. The backend performs the auditable
+// moderation decision with a confidence-scored provider.
 export const THRESHOLDS = {
-  Porn: 0.85,
-  Hentai: 0.85,
-  Sexy: 0.95,
-  FACE: 0.85,
+  Porn: 0.98,
+  Hentai: 0.98,
 };
 
 // Exported for test resets only — not for production use
 export function _resetModels() {
   nsfwModel = null;
-  faceModel = null;
   loadPromise = null;
 }
 
@@ -30,12 +25,10 @@ async function loadModels() {
       import('@tensorflow/tfjs'),
       import('@tensorflow/tfjs-backend-webgl'),
       import('nsfwjs'),
-      import('@tensorflow-models/blazeface'),
-    ]).then(([, , nsfwjs, blazeface]) =>
-      Promise.all([nsfwjs.load(), blazeface.load()])
-    ).then(([nsfw, face]) => {
+    ]).then(([, , nsfwjs]) =>
+      nsfwjs.load()
+    ).then((nsfw) => {
       nsfwModel = nsfw;
-      faceModel = face;
     });
     // Don't cache a rejected load — otherwise one transient CDN/model failure
     // leaves moderation silently disabled for the whole session. Reset so the
@@ -58,36 +51,25 @@ function fileToImageElement(file) {
 /**
  * @param {File|Blob} file
  * @returns {Promise<{ blocked: boolean, reasons: string[] }>}
- *   reasons: subset of ['nudity', 'face']
+ *   reasons: subset of ['nudity']
  */
 export async function moderateImage(file) {
   await loadModels();
   const img = await fileToImageElement(file);
 
-  const [predictions, faces] = await Promise.all([
-    nsfwModel.classify(img),
-    faceModel.estimateFaces(img, false),
-  ]);
+  const predictions = await nsfwModel.classify(img);
 
   const reasons = [];
 
   const prob = Object.fromEntries(predictions.map(p => [p.className, p.probability]));
   if ((prob.Porn || 0) > THRESHOLDS.Porn) reasons.push('nudity');
   if ((prob.Hentai || 0) > THRESHOLDS.Hentai) reasons.push('nudity');
-  if ((prob.Sexy || 0) > THRESHOLDS.Sexy) reasons.push('nudity');
-
-  const faceDetected = faces.some(f => {
-    const p = Array.isArray(f.probability) ? f.probability[0] : (f.probability ?? 1);
-    return p > THRESHOLDS.FACE;
-  });
-  if (faceDetected) reasons.push('face');
 
   if (reasons.length) {
     // Log the actual scores so a false positive is diagnosable next time.
     console.warn('imageModeration blocked', {
       reasons: [...new Set(reasons)],
       scores: prob,
-      faces: faces.length,
     });
   }
   return { blocked: reasons.length > 0, reasons: [...new Set(reasons)] };

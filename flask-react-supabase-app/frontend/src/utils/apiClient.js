@@ -4,6 +4,17 @@ import * as authService from './authService';
 import logger from './logger';
 
 const DEFAULT_PROD_API_URL = 'https://api.dphclassifieds.com';
+const transientFailureCounts = new Map();
+
+const resetTransientFailures = (endpoint) => transientFailureCounts.delete(endpoint);
+
+const userFacingTransientMessage = (endpoint) => {
+  const nextCount = (transientFailureCounts.get(endpoint) || 0) + 1;
+  transientFailureCounts.set(endpoint, nextCount);
+  return nextCount > 2
+    ? 'The server is busy. Please try again in a few minutes.'
+    : 'We could not complete that right now. Please try again.';
+};
 
 // Base URL for API requests - prefer the injected env var, fall back to the live Railway API in production,
 // and only use localhost when the app is actually running locally.
@@ -235,6 +246,9 @@ export const apiClient = {
           xRailwayRequestId: response.headers.get('x-railway-request-id')
         };
         error.url = url;
+        if (response.status === 429 || response.status >= 500) {
+          error.userMessage = userFacingTransientMessage(endpoint);
+        }
         error.requestOptions = {
           method: options.method || 'GET',
           headers: headers,
@@ -253,15 +267,20 @@ export const apiClient = {
       
       // Handle empty responses
       if (response.status === 204) {
+        resetTransientFailures(endpoint);
         return null;
       }
       
       // Parse JSON response
       const data = await response.json();
+      resetTransientFailures(endpoint);
       return data;
     } catch (error) {
       // Log only in development; callers decide how to surface to users.
       logger.debug(`API request to ${endpoint} failed:`, error);
+      if (!error.userMessage && (!error.status || error.status >= 500)) {
+        error.userMessage = userFacingTransientMessage(endpoint);
+      }
       throw error;
     }
   },

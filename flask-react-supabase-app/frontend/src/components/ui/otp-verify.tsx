@@ -62,11 +62,18 @@ export function OTPVerification({
   const [verified, setVerified] = useState(false)
   const [cooldownRemaining, setCooldownRemaining] = useState(0)
   const inputRefs = useRef([])
+  const failedOtpRequestsRef = useRef(0)
   // Drives the shake-on-wrong-code animation for the whole digit row.
   const shakeControls = useAnimationControls()
 
   const closeHandler = onClose || onCancel
   const effectiveCountryCode = UAE_COUNTRY_CODE
+  const gracefulOtpError = (action: string) => {
+    failedOtpRequestsRef.current += 1
+    return failedOtpRequestsRef.current > 2
+      ? "The server is busy. Please try again in a few minutes."
+      : `We couldn't ${action} right now. Please try again.`
+  }
   // Route through MSG91 only for numbers in the configured prefix set (default 058);
   // the widget sends & verifies client-side and the backend validates the JWT. All
   // other numbers fall back to the Infobip SMS flow (/start + /verify) unchanged.
@@ -96,6 +103,7 @@ export function OTPVerification({
     setMessage("")
     setError("")
     setCooldownRemaining(0)
+    failedOtpRequestsRef.current = 0
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialVerificationId, phone, purpose, listingId])
 
@@ -210,9 +218,10 @@ export function OTPVerification({
           masked_phone: phoneInput ? `***${String(phoneInput).slice(-4)}` : null,
         })
         setMessage("Verification code sent.")
+        failedOtpRequestsRef.current = 0
         setCooldownRemaining(RESEND_COOLDOWN)
       } catch (sendError: any) {
-        setError(sendError?.message || sendError?.type || "Failed to send verification code")
+        setError(gracefulOtpError("send the verification code"))
       } finally {
         setStarting(false)
       }
@@ -274,6 +283,7 @@ export function OTPVerification({
         setVerificationId("msg91")
         setPhoneVerification(data.phone_verification)
         setMessage("Verification code sent.")
+        failedOtpRequestsRef.current = 0
         setCooldownRemaining(RESEND_COOLDOWN)
         return
       }
@@ -283,9 +293,10 @@ export function OTPVerification({
       setVerificationId(nextVerificationId || verificationId)
       setPhoneVerification(data.phone_verification || null)
       setMessage("Verification code sent.")
+      failedOtpRequestsRef.current = 0
       setCooldownRemaining(RESEND_COOLDOWN)
     } catch (sendError) {
-      setError(sendError?.message || "Failed to send verification code")
+      setError(gracefulOtpError("send the verification code"))
     } finally {
       setStarting(false)
     }
@@ -357,11 +368,12 @@ export function OTPVerification({
 
       setVerified(true)
       setMessage("Phone verified successfully.")
+      failedOtpRequestsRef.current = 0
       if (onVerified) {
         onVerified(data)
       }
     } catch (verifyError) {
-      setError(verifyError?.message || "Failed to verify code")
+      setError(gracefulOtpError("verify that code"))
       // Shake the row and clear it so the user can retype immediately.
       void shakeControls.start({
         x: [0, -9, 8, -6, 5, 0],

@@ -5,7 +5,6 @@ jest.mock('@tensorflow/tfjs', () => ({}));
 jest.mock('@tensorflow/tfjs-backend-webgl', () => ({}));
 
 import * as nsfwjs from 'nsfwjs';
-import * as blazeface from '@tensorflow-models/blazeface';
 import { moderateImage, _resetModels } from './imageModeration';
 
 // Minimal File stub — JSDOM doesn't provide a real File with type
@@ -28,7 +27,7 @@ beforeEach(() => {
   _resetModels();
 });
 
-function mockModels({ porn = 0, hentai = 0, sexy = 0, faces = [] } = {}) {
+function mockModels({ porn = 0, hentai = 0, sexy = 0 } = {}) {
   nsfwjs.load.mockResolvedValue({
     classify: jest.fn().mockResolvedValue([
       { className: 'Neutral', probability: 1 - porn - hentai - sexy },
@@ -37,9 +36,6 @@ function mockModels({ porn = 0, hentai = 0, sexy = 0, faces = [] } = {}) {
       { className: 'Sexy', probability: sexy },
       { className: 'Drawing', probability: 0 },
     ]),
-  });
-  blazeface.load.mockResolvedValue({
-    estimateFaces: jest.fn().mockResolvedValue(faces),
   });
 }
 
@@ -50,25 +46,24 @@ test('clean image is not blocked', async () => {
   expect(result.reasons).toEqual([]);
 });
 
-test('porn > 0.85 is blocked as nudity', async () => {
-  mockModels({ porn: 0.90 });
+test('only an extremely confident porn result is blocked as nudity', async () => {
+  mockModels({ porn: 0.99 });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(true);
   expect(result.reasons).toContain('nudity');
 });
 
-test('hentai > 0.85 is blocked as nudity', async () => {
-  mockModels({ hentai: 0.90 });
+test('only an extremely confident hentai result is blocked as nudity', async () => {
+  mockModels({ hentai: 0.99 });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(true);
   expect(result.reasons).toContain('nudity');
 });
 
-test('sexy > 0.95 is blocked as nudity', async () => {
+test('suggestive classifications never block a vehicle photo in the browser', async () => {
   mockModels({ sexy: 0.97 });
   const result = await moderateImage(makeFile());
-  expect(result.blocked).toBe(true);
-  expect(result.reasons).toContain('nudity');
+  expect(result.blocked).toBe(false);
 });
 
 test('sexy in the suggestive range (<= 0.95) is NOT blocked (car false-positive guard)', async () => {
@@ -77,26 +72,10 @@ test('sexy in the suggestive range (<= 0.95) is NOT blocked (car false-positive 
   expect(result.blocked).toBe(false);
 });
 
-test('face with probability > 0.85 is blocked', async () => {
-  mockModels({ faces: [{ probability: [0.95] }] });
-  const result = await moderateImage(makeFile());
-  expect(result.blocked).toBe(true);
-  expect(result.reasons).toContain('face');
-});
-
-test('face with probability <= 0.85 is NOT blocked', async () => {
-  mockModels({ faces: [{ probability: [0.80] }] });
+test('a sub-threshold explicit score does not block a photo', async () => {
+  mockModels({ porn: 0.97 });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(false);
-});
-
-test('face AND nudity returns both reasons deduplicated', async () => {
-  mockModels({ porn: 0.90, faces: [{ probability: [0.95] }] });
-  const result = await moderateImage(makeFile());
-  expect(result.blocked).toBe(true);
-  expect(result.reasons).toContain('nudity');
-  expect(result.reasons).toContain('face');
-  expect(result.reasons.length).toBe(2);
 });
 
 test('models load once and are reused across calls', async () => {
@@ -104,5 +83,4 @@ test('models load once and are reused across calls', async () => {
   await moderateImage(makeFile());
   await moderateImage(makeFile());
   expect(nsfwjs.load).toHaveBeenCalledTimes(1);
-  expect(blazeface.load).toHaveBeenCalledTimes(1);
 });
