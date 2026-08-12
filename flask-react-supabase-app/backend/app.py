@@ -6424,10 +6424,22 @@ def _resolve_car_listing_id(identifier):
     if not match:
         return None
     prefix = match.group(1)
+    lower_bound = f"{prefix}-0000-0000-0000-000000000000"
+    # UUID columns support ordered comparisons but not `LIKE`. The next prefix
+    # is the exclusive upper bound for all UUIDs beginning with `prefix`.
+    # (The all-`f` prefix has no representable upper bound, so it is safely
+    # handled by the lower bound plus the two-row ambiguity guard.)
+    next_prefix = int(prefix, 16) + 1
+    # `requests` supports repeated query-string keys when given tuples. That
+    # is how PostgREST combines the lower and upper `id` filters with AND.
+    params = [("select", "id"), ("id", f"gte.{lower_bound}"), ("limit", "2")]
+    if next_prefix <= 0xFFFFFFFF:
+        upper_bound = f"{next_prefix:08x}-0000-0000-0000-000000000000"
+        params.insert(2, ("id", f"lt.{upper_bound}"))
     rows, status = supabase_request(
         "get",
         "/rest/v1/cars",
-        params={"select": "id", "id": f"like.{prefix}*", "limit": "2"},
+        params=params,
         use_service_role=True,
     )
     if status >= 400 or not isinstance(rows, list) or len(rows) != 1:

@@ -44,7 +44,14 @@ def test_pretty_slug_uses_its_uuid_prefix(monkeypatch):
 
     monkeypatch.setattr(backend, "supabase_request", lookup)
     assert backend._resolve_car_listing_id("2013-mercedes-benz-c-class-c-350-dubai-bfce50df") == expected
-    assert seen["params"]["id"] == "like.bfce50df*"
+    # `cars.id` is UUID, so PostgreSQL cannot use LIKE on it. The resolver
+    # queries the UUID range represented by the final eight hexadecimal digits.
+    assert seen["params"] == [
+        ("select", "id"),
+        ("id", "gte.bfce50df-0000-0000-0000-000000000000"),
+        ("id", "lt.bfce50e0-0000-0000-0000-000000000000"),
+        ("limit", "2"),
+    ]
 
 
 def test_slug_rejects_ambiguous_prefix(monkeypatch):

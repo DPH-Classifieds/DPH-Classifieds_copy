@@ -39,10 +39,10 @@ const CheckEmail = () => {
 
       const data = await response.json();
       if (response.ok) {
+        setShowChangeEmail(false);
         setResendStatus({
           type: 'success',
-          message: 'Confirmation email resent. Check your inbox and spam folder.',
-          guidance: 'If nothing arrives, the project auth email sender may still need production SMTP setup in Supabase.',
+          message: 'Confirmation email sent. Check your inbox, spam, or Promotions folder.',
         });
       } else {
         setResendStatus({
@@ -144,9 +144,7 @@ const CheckEmail = () => {
             </div>
           </div>
         </div>
-        <p className="auth-note check-email-note">
-          If the email does not arrive, resend it below. Public auth email delivery depends on Supabase email configuration in production.
-        </p>
+        <p className="auth-note check-email-note">Didn't receive it? You can send another confirmation email.</p>
         {resendStatus && (
           <div className={`auth-status-panel ${resendStatus.type || 'note'}`}>
             <strong>{resendStatus.message}</strong>
@@ -162,13 +160,15 @@ const CheckEmail = () => {
           >
             {resending ? 'Resending...' : 'Resend confirmation email'}
           </button>
-          <button
-            type="button"
-            className="auth-button auth-button-secondary"
-            onClick={() => setShowChangeEmail(!showChangeEmail)}
-          >
-            Wrong email? Change it
-          </button>
+          {!resendStatus?.type || resendStatus.type !== 'success' ? (
+            <button
+              type="button"
+              className="auth-button auth-button-secondary"
+              onClick={() => setShowChangeEmail(!showChangeEmail)}
+            >
+              Wrong email? Change it
+            </button>
+          ) : null}
           <Link to={`/login?redirect=${encodeURIComponent(safeRedirect)}`} className="auth-inline-action">
             Back to login
           </Link>
