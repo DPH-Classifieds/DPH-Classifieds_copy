@@ -17299,6 +17299,10 @@ def _expire_reddit_dupes_for_vin(vin):
         data={"status": "expired", "is_approved": False},
         use_service_role=True,
     )
+    # Detail, search, and sitemap responses may be cached. Invalidating after
+    # the status change ensures a just-hidden Reddit duplicate does not remain
+    # visible until the cache TTL expires.
+    _invalidate_public_inventory_cache("cars")
 
 
 def _run_reddit_vin_dedup_sweep_once():
