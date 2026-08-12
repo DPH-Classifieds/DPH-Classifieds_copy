@@ -1073,7 +1073,7 @@ const CarDetail = () => {
 	            mode="modal"
 	            open={showPhoneVerifyModal}
 	            title="Phone verification required"
-	            description="Verify your phone to reveal contact details (and VIN where applicable)."
+	            description="Check your phone number, then choose Send OTP to reveal contact details (and VIN where applicable)."
 	            phone={verificationPhone || viewerProfile?.phone || user?.phone || ''}
 	            countryCode={viewerProfile?.country_code || user?.country_code || '+971'}
 	            purpose="vin_reveal"
@@ -1102,7 +1102,6 @@ const CarDetail = () => {
 	              }
 	              await trackLeadEvent('vin_reveal', { listing_id: car.id, verification: result?.verification });
 	            }}
-	            autoStart
 	          />
 	        )}
       </div>

@@ -315,8 +315,10 @@ const PostCarParts = () => {
     }));
   };
 
-  const onPickImages = async (e) => {
-    const rawFiles = Array.from(e.target.files || []);
+  const onPickImages = async (source) => {
+    const rawFiles = Array.isArray(source)
+      ? source
+      : Array.from(source?.target?.files || []);
     if (!rawFiles.length) return;
 
     // Convert iPhone HEIC (incl. files mislabeled .jpg) to JPEG before the type
@@ -352,7 +354,7 @@ const PostCarParts = () => {
     setError(null);
     setModerating(true);
     setModerationErrors({});
-    e.target.value = '';
+    if (source?.target) source.target.value = '';
 
     try {
       const results = await Promise.all(
@@ -609,15 +611,7 @@ const PostCarParts = () => {
                     event.preventDefault();
                     setIsDragOver(false);
                     const droppedFiles = Array.from(event.dataTransfer.files || []);
-                    if (!droppedFiles.length) return;
-                    const validFiles = droppedFiles.filter((f) =>
-                      SUPPORTED_IMAGE_TYPES.includes((f.type || '').toLowerCase()) &&
-                      f.size <= MAX_IMAGE_SIZE_BYTES
-                    );
-                    if (validFiles.length) {
-                      setError(null);
-                      setPendingCropFiles(validFiles);
-                    }
+                    if (droppedFiles.length) void onPickImages(droppedFiles);
                   }}
                   onClick={() => fileInputRef.current?.click()}
                   role="button"
@@ -627,12 +621,12 @@ const PostCarParts = () => {
                     <span className="material-symbols-outlined">upload</span>
                   </div>
                   <p className="upload-text-main">Drop part photos here or click to browse</p>
-                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 20MB each</p>
+                  <p className="upload-text-sub">HEIC, JPG, PNG, WEBP, or GIF up to 20MB each</p>
                   <input
                     ref={fileInputRef}
                     className="file-input"
                     type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.gif"
+                    accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.gif,image/heic,image/heif,image/jpeg,image/png,image/webp"
                     multiple
                     onChange={onPickImages}
                   />

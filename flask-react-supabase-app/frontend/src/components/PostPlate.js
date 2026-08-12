@@ -427,6 +427,9 @@ const PostPlate = () => {
       file = await ensureUploadableImage(file);
     } catch (err) {
       console.warn('HEIC conversion failed for reg doc:', err);
+      setError({ message: err?.message || "We couldn't process this registration photo." });
+      e.target.value = '';
+      return;
     }
     setRegDocFile(file);
     setRegDocUrl('');
@@ -699,7 +702,7 @@ const PostPlate = () => {
                     ref={proofInputRef}
                     className="file-input"
                     type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.pdf"
+                    accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.pdf,image/heic,image/heif,image/jpeg,image/png,image/webp,application/pdf"
                     onChange={handleProofFileChange}
                     style={{ display: 'none' }}
                   />
@@ -717,7 +720,7 @@ const PostPlate = () => {
                     <input
                       ref={regDocInputRef}
                       type="file"
-                      accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                      accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.pdf,image/heic,image/heif,image/jpeg,image/png,image/webp,application/pdf"
                       className="file-input"
                       onChange={handleRegDocChange}
                       id="plate_registration_doc"

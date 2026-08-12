@@ -48,7 +48,6 @@ export function OTPVerification({
   onClose,
   onVerified,
   onCancel,
-  autoStart = true,
   hideClose = false,
   className = "",
 }) {
@@ -65,9 +64,6 @@ export function OTPVerification({
   const inputRefs = useRef([])
   // Drives the shake-on-wrong-code animation for the whole digit row.
   const shakeControls = useAnimationControls()
-  // ponytail: fire auto-start at most once per context; failed starts must NOT
-  // re-trigger the effect (that caused the /start request storm → 400s then 429s).
-  const autoStartedRef = useRef(false)
 
   const closeHandler = onClose || onCancel
   const effectiveCountryCode = UAE_COUNTRY_CODE
@@ -100,7 +96,6 @@ export function OTPVerification({
     setMessage("")
     setError("")
     setCooldownRemaining(0)
-    autoStartedRef.current = false
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialVerificationId, phone, purpose, listingId])
 
@@ -128,45 +123,19 @@ export function OTPVerification({
   }, [otp])
 
   useEffect(() => {
-    if (!open || verified) return
-
-    if (initialVerificationId) {
-      setPhoneVerification(
-        (prev) =>
-          prev || {
-            verification_id: initialVerificationId,
-            phone,
-            purpose,
-            listing_id: listingId,
-            status: "pending",
-            masked_phone: phone ? `***${String(phone).slice(-4)}` : null,
-          }
-      )
-      return
-    }
-
-    // Only auto-send once the number is fully entered (a pre-filled phone from
-    // signup/profile is already complete; a half-typed one waits for the button).
-    if (!autoStart || !phoneComplete || starting || verificationId || autoStartedRef.current) {
-      return
-    }
-
-    autoStartedRef.current = true
-    void startVerification()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    open,
-    autoStart,
-    phoneInput,
-    phone,
-    effectiveCountryCode,
-    purpose,
-    listingId,
-    starting,
-    verificationId,
-    verified,
-    initialVerificationId,
-  ])
+    if (!open || verified || !initialVerificationId) return
+    setPhoneVerification(
+      (prev) =>
+        prev || {
+          verification_id: initialVerificationId,
+          phone,
+          purpose,
+          listing_id: listingId,
+          status: "pending",
+          masked_phone: phone ? `***${String(phone).slice(-4)}` : null,
+        }
+    )
+  }, [initialVerificationId, listingId, open, phone, purpose, verified])
 
   useEffect(() => {
     if (!open || verified) return
@@ -430,7 +399,6 @@ export function OTPVerification({
   const hasSession = Boolean(verificationId)
 
   const changeNumber = () => {
-    autoStartedRef.current = true // stay manual; don't auto-resend to the old number
     setVerificationId(null)
     setPhoneVerification(null)
     setOtp(emptyOtp(otpLength))
@@ -517,7 +485,7 @@ export function OTPVerification({
             </div>
             <h3 id="otp-verification-title" className="text-2xl font-semibold tracking-[-0.03em] text-white">{title}</h3>
             <p className="mt-2 text-sm leading-6 text-white/60">
-              Enter your UAE number (+971) to get a verification code.
+              Check the number below before we send your verification code.
             </p>
             <input
               id="phone-verification-phone"
@@ -535,6 +503,11 @@ export function OTPVerification({
               autoFocus
               className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-center text-base text-white outline-none transition placeholder:text-white/30 focus:border-[#8bd6b4]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]"
             />
+            {phoneComplete ? (
+              <p className="mt-3 text-sm leading-5 text-white/65">
+                We&apos;ll send an OTP to <span className="font-semibold text-white">{displayPhone}</span>.
+              </p>
+            ) : null}
             <div className="mt-2 h-5 text-sm font-medium text-[#ffb3b3]">{error || ""}</div>
             <button
               type="button"
@@ -548,7 +521,7 @@ export function OTPVerification({
                   Sending code...
                 </span>
               ) : (
-                "Send code"
+                `Send OTP to ${displayPhone || "this number"}`
               )}
             </button>
             {!hideClose && closeHandler ? (

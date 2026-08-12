@@ -362,8 +362,10 @@ const PostBike = () => {
     }));
   };
 
-  const onPickImages = async (e) => {
-    const rawFiles = Array.from(e.target.files || []);
+  const onPickImages = async (source) => {
+    const rawFiles = Array.isArray(source)
+      ? source
+      : Array.from(source?.target?.files || []);
     if (!rawFiles.length) return;
 
     // Convert iPhone HEIC (incl. files mislabeled .jpg) to JPEG before the type
@@ -399,7 +401,7 @@ const PostBike = () => {
     setError(null);
     setModerating(true);
     setModerationErrors({});
-    e.target.value = '';
+    if (source?.target) source.target.value = '';
 
     try {
       const results = await Promise.all(
@@ -440,8 +442,16 @@ const PostBike = () => {
   };
 
   const handleRegDocChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+    let file;
+    try {
+      file = await ensureUploadableImage(rawFile);
+    } catch (err) {
+      setError(err?.message || "We couldn't process this registration photo.");
+      e.target.value = '';
+      return;
+    }
     setRegDocFile(file);
     setRegDocUrl('');
     setRegDocOcrStatus('');
@@ -705,15 +715,7 @@ const PostBike = () => {
                     event.preventDefault();
                     setIsDragOver(false);
                     const droppedFiles = Array.from(event.dataTransfer.files || []);
-                    if (!droppedFiles.length) return;
-                    const validFiles = droppedFiles.filter((f) =>
-                      SUPPORTED_IMAGE_TYPES.includes((f.type || '').toLowerCase()) &&
-                      f.size <= MAX_IMAGE_SIZE_BYTES
-                    );
-                    if (validFiles.length) {
-                      setError(null);
-                      setPendingCropFiles(validFiles);
-                    }
+                    if (droppedFiles.length) void onPickImages(droppedFiles);
                   }}
                   onClick={() => fileInputRef.current?.click()}
                   role="button"
@@ -723,12 +725,12 @@ const PostBike = () => {
                     <span className="material-symbols-outlined">upload</span>
                   </div>
                   <p className="upload-text-main">Drop bike photos here or click to browse</p>
-                  <p className="upload-text-sub">JPG, PNG, WEBP, or GIF up to 20MB each</p>
+                  <p className="upload-text-sub">HEIC, JPG, PNG, WEBP, or GIF up to 20MB each</p>
                   <input
                     ref={fileInputRef}
                     className="file-input"
                     type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.gif"
+                    accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.gif,image/heic,image/heif,image/jpeg,image/png,image/webp"
                     multiple
                     onChange={onPickImages}
                   />
@@ -908,7 +910,7 @@ const PostBike = () => {
                       <input
                         ref={regDocInputRef}
                         type="file"
-                        accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                        accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.pdf,image/heic,image/heif,image/jpeg,image/png,image/webp,application/pdf"
                         className="file-input"
                         onChange={handleRegDocChange}
                         id="bike_registration_doc"

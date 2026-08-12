@@ -56,14 +56,12 @@ const VerifyPhone = () => {
       open
       title={purpose === 'signup' ? 'Verify your phone to continue signup' : 'Verify your phone number'}
       description={purpose === 'signup'
-        ? 'Enter the SMS code we sent so we can finish setting up your account. UAE numbers only (+971).'
-        : 'Enter the SMS code to confirm this phone number. UAE numbers only (+971).'}
+        ? 'Check your number first, then choose Send OTP to finish setting up your account. UAE numbers only (+971).'
+        : 'Check your number first, then choose Send OTP to confirm it. UAE numbers only (+971).'}
       phone={phone}
       countryCode={countryCode}
       purpose={purpose}
       verificationId={verificationId || null}
-      // No server verification_id (MSG91) -> the widget must send; auto-start it.
-      autoStart={!verificationId}
       onVerified={handleVerified}
       continueLabel={purpose === 'signup' ? 'Continue to email confirmation' : 'Finish verification'}
     />

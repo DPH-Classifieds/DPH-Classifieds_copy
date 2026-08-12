@@ -1856,7 +1856,7 @@ const PostCar = () => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".jpg,.jpeg,.png,.webp,.gif"
+                  accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.gif,image/heic,image/heif,image/jpeg,image/png,image/webp"
                   multiple
                   onChange={handleFileChange}
                   className="file-input"
@@ -1875,7 +1875,7 @@ const PostCar = () => {
                 <button type="button" className="browse-btn" onClick={handleBrowseClick}>
                   Browse Files
                 </button>
-                <p className="upload-text-sub">Maximum 10 images • JPG, PNG, WEBP, GIF • 20MB each</p>
+                <p className="upload-text-sub">Maximum 10 images • HEIC, JPG, PNG, WEBP, GIF • 20MB each</p>
               </div>
               
               {croppedImages.length > 0 && (
@@ -2016,16 +2016,23 @@ const PostCar = () => {
               >
                 <div className="upload-icon" aria-hidden="true" />
                 <h4>{registrationOcrFile ? registrationOcrFile.name : 'Upload registration document'}</h4>
-                <p>PNG, JPG, WEBP, or PDF (page 1)</p>
+                <p>HEIC, PNG, JPG, WEBP, or PDF (page 1)</p>
                 <input
                   id="registration_ocr_file"
                   type="file"
-                  accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                  accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.pdf,image/heic,image/heif,image/jpeg,image/png,image/webp,application/pdf"
                   className="file-input"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setRegistrationOcrFile(file);
-                    resetRegistrationOcrState();
+                  onChange={async (e) => {
+                    const rawFile = e.target.files?.[0] || null;
+                    if (!rawFile) return;
+                    try {
+                      const file = await ensureUploadableImage(rawFile);
+                      setRegistrationOcrFile(file);
+                      resetRegistrationOcrState();
+                    } catch (err) {
+                      setRegistrationOcrError(err?.message || "We couldn't process this registration photo.");
+                      e.target.value = '';
+                    }
                   }}
                 />
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>

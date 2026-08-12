@@ -7,7 +7,7 @@ import { calculateProfileCompletion, getProfileCompletionColor } from '../utils/
 import { resolveMediaUrl } from '../utils/media';
 import { splitPhoneNumberForInput } from '../utils/countryCodes';
 import { checkUsernameAvailability, sanitizeUsernameInput, getUsernameValidationError } from '../utils/usernameAvailability';
-import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect } from '../utils/directUpload';
+import { PROFILE_PHOTO_MAX_BYTES, uploadProfilePhotoDirect, ensureUploadableImage } from '../utils/directUpload';
 import PhoneVerificationFlow from './PhoneVerificationFlow';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import LoadingSpinner from './LoadingSpinner';
@@ -317,8 +317,20 @@ const AccountSettings = () => {
     }));
   };
 
-  const handlePhotoSelect = (e) => {
-    const file = e.target.files[0];
+  const handlePhotoSelect = async (e) => {
+    const rawFile = e.target.files[0];
+    if (!rawFile) return;
+
+    let file;
+    try {
+      // Convert iPhone HEIC before FileReader/cropping, which browser canvases
+      // cannot reliably decode outside Safari.
+      file = await ensureUploadableImage(rawFile);
+    } catch (err) {
+      setError(err?.message || "We couldn't process that photo. Please try another image.");
+      e.target.value = '';
+      return;
+    }
     if (file) {
       if (!file.type.startsWith('image/')) {
         setError('Please select a valid image file');
@@ -808,7 +820,7 @@ const AccountSettings = () => {
                         type="file"
                         ref={fileInputRef}
                         onChange={handlePhotoSelect}
-                        accept=".jpg,.jpeg,.png,.webp,.gif"
+                        accept=".heic,.heif,.jpg,.jpeg,.png,.webp,.gif,image/heic,image/heif,image/jpeg,image/png,image/webp"
                         className="hidden-file-input"
                       />
                       <button
@@ -835,7 +847,7 @@ const AccountSettings = () => {
                     </div>
                   </div>
                   <p className="photo-help-text">
-                    Upload a profile photo. Accepted formats: JPG, PNG, GIF. Max size: 5MB
+                    Upload a profile photo. HEIC, JPG, PNG, WEBP, or GIF. HEIC is converted for web viewing. Max size: 5MB
                   </p>
                 </div>
               </div>
@@ -1123,16 +1135,13 @@ const AccountSettings = () => {
                 mode="modal"
                 open
                 title="Verify your new phone number"
-                description="We sent a code to your updated phone number. Enter it to finish the change."
+                description="Check your updated phone number, then choose Send OTP to finish the change."
                 phone={phoneVerificationSession.phone}
                 countryCode={phoneVerificationSession.countryCode}
                 purpose={phoneVerificationSession.purpose}
                 verificationId={phoneVerificationSession.verificationId}
                 onVerified={handlePhoneVerificationSuccess}
                 onClose={() => setPhoneVerificationSession(null)}
-                // MSG91 numbers come back with no verification_id — the widget must
-                // do the send itself, so auto-start when the server didn't pre-send.
-                autoStart={!phoneVerificationSession.verificationId}
               />
             )}
           </div>
