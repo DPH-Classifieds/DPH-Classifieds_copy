@@ -464,6 +464,31 @@ const PostCar = () => {
     fieldElement.focus?.();
   };
 
+  // Human-readable name for a field, so validation errors name the ACTUAL field
+  // (e.g. "Listing Description") instead of a vague message that reads like a
+  // fuel/transmission problem.
+  const describeField = (field) => {
+    if (!field) return null;
+    const labelEl =
+      field.labels?.[0] ||
+      (field.id && formRef.current?.querySelector(`label[for="${field.id}"]`));
+    const text = labelEl?.textContent?.replace(/[*\s]+$/g, '').replace(/\*/g, '').trim();
+    if (text) return text;
+    const NAMES = {
+      fuel_type: 'Fuel Type',
+      transmission_type: 'Transmission',
+      car_description: 'Listing Description',
+      car_manufacturer: 'Make',
+      car_model: 'Model',
+      make_year: 'Year',
+      expected_selling_price: 'Price',
+      kilometer_driven: 'Kilometers',
+      car_location: 'Location',
+      other_fuel_type: 'Fuel Type (Other)',
+    };
+    return NAMES[field.name || field.id] || null;
+  };
+
   const getFirstInvalidRequiredField = () => {
     if (!formRef.current) return null;
 
@@ -1587,7 +1612,12 @@ const PostCar = () => {
 
     const invalidField = getFirstInvalidRequiredField();
     if (invalidField) {
-      setError('Please complete the highlighted fields before submitting your listing.');
+      const label = describeField(invalidField);
+      setError(
+        label
+          ? `Please fill in “${label}” before submitting — it’s required.`
+          : 'Please complete the highlighted fields before submitting your listing.'
+      );
       focusAndHighlightField(invalidField);
       return;
     }
