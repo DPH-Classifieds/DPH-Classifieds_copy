@@ -1,4 +1,7 @@
 import unittest
+from unittest.mock import patch
+
+import requests
 
 from services.auto_review.vision import (
     GoogleVisionProvider,
@@ -66,10 +69,31 @@ class SelectProviderTests(unittest.TestCase):
 
 
 class GoogleVisionProviderTests(unittest.TestCase):
-    def test_analyze_not_implemented(self):
+    @patch("services.auto_review.vision.requests.post")
+    def test_analyze_maps_calibrated_google_signals(self, post):
+        post.return_value.raise_for_status.return_value = None
+        post.return_value.json.return_value = {
+            "responses": [{
+                "safeSearchAnnotation": {"adult": "VERY_UNLIKELY"},
+                "faceAnnotations": [{"detectionConfidence": 0.93}],
+                "localizedObjectAnnotations": [{"name": "Car"}],
+                "fullTextAnnotation": {"text": "Call +971 50 123 4567"},
+            }]
+        }
         provider = GoogleVisionProvider(api_key="abc")
-        with self.assertRaises(NotImplementedError):
-            provider.analyze(b"bytes")
+        result = provider.analyze(b"bytes")
+        self.assertTrue(result.available)
+        self.assertFalse(result.nsfw_likely)
+        self.assertEqual(result.face_confidences, [0.93])
+        self.assertTrue(result.contains_vehicle)
+        self.assertEqual(result.contact_text, ["Call +971 50 123 4567"])
+
+    @patch(
+        "services.auto_review.vision.requests.post",
+        side_effect=requests.RequestException("down"),
+    )
+    def test_provider_error_is_not_silently_approved(self, _post):
+        self.assertFalse(GoogleVisionProvider(api_key="abc").analyze(b"bytes").available)
 
 
 class VisionResultTests(unittest.TestCase):

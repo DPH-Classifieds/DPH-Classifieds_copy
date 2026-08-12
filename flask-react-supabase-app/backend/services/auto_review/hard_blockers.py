@@ -58,11 +58,22 @@ def evaluate_image_blockers(image_bytes_list, provider, *, face_confidence_thres
         if not result.available:
             reasons.append(FailReason("vision_unavailable", {"image_index": idx}))
             continue
-        if result.face_count and result.face_count >= 1:
+        # A face is review-only and only when the provider has an actual
+        # confidence score. Haar cascades do not expose reliable confidence and
+        # frequently see faces in headlights, grilles and reflections.
+        confirmed_faces = [
+            score for score in (getattr(result, "face_confidences", None) or [])
+            if score >= face_confidence_threshold
+        ]
+        if confirmed_faces:
             reasons.append(
                 FailReason(
                     "face_detected_in_image",
-                    {"image_index": idx, "face_count": result.face_count},
+                    {
+                        "image_index": idx,
+                        "face_count": len(confirmed_faces),
+                        "max_confidence": max(confirmed_faces),
+                    },
                 )
             )
         if result.nsfw_likely:

@@ -33,8 +33,10 @@ class ImageBlockerTests(unittest.TestCase):
         self.assertFalse(an.ok)
         self.assertIn("vision_unavailable", [r.label for r in an.reasons])
 
-    def test_face_blocks_listing(self):
-        with_face = VisionResult(available=True, face_count=1)
+    def test_confident_face_queues_listing_for_review(self):
+        with_face = VisionResult(
+            available=True, face_count=1, face_confidences=[0.95]
+        )
         clean = VisionResult(available=True)
         an = evaluate_image_blockers(
             [b"x", b"y"],
@@ -50,7 +52,11 @@ class ImageBlockerTests(unittest.TestCase):
             FakeProvider(
                 [
                     VisionResult(available=True),
-                    VisionResult(available=True, face_count=2),
+                    VisionResult(
+                        available=True,
+                        face_count=2,
+                        face_confidences=[0.91, 0.93],
+                    ),
                 ]
             ),
             face_confidence_threshold=0.6,
@@ -58,6 +64,14 @@ class ImageBlockerTests(unittest.TestCase):
         face_reason = next(r for r in an.reasons if r.label == "face_detected_in_image")
         self.assertEqual(face_reason.details["image_index"], 1)
         self.assertEqual(face_reason.details["face_count"], 2)
+
+    def test_unscored_local_face_is_not_used_as_a_review_signal(self):
+        an = evaluate_image_blockers(
+            [b"x"],
+            FakeProvider([VisionResult(available=True, face_count=1)]),
+            face_confidence_threshold=0.85,
+        )
+        self.assertTrue(an.ok, msg=an.reasons)
 
     def test_nsfw_blocks(self):
         an = evaluate_image_blockers(

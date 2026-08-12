@@ -282,7 +282,7 @@ def build_signals_for(listing_kind, row):
     from services.auto_review.vision import select_vision_provider
 
     provider = select_vision_provider()
-    face_threshold = _env_float("AUTO_REVIEW_FACE_CONFIDENCE_THRESHOLD", 0.6)
+    face_threshold = _env_float("AUTO_REVIEW_FACE_CONFIDENCE_THRESHOLD", 0.85)
 
     type_label = listing_kind + "s"
     image_urls = _fetch_image_urls(type_label, row)
@@ -389,14 +389,14 @@ def record_decision_for(type_label, row, decision):
     )
 
 
-# Nudity/face are hard blocks: reject the listing and delete the photo, rather
-# than routing to manual review like other queue reasons.
-_IMAGE_BLOCK_LABELS = {"nsfw_image", "face_detected_in_image"}
+# Only high-confidence explicit nudity is a destructive hard block. A face is
+# privacy-sensitive but not proof of unsafe content, so it stays pending for a
+# moderator instead of deleting a legitimate listing on a false positive.
+_IMAGE_BLOCK_LABELS = {"nsfw_image"}
 
 _IMAGE_REJECTION_NOTE = (
     "One or more photos were removed and this listing was rejected because "
-    "explicit content or a person's face was detected. Please re-submit using "
-    "photos that show the vehicle only."
+    "explicit content was detected. Please re-submit using vehicle photos only."
 )
 
 
@@ -475,7 +475,7 @@ def _reject_listing_for_images(type_label, row, decision):
 
 
 def downgrade_to_pending_for(type_label, row, decision):
-    # Nudity/face → hard reject + delete photo, not manual review.
+    # Explicit nudity → hard reject + delete photo. Face signals are reviewed.
     if _IMAGE_BLOCK_LABELS & set(decision.as_label_list()):
         _reject_listing_for_images(type_label, row, decision)
         return

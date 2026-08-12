@@ -35,7 +35,8 @@ class ImageRejectTests(unittest.TestCase):
         )
         urls = ["u0", "u1", "u2"]
         got = worker._offending_image_urls(analysis, urls, [b"", b"", b""])
-        self.assertEqual(got, ["u0", "u2"])
+        # Face signals are review-only; only explicit-content images are deleted.
+        self.assertEqual(got, ["u0"])
 
     def test_offending_urls_empty_when_downloads_dropped(self):
         # bytes shorter than urls → alignment unreliable → skip per-image delete
@@ -45,11 +46,19 @@ class ImageRejectTests(unittest.TestCase):
         got = worker._offending_image_urls(analysis, ["u0", "u1"], [b""])
         self.assertEqual(got, [])
 
-    def test_downgrade_routes_face_to_reject(self):
+    def test_downgrade_routes_face_to_manual_review(self):
         decision = Decision.queue([FailReason("face_detected_in_image", {})])
-        with patch.object(worker, "_reject_listing_for_images") as reject:
+        sb = MagicMock(return_value=({}, 200))
+        with patch.object(worker, "_reject_listing_for_images") as reject, \
+                patch.object(worker, "_supabase_request", return_value=sb), \
+                patch("app._send_new_listing_admin_notification"), \
+                patch("app.get_user_email", return_value="x@y.com"):
             worker.downgrade_to_pending_for("cars", _row(), decision)
-        reject.assert_called_once()
+        reject.assert_not_called()
+        self.assertTrue(
+            any((call.kwargs.get("data") or {}).get("status") == "pending"
+                for call in sb.call_args_list)
+        )
 
     def test_downgrade_non_image_reason_uses_pending_not_reject(self):
         decision = Decision.queue([FailReason("no_trust_tier", {})])
