@@ -50,42 +50,42 @@ test('clean image is not blocked', async () => {
   expect(result.reasons).toEqual([]);
 });
 
-test('porn > 0.60 is blocked as nudity', async () => {
-  mockModels({ porn: 0.85 });
+test('porn > 0.85 is blocked as nudity', async () => {
+  mockModels({ porn: 0.90 });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(true);
   expect(result.reasons).toContain('nudity');
 });
 
-test('hentai > 0.60 is blocked as nudity', async () => {
-  mockModels({ hentai: 0.75 });
+test('hentai > 0.85 is blocked as nudity', async () => {
+  mockModels({ hentai: 0.90 });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(true);
   expect(result.reasons).toContain('nudity');
 });
 
-test('sexy > 0.70 is blocked as nudity', async () => {
+test('sexy > 0.95 is blocked as nudity', async () => {
+  mockModels({ sexy: 0.97 });
+  const result = await moderateImage(makeFile());
+  expect(result.blocked).toBe(true);
+  expect(result.reasons).toContain('nudity');
+});
+
+test('sexy in the suggestive range (<= 0.95) is NOT blocked (car false-positive guard)', async () => {
   mockModels({ sexy: 0.80 });
-  const result = await moderateImage(makeFile());
-  expect(result.blocked).toBe(true);
-  expect(result.reasons).toContain('nudity');
-});
-
-test('sexy <= 0.70 is NOT blocked', async () => {
-  mockModels({ sexy: 0.65 });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(false);
 });
 
-test('face with probability > 0.75 is blocked', async () => {
+test('face with probability > 0.85 is blocked', async () => {
   mockModels({ faces: [{ probability: [0.95] }] });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(true);
   expect(result.reasons).toContain('face');
 });
 
-test('face with probability <= 0.75 is NOT blocked', async () => {
-  mockModels({ faces: [{ probability: [0.60] }] });
+test('face with probability <= 0.85 is NOT blocked', async () => {
+  mockModels({ faces: [{ probability: [0.80] }] });
   const result = await moderateImage(makeFile());
   expect(result.blocked).toBe(false);
 });
