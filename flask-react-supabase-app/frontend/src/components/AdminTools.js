@@ -549,7 +549,17 @@ const AdminTools = () => {
 
             <InlineToast toast={toolStates.redditOnExplore.toast} />
           </GlassCard>
+        </div>
+      </motion.div>
 
+      {/* ── Section: Sign-in methods ─────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <SectionLabel>Sign-in methods</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <GlassCard className="flex flex-col gap-4">
             <div className="flex items-start gap-3">
               <ShieldCheck size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
