@@ -17228,6 +17228,21 @@ def _should_hide_reddit(requesting_reddit, exclude_reddit, reddit_on_explore):
     return bool(exclude_reddit) or not reddit_on_explore
 
 
+def _google_signin_enabled() -> bool:
+    """Whether Google sign-in is offered on the login/signup pages. Redis flag
+    (admin toggle) first, env fallback. Default on."""
+    rc = _get_redis_cache_client()
+    if rc:
+        try:
+            val = rc.get("auth:google_enabled")
+            if val is not None:
+                return val == "1"
+        except Exception:
+            pass
+    raw = (os.getenv("GOOGLE_SIGNIN_ENABLED") or "true").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
 def _initial_listing_status():
     """Initial status for a freshly-submitted listing. If the auto-review
     worker is enabled, lands at 'pending_auto_review' so the worker picks
@@ -23478,6 +23493,50 @@ def admin_reddit_explore_settings(current_user):
     if redis_val is not None:
         return jsonify({"enabled": redis_val == "1", "source": "redis", "env_enabled": env_enabled}), 200
     return jsonify({"enabled": env_enabled, "source": "env", "env_enabled": env_enabled}), 200
+
+
+@app.route("/api/admin/google-signin/settings", methods=["GET", "PATCH"])
+@token_required
+def admin_google_signin_settings(current_user):
+    """Toggle whether the Google sign-in button is offered on login/signup.
+    Redis-backed (auth:google_enabled), env fallback GOOGLE_SIGNIN_ENABLED.
+    ponytail: hides the entry point; a full block of Supabase OAuth would also
+    need the provider disabled in the Supabase dashboard."""
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Admin access required"}), 403
+
+    env_enabled = (os.getenv("GOOGLE_SIGNIN_ENABLED") or "true").strip().lower() in ("1", "true", "yes", "on")
+    rc = _get_redis_cache_client()
+
+    if request.method == "PATCH":
+        body = request.get_json(silent=True) or {}
+        enabled = bool(body.get("enabled", False))
+        if not rc:
+            return jsonify({"error": "Redis unavailable — set GOOGLE_SIGNIN_ENABLED env var instead"}), 503
+        try:
+            rc.set("auth:google_enabled", "1" if enabled else "0")
+        except Exception as exc:
+            return jsonify({"error": f"Redis error: {exc}"}), 500
+        return jsonify({"enabled": enabled, "source": "redis"}), 200
+
+    # GET
+    redis_val = None
+    if rc:
+        try:
+            redis_val = rc.get("auth:google_enabled")
+        except Exception:
+            pass
+    if redis_val is not None:
+        return jsonify({"enabled": redis_val == "1", "source": "redis", "env_enabled": env_enabled}), 200
+    return jsonify({"enabled": env_enabled, "source": "env", "env_enabled": env_enabled}), 200
+
+
+@app.route("/api/config/google-signin", methods=["GET"])
+def public_google_signin_config():
+    """Public read so the login/signup pages know whether to show the Google
+    button. No auth — exposes a single boolean, nothing sensitive."""
+    return jsonify({"enabled": _google_signin_enabled()}), 200
 
 
 @app.route("/api/admin/auto-review/run", methods=["POST"])

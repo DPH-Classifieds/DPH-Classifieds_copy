@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentUser, saveAuthData, setAuthHeader, setTokenStorageMode, storeAccessToken } from '../utils/authService';
@@ -15,7 +15,16 @@ const Login = () => {
   const [resetStatus, setResetStatus] = useState(null);
   const [resetLoading, setResetLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(true);
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Admin can turn Google sign-in off (public flag); hide the button when so.
+  useEffect(() => {
+    fetch(`${API_URL}/api/config/google-signin`)
+      .then((r) => r.json())
+      .then((d) => setGoogleEnabled(Boolean(d.enabled)))
+      .catch(() => {}); // on error keep it shown (default true)
+  }, []);
   const { syncWithSupabase } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -141,6 +150,7 @@ const Login = () => {
         {error && <div className="auth-error">{error}</div>}
         {resetStatus && <div className="auth-note">{resetStatus}</div>}
 
+        {googleEnabled && (<>
         <button
           type="button"
           className="auth-button auth-google-button"
@@ -161,6 +171,7 @@ const Login = () => {
           <span className="auth-divider-label">or</span>
           <span className="auth-divider-line" />
         </div>
+        </>)}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">

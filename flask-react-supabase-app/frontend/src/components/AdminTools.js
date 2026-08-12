@@ -140,6 +140,7 @@ const AdminTools = () => {
     autoReview: initialToolState(),
     redditVisibility: initialToolState(),
     redditOnExplore: initialToolState(),
+    googleSignin: initialToolState(),
   });
 
   // Auto-review toggle state: null = loading, true/false = known
@@ -182,6 +183,20 @@ const AdminTools = () => {
         setRedditExploreSource(data.source);
       })
       .catch(() => setRedditOnExplore(false));
+  }, []);
+
+  // Google sign-in toggle: show/hide the Google button on login & signup
+  const [googleSignin, setGoogleSignin] = useState(null);
+  const [googleSigninLoading, setGoogleSigninLoading] = useState(false);
+  const [googleSigninSource, setGoogleSigninSource] = useState(null);
+
+  useEffect(() => {
+    apiClient.get('/api/admin/google-signin/settings')
+      .then(data => {
+        setGoogleSignin(data.enabled);
+        setGoogleSigninSource(data.source);
+      })
+      .catch(() => setGoogleSignin(false));
   }, []);
 
   const updateTool = useCallback((id, patch) => {
@@ -318,6 +333,24 @@ const AdminTools = () => {
       setRedditExploreLoading(false);
     }
   }, [redditOnExplore, successToast, errorToast]);
+
+  // ── tool: Google sign-in on/off ───────────────────────────────────────────
+  const toggleGoogleSignin = useCallback(async () => {
+    const newVal = !googleSignin;
+    setGoogleSignin(newVal);
+    setGoogleSigninLoading(true);
+    try {
+      const res = await apiClient.patch('/api/admin/google-signin/settings', { enabled: newVal });
+      setGoogleSignin(res.enabled);
+      setGoogleSigninSource(res.source);
+      successToast('googleSignin', `Google sign-in ${res.enabled ? 'enabled ✓' : 'disabled'}`);
+    } catch (err) {
+      setGoogleSignin(!newVal); // revert
+      errorToast('googleSignin', `Failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setGoogleSigninLoading(false);
+    }
+  }, [googleSignin, successToast, errorToast]);
 
   // ── tool: run auto-review now ─────────────────────────────────────────────
   const runAutoReview = useCallback(async () => {
@@ -515,6 +548,45 @@ const AdminTools = () => {
             </div>
 
             <InlineToast toast={toolStates.redditOnExplore.toast} />
+          </GlassCard>
+
+          <GlassCard className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <ShieldCheck size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-white leading-snug">Google sign-in</p>
+                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                  When on, the "Continue with Google" button is shown on the login and signup pages. When off, only email/password sign-in is offered.
+                  {googleSigninSource === 'env' && (
+                    <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-auto pt-1">
+              <button
+                type="button"
+                onClick={toggleGoogleSignin}
+                disabled={googleSignin === null || googleSigninLoading}
+                aria-label={googleSignin ? 'Disable Google sign-in' : 'Enable Google sign-in'}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                  googleSignin ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                    googleSignin ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-sm font-medium text-white/70">
+                {googleSignin === null ? 'Loading…' : googleSignin ? 'Enabled' : 'Disabled'}
+                {googleSigninLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+              </span>
+            </div>
+
+            <InlineToast toast={toolStates.googleSignin.toast} />
           </GlassCard>
         </div>
       </motion.div>

@@ -67,7 +67,16 @@ const Signup = () => {
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(true);
   const [error, setError] = useState(null);
+
+  // Admin can turn Google sign-in off (public flag); hide the button when so.
+  useEffect(() => {
+    fetch(`${API_URL}/api/config/google-signin`)
+      .then((r) => r.json())
+      .then((d) => setGoogleEnabled(Boolean(d.enabled)))
+      .catch(() => {}); // on error keep it shown (default true)
+  }, []);
 
   const handleGoogle = async () => {
     setError(null);
@@ -562,6 +571,7 @@ const Signup = () => {
 
         {successMessage && <div className="auth-success">{successMessage}</div>}
 
+        {googleEnabled && (<>
         <button
           type="button"
           className="auth-button auth-google-button"
@@ -583,6 +593,7 @@ const Signup = () => {
           <span className="auth-divider-label">or use email</span>
           <span className="auth-divider-line" />
         </div>
+        </>)}
 
         <form className="auth-form signup-form" onSubmit={handleSubmit}>
           
