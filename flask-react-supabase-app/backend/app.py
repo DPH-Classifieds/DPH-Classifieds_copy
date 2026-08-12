@@ -8470,6 +8470,23 @@ def _build_listing_url(item_type, item_id, request_origin=None):
     return f"{base_url}{path}/{item_id}"
 
 
+def _build_listing_manage_url(item_type, item_id):
+    """Return the owner-only edit URL for a newly submitted listing.
+
+    A pending listing is intentionally not publicly viewable yet, so its
+    confirmation email must not point at a public detail route. The edit route
+    is both the exact listing and a useful destination while it is in review.
+    """
+    if not item_id:
+        return None
+    normalized = {"cars": "car", "bikes": "bike", "parts": "part", "plates": "plate"}.get(
+        str(item_type or "").strip().lower(), str(item_type or "").strip().lower()
+    )
+    if normalized not in {"car", "bike", "part", "plate"}:
+        return None
+    return f"{SITE_URL.rstrip('/')}/edit/{normalized}/{item_id}"
+
+
 def _send_listing_status_email(
     user_email, item_type, listing, status, request_origin=None, rejection_fix=None
 ):
@@ -8775,7 +8792,7 @@ def _send_new_listing_user_confirmation(user_email, item_type, listing):
     listing_title = _build_listing_title(
         f"{item_type}s" if not item_type.endswith("s") else item_type, listing
     )
-    my_listings_url = f"{SITE_URL}/my-listings"
+    manage_listing_url = _build_listing_manage_url(item_type, listing.get("id") if listing else None)
 
     subject = f"Your {item_label} listing has been submitted – DPH Classifieds"
     html_content = f"""
@@ -8794,7 +8811,7 @@ def _send_new_listing_user_confirmation(user_email, item_type, listing):
             <div style="background: rgba(139,214,180,0.05); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px dashed rgba(139,214,180,0.2);">
                 <p style="margin: 0; color: #8bd6b4; font-size: 14px;">💡 <strong>Tip:</strong> You can track the status of all your listings anytime from your dashboard.</p>
             </div>
-            <a href="{my_listings_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">View My Listings</a>
+            {f'<a href="{manage_listing_url}" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">Manage This Listing</a>' if manage_listing_url else f'<a href="{SITE_URL}/my-listings" style="display: inline-block; background-color: #8bd6b4; color: #041008; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">View My Listings</a>'}
         </div>
         <div style="text-align: center; color: #64748b; font-size: 14px;">
             <p>&copy; {datetime.datetime.now().year} DPH Classifieds. All rights reserved.</p>

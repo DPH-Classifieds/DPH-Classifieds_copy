@@ -177,7 +177,10 @@ def scan_registration(current_user):
     import io as _io
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FuturesTimeout
 
-    _OCR_TIMEOUT = int(os.getenv("EASYOCR_REGISTRATION_TIMEOUT", "15"))
+    # Keep the API deadline below the upstream/gateway deadline. The Paddle
+    # service has its own bounded queue; this only prevents a slow dependency
+    # from tying up a web worker indefinitely.
+    _OCR_TIMEOUT = int(os.getenv("OCR_REGISTRATION_TIMEOUT_SECONDS", "20"))
     doc_type = request.form.get("document_type")
 
     image.stream.seek(0)
@@ -200,11 +203,11 @@ def scan_registration(current_user):
         result = _future.result(timeout=_OCR_TIMEOUT)
         _pool.shutdown(wait=False)
         if result.get("fields", {}).get("vin"):
-            logger.info("EasyOCR extracted VIN for user %s", current_user)
+            logger.info("PaddleOCR extracted VIN for user %s", current_user)
         return jsonify(result), 200
     except _FuturesTimeout:
         _pool.shutdown(wait=False)
-        logger.warning("EasyOCR registration scan timed out after %ss", _OCR_TIMEOUT)
+        logger.warning("PaddleOCR registration scan timed out after %ss", _OCR_TIMEOUT)
         _record_ocr_failure(current_user, doc_type, "ocr_timeout", f"registration OCR timed out after {_OCR_TIMEOUT}s")
     except ValueError as exc:
         _pool.shutdown(wait=False)
@@ -212,7 +215,7 @@ def scan_registration(current_user):
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
         _pool.shutdown(wait=False)
-        logger.warning("EasyOCR registration scan unavailable: %s", exc)
+        logger.warning("PaddleOCR registration scan unavailable: %s", exc)
         _record_ocr_failure(current_user, doc_type, "ocr_unavailable", str(exc))
 
     return jsonify(

@@ -23,6 +23,7 @@
     "@react-navigation/stack": "^7.9.1",
     "@shopify/flash-list": "2.0.2",
     "@shopify/react-native-skia": "2.2.12",
+    "@msg91comm/sendotp-react-native": "^2.1.0",
     "@supabase/supabase-js": "^2.105.4",
     "@tensorflow-models/blazeface": "^0.1.0",
     "@tensorflow/tfjs": "^4.22.0",

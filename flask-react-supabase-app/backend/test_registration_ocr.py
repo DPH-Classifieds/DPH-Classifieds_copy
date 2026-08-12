@@ -249,6 +249,19 @@ class RegistrationOCRServiceTests(unittest.TestCase):
                 registration_ocr.PaddleOCRServiceProvider,
             )
 
+    def test_default_provider_caps_legacy_service_timeout_per_attempt(self):
+        with patch.dict(
+            os.environ,
+            {
+                "OCR_SERVICE_URL": "http://ocr.internal:8000",
+                "OCR_SERVICE_TIMEOUT_SECONDS": "40",
+                "OCR_SERVICE_ATTEMPT_TIMEOUT_SECONDS": "8",
+            },
+            clear=False,
+        ):
+            provider = registration_ocr.get_default_ocr_provider()
+        self.assertEqual(provider.timeout, 8)
+
     def test_extract_plate_fields_from_real_mulkiya_text(self):
         # Both the accurate PDF read and the actual garbled EasyOCR read of
         # the same UAE mulkiya must yield plate number 66182. The JPG text

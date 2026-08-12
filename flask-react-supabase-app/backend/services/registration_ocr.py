@@ -62,7 +62,16 @@ class PaddleOCRServiceProvider:
     def __init__(self, base_url=None, service_key=None, timeout=None):
         self.base_url = (base_url or os.getenv("OCR_SERVICE_URL", "")).rstrip("/")
         self.service_key = service_key or os.getenv("OCR_SERVICE_KEY", "")
-        self.timeout = timeout or float(os.getenv("OCR_SERVICE_TIMEOUT_SECONDS", "30"))
+        # The route has a 20-second end-to-end budget, so one upstream attempt
+        # cannot consume it all and make a retry pointless. The compatibility
+        # variable may still be set to a historical 30-40 seconds in Railway;
+        # cap it explicitly until that setting can be cleaned up.
+        if timeout is not None:
+            self.timeout = timeout
+        else:
+            configured_timeout = float(os.getenv("OCR_SERVICE_TIMEOUT_SECONDS", "12"))
+            attempt_cap = float(os.getenv("OCR_SERVICE_ATTEMPT_TIMEOUT_SECONDS", "8"))
+            self.timeout = min(configured_timeout, attempt_cap)
 
     def extract(self, image):
         """Return (text, lines) where lines is [{text, conf}] carrying
@@ -74,10 +83,12 @@ class PaddleOCRServiceProvider:
         buffer.seek(0)
 
         headers = {"X-OCR-Service-Key": self.service_key} if self.service_key else {}
+        if not self.base_url:
+            raise RuntimeError("OCR service is not configured")
         url = f"{self.base_url}/scan"
 
         # One retry on 503 (service busy / still loading its model).
-        last_exc = None
+        last_error = None
         for attempt in range(2):
             try:
                 response = requests.post(
@@ -87,9 +98,13 @@ class PaddleOCRServiceProvider:
                     timeout=self.timeout,
                 )
             except requests.RequestException as exc:
-                last_exc = exc
+                last_error = exc
+                # A brief transient connection failure is safe to retry once.
+                if attempt == 0:
+                    continue
                 break
             if response.status_code == 503 and attempt == 0:
+                last_error = RuntimeError("OCR service busy")
                 continue
             if response.status_code >= 400:
                 raise RuntimeError(
@@ -98,7 +113,7 @@ class PaddleOCRServiceProvider:
             payload = response.json() or {}
             return payload.get("text", "") or "", payload.get("lines", []) or []
 
-        raise RuntimeError(f"OCR service unavailable: {last_exc}")
+        raise RuntimeError(f"OCR service unavailable: {last_error or 'no response'}")
 
     def extract_text(self, image):
         return self.extract(image)[0]
