@@ -17264,6 +17264,28 @@ _APPROVAL_TABLE_BY_ITEM_TYPE = {
 }
 
 
+def _expire_reddit_dupes_for_vin(vin):
+    """A native DPH car takes priority over a Reddit import of the same vehicle.
+    Unpublish any Reddit-sourced car sharing this VIN so only the DPH listing
+    shows. Closes the gap the reddit importer's own dedup can't: a Reddit car
+    imported BEFORE the DPH car was posted (import-time dedup only sees DPH cars
+    that already exist)."""
+    vin = (vin or "").strip()
+    if not vin:
+        return
+    supabase_request(
+        "patch",
+        "/rest/v1/cars",
+        params={
+            "source_platform": "eq.reddit",
+            "vin_number": f"eq.{vin}",
+            "status": "neq.expired",
+        },
+        data={"status": "expired", "is_approved": False},
+        use_service_role=True,
+    )
+
+
 def _perform_approval(
     item_type,
     item_id,
@@ -17343,6 +17365,11 @@ def _perform_approval(
         )
         if listing_status < 400 and listing_response:
             listing = listing_response[0]
+
+    # Once a native DPH car is live, unpublish any Reddit import of the same VIN
+    # (priority: DPH over Reddit). No-op for Reddit-sourced approvals.
+    if table_name == "cars" and listing and (listing.get("source_platform") or "") != "reddit":
+        _expire_reddit_dupes_for_vin(listing.get("vin_number"))
 
     email_sent = False
     email_error = None
