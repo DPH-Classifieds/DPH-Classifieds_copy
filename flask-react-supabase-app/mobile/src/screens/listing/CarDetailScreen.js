@@ -45,7 +45,13 @@ const listingSlug = (value) => String(value || '')
 
 const buildPublicCarUrl = (car, fallbackId) => {
   const id = String(car?.id || fallbackId || '');
-  const description = [car?.make_year, car?.car_manufacturer, car?.car_model, car?.trim, car?.car_city]
+  const displayTitle = String(car?.listing_title || '')
+    .replace(/^\s*(wts|for sale)\s*:\s*/i, '')
+    .trim();
+  const vehicleDescriptor = displayTitle || [car?.make_year, car?.car_manufacturer, car?.car_model, car?.trim]
+    .filter(Boolean)
+    .join(' ');
+  const description = [vehicleDescriptor, car?.car_city]
     .map(listingSlug)
     .filter(Boolean)
     .join('-')

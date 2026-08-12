@@ -26,6 +26,21 @@ const firstImage = (listing = {}) => {
   return image?.display_url || image?.image_url || image?.url || listing.display_url || listing.image_url || FALLBACK_IMAGE;
 };
 
+const slugify = (value) => String(value || '')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '');
+
+const buildCarSlug = (car = {}) => {
+  const displayTitle = String(car.listing_title || '').replace(/^\s*(wts|for sale)\s*:\s*/i, '').trim();
+  const vehicle = displayTitle || [car.make_year, car.car_manufacturer, car.car_model, car.trim].filter(Boolean).join(' ');
+  const descriptor = [vehicle, car.car_city || car.city || car.location]
+    .map(slugify).filter(Boolean).join('-').slice(0, 88).replace(/-+$/g, '');
+  return `${descriptor ? `${descriptor}-` : ''}${String(car.id || '').slice(0, 8).toLowerCase()}`;
+};
+
 module.exports = async function handler(req, res) {
   const slug = Array.isArray(req.query.slug) ? req.query.slug[0] : req.query.slug;
   const userAgent = req.headers['user-agent'] || '';
@@ -47,7 +62,7 @@ module.exports = async function handler(req, res) {
     });
     if (!response.ok) return res.status(404).send('Listing not found');
     const car = await response.json();
-    const canonical = `${SITE_ORIGIN}/cars/${encodeURIComponent(slug)}`;
+    const canonical = `${SITE_ORIGIN}/cars/${encodeURIComponent(buildCarSlug(car) || slug)}`;
     const title = [car.make_year, car.car_manufacturer, car.car_model, car.trim].filter(Boolean).join(' ') || car.listing_title || 'Car listing';
     const price = Number(car.expected_selling_price || car.price || 0);
     const priceText = price > 0 ? `AED ${price.toLocaleString('en-AE')}` : 'Price on request';

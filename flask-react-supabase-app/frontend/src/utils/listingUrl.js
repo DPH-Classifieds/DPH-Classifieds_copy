@@ -9,13 +9,16 @@ export const buildCarPath = (listing = {}) => {
   const id = String(listing.id || '').trim();
   if (!id) return '/cars';
 
-  const descriptor = [
+  const displayTitle = String(listing.listing_title || '')
+    .replace(/^\s*(wts|for sale)\s*:\s*/i, '')
+    .trim();
+  const vehicleDescriptor = displayTitle || [
     listing.make_year || listing.car_year,
     listing.car_manufacturer || listing.make,
     listing.car_model || listing.model,
     listing.trim || listing.car_trim,
-    listing.car_city || listing.city || listing.location,
-  ]
+  ].filter(Boolean).join(' ');
+  const descriptor = [vehicleDescriptor, listing.car_city || listing.city || listing.location]
     .map(slugify)
     .filter(Boolean)
     .join('-')
@@ -27,4 +30,3 @@ export const buildCarPath = (listing = {}) => {
 };
 
 export const getCarSlug = (listing = {}) => buildCarPath(listing).split('/').pop();
-
