@@ -179,6 +179,19 @@ class RegistrationOCRServiceTests(unittest.TestCase):
         self.assertEqual(fields["vin"], VALID_VIN)
         self.assertGreaterEqual(confidence["vin"], 0.8)
 
+    def test_extract_trade_license_expiry_prefers_expiry_label(self):
+        result = registration_ocr.extract_trade_license_expiry(
+            "Issue Date: 01/03/2025\nLicense valid until: 31/12/2027",
+            [{"text": "31/12/2027", "conf": 0.97}],
+        )
+        self.assertEqual(result["expires_at"], "2027-12-31")
+        self.assertTrue(result["label_matched"])
+        self.assertGreaterEqual(result["confidence"], 0.97)
+
+    def test_extract_trade_license_expiry_returns_no_value_for_unreadable_text(self):
+        result = registration_ocr.extract_trade_license_expiry("Trade License\nNo readable date")
+        self.assertIsNone(result["expires_at"])
+
     def test_vin_repair_skips_speculative_guessing_for_non_na_vins(self):
         # Non-NA WMI prefix (starts with a letter, not 1-5): the checksum
         # can't verify anything for these (real UAE/GCC vehicles), so

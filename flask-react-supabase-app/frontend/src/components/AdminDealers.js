@@ -32,13 +32,12 @@ const SkeletonCard = () => (
   </div>
 );
 
-// Map dealer fields to 3 document statuses
+// The detailed dealer screen is the source of truth for document review.
 const getDocStatus = (dealer) => {
   // These fields may vary by API shape; we infer presence/state from available keys
   const tradeStatus = dealer.trade_license_status || (dealer.trade_license ? 'approved' : 'missing');
-  const companyStatus = dealer.company_reg_status || (dealer.company_registration_number ? 'approved' : 'missing');
   const taxStatus = dealer.tax_status || (dealer.trn || dealer.tax_registration_number ? 'approved' : 'missing');
-  return { tradeStatus, companyStatus, taxStatus };
+  return { tradeStatus, taxStatus };
 };
 
 const DocChip = ({ label, status }) => {
@@ -162,7 +161,7 @@ const AdminDealers = () => {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-white">Dealer verification</h1>
-          <p className="text-sm text-white/50 mt-1">Review trade licenses, company registration, and tax documents from pending dealer applicants.</p>
+          <p className="text-sm text-white/50 mt-1">Review trade licenses and TRN certificates from pending dealer applicants.</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
@@ -219,9 +218,9 @@ const AdminDealers = () => {
             const initial = companyName[0]?.toUpperCase() || 'D';
             const isVerified = Boolean(dealer.dealer_verified);
             const loadingForRow = actionLoadingId === dealer.id;
-            const { tradeStatus, companyStatus, taxStatus } = getDocStatus(dealer);
+            const { tradeStatus, taxStatus } = getDocStatus(dealer);
             const allDocsUploaded =
-              tradeStatus !== 'missing' && companyStatus !== 'missing' && taxStatus !== 'missing';
+              tradeStatus !== 'missing' && taxStatus !== 'missing';
 
             return (
               <motion.div
@@ -261,7 +260,6 @@ const AdminDealers = () => {
                   {/* Doc chips */}
                   <div className="grid grid-cols-3 gap-2">
                     <DocChip label="Trade license" status={tradeStatus} />
-                    <DocChip label="Company reg" status={companyStatus} />
                     <DocChip label="Tax" status={taxStatus} />
                   </div>
 

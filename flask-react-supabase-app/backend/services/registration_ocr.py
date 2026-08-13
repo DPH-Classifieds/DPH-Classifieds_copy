@@ -19,6 +19,13 @@ FIELD_ALIASES = {
 
 VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 YEAR_RE = re.compile(r"\b(19[8-9]\d|20[0-4]\d)\b")
+_EXPIRY_LABEL_RE = re.compile(
+    r"(?:valid\s*(?:until|to|till)|expir(?:y|es|ation)|validity)\D{0,40}",
+    re.IGNORECASE,
+)
+_DATE_RE = re.compile(
+    r"\b(?:\d{1,2}[/-]\d{1,2}[/-](?:20)?\d{2}|20\d{2}[/-]\d{1,2}[/-]\d{1,2})\b"
+)
 DEFAULT_ACCEPTANCE_THRESHOLD = 0.90
 DEFAULT_MAX_IMAGE_PIXELS = 25000000
 DEFAULT_MAX_RESIZE_PIXELS = 6000000
@@ -146,6 +153,46 @@ def _confidence_from_lines(value, lines):
         if target in line_text or line_text in target:
             best = max(best, float(line.get("conf") or 0))
     return round(best, 4)
+
+
+def extract_trade_license_expiry(raw_text, lines=None):
+    """Extract an unambiguous future-style expiry date from a UAE trade licence.
+
+    The result is evidence for an admin, not an automatic approval signal. OCR
+    can make date mistakes, so the document remains pending for manual review.
+    """
+    text = raw_text or ""
+    labelled = []
+    for match in _EXPIRY_LABEL_RE.finditer(text):
+        labelled.extend(_DATE_RE.findall(text[match.start():match.end() + 80]))
+    candidates = labelled or _DATE_RE.findall(text)
+    for candidate in candidates:
+        normalized = candidate.replace("-", "/")
+        parsed = None
+        for date_format in ("%d/%m/%Y", "%d/%m/%y", "%Y/%m/%d"):
+            try:
+                parsed = datetime.strptime(normalized, date_format).date()
+                break
+            except ValueError:
+                continue
+        if parsed and parsed.year >= 2020:
+            iso_value = parsed.isoformat()
+            return {
+                "expires_at": iso_value,
+                "source_text": candidate,
+                "confidence": _confidence_from_lines(candidate, lines or []),
+                "label_matched": candidate in labelled,
+            }
+    return {"expires_at": None, "source_text": None, "confidence": 0.0, "label_matched": False}
+
+
+def scan_trade_license_expiry(image_file, ocr_provider=None):
+    """Run the existing PaddleOCR provider and return only trade-licence expiry evidence."""
+    provider = ocr_provider or get_default_ocr_provider()
+    processed_image = preprocess_image(image_file)
+    raw_text, lines = _ocr_extract(provider, processed_image)
+    result = extract_trade_license_expiry(raw_text or "", lines or [])
+    return {"raw_text": raw_text or "", "lines": lines or [], **result}
 
 
 FLOOR_CONFIDENCE = 0.6

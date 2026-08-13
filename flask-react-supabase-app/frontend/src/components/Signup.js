@@ -48,13 +48,10 @@ const Signup = () => {
     // Account type
     isDealer: false,
     companyName: '',
-    companyRegistrationNumber: '',
     legalBusinessName: '',
     trn: '',
     tradeLicenseNumber: '',
-    tradeLicenseExpiresAt: '',
     tradeLicenseFile: null,
-    companyRegistrationFile: null,
     taxRegistrationFile: null,
     
     // Preferences
@@ -184,15 +181,8 @@ const Signup = () => {
       if (!value) return 'TRN is required';
       if (!/^\d{15}$/.test(String(value))) return 'TRN must be exactly 15 digits';
     }
-    if (name === 'tradeLicenseExpiresAt' && data.isDealer) {
-      if (!value) return 'Trade license expiry date is required';
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime()) || d <= new Date()) {
-        return 'Expiry date must be in the future';
-      }
-    }
-    if (['tradeLicenseFile', 'companyRegistrationFile', 'taxRegistrationFile'].includes(name) && data.isDealer) {
-      if (!value) return `Please upload your ${name === 'tradeLicenseFile' ? 'trade license' : name === 'companyRegistrationFile' ? 'company registration' : 'TRN certificate'}`;
+    if (['tradeLicenseFile', 'taxRegistrationFile'].includes(name) && data.isDealer) {
+      if (!value) return `Please upload your ${name === 'tradeLicenseFile' ? 'trade license' : 'TRN certificate'}`;
       const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
       if (value && !allowed.includes(value.type)) {
         return 'Document must be a PDF, JPG, or PNG';
@@ -291,13 +281,10 @@ const Signup = () => {
     // Clear dealer fields if switching from dealer to individual
     if (name === 'isDealer' && !checked) {
       nextData.companyName = '';
-      nextData.companyRegistrationNumber = '';
       nextData.legalBusinessName = '';
       nextData.trn = '';
       nextData.tradeLicenseNumber = '';
-      nextData.tradeLicenseExpiresAt = '';
       nextData.tradeLicenseFile = null;
-      nextData.companyRegistrationFile = null;
       nextData.taxRegistrationFile = null;
     }
 
@@ -374,7 +361,7 @@ const Signup = () => {
       'phone',
       'companyName',
       ...(formData.isDealer
-        ? ['legalBusinessName', 'trn', 'tradeLicenseExpiresAt', 'tradeLicenseFile', 'companyRegistrationFile', 'taxRegistrationFile']
+        ? ['legalBusinessName', 'trn', 'tradeLicenseFile', 'taxRegistrationFile']
         : []),
       'acceptTerms',
       'acceptPrivacy'
@@ -401,9 +388,7 @@ const Signup = () => {
       companyName: true,
       legalBusinessName: true,
       trn: true,
-      tradeLicenseExpiresAt: true,
       tradeLicenseFile: true,
-      companyRegistrationFile: true,
       taxRegistrationFile: true,
       acceptTerms: true,
       acceptPrivacy: true
@@ -459,11 +444,9 @@ const Signup = () => {
         emirate: formData.emirate,
         isDealer: formData.isDealer,
         companyName: formData.companyName,
-        companyRegistrationNumber: formData.companyRegistrationNumber,
         legalBusinessName: formData.legalBusinessName,
         trn: formData.trn,
         tradeLicenseNumber: formData.tradeLicenseNumber,
-        tradeLicenseExpiresAt: formData.tradeLicenseExpiresAt,
         displayName: formData.firstName && formData.lastName
           ? `${formData.firstName} ${formData.lastName}`
           : formData.username,
@@ -507,8 +490,7 @@ const Signup = () => {
       if (formData.isDealer) {
         if (!dealerJwt) throw new Error('Your account was created, but we could not start dealer verification. Please sign in and continue in Settings.');
         const documents = [
-          ['trade_license', formData.tradeLicenseFile, formData.tradeLicenseExpiresAt],
-          ['company_registration', formData.companyRegistrationFile],
+          ['trade_license', formData.tradeLicenseFile],
           ['tax_registration', formData.taxRegistrationFile],
         ];
         for (const [documentType, file, expiresAt] of documents) {
@@ -769,20 +751,6 @@ const Signup = () => {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="tradeLicenseExpiresAt">Trade License Valid Until <span className="required">*</span></label>
-                <input
-                  type="date"
-                  id="tradeLicenseExpiresAt"
-                  name="tradeLicenseExpiresAt"
-                  value={formData.tradeLicenseExpiresAt}
-                  onChange={handleInputChange}
-                  required={formData.isDealer}
-                  min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                  className={touchedFields.tradeLicenseExpiresAt && fieldErrors.tradeLicenseExpiresAt ? 'error-input' : ''}
-                />
-                {renderFieldError('tradeLicenseExpiresAt')}
-              </div>
-              <div className="form-group">
                 <label htmlFor="tradeLicenseFile">Trade License Document <span className="required">*</span></label>
                 <input
                   type="file"
@@ -834,7 +802,6 @@ const Signup = () => {
                 {renderFieldError('tradeLicenseFile')}
               </div>
               {[
-                ['companyRegistrationFile', 'Company Registration Document', 'Upload your mainland or freezone registration certificate'],
                 ['taxRegistrationFile', 'Tax Registration Certificate (TRN)', 'Upload the UAE FTA TRN certificate'],
               ].map(([field, label, hint]) => (
                 <div className="form-group" key={field}>
@@ -864,18 +831,6 @@ const Signup = () => {
                   {renderFieldError(field)}
                 </div>
               ))}
-              <div className="form-group">
-                <label htmlFor="companyRegistrationNumber">Company Registration Number (Optional)</label>
-                <input
-                  type="text"
-                  id="companyRegistrationNumber"
-                  name="companyRegistrationNumber"
-                  value={formData.companyRegistrationNumber}
-                  onChange={handleInputChange}
-                  placeholder="Mainland or freezone registration number"
-                />
-                <small className="form-hint">Speeds up verification when provided</small>
-              </div>
             </div>
           )}
 

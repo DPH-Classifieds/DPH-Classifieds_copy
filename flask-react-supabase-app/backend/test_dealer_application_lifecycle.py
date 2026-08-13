@@ -31,10 +31,14 @@ def load_readiness_helper():
     module = ast.Module(body=nodes, type_ignores=[])
     namespace = {"datetime": datetime, "re": re}
     exec(compile(module, str(APP_PATH), "exec"), namespace)
-    return namespace["_evaluate_dealer_application"], namespace["_dealer_document_type_from_label"]
+    return (
+        namespace["_evaluate_dealer_application"],
+        namespace["_dealer_document_type_from_label"],
+        namespace["_DEALER_REQUIRED_DOCS"],
+    )
 
 
-evaluate, document_type_from_label = load_readiness_helper()
+evaluate, document_type_from_label, REQUIRED_DOCS = load_readiness_helper()
 VALID_USER = {
     "company_name": "Carology",
     "legal_business_name": "Carology L.L.C-FZ",
@@ -55,12 +59,11 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
     def test_missing_documents_cannot_submit(self):
         readiness = evaluate(VALID_USER, [document("trade_license", expires_at="2099-01-01")])
         self.assertFalse(readiness["ready_to_submit"])
-        self.assertEqual(set(readiness["missing_uploads"]), {"company_registration", "tax_registration"})
+        self.assertEqual(set(readiness["missing_uploads"]), {"tax_registration"})
 
-    def test_three_uploads_can_submit_but_not_be_approved_while_pending(self):
+    def test_two_uploads_can_submit_but_not_be_approved_while_pending(self):
         docs = [
             document("trade_license", expires_at="2099-01-01"),
-            document("company_registration"),
             document("tax_registration"),
         ]
         readiness = evaluate(VALID_USER, docs)
@@ -70,7 +73,6 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
     def test_all_approved_active_documents_can_be_approved(self):
         docs = [
             document("trade_license", "approved", "2099-01-01"),
-            document("company_registration", "approved"),
             document("tax_registration", "approved"),
         ]
         readiness = evaluate(VALID_USER, docs)
@@ -80,7 +82,6 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
     def test_denied_or_expired_document_blocks_approval(self):
         docs = [
             document("trade_license", "approved", "2000-01-01"),
-            document("company_registration", "approved"),
             document("tax_registration", "denied"),
         ]
         readiness = evaluate(VALID_USER, docs)
@@ -93,7 +94,6 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         docs = [
             document("trade_license", "approved", "2099-01-01", "2026-08-13T00:00:00Z"),
             document("trade_license", "pending", "2099-01-01"),
-            document("company_registration", "approved"),
             document("tax_registration", "approved"),
         ]
         readiness = evaluate(VALID_USER, docs)
@@ -132,6 +132,13 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
             upload_section.index('upload_response = requests.post'),
         )
         self.assertIn("extension_to_mime", upload_section)
+
+    def test_two_document_policy_and_trade_license_ocr_contract(self):
+        source = APP_PATH.read_text()
+        self.assertEqual(set(REQUIRED_DOCS), {"trade_license", "tax_registration"})
+        upload_section = source[source.index("def upload_dealer_document"):source.index("def delete_dealer_document")]
+        self.assertIn("scan_trade_license_expiry", upload_section)
+        self.assertIn('"ocr_expires_at"', upload_section)
 
 
 if __name__ == "__main__":

@@ -76,7 +76,6 @@ const InfoRow = ({ icon: Icon, label, value, mono = false }) => {
 /* ── document type config ─────────────────────────────────────────────────── */
 const DOC_TYPES = [
   { key: 'trade_license', label: 'Trade License', icon: FileText },
-  { key: 'company_registration', label: 'Company Registration', icon: Building2 },
   { key: 'tax_registration', label: 'Tax Registration (TRN)', icon: Receipt },
 ];
 
@@ -693,6 +692,14 @@ const AdminDealerDetail = () => {
                   <div className="text-xs text-white/40 space-y-0.5">
                     <p className="truncate">{doc.filename}</p>
                     {doc.uploaded_at && <p>Uploaded {formatDateTime(doc.uploaded_at)}</p>}
+                    {key === 'trade_license' && (
+                      <div className="mt-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.06] px-2.5 py-2 text-sky-100/80">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-300">PaddleOCR expiry check</p>
+                        <p className="mt-0.5">{doc.ocr_expires_at ? `Detected: ${doc.ocr_expires_at}` : 'No expiry date detected — verify manually.'}</p>
+                        {doc.ocr_confidence != null && <p className="mt-0.5 text-[10px] text-sky-200/60">Confidence: {Math.round(Number(doc.ocr_confidence) * 100)}%</p>}
+                        {doc.ocr_raw_text && <details className="mt-1 text-[10px] text-sky-100/60"><summary className="cursor-pointer">View OCR text</summary><p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap">{doc.ocr_raw_text}</p></details>}
+                      </div>
+                    )}
                     {doc.expires_at && (() => {
                       const exp = new Date(doc.expires_at);
                       const today = new Date(); today.setHours(0,0,0,0);
@@ -802,14 +809,14 @@ const AdminDealerDetail = () => {
           <GlassCard>
             <SectionLabel>Final Action</SectionLabel>
             <p className="text-sm text-white/50 mb-5">
-              Approve the dealer only when all three documents are verified. The applicant will receive an email on both outcomes.
+              Approve the dealer only when the Trade License and TRN certificate are verified. The applicant will receive an email on both outcomes.
             </p>
 
             {!allDocsApproved && dealerDocs.length > 0 && (
               <div className="mb-4 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/20">
                 <AlertTriangle size={15} className="text-amber-300 flex-shrink-0" />
                 <p className="text-sm text-amber-300">
-                  All 3 documents must be approved before the dealer can be verified.
+                  Both required documents must be approved before the dealer can be verified.
                 </p>
               </div>
             )}
@@ -956,7 +963,6 @@ const AdminDealerDetail = () => {
             <InfoRow icon={Building2} label="Legal business name" value={dealer.legal_business_name || dealer.legal_name || (dealer.first_name ? `${dealer.first_name} ${dealer.last_name || ''}`.trim() : null)} />
             <InfoRow icon={FileText} label="TRN" value={dealer.trn} mono />
             <InfoRow icon={FileText} label="Trade license no." value={dealer.trade_license_number} />
-            <InfoRow icon={FileText} label="Company reg. no." value={dealer.company_registration_number} />
             <InfoRow icon={FileText} label="Application status" value={dealer.dealer_application_status || (dealer.dealer_verified ? 'approved' : 'draft')} />
             <InfoRow icon={MapPin} label="Emirate" value={dealer.emirate} />
             <InfoRow icon={MapPin} label="City" value={dealer.city} />

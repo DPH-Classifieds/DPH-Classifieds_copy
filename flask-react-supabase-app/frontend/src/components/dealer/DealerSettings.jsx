@@ -7,7 +7,6 @@ import { getBestAccessToken } from '../../utils/supabaseClient';
 
 const DOC_TYPES = [
   { key: 'trade_license', label: 'Trade license', requiresExpiry: true },
-  { key: 'company_registration', label: 'Company registration', requiresExpiry: false },
   { key: 'tax_registration', label: 'Tax registration (TRN)', requiresExpiry: false },
 ];
 
@@ -57,11 +56,6 @@ const DealerDocumentsSection = () => {
     }
     if (file.size > 10 * 1024 * 1024) {
       setMessage('File must be 10 MB or smaller');
-      return;
-    }
-    const meta = DOC_TYPES.find((d) => d.key === docType) || {};
-    if (meta.requiresExpiry && !expiresAt) {
-      setMessage('Please pick an expiry date');
       return;
     }
     try {
@@ -114,7 +108,7 @@ const DealerDocumentsSection = () => {
         )}
       </div>
       <p className="text-xs text-white/40 mb-4">
-        Upload or replace your trade license, company registration, and tax registration here.
+        Upload your trade license and TRN certificate. We use OCR to read the license expiry date; you can enter it manually only if the scan is unclear.
         We&apos;ll email you 30 days before your trade license expires.
       </p>
       {readiness && (
@@ -262,7 +256,7 @@ const DealerApplicationSubmit = ({ hasAllDocuments, onSubmitted }) => {
       <p className="text-sm text-emerald-200 mb-2">
         {hasAllDocuments
           ? 'All required documents are uploaded. Submit your application for admin review.'
-          : 'Upload the trade license, company registration, and TRN certificate to submit your application.'}
+          : 'Upload the trade license and TRN certificate to submit your application.'}
       </p>
       <button
         type="button"

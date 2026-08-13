@@ -5351,12 +5351,10 @@ def _enforce_listing_limit(user_id):
 _DEFAULT_DEALER_LISTING_LIMIT = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "20"))
 _DEALER_REQUIRED_DOCS = (
     "trade_license",
-    "company_registration",
     "tax_registration",
 )
 _DEALER_DOCUMENT_LABELS = {
     "trade_license": "Trade License",
-    "company_registration": "Company Registration",
     "tax_registration": "Tax Registration (TRN)",
 }
 
@@ -9830,7 +9828,7 @@ def get_dealer_verification_status(current_user):
 @app.route("/api/auth/upload-dealer-document", methods=["POST"])
 @token_required
 def upload_dealer_document(current_user):
-    """Upload a dealer document (trade_license, company_registration, or tax_registration).
+    """Upload a dealer document (trade_license or tax_registration).
 
     Accepts an optional `expires_at` form field (ISO date, e.g. 2027-04-15) which
     is stored on the dealer_documents row so the expiry-reminder worker and the
@@ -9840,12 +9838,11 @@ def upload_dealer_document(current_user):
         document_type = request.form.get("document_type")
         if document_type not in (
             "trade_license",
-            "company_registration",
             "tax_registration",
         ):
             return jsonify(
                 {
-                    "error": "Invalid document_type. Must be: trade_license, company_registration, or tax_registration"
+                    "error": "Invalid document_type. Must be: trade_license or tax_registration"
                 }
             ), 400
 
@@ -9870,22 +9867,41 @@ def upload_dealer_document(current_user):
                 }
             ), 400
 
-        # Optional expiry date. Trade license is the one we strictly require
-        # an expiry for; the others are nice-to-have.
+        # PaddleOCR extracts the trade-license expiry from the uploaded private
+        # document. A manual value is accepted only as a recovery path when a
+        # scan is unreadable, and admin approval is still always required.
         raw_expires_at = (request.form.get("expires_at") or "").strip()
         expires_at_iso = None
+        ocr_payload = None
+        if document_type == "trade_license":
+            try:
+                from services.registration_ocr import scan_trade_license_expiry
+                file.seek(0)
+                ocr_payload = scan_trade_license_expiry(file)
+                file.seek(0)
+                extracted_expiry = ocr_payload.get("expires_at")
+                if extracted_expiry:
+                    expires_at_iso = extracted_expiry
+            except Exception as ocr_error:
+                logger.warning("Trade-license OCR unavailable for %s: %s", current_user, ocr_error)
+                ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
         if raw_expires_at:
             try:
                 expires_at_dt = datetime.datetime.fromisoformat(raw_expires_at)
                 if expires_at_dt.date() <= datetime.datetime.utcnow().date():
                     return jsonify({"error": "Expiry date must be in the future"}), 400
-                expires_at_iso = expires_at_dt.date().isoformat()
+                manual_expiry = expires_at_dt.date().isoformat()
+                expires_at_iso = expires_at_iso or manual_expiry
             except ValueError:
                 return jsonify({"error": "Invalid expiry date"}), 400
-        elif document_type == "trade_license":
+        elif document_type == "trade_license" and not expires_at_iso:
             return jsonify(
-                {"error": "Trade license requires an expiry date"}
-            ), 400
+                {
+                    "error": "We could not read the trade license expiry date. Upload a clearer document or enter the expiry date manually.",
+                    "code": "trade_license_expiry_not_detected",
+                    "ocr": {"confidence": ocr_payload.get("confidence", 0.0) if ocr_payload else 0.0},
+                }
+            ), 422
 
         if not ensure_storage_bucket("dealer-documents"):
             return jsonify({"error": "Storage bucket not available"}), 500
@@ -9955,6 +9971,11 @@ def upload_dealer_document(current_user):
         }
         if expires_at_iso:
             insert_payload["expires_at"] = expires_at_iso
+        if document_type == "trade_license":
+            insert_payload["ocr_expires_at"] = (ocr_payload or {}).get("expires_at")
+            insert_payload["ocr_confidence"] = (ocr_payload or {}).get("confidence")
+            insert_payload["ocr_raw_text"] = (ocr_payload or {}).get("raw_text") or None
+            insert_payload["ocr_scanned_at"] = _isoformat_utc(_utc_now())
         insert_resp = requests.post(
             f"{SUPABASE_URL}/rest/v1/dealer_documents",
             headers={**headers, "Prefer": "return=representation"},
