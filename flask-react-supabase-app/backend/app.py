@@ -518,7 +518,12 @@ def _build_http_session():
         read=HTTP_RETRY_TOTAL,
         backoff_factor=0.3,
         status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods={"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+        # A transport retry of a POST can run after Supabase has persisted the
+        # first request but before its response reaches us.  That is harmless
+        # only when every endpoint is explicitly idempotent; listing creation
+        # and analytics ingestion are not universally so.  Keep retries to
+        # safe read requests and let the caller surface/retry writes instead.
+        allowed_methods={"GET", "HEAD", "OPTIONS"},
         raise_on_status=False,
     )
     adapter = HTTPAdapter(
@@ -8079,11 +8084,21 @@ def _create_signed_upload_url(bucket_name, object_path, upsert=False):
     if not token:
         return None, "Signed upload URL response missing token"
 
-    return {
+    signed_upload = {
         "signed_url": signed_url,
         "token": token,
         "path": object_path,
-    }, None
+    }
+    # Listing and profile-image buckets are intentionally public.  The browser
+    # needs the final stable URL to persist alongside the listing after the
+    # bytes have reached Storage.  Previously this endpoint returned only the
+    # upload token; the UI therefore submitted images with undefined URLs and
+    # the listing endpoint rejected them as missing.
+    if bucket_name in {"listing-images", "profile-photos"}:
+        signed_upload["public_url"] = _get_public_storage_object_url(
+            bucket_name, object_path
+        )
+    return signed_upload, None
 
 
 def _create_signed_storage_read_url(bucket_name, object_path, expires_in=300):
@@ -18824,7 +18839,17 @@ def track_platform_event():
                 )
 
         if status_code >= 400:
-            if status_code == 409 and "event_id" in str(response).lower():
+            # The HTTP client used to retry POST requests.  A request that was
+            # committed before a transient response failure can therefore be
+            # replayed with the same server-generated row id, tripping either
+            # the event_id unique index or the primary key.  Both mean the
+            # event is already stored; acknowledge it rather than emitting a
+            # misleading 500 to the browser.
+            if status_code == 409 and (
+                "event_id" in str(response).lower()
+                or "platform_events_pkey" in str(response).lower()
+                or "key (id)" in str(response).lower()
+            ):
                 return jsonify({"success": True, "duplicate": True}), 200
             logger.error(f"Failed to store platform event: {response}")
             return jsonify({"error": "Failed to track event"}), 500

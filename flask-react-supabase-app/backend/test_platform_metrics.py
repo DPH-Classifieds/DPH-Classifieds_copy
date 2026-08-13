@@ -176,6 +176,32 @@ class PlatformAnalyticsRouteTests(unittest.TestCase):
         self.assertTrue(mock_ensure_table.called)
         self.assertEqual(mock_supabase_request.call_count, 1)
 
+    @patch.object(backend, "supabase_request")
+    def test_event_route_acknowledges_a_replayed_server_generated_row_id(self, mock_supabase_request):
+        mock_supabase_request.return_value = (
+            {
+                "code": "23505",
+                "message": 'duplicate key value violates unique constraint "platform_events_pkey"',
+                "details": "Key (id)=(same-row-id) already exists.",
+            },
+            409,
+        )
+
+        with backend.app.test_request_context(
+            "/api/analytics/events",
+            method="POST",
+            json={
+                "event_name": "page_view",
+                "page_path": "/cars/abc-123",
+                "session_id": "session-1",
+                "visitor_id": "visitor-1",
+            },
+        ):
+            response, status = backend.track_platform_event()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response.get_json(), {"success": True, "duplicate": True})
+
 
 class LeadDefinitionTests(unittest.TestCase):
     def test_total_leads_excludes_vin_events(self):

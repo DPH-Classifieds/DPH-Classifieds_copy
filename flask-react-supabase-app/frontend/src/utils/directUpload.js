@@ -121,6 +121,16 @@ const requestSignedUploadUrl = async ({ bucketName, objectPath, upsert = false }
     upsert,
   });
 
+const requirePublicUploadUrl = (signed, bucketName) => {
+  const url = String(signed?.public_url || '').trim();
+  if (url) return url;
+
+  // Do not let a successful byte upload masquerade as a usable listing photo.
+  // A listing must persist a stable public URL; without it the backend quite
+  // rightly rejects the listing as having no valid images.
+  throw new Error(`Upload succeeded but ${bucketName} did not return a usable image URL. Please try again.`);
+};
+
 const uploadToSignedUrl = async ({ bucketName, objectPath, token, fileBody, contentType }) => {
   const { data, error } = await supabase.storage.from(bucketName).uploadToSignedUrl(
     objectPath,
@@ -344,7 +354,8 @@ export const uploadListingImagesDirect = async (files, { userId, cropSettings = 
       extension: 'jpg',
     });
 
-    let displayUrl = originalUpload.public_url;
+    const originalUrl = requirePublicUploadUrl(originalUpload, 'listing-images');
+    let displayUrl = originalUrl;
     try {
       const displayUpload = await uploadSignedAsset({
         bucketName: 'listing-images',
@@ -352,14 +363,14 @@ export const uploadListingImagesDirect = async (files, { userId, cropSettings = 
         objectPath: displayPath,
         contentType: 'image/jpeg',
       });
-      displayUrl = displayUpload.public_url;
+      displayUrl = requirePublicUploadUrl(displayUpload, 'listing-images');
     } catch (error) {
       console.error('Display variant upload failed, falling back to original image URL:', error);
     }
 
     uploadedImages.push({
-      url: originalUpload.public_url,
-      image_url: originalUpload.public_url,
+      url: originalUrl,
+      image_url: originalUrl,
       display_url: displayUrl,
       focal_x: displayVariant.normalizedCrop.focal_x,
       focal_y: displayVariant.normalizedCrop.focal_y,
@@ -395,7 +406,7 @@ export const uploadListingImageUrlsDirect = async (files, { userId, onProgress }
         : undefined,
     });
 
-    uploadedUrls.push(upload.public_url);
+    uploadedUrls.push(requirePublicUploadUrl(upload, 'listing-images'));
   }
 
   return uploadedUrls;

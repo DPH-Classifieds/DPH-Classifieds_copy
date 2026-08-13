@@ -1,9 +1,27 @@
+jest.mock('./apiClient', () => ({
+  __esModule: true,
+  default: { post: jest.fn() },
+}));
+
+jest.mock('./supabaseClient', () => ({
+  supabase: {
+    storage: {
+      from: jest.fn(() => ({
+        uploadToSignedUrl: jest.fn(async () => ({ data: {}, error: null })),
+      })),
+    },
+  },
+}));
+
 import {
   buildSupabaseStorageHost,
   buildStorageObjectPath,
   shouldUseResumableUpload,
   ensureUploadableImage,
+  uploadListingImageUrlsDirect,
 } from './directUpload';
+import apiClient from './apiClient';
+import { supabase } from './supabaseClient';
 
 jest.mock('heic2any', () => ({
   __esModule: true,
@@ -11,6 +29,12 @@ jest.mock('heic2any', () => ({
 }));
 
 describe('directUpload helpers', () => {
+  beforeEach(() => {
+    supabase.storage.from.mockReturnValue({
+      uploadToSignedUrl: jest.fn(async () => ({ data: {}, error: null })),
+    });
+  });
+
   test('builds the direct storage hostname from the project url', () => {
     expect(buildSupabaseStorageHost('https://ltjatsyhpmvewancqdjw.supabase.co')).toBe(
       'https://ltjatsyhpmvewancqdjw.storage.supabase.co'
@@ -61,5 +85,29 @@ describe('directUpload helpers', () => {
     expect(out).not.toBe(mislabeled);
     expect(out.type).toBe('image/jpeg');
     expect(out.name).toBe('IMG_1506.jpg');
+  });
+
+  test('persists the public URL returned by the signed-upload API', async () => {
+    apiClient.post.mockResolvedValue({
+      token: 'upload-token',
+      public_url: 'https://storage.example/listing-images/user-123/photo.jpg',
+    });
+    const photo = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'photo.jpg', {
+      type: 'image/jpeg',
+    });
+
+    await expect(uploadListingImageUrlsDirect([photo], { userId: 'user-123' })).resolves.toEqual([
+      'https://storage.example/listing-images/user-123/photo.jpg',
+    ]);
+  });
+
+  test('fails explicitly instead of submitting an image with an undefined URL', async () => {
+    apiClient.post.mockResolvedValue({ token: 'upload-token' });
+    const photo = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'photo.jpg', {
+      type: 'image/jpeg',
+    });
+
+    await expect(uploadListingImageUrlsDirect([photo], { userId: 'user-123' }))
+      .rejects.toThrow('did not return a usable image URL');
   });
 });
