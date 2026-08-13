@@ -33,6 +33,7 @@ const getFileExtension = (fileName = '', fallback = 'jpg') => {
 
 const HEIC_MIME = /image\/hei[cf]/i;
 const HEIC_EXT = /\.(heic|heif)$/i;
+const IMAGE_EXT = /\.(heic|heif|jpe?g|png|webp|gif)$/i;
 // HEIF/HEIC ISO-BMFF brands seen in the `ftyp` box (bytes 8–12).
 const HEIC_FTYP_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'heif', 'mif1', 'msf1']);
 
@@ -61,6 +62,35 @@ const sniffIsHeic = async (file) => {
   return HEIC_FTYP_BRANDS.has(brand);
 };
 
+// The Files API on iOS (and some drag-and-drop clients) may leave `type`
+// blank.  Filename extensions are therefore a legitimate first-pass signal;
+// HEIC is byte-sniffed and converted before it ever reaches storage.
+export const isListingImageCandidate = (file) =>
+  Boolean(file) && (
+    String(file.type || '').toLowerCase().startsWith('image/')
+    || IMAGE_EXT.test(String(file.name || ''))
+  );
+
+const convertNativelyDecodableHeic = async (file) => {
+  if (typeof document === 'undefined' || typeof URL === 'undefined') {
+    throw new Error('Native image conversion is unavailable.');
+  }
+  const image = await loadImageElement(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas rendering is unavailable.');
+  context.drawImage(image, 0, 0);
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob((output) => {
+      if (output) resolve(output);
+      else reject(new Error('Native HEIC conversion returned no image data.'));
+    }, 'image/jpeg', 0.9);
+  });
+  return blob;
+};
+
 // iPhones upload HEIC/HEIF by default and every browser except Safari fails to
 // decode it — so a raw HEIC lands in storage as a broken image and the
 // display-variant canvas step (which reads via <img>) can't process it either.
@@ -78,12 +108,23 @@ export const ensureUploadableImage = async (file) => {
     const { default: heic2any } = await import('heic2any');
     const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
     blob = Array.isArray(converted) ? converted[0] : converted;
-  } catch (err) {
+  } catch (decoderError) {
+    // Safari/iOS can often decode HEIC natively even when the WASM decoder
+    // fails. Try that path before asking the seller to change camera settings.
+    try {
+      blob = await convertNativelyDecodableHeic(file);
+    } catch (nativeError) {
     const e = new Error(
-      "We couldn't process this iPhone (HEIC) photo. Please try a different photo, or set your iPhone camera to “Most Compatible” (Settings › Camera › Formats)."
+        "We couldn't convert this iPhone (HEIC) photo on this device. Please try the original photo again, or set your iPhone camera to “Most Compatible” (Settings › Camera › Formats)."
     );
     e.code = 'HEIC_CONVERSION_FAILED';
-    e.cause = err;
+      e.cause = { decoderError, nativeError };
+    throw e;
+    }
+  }
+  if (!blob || !blob.size) {
+    const e = new Error("We couldn't convert this iPhone (HEIC) photo. Please try a different photo.");
+    e.code = 'HEIC_CONVERSION_FAILED';
     throw e;
   }
   const newName = `${String(file.name || 'photo').replace(HEIC_EXT, '').replace(/\.jpe?g$/i, '')}.jpg`;

@@ -28,7 +28,7 @@ import { getWhatsappPrefillTemplate } from '../utils/whatsapp';
 import { isVinValid, normalizeVin } from '../utils/vinValidation';
 import ActionNoticeModal from './ui/ActionNoticeModal';
 import { buildDealerHelpMailto, buildErrorNotice } from '../utils/errorNotice';
-import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument, ensureUploadableImage } from '../utils/directUpload';
+import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationDocument, ensureUploadableImage, isListingImageCandidate } from '../utils/directUpload';
 import { normalizeRegistrationScanResponse } from '../utils/registrationScan';
 import { reportError } from '../utils/reportError';
 import { moderateImage } from '../utils/imageModeration';
@@ -1402,9 +1402,7 @@ const PostCar = () => {
     e.preventDefault();
     setIsDragOver(false);
 
-    const files = Array.from(e.dataTransfer.files).filter(file =>
-      file.type.startsWith('image/')
-    );
+    const files = Array.from(e.dataTransfer.files).filter(isListingImageCandidate);
 
     if (files.length === 0) {
       setError("Please drop only image files.");

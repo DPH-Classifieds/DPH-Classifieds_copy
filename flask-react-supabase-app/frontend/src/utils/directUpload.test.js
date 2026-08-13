@@ -18,10 +18,12 @@ import {
   buildStorageObjectPath,
   shouldUseResumableUpload,
   ensureUploadableImage,
+  isListingImageCandidate,
   uploadListingImageUrlsDirect,
 } from './directUpload';
 import apiClient from './apiClient';
 import { supabase } from './supabaseClient';
+import heic2any from 'heic2any';
 
 jest.mock('heic2any', () => ({
   __esModule: true,
@@ -30,6 +32,7 @@ jest.mock('heic2any', () => ({
 
 describe('directUpload helpers', () => {
   beforeEach(() => {
+    heic2any.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }));
     supabase.storage.from.mockReturnValue({
       uploadToSignedUrl: jest.fn(async () => ({ data: {}, error: null })),
     });
@@ -85,6 +88,11 @@ describe('directUpload helpers', () => {
     expect(out).not.toBe(mislabeled);
     expect(out.type).toBe('image/jpeg');
     expect(out.name).toBe('IMG_1506.jpg');
+  });
+
+  test('accepts a MIME-less HEIC selected through drag and drop', () => {
+    const heic = new File([new Uint8Array([1])], 'IMG_2828.HEIC', { type: '' });
+    expect(isListingImageCandidate(heic)).toBe(true);
   });
 
   test('persists the public URL returned by the signed-upload API', async () => {
