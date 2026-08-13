@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import app as backend
 
@@ -164,6 +164,33 @@ class SignedUploadUrlTests(unittest.TestCase):
             data["public_url"],
             "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
         )
+
+
+class StorageBucketRecoveryTests(unittest.TestCase):
+    @patch.object(backend.requests, "post")
+    @patch.object(backend.requests, "get")
+    def test_creates_private_bucket_when_storage_returns_body_level_not_found(
+        self, mock_get, mock_post
+    ):
+        backend._STORAGE_BUCKET_CACHE.clear()
+        missing = MagicMock()
+        missing.status_code = 400
+        missing.json.return_value = {"statusCode": "404", "code": "NoSuchBucket"}
+        missing.text = "Bucket not found"
+        mock_get.return_value = missing
+        created = MagicMock()
+        created.status_code = 200
+        created.text = ""
+        mock_post.return_value = created
+
+        self.assertTrue(backend.ensure_storage_bucket("dealer-documents"))
+        self.assertEqual(mock_post.call_args.kwargs["json"], {
+            "id": "dealer-documents",
+            "name": "dealer-documents",
+            "public": False,
+            "file_size_limit": backend.DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES,
+            "allowed_mime_types": backend.DEALER_DOCUMENT_ALLOWED_MIME_TYPES,
+        })
 
 
 if __name__ == "__main__":

@@ -7882,45 +7882,60 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                     time.time() + STORAGE_BUCKET_CACHE_TTL_SECONDS
                 )
             return True
-        elif response.status_code == 404:
-            # Create the bucket
-            logger.info(f"Bucket '{bucket_name}' not found, creating...")
-            create_url = f"{SUPABASE_URL}/storage/v1/bucket"
-            create_data = {"id": bucket_name, "name": bucket_name, "public": True}
-            if bucket_name == "listing-images":
-                create_data["file_size_limit"] = LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES
-                create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
-            elif bucket_name == "profile-photos":
-                create_data["file_size_limit"] = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES
-                create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
-            elif bucket_name == "dealer-documents":
-                create_data["public"] = False
-                create_data["file_size_limit"] = DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES
-                create_data["allowed_mime_types"] = DEALER_DOCUMENT_ALLOWED_MIME_TYPES
-            elif bucket_name == "registration-documents":
-                create_data["public"] = False
-                create_data["file_size_limit"] = REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES
-                create_data["allowed_mime_types"] = REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES
-            create_response = requests.post(
-                create_url,
-                headers={**headers, "Content-Type": "application/json"},
-                json=create_data,
-                timeout=10,
-            )
-
-            if create_response.status_code in [200, 201]:
-                logger.info(f"Bucket '{bucket_name}' created successfully")
-                with _STORAGE_BUCKET_CACHE_LOCK:
-                    _STORAGE_BUCKET_CACHE[bucket_name] = (
-                        time.time() + STORAGE_BUCKET_CACHE_TTL_SECONDS
+        else:
+            # Storage API deployments can encode a missing bucket as HTTP 400
+            # while returning NoSuchBucket/statusCode 404 in the JSON body.
+            # Treat only that precise response as absent; other 400s (for
+            # example a bad service key) must remain visible as real errors.
+            bucket_missing = response.status_code == 404
+            if response.status_code == 400:
+                try:
+                    error_body = response.json() or {}
+                    bucket_missing = (
+                        str(error_body.get("code") or "") == "NoSuchBucket"
+                        or int(error_body.get("statusCode") or 0) == 404
                     )
-                return True
-            else:
+                except (TypeError, ValueError):
+                    bucket_missing = False
+
+            if bucket_missing:
+                # Create the bucket
+                logger.info(f"Bucket '{bucket_name}' not found, creating...")
+                create_url = f"{SUPABASE_URL}/storage/v1/bucket"
+                create_data = {"id": bucket_name, "name": bucket_name, "public": True}
+                if bucket_name == "listing-images":
+                    create_data["file_size_limit"] = LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES
+                    create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
+                elif bucket_name == "profile-photos":
+                    create_data["file_size_limit"] = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES
+                    create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
+                elif bucket_name == "dealer-documents":
+                    create_data["public"] = False
+                    create_data["file_size_limit"] = DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES
+                    create_data["allowed_mime_types"] = DEALER_DOCUMENT_ALLOWED_MIME_TYPES
+                elif bucket_name == "registration-documents":
+                    create_data["public"] = False
+                    create_data["file_size_limit"] = REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES
+                    create_data["allowed_mime_types"] = REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES
+                create_response = requests.post(
+                    create_url,
+                    headers={**headers, "Content-Type": "application/json"},
+                    json=create_data,
+                    timeout=10,
+                )
+
+                if create_response.status_code in [200, 201]:
+                    logger.info(f"Bucket '{bucket_name}' created successfully")
+                    with _STORAGE_BUCKET_CACHE_LOCK:
+                        _STORAGE_BUCKET_CACHE[bucket_name] = (
+                            time.time() + STORAGE_BUCKET_CACHE_TTL_SECONDS
+                        )
+                    return True
                 logger.error(
                     f"Failed to create bucket: {create_response.status_code} - {create_response.text}"
                 )
                 return False
-        else:
+
             logger.error(
                 f"Error checking bucket: {response.status_code} - {response.text}"
             )
