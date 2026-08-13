@@ -16,6 +16,7 @@ import { uploadRegistrationDocument, ensureUploadableImage } from '../utils/dire
 import '../styles/PostForms.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
+import { fieldLabel, firstMissingRequiredField, revealListingFieldError } from '../utils/listingFormValidation';
 
 const SUPPORTED_PROOF_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_PROOF_SIZE_BYTES = 20 * 1024 * 1024;
@@ -93,6 +94,7 @@ const PostPlate = () => {
   const isEdit = Boolean(listingId);
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
+  const formRef = useRef(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDraftSaving, setIsDraftSaving] = useState(false);
@@ -511,12 +513,19 @@ const PostPlate = () => {
       return;
     }
 
+    const missingField = firstMissingRequiredField(formRef.current);
+    if (missingField) {
+      setError({ message: `Please complete “${fieldLabel(formRef.current, missingField)}” before submitting.` });
+      revealListingFieldError(formRef.current, missingField);
+      return;
+    }
     setError(null);
     setIsSubmitting(true);
 
     try {
       if (!isEdit && !proofDocumentUrl) {
         setError({ message: 'Please upload proof of ownership before submitting.' });
+        revealListingFieldError(formRef.current, 'proof_document');
         setIsSubmitting(false);
         return;
       }
@@ -645,7 +654,7 @@ const PostPlate = () => {
             onClose={() => setError(null)}
           />
 
-          <form onSubmit={handleSubmit} className="post-form">
+          <form onSubmit={handleSubmit} className="post-form" ref={formRef} noValidate>
             <div className="form-section-layout">
               <div className="form-section-sidebar">
                 <h2 className="form-section-title">Proof of ownership <RequiredMark /></h2>
@@ -657,7 +666,7 @@ const PostPlate = () => {
                 </p>
               </div>
               <div className="form-section-content">
-                <div
+                <div id="proof_document"
                   className={`image-upload-area${proofDocumentUrl ? ' upload-success' : ''}`}
                   onClick={() => !proofDocumentUrl && proofInputRef.current?.click()}
                   role="button"

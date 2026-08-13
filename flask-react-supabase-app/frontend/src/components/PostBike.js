@@ -18,6 +18,7 @@ import { LISTING_IMAGE_MAX_BYTES, uploadListingImagesDirect, uploadRegistrationD
 import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/listingDrafts';
 import { moderateImage } from '../utils/imageModeration';
 import UnifiedCropper from './cropper/UnifiedCropper';
+import { fieldLabel, firstMissingRequiredField, revealListingFieldError } from '../utils/listingFormValidation';
 import '../styles/PostForms.css';
 
 const RequiredMark = () => <span className="required-asterisk">*</span>;
@@ -78,6 +79,7 @@ const PostBike = () => {
   const navigate = useNavigate();
   const { user, isLoading, syncWithSupabase } = useAuth();
   const fileInputRef = useRef(null);
+  const formRef = useRef(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDraftSaving, setIsDraftSaving] = useState(false);
@@ -552,6 +554,17 @@ const PostBike = () => {
       return;
     }
 
+    const missingField = firstMissingRequiredField(formRef.current);
+    if (missingField) {
+      setError(`Please complete “${fieldLabel(formRef.current, missingField)}” before submitting.`);
+      revealListingFieldError(formRef.current, missingField);
+      return;
+    }
+    if (!isEdit && existingImageUrls.length + croppedImages.length === 0) {
+      setError('Please upload at least one bike image before submitting.');
+      revealListingFieldError(formRef.current, 'listing_images');
+      return;
+    }
     setError(null);
     setIsSubmitting(true);
 
@@ -692,7 +705,7 @@ const PostBike = () => {
             onClose={() => setError(null)}
           />
 
-          <form onSubmit={handleSubmit} className="post-form">
+          <form onSubmit={handleSubmit} className="post-form" ref={formRef} noValidate>
             <div className="form-section-layout">
               <div className="form-section-sidebar">
                 <h2 className="form-section-title">Gallery</h2>
@@ -701,7 +714,7 @@ const PostBike = () => {
                 </p>
               </div>
               <div className="form-section-content">
-                <div
+                <div id="listing_images"
                   className={`image-upload-area ${isDragOver ? 'drag-over' : ''}`}
                   onDragOver={(event) => {
                     event.preventDefault();

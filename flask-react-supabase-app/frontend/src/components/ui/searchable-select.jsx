@@ -167,6 +167,7 @@ const SearchableSelect = ({
   return (
     <div className={`searchable-select-wrapper ${className || ''}`}>
       <input
+        data-field-id={id || undefined}
         tabIndex={-1}
         autoComplete="off"
         value={value ?? ''}
