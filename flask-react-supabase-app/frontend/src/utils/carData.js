@@ -13,7 +13,7 @@ const carMakes = [
   'Omoda', 'Opel', 'Oullim', 'Pagani', 'Peugeot', 'Polestar', 'Porsche', 'Proton', 'Rabdan', 'Ram',
   'Renault', 'Roewe', 'Rolls Royce', 'Saab', 'Seat', 'Seres', 'Skoda', 'Skywell', 'Smart', 'Soueast',
   'Spyker', 'Ssangyong', 'Subaru', 'Suzuki', 'Tank', 'Tata', 'Tesla', 'Toyota', 'VinFast', 'Volkswagen',
-  'Volvo', 'Voyah', 'WEY', 'XPeng', 'Yangwang', 'Zeekr', 'Zotye'
+  'Volvo', 'Voyah', 'WEY', 'XPeng', 'Yangwang', 'Zeekr', 'Zotye', 'Can-Am',
 ].sort();
 
 // Car models organized by manufacturer
@@ -143,7 +143,12 @@ const carModels = {
   'XPeng': ['G3', 'G3i', 'G9', 'P5', 'P7', 'P7i', 'X9', 'Mona M03'],
   'Yangwang': ['U8', 'U9', 'U7'],
   'Zeekr': ['001', 'X', '009', '007', '009光辉版', 'X光辉版'],
-  'Zotye': ['T600', 'T700', 'SR9', 'Z100', 'Z300', 'Z500', 'E200']
+  'Zotye': ['T600', 'T700', 'SR9', 'Z100', 'Z300', 'Z500', 'E200'],
+  'Can-Am': [
+    'Spyder', 'Ace', 'Renegade', 'Commander', 'Trail', 'Trail Commander',
+    'Trail Sport', 'Trail Sport Commander', 'Trail Sport Renegade',
+    'Maverick R', 'Maverick X3', 'Maverick X2', 'Maverick Sport'
+  ]
 };
 
 // Sample trims for selected models
@@ -1288,4 +1293,3 @@ carMakes.forEach((make) => {
 });
 
 export { carMakes, carModels, carTrims };
-
