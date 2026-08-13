@@ -533,10 +533,16 @@ const AdminDealerDetail = () => {
   };
 
   /* ── derived ──────────────────────────────────────────────────────────── */
-  const allDocsApproved =
-    dealerDocs.length >= 3 && dealerDocs.every((d) => d.status === 'approved');
+  const activeDocs = dealerDocs.filter((d) => !d.replaced_at);
+  const allDocsApproved = DOC_TYPES.every((type) =>
+    activeDocs.some((doc) => doc.document_type === type.key && doc.status === 'approved')
+  ) && !activeDocs.some((doc) => (
+    doc.document_type === 'trade_license'
+    && doc.expires_at
+    && new Date(doc.expires_at) <= new Date(new Date().toDateString())
+  ));
 
-  const getDocByType = (type) => dealerDocs.find((d) => d.document_type === type);
+  const getDocByType = (type) => activeDocs.find((d) => d.document_type === type);
   const isPdf = (doc) => doc?.file_type === 'application/pdf' || doc?.filename?.toLowerCase().endsWith('.pdf');
 
   const initial = (dealer.company_name || getDisplayName(dealer) || '??').slice(0, 2).toUpperCase();
@@ -666,7 +672,7 @@ const AdminDealerDetail = () => {
                       <div className="flex flex-col items-center justify-center h-full gap-3">
                         <FileText size={40} className="text-white/20" />
                         <a
-                          href={doc.url}
+                          href={doc.download_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition font-medium"
@@ -676,9 +682,9 @@ const AdminDealerDetail = () => {
                         <p className="text-xs text-white/30">{doc.filename}</p>
                       </div>
                     ) : (
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                      <a href={doc.download_url} target="_blank" rel="noopener noreferrer">
                         <img
-                          src={doc.url}
+                          src={doc.download_url}
                           alt={label}
                           className="w-full h-full object-cover hover:scale-[1.02] transition-transform cursor-zoom-in"
                           onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}

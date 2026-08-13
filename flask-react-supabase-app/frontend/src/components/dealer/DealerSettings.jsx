@@ -27,6 +27,7 @@ const statusToClass = (status, days) => {
 
 const DealerDocumentsSection = () => {
   const [docs, setDocs] = useState([]);
+  const [readiness, setReadiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploadingKey, setUploadingKey] = useState(null);
   const [message, setMessage] = useState('');
@@ -37,6 +38,7 @@ const DealerDocumentsSection = () => {
       const resp = await apiClient.get('/api/user/dealer-documents');
       const active = (resp?.documents || []).filter((d) => !d.replaced_at);
       setDocs(active);
+      setReadiness(resp?.readiness || null);
     } catch (err) {
       setMessage(err?.message || 'Could not load documents');
     } finally {
@@ -70,7 +72,7 @@ const DealerDocumentsSection = () => {
       form.append('document_type', docType);
       form.append('file', file);
       if (expiresAt) form.append('expires_at', expiresAt);
-      const resp = await fetch(`${API_URL}/api/auth/upload-dealer-document`, {
+      const resp = await fetch(`${API_URL}/api/user/dealer-documents`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
@@ -115,6 +117,23 @@ const DealerDocumentsSection = () => {
         Upload or replace your trade license, company registration, and tax registration here.
         We&apos;ll email you 30 days before your trade license expires.
       </p>
+      {readiness && (
+        <div className={`mb-4 rounded-xl border px-3 py-3 text-sm ${
+          readiness.application_status === 'action_required'
+            ? 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+            : readiness.application_status === 'approved'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200'
+              : 'bg-white/[0.03] border-white/10 text-white/65'
+        }`}>
+          <p className="font-medium capitalize">Application: {(readiness.application_status || 'draft').replaceAll('_', ' ')}</p>
+          {readiness.application_status === 'action_required' && (
+            <p className="mt-1 text-xs">Replace the denied or requested documents below, then submit the application again.</p>
+          )}
+          {readiness.missing_uploads?.length > 0 && (
+            <p className="mt-1 text-xs">Still needed: {readiness.missing_uploads.map((type) => readiness.document_labels?.[type] || type).join(', ')}.</p>
+          )}
+        </div>
+      )}
       {loading ? (
         <p className="text-sm text-white/40">Loading…</p>
       ) : (
@@ -199,14 +218,14 @@ const DealerDocumentsSection = () => {
         <p className="mt-3 text-xs text-white/50">{message}</p>
       )}
       <DealerApplicationSubmit
-        hasTradeLicense={Boolean(byType('trade_license'))}
+        hasAllDocuments={DOC_TYPES.every((type) => Boolean(byType(type.key)))}
         onSubmitted={() => setMessage('Application submitted — admin review pending.')}
       />
     </motion.div>
   );
 };
 
-const DealerApplicationSubmit = ({ hasTradeLicense, onSubmitted }) => {
+const DealerApplicationSubmit = ({ hasAllDocuments, onSubmitted }) => {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -222,7 +241,7 @@ const DealerApplicationSubmit = ({ hasTradeLicense, onSubmitted }) => {
     })();
   }, []);
 
-  if (status !== 'draft' || !hasTradeLicense) return null;
+  if (!['draft', 'action_required'].includes(status)) return null;
 
   const handleSubmit = async () => {
     try {
@@ -241,15 +260,17 @@ const DealerApplicationSubmit = ({ hasTradeLicense, onSubmitted }) => {
   return (
     <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
       <p className="text-sm text-emerald-200 mb-2">
-        Trade license uploaded. Submit your application so an admin can review it.
+        {hasAllDocuments
+          ? 'All required documents are uploaded. Submit your application for admin review.'
+          : 'Upload the trade license, company registration, and TRN certificate to submit your application.'}
       </p>
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={busy}
+        disabled={busy || !hasAllDocuments}
         className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-full px-4 py-2 text-sm transition disabled:opacity-50"
       >
-        {busy ? 'Submitting…' : 'Submit application'}
+        {busy ? 'Submitting…' : hasAllDocuments ? 'Submit application' : 'Complete required documents'}
       </button>
       {err && <p className="mt-2 text-xs text-rose-300">{err}</p>}
     </div>

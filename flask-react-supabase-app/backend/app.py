@@ -5344,7 +5344,115 @@ def _enforce_listing_limit(user_id):
 
 
 _DEFAULT_DEALER_LISTING_LIMIT = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "20"))
-_DEALER_REQUIRED_DOCS = ("trade_license",)
+_DEALER_REQUIRED_DOCS = (
+    "trade_license",
+    "company_registration",
+    "tax_registration",
+)
+_DEALER_DOCUMENT_LABELS = {
+    "trade_license": "Trade License",
+    "company_registration": "Company Registration",
+    "tax_registration": "Tax Registration (TRN)",
+}
+
+
+def _evaluate_dealer_application(user, documents):
+    """Return the single source of truth for dealer application readiness.
+
+    `documents` must contain only active document rows. This helper is deliberately
+    side-effect free so submission, approval, listing access, and status screens
+    cannot drift into different interpretations of a complete application.
+    """
+    user = user or {}
+    active_docs = [doc for doc in (documents or []) if not doc.get("replaced_at")]
+    by_type = {}
+    for doc in active_docs:
+        doc_type = doc.get("document_type")
+        if doc_type in _DEALER_REQUIRED_DOCS and doc_type not in by_type:
+            by_type[doc_type] = doc
+
+    missing_fields = []
+    if not (user.get("company_name") or "").strip():
+        missing_fields.append("Trading Name")
+    if not (user.get("legal_business_name") or "").strip():
+        missing_fields.append("Legal Business Name")
+    trn = re.sub(r"\D", "", str(user.get("trn") or ""))
+    if len(trn) != 15:
+        missing_fields.append("15-digit TRN")
+
+    missing_uploads = [
+        doc_type for doc_type in _DEALER_REQUIRED_DOCS if doc_type not in by_type
+    ]
+    denied = [
+        doc_type for doc_type, doc in by_type.items() if doc.get("status") == "denied"
+    ]
+    pending = [
+        doc_type for doc_type, doc in by_type.items() if doc.get("status") == "pending"
+    ]
+    approved = [
+        doc_type for doc_type, doc in by_type.items() if doc.get("status") == "approved"
+    ]
+    today = datetime.datetime.utcnow().date().isoformat()
+    trade_license = by_type.get("trade_license")
+    expired = []
+    if trade_license and trade_license.get("expires_at") and str(trade_license["expires_at"]) <= today:
+        expired.append("trade_license")
+
+    ready_to_submit = not missing_fields and not missing_uploads and not expired
+    ready_to_approve = (
+        ready_to_submit
+        and not denied
+        and not pending
+        and set(approved) == set(_DEALER_REQUIRED_DOCS)
+    )
+    return {
+        "required_documents": list(_DEALER_REQUIRED_DOCS),
+        "document_labels": _DEALER_DOCUMENT_LABELS,
+        "missing_fields": missing_fields,
+        "missing_uploads": missing_uploads,
+        "pending_documents": pending,
+        "denied_documents": denied,
+        "expired_documents": expired,
+        "approved_documents": approved,
+        "ready_to_submit": ready_to_submit,
+        "ready_to_approve": ready_to_approve,
+    }
+
+
+def _get_dealer_application_readiness(user_id):
+    """Fetch active dealer evidence and evaluate it consistently for every flow."""
+    user_rows, user_status = supabase_request(
+        "get",
+        "/rest/v1/users",
+        params={
+            "id": f"eq.{user_id}",
+            "select": "id,is_dealer,company_name,legal_business_name,trn,dealer_application_status,dealer_verified",
+            "limit": 1,
+        },
+        use_service_role=True,
+    )
+    if user_status >= 400 or not user_rows:
+        return None, "Dealer not found"
+    user = user_rows[0]
+    docs, docs_status = supabase_request(
+        "get",
+        "/rest/v1/dealer_documents",
+        params={
+            "user_id": f"eq.{user_id}",
+            "replaced_at": "is.null",
+            "select": "id,document_type,status,expires_at,replaced_at,uploaded_at,denial_reason,denial_fix",
+        },
+        use_service_role=True,
+    )
+    if docs_status >= 400:
+        return None, "Could not load dealer documents"
+    readiness = _evaluate_dealer_application(user, docs or [])
+    readiness.update({
+        "application_status": user.get("dealer_application_status") or "draft",
+        "dealer_verified": bool(user.get("dealer_verified")),
+        "documents": docs or [],
+    })
+    return readiness, None
 
 
 def _fetch_dealer_listing_policy(user_id):
@@ -5412,43 +5520,28 @@ def _require_dealer_verified(user_id):
                 }
             ), 403
 
-        # Check that all 3 required documents are approved
+        # Check the same active-document readiness rule used by submission and approval.
         if rows and rows[0].get("is_dealer") and rows[0].get("dealer_verified"):
-            docs, docs_status = supabase_request(
-                "get",
-                "/rest/v1/dealer_documents",
-                params={
-                    "user_id": f"eq.{user_id}",
-                    "select": "document_type,status",
-                },
-                use_service_role=True,
-            )
-            if docs_status == 200:
-                required_types = {
-                    "trade_license",
-                    "company_registration",
-                    "tax_registration",
-                }
-                approved_types = {
-                    d["document_type"] for d in docs if d.get("status") == "approved"
-                }
-                missing = required_types - approved_types
-                if missing:
-                    nice_names = {
-                        "trade_license": "Trade License",
-                        "company_registration": "Company Registration",
-                        "tax_registration": "Tax Registration (TRN)",
-                    }
-                    missing_names = ", ".join(
-                        nice_names.get(t, t) for t in sorted(missing)
-                    )
-                    return jsonify(
-                        {
-                            "error": f"You must upload and get approval for the following documents before posting: {missing_names}",
-                            "code": "dealer_documents_missing",
-                            "missing": list(missing),
-                        }
-                    ), 403
+            readiness, readiness_error = _get_dealer_application_readiness(user_id)
+            if readiness_error:
+                return jsonify({"error": readiness_error}), 500
+            if not readiness["ready_to_approve"]:
+                blocked = (
+                    readiness["missing_uploads"]
+                    + readiness["pending_documents"]
+                    + readiness["denied_documents"]
+                    + readiness["expired_documents"]
+                )
+                labels = [
+                    _DEALER_DOCUMENT_LABELS.get(doc_type, doc_type)
+                    for doc_type in dict.fromkeys(blocked)
+                ]
+                return jsonify({
+                    "error": "Your dealer verification needs attention before you can post listings.",
+                    "code": "dealer_documents_missing",
+                    "missing": list(dict.fromkeys(blocked)),
+                    "missing_labels": labels,
+                }), 403
     except Exception as e:
         logger.error(f"Error checking dealer verification: {e}")
     return None
@@ -7705,9 +7798,7 @@ def upload_car_images(current_user, car_id):
 
 
 def ensure_storage_bucket(bucket_name="listing-images"):
-    """
-    Ensure the storage bucket exists and is public.
-    """
+    """Ensure a storage bucket exists with its intended public/private policy."""
     now_ts = time.time()
     with _STORAGE_BUCKET_CACHE_LOCK:
         cached_until = _STORAGE_BUCKET_CACHE.get(bucket_name, 0)
@@ -7748,7 +7839,7 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                 desired_config = {
                     "id": bucket_name,
                     "name": bucket_name,
-                    "public": True,
+                    "public": False,
                     "file_size_limit": DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES,
                     "allowed_mime_types": DEALER_DOCUMENT_ALLOWED_MIME_TYPES,
                 }
@@ -7798,6 +7889,7 @@ def ensure_storage_bucket(bucket_name="listing-images"):
                 create_data["file_size_limit"] = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES
                 create_data["allowed_mime_types"] = LISTING_IMAGE_ALLOWED_MIME_TYPES
             elif bucket_name == "dealer-documents":
+                create_data["public"] = False
                 create_data["file_size_limit"] = DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES
                 create_data["allowed_mime_types"] = DEALER_DOCUMENT_ALLOWED_MIME_TYPES
             elif bucket_name == "registration-documents":
@@ -7991,8 +8083,40 @@ def _create_signed_upload_url(bucket_name, object_path, upsert=False):
         "signed_url": signed_url,
         "token": token,
         "path": object_path,
-        "public_url": _get_public_storage_object_url(bucket_name, object_path),
     }, None
+
+
+def _create_signed_storage_read_url(bucket_name, object_path, expires_in=300):
+    """Create a short-lived private URL; dealer evidence must never be public."""
+    if not bucket_name or not object_path:
+        return None, "bucket_name and object_path are required"
+    response = requests.post(
+        f"{SUPABASE_URL}/storage/v1/object/sign/{bucket_name}/{object_path}",
+        headers={
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={"expiresIn": expires_in},
+        timeout=20,
+    )
+    if response.status_code not in (200, 201):
+        return None, "Could not create private document link"
+    relative_url = (response.json() or {}).get("signedURL") or (response.json() or {}).get("signedUrl")
+    if not relative_url:
+        return None, "Private document link was unavailable"
+    return f"{SUPABASE_URL}/storage/v1{relative_url}", None
+
+
+def _with_private_dealer_document_url(document):
+    """Expose an ephemeral access URL only after an authenticated ownership/admin check."""
+    item = dict(document or {})
+    object_path = item.get("storage_path")
+    item.pop("url", None)
+    if object_path:
+        signed_url, _ = _create_signed_storage_read_url("dealer-documents", object_path)
+        item["download_url"] = signed_url
+    return item
 
 
 def upload_to_supabase_storage(
@@ -9634,14 +9758,29 @@ def get_dealer_documents(current_user):
         if resp.status_code != 200:
             return jsonify({"error": "Failed to fetch documents"}), 500
 
-        docs = resp.json()
-        return jsonify({"documents": docs}), 200
+        docs = [_with_private_dealer_document_url(doc) for doc in resp.json()]
+        readiness, readiness_error = _get_dealer_application_readiness(current_user)
+        if readiness_error:
+            return jsonify({"error": readiness_error}), 500
+        readiness["documents"] = docs
+        return jsonify({"documents": docs, "readiness": readiness}), 200
     except Exception as e:
         logger.error(f"Error fetching dealer documents: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to fetch documents"}), 500
 
 
+@app.route("/api/user/dealer-verification", methods=["GET"])
+@token_required
+def get_dealer_verification_status(current_user):
+    """The dealer-facing status/checklist endpoint for the full KYC lifecycle."""
+    readiness, error = _get_dealer_application_readiness(current_user)
+    if error:
+        return jsonify({"error": error}), 500
+    return jsonify(readiness), 200
+
+
 @app.route("/api/user/dealer-documents", methods=["POST"])
+@app.route("/api/auth/upload-dealer-document", methods=["POST"])
 @token_required
 def upload_dealer_document(current_user):
     """Upload a dealer document (trade_license, company_registration, or tax_registration).
@@ -9727,10 +9866,6 @@ def upload_dealer_document(current_user):
             )
             return jsonify({"error": "Failed to upload document"}), 500
 
-        public_url = (
-            f"{SUPABASE_URL}/storage/v1/object/public/dealer-documents/{object_path}"
-        )
-
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -9763,7 +9898,9 @@ def upload_dealer_document(current_user):
         insert_payload = {
             "user_id": current_user,
             "document_type": document_type,
-            "url": public_url,
+            # Keep only a non-public storage reference. Access is granted through
+            # short-lived signed URLs after the caller has been authorized.
+            "url": object_path,
             "filename": file.filename,
             "file_type": content_type,
             "storage_path": object_path,
@@ -9791,13 +9928,16 @@ def upload_dealer_document(current_user):
             all_docs_resp.json() if all_docs_resp.status_code == 200 else [doc_data]
         )
 
-        return jsonify(
-            {
-                "message": "Document uploaded successfully",
-                "document": doc_data,
-                "documents": all_docs,
-            }
-        ), 200
+        readiness, readiness_error = _get_dealer_application_readiness(current_user)
+        if readiness_error:
+            return jsonify({"error": readiness_error}), 500
+        safe_docs = [_with_private_dealer_document_url(doc) for doc in all_docs]
+        return jsonify({
+            "message": "Document uploaded successfully",
+            "document": _with_private_dealer_document_url(doc_data),
+            "documents": safe_docs,
+            "readiness": readiness,
+        }), 200
 
     except Exception as e:
         logger.error(f"Error uploading dealer document: {str(e)}", exc_info=True)
@@ -9827,29 +9967,21 @@ def dealer_submit_application(current_user):
         if not user_row.get("is_dealer"):
             return jsonify({"error": "Only dealer accounts can submit an application"}), 400
 
-        # Require the trade license to be on file before we accept submission.
-        docs_resp, docs_status = supabase_request(
-            "get",
-            (
-                f"/rest/v1/dealer_documents?user_id=eq.{current_user}"
-                f"&document_type=eq.trade_license"
-                f"&replaced_at=is.null"
-                f"&select=id,expires_at"
-                f"&order=uploaded_at.desc&limit=1"
-            ),
-            use_service_role=True,
-        )
-        if docs_status >= 400 or not docs_resp:
+        readiness, readiness_error = _get_dealer_application_readiness(current_user)
+        if readiness_error:
+            return jsonify({"error": readiness_error}), 500
+        if not readiness["ready_to_submit"]:
             return jsonify({
-                "error": "Trade license must be uploaded before submitting",
-                "code": "trade_license_missing",
+                "error": "Complete your business details and upload all required documents before submitting.",
+                "code": "dealer_application_incomplete",
+                "readiness": readiness,
             }), 400
 
         current_status = user_row.get("dealer_application_status") or "draft"
-        if current_status == "submitted":
+        if current_status in ("submitted", "under_review"):
             return jsonify({
                 "message": "Application already submitted",
-                "dealer_application_status": "submitted",
+                "dealer_application_status": current_status,
             }), 200
         if current_status == "approved":
             return jsonify({
@@ -22025,12 +22157,23 @@ def api_verify_dealer(current_user, dealer_id):
         if not user_details or not user_details.get("is_admin"):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
 
+        readiness, readiness_error = _get_dealer_application_readiness(dealer_id)
+        if readiness_error:
+            return jsonify({"error": readiness_error}), 404
+        if not readiness["ready_to_approve"]:
+            return jsonify({
+                "error": "Dealer cannot be approved until all active required documents are approved.",
+                "code": "dealer_application_not_ready_for_approval",
+                "readiness": readiness,
+            }), 409
+
         from datetime import datetime
 
         # Update dealer verification
         update_data = {
             "dealer_verified": True,
             "dealer_verified_at": datetime.utcnow().isoformat(),
+            "dealer_application_status": "approved",
         }
 
         response, status_code = supabase_request(
@@ -22088,8 +22231,12 @@ def api_reject_dealer(current_user, dealer_id):
             rejection_note = request.json.get("rejection_note", "")
             rejection_fix = request.json.get("rejection_fix", "")
 
-        # Update user - set is_dealer to false and add rejection note
-        update_data = {"is_dealer": False, "rejection_note": rejection_note}
+        # Preserve the dealer account and its audit trail; they may correct and reapply.
+        update_data = {
+            "dealer_verified": False,
+            "dealer_application_status": "rejected",
+            "rejection_note": rejection_note,
+        }
 
         response, status_code = supabase_request(
             "patch",
@@ -22155,7 +22302,9 @@ def get_admin_dealer_documents(current_user, dealer_id):
         if resp.status_code != 200:
             return jsonify({"error": "Failed to fetch documents"}), 500
 
-        return jsonify({"documents": resp.json()}), 200
+        return jsonify({
+            "documents": [_with_private_dealer_document_url(doc) for doc in resp.json()]
+        }), 200
     except Exception as e:
         logger.error(f"Error fetching dealer documents: {str(e)}")
         return jsonify({"error": "Failed to fetch documents"}), 500
@@ -22216,6 +22365,14 @@ def review_dealer_document(current_user, doc_id):
             return jsonify({"error": "Failed to update document"}), 500
 
         if action == "deny":
+            supabase_request(
+                "patch",
+                f"/rest/v1/users?id=eq.{doc['user_id']}",
+                data={"dealer_application_status": "action_required", "dealer_verified": False},
+                use_service_role=True,
+            )
+
+        if action == "deny":
             user_data = doc.get("users", {})
             dealer_email = (
                 user_data.get("email") if isinstance(user_data, dict) else None
@@ -22251,6 +22408,21 @@ def review_dealer_document(current_user, doc_id):
 # ─── Admin "request more info" dealer flow ────────────────────────────────────
 
 DEALER_INFO_REQUEST_TTL_DAYS = int(os.getenv("DEALER_INFO_REQUEST_TTL_DAYS", "14"))
+
+
+def _dealer_document_type_from_label(label):
+    """Map the admin's human-facing request labels back to canonical KYC types."""
+    normalized = re.sub(r"[^a-z0-9]+", "_", str(label or "").lower()).strip("_")
+    aliases = {
+        "trade_license": "trade_license",
+        "trade_licence": "trade_license",
+        "company_registration": "company_registration",
+        "company_registration_document": "company_registration",
+        "tax_registration": "tax_registration",
+        "tax_registration_trn": "tax_registration",
+        "trn": "tax_registration",
+    }
+    return aliases.get(normalized)
 
 
 def _send_info_request_email(email, dealer_name, documents, message, link_url):
@@ -22365,6 +22537,14 @@ def create_dealer_info_request(current_user, dealer_id):
             logger.error(f"Failed to create info request: {created_status} - {created_resp}")
             return jsonify({"error": "Failed to create info request"}), 500
         created = created_resp[0] if isinstance(created_resp, list) else created_resp
+
+        # A request is a concrete recovery state, not merely an email side-channel.
+        supabase_request(
+            "patch",
+            f"/rest/v1/users?id=eq.{dealer_id}",
+            data={"dealer_application_status": "action_required", "dealer_verified": False},
+            use_service_role=True,
+        )
 
         base_url = _get_safe_frontend_origin(request.headers.get("Origin")).rstrip("/")
         link_url = f"{base_url}/dealer-info-request/{token}"
@@ -22605,7 +22785,54 @@ def upload_public_info_request(token):
             )
             return jsonify({"error": "Failed to upload file"}), 500
 
-        public_url = f"{SUPABASE_URL}/storage/v1/object/public/dealer-documents/{object_path}"
+        document_type = _dealer_document_type_from_label(document_label)
+        if document_type:
+            raw_expires_at = (request.form.get("expires_at") or "").strip()
+            expires_at = None
+            if document_type == "trade_license":
+                if not raw_expires_at:
+                    return jsonify({"error": "Trade License requires a future expiry date"}), 400
+                try:
+                    expires_at = datetime.datetime.fromisoformat(raw_expires_at).date()
+                except ValueError:
+                    return jsonify({"error": "Trade License expiry date is invalid"}), 400
+                if expires_at <= datetime.datetime.utcnow().date():
+                    return jsonify({"error": "Trade License expiry date must be in the future"}), 400
+
+            # A recovery upload is a real replacement that returns to the normal
+            # admin document-review queue, not an orphaned attachment.
+            supabase_request(
+                "patch",
+                "/rest/v1/dealer_documents",
+                params={
+                    "user_id": f"eq.{req['dealer_user_id']}",
+                    "document_type": f"eq.{document_type}",
+                    "replaced_at": "is.null",
+                },
+                data={"replaced_at": _isoformat_utc(_utc_now())},
+                use_service_role=True,
+            )
+            canonical_payload = {
+                "user_id": req["dealer_user_id"],
+                "document_type": document_type,
+                "url": object_path,
+                "filename": secure_filename(file.filename),
+                "file_type": content_type,
+                "storage_path": object_path,
+                "status": "pending",
+            }
+            if expires_at:
+                canonical_payload["expires_at"] = expires_at.isoformat()
+            canonical_resp, canonical_status = supabase_request(
+                "post",
+                "/rest/v1/dealer_documents",
+                data=canonical_payload,
+                use_service_role=True,
+            )
+            if canonical_status >= 400:
+                logger.error(f"Failed to record recovery document: {canonical_resp}")
+                return jsonify({"error": "Uploaded file could not be queued for review"}), 500
+
         record_resp, record_status = supabase_request(
             "post",
             "/rest/v1/dealer_info_request_uploads",
@@ -22615,7 +22842,8 @@ def upload_public_info_request(token):
                 "filename": secure_filename(file.filename),
                 "file_type": content_type,
                 "storage_path": object_path,
-                "url": public_url,
+                # Never persist a public URL for sensitive verification evidence.
+                "url": object_path,
             },
             use_service_role=True,
         )
@@ -22644,10 +22872,16 @@ def upload_public_info_request(token):
                     },
                     use_service_role=True,
                 )
+                supabase_request(
+                    "patch",
+                    f"/rest/v1/users?id=eq.{req['dealer_user_id']}",
+                    data={"dealer_application_status": "submitted", "dealer_verified": False},
+                    use_service_role=True,
+                )
 
         return jsonify({
             "success": True,
-            "url": public_url,
+            "url": None,
             "filename": file.filename,
         }), 201
     except Exception as e:

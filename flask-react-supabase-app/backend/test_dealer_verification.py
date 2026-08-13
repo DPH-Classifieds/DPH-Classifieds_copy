@@ -403,7 +403,7 @@ class TestAccountSettingsDocumentUpload(unittest.TestCase):
         """AccountSettings must render the list of uploaded documents."""
         source = self._read_settings_source()
         self.assertIn("doc.filename", source)
-        self.assertIn("doc.url", source)
+        self.assertIn("doc.download_url", source)
 
     def test_upload_hits_correct_endpoint(self):
         """Upload handler must POST to /api/user/company-documents."""

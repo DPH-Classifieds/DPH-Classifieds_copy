@@ -54,6 +54,8 @@ const Signup = () => {
     tradeLicenseNumber: '',
     tradeLicenseExpiresAt: '',
     tradeLicenseFile: null,
+    companyRegistrationFile: null,
+    taxRegistrationFile: null,
     
     // Preferences
     emailNotifications: true,
@@ -189,14 +191,14 @@ const Signup = () => {
         return 'Expiry date must be in the future';
       }
     }
-    if (name === 'tradeLicenseFile' && data.isDealer) {
-      if (!value) return 'Please upload a copy of your trade license';
+    if (['tradeLicenseFile', 'companyRegistrationFile', 'taxRegistrationFile'].includes(name) && data.isDealer) {
+      if (!value) return `Please upload your ${name === 'tradeLicenseFile' ? 'trade license' : name === 'companyRegistrationFile' ? 'company registration' : 'TRN certificate'}`;
       const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
       if (value && !allowed.includes(value.type)) {
-        return 'Trade license must be a PDF, JPG, or PNG';
+        return 'Document must be a PDF, JPG, or PNG';
       }
       if (value && value.size > 10 * 1024 * 1024) {
-        return 'Trade license file must be 10 MB or smaller';
+        return 'Document must be 10 MB or smaller';
       }
     }
     if (name === 'acceptTerms' && !value) {
@@ -295,6 +297,8 @@ const Signup = () => {
       nextData.tradeLicenseNumber = '';
       nextData.tradeLicenseExpiresAt = '';
       nextData.tradeLicenseFile = null;
+      nextData.companyRegistrationFile = null;
+      nextData.taxRegistrationFile = null;
     }
 
     // TRN: digits only, max 15
@@ -370,7 +374,7 @@ const Signup = () => {
       'phone',
       'companyName',
       ...(formData.isDealer
-        ? ['legalBusinessName', 'trn', 'tradeLicenseExpiresAt', 'tradeLicenseFile']
+        ? ['legalBusinessName', 'trn', 'tradeLicenseExpiresAt', 'tradeLicenseFile', 'companyRegistrationFile', 'taxRegistrationFile']
         : []),
       'acceptTerms',
       'acceptPrivacy'
@@ -384,18 +388,7 @@ const Signup = () => {
       }
     });
 
-    const errors = [
-      newFieldErrors.firstName,
-      newFieldErrors.lastName,
-      newFieldErrors.email,
-      newFieldErrors.username,
-      newFieldErrors.phone,
-      newFieldErrors.password,
-      newFieldErrors.confirmPassword,
-      newFieldErrors.companyName,
-      newFieldErrors.acceptTerms,
-      newFieldErrors.acceptPrivacy
-    ].filter(Boolean);
+    const errors = Object.values(newFieldErrors).filter(Boolean);
 
     setTouchedFields({
       firstName: true,
@@ -406,6 +399,12 @@ const Signup = () => {
       username: true,
       phone: true,
       companyName: true,
+      legalBusinessName: true,
+      trn: true,
+      tradeLicenseExpiresAt: true,
+      tradeLicenseFile: true,
+      companyRegistrationFile: true,
+      taxRegistrationFile: true,
       acceptTerms: true,
       acceptPrivacy: true
     });
@@ -505,30 +504,34 @@ const Signup = () => {
         dealerJwt = authData.access_token;
       }
 
-      // Dealer flow: upload the trade license now, then submit the application.
-      // Both calls are best-effort: if they fail we still land the user on the
-      // verify/check-email screen, and the resume banner picks them up next login.
-      if (formData.isDealer && formData.tradeLicenseFile && dealerJwt) {
-        try {
+      if (formData.isDealer) {
+        if (!dealerJwt) throw new Error('Your account was created, but we could not start dealer verification. Please sign in and continue in Settings.');
+        const documents = [
+          ['trade_license', formData.tradeLicenseFile, formData.tradeLicenseExpiresAt],
+          ['company_registration', formData.companyRegistrationFile],
+          ['tax_registration', formData.taxRegistrationFile],
+        ];
+        for (const [documentType, file, expiresAt] of documents) {
           const uploadForm = new FormData();
-          uploadForm.append('document_type', 'trade_license');
-          uploadForm.append('file', formData.tradeLicenseFile);
-          uploadForm.append('expires_at', formData.tradeLicenseExpiresAt);
-          await fetch(`${API_URL}/api/auth/upload-dealer-document`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${dealerJwt}` },
-            body: uploadForm,
+          uploadForm.append('document_type', documentType);
+          uploadForm.append('file', file);
+          if (expiresAt) uploadForm.append('expires_at', expiresAt);
+          const uploadResponse = await fetch(`${API_URL}/api/user/dealer-documents`, {
+            method: 'POST', headers: { Authorization: `Bearer ${dealerJwt}` }, body: uploadForm,
           });
-          await fetch(`${API_URL}/api/auth/dealer-submit-application`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${dealerJwt}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({}),
-          });
-        } catch (dealerErr) {
-          console.warn('Dealer document upload failed, resume banner will handle it:', dealerErr);
+          if (!uploadResponse.ok) {
+            const uploadError = await uploadResponse.json().catch(() => ({}));
+            throw new Error(uploadError.error || `Could not upload ${documentType.replace('_', ' ')}`);
+          }
+        }
+        const submitResponse = await fetch(`${API_URL}/api/auth/dealer-submit-application`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${dealerJwt}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (!submitResponse.ok) {
+          const submitError = await submitResponse.json().catch(() => ({}));
+          throw new Error(submitError.error || 'Could not submit dealer verification');
         }
       }
 
@@ -548,6 +551,13 @@ const Signup = () => {
         return;
       }
 
+      if (formData.isDealer) {
+        // Reload once so AuthContext hydrates the new dealer session before the
+        // status screen is guarded; client-only navigation can otherwise bounce
+        // a just-created dealer back to login.
+        window.location.assign('/settings?dealer_verification=submitted');
+        return;
+      }
       navigate('/check-email', { state: { email: signupData.email, redirect: safeRedirect } });
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
@@ -823,6 +833,37 @@ const Signup = () => {
                 </label>
                 {renderFieldError('tradeLicenseFile')}
               </div>
+              {[
+                ['companyRegistrationFile', 'Company Registration Document', 'Upload your mainland or freezone registration certificate'],
+                ['taxRegistrationFile', 'Tax Registration Certificate (TRN)', 'Upload the UAE FTA TRN certificate'],
+              ].map(([field, label, hint]) => (
+                <div className="form-group" key={field}>
+                  <label htmlFor={field}>{label} <span className="required">*</span></label>
+                  <input
+                    type="file"
+                    id={field}
+                    name={field}
+                    accept="application/pdf,image/png,image/jpeg"
+                    className="upload-card-input"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      const nextData = { ...formData, [field]: file };
+                      setFormData(nextData);
+                      setTouchedFields((prev) => ({ ...prev, [field]: true }));
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        const err = validateSingleField(field, file, nextData);
+                        if (err) next[field] = err; else delete next[field];
+                        return next;
+                      });
+                    }}
+                  />
+                  <small className="form-hint">
+                    {formData[field] ? `${formData[field].name} · ${(formData[field].size / (1024 * 1024)).toFixed(2)} MB` : `${hint}. PDF, JPG, or PNG — up to 10 MB`}
+                  </small>
+                  {renderFieldError(field)}
+                </div>
+              ))}
               <div className="form-group">
                 <label htmlFor="companyRegistrationNumber">Company Registration Number (Optional)</label>
                 <input

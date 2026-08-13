@@ -29,6 +29,7 @@ const DealerInfoRequest = () => {
   const [requestData, setRequestData] = useState(null);
   const [uploadingDoc, setUploadingDoc] = useState(null);
   const [perDocError, setPerDocError] = useState({});
+  const [expiryByDoc, setExpiryByDoc] = useState({});
 
   const fetchRequest = useCallback(async () => {
     if (!token) {
@@ -64,6 +65,8 @@ const DealerInfoRequest = () => {
     return map;
   }, [requestData]);
 
+  const requiresExpiry = (docLabel) => ['trade license', 'trade licence'].includes(String(docLabel).toLowerCase());
+
   const handleFilePick = async (docLabel, file) => {
     if (!file) return;
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -80,6 +83,11 @@ const DealerInfoRequest = () => {
       const formData = new FormData();
       formData.append('document_label', docLabel);
       formData.append('file', file);
+      if (requiresExpiry(docLabel)) {
+        const expiresAt = expiryByDoc[docLabel];
+        if (!expiresAt) throw new Error('Choose the trade license expiry date before uploading.');
+        formData.append('expires_at', expiresAt);
+      }
       const resp = await fetch(`${API_BASE_URL}/api/info-requests/${token}/upload`, {
         method: 'POST',
         body: formData,
@@ -201,6 +209,19 @@ const DealerInfoRequest = () => {
                       <li key={u.id} className="text-xs text-white/60 truncate">• {u.filename}</li>
                     ))}
                   </ul>
+                )}
+
+                {requiresExpiry(docLabel) && !isClosed && (
+                  <label className="block text-xs text-white/50 mb-3">
+                    Trade license valid until
+                    <input
+                      type="date"
+                      min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                      value={expiryByDoc[docLabel] || ''}
+                      onChange={(e) => setExpiryByDoc((prev) => ({ ...prev, [docLabel]: e.target.value }))}
+                      className="mt-1.5 w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                    />
+                  </label>
                 )}
 
                 {!isClosed && (

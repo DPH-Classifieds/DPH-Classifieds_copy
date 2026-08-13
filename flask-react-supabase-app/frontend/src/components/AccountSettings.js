@@ -1272,7 +1272,7 @@ const AccountSettings = () => {
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ minWidth: 0 }}>
                               <a
-                                href={doc.url}
+                                href={doc.download_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{ fontSize: 12, color: '#8bd6b4', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
