@@ -8134,6 +8134,23 @@ def _with_private_dealer_document_url(document):
     return item
 
 
+def _with_private_dealer_attachment_url(attachment):
+    """Expose a short-lived link for an admin-only request attachment.
+
+    Info-request uploads live in the same private bucket as KYC documents; a
+    stored object path is never a browser URL and must not escape to the public
+    token endpoint.
+    """
+    item = dict(attachment or {})
+    object_path = item.get("storage_path") or item.get("url")
+    item.pop("url", None)
+    item.pop("storage_path", None)
+    if object_path:
+        signed_url, _ = _create_signed_storage_read_url("dealer-documents", object_path)
+        item["download_url"] = signed_url
+    return item
+
+
 def upload_to_supabase_storage(
     file,
     bucket_name="listing-images",
@@ -22532,7 +22549,12 @@ def create_dealer_info_request(current_user, dealer_id):
         documents_raw = body.get("documents") or []
         if not isinstance(documents_raw, list):
             return jsonify({"error": "documents must be a list of strings"}), 400
-        documents = [str(d).strip() for d in documents_raw if str(d).strip()][:20]
+        documents = []
+        for raw_document in documents_raw:
+            label = str(raw_document).strip()
+            if label and label not in documents:
+                documents.append(label)
+        documents = documents[:20]
         if not documents:
             return jsonify({"error": "At least one document label is required"}), 400
         message = (body.get("message") or "").strip()[:2000] or None
@@ -22552,6 +22574,17 @@ def create_dealer_info_request(current_user, dealer_id):
             dealer.get("company_name")
             or " ".join(filter(None, [dealer.get("first_name"), dealer.get("last_name")])).strip()
             or None
+        )
+
+        # Only one active recovery task should exist. Older pending links are
+        # cancelled so the dealer and reviewer never work against different
+        # requirements.
+        supabase_request(
+            "patch",
+            "/rest/v1/dealer_info_requests",
+            params={"dealer_user_id": f"eq.{dealer_id}", "status": "eq.pending"},
+            data={"status": "cancelled"},
+            use_service_role=True,
         )
 
         token = secrets.token_urlsafe(32)
@@ -22587,12 +22620,18 @@ def create_dealer_info_request(current_user, dealer_id):
         base_url = _get_safe_frontend_origin(request.headers.get("Origin")).rstrip("/")
         link_url = f"{base_url}/dealer-info-request/{token}"
 
+        email_sent = False
+        email_error = None
         if dealer_email:
             _, email_error = _send_info_request_email(
                 dealer_email, dealer_name, documents, message, link_url
             )
             if email_error:
                 logger.error(f"Info-request email failed for dealer {dealer_id}: {email_error}")
+            else:
+                email_sent = True
+        else:
+            email_error = "Dealer has no email address"
 
         logger.info(f"Admin {current_user} created info request {created.get('id')} for dealer {dealer_id}")
         return jsonify({
@@ -22604,6 +22643,10 @@ def create_dealer_info_request(current_user, dealer_id):
             "expires_at": created.get("expires_at"),
             "status": created.get("status"),
             "created_at": created.get("created_at"),
+            "email_sent": email_sent,
+            # Safe operational feedback for an admin; the actual link remains
+            # available in the dashboard for manual delivery.
+            "email_error": email_error,
         }), 201
     except Exception as e:
         logger.exception("Error creating dealer info request")
@@ -22631,7 +22674,15 @@ def list_dealer_info_requests(current_user, dealer_id):
         )
         if reqs_status >= 400:
             return jsonify({"error": "Failed to fetch info requests"}), 500
-        return jsonify({"requests": reqs_resp or []}), 200
+        requests_with_private_urls = []
+        for info_request in reqs_resp or []:
+            item = dict(info_request)
+            item["dealer_info_request_uploads"] = [
+                _with_private_dealer_attachment_url(upload)
+                for upload in (item.get("dealer_info_request_uploads") or [])
+            ]
+            requests_with_private_urls.append(item)
+        return jsonify({"requests": requests_with_private_urls}), 200
     except Exception as e:
         logger.exception("Error listing dealer info requests")
         return jsonify({"error": str(e)}), 500
@@ -22674,7 +22725,7 @@ def get_public_info_request(token):
             "get",
             "/rest/v1/dealer_info_requests",
             params={
-                "select": "id,requested_documents,message,status,expires_at,submitted_at,created_at,dealer_user_id,dealer_info_request_uploads(id,document_label,filename,file_type,url,uploaded_at)",
+                "select": "id,requested_documents,message,status,expires_at,submitted_at,created_at,dealer_user_id,dealer_info_request_uploads(id,document_label,filename,file_type,uploaded_at)",
                 "token": f"eq.{token}",
                 "limit": 1,
             },
@@ -22787,6 +22838,15 @@ def upload_public_info_request(token):
             return jsonify({"error": "No file selected"}), 400
 
         content_type = (file.content_type or "").lower()
+        extension_to_mime = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "pdf": "application/pdf",
+        }
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        if content_type not in DEALER_DOCUMENT_ALLOWED_MIME_TYPES:
+            content_type = extension_to_mime.get(ext, content_type)
         if content_type not in DEALER_DOCUMENT_ALLOWED_MIME_TYPES:
             return jsonify({"error": "Invalid file type. Allowed: JPG, PNG, PDF"}), 400
 
@@ -22798,10 +22858,23 @@ def upload_public_info_request(token):
                 "error": f"File too large. Maximum size: {DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES // (1024 * 1024)}MB"
             }), 400
 
+        document_type = _dealer_document_type_from_label(document_label)
+        expires_at = None
+        if document_type == "trade_license":
+            raw_expires_at = (request.form.get("expires_at") or "").strip()
+            if not raw_expires_at:
+                return jsonify({"error": "Trade License requires a future expiry date"}), 400
+            try:
+                expires_at = datetime.datetime.fromisoformat(raw_expires_at).date()
+            except ValueError:
+                return jsonify({"error": "Trade License expiry date is invalid"}), 400
+            if expires_at <= datetime.datetime.utcnow().date():
+                return jsonify({"error": "Trade License expiry date must be in the future"}), 400
+
         if not ensure_storage_bucket("dealer-documents"):
             return jsonify({"error": "Storage bucket not available"}), 500
 
-        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
+        ext = ext or "bin"
         safe_dealer_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(req["dealer_user_id"]))
         object_path = f"{safe_dealer_id}/info-requests/{req['id']}/{uuid.uuid4().hex}.{ext}"
 
@@ -22823,20 +22896,7 @@ def upload_public_info_request(token):
             )
             return jsonify({"error": "Failed to upload file"}), 500
 
-        document_type = _dealer_document_type_from_label(document_label)
         if document_type:
-            raw_expires_at = (request.form.get("expires_at") or "").strip()
-            expires_at = None
-            if document_type == "trade_license":
-                if not raw_expires_at:
-                    return jsonify({"error": "Trade License requires a future expiry date"}), 400
-                try:
-                    expires_at = datetime.datetime.fromisoformat(raw_expires_at).date()
-                except ValueError:
-                    return jsonify({"error": "Trade License expiry date is invalid"}), 400
-                if expires_at <= datetime.datetime.utcnow().date():
-                    return jsonify({"error": "Trade License expiry date must be in the future"}), 400
-
             # A recovery upload is a real replacement that returns to the normal
             # admin document-review queue, not an orphaned attachment.
             supabase_request(

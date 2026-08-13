@@ -11,6 +11,17 @@ const API_BASE_URL = process.env.REACT_APP_API_URL
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
+const documentTypeForLabel = (label) => {
+  const normalized = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  if (normalized === 'trade_license' || normalized === 'trade_licence'
+    || (normalized.includes('trade') && (normalized.includes('license') || normalized.includes('licence')))) return 'trade_license';
+  if (normalized === 'company_registration' || normalized === 'company_registration_document'
+    || (normalized.includes('company') && (normalized.includes('registration') || normalized.includes('certificate')))) return 'company_registration';
+  if (normalized === 'tax_registration' || normalized === 'tax_registration_trn' || normalized === 'trn'
+    || normalized.includes('tax') || normalized.includes('trn')) return 'tax_registration';
+  return null;
+};
+
 const formatExpiry = (iso) => {
   if (!iso) return null;
   try {
@@ -65,11 +76,13 @@ const DealerInfoRequest = () => {
     return map;
   }, [requestData]);
 
-  const requiresExpiry = (docLabel) => ['trade license', 'trade licence'].includes(String(docLabel).toLowerCase());
+  const requiresExpiry = (docLabel) => documentTypeForLabel(docLabel) === 'trade_license';
 
   const handleFilePick = async (docLabel, file) => {
     if (!file) return;
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const filename = String(file.name || '').toLowerCase();
+    const validExtension = /\.(jpe?g|png|pdf)$/.test(filename);
+    if (!ALLOWED_TYPES.includes(file.type) && !validExtension) {
       setPerDocError((prev) => ({ ...prev, [docLabel]: 'Only JPG, PNG, or PDF files are accepted.' }));
       return;
     }

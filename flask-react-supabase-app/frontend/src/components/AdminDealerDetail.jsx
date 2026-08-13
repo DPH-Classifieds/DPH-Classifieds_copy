@@ -19,8 +19,6 @@ import {
   BarChart2,
   AlertTriangle,
   MailQuestion,
-  Plus,
-  Trash2,
   Send,
   Clock,
 } from 'lucide-react';
@@ -81,6 +79,8 @@ const DOC_TYPES = [
   { key: 'company_registration', label: 'Company Registration', icon: Building2 },
   { key: 'tax_registration', label: 'Tax Registration (TRN)', icon: Receipt },
 ];
+
+const INFO_REQUEST_STANDARD_DOCUMENTS = DOC_TYPES.map(({ key, label }) => ({ key, label }));
 
 /* ── loading skeleton ─────────────────────────────────────────────────────── */
 const Skeleton = () => (
@@ -241,26 +241,26 @@ const RejectModal = ({ show, onClose, onConfirm, busy }) => {
 
 /* ── request more info modal ──────────────────────────────────────────────── */
 const RequestMoreInfoModal = ({ show, onClose, onConfirm, busy }) => {
-  const [documents, setDocuments] = useState(['']);
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [otherDocument, setOtherDocument] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     if (!show) {
-      setDocuments(['']);
+      setSelectedDocuments([]);
+      setOtherDocument('');
       setMessage('');
     }
   }, [show]);
 
   if (!show) return null;
 
-  const updateDoc = (idx, value) => {
-    setDocuments((prev) => prev.map((d, i) => (i === idx ? value : d)));
+  const toggleDocument = (label) => {
+    setSelectedDocuments((current) => (
+      current.includes(label) ? current.filter((item) => item !== label) : [...current, label]
+    ));
   };
-  const addDoc = () => setDocuments((prev) => (prev.length >= 10 ? prev : [...prev, '']));
-  const removeDoc = (idx) =>
-    setDocuments((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
-
-  const cleanDocs = documents.map((d) => d.trim()).filter(Boolean);
+  const cleanDocs = [...selectedDocuments, ...otherDocument.split('\n').map((item) => item.trim()).filter(Boolean)];
   const canSubmit = cleanDocs.length > 0 && !busy;
 
   return (
@@ -284,40 +284,32 @@ const RequestMoreInfoModal = ({ show, onClose, onConfirm, busy }) => {
             <button onClick={onClose} className="text-white/40 hover:text-white transition p-1"><X size={18} /></button>
           </div>
           <p className="text-xs text-white/45 mb-5">
-            The dealer will receive an email with a secure link to upload the documents you list below.
+            Select standard verification documents where possible. They return directly to the normal review queue. The dealer also receives a secure upload link.
           </p>
 
           <div className="space-y-3 mb-4">
             <label className="block text-xs text-white/50">Documents required *</label>
-            {documents.map((doc, idx) => (
-              <div key={idx} className="flex gap-2">
-                <input
-                  type="text"
-                  value={doc}
-                  onChange={(e) => updateDoc(idx, e.target.value)}
-                  placeholder="e.g. Trade license (clear scan)"
-                  className="flex-1 bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/85 placeholder-white/25 focus:outline-none focus:border-emerald-500/40"
-                />
-                {documents.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeDoc(idx)}
-                    className="px-2.5 rounded-xl text-white/40 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 bg-white/5 hover:bg-rose-500/10 transition"
-                    aria-label="Remove document"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addDoc}
-              disabled={documents.length >= 10}
-              className="inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:text-emerald-200 transition disabled:opacity-40"
-            >
-              <Plus size={13} /> Add another document
-            </button>
+            <div className="grid grid-cols-1 gap-2">
+              {INFO_REQUEST_STANDARD_DOCUMENTS.map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-2.5 rounded-xl border border-white/[0.10] bg-white/[0.03] px-3 py-2.5 text-sm text-white/75 cursor-pointer hover:bg-white/[0.06]">
+                  <input
+                    type="checkbox"
+                    checked={selectedDocuments.includes(label)}
+                    onChange={() => toggleDocument(label)}
+                    className="accent-emerald-400"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <label className="block text-xs text-white/50 pt-1">Other document (optional)</label>
+            <textarea
+              rows={2}
+              value={otherDocument}
+              onChange={(e) => setOtherDocument(e.target.value)}
+              placeholder="One document per line, e.g. shareholder passport"
+              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-emerald-500/40"
+            />
           </div>
 
           <div className="mb-5">
@@ -368,6 +360,7 @@ const AdminDealerDetail = () => {
   const [denyModalDoc, setDenyModalDoc] = useState(null);
   const [showInfoRequestModal, setShowInfoRequestModal] = useState(false);
   const [infoRequests, setInfoRequests] = useState([]);
+  const [infoRequestNotice, setInfoRequestNotice] = useState('');
   const [sendingInfoRequest, setSendingInfoRequest] = useState(false);
   const [adLimitDraft, setAdLimitDraft] = useState('');
   const [adLimitSaving, setAdLimitSaving] = useState(false);
@@ -392,10 +385,13 @@ const AdminDealerDetail = () => {
   const handleCreateInfoRequest = async (documents, message) => {
     setSendingInfoRequest(true);
     try {
-      await apiClient.post(`/api/admin/dealers/${dealerId}/info-requests`, {
+      const result = await apiClient.post(`/api/admin/dealers/${dealerId}/info-requests`, {
         documents,
         message,
       });
+      setInfoRequestNotice(result?.email_sent === false
+        ? 'Secure request created, but email could not be delivered. Copy the link below and send it to the dealer manually.'
+        : 'Request created and the dealer has been sent a secure upload link.');
       setShowInfoRequestModal(false);
       await refreshData();
     } catch (e) {
@@ -1050,12 +1046,17 @@ const AdminDealerDetail = () => {
           </GlassCard>
 
           {/* Info requests history */}
-          {infoRequests.length > 0 && (
+          {(infoRequests.length > 0 || infoRequestNotice) && (
             <GlassCard className="mt-5">
               <div className="flex items-center justify-between mb-3">
                 <SectionLabel>Info requests</SectionLabel>
                 <span className="text-[11px] text-white/30">{infoRequests.length} total</span>
               </div>
+              {infoRequestNotice && (
+                <p className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                  {infoRequestNotice}
+                </p>
+              )}
               <div className="space-y-3">
                 {infoRequests.map((req) => {
                   const uploads = req.dealer_info_request_uploads || [];
@@ -1093,9 +1094,9 @@ const AdminDealerDetail = () => {
                               <span className={`min-w-0 truncate ${docUploads.length ? 'text-white/65' : 'text-white/45'}`}>
                                 {docUploads.length ? '• ' : '◦ '}{label}
                               </span>
-                              {docUploads.length > 0 && (
+                              {docUploads.length > 0 && docUploads[docUploads.length - 1].download_url && (
                                 <a
-                                  href={docUploads[docUploads.length - 1].url}
+                                  href={docUploads[docUploads.length - 1].download_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-emerald-300 hover:text-emerald-200 shrink-0"

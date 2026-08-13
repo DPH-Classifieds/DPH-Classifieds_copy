@@ -116,6 +116,23 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         review_section = source[source.index("def review_dealer_document"):source.index("# ─── Admin \"request more info\"")]
         self.assertIn('("approve", "deny", "pending")', review_section)
 
+    def test_info_request_contracts_keep_documents_private_and_reviewable(self):
+        source = APP_PATH.read_text()
+        public_section = source[source.index("def get_public_info_request"):source.index("def upload_public_info_request")]
+        admin_list_section = source[source.index("def list_dealer_info_requests"):source.index("def cancel_dealer_info_request")]
+        upload_section = source[source.index("def upload_public_info_request"):]
+        create_section = source[source.index("def create_dealer_info_request"):source.index("def list_dealer_info_requests")]
+        self.assertNotIn("storage_path", public_section)
+        self.assertNotIn("file_type,url", public_section)
+        self.assertIn("_with_private_dealer_attachment_url", admin_list_section)
+        self.assertIn('data={"status": "cancelled"}', create_section)
+        self.assertIn('"email_sent": email_sent', create_section)
+        self.assertLess(
+            upload_section.index('if document_type == "trade_license"'),
+            upload_section.index('upload_response = requests.post'),
+        )
+        self.assertIn("extension_to_mime", upload_section)
+
 
 if __name__ == "__main__":
     unittest.main()
