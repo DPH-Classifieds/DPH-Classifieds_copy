@@ -2604,7 +2604,6 @@ const PostCar = () => {
                   <option key={type} value={type}>{type}</option>
                 ))}
               </SearchableSelect>
-              <div className="form-text text-danger">This field is required.</div>
             </div>
 
             {formData.fuel_type === 'Other' && (
@@ -2641,7 +2640,6 @@ const PostCar = () => {
                   <option key={type} value={type}>{type}</option>
                 ))}
               </SearchableSelect>
-              <div className="form-text text-danger">This field is required.</div>
             </div>
           </div>
           
