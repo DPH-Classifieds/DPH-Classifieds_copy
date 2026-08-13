@@ -21,19 +21,20 @@ def load_readiness_helper():
         "_DEALER_REQUIRED_DOCS",
         "_DEALER_DOCUMENT_LABELS",
         "_evaluate_dealer_application",
+        "_dealer_document_type_from_label",
     }
     nodes = [
         node for node in tree.body
         if (isinstance(node, ast.Assign) and any(getattr(target, "id", None) in wanted for target in node.targets))
-        or (isinstance(node, ast.FunctionDef) and node.name == "_evaluate_dealer_application")
+        or (isinstance(node, ast.FunctionDef) and node.name in {"_evaluate_dealer_application", "_dealer_document_type_from_label"})
     ]
     module = ast.Module(body=nodes, type_ignores=[])
     namespace = {"datetime": datetime, "re": re}
     exec(compile(module, str(APP_PATH), "exec"), namespace)
-    return namespace["_evaluate_dealer_application"]
+    return namespace["_evaluate_dealer_application"], namespace["_dealer_document_type_from_label"]
 
 
-evaluate = load_readiness_helper()
+evaluate, document_type_from_label = load_readiness_helper()
 VALID_USER = {
     "company_name": "Carology",
     "legal_business_name": "Carology L.L.C-FZ",
@@ -99,6 +100,12 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         self.assertFalse(readiness["ready_to_approve"])
         self.assertIn("trade_license", readiness["pending_documents"])
 
+    def test_request_more_info_labels_return_to_the_canonical_review_queue(self):
+        self.assertEqual(document_type_from_label("Trade License - clear scan"), "trade_license")
+        self.assertEqual(document_type_from_label("Company registration certificate"), "company_registration")
+        self.assertEqual(document_type_from_label("Updated TRN certificate"), "tax_registration")
+        self.assertIsNone(document_type_from_label("Shareholder passport"))
+
     def test_source_contracts_cover_upload_privacy_and_admin_guard(self):
         source = APP_PATH.read_text()
         self.assertIn('@app.route("/api/auth/upload-dealer-document", methods=["POST"])', source)
@@ -106,6 +113,8 @@ class DealerApplicationLifecycleTests(unittest.TestCase):
         self.assertIn('"dealer_application_status": "action_required"', source)
         approve_section = source[source.index("def api_verify_dealer"):source.index("def api_reject_dealer")]
         self.assertIn('readiness["ready_to_approve"]', approve_section)
+        review_section = source[source.index("def review_dealer_document"):source.index("# ─── Admin \"request more info\"")]
+        self.assertIn('("approve", "deny", "pending")', review_section)
 
 
 if __name__ == "__main__":

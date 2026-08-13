@@ -22321,8 +22321,8 @@ def review_dealer_document(current_user, doc_id):
 
         data = request.json
         action = data.get("action")
-        if action not in ("approve", "deny"):
-            return jsonify({"error": "action must be 'approve' or 'deny'"}), 400
+        if action not in ("approve", "deny", "pending"):
+            return jsonify({"error": "action must be 'approve', 'deny', or 'pending'"}), 400
 
         denial_reason = data.get("denial_reason", "")
         denial_fix = data.get("denial_fix", "")
@@ -22345,13 +22345,16 @@ def review_dealer_document(current_user, doc_id):
         from datetime import datetime
 
         update_fields = {
-            "status": "approved" if action == "approve" else "denied",
+            "status": {"approve": "approved", "deny": "denied", "pending": "pending"}[action],
             "reviewed_at": datetime.utcnow().isoformat(),
             "reviewed_by": current_user,
         }
         if action == "deny":
             update_fields["denial_reason"] = denial_reason
             update_fields["denial_fix"] = denial_fix
+        elif action == "pending":
+            update_fields["denial_reason"] = None
+            update_fields["denial_fix"] = None
 
         update_resp = requests.patch(
             f"{SUPABASE_URL}/rest/v1/dealer_documents?id=eq.{doc_id}",
@@ -22422,7 +22425,17 @@ def _dealer_document_type_from_label(label):
         "tax_registration_trn": "tax_registration",
         "trn": "tax_registration",
     }
-    return aliases.get(normalized)
+    if normalized in aliases:
+        return aliases[normalized]
+    # Admins can add clarifying language (for example, "Trade License - clear
+    # scan") without turning a recovery upload into an orphaned attachment.
+    if "trade" in normalized and ("license" in normalized or "licence" in normalized):
+        return "trade_license"
+    if "company" in normalized and ("registration" in normalized or "certificate" in normalized):
+        return "company_registration"
+    if "tax" in normalized or "trn" in normalized:
+        return "tax_registration"
+    return None
 
 
 def _send_info_request_email(email, dealer_name, documents, message, link_url):
