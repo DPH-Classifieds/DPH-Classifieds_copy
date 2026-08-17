@@ -144,21 +144,27 @@ def _validate_owner(owner_id):
 # --- Upsert -----------------------------------------------------------------
 
 def _fetch_existing_by_source_ids(table, source_ids):
-    """Return {source_external_id: row_id} for the given reddit source ids in a table."""
+    """Return {source_external_id: {"id":.., "status":..}} for the given reddit
+    source ids in a table. Status rides along so the update path can tell a
+    live/source_removed row (safe to resync) from an admin-hidden or
+    dedup-expired one (must not be silently resurrected)."""
     ids = [s for s in source_ids if s]
     if not ids:
         return {}
     body, status = supabase_request(
         "get", f"/rest/v1/{table}",
         params={
-            "select": "id,source_external_id",
+            "select": "id,source_external_id,status",
             "source_platform": "eq.reddit",
             "source_external_id": f"in.({','.join(ids)})",
         },
     )
     if status >= 400 or not isinstance(body, list):
         return {}
-    return {r["source_external_id"]: r["id"] for r in body if r.get("source_external_id")}
+    return {
+        r["source_external_id"]: {"id": r["id"], "status": r.get("status")}
+        for r in body if r.get("source_external_id")
+    }
 
 
 def _sync_images(config, row_id, image_urls):
@@ -274,7 +280,9 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
     if config["table"] == "cars":
         _enrich_car_with_vin(payload)
     table = config["table"]
-    row_id = existing_map.get(parsed.source_id)
+    existing_entry = existing_map.get(parsed.source_id) or {}
+    row_id = existing_entry.get("id")
+    current_status = existing_entry.get("status")
 
     # A native DPH listing always takes priority over a Reddit import of the
     # same vehicle. This check deliberately runs for both new rows and rows
@@ -303,8 +311,34 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
             )
             return
 
+        # A brand-new post (no DB row yet) whose VIN matches another live
+        # Reddit import is a repost of a car already on the site — refuse the
+        # second copy instead of creating a duplicate. Sequential processing
+        # within a run means an earlier post in the same batch is already
+        # committed by the time a later duplicate reaches this check.
+        if not row_id:
+            dupe, rstatus = supabase_request(
+                "get",
+                f"/rest/v1/cars?select=id&vin_number=eq.{vin}"
+                "&source_platform=eq.reddit&status=neq.expired&limit=1",
+            )
+            if rstatus < 400 and isinstance(dupe, list) and dupe:
+                counts["skipped"] = counts.get("skipped", 0) + 1
+                logger.info(
+                    "reddit_import: skipped repost VIN=%s — reddit import already live", vin
+                )
+                return
+
     if row_id:
         update = {k: v for k, v in payload.items() if k != "source_created_at"}
+        # A routine resync must never resurrect a row we (or an admin) took
+        # down on purpose. Only a row still 'approved' or hidden by our own
+        # source_removed check is safe to have its status/is_approved touched;
+        # anything else (expired by the VIN/repost dedup sweeps, or an admin
+        # decision) keeps whatever status it currently has.
+        if current_status not in ("approved", "source_removed", None):
+            update.pop("status", None)
+            update.pop("is_approved", None)
         _, status = supabase_request("patch", f"/rest/v1/{table}?id=eq.{row_id}", data=update)
         if status >= 400 and "import_field_sources" in update:
             # provenance column not yet added (migration pending) — retry without it

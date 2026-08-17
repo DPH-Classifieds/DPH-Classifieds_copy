@@ -9033,31 +9033,6 @@ def _build_public_listing_url(listing_type, listing_id):
     return f"{base}{path}"
 
 
-@app.route("/api/reddit/daily-roundup", methods=["GET"])
-def api_reddit_daily_roundup():
-    """Pre-built Reddit roundup post (title + markdown body) for the Devvit app to
-    submit. Reuses the worker's window/fetch/format so formatting has ONE source of
-    truth. Read-only + stateless (does not touch the reddit_daily_posts guard).
-    Auth: shared secret in the X-Roundup-Token header (env REDDIT_ROUNDUP_TOKEN)."""
-    token = os.getenv("REDDIT_ROUNDUP_TOKEN", "")
-    if not token or request.headers.get("X-Roundup-Token") != token:
-        return jsonify({"error": "unauthorized"}), 401
-    try:
-        days = max(1, min(int(request.args.get("days", "2")), 30))
-    except (TypeError, ValueError):
-        days = 2
-    from workers.reddit_daily_post_worker import (
-        _window, _fetch_listings, build_post, SITE_URL,
-    )
-    since_iso, until_iso, label = _window(days)
-    rows = _fetch_listings(since_iso, until_iso)
-    title, body = build_post(rows, label, SITE_URL)
-    return jsonify({
-        "title": title, "body": body, "count": len(rows),
-        "window": {"since": since_iso, "until": until_iso, "label": label},
-    })
-
-
 def _send_report_admin_notification(report, reporter_email=None):
     from_email = os.getenv("RESEND_FROM_EMAIL")
     to_email = os.getenv("RESEND_TO_EMAIL")
@@ -17561,11 +17536,17 @@ def _expire_reddit_dupes_for_vin(vin):
 
 
 def _run_reddit_vin_dedup_sweep_once():
-    """Safety-net sweep: expire any live Reddit car whose VIN also has a live
-    native DPH car (priority: DPH over Reddit). The on-approval hook already
-    de-dupes new native cars; this catches ones that slipped through (e.g.
-    imported before the hook existed, or approved out of order). Returns the
-    count of VINs de-duped so the worker can log/back off.
+    """Safety-net sweep, run unconditionally: native-DPH-vs-reddit VIN priority,
+    then reddit-vs-reddit repost dedup. Returns the total count de-duped."""
+    return _sweep_native_priority_vin_dupes() + _sweep_reddit_vs_reddit_dupes()
+
+
+def _sweep_native_priority_vin_dupes():
+    """Expire any live Reddit car whose VIN also has a live native DPH car
+    (priority: DPH over Reddit). The on-approval hook already de-dupes new
+    native cars; this catches ones that slipped through (e.g. imported before
+    the hook existed, or approved out of order). Returns the count of VINs
+    de-duped so the worker can log/back off.
     ponytail: single indexed pass in chunks; if live Reddit inventory ever
     exceeds PostgREST's max-rows the tail waits for the next tick — paginate
     then if it becomes real."""
@@ -17614,6 +17595,59 @@ def _run_reddit_vin_dedup_sweep_once():
             if vin:
                 _expire_reddit_dupes_for_vin(vin)
                 deduped += 1
+    return deduped
+
+
+def _normalize_listing_title(title):
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", (title or "").lower())).strip()
+
+
+def _sweep_reddit_vs_reddit_dupes():
+    """Catch reposts the importer's own dedup can't (e.g. several near-simultaneous
+    reposts of the same car landing in one import batch, or the pre-existing
+    backlog). Among live Reddit cars with no native competitor, group by VIN
+    (or, when a post has no VIN, by normalized title + author) and keep only
+    the newest row per group."""
+    rows, _ = supabase_request(
+        "get",
+        "/rest/v1/cars",
+        params={
+            "source_platform": "eq.reddit",
+            "status": "neq.expired",
+            "select": "id,vin_number,listing_title,source_author,created_at",
+            "limit": "100000",
+        },
+        use_service_role=True,
+    )
+    if not isinstance(rows, list) or not rows:
+        return 0
+
+    groups = defaultdict(list)
+    for r in rows:
+        vin = (r.get("vin_number") or "").strip()
+        key = ("vin", vin) if vin else (
+            "ta", _normalize_listing_title(r.get("listing_title")), (r.get("source_author") or "").strip().lower()
+        )
+        groups[key].append(r)
+
+    deduped = 0
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        newest_id = max(group, key=lambda r: r.get("created_at") or "")["id"]
+        for row in group:
+            if row["id"] == newest_id:
+                continue
+            _, status = supabase_request(
+                "patch",
+                f"/rest/v1/cars?id=eq.{row['id']}",
+                data={"status": "expired", "is_approved": False},
+                use_service_role=True,
+            )
+            if status < 400:
+                deduped += 1
+    if deduped:
+        _invalidate_public_inventory_cache("cars")
     return deduped
 
 

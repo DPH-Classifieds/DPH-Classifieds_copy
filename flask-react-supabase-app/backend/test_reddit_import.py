@@ -269,6 +269,18 @@ class MultiCategoryTests(unittest.TestCase):
             self.assertEqual(pay["status"], "approved")
             self.assertTrue(pay["source_url"].startswith("https://www.reddit.com/r/"))
 
+    def test_self_origin_posts_are_never_imported(self):
+        # A post from our own Devvit/bot account, or one linking back to the
+        # site, must never come back in as a "new" listing.
+        for i, author in enumerate(("DPHClassifieds", "dphclassifieds-web", "DPH-Classifieds-WEB")):
+            sub = submission(title="WTS 2018 BMW 120i AED 39,000", id=f"self{i}",
+                              images=[IMG], author=author)
+            self.assertIsNone(parse_listing(sub, NOW), author)
+        sub = submission(title="WTS 2018 BMW 120i AED 39,000",
+                          selftext="See www.dphclassifieds.com/cars/abc for more",
+                          id="t", images=[IMG])
+        self.assertIsNone(parse_listing(sub, NOW))
+
 
 OWNER_ID = "11111111-1111-1111-1111-111111111111"
 _ENV = {

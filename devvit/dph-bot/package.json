@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "name": "dph-bot",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild --bundle --log-level=warning --target=es2023 --format=cjs --outdir=dist/server --platform=node src/server/index.ts",
+    "test:types": "tsc --noEmit",
+    "test": "npm run test:types && npm run build",
+    "upload": "npm run build && devvit upload"
+  },
+  "devDependencies": {
+    "@devvit/web": "0.13.11",
+    "@types/node": "22.20.1",
+    "devvit": "0.13.11",
+    "esbuild": "0.28.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=22.20.0"
+  },
+  "license": "BSD-3-Clause"
+}

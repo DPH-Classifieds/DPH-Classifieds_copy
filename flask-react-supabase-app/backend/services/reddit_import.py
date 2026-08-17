@@ -75,6 +75,11 @@ _URL_RE = re.compile(r"https?://\S+|www\.\S+")
 _WS_RE = re.compile(r"\s+")
 
 _SALE_SIGNALS = ("wts", "for sale", "selling", "for sell")
+# Our own Devvit/bot accounts. A post authored by one of these (or linking back
+# to the site) must never be re-imported — closes the loop even though today's
+# roundup posts already fail the image/WTS gate below.
+_SELF_ORIGIN_AUTHORS = {"dphclassifieds", "dphclassifieds-web", "dph-classifieds-web", "dph-bot"}
+_SELF_ORIGIN_DOMAIN = "dphclassifieds.com"
 # Word-boundary disqualifiers so "gold"/"resold" don't trip "sold".
 _DISQUALIFIERS = (
     r"\bwtb\b", r"\bwanted\b", r"\bsold\b", r"\bsold!\b",
@@ -973,10 +978,14 @@ def parse_listing(submission, now):
         return None
     if submission.is_crosspost or submission.is_removed_or_deleted:
         return None
+    if (submission.author or "").strip().lower() in _SELF_ORIGIN_AUTHORS:
+        return None
     title = (submission.title or "").strip()
     if not title:
         return None
     combined = f"{title}\n{submission.selftext or ''}"
+    if _SELF_ORIGIN_DOMAIN in combined.lower():
+        return None
     if not _looks_like_sale(combined):
         return None
     if not submission.images:

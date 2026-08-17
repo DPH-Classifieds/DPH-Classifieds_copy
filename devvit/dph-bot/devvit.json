@@ -1,33 +1,25 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
-  "name": "dph-roundup-web",
-  "post": {
-    "entrypoints": {
-      "default": {
-        "entry": "splash.html"
-      },
-      "game": {
-        "entry": "game.html"
-      }
-    }
-  },
+  "name": "dph-bot",
   "server": {},
   "permissions": {
     "http": {
       "enable": true,
-      "domains": ["api.github.com"]
+      "domains": [
+        "api.github.com"
+      ]
     }
   },
   "settings": {
     "global": {
       "roundupUrl": {
         "type": "string",
-        "label": "GitHub roundup JSON API URL (api.github.com/repos/.../contents/...)"
+        "label": "GitHub Contents API URL for dph-roundup.json"
       },
       "roundupToken": {
         "type": "string",
         "isSecret": true,
-        "label": "Optional read-only GitHub token (blank for the public bridge repo)"
+        "label": "Optional read-only GitHub token (leave blank for a public bridge repo)"
       }
     },
     "subreddit": {
@@ -48,14 +40,14 @@
   "menu": {
     "items": [
       {
-        "label": "DPH: post roundup now",
+        "label": "DPH Bot: post roundup now",
         "description": "Fetch the prepared DPH car roundup and post it.",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/on/menu/roundup"
       },
       {
-        "label": "DPH: force repost current roundup (testing)",
+        "label": "DPH Bot: force repost current roundup (testing)",
         "description": "Moderator-only test repost; limited to one attempt every 10 minutes.",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -63,13 +55,7 @@
       }
     ]
   },
-  "triggers": {
-    "onAppInstall": "/internal/on/app/install"
-  },
-  "scripts": {
-    "dev": "npm run watch"
-  },
   "dev": {
-    "subreddit": "dph_roundup_web_dev2"
+    "subreddit": "dph_bot_dev"
   }
 }
