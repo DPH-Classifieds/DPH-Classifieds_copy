@@ -10771,7 +10771,6 @@ def signup():
     is_dealer_signup = bool(data.get("isDealer"))
     trn_raw = (data.get("trn") or "").strip()
     legal_business_name = (data.get("legalBusinessName") or "").strip()
-    trade_license_expires_at = (data.get("tradeLicenseExpiresAt") or "").strip()
 
     if is_dealer_signup:
         if not legal_business_name or len(legal_business_name) < 3:
@@ -10799,26 +10798,6 @@ def signup():
                 "code": "trn_in_use",
                 "field": "trn",
             }), 409
-        if not trade_license_expires_at:
-            return jsonify({
-                "message": "Trade license expiry date is required",
-                "code": "trade_license_expires_at_required",
-                "field": "tradeLicenseExpiresAt",
-            }), 400
-        try:
-            tlx_date = datetime.datetime.fromisoformat(trade_license_expires_at)
-            if tlx_date.date() <= datetime.datetime.utcnow().date():
-                return jsonify({
-                    "message": "Trade license expiry date must be in the future",
-                    "code": "trade_license_expires_at_invalid",
-                    "field": "tradeLicenseExpiresAt",
-                }), 400
-        except ValueError:
-            return jsonify({
-                "message": "Trade license expiry date is invalid",
-                "code": "trade_license_expires_at_invalid",
-                "field": "tradeLicenseExpiresAt",
-            }), 400
         trn_normalized = trn_digits
     else:
         trn_normalized = ""

@@ -43,7 +43,7 @@ export default function AdminReportsScreen() {
         text: 'Dismiss',
         onPress: async () => {
           try {
-            await apiClient.put(`/api/admin/reports/${report.id}`, { status: 'dismissed' });
+            await apiClient.patch(`/api/admin/reports/${report.id}`, { status: 'dismissed' });
             setReports((prev) =>
               prev.map((r) => (r.id === report.id ? { ...r, status: 'dismissed' } : r))
             );
@@ -63,7 +63,7 @@ export default function AdminReportsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await apiClient.put(`/api/admin/reports/${report.id}`, {
+            await apiClient.patch(`/api/admin/reports/${report.id}`, {
               status: 'resolved',
               action: 'remove_listing',
             });

@@ -24,9 +24,10 @@ export default function AdminUserDetailScreen({ route, navigation }) {
     }
   };
 
-  const handleMakeAdmin = async () => {
+  const handleToggleAdmin = async () => {
     try {
-      await apiClient.post(`/api/admin/users/${userId}/make-admin`);
+      const endpoint = user.is_admin ? 'remove-admin' : 'make-admin';
+      await apiClient.post(`/api/admin/users/${userId}/${endpoint}`);
       loadUser();
     } catch (err) { Alert.alert('Error', err.message); }
   };
@@ -95,11 +96,11 @@ export default function AdminUserDetailScreen({ route, navigation }) {
 
         <View style={styles.actions}>
           {user.is_admin ? (
-            <TouchableOpacity style={styles.secondaryBtn} onPress={handleMakeAdmin} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={handleToggleAdmin} activeOpacity={0.7}>
               <Text style={styles.secondaryBtnText}>Remove Admin</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleMakeAdmin} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleToggleAdmin} activeOpacity={0.7}>
               <Text style={styles.primaryBtnText}>Make Admin</Text>
             </TouchableOpacity>
           )}

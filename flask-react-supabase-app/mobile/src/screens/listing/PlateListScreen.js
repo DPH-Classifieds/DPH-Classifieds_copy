@@ -197,7 +197,7 @@ export default function PlateListScreen({ navigation }) {
       options = SORT_OPTIONS.map((s) => s.label);
     } else if (filterModal === 'city') {
       title = 'City';
-      options = ['All', ...PLATE_CITIES];
+      options = ['All', ...PLATE_CITIES.map((c) => c.name)];
     } else if (filterModal === 'digits') {
       title = 'Digits Count';
       options = DIGIT_OPTIONS;
