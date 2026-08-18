@@ -651,7 +651,7 @@ def approve_listing(listing_id):
                 logger.error(f"Failed to send approval email: {email_err}")
 
             # Clean up registration document (Mulkiya) after approval
-            if item_type == "cars":
+            if listing_type == "cars":
                 try:
                     updated_rows = response.json()
                     if updated_rows and len(updated_rows) > 0:
@@ -676,13 +676,13 @@ def approve_listing(listing_id):
                                         f"Failed to delete registration document: {del_resp.status_code}"
                                     )
                             requests.patch(
-                                f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{item_id}",
+                                f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{listing_id}",
                                 headers=headers,
                                 json={"registration_document_url": None},
                                 timeout=5,
                             )
                             logger.info(
-                                f"Cleared registration_document_url for {item_type} {item_id}"
+                                f"Cleared registration_document_url for {listing_type} {listing_id}"
                             )
                 except Exception as cleanup_err:
                     logger.warning(
@@ -690,15 +690,15 @@ def approve_listing(listing_id):
                     )
 
             return jsonify(
-                {"success": True, "message": f"{item_type} {item_id} approved"}
+                {"success": True, "message": f"{listing_type} {listing_id} approved"}
             ), 200
         else:
             logger.error(
-                f"Error approving {item_type} {item_id}: {response.status_code}"
+                f"Error approving {listing_type} {listing_id}: {response.status_code}"
             )
             return jsonify({"error": f"Error approving item"}), 500
     except Exception as e:
-        logger.error(f"Exception approving {item_type} {item_id}: {e}")
+        logger.error(f"Exception approving {listing_type} {listing_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
 

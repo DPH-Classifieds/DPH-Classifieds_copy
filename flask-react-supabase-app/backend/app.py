@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import ContextVar
 from collections import defaultdict, deque
 from functools import wraps
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse, quote, parse_qs
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from flask_cors import CORS
@@ -42,6 +42,11 @@ from xml.sax.saxutils import escape as xml_escape
 from analytics_metrics import build_platform_metrics, classify_platform_path
 from services.analytics_events import AnalyticsEventError, normalize_analytics_event
 from services.contact_analytics import build_contact_analytics, build_vin_listing_activity
+from services.featured_listings import (
+    ALLOWED_LISTING_TYPES,
+    is_listing_active_featured,
+    validate_featured_input,
+)
 from expo_push import send_expo_push, dead_push_tokens, is_valid_expo_token
 
 try:
@@ -24166,16 +24171,21 @@ def get_recommendations():
                 continue
             table, price_col = type_map[t]
 
-            query = supabase.table(table).select("*").eq("is_approved", True)
-
+            params = [
+                ("select", "*"), ("is_approved", "eq.true"),
+                ("order", "created_at.desc"), ("limit", str(limit)),
+            ]
             if avg_price and price_col:
                 low = avg_price * 0.6
                 high = avg_price * 1.4
-                query = query.gte(price_col, low).lte(price_col, high)
+                params.append((price_col, f"gte.{low}"))
+                params.append((price_col, f"lte.{high}"))
 
-            items = (
-                query.order("created_at", desc=True).limit(limit).execute().data or []
+            items, status = supabase_request(
+                "get", f"/rest/v1/{table}", params=params, use_service_role=True,
             )
+            if status >= 400 or not isinstance(items, list):
+                continue
             for item in items:
                 item_id = str(item.get("id", ""))
                 if item_id in viewed_ids:
@@ -24200,16 +24210,17 @@ def _get_newest_recommendations(limit):
         ("plate", "license_plates"),
     ]
     for type_key, table in queries:
-        items = (
-            supabase.table(table)
-            .select("*")
-            .eq("is_approved", True)
-            .order("created_at", desc=True)
-            .limit(limit // len(queries) + 1)
-            .execute()
-            .data
-            or []
+        items, status = supabase_request(
+            "get", f"/rest/v1/{table}",
+            params=[
+                ("select", "*"), ("is_approved", "eq.true"),
+                ("order", "created_at.desc"),
+                ("limit", str(limit // len(queries) + 1)),
+            ],
+            use_service_role=True,
         )
+        if status >= 400 or not isinstance(items, list):
+            continue
         for item in items:
             results.append(_normalize_recommendation(item, type_key))
 
