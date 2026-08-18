@@ -10200,6 +10200,43 @@ def dealer_listing_limit(current_user):
     return jsonify(summary), 200
 
 
+def decide_upgrade_request(current_limit, requested_limit, decision, new_limit, admin_id):
+    """Pure decision: what should the admin's approve/reject action do?
+
+    Returns (new_limit, history_dict_or_None, error_or_None).
+    - decision='reject'      → (None, None, None)
+    - decision='approve'     → (int new_limit, history dict, None) when valid
+    - any other value        → (None, None, {code: invalid_decision, ...})
+
+    `new_limit` is the cap the admin wants to set (may differ from what the
+    dealer asked for). It is required for 'approve' and must be in
+    [1, MAX_LIMIT].
+    """
+    if decision == "reject":
+        return None, None, None
+    if decision != "approve":
+        return None, None, {"code": "invalid_decision",
+                            "message": "decision must be 'approve' or 'reject'"}
+    if new_limit is None:
+        return None, None, {"code": "new_limit_required",
+                            "message": "new_limit is required to approve"}
+    try:
+        nl = int(new_limit)
+    except (TypeError, ValueError):
+        return None, None, {"code": "invalid_new_limit",
+                            "message": "new_limit must be a number"}
+    if nl <= 0 or nl > _DEALER_UPGRADE_REQUEST_MAX_LIMIT:
+        return None, None, {"code": "invalid_new_limit",
+                            "message": f"new_limit must be 1..{_DEALER_UPGRADE_REQUEST_MAX_LIMIT}"}
+    history = {
+        "old_limit": int(current_limit),
+        "new_limit": nl,
+        "changed_by": admin_id,
+        "source": "upgrade_request",
+    }
+    return nl, history, None
+
+
 def _send_dealer_listing_upgrade_admin_notification(request_row, dealer_row):
     """Email every admin when a dealer requests a higher listing cap.
 
@@ -10293,6 +10330,131 @@ def dealer_create_listing_upgrade_request(current_user):
     except Exception as exc:
         logger.warning("Dealer upgrade request admin notification failed: %s", exc)
     return jsonify(row), 201
+
+
+@app.route("/api/admin/dealer/listing-upgrade-requests", methods=["GET"])
+@token_required
+def admin_list_listing_upgrade_requests(current_user):
+    """Admin-only list of listing-upgrade requests, filterable by status.
+
+    Joins each request with a minimal dealer record so the admin UI can
+    render the queue without a second round-trip per row.
+    """
+    if not _user_has_admin_role(current_user):
+        return jsonify({"error": "Admin only"}), 403
+    status_filter = (request.args.get("status") or "pending").strip()
+    params = {
+        "select": "id,dealer_id,current_limit,requested_limit,reason,status,created_at,resolved_at,resolution_note",
+        "status": f"eq.{status_filter}",
+        "order": "created_at.desc",
+        "limit": "100",
+    }
+    rows, code = supabase_request(
+        "get", "/rest/v1/dealer_listing_upgrade_requests",
+        params=params, use_service_role=True,
+    )
+    if code >= 400:
+        return jsonify({"error": "Failed to fetch upgrade requests"}), 500
+    dealer_ids = list({r["dealer_id"] for r in (rows or [])})
+    dealers = {}
+    if dealer_ids:
+        in_filter = ",".join(dealer_ids)
+        drows, dcode = supabase_request(
+            "get", "/rest/v1/users",
+            params={
+                "id": f"in.({in_filter})",
+                "select": "id,email,company_name,legal_business_name,dealer_listing_limit,is_dealer,dealer_verified",
+            },
+            use_service_role=True,
+        )
+        if dcode < 400 and isinstance(drows, list):
+            for d in drows:
+                dealers[d["id"]] = d
+    for r in (rows or []):
+        r["dealer"] = dealers.get(r["dealer_id"], {"id": r["dealer_id"]})
+    return jsonify(rows or []), 200
+
+
+@app.route("/api/admin/dealer/listing-upgrade-requests/<request_id>/decision", methods=["POST"])
+@token_required
+def admin_decide_listing_upgrade_request(current_user, request_id):
+    """Admin-only approve/reject decision on a pending upgrade request.
+
+    On approve: updates the request, patches users.dealer_listing_limit, writes
+    a dealer_listing_limit_history row, and emails the dealer. On reject: just
+    updates the request and (best-effort) emails the dealer.
+    """
+    if not _user_has_admin_role(current_user):
+        return jsonify({"error": "Admin only"}), 403
+    body = request.get_json(silent=True) or {}
+    existing, code = supabase_request(
+        "get", f"/rest/v1/dealer_listing_upgrade_requests?id=eq.{request_id}&limit=1",
+        use_service_role=True,
+    )
+    if code >= 400 or not existing:
+        return jsonify({"error": "Upgrade request not found"}), 404
+    req = existing[0]
+    if req["status"] != "pending":
+        return jsonify({"error": "Request already resolved", "status": req["status"]}), 409
+    nl, history, err = decide_upgrade_request(
+        req["current_limit"], req["requested_limit"], body.get("decision"),
+        body.get("new_limit"), current_user,
+    )
+    if err:
+        status = 400 if err["code"] in ("new_limit_required", "invalid_decision", "invalid_new_limit") else 500
+        return jsonify(err), status
+    now = _utc_now().isoformat()
+    patch_resp, patch_code = supabase_request(
+        "patch", f"/rest/v1/dealer_listing_upgrade_requests?id=eq.{request_id}",
+        data={
+            "status": "approved" if nl else "rejected",
+            "resolved_by": current_user,
+            "resolved_at": now,
+            "resolution_note": (body.get("note") or "").strip() or None,
+        },
+        use_service_role=True,
+    )
+    if patch_code >= 400:
+        return jsonify({"error": "Failed to update upgrade request"}), 500
+    if nl is not None:
+        _, ucode = supabase_request(
+            "patch", f"/rest/v1/users?id=eq.{req['dealer_id']}",
+            data={"dealer_listing_limit": nl}, use_service_role=True,
+        )
+        if ucode >= 400:
+            return jsonify({"error": "Failed to update dealer limit"}), 500
+        history["reason"] = (body.get("note") or "").strip() or f"Approved upgrade request {request_id}"
+        history["request_id"] = request_id
+        supabase_request(
+            "post", "/rest/v1/dealer_listing_limit_history",
+            data={"dealer_id": req["dealer_id"], **history},
+            use_service_role=True,
+        )
+        # Best-effort dealer notification email
+        try:
+            drow, _ = supabase_request(
+                "get",
+                f"/rest/v1/users?id=eq.{req['dealer_id']}&select=email,first_name",
+                use_service_role=True,
+            )
+            if drow and drow[0].get("email"):
+                from_email = os.getenv("RESEND_FROM_EMAIL")
+                if from_email:
+                    _send_resend_email({
+                        "from": from_email,
+                        "to": [drow[0]["email"]],
+                        "subject": f"Your DPH Classifieds listing limit has been updated to {nl}",
+                        "html": (
+                            f"<p>Hi {drow[0].get('first_name') or 'there'},</p>"
+                            f"<p>Your listing limit has been updated to <strong>{nl}</strong> active ads.</p>"
+                            f"<p>You can now post more listings in your "
+                            f"<a href='{SITE_URL}/dealer/inventory'>Dealer Inventory</a>.</p>"
+                        ),
+                    }, email_type="dealer_listing_limit_updated")
+        except Exception as exc:
+            logger.warning("Dealer limit update email failed: %s", exc)
+    return jsonify({"new_limit": nl, "request": req,
+                    "status": "approved" if nl else "rejected"}), 200
 
 
 @app.route("/api/user/dealer-documents", methods=["DELETE"])
