@@ -7,7 +7,7 @@ def test_rolling_window_is_exactly_48_hours_and_keeps_dubai_label():
     now = datetime(2026, 8, 18, 8, 0, tzinfo=timezone.utc)
     since, until, label = _rolling_window(48, now)
     assert datetime.fromisoformat(until) - datetime.fromisoformat(since) == timedelta(hours=48)
-    assert "Dubai time" in label
+    assert label == "16 Aug 2026 - 18 Aug 2026"
 
 
 def test_payload_uses_daily_cycle_and_all_rendered_posts(monkeypatch):

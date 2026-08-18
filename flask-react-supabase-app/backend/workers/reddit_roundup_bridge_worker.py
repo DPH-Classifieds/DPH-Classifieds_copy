@@ -45,7 +45,8 @@ def _rolling_window(hours=48, now=None):
         until = until.replace(tzinfo=timezone.utc)
     until = until.astimezone(timezone.utc)
     since = until - timedelta(hours=hours)
-    label = f"{since.astimezone(timezone(timedelta(hours=4))).strftime('%-d %b %Y, %-I:%M %p')}–{until.astimezone(timezone(timedelta(hours=4))).strftime('%-d %b %Y, %-I:%M %p')} Dubai time"
+    dubai_tz = timezone(timedelta(hours=4))
+    label = f"{since.astimezone(dubai_tz).strftime('%-d %b %Y')} - {until.astimezone(dubai_tz).strftime('%-d %b %Y')}"
     return since.isoformat(), until.isoformat(), label
 
 
