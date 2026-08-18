@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { FlashList } from '@shopify/flash-list';
@@ -21,15 +21,11 @@ import UAEPlate from '../../components/ui/UAEPlate';
 import ListHeader from '../../components/ui/ListHeader';
 import { useGridColumns } from '../../hooks/useGridColumns';
 import { toastApiError } from '../../utils/toast';
+import { PLATES_SORT_OPTIONS, buildPlatesQuery } from '../../utils/platesQuery';
 
 const DIGIT_OPTIONS = ['Any', '1', '2', '3', '4', '5'];
 
-const SORT_OPTIONS = [
-  { label: 'Newest', order: 'created_at.desc' },
-  { label: 'Oldest', order: 'created_at.asc' },
-  { label: 'Price: Low to High', order: 'price.asc' },
-  { label: 'Price: High to Low', order: 'price.desc' },
-];
+const SORT_OPTIONS = PLATES_SORT_OPTIONS;
 
 const PAGE_SIZE = 15;
 
@@ -92,16 +88,9 @@ export default function PlateListScreen({ navigation }) {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const buildQuery = useCallback((pageNum, searchVal, filters) => {
-    let params = [`page=${pageNum}`, `per_page=${PAGE_SIZE}`];
-    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
-    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
-    if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
-    if (filters.city) params.push(`city=${encodeURIComponent(filters.city)}`);
-    if (filters.digits && filters.digits !== 'Any') params.push(`digits=${filters.digits}`);
-    if (filters.hideReddit) params.push('exclude_reddit=true');
-    return `/api/plates?${params.join('&')}`;
-  }, []);
+  const buildQuery = useCallback((pageNum, _searchVal, filters) => (
+    buildPlatesQuery(pageNum, PAGE_SIZE, filters)
+  ), []);
 
   const fetchPlates = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
@@ -175,6 +164,17 @@ export default function PlateListScreen({ navigation }) {
     if (k === 'hideReddit') return v === true;
     return v !== '' && v !== null && v !== 'Any';
   });
+
+  // Backend has no free-text search — filter client-side within the fetched
+  // page(s), same approach as CarListScreen's visibleCars.
+  const visiblePlates = useMemo(() => {
+    if (!search.trim()) return plates;
+    const q = search.toLowerCase();
+    return plates.filter((p) => {
+      const haystack = [p.city, p.code, p.number || p.digits].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [plates, search]);
 
   const renderFilterChip = (label, key, isActive) => (
     <TouchableOpacity
@@ -300,7 +300,7 @@ export default function PlateListScreen({ navigation }) {
             key={`cols-${columns}`}
             numColumns={columns}
             estimatedItemSize={columns === 2 ? 210 : 260}
-            data={plates}
+            data={visiblePlates}
             renderItem={renderPlateCard}
             keyExtractor={(item, idx) => String(item.id || idx)}
             contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}

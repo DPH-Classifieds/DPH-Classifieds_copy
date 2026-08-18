@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
@@ -21,6 +21,7 @@ import PressableScale from '../../components/ui/PressableScale';
 import ListHeader from '../../components/ui/ListHeader';
 import { useGridColumns } from '../../hooks/useGridColumns';
 import { toastApiError } from '../../utils/toast';
+import { PARTS_SORT_OPTIONS, buildPartsQuery } from '../../utils/partsQuery';
 
 const CONDITION_OPTIONS = ['New', 'Used', 'Refurbished'];
 const PART_TYPES = [
@@ -29,12 +30,7 @@ const PART_TYPES = [
   'Accessories', 'Tools', 'Other',
 ];
 
-const SORT_OPTIONS = [
-  { label: 'Newest', order: 'created_at.desc' },
-  { label: 'Oldest', order: 'created_at.asc' },
-  { label: 'Price: Low to High', order: 'price.asc' },
-  { label: 'Price: High to Low', order: 'price.desc' },
-];
+const SORT_OPTIONS = PARTS_SORT_OPTIONS;
 
 const PAGE_SIZE = 15;
 
@@ -107,16 +103,9 @@ export default function PartListScreen({ navigation }) {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const buildQuery = useCallback((pageNum, searchVal, filters) => {
-    let params = [`page=${pageNum}`, `per_page=${PAGE_SIZE}`];
-    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
-    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
-    if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
-    if (filters.condition) params.push(`condition=${encodeURIComponent(filters.condition)}`);
-    if (filters.partType) params.push(`part_type=${encodeURIComponent(filters.partType)}`);
-    if (filters.hideReddit) params.push('exclude_reddit=true');
-    return `/api/parts?${params.join('&')}`;
-  }, []);
+  const buildQuery = useCallback((pageNum, _searchVal, filters) => (
+    buildPartsQuery(pageNum, PAGE_SIZE, filters)
+  ), []);
 
   const fetchParts = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
@@ -190,6 +179,17 @@ export default function PartListScreen({ navigation }) {
     if (k === 'hideReddit') return v === true;
     return v !== '';
   });
+
+  // Backend has no free-text search — filter client-side within the fetched
+  // page(s), same approach as CarListScreen's visibleCars.
+  const visibleParts = useMemo(() => {
+    if (!search.trim()) return parts;
+    const q = search.toLowerCase();
+    return parts.filter((p) => {
+      const haystack = [p.name, p.part_type, p.brand, p.model].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [parts, search]);
 
   const renderFilterChip = (label, key, isActive) => (
     <TouchableOpacity
@@ -308,7 +308,7 @@ export default function PartListScreen({ navigation }) {
             key={`cols-${columns}`}
             numColumns={columns}
             estimatedItemSize={columns === 2 ? 210 : 260}
-            data={parts}
+            data={visibleParts}
             renderItem={renderPartCard}
             keyExtractor={(item, idx) => String(item.id || idx)}
             contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}

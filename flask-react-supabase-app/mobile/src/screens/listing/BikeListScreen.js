@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
@@ -20,6 +20,7 @@ import PressableScale from '../../components/ui/PressableScale';
 import ListHeader from '../../components/ui/ListHeader';
 import { useGridColumns } from '../../hooks/useGridColumns';
 import { toastApiError } from '../../utils/toast';
+import { BIKES_SORT_OPTIONS, BIKES_PRICE_RANGES, buildBikesQuery } from '../../utils/bikesQuery';
 
 const BIKE_BRANDS = [
   'Honda', 'Yamaha', 'Kawasaki', 'Suzuki', 'BMW', 'Ducati', 'Harley-Davidson',
@@ -29,25 +30,8 @@ const BIKE_BRANDS = [
 
 const BIKE_TYPES = ['Sport', 'Cruiser', 'Adventure', 'Touring', 'Naked', 'Dirt', 'Scooter', 'Other'];
 
-const PRICE_RANGES = [
-  { label: 'Any', min: 0, max: 0 },
-  { label: 'Under 10k', min: 0, max: 10000 },
-  { label: '10k - 25k', min: 10000, max: 25000 },
-  { label: '25k - 50k', min: 25000, max: 50000 },
-  { label: '50k - 100k', min: 50000, max: 100000 },
-  { label: 'Above 100k', min: 100000, max: 0 },
-];
-
-// Bikes table columns are year / mileage / price (NOT make_year /
-// kilometer_driven / expected_selling_price — those 400 and empty the list).
-const SORT_OPTIONS = [
-  { label: 'Newest', order: 'created_at.desc' },
-  { label: 'Oldest', order: 'created_at.asc' },
-  { label: 'Price: Low to High', order: 'price.asc' },
-  { label: 'Price: High to Low', order: 'price.desc' },
-  { label: 'Year: High to Low', order: 'year.desc' },
-  { label: 'KM: High to Low', order: 'mileage.desc' },
-];
+const SORT_OPTIONS = BIKES_SORT_OPTIONS;
+const PRICE_RANGES = BIKES_PRICE_RANGES;
 
 const PAGE_SIZE = 15;
 
@@ -121,23 +105,9 @@ export default function BikeListScreen({ navigation }) {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const buildQuery = useCallback((pageNum, searchVal, filters) => {
-    let params = [`page=${pageNum}`, `per_page=${PAGE_SIZE}`];
-    const sortOpt = SORT_OPTIONS.find((s) => s.label === filters.sort) || SORT_OPTIONS[0];
-    params.push(`order=${encodeURIComponent(sortOpt.order)}`);
-    if (searchVal) params.push(`search=${encodeURIComponent(searchVal)}`);
-    if (filters.brand) params.push(`brand=${encodeURIComponent(filters.brand)}`);
-    if (filters.type) params.push(`type=${encodeURIComponent(filters.type)}`);
-    if (filters.priceRange) {
-      if (filters.priceRange.max > 0) {
-        params.push(`min_price=${filters.priceRange.min}`, `max_price=${filters.priceRange.max}`);
-      } else if (filters.priceRange.min > 0) {
-        params.push(`min_price=${filters.priceRange.min}`);
-      }
-    }
-    if (filters.hideReddit) params.push('exclude_reddit=true');
-    return `/api/bikes?${params.join('&')}`;
-  }, []);
+  const buildQuery = useCallback((pageNum, _searchVal, filters) => (
+    buildBikesQuery(pageNum, PAGE_SIZE, filters)
+  ), []);
 
   const fetchBikes = useCallback(async (pageNum = 1, searchVal = '', filters = activeFilters, isRefresh = false, silent = false) => {
     try {
@@ -218,6 +188,18 @@ export default function BikeListScreen({ navigation }) {
     if (k === 'hideReddit') return v === true;
     return v !== '' && v !== null;
   });
+
+  // Backend has no free-text search — filter client-side within the fetched
+  // page(s), same approach as CarListScreen's visibleCars.
+  const visibleBikes = useMemo(() => {
+    if (!search.trim()) return bikes;
+    const q = search.toLowerCase();
+    return bikes.filter((b) => {
+      const haystack = [b.bike_brand, b.bike_model, b.make_year != null ? String(b.make_year) : '']
+        .filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [bikes, search]);
 
   const renderFilterChip = (label, key, isActive) => (
     <TouchableOpacity
@@ -356,7 +338,7 @@ export default function BikeListScreen({ navigation }) {
             key={`cols-${columns}`}
             numColumns={columns}
             estimatedItemSize={columns === 2 ? 210 : 260}
-            data={bikes}
+            data={visibleBikes}
             renderItem={renderBikeCard}
             keyExtractor={(item, idx) => String(item.id || idx)}
             contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}

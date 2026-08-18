@@ -776,6 +776,29 @@ def _parse_pagination_args():
     return limit, offset
 
 
+def _collect_listing_filter_pairs(eq_fields, range_fields=None):
+    """Read request.args for allow-listed listing filters (mirrors /api/cars'
+    allowed_filters pattern for bikes/parts/plates). Returns a list of
+    (db_field, postgrest_value) pairs rather than a dict — a dict would let a
+    _to value silently overwrite a _from value set on the same column when both
+    bounds of a range filter are supplied together.
+    eq_fields: {url_param: db_column} for exact-match filters.
+    range_fields: {url_prefix: db_column} for {prefix}_from/{prefix}_to filters."""
+    pairs = []
+    for url_param, db_column in eq_fields.items():
+        value = request.args.get(url_param)
+        if value:
+            pairs.append((db_column, f"eq.{value}"))
+    for prefix, db_column in (range_fields or {}).items():
+        from_value = request.args.get(f"{prefix}_from")
+        if from_value:
+            pairs.append((db_column, f"gte.{from_value}"))
+        to_value = request.args.get(f"{prefix}_to")
+        if to_value:
+            pairs.append((db_column, f"lte.{to_value}"))
+    return pairs
+
+
 def _extract_request_path(path):
     return path.split("?", 1)[0] if isinstance(path, str) else "unknown"
 
@@ -13632,7 +13655,14 @@ def get_bikes():
         elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
-        logger.info(f"Fetching bikes with params: {params}")
+        # Bikes table columns are bike_brand / bike_type / price — matches the
+        # url param names the mobile/web browse screens already send.
+        filter_pairs = _collect_listing_filter_pairs(
+            {"bike_brand": "bike_brand", "bike_type": "bike_type"},
+            {"price": "price"},
+        )
+
+        logger.info(f"Fetching bikes with params: {params} filters: {filter_pairs}")
 
         try:
             # Use direct request with service role key for admin operations
@@ -13650,6 +13680,7 @@ def get_bikes():
                     query_params.append(f"order={value}")
                 else:
                     query_params.append(f"{key}={value}")
+            query_params.extend(f"{k}={v}" for k, v in filter_pairs)
 
             query_string = "&".join(query_params)
             # Build query with join for images
@@ -13726,10 +13757,15 @@ def get_bikes():
 
         except Exception as e:
             logger.error(f"Error in direct request: {str(e)}")
-            # Fallback to regular Supabase client (single joined query; no N+1 image fetch)
-            fallback_params = {
-                **params,
-                "select": (
+            # Fallback to regular Supabase client (single joined query; no N+1 image fetch).
+            # A list of pairs (not a dict merge) so a price_from+price_to pair doesn't
+            # collide on the shared "price" key — requests serializes duplicate-key
+            # pairs correctly, a dict can't hold two values under one key.
+            fallback_params = (
+                list(params.items())
+                + filter_pairs
+                + [(
+                    "select",
                     "id,user_id,bike_brand,bike_model,year,bike_type,engine_size,mileage,"
                     "color,price,location,area,emirate,description,contact_number,country_code,"
                     "status,is_approved,created_at,updated_at,"
@@ -13738,8 +13774,8 @@ def get_bikes():
                     "bike_images("
                     + LISTING_IMAGE_SELECTS["bikes"]
                     + ")"
-                ),
-            }
+                )]
+            )
             response, status_code = supabase_request(
                 "get", "/rest/v1/bikes", params=fallback_params, use_service_role=True
             )
@@ -15440,10 +15476,14 @@ def get_plates():
         else:
             approved_clause = "status=eq.approved&is_approved=eq.true"
             source_clause = "" if not _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()) else "&or=(source_platform.is.null,source_platform.neq.reddit)"
+        # license_plates table columns are city / digits — matches the url param
+        # names the mobile/web browse screens already send.
+        filter_pairs = _collect_listing_filter_pairs({"city": "city", "digits": "digits"})
+        filter_clause = "".join(f"&{k}={v}" for k, v in filter_pairs)
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
             f"{app.config['SUPABASE_URL']}/rest/v1/license_plates?{approved_clause}&order={order}"
-            f"{source_clause}"
+            f"{source_clause}{filter_clause}"
             f"&limit={limit}&offset={offset}&select=id,user_id,city,code,digits,price,number,plate_format,"
             "description,contact_phone,contact_name,country_code,source_platform,source_url,status,is_approved,created_at,updated_at,"
             "expires_at,retention_expires_at,expired_at,is_archived,deleted_at,"
@@ -15750,7 +15790,14 @@ def get_parts():
         elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
-        logger.info(f"Fetching parts with params: {params}")
+        # car_parts table columns are condition / part_type — matches the url
+        # param names the mobile/web browse screens already send. No range
+        # filter in either UI today, so plain eq pairs are enough.
+        filter_pairs = _collect_listing_filter_pairs(
+            {"condition": "condition", "part_type": "part_type"}
+        )
+
+        logger.info(f"Fetching parts with params: {params} filters: {filter_pairs}")
 
         try:
             # Use direct request with service role key for admin operations
@@ -15768,6 +15815,7 @@ def get_parts():
                     query_params.append(f"order={value}")
                 else:
                     query_params.append(f"{key}={value}")
+            query_params.extend(f"{k}={v}" for k, v in filter_pairs)
 
             query_string = "&".join(query_params)
             # Build query with join for images
@@ -15836,6 +15884,7 @@ def get_parts():
             # Fallback to regular Supabase client (single joined query; no N+1 image fetch)
             fallback_params = {
                 **params,
+                **dict(filter_pairs),
                 "select": (
                     "id,user_id,name,part_type,condition,price,location,area,emirate,"
                     "description,contact_number,country_code,status,is_approved,created_at,updated_at,"

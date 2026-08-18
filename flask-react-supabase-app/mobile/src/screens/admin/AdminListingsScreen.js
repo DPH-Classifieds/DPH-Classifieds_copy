@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, TouchableOpacity, Image, Alert, StyleSheet, RefreshControl, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Image, Alert, StyleSheet, RefreshControl, ScrollView, Modal, TextInput } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,7 +78,7 @@ const getDisplayPrice = (item) => {
   return item.price || item.expected_selling_price || 0;
 };
 
-function AdminListingCard({ item, index, onPress, onApprove, onReject }) {
+function AdminListingCard({ item, index, onPress, onApprove, onReject, selectionMode, selected, onToggleSelect }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const imageUri = getImageUri(item);
   const title = getTitle(item);
@@ -89,9 +89,18 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject }) {
   const placeholderIcon = isBuyingRequest ? 'cart-outline' : 'image-outline';
   return (
     <Animated.View style={animatedStyle}>
-      <PressableScale onPress={onPress}>
+      <PressableScale onPress={selectionMode ? onToggleSelect : onPress}>
         <View style={styles.card}>
           <View style={styles.cardContent}>
+            {selectionMode && (
+              <TouchableOpacity onPress={onToggleSelect} style={styles.checkboxWrap} activeOpacity={0.7}>
+                <Ionicons
+                  name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={24}
+                  color={selected ? COLORS.accent : COLORS.textMuted}
+                />
+              </TouchableOpacity>
+            )}
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={styles.thumbnail} />
             ) : (
@@ -161,6 +170,13 @@ export default function AdminListingsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [kpi, setKpi] = useState({ total: 0, pending: 0, active: 0 });
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkRenewModal, setBulkRenewModal] = useState(false);
+  const [bulkRenewReason, setBulkRenewReason] = useState('');
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
+  const [bulkDeleteReason, setBulkDeleteReason] = useState('');
 
   useEffect(() => {
     fetchListings();
@@ -269,6 +285,151 @@ export default function AdminListingsScreen({ navigation }) {
     );
   };
 
+  // Mirrors frontend/src/components/AdminListings.js rowKey/isRenewable.
+  const rowKey = (item) => `${item.listing_type || 'cars'}:${item.id}`;
+
+  const isRenewable = (item) => {
+    if (!item) return false;
+    const rawStatus = String(item.status || '').toLowerCase();
+    if (['sold', 'deleted', 'rejected', 'archived'].includes(rawStatus)) return false;
+    if (item.deleted_at || item.is_archived) return false;
+    return true;
+  };
+
+  const isRestorable = (item) => {
+    const ds = String(item.listing_state || item.status || '').toLowerCase();
+    const rs = String(item.status || '').toLowerCase();
+    return ds === 'deleted' || rs === 'deleted' || rs === 'rejected';
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      if (prev) setSelectedIds(new Set());
+      return !prev;
+    });
+  };
+
+  const toggleRowSelected = (item) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const key = rowKey(item);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const selectedListings = listings.filter((l) => selectedIds.has(rowKey(l)));
+  const bulkHasPending = selectedListings.some((l) => (l._table_status || l.status) === 'pending');
+  const bulkHasRenewable = selectedListings.some(isRenewable);
+  const bulkHasRestorable = selectedListings.some(isRestorable);
+
+  const bulkItemsPayload = () => {
+    const items = [];
+    for (const key of selectedIds) {
+      const [type, id] = key.split(':');
+      if (type && id) items.push({ type, id });
+    }
+    return items;
+  };
+
+  const handleBulkApprove = async () => {
+    const items = bulkItemsPayload();
+    if (!items.length) return;
+    setBulkBusy(true);
+    try {
+      const resp = await apiClient.post('/api/admin/listings/approve-bulk', { items });
+      const total = Number(resp?.total ?? items.length);
+      const succeeded = Number(resp?.succeeded ?? 0);
+      Alert.alert('Bulk approve', `Approved ${succeeded} of ${total}.`);
+      clearSelection();
+      fetchListings();
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Bulk approve failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkRenew = async () => {
+    const items = bulkItemsPayload();
+    if (!items.length) return;
+    setBulkBusy(true);
+    try {
+      const resp = await apiClient.post('/api/admin/listings/renew-bulk', {
+        items,
+        reason: bulkRenewReason.trim() || undefined,
+      });
+      const total = Number(resp?.total ?? items.length);
+      const succeeded = Number(resp?.succeeded ?? 0);
+      Alert.alert('Bulk renew', `Renewed ${succeeded} of ${total}.`);
+      setBulkRenewModal(false);
+      setBulkRenewReason('');
+      clearSelection();
+      fetchListings();
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Bulk renew failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!bulkDeleteReason.trim()) {
+      Alert.alert('Reason required', 'Please enter a removal reason.');
+      return;
+    }
+    const items = bulkItemsPayload();
+    if (!items.length) return;
+    setBulkBusy(true);
+    try {
+      const resp = await apiClient.post('/api/admin/listings/delete-bulk', {
+        items,
+        reason: bulkDeleteReason.trim(),
+      });
+      const total = Number(resp?.total ?? items.length);
+      const succeeded = Number(resp?.succeeded ?? 0);
+      Alert.alert('Bulk delete', `Deleted ${succeeded} of ${total}.`);
+      setBulkDeleteModal(false);
+      setBulkDeleteReason('');
+      clearSelection();
+      fetchListings();
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Bulk delete failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    const items = bulkItemsPayload();
+    if (!items.length) return;
+    setBulkBusy(true);
+    try {
+      let succeeded = 0;
+      for (const { type, id } of items) {
+        try {
+          await apiClient.post(`/api/admin/listings/${type}/${id}/set-status`, { status: 'approved' });
+          succeeded++;
+        } catch {
+          // Best-effort bulk op — surfaced in the summary count below.
+        }
+      }
+      Alert.alert('Bulk restore', `Restored ${succeeded} of ${items.length}.`);
+      clearSelection();
+      fetchListings();
+    } catch {
+      Alert.alert('Error', 'Bulk restore failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const getStatusVariant = (status) => {
     switch (status) {
       case 'active': return 'success';
@@ -289,12 +450,21 @@ export default function AdminListingsScreen({ navigation }) {
       onPress={() => navigation.navigate('AdminListingDetail', { itemType: item.listing_type || 'cars', itemId: item.id })}
       onApprove={() => handleApprove(item)}
       onReject={() => handleReject(item)}
+      selectionMode={selectionMode}
+      selected={selectedIds.has(rowKey(item))}
+      onToggleSelect={() => toggleRowSelected(item)}
     />
   );
 
   return (
     <SafeAreaView style={styles.container}>
       <ScreenEntrance>
+        <View style={styles.selectRow}>
+          <TouchableOpacity onPress={toggleSelectionMode} style={styles.selectToggle} activeOpacity={0.7}>
+            <Ionicons name={selectionMode ? 'close' : 'checkbox-outline'} size={16} color={COLORS.accent} />
+            <Text style={styles.selectToggleText}>{selectionMode ? 'Cancel' : 'Select'}</Text>
+          </TouchableOpacity>
+        </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -392,7 +562,83 @@ export default function AdminListingsScreen({ navigation }) {
             }
           />
         )}
+
+        {selectionMode && selectedIds.size > 0 && (
+          <View style={styles.bulkBar}>
+            <Text style={styles.bulkBarCount}>{selectedIds.size} selected</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bulkBarActions}>
+              {bulkHasPending && (
+                <TouchableOpacity style={styles.bulkApproveBtn} onPress={handleBulkApprove} disabled={bulkBusy}>
+                  <Ionicons name="checkmark-circle" size={14} color={COLORS.black} />
+                  <Text style={styles.bulkApproveBtnText}>Approve</Text>
+                </TouchableOpacity>
+              )}
+              {bulkHasRenewable && (
+                <TouchableOpacity style={styles.bulkRenewBtn} onPress={() => setBulkRenewModal(true)} disabled={bulkBusy}>
+                  <Ionicons name="refresh" size={14} color={COLORS.accent} />
+                  <Text style={styles.bulkRenewBtnText}>Renew</Text>
+                </TouchableOpacity>
+              )}
+              {bulkHasRestorable && (
+                <TouchableOpacity style={styles.bulkRestoreBtn} onPress={handleBulkRestore} disabled={bulkBusy}>
+                  <Ionicons name="arrow-undo" size={14} color={COLORS.info} />
+                  <Text style={styles.bulkRestoreBtnText}>Restore</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.bulkDeleteBtn} onPress={() => setBulkDeleteModal(true)} disabled={bulkBusy}>
+                <Ionicons name="trash" size={14} color={COLORS.error} />
+                <Text style={styles.bulkDeleteBtnText}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.bulkClearBtn} onPress={clearSelection}>
+                <Text style={styles.bulkClearBtnText}>Clear</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
       </ScreenEntrance>
+
+      <Modal visible={bulkRenewModal} transparent animationType="fade" onRequestClose={() => setBulkRenewModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setBulkRenewModal(false)}>
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>Renew {selectedIds.size} listing{selectedIds.size === 1 ? '' : 's'}</Text>
+            <Text style={styles.modalLabel}>Reason (optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={bulkRenewReason}
+              onChangeText={setBulkRenewReason}
+              placeholder="e.g. Requested by seller"
+              placeholderTextColor={COLORS.textMuted}
+            />
+            <TouchableOpacity style={[styles.modalPrimaryBtn, bulkBusy && styles.modalBtnDisabled]} disabled={bulkBusy} onPress={handleBulkRenew}>
+              <Text style={styles.modalPrimaryBtnText}>{bulkBusy ? 'Working…' : `Confirm renew (${selectedIds.size})`}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={bulkDeleteModal} transparent animationType="fade" onRequestClose={() => setBulkDeleteModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setBulkDeleteModal(false)}>
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>Delete {selectedIds.size} listing{selectedIds.size === 1 ? '' : 's'}</Text>
+            <Text style={styles.modalWarning}>This permanently removes the selected listings. This cannot be undone.</Text>
+            <Text style={styles.modalLabel}>Reason *</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={bulkDeleteReason}
+              onChangeText={setBulkDeleteReason}
+              placeholder="e.g. Spam / policy violation"
+              placeholderTextColor={COLORS.textMuted}
+            />
+            <TouchableOpacity
+              style={[styles.modalDangerBtn, (!bulkDeleteReason.trim() || bulkBusy) && styles.modalBtnDisabled]}
+              disabled={!bulkDeleteReason.trim() || bulkBusy}
+              onPress={handleBulkDelete}
+            >
+              <Text style={styles.modalDangerBtnText}>{bulkBusy ? 'Working…' : `Delete ${selectedIds.size}`}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -617,4 +863,97 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.error,
   },
+  selectRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+  },
+  selectToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  selectToggleText: {
+    color: COLORS.accent,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  checkboxWrap: {
+    justifyContent: 'center',
+    paddingRight: SPACING.sm,
+  },
+  bulkBar: {
+    position: 'absolute',
+    bottom: SPACING.md,
+    left: SPACING.md,
+    right: SPACING.md,
+    backgroundColor: '#0a0f14',
+    borderRadius: BORDER_RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  bulkBarCount: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  bulkBarActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  bulkApproveBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+  },
+  bulkApproveBtnText: { color: COLORS.black, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+  bulkRenewBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(139,214,180,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: 'rgba(139,214,180,0.3)',
+  },
+  bulkRenewBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+  bulkRestoreBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(33,150,243,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: 'rgba(33,150,243,0.3)',
+  },
+  bulkRestoreBtnText: { color: COLORS.info, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+  bulkDeleteBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(244,67,54,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: 'rgba(244,67,54,0.3)',
+  },
+  bulkDeleteBtnText: { color: COLORS.error, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+  bulkClearBtn: {
+    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  bulkClearBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: SPACING.md },
+  modalContent: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
+  modalTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: SPACING.sm },
+  modalWarning: { color: COLORS.warning, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
+  modalLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 6 },
+  modalInput: {
+    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
+    color: COLORS.white, fontSize: FONT_SIZES.sm,
+  },
+  modalBtnDisabled: { opacity: 0.4 },
+  modalPrimaryBtn: { marginTop: SPACING.lg, backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+  modalPrimaryBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  modalDangerBtn: { marginTop: SPACING.lg, backgroundColor: COLORS.error, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+  modalDangerBtnText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
 });
