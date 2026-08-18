@@ -177,6 +177,7 @@ def main():
         from workers.reddit_roundup_bridge_worker import run as _run_reddit_roundup_bridge_once
         from workers.webhook_delivery_worker import run as _run_webhook_delivery_once
         from workers.auto_review_worker import run as _run_auto_review_once
+        from workers.dealer_auto_approval_worker import run as _run_dealer_auto_approval_once
         from health_monitoring import (
             HEALTH_CHECK_INTERVAL_SECONDS,
             WORKER_HEARTBEAT_INTERVAL_SECONDS,
@@ -250,6 +251,9 @@ def main():
     )
     auto_review_interval_seconds = int(
         os.getenv("AUTO_REVIEW_INTERVAL_SECONDS", "15")
+    )
+    dealer_auto_approval_interval_seconds = int(
+        os.getenv("DEALER_AUTO_APPROVAL_INTERVAL_SECONDS", "60")
     )
     price_drop_alert_interval_seconds = int(
         os.getenv("PRICE_DROP_ALERT_INTERVAL_SECONDS", "300")
@@ -429,6 +433,16 @@ def main():
         name="auto-review",
         daemon=True,
     )
+    dealer_auto_approval_thread = threading.Thread(
+        target=scheduled_loop,
+        args=(
+            "dealer_auto_approval_worker",
+            _run_dealer_auto_approval_once,
+            dealer_auto_approval_interval_seconds,
+        ),
+        name="dealer-auto-approval",
+        daemon=True,
+    )
     price_drop_alert_thread = threading.Thread(
         target=scheduled_loop,
         args=(
@@ -463,6 +477,7 @@ def main():
     reddit_roundup_bridge_thread.start()
     webhook_delivery_thread.start()
     auto_review_thread.start()
+    dealer_auto_approval_thread.start()
     price_drop_alert_thread.start()
     reddit_dedup_thread.start()
     logger.info(
@@ -493,6 +508,13 @@ def main():
         "Reddit roundup GitHub bridge registered (interval=%ss enabled=%s) — prepares Devvit payload only",
         reddit_roundup_bridge_interval_seconds,
         str(os.getenv("REDDIT_ROUNDUP_BRIDGE_ENABLED", "false")),
+    )
+    logger.info(
+        "Dealer auto-approval worker registered (interval=%ss enabled=%s threshold=%s delay=%ss)",
+        dealer_auto_approval_interval_seconds,
+        str(os.getenv("DEALER_AUTO_APPROVAL_ENABLED", "1")),
+        os.getenv("DEALER_AUTO_APPROVAL_OCR_THRESHOLD", "0.90"),
+        os.getenv("DEALER_AUTO_APPROVAL_DELAY_SECONDS", "300"),
     )
 
     cleanup_thread = None
