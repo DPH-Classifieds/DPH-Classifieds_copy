@@ -7,6 +7,7 @@ import SearchBar from './ui/search-bar';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
 import BrowseSellCta from './BrowseSellCta';
+import FeaturedStrip from './FeaturedStrip';
 import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
 import { buildCarPath } from '../utils/listingUrl';
@@ -1104,6 +1105,29 @@ const ExplorePage = ({ forcedCategory } = {}) => {
               </div>
             </div>
           </div>
+        )}
+
+        {!loading && (
+          <FeaturedStrip
+            listingType={activeMode === 'all' ? null : (activeMode === 'reddit' ? 'car' : activeMode)}
+            renderCard={(row) => {
+              const listing = row.listing || {};
+              return (
+                <MarketplaceListingCard
+                  key={`featured-${row.id}`}
+                  item={{
+                    ...listing,
+                    id: listing.id || row.listing_id,
+                    categoryKey: row.listing_type === 'plate' ? 'plates'
+                      : row.listing_type === 'bike' ? 'bikes'
+                      : row.listing_type === 'part' ? 'parts'
+                      : 'cars',
+                    is_featured: true,
+                  }}
+                />
+              );
+            }}
+          />
         )}
 
         {loading ? (

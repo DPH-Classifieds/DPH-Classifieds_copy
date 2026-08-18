@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import useSwipe from '../hooks/useSwipe';
 import UAELicensePlate from './UAELicensePlate';
+import FeaturedBadge from './FeaturedBadge';
 
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 
@@ -67,6 +68,11 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
       data-listing-id={item.id}
       data-analytics-event="listing_click"
     >
+      {item.is_featured && (
+        <FeaturedBadge
+          className="absolute top-3 left-3 z-10"
+        />
+      )}
       {listingType && listingId ? (
         <SavedListingToggleButton
           listingType={listingType}
