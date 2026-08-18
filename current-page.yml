@@ -1,9 +1,0 @@
-- generic [ref=e4]:
-  - heading "DPH Classifieds Beta" [level=1] [ref=e5]
-  - paragraph [ref=e6]: Limited access during deployment and testing.
-  - generic [ref=e7]:
-    - generic [ref=e8]: Beta password
-    - textbox "Beta password" [active] [ref=e9]:
-      - /placeholder: Enter password
-    - button "Enter site" [ref=e10] [cursor=pointer]
-  - paragraph [ref=e11]: This gate is temporary and only for beta access.

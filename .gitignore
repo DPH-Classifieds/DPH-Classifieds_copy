@@ -52,10 +52,17 @@ id_dsa
 .worktrees/
 .playwright-mcp/
 .ruff_cache/
+.pytest_cache/
 skills-lock.json
 .agents/
 .claude/
+.codex/
+.fablize/
 .temp/
+
+# Holding pen for repo-root clutter (personal media, historical reports/scripts,
+# planning docs) that isn't app code or deploy config — local only, never pushed.
+/non-essential/
 flask-react-supabase-app/supabase/.temp/
 flask-react-supabase-app/supabase/supabase/
 *.docx
