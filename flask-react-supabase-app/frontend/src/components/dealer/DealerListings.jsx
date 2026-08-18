@@ -10,6 +10,7 @@ import {
   Search,
 } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
+import DealerListingsLimitCard from './DealerListingsLimitCard';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,7 @@ const DealerListings = () => {
 
   return (
     <div className="space-y-5">
+      <DealerListingsLimitCard />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
