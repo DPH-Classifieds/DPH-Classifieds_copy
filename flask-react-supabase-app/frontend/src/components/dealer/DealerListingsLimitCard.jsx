@@ -111,8 +111,6 @@ export default function DealerListingsLimitCard({ onUpgradeResolved }) {
 
   if (!summary) return null;
 
-  const atCap = summary.used >= summary.limit;
-
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
