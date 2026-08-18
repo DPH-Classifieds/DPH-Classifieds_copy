@@ -25,9 +25,14 @@ CREATE TABLE IF NOT EXISTS public.featured_listings (
 );
 
 -- The hot read path: "is listing X currently featured?"
+--
+-- Plain (non-partial) index on purpose: Postgres requires index predicates
+-- to be IMMUTABLE, and now() is STABLE — so a partial index like
+--   WHERE featured_until IS NULL OR featured_until > now()
+-- is rejected with 42P17. The active/expired check is cheap at query time,
+-- so the index covers every row and the application filters in Python.
 CREATE INDEX IF NOT EXISTS idx_featured_listings_lookup
-  ON public.featured_listings (listing_type, listing_id)
-  WHERE featured_until IS NULL OR featured_until > now();
+  ON public.featured_listings (listing_type, listing_id);
 
 -- The admin queue: list everything, newest first.
 CREATE INDEX IF NOT EXISTS idx_featured_listings_recent
