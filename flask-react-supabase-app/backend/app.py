@@ -5376,7 +5376,7 @@ def _enforce_listing_limit(user_id):
     return None
 
 
-_DEFAULT_DEALER_LISTING_LIMIT = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "20"))
+_DEFAULT_DEALER_LISTING_LIMIT = int(os.getenv("DEFAULT_DEALER_LISTING_LIMIT", "4"))
 _DEALER_REQUIRED_DOCS = (
     "trade_license",
     "tax_registration",
@@ -5385,6 +5385,32 @@ _DEALER_DOCUMENT_LABELS = {
     "trade_license": "Trade License",
     "tax_registration": "Tax Registration (TRN)",
 }
+# A dealer can only request a limit increase once they have used at least
+# this fraction of their current cap. Prevents spam requests from idle dealers.
+_DEALER_UPGRADE_REQUEST_MIN_USAGE_RATIO = float(
+    os.getenv("DEALER_UPGRADE_REQUEST_MIN_USAGE_RATIO", "0.8")
+)
+
+
+def _compute_dealer_listing_limit_summary(limit, counts):
+    """Return a single payload summarising the dealer's limit position.
+
+    `counts` is the per-table active-listing count from
+    `_get_user_listing_counts_by_table()` (or any dict mapping table name to
+    integer count). The summary is consumed by the dealer panel UI and the
+    upgrade-request validation path.
+    """
+    used = sum(int(v or 0) for v in (counts or {}).values())
+    cap = int(limit)
+    remaining = max(0, cap - used)
+    can_request = used >= cap * _DEALER_UPGRADE_REQUEST_MIN_USAGE_RATIO
+    return {
+        "limit": cap,
+        "used": used,
+        "remaining": remaining,
+        "can_request": bool(can_request),
+        "default_limit": _DEFAULT_DEALER_LISTING_LIMIT,
+    }
 
 
 def _evaluate_dealer_application(user, documents):
@@ -5487,7 +5513,12 @@ def _get_dealer_application_readiness(user_id):
 
 
 def _fetch_dealer_listing_policy(user_id):
-    """Return {verified: bool, limit: int} for a dealer user, or None for non-dealers."""
+    """Return the full listing-limit summary for a dealer user, or None.
+
+    Shape: {verified, limit, used, remaining, can_request, default_limit}.
+    Non-dealers get None. The summary is single-call and is what the dealer
+    panel renders on the Listings tab and the request-more-listings modal.
+    """
     try:
         user_resp, user_status = supabase_request(
             "get",
@@ -5505,7 +5536,14 @@ def _fetch_dealer_listing_policy(user_id):
     limit = row.get("dealer_listing_limit")
     if limit is None:
         limit = _DEFAULT_DEALER_LISTING_LIMIT
-    return {"verified": bool(row.get("dealer_verified")), "limit": int(limit)}
+    limit = int(limit)
+    # Pull active counts so the panel can render X / limit in one round-trip.
+    counts, _err = _get_user_listing_counts_by_table(user_id, limit=2000)
+    summary = _compute_dealer_listing_limit_summary(limit, counts or {})
+    return {
+        "verified": bool(row.get("dealer_verified")),
+        **summary,
+    }
 
 
 def _dealer_expired_required_documents(user_id):
@@ -10110,6 +10148,21 @@ def dealer_submit_application(current_user):
     except Exception as e:
         logger.error(f"Error submitting dealer application: {e}", exc_info=True)
         return jsonify({"error": "Failed to submit application"}), 500
+
+
+@app.route("/api/dealer/listing-limit", methods=["GET"])
+@token_required
+def dealer_listing_limit(current_user):
+    """Return the dealer's current cap and how many listings they've used.
+
+    Response shape: {verified, limit, used, remaining, can_request, default_limit}
+    Non-dealers get 403. The cap and counts come from a single
+    `_fetch_dealer_listing_policy` call.
+    """
+    summary = _fetch_dealer_listing_policy(current_user)
+    if not summary:
+        return jsonify({"error": "Not a dealer"}), 403
+    return jsonify(summary), 200
 
 
 @app.route("/api/user/dealer-documents", methods=["DELETE"])
