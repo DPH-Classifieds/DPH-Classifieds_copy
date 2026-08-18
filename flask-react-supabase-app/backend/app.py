@@ -10490,7 +10490,7 @@ def admin_list_listing_upgrade_requests(current_user):
     Joins each request with a minimal dealer record so the admin UI can
     render the queue without a second round-trip per row.
     """
-    if not _user_has_admin_role(current_user):
+    if not _require_admin_api_user(current_user):
         return jsonify({"error": "Admin only"}), 403
     status_filter = (request.args.get("status") or "pending").strip()
     if status_filter not in ("pending", "approved", "rejected", "cancelled"):
@@ -10542,7 +10542,7 @@ def admin_decide_listing_upgrade_request(current_user, request_id):
     a dealer_listing_limit_history row, and emails the dealer. On reject: just
     updates the request and (best-effort) emails the dealer.
     """
-    if not _user_has_admin_role(current_user):
+    if not _require_admin_api_user(current_user):
         return jsonify({"error": "Admin only"}), 403
     body = request.get_json(silent=True) or {}
     existing, code = supabase_request(
@@ -10703,7 +10703,7 @@ def _hydrate_featured_rows(featured_rows):
 @token_required
 def admin_list_featured_listings(current_user):
     """List all featured rows, newest first. Hydrated with the listing title."""
-    if not _user_has_admin_role(current_user):
+    if not _require_admin_api_user(current_user):
         return jsonify({"error": "Admin only"}), 403
     include_inactive = (request.args.get("include_inactive") or "").lower() in ("1", "true", "yes")
     body, code = supabase_request(
@@ -10730,7 +10730,7 @@ def admin_list_featured_listings(current_user):
 def admin_create_featured_listing(current_user):
     """Feature a listing. Upserts on (listing_type, listing_id) so re-featuring
     the same listing updates the existing row."""
-    if not _user_has_admin_role(current_user):
+    if not _require_admin_api_user(current_user):
         return jsonify({"error": "Admin only"}), 403
     data = request.get_json(silent=True) or {}
     payload, err = validate_featured_input(
@@ -10784,7 +10784,7 @@ def admin_create_featured_listing(current_user):
 @token_required
 def admin_delete_featured_listing(current_user, row_id):
     """Remove a listing from the featured set (admin-only)."""
-    if not _user_has_admin_role(current_user):
+    if not _require_admin_api_user(current_user):
         return jsonify({"error": "Admin only"}), 403
     body, code = supabase_request(
         "delete", f"/rest/v1/featured_listings?id=eq.{row_id}",
@@ -10800,7 +10800,7 @@ def admin_delete_featured_listing(current_user, row_id):
 def admin_update_featured_listing(current_user, row_id):
     """Change a featured listing's duration or note. Cannot change
     listing_type or listing_id (delete + recreate instead)."""
-    if not _user_has_admin_role(current_user):
+    if not _require_admin_api_user(current_user):
         return jsonify({"error": "Admin only"}), 403
     data = request.get_json(silent=True) or {}
     patch = {}

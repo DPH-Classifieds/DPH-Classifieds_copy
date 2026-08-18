@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import apiClient from '../../utils/apiClient';
+import AdminDealers from '../AdminDealers';
 import AdminDealerships from './AdminDealerships';
 import AdminDealerUpgradeRequests from './AdminDealerUpgradeRequests';
 import AdminFeaturedListings from './AdminFeaturedListings';
@@ -14,15 +14,17 @@ import AdminFeaturedListings from './AdminFeaturedListings';
  *
  * They were created for different reasons (dealer = the KYC person;
  * dealership = the public-facing org with multi-staff access) but admins
- * want to manage them together. This page is the unified view: three tabs
- * (Dealerships, Limit requests, Featured) so all settings live behind
- * one route at /admin/dealerships/hub (and the original sub-routes still
- * work for deep links).
+ * want to manage them together. This page is the unified view: four tabs
+ * (Dealers, Dealerships, Limit requests, Featured) so all settings live
+ * behind one route at /admin/dealerships/hub (and the original sub-routes
+ * still work for deep links, e.g. /admin/dealers?pending=true from the
+ * dashboard's pending-dealers widget).
  */
 const TABS = [
-  { key: 'dealerships', label: 'Dealerships' },
-  { key: 'limits',      label: 'Limit requests' },
-  { key: 'featured',    label: 'Featured' },
+  { key: 'dealers',      label: 'Dealers' },
+  { key: 'dealerships',  label: 'Dealerships' },
+  { key: 'limits',       label: 'Limit requests' },
+  { key: 'featured',     label: 'Featured' },
 ];
 
 export default function AdminDealershipsHub() {
@@ -82,11 +84,9 @@ export default function AdminDealershipsHub() {
             )}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-3 text-xs text-white/40">
-          <Link to="/admin/dealers" className="hover:text-white">Legacy Dealers list →</Link>
-        </div>
       </div>
 
+      {activeTab === 'dealers' && <AdminDealers />}
       {activeTab === 'dealerships' && <AdminDealerships />}
       {activeTab === 'limits' && <AdminDealerUpgradeRequests onResolved={refreshCounts} />}
       {activeTab === 'featured' && <AdminFeaturedListings />}
