@@ -1,4 +1,6 @@
 """Self-check for the daily-post formatting: price, source-aware links, title/body."""
+from datetime import date
+
 from workers.reddit_daily_post_worker import (
     _format_mileage, _format_price, _listing_url, _row_cells, _ascii_table, build_post,
 )
@@ -41,12 +43,17 @@ def test_row_and_post():
     # preview mode swaps the markdown link for the bare URL (last cell)
     assert _row_cells(rows[0], SITE, link_as_url=True)[-1] == f"{SITE}/cars/1"
 
-    title, body = build_post(rows, "1–2 Aug 2026", SITE)
-    assert "1–2 Aug 2026" in title
-    assert body.startswith("**2 cars listed in the previous 48 hours**")
-    assert "| Year | Make | Model | Odometer | Price | Link |" in body # labeled header
+    first = date(2026, 8, 16)
+    last = date(2026, 8, 17)
+    title, body = build_post(rows, first, last, SITE)
+    assert "16–17 Aug 2026" in title
+    assert "16–17 Aug 2026" in body            # body heading matches title
+    assert "previous 48 hours" not in body     # vague heading gone
+    assert "previous 48 hours" not in title
+    assert body.startswith("**2 cars listed on 16–17 Aug 2026**")
+    assert "| Year | Make | Model | Odometer | Price | Link |" in body  # labeled header
     assert "|:---:|:---|:---|---:|---:|:---:|" in body                  # alignment row
-    assert "Price on request" in body                         # null-price row
+    assert "Price on request" in body           # null-price row
     assert "[Reddit link](https://www.reddit.com/r/x/z)" in body
     assert "[View listing]" in body
     assert "DPH Classifieds" not in title
@@ -54,17 +61,44 @@ def test_row_and_post():
     assert "🚗" not in title
 
     # pipe in a field can't break the table; singular grammar for one row
-    _, body1 = build_post([{"id": "9", "car_model": "A|B", "expected_selling_price": 5000}], "x", SITE)
-    assert body1.startswith("**1 car listed in the previous 48 hours**")
+    _, body1 = build_post([{"id": "9", "car_model": "A|B", "expected_selling_price": 5000}],
+                          date(2026, 8, 18), date(2026, 8, 18), SITE)
+    assert body1.startswith("**1 car listed on 18 Aug 2026**")
     assert "A/B" in body1 and "A|B" not in body1
+
+
+def test_post_title_and_heading_use_explicit_date_range():
+    """The new behavior: title and body heading both carry the explicit date range."""
+    rows = [{"id": "1", "make_year": 2024, "car_manufacturer": "Toyota",
+             "car_model": "Camry", "expected_selling_price": 80000}]
+    first = date(2026, 8, 16)
+    last = date(2026, 8, 17)
+    title, body = build_post(rows, first, last, SITE)
+    assert "16–17 Aug 2026" in title
+    assert "16–17 Aug 2026" in body
+    assert "previous 48 hours" not in body
+    assert "previous 48 hours" not in title
+
+
+def test_single_day_label():
+    """When first_day == last_day, label is just that one day."""
+    from workers.reddit_daily_post_worker import _format_date_label
+    assert _format_date_label(date(2026, 8, 18), date(2026, 8, 18)) == "18 Aug 2026"
+
+
+def test_cross_month_label():
+    from workers.reddit_daily_post_worker import _format_date_label
+    assert _format_date_label(date(2026, 8, 31), date(2026, 9, 1)) == "31 Aug–1 Sep 2026"
 
 
 def test_posts_split_without_losing_rows():
     from workers.reddit_daily_post_worker import build_posts
     rows = [{"id": str(index), "make_year": 2020, "car_manufacturer": "Make", "car_model": "Model", "expected_selling_price": 1} for index in range(12)]
-    posts = build_posts(rows, "x", SITE, max_body_chars=300)
+    first = date(2026, 8, 16)
+    last = date(2026, 8, 17)
+    posts = build_posts(rows, first, last, SITE, max_body_chars=300)
     assert len(posts) > 1
-    assert all("Cars listed in the previous 48 hours" in title for title, _ in posts)
+    assert all("Cars listed on 16–17 Aug 2026" in title for title, _ in posts)
     assert sum(body.count("[View listing]") for _, body in posts) == len(rows)
 
 
@@ -80,5 +114,8 @@ def test_ascii_table_aligns():
 
 
 if __name__ == "__main__":
-    test_price(); test_link_routing(); test_mileage_normalizes_reddit_shorthand(); test_row_and_post(); test_ascii_table_aligns()
+    test_price(); test_link_routing(); test_mileage_normalizes_reddit_shorthand()
+    test_row_and_post(); test_post_title_and_heading_use_explicit_date_range()
+    test_single_day_label(); test_cross_month_label()
+    test_posts_split_without_losing_rows(); test_ascii_table_aligns()
     print("ok")

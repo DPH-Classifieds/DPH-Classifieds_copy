@@ -39,21 +39,29 @@ def _settings():
 
 
 def _rolling_window(hours=48, now=None):
-    """A rolling Dubai-labelled window, ending at the current UTC instant."""
+    """A rolling Dubai-labelled window, ending at the current UTC instant.
+
+    Returns (since_iso, until_iso, first_day, last_day, label) where first_day
+    and last_day are the Dubai dates whose daytime is touched by the window.
+    The label is the human-readable "since - until" range and is preserved for
+    diagnostic compatibility with downstream consumers.
+    """
     until = now or datetime.now(timezone.utc)
     if until.tzinfo is None:
         until = until.replace(tzinfo=timezone.utc)
     until = until.astimezone(timezone.utc)
     since = until - timedelta(hours=hours)
     dubai_tz = timezone(timedelta(hours=4))
-    label = f"{since.astimezone(dubai_tz).strftime('%-d %b %Y')} - {until.astimezone(dubai_tz).strftime('%-d %b %Y')}"
-    return since.isoformat(), until.isoformat(), label
+    first_day = since.astimezone(dubai_tz).date()
+    last_day = until.astimezone(dubai_tz).date()
+    label = f"{first_day.strftime('%-d %b %Y')} - {last_day.strftime('%-d %b %Y')}"
+    return since.isoformat(), until.isoformat(), first_day, last_day, label
 
 
 def _build_payload(hours=48, now=None):
-    since_iso, until_iso, label = _rolling_window(hours, now)
+    since_iso, until_iso, first_day, last_day, label = _rolling_window(hours, now)
     rows = _fetch_listings(since_iso, until_iso)
-    posts = build_posts(rows, label, SITE_URL)
+    posts = build_posts(rows, first_day, last_day, SITE_URL)
     # The daily Dubai date is stable across hourly bridge refreshes. Devvit
     # uses it as its exactly-once key while the payload remains a rolling 48h
     # window, intentionally overlapping the prior day's post.

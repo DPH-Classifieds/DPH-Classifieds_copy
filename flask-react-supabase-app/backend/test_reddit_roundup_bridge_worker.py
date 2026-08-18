@@ -5,9 +5,12 @@ from workers.reddit_roundup_bridge_worker import _build_payload, _rolling_window
 
 def test_rolling_window_is_exactly_48_hours_and_keeps_dubai_label():
     now = datetime(2026, 8, 18, 8, 0, tzinfo=timezone.utc)
-    since, until, label = _rolling_window(48, now)
+    since, until, first_day, last_day, label = _rolling_window(48, now)
     assert datetime.fromisoformat(until) - datetime.fromisoformat(since) == timedelta(hours=48)
     assert label == "16 Aug 2026 - 18 Aug 2026"
+    # Explicit dates for the post title/body
+    assert first_day.isoformat() == "2026-08-16"
+    assert last_day.isoformat() == "2026-08-18"
 
 
 def test_payload_uses_daily_cycle_and_all_rendered_posts(monkeypatch):
@@ -19,3 +22,5 @@ def test_payload_uses_daily_cycle_and_all_rendered_posts(monkeypatch):
     assert payload['count'] == 1
     assert len(payload['posts']) == 1
     assert 'DPH Classifieds' not in payload['posts'][0]['title']
+    # The post title now uses the explicit date range from the rolling window
+    assert "16–18 Aug 2026" in payload['posts'][0]['title']

@@ -106,6 +106,15 @@ def _cell(value) -> str:
     return str(value or "").replace("|", "/").strip()
 
 
+def _format_date_label(first_day, last_day):
+    """Render an explicit date range: '18 Aug 2026' / '16–17 Aug 2026' / '31 Aug–1 Sep 2026'."""
+    if first_day == last_day:
+        return last_day.strftime("%-d %b %Y")
+    if first_day.year == last_day.year and first_day.month == last_day.month:
+        return f"{first_day.strftime('%-d')}–{last_day.strftime('%-d %b %Y')}"
+    return f"{first_day.strftime('%-d %b')}–{last_day.strftime('%-d %b %Y')}"
+
+
 def _format_mileage(value) -> str:
     """Format numeric mileage and common Reddit shorthand (e.g. ``139k``)."""
     raw = str(value or "").strip().lower().replace(",", "")
@@ -136,16 +145,20 @@ def _row_cells(row, site_url=SITE_URL, link_as_url=False):
     ]
 
 
-def build_posts(rows, date_label, site_url=SITE_URL, max_body_chars=39000):
+def build_posts(rows, first_day, last_day, site_url=SITE_URL, max_body_chars=39000):
     """Render every row into one or more neutral Reddit self-posts.
 
     A Reddit body has a finite size limit. Never silently drop listings: when
     necessary, split the table into continuation posts with a repeated header.
+
+    The body heading and title both carry the explicit date range so the post
+    and its content stay in sync (e.g. "Cars listed on 16–17 Aug 2026").
     """
     if not rows:
         return []
     n = len(rows)
-    heading = f"**{n} car{'' if n == 1 else 's'} listed in the previous 48 hours**\n\n"
+    date_label = _format_date_label(first_day, last_day)
+    heading = f"**{n} car{'' if n == 1 else 's'} listed on {date_label}**\n\n"
     header = "\n".join(["| " + " | ".join(_HEADERS) + " |", _ALIGN])
     chunks = []
     current_rows = []
@@ -162,7 +175,7 @@ def build_posts(rows, date_label, site_url=SITE_URL, max_body_chars=39000):
         chunks.append(current_rows)
 
     total = len(chunks)
-    title = f"Cars listed in the previous 48 hours — {date_label}"
+    title = f"Cars listed on {date_label}"
     posts = []
     for index, lines in enumerate(chunks, start=1):
         suffix = f" — Part {index} of {total}" if total > 1 else ""
@@ -171,11 +184,11 @@ def build_posts(rows, date_label, site_url=SITE_URL, max_body_chars=39000):
     return posts
 
 
-def build_post(rows, date_label, site_url=SITE_URL, max_rows=None):
+def build_post(rows, first_day, last_day, site_url=SITE_URL, max_rows=None):
     """Compatibility wrapper for callers that submit one post at a time."""
     source = rows if max_rows is None else rows[:max_rows]
-    posts = build_posts(source, date_label, site_url)
-    return posts[0] if posts else (f"Cars listed in the previous 48 hours — {date_label}", "")
+    posts = build_posts(source, first_day, last_day, site_url)
+    return posts[0] if posts else (f"Cars listed on {_format_date_label(first_day, last_day)}", "")
 
 
 def _ascii_table(headers, rows):
@@ -214,17 +227,20 @@ def _record(post_date, subreddit, status, count=0, post=None, error=None):
 # --- Data --------------------------------------------------------------------
 
 def _window(days=1):
-    """(since_iso, until_iso, label) for the last `days` full Dubai day(s) ending
-    at the start of today (Dubai)."""
+    """(since_iso, until_iso, first_day, last_day, label) for the last `days`
+    full Dubai day(s) ending at the start of today (Dubai).
+
+    first_day and last_day are `datetime.date` objects; the label is the
+    human-readable two-day range (e.g. "16–17 Aug 2026" or "18 Aug 2026").
+    """
     dubai_now = _now() + DUBAI_OFFSET
     start_today = dubai_now.replace(hour=0, minute=0, second=0, microsecond=0)
     until = start_today - DUBAI_OFFSET                      # back to UTC
     since = until - timedelta(days=days)
-    last_day = start_today - timedelta(days=1)              # most recent full day covered
-    first_day = start_today - timedelta(days=days)          # earliest full day covered
-    label = (last_day.strftime("%-d %b %Y") if days == 1
-             else f"{first_day.strftime('%-d %b')}–{last_day.strftime('%-d %b %Y')}")
-    return since.isoformat(), until.isoformat(), label
+    last_day_date = (start_today - timedelta(days=1)).date()       # most recent full day covered
+    first_day_date = (start_today - timedelta(days=days)).date()   # earliest full day covered
+    label = _format_date_label(first_day_date, last_day_date)
+    return since.isoformat(), until.isoformat(), first_day_date, last_day_date, label
 
 
 def _fetch_listings(since_iso, until_iso):
@@ -262,9 +278,9 @@ def run():
     except ValueError:
         post_hour = 9
     try:
-        every_days = max(1, int(os.getenv("REDDIT_DAILY_POST_EVERY_DAYS", "2")))
+        every_days = max(1, int(os.getenv("REDDIT_DAILY_POST_EVERY_DAYS", "1")))
     except ValueError:
-        every_days = 2
+        every_days = 1
 
     dubai_now = _now() + DUBAI_OFFSET
     if dubai_now.hour < post_hour:
@@ -292,7 +308,7 @@ def run():
 
     # Window = the previous `every_days` full Dubai days (new additions since the
     # last post): [today 00:00 - every_days, today 00:00).
-    since_iso, until_iso, window_label = _window(every_days)
+    since_iso, until_iso, first_day, last_day, window_label = _window(every_days)
     try:
         rows = _fetch_listings(since_iso, until_iso)
     except Exception as exc:
@@ -308,7 +324,7 @@ def run():
         max_rows = int(os.getenv("REDDIT_DAILY_POST_MAX", "50"))
     except ValueError:
         max_rows = 50
-    title, body = build_post(rows, window_label, SITE_URL, max_rows)
+    title, body = build_post(rows, first_day, last_day, SITE_URL, max_rows)
 
     try:
         token = get_user_access_token(_SESSION, client_id, client_secret, refresh_token, user_agent)
@@ -325,10 +341,10 @@ def run():
 
 
 def _preview(days):
-    since_iso, until_iso, label = _window(days)
+    since_iso, until_iso, first_day, last_day, label = _window(days)
     rows = _fetch_listings(since_iso, until_iso)
     max_rows = int(os.getenv("REDDIT_DAILY_POST_MAX", "50"))
-    title, _ = build_post(rows, label, SITE_URL, max_rows)
+    title, _ = build_post(rows, first_day, last_day, SITE_URL, max_rows)
     cells = [_row_cells(r, SITE_URL, link_as_url=True) for r in rows[:max_rows]]
     print(f"\n{title}")
     print(f"{len(rows)} listing(s) in window {since_iso} .. {until_iso}\n")
@@ -340,12 +356,12 @@ def _post_now(days=1):
     """Real submit to REDDIT_DAILY_POST_SUBREDDIT, bypassing the hour + once-a-day
     gates. Does NOT write a guard row, so it never blocks the scheduled 9am post.
     `days` widens the window (test aid); the scheduled job always uses 1 day."""
-    since_iso, until_iso, label = _window(days)
+    since_iso, until_iso, first_day, last_day, label = _window(days)
     rows = _fetch_listings(since_iso, until_iso)
     if not rows:
         print("No listings in window — nothing to post. Try --preview --days 7 to see data.")
         return
-    title, body = build_post(rows, label, SITE_URL, int(os.getenv("REDDIT_DAILY_POST_MAX", "50")))
+    title, body = build_post(rows, first_day, last_day, SITE_URL, int(os.getenv("REDDIT_DAILY_POST_MAX", "50")))
     ua = os.getenv("REDDIT_USER_AGENT", "").strip()
     token = get_user_access_token(
         _SESSION, os.getenv("REDDIT_CLIENT_ID", "").strip(),
