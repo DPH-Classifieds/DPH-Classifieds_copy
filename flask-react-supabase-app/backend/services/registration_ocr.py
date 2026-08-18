@@ -195,6 +195,73 @@ def scan_trade_license_expiry(image_file, ocr_provider=None):
     return {"raw_text": raw_text or "", "lines": lines or [], **result}
 
 
+# --- Dealer OCR auto-approval (Task 6) ---------------------------------------
+
+# The two required documents for a UAE-classifieds dealer. Both must clear the
+# threshold before the auto-approval worker fires.
+REQUIRED_DEALER_DOCS_FOR_AUTO_APPROVAL = ("trade_license", "tax_registration")
+
+
+def _overall_text_confidence(lines):
+    """Mean recognition confidence across all OCR lines (PaddleOCR's per-line
+    confidence). Returns 0.0 if there are no lines."""
+    if not lines:
+        return 0.0
+    return round(sum(float(l.get("conf") or 0) for l in lines) / len(lines), 4)
+
+
+def should_auto_approve_dealer(active_docs, threshold=0.90):
+    """Pure decision: should the dealer's KYC auto-approve at fire time?
+
+    - Both required documents must be present and not replaced.
+    - min(ocr_confidence) must be >= threshold.
+    - Documents with an explicit 'rejected' status disqualify auto-approval.
+
+    Returns a dict: {approve, missing, min_confidence, blocking_field, confidences}
+    so the worker has everything it needs to log + write a cancel reason.
+    """
+    by_type = {}
+    for doc in (active_docs or []):
+        if doc.get("replaced_at"):
+            continue
+        if doc.get("status") == "rejected":
+            # An explicit rejection disqualifies auto-approval; the dealer
+            # must re-submit before the worker will consider them again.
+            continue
+        by_type[doc.get("document_type")] = doc
+    missing = [d for d in REQUIRED_DEALER_DOCS_FOR_AUTO_APPROVAL if d not in by_type]
+    if missing:
+        return {"approve": False, "missing": missing, "min_confidence": 0.0,
+                "blocking_field": missing[0], "confidences": {}}
+    confidences = {d: float(by_type[d].get("ocr_confidence") or 0.0)
+                   for d in REQUIRED_DEALER_DOCS_FOR_AUTO_APPROVAL}
+    min_conf = min(confidences.values())
+    if min_conf < float(threshold):
+        blocking = min(confidences, key=confidences.get)
+        return {"approve": False, "missing": [], "min_confidence": min_conf,
+                "blocking_field": blocking, "confidences": confidences}
+    return {"approve": True, "missing": [], "min_confidence": min_conf,
+            "blocking_field": None, "confidences": confidences}
+
+
+def scan_trn_document(image_file, ocr_provider=None):
+    """Run PaddleOCR on a TRN (Tax Registration) certificate.
+
+    Symmetric to scan_trade_license_expiry: returns the raw text + a confidence
+    value so the dealer auto-approval decision has the same shape for both
+    required documents. A TRN document has no "expiry" — we only care about
+    its overall OCR confidence.
+    """
+    provider = ocr_provider or get_default_ocr_provider()
+    processed_image = preprocess_image(image_file)
+    raw_text, lines = _ocr_extract(provider, processed_image)
+    return {
+        "raw_text": raw_text or "",
+        "lines": lines or [],
+        "confidence": _overall_text_confidence(lines or []),
+    }
+
+
 FLOOR_CONFIDENCE = 0.6
 
 
