@@ -71,24 +71,34 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   const source = (await response.json()) as {content?: string; encoding?: string}
   if (source.encoding !== 'base64' || !source.content) throw Error('GitHub bridge response has no base64 content')
   const payload = JSON.parse(Buffer.from(source.content, 'base64').toString('utf8')) as {
-    schema?: string; title?: string; body?: string; count?: number; cycle_id?: string; content_hash?: string
+    schema?: string; title?: string; body?: string; posts?: Array<{title?: string; body?: string}>; count?: number; cycle_id?: string; content_hash?: string
   }
-  if (payload.schema !== 'dph-reddit-roundup/v1' || !payload.title || !payload.body || !Number.isInteger(payload.count)) {
+  if (payload.schema !== 'dph-reddit-roundup/v2' || !Number.isInteger(payload.count)) {
     throw Error('GitHub bridge payload is invalid')
   }
   if (!payload.count) return {count: 0, skipped: true}
   if (!payload.cycle_id || !payload.content_hash) throw Error('GitHub bridge payload has no cycle_id/content_hash')
-  const postedKey = `roundup:posted:${targetSubreddit}:${payload.cycle_id}:${payload.content_hash}`
+  const posts = payload.posts
+  if (!posts?.length || posts.some(post => !post.title || !post.body)) throw Error('GitHub bridge payload has no posts')
+  const postedKeyPrefix = `roundup:posted:${targetSubreddit}:${payload.cycle_id}`
   const forceKey = `roundup:force:last:${targetSubreddit}`
   if (force) {
     const lastForce = Number(await redis.get(forceKey))
     const remaining = FORCE_REPOST_COOLDOWN_MS - (Date.now() - lastForce)
     if (Number.isFinite(lastForce) && remaining > 0) throw Error(`force repost cooldown: retry in ${Math.ceil(remaining / 60000)} min`)
-  } else if (await redis.get(postedKey)) return {count: payload.count, skipped: true}
-  const post = await reddit.submitPost({subredditName: targetSubreddit, title: payload.title, text: payload.body})
-  await redis.set(postedKey, post.id)
+  } else if (await Promise.all(posts.map((_, index) => redis.get(`${postedKeyPrefix}:${index}`))).then(keys => keys.every(Boolean))) {
+    return {count: payload.count, skipped: true}
+  }
+  let firstUrl: string | undefined
+  for (const [index, item] of posts.entries()) {
+    const postedKey = `${postedKeyPrefix}:${index}`
+    if (!force && await redis.get(postedKey)) continue
+    const post = await reddit.submitPost({subredditName: targetSubreddit, title: item.title!, text: item.body!})
+    await redis.set(postedKey, post.id)
+    firstUrl ??= post.url
+  }
   if (force) await redis.set(forceKey, `${Date.now()}`)
-  return {count: payload.count, url: post.url}
+  return {count: payload.count, url: firstUrl}
 }
 
 function writeJson(status: number, json: Readonly<PartialJsonValue>, res: ServerResponse): void {

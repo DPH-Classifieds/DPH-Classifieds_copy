@@ -1,6 +1,6 @@
 # DPH Bot
 
-Independent Devvit posting app for DPH Classifieds. It reads a prepared, versioned
+Independent Devvit posting app. It reads a prepared, versioned rolling 48-hour
 roundup from the GitHub Contents API and posts it to the installation subreddit.
 The backend prepares the payload; this app is the only Reddit submitter.
 
@@ -14,5 +14,13 @@ The backend prepares the payload; this app is the only Reddit submitter.
 5. Set the subreddit `targetSubreddit` only when it differs from the install subreddit.
 6. Use **DPH Bot: post roundup now** from the subreddit moderator menu to test.
 
-The scheduled job is every two days at 19:00 Dubai time (15:00 UTC). It has
-an exactly-once guard; the force menu is deliberately rate-limited for testing.
+The scheduled job is daily at 12:00 PM Dubai time (08:00 UTC). It has an
+exactly-once daily guard; consecutive daily posts deliberately overlap by 24
+hours because each contains the preceding rolling 48-hour window.
+
+## Fetch domain and data handling
+
+The app fetches only `api.github.com`, where the DPH backend publishes the
+prepared public roundup JSON. It does not collect Reddit user data or use a
+Reddit account password/API secret. The app account submits the resulting
+listing post only in the subreddit where the app is installed.

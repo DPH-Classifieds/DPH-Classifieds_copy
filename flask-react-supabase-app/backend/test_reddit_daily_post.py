@@ -36,27 +36,36 @@ def test_row_and_post():
          "make_year": 2018, "car_manufacturer": "BMW", "car_model": "M3",
          "expected_selling_price": None},
     ]
-    assert _row_cells(rows[0], SITE) == ["2021", "Nissan", "GT-R", "42,000 km", "AED 450,000", f"[View on DPH Classifieds]({SITE}/cars/1)"]
+    assert _row_cells(rows[0], SITE) == ["2021", "Nissan", "GT-R", "42,000 km", "AED 450,000", f"[View listing]({SITE}/cars/1)"]
     assert _row_cells(rows[1], SITE)[3] == "—"                # missing mileage
     # preview mode swaps the markdown link for the bare URL (last cell)
     assert _row_cells(rows[0], SITE, link_as_url=True)[-1] == f"{SITE}/cars/1"
 
     title, body = build_post(rows, "1–2 Aug 2026", SITE)
     assert "1–2 Aug 2026" in title
-    assert body.startswith("**2 new cars listed**")
+    assert body.startswith("**2 cars listed in the previous 48 hours**")
     assert "| Year | Make | Model | Odometer | Price | Link |" in body # labeled header
     assert "|:---:|:---|:---|---:|---:|:---:|" in body                  # alignment row
     assert "Price on request" in body                         # null-price row
     assert "[Reddit link](https://www.reddit.com/r/x/z)" in body
-    assert "[View on DPH Classifieds]" in body
-    assert "https://www.dphclassifieds.com/explore" in body
-    assert "For a smoother viewing experience" in body
+    assert "[View listing]" in body
+    assert "DPH Classifieds" not in title
+    assert "DPH Classifieds" not in body
     assert "🚗" not in title
 
     # pipe in a field can't break the table; singular grammar for one row
     _, body1 = build_post([{"id": "9", "car_model": "A|B", "expected_selling_price": 5000}], "x", SITE)
-    assert body1.startswith("**1 new car listed**")
+    assert body1.startswith("**1 car listed in the previous 48 hours**")
     assert "A/B" in body1 and "A|B" not in body1
+
+
+def test_posts_split_without_losing_rows():
+    from workers.reddit_daily_post_worker import build_posts
+    rows = [{"id": str(index), "make_year": 2020, "car_manufacturer": "Make", "car_model": "Model", "expected_selling_price": 1} for index in range(12)]
+    posts = build_posts(rows, "x", SITE, max_body_chars=300)
+    assert len(posts) > 1
+    assert all("Cars listed in the previous 48 hours" in title for title, _ in posts)
+    assert sum(body.count("[View listing]") for _, body in posts) == len(rows)
 
 
 def test_ascii_table_aligns():

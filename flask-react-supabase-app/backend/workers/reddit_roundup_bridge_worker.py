@@ -14,11 +14,11 @@ import hashlib
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
-from workers.reddit_daily_post_worker import SITE_URL, _fetch_listings, _window, build_post
+from workers.reddit_daily_post_worker import SITE_URL, _fetch_listings, build_posts
 
 logger = logging.getLogger(__name__)
 GITHUB_API = "https://api.github.com"
@@ -38,19 +38,35 @@ def _settings():
     }
 
 
-def _build_payload(days):
-    since_iso, until_iso, label = _window(days)
+def _rolling_window(hours=48, now=None):
+    """A rolling Dubai-labelled window, ending at the current UTC instant."""
+    until = now or datetime.now(timezone.utc)
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    until = until.astimezone(timezone.utc)
+    since = until - timedelta(hours=hours)
+    label = f"{since.astimezone(timezone(timedelta(hours=4))).strftime('%-d %b %Y, %-I:%M %p')}–{until.astimezone(timezone(timedelta(hours=4))).strftime('%-d %b %Y, %-I:%M %p')} Dubai time"
+    return since.isoformat(), until.isoformat(), label
+
+
+def _build_payload(hours=48, now=None):
+    since_iso, until_iso, label = _rolling_window(hours, now)
     rows = _fetch_listings(since_iso, until_iso)
-    title, body = build_post(rows, label, SITE_URL)
-    # The window end is the cycle identity. It makes a successful manual test
-    # idempotent and lets Devvit refuse duplicate scheduler deliveries.
+    posts = build_posts(rows, label, SITE_URL)
+    # The daily Dubai date is stable across hourly bridge refreshes. Devvit
+    # uses it as its exactly-once key while the payload remains a rolling 48h
+    # window, intentionally overlapping the prior day's post.
+    dubai_date = datetime.fromisoformat(until_iso).astimezone(timezone(timedelta(hours=4))).date().isoformat()
     payload = {
-        "schema": "dph-reddit-roundup/v1",
-        "cycle_id": f"{until_iso[:10]}-{days}d",
+        "schema": "dph-reddit-roundup/v2",
+        "cycle_id": f"{dubai_date}-rolling-48h",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "window": {"since": since_iso, "until": until_iso, "label": label},
-        "title": title,
-        "body": body,
+        # title/body remain for diagnostic compatibility; Devvit v0.0.3 reads
+        # posts so it can submit every listing when a large window is split.
+        "title": posts[0][0] if posts else "",
+        "body": posts[0][1] if posts else "",
+        "posts": [{"title": title, "body": body} for title, body in posts],
         "count": len(rows),
     }
     stable = {key: value for key, value in payload.items() if key != "generated_at"}
@@ -111,11 +127,11 @@ def run():
         logger.error("reddit_roundup_bridge: missing config %s", ", ".join(missing))
         return {"status": "failed", "error": "missing configuration"}
     try:
-        days = max(1, min(int(os.getenv("REDDIT_ROUNDUP_BRIDGE_DAYS", "2")), 30))
+        hours = max(1, min(int(os.getenv("REDDIT_ROUNDUP_BRIDGE_HOURS", "48")), 168))
     except ValueError:
-        days = 2
+        hours = 48
     try:
-        result = _publish(_build_payload(days), config)
+        result = _publish(_build_payload(hours), config)
     except Exception as exc:
         logger.exception("reddit_roundup_bridge: publish failed")
         return {"status": "failed", "error": str(exc)[:300]}

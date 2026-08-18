@@ -35,11 +35,6 @@ SUPABASE_SERVICE_KEY = (
 )
 SITE_URL = os.getenv("SITE_URL", "https://www.dphclassifieds.com").rstrip("/")
 DUBAI_OFFSET = timedelta(hours=4)  # ponytail: UAE is UTC+4 year-round, no DST → no tzdata dep.
-FOOTER = (
-    "\n\n---\n\n"
-    "*For a smoother viewing experience, browse all listings on "
-    "[dphclassifieds.com](https://www.dphclassifieds.com/explore).*"
-)
 
 # To expand beyond cars: add {"table","type","make","model","year","price"} rows here
 # and the query loop + url builder already handle the rest.
@@ -130,7 +125,7 @@ def _row_cells(row, site_url=SITE_URL, link_as_url=False):
     """One listing → 6 cells with a source-aware destination and label."""
     link = _listing_url(row, site_url)
     is_reddit = str(row.get("source_platform") or "").strip().lower() == "reddit"
-    link_label = "Reddit link" if is_reddit else "View on DPH Classifieds"
+    link_label = "Reddit link" if is_reddit else "View listing"
     return [
         _cell(row.get("make_year")),
         _cell(row.get("car_manufacturer")),
@@ -141,17 +136,46 @@ def _row_cells(row, site_url=SITE_URL, link_as_url=False):
     ]
 
 
-def build_post(rows, date_label, site_url=SITE_URL, max_rows=50):
-    shown = rows[:max_rows]
-    lines = ["| " + " | ".join(_HEADERS) + " |", _ALIGN]
-    lines += ["| " + " | ".join(_row_cells(r, site_url)) + " |" for r in shown]
+def build_posts(rows, date_label, site_url=SITE_URL, max_body_chars=39000):
+    """Render every row into one or more neutral Reddit self-posts.
+
+    A Reddit body has a finite size limit. Never silently drop listings: when
+    necessary, split the table into continuation posts with a repeated header.
+    """
+    if not rows:
+        return []
     n = len(rows)
-    extra = (f"\n\n…and {n - max_rows} more at https://www.dphclassifieds.com"
-             if n > max_rows else "")
-    title = f"New cars on DPH Classifieds — {date_label}"
-    body = (f"**{n} new car{'' if n == 1 else 's'} listed**\n\n"
-            + "\n".join(lines) + extra + FOOTER)
-    return title, body
+    heading = f"**{n} car{'' if n == 1 else 's'} listed in the previous 48 hours**\n\n"
+    header = "\n".join(["| " + " | ".join(_HEADERS) + " |", _ALIGN])
+    chunks = []
+    current_rows = []
+    current_len = len(heading) + len(header)
+    for row in rows:
+        rendered = "| " + " | ".join(_row_cells(row, site_url)) + " |"
+        if current_rows and current_len + 1 + len(rendered) > max_body_chars:
+            chunks.append(current_rows)
+            current_rows = []
+            current_len = len(heading) + len(header)
+        current_rows.append(rendered)
+        current_len += 1 + len(rendered)
+    if current_rows:
+        chunks.append(current_rows)
+
+    total = len(chunks)
+    title = f"Cars listed in the previous 48 hours — {date_label}"
+    posts = []
+    for index, lines in enumerate(chunks, start=1):
+        suffix = f" — Part {index} of {total}" if total > 1 else ""
+        body = heading + header + "\n" + "\n".join(lines)
+        posts.append((title + suffix, body))
+    return posts
+
+
+def build_post(rows, date_label, site_url=SITE_URL, max_rows=None):
+    """Compatibility wrapper for callers that submit one post at a time."""
+    source = rows if max_rows is None else rows[:max_rows]
+    posts = build_posts(source, date_label, site_url)
+    return posts[0] if posts else (f"Cars listed in the previous 48 hours — {date_label}", "")
 
 
 def _ascii_table(headers, rows):
