@@ -576,6 +576,36 @@ export default function AdminDashboardScreen({ navigation }) {
           <Text style={styles.metricsLinkText}>Operational tools</Text>
           <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.metricsLinkRow}
+          onPress={() => navigation.navigate('AdminRedditVerify')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="logo-reddit" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.metricsLinkText}>Reddit import verification</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.metricsLinkRow}
+          onPress={() => navigation.navigate('AdminDealerships')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="business-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.metricsLinkText}>Dealerships</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.metricsLinkRow}
+          onPress={() => navigation.navigate('AdminVinOpens')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="key-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.metricsLinkText}>VIN reveal activity</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
