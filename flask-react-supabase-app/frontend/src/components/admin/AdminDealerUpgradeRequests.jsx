@@ -8,7 +8,7 @@ function dealerLabel(dealer) {
   return dealer.legal_business_name || dealer.company_name || dealer.email || dealer.id;
 }
 
-export default function AdminDealerUpgradeRequests() {
+export default function AdminDealerUpgradeRequests({ onResolved }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,6 +36,7 @@ export default function AdminDealerUpgradeRequests() {
       await apiClient.post(`/api/admin/dealer/listing-upgrade-requests/${id}/decision`,
         { decision, new_limit: newLimit });
       await load();
+      onResolved?.();
     } catch (err) {
       const body = err?.response?.data;
       alert(body?.error || body?.message || err.message || 'Failed');

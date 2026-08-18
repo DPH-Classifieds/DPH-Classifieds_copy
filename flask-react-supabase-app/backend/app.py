@@ -10159,33 +10159,22 @@ def dealer_submit_application(current_user):
             )
             return jsonify({"error": "Failed to submit application"}), 500
 
-        # Best-effort admin notification email. The actual review happens in
-        # the admin Dealers page.
+        # Best-effort admin notification — uses the same _fetch_all_admin_emails
+        # distribution as the rest of the admin notifications so the team
+        # never misses a new signup.
         try:
-            admin_email = os.getenv("RESEND_ADMIN_NOTIFICATION_EMAIL") or os.getenv(
-                "RESEND_REPLY_TO_EMAIL"
+            docs_resp, _docs_code = supabase_request(
+                "get", "/rest/v1/dealer_documents",
+                params={"user_id": f"eq.{current_user}",
+                        "select": "id,document_type,replaced_at,status",
+                        "replaced_at": "is.null"},
+                use_service_role=True,
             )
-            from_email = os.getenv("RESEND_FROM_EMAIL")
-            if admin_email and from_email:
-                biz_name = (
-                    user_row.get("legal_business_name")
-                    or user_row.get("company_name")
-                    or "(no name)"
-                )
-                _send_resend_email({
-                    "from": from_email,
-                    "to": [admin_email],
-                    "subject": f"DPH Admin: New dealer application — {biz_name}",
-                    "html": (
-                        f"<p>A new dealer application is waiting for review.</p>"
-                        f"<p><strong>Business:</strong> {biz_name}<br/>"
-                        f"<strong>TRN:</strong> {user_row.get('trn') or '(none)'}<br/>"
-                        f"<strong>Email:</strong> {user_row.get('email')}</p>"
-                        f"<p>Review in the admin panel under Dealers → Pending.</p>"
-                    ),
-                })
+            _send_dealer_signup_admin_notification(
+                user_row, documents=docs_resp if isinstance(docs_resp, list) else None,
+            )
         except Exception as notify_err:
-            logger.warning(f"Admin notification email failed: {notify_err}")
+            logger.warning(f"Dealer signup admin notification failed: {notify_err}")
 
         return jsonify({
             "message": "Application submitted",
@@ -10308,6 +10297,91 @@ def _schedule_dealer_auto_approval_if_eligible(user_id):
             "min_confidence": decision["min_confidence"]}
 
 
+def _send_dealer_signup_admin_notification(user_row, documents=None):
+    """Email every admin when a new dealer submits their KYC application.
+
+    `user_row` is the public.users row (must include email, company_name,
+    legal_business_name, trn, is_dealer). `documents` is an optional list
+    of dealer_documents rows; when supplied, we show which docs are present
+    in the email body so the admin knows what's pending review.
+    """
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+    admin_emails = _fetch_all_admin_emails()
+    fallback = os.getenv("RESEND_TO_EMAIL") or PRIMARY_SUPER_ADMIN_EMAIL
+    if not admin_emails:
+        admin_emails = [fallback]
+    dealer_label = ((user_row or {}).get("legal_business_name")
+                    or (user_row or {}).get("company_name")
+                    or (user_row or {}).get("email")
+                    or "Dealer")
+    docs = documents or []
+    docs_lines = ""
+    if docs:
+        from collections import Counter
+        counts = Counter(d.get("document_type") for d in docs)
+        chips = " · ".join(f"{_DEALER_DOCUMENT_LABELS.get(k, k)}: {v}" for k, v in counts.items())
+        docs_lines = f"<p style='margin:6px 0 0;color:#94a3b8;font-size:13px;'>Documents on file: {chips}</p>"
+    subject = f"[Dealer] New dealer signed up — {dealer_label}"
+    html = (
+        "<div style=\"font-family:'Inter',-apple-system,sans-serif;max-width:600px;margin:0 auto;"
+        "padding:24px;background:#041008;color:#f0fdf4;\">"
+        "<h2 style=\"color:#8bd6b4;margin-top:0;\">New dealer application submitted</h2>"
+        f"<p><strong>Dealer:</strong> {dealer_label}</p>"
+        f"<p><strong>Email:</strong> {(user_row or {}).get('email') or '—'}</p>"
+        f"<p><strong>TRN:</strong> {(user_row or {}).get('trn') or '—'}</p>"
+        f"{docs_lines}"
+        f"<p style='margin-top:24px;'>"
+        f"<a href=\"{SITE_URL}/admin/dealers\" "
+        "style=\"background:#8bd6b4;color:#041008;padding:12px 20px;border-radius:8px;"
+        "text-decoration:none;font-weight:600;\">Review in admin panel</a></p>"
+        "</div>"
+    )
+    return _send_resend_email(
+        {"from": from_email, "to": admin_emails, "subject": subject, "html": html},
+        email_type="dealer_signup_application",
+    )
+
+
+def _send_dealer_approved_admin_notification(user_row):
+    """Email every admin when a dealer's KYC application is approved.
+
+    This is the admin-side notification, not the dealer-side one — the dealer
+    already gets a 'welcome' email from `_send_dealer_status_email` at the
+    moment of approval. This is so the admin team can see the cadence of
+    approvals and react to any unusual patterns.
+    """
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+    admin_emails = _fetch_all_admin_emails()
+    fallback = os.getenv("RESEND_TO_EMAIL") or PRIMARY_SUPER_ADMIN_EMAIL
+    if not admin_emails:
+        admin_emails = [fallback]
+    dealer_label = ((user_row or {}).get("legal_business_name")
+                    or (user_row or {}).get("company_name")
+                    or (user_row or {}).get("email")
+                    or "Dealer")
+    subject = f"[Dealer] Approved — {dealer_label}"
+    html = (
+        "<div style=\"font-family:'Inter',-apple-system,sans-serif;max-width:600px;margin:0 auto;"
+        "padding:24px;background:#041008;color:#f0fdf4;\">"
+        "<h2 style=\"color:#8bd6b4;margin-top:0;\">New dealer approved</h2>"
+        f"<p><strong>Dealer:</strong> {dealer_label}</p>"
+        f"<p><strong>Email:</strong> {(user_row or {}).get('email') or '—'}</p>"
+        f"<p style='margin-top:24px;'>"
+        f"<a href=\"{SITE_URL}/admin/dealers\" "
+        "style=\"background:#8bd6b4;color:#041008;padding:12px 20px;border-radius:8px;"
+        "text-decoration:none;font-weight:600;\">View in admin panel</a></p>"
+        "</div>"
+    )
+    return _send_resend_email(
+        {"from": from_email, "to": admin_emails, "subject": subject, "html": html},
+        email_type="dealer_approved",
+    )
+
+
 def _send_dealer_listing_upgrade_admin_notification(request_row, dealer_row):
     """Email every admin when a dealer requests a higher listing cap.
 
@@ -10387,7 +10461,12 @@ def dealer_create_listing_upgrade_request(current_user):
                     or "duplicate" in msg or "duplicate" in code):
                 return jsonify({"error": "You already have a pending upgrade request",
                                 "code": "pending_request_exists"}), 409
-        return jsonify({"error": "Failed to create upgrade request"}), 500
+        logger.error("dealer_create_listing_upgrade_request: supabase returned %s body=%s",
+                     status_code, str(insert)[:300])
+        hint = ""
+        if isinstance(insert, dict) and insert.get("code") == "42P01":
+            hint = " — table dealer_listing_upgrade_requests is missing. Run migrations/2026_08_18_dealer_listing_upgrade_requests.sql"
+        return jsonify({"error": f"Failed to create upgrade request{hint}"}), 500
     row = insert[0] if isinstance(insert, list) else insert
     # Best-effort admin notification
     try:
@@ -10414,6 +10493,8 @@ def admin_list_listing_upgrade_requests(current_user):
     if not _user_has_admin_role(current_user):
         return jsonify({"error": "Admin only"}), 403
     status_filter = (request.args.get("status") or "pending").strip()
+    if status_filter not in ("pending", "approved", "rejected", "cancelled"):
+        status_filter = "pending"
     params = {
         "select": "id,dealer_id,current_limit,requested_limit,reason,status,created_at,resolved_at,resolution_note",
         "status": f"eq.{status_filter}",
@@ -10425,8 +10506,14 @@ def admin_list_listing_upgrade_requests(current_user):
         params=params, use_service_role=True,
     )
     if code >= 400:
-        return jsonify({"error": "Failed to fetch upgrade requests"}), 500
-    dealer_ids = list({r["dealer_id"] for r in (rows or [])})
+        logger.error("admin_list_listing_upgrade_requests: supabase returned %s body=%s",
+                     code, str(rows)[:300])
+        hint = ""
+        if isinstance(rows, dict) and rows.get("code") == "42P01":
+            hint = " — table dealer_listing_upgrade_requests is missing. Run migrations/2026_08_18_dealer_listing_upgrade_requests.sql"
+        return jsonify({"error": f"Failed to fetch upgrade requests{hint}"}), 500
+    rows = rows or []
+    dealer_ids = list({r["dealer_id"] for r in rows})
     dealers = {}
     if dealer_ids:
         in_filter = ",".join(dealer_ids)
@@ -10625,7 +10712,12 @@ def admin_list_featured_listings(current_user):
         use_service_role=True,
     )
     if code >= 400:
-        return jsonify({"error": "Failed to fetch featured listings"}), 500
+        logger.error("admin_list_featured_listings: supabase returned %s body=%s",
+                     code, str(body)[:300])
+        hint = ""
+        if isinstance(body, dict) and body.get("code") == "42P01":
+            hint = " — table featured_listings is missing. Run migrations/2026_08_19_featured_listings.sql"
+        return jsonify({"error": f"Failed to fetch featured listings{hint}"}), 500
     rows = body or []
     rows = _hydrate_featured_rows(rows)
     if not include_inactive:
@@ -17561,6 +17653,14 @@ def update_admin_user_profile(current_user, user_id):
                                 "approved",
                                 request.headers.get("Origin"),
                             )
+                            # Admin notification on the same event so the
+                            # team can track approval cadence.
+                            try:
+                                _send_dealer_approved_admin_notification(
+                                    dealer_info or {"email": dealer_email},
+                                )
+                            except Exception as _admin_email_exc:
+                                logger.warning("Dealer approved admin notification failed: %s", _admin_email_exc)
 
                     # Notify DPH team
                     admin_email = os.getenv("RESEND_TO_EMAIL") or os.getenv(
