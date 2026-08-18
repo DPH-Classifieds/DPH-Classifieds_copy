@@ -66,25 +66,31 @@ export default function VerifyPhoneScreen({ navigation, route }) {
 
     setLoading(true);
     try {
-      if (useMsg91) {
-        // Widget flow: the SDK sends the OTP; backend isn't touched until verify.
-        const id = await msg91SendOtp(toMsg91Identifier(phoneNumber.trim(), countryCode));
-        setReqId(id);
-        setStep('otp');
-        setCountdown(60);
-        setCanResend(false);
-        return;
-      }
+      // The widget sends client-side, so the backend can't see or throttle it
+      // unless we ask first. /start owns auth + the per-phone rate limit; only
+      // call the widget once it says go ahead (same gate for both providers).
       const response = await apiClient.post('/api/phone-verifications/start', {
         phone: phoneNumber.trim(),
         country_code: countryCode,
         purpose,
         source: 'mobile',
       });
-      const nextVerificationId = response?.phone_verification?.verification_id || '';
-      const normalizedPhone = response?.phone_verification?.phone || phoneNumber.trim();
-      setVerificationId(nextVerificationId);
-      setPhoneNumber(normalizedPhone);
+      if (response?.already_verified) {
+        const me = await apiClient.get('/api/auth/me').catch(() => null);
+        if (updateUser) await updateUser(me || { ...user, phone_verified: true });
+        Alert.alert('Success', 'Phone number is already verified.');
+        router.replace('/(tabs)/(explore)');
+        return;
+      }
+      if (useMsg91) {
+        const id = await msg91SendOtp(toMsg91Identifier(phoneNumber.trim(), countryCode));
+        setReqId(id);
+      } else {
+        const nextVerificationId = response?.phone_verification?.verification_id || '';
+        const normalizedPhone = response?.phone_verification?.phone || phoneNumber.trim();
+        setVerificationId(nextVerificationId);
+        setPhoneNumber(normalizedPhone);
+      }
       setStep('otp');
       setCountdown(60);
       setCanResend(false);
@@ -151,23 +157,22 @@ export default function VerifyPhoneScreen({ navigation, route }) {
   const handleResendCode = async () => {
     setResendLoading(true);
     try {
-      if (useMsg91) {
-        await msg91RetryOtp(reqId);
-        setCountdown(60);
-        setCanResend(false);
-        Alert.alert('Success', 'Verification code sent again!');
-        return;
-      }
+      // Same gate as the initial send — MSG91 has no concept of our verification_id,
+      // so omit it and let /start re-run the fresh-send path (and its rate limit).
       const response = await apiClient.post('/api/phone-verifications/start', {
-        verification_id: verificationId,
+        verification_id: useMsg91 ? undefined : verificationId,
         phone: phoneNumber.trim(),
         country_code: countryCode,
         purpose,
         source: 'mobile',
       });
-      const nextVerificationId = response?.phone_verification?.verification_id;
-      if (nextVerificationId) {
-        setVerificationId(nextVerificationId);
+      if (useMsg91) {
+        await msg91RetryOtp(reqId);
+      } else {
+        const nextVerificationId = response?.phone_verification?.verification_id;
+        if (nextVerificationId) {
+          setVerificationId(nextVerificationId);
+        }
       }
       setCountdown(60);
       setCanResend(false);

@@ -203,13 +203,42 @@ export function OTPVerification({
     setMessage("Sending verification code...")
 
     if (useMsg91) {
+      // The widget sends client-side (browser talks to MSG91 directly), so the
+      // backend can't see or throttle it unless we ask first. /start owns auth +
+      // the per-phone rate limit; only call the widget once it says go ahead.
       try {
+        const token = await getAccessToken()
+        const gateResponse = await fetch(`${API_URL}/api/phone-verifications/start`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            phone: phoneInput,
+            country_code: UAE_COUNTRY_CODE,
+            purpose,
+            listing_id: listingId,
+            source: mode,
+          }),
+        })
+        const gateData = await gateResponse.json().catch(() => ({}))
+        if (!gateResponse.ok) {
+          throw new Error(gateData?.message || "Failed to send verification code")
+        }
+        if (gateData.already_verified) {
+          setVerified(true)
+          setMessage("Phone is already verified.")
+          if (onVerified) onVerified(gateData)
+          return
+        }
+
         await ensureMsg91Widget()
         // Resend if a session already exists, otherwise a fresh send.
         if (verificationId) await msg91RetryOtp(null)
         else await msg91SendOtp(toMsg91Identifier(phoneInput))
         setVerificationId((prev) => prev || "msg91")
-        setPhoneVerification((prev) => prev || {
+        setPhoneVerification((prev) => prev || gateData.phone_verification || {
           verification_id: "msg91",
           phone: phoneInput,
           purpose,
@@ -221,7 +250,8 @@ export function OTPVerification({
         failedOtpRequestsRef.current = 0
         setCooldownRemaining(RESEND_COOLDOWN)
       } catch (sendError: any) {
-        setError(gracefulOtpError("send the verification code"))
+        const rateLimited = /too many/i.test(sendError?.message || "")
+        setError(rateLimited ? sendError.message : gracefulOtpError("send the verification code"))
       } finally {
         setStarting(false)
       }

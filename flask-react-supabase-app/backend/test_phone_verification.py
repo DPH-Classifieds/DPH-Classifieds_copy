@@ -90,5 +90,42 @@ class PhoneVerificationPersistenceTests(unittest.TestCase):
         self.assertTrue(mock_supabase_request.called)
 
 
+class Msg91SendRateLimitTests(unittest.TestCase):
+    """The MSG91 widget sends client-side, so /start is the only server-side
+    chokepoint that can throttle it. Guards against the frontend bypassing this
+    endpoint again and silently losing the per-phone cap."""
+
+    def _post(self, redis_limited):
+        with patch.object(backend, "_auth_rate_limited", return_value=False), \
+             patch.object(backend, "_get_optional_user_id_from_auth_header", return_value="user-123"), \
+             patch.object(
+                 backend,
+                 "_get_user_profile_for_verification",
+                 return_value={
+                     "phone": "+971501234567",
+                     "country_code": "+971",
+                     "email_verified": True,
+                     "phone_verified": False,
+                 },
+             ), \
+             patch.object(backend, "_msg91_handles_phone", return_value=True), \
+             patch.object(backend, "_redis_fixed_window_rate_limited", return_value=redis_limited):
+            client = backend.app.test_client()
+            return client.post(
+                "/api/phone-verifications/start",
+                json={"phone": "+971501234567", "country_code": "+971", "purpose": "vin_reveal"},
+            )
+
+    def test_allows_send_within_limit(self):
+        response = self._post(redis_limited=False)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["phone_verification"]["provider"], "msg91_widget")
+
+    def test_blocks_send_once_phone_is_rate_limited(self):
+        response = self._post(redis_limited=True)
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("Too many verification codes", response.get_json()["message"])
+
+
 if __name__ == "__main__":
     unittest.main()

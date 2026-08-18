@@ -166,6 +166,11 @@ PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(
 )
 PHONE_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("PHONE_VERIFICATION_MAX_ATTEMPTS", "5"))
 PHONE_VERIFICATION_MAX_SENDS = int(os.getenv("PHONE_VERIFICATION_MAX_SENDS", "6"))
+# Per-phone-number cap on MSG91 widget sends. The widget sends client-side (browser/app
+# talks to MSG91 directly), so this is the only server-side chokepoint that can throttle
+# it — enforced in start_phone_verification() before the client is told to call the widget.
+OTP_SEND_RATE_LIMIT_WINDOW_SEC = int(os.getenv("OTP_SEND_RATE_LIMIT_WINDOW_SEC", "600"))
+OTP_SEND_RATE_LIMIT_MAX = int(os.getenv("OTP_SEND_RATE_LIMIT_MAX", "3"))
 USERNAME_AVAILABILITY_CACHE_TTL_SECONDS = int(
     os.getenv("USERNAME_AVAILABILITY_CACHE_TTL_SECONDS", "30")
 )
@@ -11027,6 +11032,15 @@ def start_phone_verification():
         return jsonify({"message": "A valid phone number is required"}), 400
 
     if _msg91_handles_phone(verification_phone, country_code or profile.get("country_code")):
+        phone_key = re.sub(r"[^\d]", "", verification_phone)
+        if _redis_fixed_window_rate_limited(
+            "otp_send_phone", phone_key, OTP_SEND_RATE_LIMIT_WINDOW_SEC, OTP_SEND_RATE_LIMIT_MAX
+        ):
+            return jsonify(
+                {
+                    "message": "Too many verification codes requested for this number. Please wait a few minutes and try again."
+                }
+            ), 429
         # MSG91 owns send+verify client-side — return "required" with no id so the
         # widget performs the send; never touch Infobip for these numbers.
         return jsonify(
