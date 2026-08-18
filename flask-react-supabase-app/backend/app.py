@@ -5390,6 +5390,41 @@ _DEALER_DOCUMENT_LABELS = {
 _DEALER_UPGRADE_REQUEST_MIN_USAGE_RATIO = float(
     os.getenv("DEALER_UPGRADE_REQUEST_MIN_USAGE_RATIO", "0.8")
 )
+_DEALER_UPGRADE_REQUEST_REASON_MIN = 10
+_DEALER_UPGRADE_REQUEST_REASON_MAX = 1000
+_DEALER_UPGRADE_REQUEST_MAX_LIMIT = 1000
+
+
+def validate_upgrade_request(current_limit, requested_limit, reason):
+    """Pure validator for a dealer-initiated listing-upgrade request.
+
+    Returns None on success, or {code, message} for the first failure. Codes:
+      - invalid_requested_limit (non-int, <=current, >max)
+      - reason_required         (not a string)
+      - reason_too_short        (<REASON_MIN)
+      - reason_too_long         (>REASON_MAX)
+    """
+    try:
+        rl = int(requested_limit)
+    except (TypeError, ValueError):
+        return {"code": "invalid_requested_limit",
+                "message": "requested_limit must be a number"}
+    if rl <= int(current_limit):
+        return {"code": "invalid_requested_limit",
+                "message": "requested_limit must be greater than your current limit"}
+    if rl > _DEALER_UPGRADE_REQUEST_MAX_LIMIT:
+        return {"code": "invalid_requested_limit",
+                "message": f"requested_limit cannot exceed {_DEALER_UPGRADE_REQUEST_MAX_LIMIT}"}
+    if not isinstance(reason, str):
+        return {"code": "reason_required", "message": "reason is required"}
+    r = reason.strip()
+    if len(r) < _DEALER_UPGRADE_REQUEST_REASON_MIN:
+        return {"code": "reason_too_short",
+                "message": f"reason must be at least {_DEALER_UPGRADE_REQUEST_REASON_MIN} characters"}
+    if len(r) > _DEALER_UPGRADE_REQUEST_REASON_MAX:
+        return {"code": "reason_too_long",
+                "message": f"reason must be at most {_DEALER_UPGRADE_REQUEST_REASON_MAX} characters"}
+    return None
 
 
 def _compute_dealer_listing_limit_summary(limit, counts):
@@ -10163,6 +10198,101 @@ def dealer_listing_limit(current_user):
     if not summary:
         return jsonify({"error": "Not a dealer"}), 403
     return jsonify(summary), 200
+
+
+def _send_dealer_listing_upgrade_admin_notification(request_row, dealer_row):
+    """Email every admin when a dealer requests a higher listing cap.
+
+    Mirrors the layout of the existing new-listing admin notification so the
+    two flows look the same in the inbox. The recipient list is the same
+    `_fetch_all_admin_emails()` distribution used elsewhere, falling back to
+    the primary super-admin / env-configured address.
+    """
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+    admin_emails = _fetch_all_admin_emails()
+    fallback = os.getenv("RESEND_TO_EMAIL") or PRIMARY_SUPER_ADMIN_EMAIL
+    if not admin_emails:
+        admin_emails = [fallback]
+    dealer_label = (dealer_row or {}).get("legal_business_name") \
+        or (dealer_row or {}).get("company_name") \
+        or (dealer_row or {}).get("email") \
+        or "Dealer"
+    subject = f"[Dealer] Listing limit upgrade request — {dealer_label}"
+    html = (
+        "<div style=\"font-family:'Inter',sans-serif;max-width:600px;margin:0 auto;"
+        "padding:24px;background:#041008;color:#f0fdf4;\">"
+        "<h2 style=\"color:#8bd6b4;margin-top:0;\">Dealer requested a higher listing limit</h2>"
+        f"<p><strong>Dealer:</strong> {dealer_label}</p>"
+        f"<p><strong>Current limit:</strong> {request_row.get('current_limit')}</p>"
+        f"<p><strong>Requested limit:</strong> {request_row.get('requested_limit')}</p>"
+        "<p><strong>Reason:</strong></p>"
+        f"<blockquote style=\"border-left:3px solid #8bd6b4;padding-left:12px;margin-left:0;\">"
+        f"{request_row.get('reason')}</blockquote>"
+        f"<p style=\"margin-top:24px;\">"
+        f"<a href=\"{SITE_URL}/admin/dealers?tab=upgrade-requests\" "
+        "style=\"background:#8bd6b4;color:#041008;padding:12px 20px;border-radius:8px;"
+        "text-decoration:none;font-weight:600;\">Review in admin panel</a></p>"
+        "</div>"
+    )
+    return _send_resend_email(
+        {"from": from_email, "to": admin_emails, "subject": subject, "html": html},
+        email_type="dealer_listing_upgrade_request",
+    )
+
+
+@app.route("/api/dealer/listing-upgrade-requests", methods=["POST"])
+@token_required
+def dealer_create_listing_upgrade_request(current_user):
+    """Dealer-initiated cap-increase request. Idempotent against spam: a
+    single pending row per dealer is enforced at the DB level."""
+    body = request.get_json(silent=True) or {}
+    policy = _fetch_dealer_listing_policy(current_user)
+    if not policy:
+        return jsonify({"error": "Not a dealer"}), 403
+    if not policy.get("verified"):
+        return jsonify({"error": "Your dealer account must be verified before requesting more listings"}), 403
+    err = validate_upgrade_request(policy["limit"], body.get("requested_limit"), body.get("reason", ""))
+    if err:
+        status = 422 if err["code"] in (
+            "reason_too_short", "reason_too_long",
+            "invalid_requested_limit", "reason_required",
+        ) else 400
+        return jsonify(err), status
+    insert, status_code = supabase_request(
+        "post", "/rest/v1/dealer_listing_upgrade_requests",
+        data={
+            "dealer_id": current_user,
+            "current_limit": policy["limit"],
+            "requested_limit": int(body["requested_limit"]),
+            "reason": body["reason"].strip(),
+        },
+        use_service_role=True,
+    )
+    if status_code >= 400 or not insert:
+        # Unique-partial index on (dealer_id) WHERE status='pending'
+        if isinstance(insert, dict):
+            msg = str(insert.get("message", "")).lower()
+            code = str(insert.get("code", "")).lower()
+            if ("dealer_listing_upgrade_requests_one_pending" in msg
+                    or "duplicate" in msg or "duplicate" in code):
+                return jsonify({"error": "You already have a pending upgrade request",
+                                "code": "pending_request_exists"}), 409
+        return jsonify({"error": "Failed to create upgrade request"}), 500
+    row = insert[0] if isinstance(insert, list) else insert
+    # Best-effort admin notification
+    try:
+        dealer_row, _ = supabase_request(
+            "get",
+            f"/rest/v1/users?id=eq.{current_user}&select=email,company_name,legal_business_name",
+            use_service_role=True,
+        )
+        dealer = dealer_row[0] if isinstance(dealer_row, list) and dealer_row else {}
+        _send_dealer_listing_upgrade_admin_notification(row, dealer)
+    except Exception as exc:
+        logger.warning("Dealer upgrade request admin notification failed: %s", exc)
+    return jsonify(row), 201
 
 
 @app.route("/api/user/dealer-documents", methods=["DELETE"])
