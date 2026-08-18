@@ -10075,6 +10075,17 @@ def upload_dealer_document(current_user):
         readiness, readiness_error = _get_dealer_application_readiness(current_user)
         if readiness_error:
             return jsonify({"error": readiness_error}), 500
+
+        # If both required documents are now present and both cleared the OCR
+        # threshold, queue a delayed auto-approval. The minute-tick worker
+        # re-verifies at fire time, so a doc-replace between upload and fire
+        # is handled safely.
+        try:
+            schedule_result = _schedule_dealer_auto_approval_if_eligible(current_user)
+            logger.info("dealer auto-approval schedule: %s", schedule_result)
+        except Exception as exc:
+            logger.warning("dealer auto-approval scheduling failed: %s", exc)
+
         safe_docs = [_with_private_dealer_document_url(doc) for doc in all_docs]
         return jsonify({
             "message": "Document uploaded successfully",
@@ -10235,6 +10246,66 @@ def decide_upgrade_request(current_limit, requested_limit, decision, new_limit, 
         "source": "upgrade_request",
     }
     return nl, history, None
+
+
+def _schedule_dealer_auto_approval_if_eligible(user_id):
+    """If both required docs are present and clear the OCR threshold, queue a
+    delayed auto-approval. Idempotent: the unique partial index on
+    (user_id) WHERE state='pending' ensures at most one pending row per user;
+    a new upload cancels the old pending row before inserting a fresh one so
+    the 5-minute timer effectively restarts on the latest OCR confidence.
+    """
+    from services.registration_ocr import should_auto_approve_dealer
+    threshold = float(os.getenv("DEALER_AUTO_APPROVAL_OCR_THRESHOLD", "0.90"))
+    delay = int(os.getenv("DEALER_AUTO_APPROVAL_DELAY_SECONDS", "300"))
+    docs, code = supabase_request(
+        "get", "/rest/v1/dealer_documents",
+        params={
+            "user_id": f"eq.{user_id}",
+            "select": "id,document_type,ocr_confidence,replaced_at,status",
+            "replaced_at": "is.null",
+        },
+        use_service_role=True,
+    )
+    if code >= 400 or not isinstance(docs, list):
+        return {"scheduled": False, "reason": "fetch_failed"}
+    decision = should_auto_approve_dealer(docs, threshold=threshold)
+    if not decision["approve"]:
+        return {"scheduled": False, "reason": "not_eligible", "details": decision}
+    # Don't schedule if the user is already verified
+    user_body, ucode = supabase_request(
+        "get", f"/rest/v1/users?id=eq.{user_id}&select=dealer_verified", use_service_role=True,
+    )
+    if ucode < 400 and user_body and user_body[0].get("dealer_verified"):
+        return {"scheduled": False, "reason": "already_verified"}
+    # Cancel any existing pending row so the unique index lets the new insert through
+    supabase_request(
+        "patch", "/rest/v1/dealer_pending_approvals",
+        params={"user_id": f"eq.{user_id}", "state": "eq.pending"},
+        data={"state": "cancelled", "cancelled_reason": "rescheduled_by_new_upload"},
+        use_service_role=True,
+    )
+    from datetime import datetime, timedelta, timezone
+    scheduled_for = (datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat()
+    by_type = {d["document_type"]: d for d in docs}
+    insert_body, ic = supabase_request(
+        "post", "/rest/v1/dealer_pending_approvals",
+        data={
+            "user_id": user_id,
+            "trigger_kind": "ocr_high_confidence",
+            "scheduled_for": scheduled_for,
+            "trade_license_doc_id": (by_type.get("trade_license") or {}).get("id"),
+            "tax_registration_doc_id": (by_type.get("tax_registration") or {}).get("id"),
+            "trade_license_confidence": (by_type.get("trade_license") or {}).get("ocr_confidence"),
+            "tax_registration_confidence": (by_type.get("tax_registration") or {}).get("ocr_confidence"),
+            "threshold": threshold,
+        },
+        use_service_role=True,
+    )
+    if ic >= 400:
+        return {"scheduled": False, "reason": "insert_failed", "details": insert_body}
+    return {"scheduled": True, "scheduled_for": scheduled_for,
+            "min_confidence": decision["min_confidence"]}
 
 
 def _send_dealer_listing_upgrade_admin_notification(request_row, dealer_row):
