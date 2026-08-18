@@ -13,6 +13,7 @@ import {
   ExternalLink,
   LogOut,
   ChevronUp,
+  ArrowUpCircle,
 } from 'lucide-react';
 
 const menuItems = [
@@ -20,6 +21,7 @@ const menuItems = [
   { path: '/admin/listings',   label: 'Listings',     icon: FileText },
   { path: '/admin/reddit-verify', label: 'Reddit verify', icon: Rss },
   { path: '/admin/dealers',    label: 'Dealers',      icon: Store },
+  { path: '/admin/dealer-upgrade-requests', label: 'Limit requests', icon: ArrowUpCircle },
   { path: '/admin/dealerships',label: 'Dealerships',  icon: Building2 },
   { path: '/admin/users',      label: 'Users',        icon: Users },
   { path: '/admin/reports',    label: 'Reports',      icon: MessageSquareWarning },
