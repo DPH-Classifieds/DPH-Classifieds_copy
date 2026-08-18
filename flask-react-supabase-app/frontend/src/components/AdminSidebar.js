@@ -14,11 +14,13 @@ import {
   LogOut,
   ChevronUp,
   ArrowUpCircle,
+  Star,
 } from 'lucide-react';
 
 const menuItems = [
   { path: '/admin',            label: 'Dashboard',    icon: LayoutDashboard,      exact: true },
   { path: '/admin/listings',   label: 'Listings',     icon: FileText },
+  { path: '/admin/featured-listings', label: 'Featured', icon: Star },
   { path: '/admin/reddit-verify', label: 'Reddit verify', icon: Rss },
   { path: '/admin/dealers',    label: 'Dealers',      icon: Store },
   { path: '/admin/dealer-upgrade-requests', label: 'Limit requests', icon: ArrowUpCircle },
