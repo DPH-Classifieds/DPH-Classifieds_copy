@@ -10528,6 +10528,254 @@ def admin_decide_listing_upgrade_request(current_user, request_id):
                     "status": "approved" if nl else "rejected"}), 200
 
 
+# --- Featured listings (admin-curated) ---------------------------------------
+
+def _resolve_featured_listing_meta(rows_by_type, listing_type, listing_id):
+    """Hydrate a featured_listings row with the underlying listing's title.
+
+    `rows_by_type` is a dict {type: {id: row}} pre-fetched by the caller.
+    Returns the row dict (possibly enriched) or None if the listing is gone.
+    """
+    rows = rows_by_type.get(listing_type) or {}
+    listing = rows.get(listing_id)
+    if not listing:
+        return None
+    if listing_type == "car":
+        title = " ".join(filter(None, [
+            str(listing.get("make_year") or ""),
+            str(listing.get("car_manufacturer") or ""),
+            str(listing.get("car_model") or ""),
+        ])).strip() or "Untitled car"
+    elif listing_type == "bike":
+        title = " ".join(filter(None, [
+            str(listing.get("make_year") or ""),
+            str(listing.get("bike_manufacturer") or listing.get("car_manufacturer") or ""),
+            str(listing.get("bike_model") or listing.get("car_model") or ""),
+        ])).strip() or "Untitled bike"
+    elif listing_type == "plate":
+        title = str(listing.get("plate_number") or "Untitled plate")
+    elif listing_type == "part":
+        title = " ".join(filter(None, [
+            str(listing.get("make") or ""),
+            str(listing.get("part_type") or listing.get("model") or ""),
+        ])).strip() or "Untitled part"
+    else:
+        title = "Listing"
+    out = dict(listing)
+    out["title"] = title
+    return out
+
+
+def _hydrate_featured_rows(featured_rows):
+    """Given a list of featured_listings rows, join the underlying listing
+    details from cars/bikes/license_plates/car_parts. Returns the same rows
+    enriched with `title` and a `listing` sub-dict."""
+    if not featured_rows:
+        return []
+    by_type = {"car": set(), "bike": set(), "plate": set(), "part": set()}
+    for r in featured_rows:
+        by_type[r.get("listing_type")].add(r["listing_id"])
+    rows_by_type = {}
+    table_map = {"car": "cars", "bike": "bikes", "plate": "license_plates", "part": "car_parts"}
+    for t, ids in by_type.items():
+        if not ids:
+            rows_by_type[t] = {}
+            continue
+        in_filter = ",".join(ids)
+        body, code = supabase_request(
+            "get", f"/rest/v1/{table_map[t]}",
+            params={"id": f"in.({in_filter})",
+                    "select": "id,car_make,car_model,car_manufacturer,car_model,bike_manufacturer,bike_model,make_year,make,model,part_type,plate_number,expected_selling_price,is_approved,status,deleted_at"},
+            use_service_role=True,
+        )
+        if code < 400 and isinstance(body, list):
+            rows_by_type[t] = {row["id"]: row for row in body}
+        else:
+            rows_by_type[t] = {}
+    out = []
+    for r in featured_rows:
+        listing = _resolve_featured_listing_meta(rows_by_type, r["listing_type"], r["listing_id"])
+        if listing is None:
+            # Underlying listing was deleted — still return the featured row
+            # so the admin can see and remove the stale entry.
+            r2 = dict(r)
+            r2["title"] = "(deleted listing)"
+            r2["listing"] = None
+            r2["is_active"] = False
+            out.append(r2)
+            continue
+        r2 = dict(r)
+        r2["title"] = listing["title"]
+        r2["listing"] = listing
+        r2["is_active"] = True
+        out.append(r2)
+    return out
+
+
+@app.route("/api/admin/featured-listings", methods=["GET"])
+@token_required
+def admin_list_featured_listings(current_user):
+    """List all featured rows, newest first. Hydrated with the listing title."""
+    if not _user_has_admin_role(current_user):
+        return jsonify({"error": "Admin only"}), 403
+    include_inactive = (request.args.get("include_inactive") or "").lower() in ("1", "true", "yes")
+    body, code = supabase_request(
+        "get", "/rest/v1/featured_listings",
+        params={"select": "*", "order": "featured_at.desc", "limit": "200"},
+        use_service_role=True,
+    )
+    if code >= 400:
+        return jsonify({"error": "Failed to fetch featured listings"}), 500
+    rows = body or []
+    rows = _hydrate_featured_rows(rows)
+    if not include_inactive:
+        rows = [r for r in rows if r.get("is_active")]
+    return jsonify(rows), 200
+
+
+@app.route("/api/admin/featured-listings", methods=["POST"])
+@token_required
+def admin_create_featured_listing(current_user):
+    """Feature a listing. Upserts on (listing_type, listing_id) so re-featuring
+    the same listing updates the existing row."""
+    if not _user_has_admin_role(current_user):
+        return jsonify({"error": "Admin only"}), 403
+    data = request.get_json(silent=True) or {}
+    payload, err = validate_featured_input(
+        data.get("listing_type"), data.get("listing_id"),
+        data.get("featured_until"),
+    )
+    if err:
+        return jsonify(err), 400
+    # Optional admin note
+    note = (data.get("note") or "").strip() or None
+    insert_body = {
+        "listing_type": payload["listing_type"],
+        "listing_id": payload["listing_id"],
+        "featured_by": current_user,
+        "featured_until": payload["featured_until"],
+    }
+    if note:
+        insert_body["note"] = note
+    # Upsert: if a row already exists, refresh it. The unique index on
+    # (listing_type, listing_id) makes this safe to do via PostgREST's
+    # Prefer: resolution=merge-duplicates.
+    body, code = supabase_request(
+        "post", "/rest/v1/featured_listings",
+        data=insert_body,
+        params={"on_conflict": "listing_type,listing_id",
+                "columns": "listing_type,listing_id,featured_by,featured_until,note,updated_at",
+                "select": "*"},
+        use_service_role=True,
+    )
+    if code >= 400:
+        return jsonify({"error": "Failed to feature listing", "details": body}), 500
+    # `body` may be a list (Prefer return=representation) or a dict (empty)
+    row = body[0] if isinstance(body, list) and body else (body if isinstance(body, dict) else None)
+    if not row:
+        # Re-fetch in case PostgREST returned nothing on the upsert
+        refetch, refetch_code = supabase_request(
+            "get", "/rest/v1/featured_listings",
+            params={"listing_type": f"eq.{payload['listing_type']}",
+                    "listing_id": f"eq.{payload['listing_id']}", "limit": "1"},
+            use_service_role=True,
+        )
+        if refetch_code < 400 and isinstance(refetch, list) and refetch:
+            row = refetch[0]
+    if not row:
+        return jsonify({"error": "Featured listing upserted but not returned"}), 500
+    hydrated = _hydrate_featured_rows([row])
+    return jsonify(hydrated[0] if hydrated else row), 201
+
+
+@app.route("/api/admin/featured-listings/<row_id>", methods=["DELETE"])
+@token_required
+def admin_delete_featured_listing(current_user, row_id):
+    """Remove a listing from the featured set (admin-only)."""
+    if not _user_has_admin_role(current_user):
+        return jsonify({"error": "Admin only"}), 403
+    body, code = supabase_request(
+        "delete", f"/rest/v1/featured_listings?id=eq.{row_id}",
+        use_service_role=True,
+    )
+    if code >= 400:
+        return jsonify({"error": "Failed to remove featured listing"}), 500
+    return jsonify({"deleted": True, "id": row_id}), 200
+
+
+@app.route("/api/admin/featured-listings/<row_id>", methods=["PATCH"])
+@token_required
+def admin_update_featured_listing(current_user, row_id):
+    """Change a featured listing's duration or note. Cannot change
+    listing_type or listing_id (delete + recreate instead)."""
+    if not _user_has_admin_role(current_user):
+        return jsonify({"error": "Admin only"}), 403
+    data = request.get_json(silent=True) or {}
+    patch = {}
+    if "featured_until" in data:
+        until = data.get("featured_until")
+        if until in (None, ""):
+            patch["featured_until"] = None
+        else:
+            try:
+                from datetime import datetime, timezone
+                parsed = datetime.fromisoformat(str(until).replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                if parsed <= datetime.now(timezone.utc):
+                    return jsonify({"error": "featured_until must be in the future",
+                                    "code": "featured_until_in_past"}), 400
+                patch["featured_until"] = parsed.isoformat()
+            except (ValueError, TypeError):
+                return jsonify({"error": "featured_until must be an ISO timestamp",
+                                "code": "invalid_featured_until"}), 400
+    if "note" in data:
+        patch["note"] = (data.get("note") or "").strip() or None
+    if not patch:
+        return jsonify({"error": "No supported fields provided"}), 400
+    body, code = supabase_request(
+        "patch", f"/rest/v1/featured_listings?id=eq.{row_id}",
+        data=patch, use_service_role=True,
+    )
+    if code >= 400:
+        return jsonify({"error": "Failed to update featured listing"}), 500
+    return jsonify({"updated": True, "id": row_id}), 200
+
+
+@app.route("/api/featured-listings", methods=["GET"])
+def public_list_featured_listings():
+    """Public, anonymous endpoint returning currently-featured listings.
+
+    Used by the Explore page and the per-category pages. The response
+    shape matches the admin endpoint (each item has a `title` and a
+    nested `listing` with the underlying row), so the same frontend
+    component can render both.
+    """
+    listing_type = (request.args.get("type") or "").strip().lower()
+    if listing_type and listing_type not in ALLOWED_LISTING_TYPES:
+        return jsonify({"error": f"type must be one of {list(ALLOWED_LISTING_TYPES)}"}), 400
+    params = {
+        "select": "*",
+        "order": "featured_at.desc",
+        "limit": "50",
+    }
+    if listing_type:
+        params["listing_type"] = f"eq.{listing_type}"
+    body, code = supabase_request(
+        "get", "/rest/v1/featured_listings", params=params, use_service_role=True,
+    )
+    if code >= 400:
+        return jsonify({"error": "Failed to fetch featured listings"}), 500
+    rows = [r for r in (body or []) if is_listing_active_featured(r)]
+    hydrated = _hydrate_featured_rows(rows)
+    # Drop rows whose underlying listing was deleted or no longer visible.
+    visible = [r for r in hydrated
+               if r.get("listing")
+               and r["listing"].get("is_approved") is True
+               and not r["listing"].get("deleted_at")]
+    return jsonify(visible), 200
+
+
 @app.route("/api/user/dealer-documents", methods=["DELETE"])
 @token_required
 def delete_dealer_document(current_user):
