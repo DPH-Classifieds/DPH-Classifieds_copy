@@ -23055,7 +23055,7 @@ def get_admin_dealers(current_user):
             query += "&dealer_verified=eq.false"
 
         # Add select to get relevant fields
-        query += "&select=id,email,first_name,last_name,company_name,company_registration_number,trade_license_number,is_dealer,dealer_verified,dealer_verified_at,created_at,phone,city,emirate,profile_completion_percentage,company_documents,verification_documents_submitted"
+        query += "&select=id,email,first_name,last_name,company_name,legal_business_name,trn,company_registration_number,trade_license_number,is_dealer,dealer_verified,dealer_verified_at,created_at,phone,city,emirate,profile_completion_percentage,company_documents,verification_documents_submitted"
 
         response, status_code = supabase_request("get", query, use_service_role=True)
 
@@ -23063,7 +23063,34 @@ def get_admin_dealers(current_user):
             logger.error(f"Failed to fetch dealers: {response}")
             return jsonify({"error": "Failed to fetch dealers"}), status_code
 
-        return jsonify(response), 200
+        dealers = response or []
+        # Attach the same document-readiness verdict the verify/reject endpoints
+        # gate on, so the list view's doc chips can't drift from what "Approve"
+        # actually checks. Batched into one dealer_documents call instead of
+        # N round trips (was previously guessed client-side from user-row
+        # fields like trade_license_status that don't exist on `users`).
+        dealer_ids = [d["id"] for d in dealers if d.get("id")]
+        docs_by_user = {}
+        if dealer_ids:
+            docs, docs_status = supabase_request(
+                "get",
+                "/rest/v1/dealer_documents",
+                params={
+                    "user_id": f"in.({','.join(dealer_ids)})",
+                    "replaced_at": "is.null",
+                    "select": "id,user_id,document_type,status,expires_at,replaced_at,uploaded_at",
+                },
+                use_service_role=True,
+            )
+            if docs_status < 400:
+                for doc in docs or []:
+                    docs_by_user.setdefault(doc["user_id"], []).append(doc)
+        for dealer in dealers:
+            dealer["readiness"] = _evaluate_dealer_application(
+                dealer, docs_by_user.get(dealer.get("id"), [])
+            )
+
+        return jsonify(dealers), 200
 
     except Exception as e:
         logger.error(f"Error fetching dealers: {str(e)}")

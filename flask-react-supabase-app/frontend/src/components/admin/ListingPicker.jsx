@@ -2,9 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
 import { getListingTitle } from '../../utils/listingTitle';
+import { resolveMediaUrl } from '../../utils/media';
 
 const PLURAL_TO_SINGULAR = { cars: 'car', bikes: 'bike', plates: 'plate', parts: 'part' };
 const TYPE_LABELS = { car: 'Car', bike: 'Bike', plate: 'Plate', part: 'Part' };
+const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
+
+// Plates have no photo by design — every other type carries a real thumbnail.
+const getThumbnail = (listing) => {
+  const first = Array.isArray(listing.images) ? listing.images[0] : null;
+  const raw = first?.display_url || first?.image_url || first?.url || null;
+  return resolveMediaUrl(raw) || PLACEHOLDER_IMAGE;
+};
 
 /**
  * Search-as-you-type picker over existing, approved listings (cars/bikes/
@@ -85,6 +94,15 @@ export default function ListingPicker({ onClose, onSelect }) {
                 onClick={() => pick(listing, title)}
                 className="w-full flex items-center gap-3 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 px-3 py-2 text-left transition-colors"
               >
+                {listing.listing_type === 'plates' || listing.listing_type === 'plate' ? null : (
+                  <img
+                    src={getThumbnail(listing)}
+                    alt=""
+                    loading="lazy"
+                    className="w-10 h-10 rounded-md object-cover border border-white/10 shrink-0 bg-white/5"
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = PLACEHOLDER_IMAGE; }}
+                  />
+                )}
                 <span className="text-[10px] uppercase tracking-wider text-white/40 bg-white/[0.06] border border-white/10 rounded-full px-2 py-0.5 shrink-0">
                   {TYPE_LABELS[PLURAL_TO_SINGULAR[listing.listing_type] || listing.listing_type] || listing.listing_type}
                 </span>

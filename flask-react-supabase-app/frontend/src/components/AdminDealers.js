@@ -32,12 +32,20 @@ const SkeletonCard = () => (
   </div>
 );
 
-// The detailed dealer screen is the source of truth for document review.
-const getDocStatus = (dealer) => {
-  // These fields may vary by API shape; we infer presence/state from available keys
-  const tradeStatus = dealer.trade_license_status || (dealer.trade_license ? 'approved' : 'missing');
-  const taxStatus = dealer.tax_status || (dealer.trn || dealer.tax_registration_number ? 'approved' : 'missing');
-  return { tradeStatus, taxStatus };
+// Mirrors the same readiness verdict the backend's verify/reject endpoints
+// gate on (_evaluate_dealer_application in app.py), attached per-dealer by
+// GET /api/admin/dealers as `readiness`. One status per required document
+// type — driven by whatever the backend lists as required, not hardcoded.
+const getDocChips = (dealer) => {
+  const r = dealer.readiness;
+  if (!r) return [];
+  return (r.required_documents || []).map((docType) => {
+    let status = 'missing';
+    if (r.approved_documents?.includes(docType)) status = 'approved';
+    else if (r.denied_documents?.includes(docType)) status = 'denied';
+    else if (r.pending_documents?.includes(docType)) status = 'pending';
+    return { docType, label: r.document_labels?.[docType] || docType, status };
+  });
 };
 
 const DocChip = ({ label, status }) => {
@@ -218,9 +226,8 @@ const AdminDealers = () => {
             const initial = companyName[0]?.toUpperCase() || 'D';
             const isVerified = Boolean(dealer.dealer_verified);
             const loadingForRow = actionLoadingId === dealer.id;
-            const { tradeStatus, taxStatus } = getDocStatus(dealer);
-            const allDocsUploaded =
-              tradeStatus !== 'missing' && taxStatus !== 'missing';
+            const docChips = getDocChips(dealer);
+            const readyToApprove = Boolean(dealer.readiness?.ready_to_approve);
 
             return (
               <motion.div
@@ -258,9 +265,10 @@ const AdminDealers = () => {
                   </div>
 
                   {/* Doc chips */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <DocChip label="Trade license" status={tradeStatus} />
-                    <DocChip label="Tax" status={taxStatus} />
+                  <div className="grid grid-cols-2 gap-2">
+                    {docChips.map((c) => (
+                      <DocChip key={c.docType} label={c.label} status={c.status} />
+                    ))}
                   </div>
 
                   {/* Actions */}
@@ -273,7 +281,7 @@ const AdminDealers = () => {
                     >
                       Review
                     </button>
-                    {!isVerified && allDocsUploaded && (
+                    {!isVerified && readyToApprove && (
                       <>
                         <button
                           type="button"
@@ -299,7 +307,7 @@ const AdminDealers = () => {
                         </button>
                       </>
                     )}
-                    {!isVerified && !allDocsUploaded && (
+                    {!isVerified && !readyToApprove && (
                       <button
                         type="button"
                         title="View details"
