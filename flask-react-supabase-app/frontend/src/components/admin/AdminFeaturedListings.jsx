@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import apiClient from '../../utils/apiClient';
+import ListingPicker from './ListingPicker';
+import FeatureListingModal from './FeatureListingModal';
 
 const LISTING_TYPES = [
   { key: 'car',   label: 'Car' },
@@ -8,138 +10,11 @@ const LISTING_TYPES = [
   { key: 'part',  label: 'Part' },
 ];
 
-const DURATION_PRESETS = [
-  { label: '24 hours',     days: 1 },
-  { label: '3 days',       days: 3 },
-  { label: '7 days',       days: 7 },
-  { label: '14 days',      days: 14 },
-  { label: '30 days',      days: 30 },
-  { label: '90 days',      days: 90 },
-  { label: 'Until removed', days: null },
-];
-
 const fmt = (iso) => (iso ? new Date(iso).toLocaleString() : '—');
 
 function isExpired(until) {
   if (!until) return false;
   return new Date(until).getTime() <= Date.now();
-}
-
-function FeatureForm({ onClose, onCreated }) {
-  const [listingType, setListingType] = useState('car');
-  const [listingId, setListingId] = useState('');
-  const [duration, setDuration] = useState(7);
-  const [customDate, setCustomDate] = useState('');
-  const [note, setNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      let featuredUntil = null;
-      if (customDate) {
-        featuredUntil = new Date(customDate).toISOString();
-      } else if (duration) {
-        const d = new Date();
-        d.setDate(d.getDate() + Number(duration));
-        featuredUntil = d.toISOString();
-      }
-      const data = await apiClient.post('/api/admin/featured-listings', {
-        listing_type: listingType,
-        listing_id: listingId.trim(),
-        featured_until: featuredUntil,
-        note: note.trim() || undefined,
-      });
-      onCreated(data);
-    } catch (err) {
-      const body = err?.response?.data;
-      setError(body?.error || body?.message || err.message || 'Failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <form
-        onSubmit={submit}
-        className="bg-[#0c1410] border border-white/10 rounded-2xl p-6 w-full max-w-md space-y-4 text-white"
-      >
-        <h3 className="text-lg font-semibold">Feature a listing</h3>
-        <label className="block">
-          <span className="text-sm text-white/70">Listing type</span>
-          <select
-            value={listingType}
-            onChange={(e) => setListingType(e.target.value)}
-            className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white"
-          >
-            {LISTING_TYPES.map((t) => (
-              <option key={t.key} value={t.key}>{t.label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-sm text-white/70">Listing ID (UUID)</span>
-          <input
-            type="text"
-            required
-            value={listingId}
-            onChange={(e) => setListingId(e.target.value)}
-            placeholder="e.g. 1a2b3c4d-…"
-            className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white font-mono text-sm"
-          />
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-sm text-white/70">Duration</span>
-            <select
-              value={duration ?? '__null'}
-              onChange={(e) => setDuration(e.target.value === '__null' ? null : Number(e.target.value))}
-              className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white"
-            >
-              {DURATION_PRESETS.map((d) => (
-                <option key={d.label} value={d.days ?? '__null'}>{d.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm text-white/70">Or custom date</span>
-            <input
-              type="datetime-local"
-              value={customDate}
-              onChange={(e) => setCustomDate(e.target.value)}
-              className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white"
-            />
-          </label>
-        </div>
-        <label className="block">
-          <span className="text-sm text-white/70">Note (optional)</span>
-          <input
-            type="text"
-            maxLength={200}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. homepage spotlight for launch week"
-            className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white"
-          />
-        </label>
-        {error && <p className="text-sm text-red-300">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-white/70 hover:text-white">Cancel</button>
-          <button
-            type="submit"
-            disabled={submitting || !listingId.trim()}
-            className="px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-medium disabled:opacity-50"
-          >
-            {submitting ? 'Featuring…' : 'Feature listing'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
 }
 
 function FeaturedRow({ row, onRemoved, onUpdated }) {
@@ -196,7 +71,8 @@ export default function AdminFeaturedListings() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickedListing, setPickedListing] = useState(null);
   const [showInactive, setShowInactive] = useState(false);
 
   const load = useCallback(async () => {
@@ -246,7 +122,7 @@ export default function AdminFeaturedListings() {
             Show expired
           </label>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => setShowPicker(true)}
             className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-medium"
           >
             + Feature a listing
@@ -260,7 +136,7 @@ export default function AdminFeaturedListings() {
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
           <p className="text-white/50">No featured listings yet.</p>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => setShowPicker(true)}
             className="mt-3 text-sm text-amber-300 hover:text-amber-200"
           >
             Feature your first listing →
@@ -277,11 +153,24 @@ export default function AdminFeaturedListings() {
         />
       ))}
 
-      {showForm && (
-        <FeatureForm
-          onClose={() => setShowForm(false)}
+      {showPicker && (
+        <ListingPicker
+          onClose={() => setShowPicker(false)}
+          onSelect={(picked) => {
+            setShowPicker(false);
+            setPickedListing(picked);
+          }}
+        />
+      )}
+
+      {pickedListing && (
+        <FeatureListingModal
+          listingType={pickedListing.listingType}
+          listingId={pickedListing.listingId}
+          title={pickedListing.title}
+          onClose={() => setPickedListing(null)}
           onCreated={(r) => {
-            setShowForm(false);
+            setPickedListing(null);
             setRows((prev) => [r, ...prev.filter((x) => x.id !== r.id)]);
           }}
         />

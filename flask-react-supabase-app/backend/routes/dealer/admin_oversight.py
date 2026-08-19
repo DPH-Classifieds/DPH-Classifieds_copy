@@ -67,7 +67,8 @@ def get_dealership(current_user, dealership_id):
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/dealerships",
         headers=_svc(),
-        params={"select": "*,members:dealership_members(*,user:users(id,email,first_name,last_name))",
+        params={"select": "*,members:dealership_members(*,user:users!dealership_members_user_id_fkey("
+                           "id,email,first_name,last_name,company_name,is_dealer,dealer_verified,dealer_verified_at))",
                 "id": f"eq.{dealership_id}", "limit": 1}, timeout=15,
     )
     rows = r.json() if r.status_code == 200 else []

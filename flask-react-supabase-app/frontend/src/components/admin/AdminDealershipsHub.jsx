@@ -14,21 +14,23 @@ import AdminFeaturedListings from './AdminFeaturedListings';
  *
  * They were created for different reasons (dealer = the KYC person;
  * dealership = the public-facing org with multi-staff access) but admins
- * want to manage them together. This page is the unified view: four tabs
- * (Dealers, Dealerships, Limit requests, Featured) so all settings live
+ * want to manage them together. This page is the unified view: three tabs
+ * (Dealers & Dealerships, Limit requests, Featured) so all settings live
  * behind one route at /admin/dealerships/hub (and the original sub-routes
  * still work for deep links, e.g. /admin/dealers?pending=true from the
- * dashboard's pending-dealers widget).
+ * dashboard's pending-dealers widget). The first tab stacks the pending-KYC
+ * dealer queue above the dealerships table — a dealership's member dealers
+ * (with their KYC status) are reachable by expanding its row there, so the
+ * two concepts read as one view instead of two disconnected tabs.
  */
 const TABS = [
-  { key: 'dealers',      label: 'Dealers' },
-  { key: 'dealerships',  label: 'Dealerships' },
-  { key: 'limits',       label: 'Limit requests' },
-  { key: 'featured',     label: 'Featured' },
+  { key: 'dealers-dealerships', label: 'Dealers & Dealerships' },
+  { key: 'limits',              label: 'Limit requests' },
+  { key: 'featured',            label: 'Featured' },
 ];
 
 export default function AdminDealershipsHub() {
-  const [activeTab, setActiveTab] = useState('dealerships');
+  const [activeTab, setActiveTab] = useState('dealers-dealerships');
   const [counts, setCounts] = useState({ pendingLimits: null, activeFeatured: null });
 
   const refreshCounts = useCallback(async () => {
@@ -86,8 +88,12 @@ export default function AdminDealershipsHub() {
         ))}
       </div>
 
-      {activeTab === 'dealers' && <AdminDealers />}
-      {activeTab === 'dealerships' && <AdminDealerships />}
+      {activeTab === 'dealers-dealerships' && (
+        <div className="space-y-8">
+          <AdminDealers />
+          <AdminDealerships />
+        </div>
+      )}
       {activeTab === 'limits' && <AdminDealerUpgradeRequests onResolved={refreshCounts} />}
       {activeTab === 'featured' && <AdminFeaturedListings />}
     </div>

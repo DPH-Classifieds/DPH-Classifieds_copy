@@ -1,8 +1,43 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Search, Store, ExternalLink, ChevronRight } from 'lucide-react';
+import { Search, Store, ExternalLink, ChevronRight, ChevronDown } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
+
+const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', sales_rep: 'Sales rep' };
+const MEMBER_STATUS_CLS = {
+  active: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+  invited: 'text-amber-300 bg-amber-500/10 border-amber-500/20',
+  revoked: 'text-rose-300 bg-rose-500/10 border-rose-500/20',
+};
+
+function MemberRow({ member }) {
+  const user = member.user || {};
+  const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.company_name || user.email || 'Unknown';
+  return (
+    <div className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+      <div className="min-w-0">
+        <p className="text-sm text-white/80 truncate">{name}</p>
+        <p className="text-xs text-white/40 truncate">{user.email}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-white/40 bg-white/[0.06] border border-white/10 rounded-full px-2 py-0.5">
+          {ROLE_LABELS[member.role] || member.role}
+        </span>
+        <span className={`text-[10px] font-medium rounded-full border px-2 py-0.5 capitalize ${MEMBER_STATUS_CLS[member.status] || 'text-white/40 bg-white/5 border-white/10'}`}>
+          {member.status}
+        </span>
+        <span className={`text-[10px] font-medium rounded-full border px-2 py-0.5 ${
+          user.dealer_verified
+            ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
+            : 'text-amber-300 bg-amber-500/10 border-amber-500/20'
+        }`}>
+          {user.dealer_verified ? 'KYC verified' : 'KYC pending'}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,6 +105,37 @@ const AdminDealerships = () => {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const [memberCache, setMemberCache] = useState({});
+
+  const toggleExpand = (dealershipId) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(dealershipId)) {
+        next.delete(dealershipId);
+      } else {
+        next.add(dealershipId);
+        if (!memberCache[dealershipId]) {
+          setMemberCache((cache) => ({ ...cache, [dealershipId]: { loading: true } }));
+          apiClient
+            .get(`/api/admin/dealerships/${dealershipId}`)
+            .then((r) => {
+              setMemberCache((cache) => ({
+                ...cache,
+                [dealershipId]: { loading: false, members: r.dealership?.members || [] },
+              }));
+            })
+            .catch((e) => {
+              setMemberCache((cache) => ({
+                ...cache,
+                [dealershipId]: { loading: false, error: e.message || 'Failed to load members' },
+              }));
+            });
+        }
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     let active = true;
@@ -196,8 +262,8 @@ const AdminDealerships = () => {
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
                 {filtered.map((d, idx) => (
+                  <React.Fragment key={d.id}>
                   <motion.tr
-                    key={d.id}
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.25, delay: idx * 0.02 }}
@@ -205,12 +271,21 @@ const AdminDealerships = () => {
                   >
                     {/* Name */}
                     <td className="px-5 py-3">
-                      <Link
-                        to={`/admin/dealerships/${d.id}`}
-                        className="font-medium text-white/80 hover:text-emerald-400 transition-colors"
-                      >
-                        {d.name || '—'}
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => toggleExpand(d.id)}
+                          aria-label={expandedIds.has(d.id) ? 'Collapse members' : 'Expand members'}
+                          className="text-white/30 hover:text-white/70 transition-colors shrink-0"
+                        >
+                          {expandedIds.has(d.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </button>
+                        <Link
+                          to={`/admin/dealerships/${d.id}`}
+                          className="font-medium text-white/80 hover:text-emerald-400 transition-colors"
+                        >
+                          {d.name || '—'}
+                        </Link>
+                      </div>
                     </td>
 
                     {/* Slug */}
@@ -253,6 +328,30 @@ const AdminDealerships = () => {
                       </div>
                     </td>
                   </motion.tr>
+                  {expandedIds.has(d.id) && (
+                    <tr>
+                      <td colSpan={TABLE_HEADERS.length} className="px-5 py-3 bg-black/20">
+                        {memberCache[d.id]?.loading && (
+                          <p className="text-xs text-white/40">Loading members…</p>
+                        )}
+                        {memberCache[d.id]?.error && (
+                          <p className="text-xs text-rose-300">{memberCache[d.id].error}</p>
+                        )}
+                        {memberCache[d.id]?.members && (
+                          memberCache[d.id].members.length === 0 ? (
+                            <p className="text-xs text-white/40">No members yet.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {memberCache[d.id].members.map((m) => (
+                                <MemberRow key={m.id} member={m} />
+                              ))}
+                            </div>
+                          )
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

@@ -18,6 +18,9 @@ import apiClient from '../utils/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { GlassCard, EmptyState } from './ui/dashboard';
 import { LISTING_REJECTION_REASONS } from './admin/rejectionConstants';
+import { getListingTitle } from '../utils/listingTitle';
+import FeatureListingModal from './admin/FeatureListingModal';
+import { Star } from 'lucide-react';
 
 const ADMIN_DELETE_REASONS = [
   'Duplicate listing',
@@ -62,6 +65,7 @@ const TYPE_OPTIONS = [
 ];
 
 const ADMIN_PAGE_SIZE = 25;
+const PLURAL_TO_SINGULAR = { cars: 'car', bikes: 'bike', plates: 'plate', parts: 'part' };
 
 const parseParamList = (val, allowed) => {
   if (!val) return [];
@@ -158,6 +162,7 @@ const AdminListings = () => {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState(null);
+  const [featureListing, setFeatureListing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -664,18 +669,6 @@ const AdminListings = () => {
     }
   };
 
-  const getListingTitle = (listing) => {
-    if (listing.display_title) return listing.display_title;
-    if (listing.listing_title) return listing.listing_title;
-    if (listing.title) return listing.title;
-    if (listing.item_name) return listing.item_name;
-    if (listing.draft_payload) {
-      const payload = listing.draft_payload || {};
-      return payload.listing_title || payload.title || payload.name || payload.item_name || `Draft #${listing.id ? listing.id.slice(0, 8) : 'Unknown'}`;
-    }
-    return `#${listing.id ? listing.id.slice(0, 8) : 'Unknown'}`;
-  };
-
   const getListingImage = (listing) => {
     if (!listing.images || listing.images.length === 0) return null;
     const img = listing.images[0];
@@ -925,6 +918,7 @@ const AdminListings = () => {
                       ? rawStatus
                       : (listing.display_status || listing.listing_state || rawStatus || 'pending');
                     const lt = listing.listing_type || 'cars';
+                    const canFeature = ['cars', 'bikes', 'plates', 'parts'].includes(lt);
                     const isDraftRow = lt === 'drafts' || String(listing.status || '').toLowerCase() === 'draft';
                     const isPending = (listing._table_status || listing.status) === 'pending';
                     const ds = String(displayStatus || '').toLowerCase();
@@ -1052,6 +1046,24 @@ const AdminListings = () => {
                                 >
                                   <Calendar size={15} />
                                 </button>
+                                {canFeature && (
+                                <button
+                                  title="Feature this listing"
+                                  aria-label="Feature this listing"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFeatureListing({
+                                      listingType: PLURAL_TO_SINGULAR[lt] || lt,
+                                      listingId: listing.id,
+                                      title: getListingTitle(listing),
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-amber-500/20 text-white/50 hover:text-amber-300 transition-colors"
+                                  disabled={actionLoading}
+                                >
+                                  <Star size={15} />
+                                </button>
+                                )}
                                 {showNudge && (
                                 <button
                                   title={lastNudgeAt
@@ -1671,6 +1683,19 @@ const AdminListings = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {featureListing && (
+        <FeatureListingModal
+          listingType={featureListing.listingType}
+          listingId={featureListing.listingId}
+          title={featureListing.title}
+          onClose={() => setFeatureListing(null)}
+          onCreated={() => {
+            setFeatureListing(null);
+            showToast('Listing featured.', 'success');
+          }}
+        />
+      )}
     </div>
   );
 };
