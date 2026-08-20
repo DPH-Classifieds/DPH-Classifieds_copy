@@ -6,7 +6,9 @@ import ListingSkeleton from './ListingSkeleton';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import useListingCounts from '../hooks/useListingCounts';
 import '../styles/CarParts.css';
+import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
@@ -25,6 +27,7 @@ const getListingImageUrl = (part) => {
 };
 
 const CarParts = () => {
+  const totalCounts = useListingCounts();
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -141,6 +144,9 @@ const CarParts = () => {
       <div className="car-parts-header">
         <h1>Car Parts & Accessories</h1>
         <p>Find quality automotive parts for your vehicle</p>
+        {totalCounts?.parts !== undefined && (
+          <p className="listing-total-count">{totalCounts.parts.toLocaleString()} total listings</p>
+        )}
       </div>
       
       <div className="car-parts-filters">

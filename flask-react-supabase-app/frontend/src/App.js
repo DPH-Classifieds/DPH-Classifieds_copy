@@ -148,7 +148,6 @@ const AdminDealers = lazy(() => import('./components/AdminDealers'));
 const AdminDealerDetail = lazy(() => import('./components/AdminDealerDetail'));
 const AdminDealerUpgradeRequests = lazy(() => import('./components/admin/AdminDealerUpgradeRequests'));
 const AdminFeaturedListings = lazy(() => import('./components/admin/AdminFeaturedListings'));
-const AdminDealerships = lazy(() => import('./components/admin/AdminDealerships'));
 const AdminDealershipDetail = lazy(() => import('./components/admin/AdminDealershipDetail'));
 const AdminDealershipsHub = lazy(() => import('./components/admin/AdminDealershipsHub'));
 const AdminDealerAuditLog = lazy(() => import('./components/admin/AdminDealerAuditLog'));
@@ -347,7 +346,6 @@ function App() {
                 <Route path="dealers/:dealerId" element={<AdminDealerDetail />} />
                 <Route path="dealer-upgrade-requests" element={<AdminDealerUpgradeRequests />} />
                 <Route path="featured-listings" element={<AdminFeaturedListings />} />
-                <Route path="dealerships" element={<AdminDealerships />} />
                 <Route path="dealerships/hub" element={<AdminDealershipsHub />} />
                 <Route path="dealerships/audit-log" element={<AdminDealerAuditLog />} />
                 <Route path="dealerships/:id" element={<AdminDealershipDetail />} />

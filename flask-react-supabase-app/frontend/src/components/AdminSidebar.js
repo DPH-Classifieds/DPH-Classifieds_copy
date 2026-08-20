@@ -20,7 +20,7 @@ const menuItems = [
   { path: '/admin/listings',   label: 'Listings',     icon: FileText },
   { path: '/admin/featured-listings', label: 'Featured', icon: Star },
   { path: '/admin/reddit-verify', label: 'Reddit verify', icon: Rss },
-  { path: '/admin/dealerships/hub', label: 'Dealerships hub', icon: Building2 },
+  { path: '/admin/dealerships/hub', label: 'Dealers', icon: Building2 },
   { path: '/admin/users',      label: 'Users',        icon: Users },
   { path: '/admin/reports',    label: 'Reports',      icon: MessageSquareWarning },
   { path: '/admin/metrics',    label: 'Metrics',      icon: BarChart3 },

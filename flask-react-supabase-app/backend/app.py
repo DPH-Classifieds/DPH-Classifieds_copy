@@ -6346,6 +6346,59 @@ def debug_json():
     ), 200
 
 
+_LISTING_COUNT_TABLES = {
+    "cars": "cars",
+    "bikes": "bikes",
+    "parts": "car_parts",
+    "plates": "license_plates",
+}
+
+
+def _approved_table_count(table):
+    """HEAD-style count via PostgREST's Prefer: count=exact, read off the
+    Content-Range response header. Doesn't fetch any rows, so it's cheap
+    enough to run on every /api/listings/counts call within its cache TTL."""
+    try:
+        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+        auth = service_key or SUPABASE_KEY
+        resp = HTTP_SESSION.get(
+            f"{SUPABASE_URL}/rest/v1/{table}",
+            headers={
+                "apikey": auth,
+                "Authorization": f"Bearer {auth}",
+                "Prefer": "count=exact",
+            },
+            params={
+                "select": "id",
+                "status": "eq.approved",
+                "is_approved": "eq.true",
+                "limit": "1",
+            },
+            timeout=HTTP_DEFAULT_TIMEOUT_SECONDS,
+        )
+        total = (resp.headers.get("Content-Range") or "").split("/")[-1]
+        return int(total) if total.isdigit() else 0
+    except Exception as e:
+        logger.warning(f"Error counting {table}: {e}")
+        return 0
+
+
+# Total live listing counts per category (public) — headline numbers for the
+# Explore/browse pages. Doesn't affect pagination/loading on those pages,
+# it's a separate cheap count-only call.
+@app.route("/api/listings/counts", methods=["GET"])
+def get_listing_counts():
+    cache_key = _build_api_cache_key()
+    cached_payload = _api_cache_get(cache_key)
+    if cached_payload is not None:
+        return jsonify(cached_payload), 200
+
+    counts = {key: _approved_table_count(table) for key, table in _LISTING_COUNT_TABLES.items()}
+    counts["all"] = sum(counts.values())
+    _api_cache_set(cache_key, counts, ttl_seconds=60)
+    return jsonify(counts), 200
+
+
 # Get all cars (public)
 @app.route("/api/cars", methods=["GET"])
 def get_cars():

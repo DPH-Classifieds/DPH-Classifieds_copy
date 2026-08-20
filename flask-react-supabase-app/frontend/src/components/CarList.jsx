@@ -10,6 +10,7 @@ import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import { buildListingRouteState } from '../utils/listingRouteState';
 import { buildCarPath } from '../utils/listingUrl';
 import { buildStaticSeo } from '../utils/seo';
+import useListingCounts from '../hooks/useListingCounts';
 import './CarList.css';
 import './ExplorePage.css';
 
@@ -17,6 +18,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LIST_PAGE_SIZE = 12;
 
 const CarList = () => {
+  const totalCounts = useListingCounts();
   const [cars, setCarsState] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -346,7 +348,10 @@ const CarList = () => {
 	      <SeoMeta {...seoData} />
 	    <div className="car-list-container">
       <h1>Car Listings</h1>
-      
+      {totalCounts?.cars !== undefined && (
+        <p className="listing-total-count">{totalCounts.cars.toLocaleString()} total listings</p>
+      )}
+
       {/* Filter Section */}
 	      <div className="car-filters">
 	        <div className="filter-header">

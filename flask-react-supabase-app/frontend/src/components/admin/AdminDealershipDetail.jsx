@@ -145,11 +145,11 @@ const AdminDealershipDetail = () => {
         <Shield size={48} className="text-white/20" />
         <p className="text-lg font-semibold text-white/70">Dealership not found</p>
         <Link
-          to="/admin/dealerships"
+          to="/admin/dealerships/hub"
           className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-emerald-400 transition-colors"
         >
           <ArrowLeft size={14} />
-          Back to Dealerships
+          Back to Dealers
         </Link>
       </div>
     );
@@ -170,11 +170,11 @@ const AdminDealershipDetail = () => {
         transition={{ duration: 0.3 }}
       >
         <Link
-          to="/admin/dealerships"
+          to="/admin/dealerships/hub"
           className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-emerald-400 transition-colors"
         >
           <ArrowLeft size={14} />
-          Back to Dealerships
+          Back to Dealers
         </Link>
       </motion.div>
 

@@ -17,7 +17,7 @@ const ActingAsBanner = () => {
         <span className="opacity-80 ml-0.5">Writes are audited.</span>
       </span>
       <button
-        onClick={() => navigate('/admin/dealerships')}
+        onClick={() => navigate('/admin/dealerships/hub')}
         className="text-xs font-semibold bg-white/20 hover:bg-white/30 border border-white/30 rounded-full px-3 py-1 transition-colors"
       >
         Exit

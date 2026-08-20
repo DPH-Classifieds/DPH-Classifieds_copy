@@ -21,8 +21,8 @@ const marketplaceInsights = [
   {
     id: 1,
     title: 'Community members',
-    subtitle: '70k+ petrolheads connected through the broader DPH ecosystem.',
-    stat: '70k+',
+    subtitle: '80k+ petrolheads connected through the broader DPH ecosystem.',
+    stat: '80k+',
   },
   {
     id: 2,
@@ -34,7 +34,7 @@ const marketplaceInsights = [
     id: 3,
     title: 'Built by PetrolHeads',
     subtitle: 'Created with a focus on the details that matter.',
-    stat: 'DPH-Classifieds',
+    stat: 'DPHClassifieds',
   },
 ];
 

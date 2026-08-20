@@ -6,13 +6,16 @@ import ListingSkeleton from './ListingSkeleton';
 import { resolveMediaUrl } from '../utils/media';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import useListingCounts from '../hooks/useListingCounts';
 import './BikesRedesigned.css';
+import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
 const LIST_PAGE_SIZE = 24;
 
 const BikesRedesigned = () => {
+  const totalCounts = useListingCounts();
   const [bikes, setBikes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -210,6 +213,9 @@ const BikesRedesigned = () => {
         <div className="biked-header">
           <h1 className="biked-title">Motorcycles</h1>
           <p className="biked-subtitle">Browse our extensive collection of motorcycles</p>
+          {totalCounts?.bikes !== undefined && (
+            <p className="listing-total-count">{totalCounts.bikes.toLocaleString()} total listings</p>
+          )}
         </div>
 
         <div className="biked-filters">

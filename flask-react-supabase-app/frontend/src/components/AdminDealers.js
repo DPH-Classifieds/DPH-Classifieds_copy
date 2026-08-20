@@ -7,9 +7,9 @@ import { GlassCard, EmptyState, SegmentedControl } from './ui/dashboard';
 import { DEALER_REJECTION_REASONS } from './admin/rejectionConstants';
 
 const TABS = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
   { value: 'pending', label: 'Pending' },
+  { value: 'active', label: 'Approved' },
+  { value: 'all', label: 'All' },
 ];
 
 const SkeletonCard = () => (

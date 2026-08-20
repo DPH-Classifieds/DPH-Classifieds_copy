@@ -13,6 +13,7 @@ import { buildListingRouteState } from '../utils/listingRouteState';
 import { buildCarPath } from '../utils/listingUrl';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
+import useListingCounts from '../hooks/useListingCounts';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PAGE_SIZE = 24;
@@ -25,6 +26,7 @@ const EXPLORE_MODE_TO_API_KEY = {
   'car-parts': 'parts',
   plates: 'plates',
   reddit: 'reddit',
+  'buying-requests': 'buying_requests',
 };
 
 const FALLBACK_KEYS = {
@@ -33,6 +35,7 @@ const FALLBACK_KEYS = {
   parts: ['parts', 'car_parts', 'data'],
   plates: ['plates', 'license_plates', 'data'],
   reddit: ['cars', 'data'], // reddit imports are cars, served by /api/cars
+  buying_requests: ['data'],
 };
 
 const INIT_PAGES = {
@@ -41,7 +44,18 @@ const INIT_PAGES = {
   parts: { offset: 0, hasMore: true },
   plates: { offset: 0, hasMore: true },
   reddit: { offset: 0, hasMore: true },
+  // /api/buying-requests has no pagination — it always returns the full
+  // active list in one shot, so this mode never has a "next page".
+  buying_requests: { offset: 0, hasMore: false },
 };
+
+const BUYING_REQUEST_TYPES = [
+  { value: 'all', label: 'All' },
+  { value: 'car', label: 'Cars' },
+  { value: 'plate', label: 'Plates' },
+  { value: 'part', label: 'Parts' },
+  { value: 'bike', label: 'Bikes' },
+];
 
 const fetchJsonWithCache = async (url, ttlMs = INVENTORY_CACHE_TTL_MS) => {
   const cacheKey = `explore-cache:${url}`;
@@ -94,6 +108,7 @@ const exploreModes = [
   { key: 'plates', label: 'Plates', description: 'Premium UAE number plates.' },
   { key: 'bikes', label: 'Bikes', description: 'Sport, cruiser, and specialty bikes.' },
   { key: 'reddit', label: 'Reddit', description: 'Cars imported from r/DubaiPetrolHeads.' },
+  { key: 'buying-requests', label: 'WTB', description: 'Want-to-buy requests from other members.' },
 ];
 
 const carInitialFilters = {
@@ -150,6 +165,7 @@ const categoryMeta = {
   plates: { heroTitle: 'Surface premium UAE plates with focused city and code filters.' },
   bikes: { heroTitle: 'Explore motorcycles with the same premium rhythm as the car journey.' },
   reddit: { heroTitle: 'Cars imported from r/DubaiPetrolHeads, in one clean browse surface.' },
+  'buying-requests': { heroTitle: "Browse what other members are looking to buy, or post your own request." },
 };
 
 const mapExploreModeToSellCtaCategory = (modeKey) => {
@@ -408,6 +424,41 @@ const normalizePlate = (plate) => {
   };
 };
 
+const normalizeBuyingRequest = (row) => {
+  const itemType = normalizeText(row.item_type).toLowerCase();
+  const title = normalizeText(row.item_name) || 'Buying request';
+  const budget = row.budget;
+
+  return {
+    id: row.id,
+    categoryKey: 'buying-requests',
+    categoryLabel: 'WTB',
+    itemType,
+    title,
+    subtitle: [itemType ? itemType.toUpperCase() : null, row.regional_spec]
+      .filter(Boolean)
+      .join(' • '),
+    description: normalizeText(row.reference_notes || row.mileage_preference || 'Want-to-buy request from a DPH member.'),
+    location: 'UAE',
+    priceLabel: budget ? formatPrice(budget) : 'Budget on request',
+    numericPrice: toNumeric(budget),
+    route: `/buying-requests/${row.id}`,
+    image: getPrimaryImage(row),
+    images: getGalleryImages(row),
+    createdAt: row.created_at,
+    searchableText: buildSearchableText([
+      title,
+      itemType,
+      row.car_manufacturer,
+      row.car_model,
+      row.trim,
+      row.regional_spec,
+      row.reference_notes,
+    ]),
+    raw: row,
+  };
+};
+
 const scoreAllMatch = (item, query) => {
   if (!query) {
     return 0;
@@ -444,9 +495,27 @@ const scoreAllMatch = (item, query) => {
   return score;
 };
 
+// Mirrors the card markup in BuyingRequestsPage.jsx — WTB requests don't fit
+// MarketplaceListingCard's price/mileage/km shape, so they get their own
+// lightweight card instead of stretching the shared component.
+const BuyingRequestCard = ({ item }) => (
+  <Link to={item.route} className="explore-v2-wtb-card">
+    <div className="explore-v2-wtb-card-image">
+      {item.image ? <img src={item.image} alt={item.title} loading="lazy" /> : <span>WTB</span>}
+    </div>
+    <div className="explore-v2-wtb-card-body">
+      <span className="explore-v2-wtb-card-kicker">Want to buy</span>
+      <h3>{item.title}</h3>
+      {item.subtitle ? <p>{item.subtitle}</p> : null}
+      <span className="explore-v2-wtb-card-budget">{item.priceLabel}</span>
+    </div>
+  </Link>
+);
+
 const ExplorePage = ({ forcedCategory } = {}) => {
   const location = useLocation();
   const { user } = useAuth();
+  const totalCounts = useListingCounts();
   // forcedCategory lets a dedicated route (e.g. /reddit) pin the mode without a
   // ?category= query param, so the URL stays clean.
   const initialCategory = forcedCategory || new URLSearchParams(location.search).get('category') || 'all';
@@ -456,6 +525,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     parts: [],
     plates: [],
     reddit: [],
+    buying_requests: [],
   });
   const [pages, setPages] = useState(INIT_PAGES);
   const [loading, setLoading] = useState(true);
@@ -472,6 +542,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [plateFilters, setPlateFilters] = useState(plateInitialFilters);
   const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
   const [redditFilters, setRedditFilters] = useState(carInitialFilters);
+  const [buyingRequestFilters, setBuyingRequestFilters] = useState({ query: '', itemType: 'all' });
   const [heroQuery, setHeroQuery] = useState('');
   const [savingSearch, setSavingSearch] = useState(false);
   const [savedSearchNotice, setSavedSearchNotice] = useState('');
@@ -538,6 +609,13 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       );
       return chunks.flat();
     }
+    // /api/buying-requests ignores limit/offset — it always returns the full
+    // active list, so fetch it once regardless of the requested offset.
+    if (apiKey === 'buying_requests') {
+      const url = `${API_URL}/api/buying-requests`;
+      const data = await fetchJsonWithCache(url, ttl);
+      return extractInventoryCollection(data, FALLBACK_KEYS.buying_requests);
+    }
     const url = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
     const data = await fetchJsonWithCache(url, ttl);
     return extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
@@ -556,14 +634,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         targets.map((apiKey) => fetchPage(apiKey, 0))
       );
       if (!mounted) return;
-      const nextInventory = { cars: [], bikes: [], parts: [], plates: [], reddit: [] };
+      const nextInventory = { cars: [], bikes: [], parts: [], plates: [], reddit: [], buying_requests: [] };
       const nextPages = { ...INIT_PAGES };
       const failed = [];
 
       targets.forEach((apiKey, index) => {
         const items = results[index].status === 'fulfilled' ? results[index].value : [];
         nextInventory[apiKey] = items;
-        nextPages[apiKey] = { offset: 0, hasMore: items.length === PAGE_SIZE };
+        nextPages[apiKey] = {
+          offset: 0,
+          hasMore: apiKey === 'buying_requests' ? false : items.length === PAGE_SIZE,
+        };
         if (results[index].status === 'rejected') {
           failed.push(apiKey === 'parts' ? 'car parts' : apiKey);
         }
@@ -645,6 +726,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         if (row._redditType === 'plate') return normalizePlate(row);
         return normalizeCar(row);
       }),
+      buying_requests: inventory.buying_requests.map(normalizeBuyingRequest),
     }),
     [inventory]
   );
@@ -667,6 +749,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       plates: normalizedInventory.plates.length,
       bikes: normalizedInventory.bikes.length,
       reddit: normalizedInventory.reddit.length,
+      'buying-requests': normalizedInventory.buying_requests.length,
     }),
     [allItems.length, normalizedInventory]
   );
@@ -815,6 +898,21 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         .sort((left, right) => compareBySort(left, right, plateFilters.sortBy));
     }
 
+    if (activeMode === 'buying-requests') {
+      return normalizedInventory.buying_requests
+        .filter((item) => {
+          const query = buyingRequestFilters.query.trim().toLowerCase();
+          if (buyingRequestFilters.itemType !== 'all' && item.itemType !== buyingRequestFilters.itemType) {
+            return false;
+          }
+          if (query && !item.searchableText.includes(query)) {
+            return false;
+          }
+          return true;
+        })
+        .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
+    }
+
     return normalizedInventory.bikes
       .filter((item) => {
         const raw = item.raw;
@@ -855,6 +953,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     activeMode,
     allItems,
     bikeFilters,
+    buyingRequestFilters,
     carFilters,
     globalQuery,
     normalizedInventory,
@@ -863,12 +962,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     redditFilters,
   ]);
 
+  const activeTotalKey = activeMode === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[activeMode];
+  const activeTotal = totalCounts && activeTotalKey && totalCounts[activeTotalKey] !== undefined
+    ? totalCounts[activeTotalKey]
+    : null;
+
   const resultsDescription =
     activeMode === 'all'
       ? globalQuery.trim()
         ? `${filteredItems.length} relevant result${filteredItems.length === 1 ? '' : 's'} across the full marketplace.`
-        : `${filteredItems.length} live listings across cars, car parts, plates, and bikes.`
-      : `${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'} in ${exploreModes.find((mode) => mode.key === activeMode)?.label || 'this category'}.`;
+        : `${(activeTotal ?? filteredItems.length).toLocaleString()} live listings across cars, car parts, plates, and bikes.`
+      : `${(activeTotal ?? filteredItems.length).toLocaleString()} total result${(activeTotal ?? filteredItems.length) === 1 ? '' : 's'} in ${exploreModes.find((mode) => mode.key === activeMode)?.label || 'this category'}${filteredItems.length < (activeTotal ?? filteredItems.length) ? ` — ${filteredItems.length.toLocaleString()} loaded` : ''}.`;
 
   const activeSearchPayload = useMemo(() => {
     const filtersByMode = {
@@ -878,6 +982,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       plates: plateFilters,
       bikes: bikeFilters,
       reddit: redditFilters,
+      'buying-requests': buyingRequestFilters,
     };
     const filters = filtersByMode[activeMode] || {};
     const query = filters.query || globalQuery || heroQuery || '';
@@ -894,6 +999,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   }, [
     activeMode,
     bikeFilters,
+    buyingRequestFilters,
     carFilters,
     filteredItems.length,
     globalQuery,
@@ -979,17 +1085,28 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           </div>
 
           <div className="explore-v2-hero-stats">
-            {exploreModes.map((mode) => (
-              <button
-                key={mode.key}
-                type="button"
-                className={`explore-v2-stat ${activeMode === mode.key ? 'is-active' : ''}`}
-                onClick={() => handleModeChange(mode.key)}
-              >
-                <span>{mode.label}</span>
-                <small>{featuredCounts[mode.key]}</small>
-              </button>
-            ))}
+            {exploreModes.map((mode) => {
+              // Prefer the true server-side total (all matching listings, not
+              // just what's been paginated in) — falls back to the loaded
+              // count for reddit/buying-requests (not tracked server-side)
+              // or while the totals request is still in flight.
+              const totalKey = mode.key === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[mode.key];
+              const total = totalCounts && totalKey && totalCounts[totalKey] !== undefined
+                ? totalCounts[totalKey]
+                : null;
+              const displayCount = total !== null ? total : featuredCounts[mode.key];
+              return (
+                <button
+                  key={mode.key}
+                  type="button"
+                  className={`explore-v2-stat ${activeMode === mode.key ? 'is-active' : ''}`}
+                  onClick={() => handleModeChange(mode.key)}
+                >
+                  <span>{mode.label}</span>
+                  <small>{displayCount.toLocaleString()}</small>
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -1107,6 +1224,38 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           </div>
         )}
 
+        {activeMode === 'buying-requests' && (
+          <div className="explore-v2-filter-panel">
+            <div className="explore-v2-filter-grid">
+              <label className="explore-v2-field">
+                <span>Search</span>
+                <input
+                  className="explore-v2-input"
+                  type="search"
+                  value={buyingRequestFilters.query}
+                  onChange={(e) => setBuyingRequestFilters((prev) => ({ ...prev, query: e.target.value }))}
+                  placeholder="Make, model, keyword"
+                />
+              </label>
+              <div className="explore-v2-field rp-price-field">
+                <span>Type</span>
+                <div className="rp-presets">
+                  {BUYING_REQUEST_TYPES.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      className={`rp-preset ${buyingRequestFilters.itemType === t.value ? 'is-active' : ''}`}
+                      onClick={() => setBuyingRequestFilters((prev) => ({ ...prev, itemType: t.value }))}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!loading && (
           <FeaturedStrip
             listingType={activeMode === 'all' ? null : (activeMode === 'reddit' ? 'car' : activeMode)}
@@ -1147,7 +1296,9 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           <>
             <div className="explore-v2-horizontal-track">
               {filteredItems.map((item) => (
-                <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
+                item.categoryKey === 'buying-requests'
+                  ? <BuyingRequestCard key={`${item.categoryKey}-${item.id}`} item={item} />
+                  : <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
               ))}
             </div>
 

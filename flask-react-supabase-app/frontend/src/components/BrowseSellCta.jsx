@@ -39,6 +39,14 @@ const COPY_BY_CATEGORY = {
     postHref: '/post-car-parts',
     postLabel: 'Post Your Car Part',
   },
+  'buying-requests': {
+    kicker: 'Want to buy',
+    title: "Can't find it? Post what you're looking for.",
+    body:
+      'Tell sellers exactly what you want — make, model, budget — and let them come to you. Posters stay anonymous until you choose to reveal contact.',
+    postHref: '/post-buying-request',
+    postLabel: 'Post a WTB Request',
+  },
 };
 
 export default function BrowseSellCta({ category = 'cars', overrideCopy }) {

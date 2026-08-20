@@ -6,12 +6,15 @@ import ListingSkeleton from './ListingSkeleton';
 import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import BrowseSellCta from './BrowseSellCta';
 import './PlatesRedesigned.css';
+import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import useListingCounts from '../hooks/useListingCounts';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LIST_PAGE_SIZE = 24;
 
 const PlatesRedesigned = () => {
+  const totalCounts = useListingCounts();
   const [plates, setPlates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -230,6 +233,9 @@ const PlatesRedesigned = () => {
         <div className="platesd-header">
           <h1 className="platesd-title">License Plates</h1>
           <p className="platesd-subtitle">Find your perfect plate from our extensive collection</p>
+          {totalCounts?.plates !== undefined && (
+            <p className="listing-total-count">{totalCounts.plates.toLocaleString()} total listings</p>
+          )}
         </div>
 
         <div className="platesd-filters">
