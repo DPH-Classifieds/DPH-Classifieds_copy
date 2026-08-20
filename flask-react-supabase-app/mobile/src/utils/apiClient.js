@@ -14,6 +14,7 @@ const PUBLIC_ENDPOINTS = [
   '/api/search',
   '/api/about',
   '/api/contact',
+  '/api/listings/counts',
 ];
 
 const isPublicEndpoint = (endpoint) => {

@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
-import apiClient from '../utils/apiClient';
 
 const CACHE_KEY = 'listing-counts-cache';
 const CACHE_TTL_MS = 60 * 1000;
+
+// apiClient.request() unconditionally throws "Authentication failed" when no
+// user is logged in — it has no concept of a public endpoint. This is a
+// public, unauthenticated read, so it uses plain fetch(), same as
+// ExplorePage.jsx's own cars/bikes/parts/plates calls.
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 let inflight = null;
 
@@ -31,7 +36,8 @@ export default function useListingCounts() {
       } catch (_) { /* ignore malformed cache */ }
 
       if (!inflight) {
-        inflight = apiClient.get('/api/listings/counts')
+        inflight = fetch(`${API_URL}/api/listings/counts`)
+          .then((res) => res.json())
           .then((data) => {
             try {
               sessionStorage.setItem(CACHE_KEY, JSON.stringify({ expiresAt: Date.now() + CACHE_TTL_MS, data }));
