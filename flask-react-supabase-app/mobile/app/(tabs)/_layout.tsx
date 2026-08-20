@@ -1,23 +1,13 @@
 // Tab shell. iOS gets the real native UITabBarController (Liquid Glass on iOS 26)
 // via expo-router's NativeTabs — this native module ships inside Expo Go, so it
-// works without a dev build. Android uses the standard JS tab bar, styled dark
-// with real icons to match the app. Route names below map to the sibling route
-// groups in app/(tabs)/: (explore), (post), (saved), (profile).
-import type { ComponentProps } from 'react';
+// works without a dev build. Android gets a custom floating glass tab bar
+// (AndroidTabBar) with a sliding pill indicator + press animations. Route
+// names below map to the sibling route groups in app/(tabs)/: (explore),
+// (post), (saved), (profile).
 import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
-import { Ionicons } from '@expo/vector-icons';
-
-type IoniconName = ComponentProps<typeof Ionicons>['name'];
-
-// tabBarIcon factory for the Android JS tabs.
-const tabIcon = (name: IoniconName) => {
-  const TabBarIcon = ({ color, size }: { color: string; size: number }) => (
-    <Ionicons name={name} size={size} color={color} />
-  );
-  return TabBarIcon;
-};
+import AndroidTabBar from '../../src/components/ui/AndroidTabBar';
 
 export default function TabsLayout() {
   if (Platform.OS === 'ios') {
@@ -47,25 +37,22 @@ export default function TabsLayout() {
     );
   }
 
-  // Android fallback — standard JS tabs. Dark bar + real icons so it matches the
-  // all-black app (react-navigation's default theme is light → white bar).
+  // Android fallback — custom floating pill tab bar (AndroidTabBar) with a
+  // sliding active-pill indicator, icon press-scale, and haptics. Sits in
+  // normal layout flow (not absolutely positioned) so TAB_BAR_CLEARANCE and
+  // safe-area math elsewhere keep working unchanged.
   return (
     <Tabs
+      tabBar={(props) => <AndroidTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#4CAF50',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
         tabBarHideOnKeyboard: true,
-        tabBarStyle: {
-          backgroundColor: '#000',
-          borderTopColor: 'rgba(255,255,255,0.08)',
-        },
       }}
     >
-      <Tabs.Screen name="(explore)" options={{ title: 'Explore', tabBarIcon: tabIcon('compass-outline') }} />
-      <Tabs.Screen name="(post)" options={{ title: 'Sell', tabBarIcon: tabIcon('add-circle-outline') }} />
-      <Tabs.Screen name="(saved)" options={{ title: 'Saved', tabBarIcon: tabIcon('heart-outline') }} />
-      <Tabs.Screen name="(profile)" options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline') }} />
+      <Tabs.Screen name="(explore)" options={{ title: 'Explore' }} />
+      <Tabs.Screen name="(post)" options={{ title: 'Sell' }} />
+      <Tabs.Screen name="(saved)" options={{ title: 'Saved' }} />
+      <Tabs.Screen name="(profile)" options={{ title: 'Profile' }} />
     </Tabs>
   );
 }

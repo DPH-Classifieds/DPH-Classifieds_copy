@@ -23,7 +23,9 @@ export default function ProfileStackLayout() {
       <Stack.Screen name="AdminDashboard" options={{ title: 'Admin' }} />
       <Stack.Screen name="AdminUsers" options={{ title: 'Users' }} />
       <Stack.Screen name="AdminListings" options={{ title: 'Listings' }} />
+      <Stack.Screen name="AdminFeaturedListings" options={{ title: 'Featured Listings' }} />
       <Stack.Screen name="AdminDealers" options={{ title: 'Dealers' }} />
+      <Stack.Screen name="AdminDealershipsHub" options={{ title: 'Dealerships' }} />
       <Stack.Screen name="AdminReports" options={{ title: 'Reports' }} />
       <Stack.Screen name="AdminUserDetail" options={{ title: 'User Detail' }} />
       <Stack.Screen name="AdminListingDetail" options={{ title: 'Listing Detail' }} />

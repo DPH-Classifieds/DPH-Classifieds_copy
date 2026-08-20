@@ -28,10 +28,6 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "backgroundColor": "#000000",
-      "androidNavigationBar": {
-        "backgroundColor": "#000000",
-        "barStyle": "light-content"
-      },
       "package": "com.dphclassifieds.app",
       "versionCode": 1,
       "permissions": [
@@ -63,7 +59,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow DPH Classifieds to take photos of vehicles for your listings."
+          "cameraPermission": "Allow DPH Classifieds to take photos of vehicles for your listings.",
+          "recordAudioAndroid": false
         }
       ],
       [

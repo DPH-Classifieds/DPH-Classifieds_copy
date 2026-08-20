@@ -233,6 +233,17 @@ export default function AdminListingDetailScreen({ route, navigation }) {
     ]);
   };
 
+  const handleVinUnlock = async () => {
+    try {
+      await apiClient.post(`/api/admin/listings/${itemType}/${itemId}/vin-unlock`, {});
+      const data = await apiClient.get(`/api/admin/listings/${itemType}/${itemId}/overview`);
+      setDetail(data);
+      Alert.alert('VIN unlocked', 'VIN reveal has been unlocked for this listing.');
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Failed to unlock VIN.');
+    }
+  };
+
   const handleDelete = async () => {
     Alert.alert('Delete', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -356,6 +367,10 @@ export default function AdminListingDetailScreen({ route, navigation }) {
             <TouchableOpacity style={styles.editBtn} onPress={handleEdit} activeOpacity={0.7}>
               <Ionicons name="create-outline" size={18} color={COLORS.white} />
               <Text style={styles.editBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editBtn} onPress={handleVinUnlock} activeOpacity={0.7}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.white} />
+              <Text style={styles.editBtnText}>VIN Unlock</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.7}>
               <Ionicons name="close-circle" size={18} color={COLORS.error} />

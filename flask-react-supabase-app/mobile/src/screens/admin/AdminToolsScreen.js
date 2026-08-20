@@ -39,6 +39,12 @@ export default function AdminToolsScreen() {
   const [roeEnabled, setRoeEnabled] = useState(null);
   const [roeToggleLoading, setRoeToggleLoading] = useState(false);
   const [roeToast, setRoeToast] = useState(null);
+  const [redditEnabled, setRedditEnabled] = useState(null);
+  const [redditToggleLoading, setRedditToggleLoading] = useState(false);
+  const [redditToast, setRedditToast] = useState(null);
+  const [googleEnabled, setGoogleEnabled] = useState(null);
+  const [googleToggleLoading, setGoogleToggleLoading] = useState(false);
+  const [googleToast, setGoogleToast] = useState(null);
 
   useEffect(() => {
     apiClient.get('/api/admin/auto-review/settings')
@@ -50,6 +56,18 @@ export default function AdminToolsScreen() {
     apiClient.get('/api/admin/reddit-explore/settings')
       .then((data) => setRoeEnabled(Boolean(data?.enabled)))
       .catch(() => setRoeEnabled(false));
+  }, []);
+
+  useEffect(() => {
+    apiClient.get('/api/admin/reddit-listings/settings')
+      .then((data) => setRedditEnabled(Boolean(data?.enabled)))
+      .catch(() => setRedditEnabled(false));
+  }, []);
+
+  useEffect(() => {
+    apiClient.get('/api/admin/google-signin/settings')
+      .then((data) => setGoogleEnabled(Boolean(data?.enabled)))
+      .catch(() => setGoogleEnabled(false));
   }, []);
 
   const toggleAutoReview = useCallback(async () => {
@@ -81,6 +99,36 @@ export default function AdminToolsScreen() {
       setRoeToggleLoading(false);
     }
   }, [roeEnabled]);
+
+  const toggleReddit = useCallback(async () => {
+    const newVal = !redditEnabled;
+    setRedditEnabled(newVal);
+    setRedditToggleLoading(true);
+    try {
+      const res = await apiClient.patch('/api/admin/reddit-listings/settings', { enabled: newVal });
+      setRedditEnabled(Boolean(res?.enabled));
+    } catch (err) {
+      setRedditEnabled(!newVal);
+      setRedditToast({ type: 'error', msg: `Failed: ${err.message || 'Unknown error'}` });
+    } finally {
+      setRedditToggleLoading(false);
+    }
+  }, [redditEnabled]);
+
+  const toggleGoogleSignin = useCallback(async () => {
+    const newVal = !googleEnabled;
+    setGoogleEnabled(newVal);
+    setGoogleToggleLoading(true);
+    try {
+      const res = await apiClient.patch('/api/admin/google-signin/settings', { enabled: newVal });
+      setGoogleEnabled(Boolean(res?.enabled));
+    } catch (err) {
+      setGoogleEnabled(!newVal);
+      setGoogleToast({ type: 'error', msg: `Failed: ${err.message || 'Unknown error'}` });
+    } finally {
+      setGoogleToggleLoading(false);
+    }
+  }, [googleEnabled]);
 
   const runAutoReview = useCallback(async () => {
     setAutoReviewRunning(true);
@@ -151,6 +199,32 @@ export default function AdminToolsScreen() {
           <View style={styles.cardHeader}>
             <Ionicons name="logo-reddit" size={22} color={COLORS.textMuted} />
             <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Show Reddit listings on site</Text>
+              <Text style={styles.cardDescription}>
+                Master switch for Reddit-imported listings. When off, they&apos;re hidden everywhere on the site regardless of the Explore-feed setting below.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.toggleRow}>
+            <Switch
+              value={Boolean(redditEnabled)}
+              onValueChange={toggleReddit}
+              disabled={redditEnabled === null || redditToggleLoading}
+            />
+            <Text style={styles.toggleLabel}>
+              {redditEnabled === null ? 'Loading…' : redditEnabled ? 'Visible' : 'Hidden'}
+              {redditToggleLoading ? ' · Saving…' : ''}
+            </Text>
+          </View>
+          {redditToast && (
+            <Text style={[styles.toast, redditToast.type === 'error' && styles.toastError]}>{redditToast.msg}</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="logo-reddit" size={22} color={COLORS.textMuted} />
+            <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Show Reddit on Explore</Text>
               <Text style={styles.cardDescription}>
                 When on, Reddit-imported listings are mixed into the main Explore feed. When off, they stay in the Reddit tab only. (Requires Reddit listings to be visible on the site.)
@@ -170,6 +244,33 @@ export default function AdminToolsScreen() {
           </View>
           {roeToast && (
             <Text style={[styles.toast, roeToast.type === 'error' && styles.toastError]}>{roeToast.msg}</Text>
+          )}
+        </View>
+
+        <Text style={styles.sectionLabel}>Sign-in methods</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="logo-google" size={22} color={COLORS.textMuted} />
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Google sign-in</Text>
+              <Text style={styles.cardDescription}>
+                When off, the &ldquo;Continue with Google&rdquo; button is hidden from login/signup and existing Google sessions are rejected.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.toggleRow}>
+            <Switch
+              value={Boolean(googleEnabled)}
+              onValueChange={toggleGoogleSignin}
+              disabled={googleEnabled === null || googleToggleLoading}
+            />
+            <Text style={styles.toggleLabel}>
+              {googleEnabled === null ? 'Loading…' : googleEnabled ? 'Enabled' : 'Disabled'}
+              {googleToggleLoading ? ' · Saving…' : ''}
+            </Text>
+          </View>
+          {googleToast && (
+            <Text style={[styles.toast, googleToast.type === 'error' && styles.toastError]}>{googleToast.msg}</Text>
           )}
         </View>
 

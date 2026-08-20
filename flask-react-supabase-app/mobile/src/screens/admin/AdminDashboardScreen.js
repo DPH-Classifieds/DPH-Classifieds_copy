@@ -569,6 +569,16 @@ export default function AdminDashboardScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.metricsLinkRow}
+          onPress={() => navigation.navigate('AdminFeaturedListings')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="star-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.metricsLinkText}>Featured listings</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.metricsLinkRow}
           onPress={() => navigation.navigate('AdminTools')}
           activeOpacity={0.7}
         >
@@ -589,11 +599,11 @@ export default function AdminDashboardScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.metricsLinkRow}
-          onPress={() => navigation.navigate('AdminDealerships')}
+          onPress={() => navigation.navigate('AdminDealershipsHub')}
           activeOpacity={0.7}
         >
           <Ionicons name="business-outline" size={18} color={COLORS.textSecondary} />
-          <Text style={styles.metricsLinkText}>Dealerships</Text>
+          <Text style={styles.metricsLinkText}>Dealerships hub</Text>
           <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
         </TouchableOpacity>
 

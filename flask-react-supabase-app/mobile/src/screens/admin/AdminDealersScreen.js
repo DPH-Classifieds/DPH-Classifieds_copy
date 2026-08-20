@@ -9,7 +9,10 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
-const FILTER_TABS = ['All', 'Pending', 'Verified'];
+// Values match what fetchDealers sends as ?status= — display label is
+// separate so the tab can read "Approved" without changing the API contract.
+const FILTER_TABS = ['Pending', 'Verified', 'All'];
+const FILTER_TAB_LABELS = { Verified: 'Approved' };
 
 export default function AdminDealersScreen({ navigation }) {
   const [dealers, setDealers] = useState([]);
@@ -154,7 +157,7 @@ export default function AdminDealersScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <Text style={[styles.filterTabText, activeFilter === tab && styles.activeFilterTabText]}>
-              {tab}
+              {FILTER_TAB_LABELS[tab] || tab}
             </Text>
           </TouchableOpacity>
         ))}

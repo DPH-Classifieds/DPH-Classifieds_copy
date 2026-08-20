@@ -13,7 +13,11 @@ import apiClient from '../../utils/apiClient';
 import { formatPrice, formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
+import FeatureListingModal from '../../components/ui/FeatureListingModal';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+
+const FEATURABLE_TYPES = ['cars', 'bikes', 'plates', 'parts'];
+const PLURAL_TO_SINGULAR = { cars: 'car', bikes: 'bike', plates: 'plate', parts: 'part' };
 
 const REJECTION_REASONS = [
   'Inappropriate content',
@@ -78,7 +82,7 @@ const getDisplayPrice = (item) => {
   return item.price || item.expected_selling_price || 0;
 };
 
-function AdminListingCard({ item, index, onPress, onApprove, onReject, selectionMode, selected, onToggleSelect }) {
+function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature, selectionMode, selected, onToggleSelect }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const imageUri = getImageUri(item);
   const title = getTitle(item);
@@ -86,11 +90,22 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, selection
   const rawStatus = item._table_status || item.status || 'pending';
   const isBuyingRequest = item.listing_type === 'buying_requests';
   const isPending = rawStatus === 'pending' && !isBuyingRequest;
+  const canFeature = FEATURABLE_TYPES.includes(item.listing_type);
   const placeholderIcon = isBuyingRequest ? 'cart-outline' : 'image-outline';
   return (
     <Animated.View style={animatedStyle}>
       <PressableScale onPress={selectionMode ? onToggleSelect : onPress}>
         <View style={styles.card}>
+          {canFeature && !selectionMode && (
+            <TouchableOpacity
+              style={styles.featureBtn}
+              onPress={onFeature}
+              hitSlop={8}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="star-outline" size={16} color={COLORS.warning} />
+            </TouchableOpacity>
+          )}
           <View style={styles.cardContent}>
             {selectionMode && (
               <TouchableOpacity onPress={onToggleSelect} style={styles.checkboxWrap} activeOpacity={0.7}>
@@ -177,6 +192,7 @@ export default function AdminListingsScreen({ navigation }) {
   const [bulkRenewReason, setBulkRenewReason] = useState('');
   const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
   const [bulkDeleteReason, setBulkDeleteReason] = useState('');
+  const [featureTarget, setFeatureTarget] = useState(null);
 
   useEffect(() => {
     fetchListings();
@@ -450,6 +466,11 @@ export default function AdminListingsScreen({ navigation }) {
       onPress={() => navigation.navigate('AdminListingDetail', { itemType: item.listing_type || 'cars', itemId: item.id })}
       onApprove={() => handleApprove(item)}
       onReject={() => handleReject(item)}
+      onFeature={() => setFeatureTarget({
+        listingType: PLURAL_TO_SINGULAR[item.listing_type] || item.listing_type,
+        listingId: item.id,
+        title: getTitle(item),
+      })}
       selectionMode={selectionMode}
       selected={selectedIds.has(rowKey(item))}
       onToggleSelect={() => toggleRowSelected(item)}
@@ -639,6 +660,15 @@ export default function AdminListingsScreen({ navigation }) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <FeatureListingModal
+        visible={!!featureTarget}
+        listingType={featureTarget?.listingType}
+        listingId={featureTarget?.listingId}
+        title={featureTarget?.title}
+        onClose={() => setFeatureTarget(null)}
+        onCreated={() => setFeatureTarget(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -752,6 +782,19 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.sm,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  featureBtn: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    zIndex: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,152,0,0.15)',
   },
   cardContent: {
     flexDirection: 'row',
