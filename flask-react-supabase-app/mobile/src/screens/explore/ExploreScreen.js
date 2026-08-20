@@ -36,6 +36,7 @@ import CoachMarks from '../../components/ui/CoachMarks';
 import { resolveMediaUrl } from '../../utils/media';
 import { prefetchListing } from '../../utils/listingCache';
 import { swrGet, swrSet } from '../../utils/swrCache';
+import useListingCounts from '../../hooks/useListingCounts';
 
 // Cache key for the no-filter initial Explore payload.
 const EXPLORE_INITIAL_CACHE_KEY = 'explore:initial:v1';
@@ -484,11 +485,11 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
 }
 
 export default function ExploreScreen({ navigation, route }) {
+  const totalCounts = useListingCounts();
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [allItems, setAllItems] = useState({ cars: [], bikes: [], plates: [], parts: [] });
-  const [counts, setCounts] = useState({ cars: 0, bikes: 0, plates: 0, parts: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -636,7 +637,6 @@ export default function ExploreScreen({ navigation, route }) {
       const parts = Array.isArray(partsRes) ? partsRes : partsRes?.parts || [];
 
       setAllItems({ cars, bikes, plates, parts });
-      setCounts({ cars: cars.length, bikes: bikes.length, plates: plates.length, parts: parts.length });
       setPages({
         cars: { offset: 0, hasMore: cars.length === LISTING_PAGE_SIZE },
         bikes: { offset: 0, hasMore: bikes.length === LISTING_PAGE_SIZE },
@@ -692,11 +692,6 @@ export default function ExploreScreen({ navigation, route }) {
         results.forEach(({ cat, items }) => { next[cat] = [...prev[cat], ...items]; });
         return next;
       });
-      setCounts((prev) => {
-        const next = { ...prev };
-        results.forEach(({ cat, items }) => { next[cat] = prev[cat] + items.length; });
-        return next;
-      });
       setPages((prev) => {
         const next = { ...prev };
         results.forEach(({ cat, nextOffset, items }) => {
@@ -721,7 +716,6 @@ export default function ExploreScreen({ navigation, route }) {
       const { cars = [], bikes = [], plates = [], parts = [] } = hit.value;
       if (cars.length || bikes.length || plates.length || parts.length) {
         setAllItems({ cars, bikes, plates, parts });
-        setCounts({ cars: cars.length, bikes: bikes.length, plates: plates.length, parts: parts.length });
         setLoading(false);
       }
     });
@@ -819,7 +813,15 @@ export default function ExploreScreen({ navigation, route }) {
     return items;
   }, [allItems, activeTab, search, sortBy]);
 
-  const totalCount = counts.cars + counts.bikes + counts.plates + counts.parts;
+  // True server-side total for the active tab (unfiltered) — falls back to
+  // the loaded/matching count while totals are still in flight, once a
+  // search/filter narrows the results, or for reddit/wanted (not tracked by
+  // the counts endpoint). Doesn't touch loading/pagination — display only.
+  const isUnfiltered = !search.trim() && activeFilterCount === 0;
+  const totalKey = activeTab === 'all' ? 'all' : activeTab;
+  const activeTotal = isUnfiltered && totalCounts && totalCounts[totalKey] !== undefined
+    ? totalCounts[totalKey]
+    : null;
   const yearOptions = useMemo(() => getYearOptions(), []);
   const currentSort = SORT_OPTIONS.find(o => o.key === sortBy);
 
@@ -916,6 +918,7 @@ export default function ExploreScreen({ navigation, route }) {
         >
           {CATEGORIES.map(cat => {
             const isActive = activeTab === cat.key;
+            const total = totalCounts && totalCounts[cat.key] !== undefined ? totalCounts[cat.key] : null;
             return (
               <TouchableOpacity
                 key={cat.key}
@@ -927,6 +930,11 @@ export default function ExploreScreen({ navigation, route }) {
                 <Text style={[styles.catPillLabel, isActive && styles.catPillLabelActive]}>
                   {cat.label}
                 </Text>
+                {total !== null && (
+                  <Text style={[styles.catPillCount, isActive && styles.catPillLabelActive]}>
+                    {total.toLocaleString()}
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -947,7 +955,7 @@ export default function ExploreScreen({ navigation, route }) {
 
         <View style={styles.controlsRight}>
           <Text style={styles.resultCount}>
-            {normalizedItems.length} {normalizedItems.length === 1 ? 'result' : 'results'}
+            {(activeTotal ?? normalizedItems.length).toLocaleString()} {(activeTotal ?? normalizedItems.length) === 1 ? 'result' : 'results'}
           </Text>
 
           <TouchableOpacity style={styles.sortBtn} onPress={() => setSortSheetOpen(true)} activeOpacity={0.7}>
@@ -976,7 +984,7 @@ export default function ExploreScreen({ navigation, route }) {
         </TouchableOpacity>
       )}
     </View>
-  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns]);
+  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns, activeTotal, totalCounts]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -1107,6 +1115,7 @@ const styles = StyleSheet.create({
   catPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.accent + '40' },
   catPillLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
   catPillLabelActive: { color: COLORS.accent },
+  catPillCount: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, fontWeight: '600' },
 
   controlsRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
