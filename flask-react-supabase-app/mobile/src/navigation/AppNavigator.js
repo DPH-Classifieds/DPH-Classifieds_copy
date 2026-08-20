@@ -60,6 +60,9 @@ import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
 import AdminUserDetailScreen from '../screens/admin/AdminUserDetailScreen';
 import AdminListingDetailScreen from '../screens/admin/AdminListingDetailScreen';
 import AdminDealerDetailScreen from '../screens/admin/AdminDealerDetailScreen';
+import AdminDealershipsScreen from '../screens/admin/AdminDealershipsScreen';
+import AdminDealershipDetailScreen from '../screens/admin/AdminDealershipDetailScreen';
+import AdminDealerAuditLogScreen from '../screens/admin/AdminDealerAuditLogScreen';
 import AdminMetricsScreen from '../screens/admin/AdminMetricsScreen';
 import AdminExpiredListingsScreen from '../screens/admin/AdminExpiredListingsScreen';
 import AdminToolsScreen from '../screens/admin/AdminToolsScreen';
@@ -178,6 +181,9 @@ function ProfileStack() {
       <Stack.Screen name="AdminUserDetail" component={AdminUserDetailScreen} options={{ title: 'User Detail' }} />
       <Stack.Screen name="AdminListingDetail" component={AdminListingDetailScreen} options={{ title: 'Listing Detail' }} />
       <Stack.Screen name="AdminDealerDetail" component={AdminDealerDetailScreen} options={{ title: 'Dealer Detail' }} />
+      <Stack.Screen name="AdminDealerships" component={AdminDealershipsScreen} options={{ title: 'Dealerships' }} />
+      <Stack.Screen name="AdminDealershipDetail" component={AdminDealershipDetailScreen} options={{ title: 'Dealership Detail' }} />
+      <Stack.Screen name="AdminDealerAuditLog" component={AdminDealerAuditLogScreen} options={{ title: 'Dealer Audit Log' }} />
       <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Metrics' }} />
       <Stack.Screen name="AdminExpiredListings" component={AdminExpiredListingsScreen} options={{ title: 'Expired & Deleted' }} />
       <Stack.Screen name="AdminTools" component={AdminToolsScreen} options={{ title: 'Operational Tools' }} />

@@ -19,6 +19,7 @@ function isExpired(until) {
 
 function FeaturedRow({ row, onRemoved, onUpdated }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const expired = isExpired(row.featured_until);
   const typeLabel = LISTING_TYPES.find((t) => t.key === row.listing_type)?.label || row.listing_type;
   return (
@@ -53,9 +54,12 @@ function FeaturedRow({ row, onRemoved, onUpdated }) {
           disabled={busy}
           onClick={async () => {
             setBusy(true);
+            setError(null);
             try {
               await apiClient.delete(`/api/admin/featured-listings/${row.id}`);
               onRemoved(row.id);
+            } catch (err) {
+              setError(err?.details?.error || err?.message || 'Failed to remove featured listing');
             } finally { setBusy(false); }
           }}
           className="px-3 py-1.5 rounded-lg text-sm border border-white/10 text-white/80 hover:bg-white/5 disabled:opacity-50"
@@ -63,6 +67,7 @@ function FeaturedRow({ row, onRemoved, onUpdated }) {
           {busy ? '…' : 'Remove'}
         </button>
       </div>
+      {error && <p className="text-xs text-red-300 md:col-span-2">{error}</p>}
     </div>
   );
 }
@@ -85,7 +90,7 @@ export default function AdminFeaturedListings() {
       const data = await apiClient.get(url);
       setRows(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err?.response?.data?.error || err.message || 'Failed to load');
+      setError(err?.details?.error || err.message || 'Failed to load');
     } finally {
       setLoading(false);
     }

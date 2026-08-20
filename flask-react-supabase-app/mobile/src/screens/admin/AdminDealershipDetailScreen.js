@@ -152,6 +152,18 @@ export default function AdminDealershipDetailScreen({ route, navigation }) {
             <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} style={styles.actionRowChevron} />
           </TouchableOpacity>
 
+          {ownerMember?.user?.id && (
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => navigation.navigate('AdminDealerDetail', { dealerId: ownerMember.user.id })}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text-outline" size={16} color={COLORS.textSecondary} />
+              <Text style={styles.actionRowText}>Review owner documents and request more info</Text>
+              <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} style={styles.actionRowChevron} />
+            </TouchableOpacity>
+          )}
+
           {d.status === 'suspended' ? (
             <TouchableOpacity
               style={styles.primaryBtn}

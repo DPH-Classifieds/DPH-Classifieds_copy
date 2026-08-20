@@ -321,6 +321,16 @@ const AdminDealershipDetail = () => {
             <span>View audit log for this dealership</span>
           </Link>
 
+          {ownerMember?.user?.id && (
+            <Link
+              to={`/admin/dealers/${ownerMember.user.id}`}
+              className="inline-flex items-center gap-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-emerald-300 rounded-xl px-4 py-3 text-sm border border-white/10 transition"
+            >
+              <FileText size={15} className="text-white/30 flex-shrink-0" />
+              <span>Review owner documents and request more info</span>
+            </Link>
+          )}
+
           <button
             onClick={() => navigate(`/dealer/dashboard?as=${id}`)}
             className="inline-flex items-center gap-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl px-4 py-3 text-sm border border-white/10 transition text-left"

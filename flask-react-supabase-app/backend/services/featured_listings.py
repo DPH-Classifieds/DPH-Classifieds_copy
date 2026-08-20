@@ -37,7 +37,7 @@ def is_listing_active_featured(row, now=None):
     return until > current
 
 
-def validate_featured_input(listing_type, listing_id, featured_until=None):
+def validate_featured_input(listing_type, listing_id, featured_until=None, now=None):
     """Validate a featured-listings write. Returns (clean_dict_or_None, error_or_None).
 
     `featured_until` may be:
@@ -61,6 +61,10 @@ def validate_featured_input(listing_type, listing_id, featured_until=None):
         return None, {"code": "invalid_listing_id",
                       "message": "listing_id is not a valid id"}
 
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+
     parsed_until = None
     if featured_until not in (None, ""):
         if isinstance(featured_until, datetime):
@@ -77,13 +81,13 @@ def validate_featured_input(listing_type, listing_id, featured_until=None):
                           "message": "featured_until must be an ISO timestamp or null"}
         if parsed_until.tzinfo is None:
             parsed_until = parsed_until.replace(tzinfo=timezone.utc)
-        if parsed_until <= datetime.now(timezone.utc):
+        if parsed_until <= current:
             return None, {"code": "featured_until_in_past",
                           "message": "featured_until must be in the future"}
         # `>` not `>=` — the boundary is acceptable but anything strictly
         # beyond it isn't. We add 1s of slack so callers that pass an
         # ISO string with sub-second precision don't fail at the edge.
-        max_until = datetime.now(timezone.utc) + timedelta(days=MAX_FEATURED_DURATION_DAYS)
+        max_until = current + timedelta(days=MAX_FEATURED_DURATION_DAYS)
         if parsed_until > max_until + timedelta(seconds=1):
             return None, {"code": "featured_until_too_far",
                           "message": f"featured_until cannot be more than {MAX_FEATURED_DURATION_DAYS} days from now"}

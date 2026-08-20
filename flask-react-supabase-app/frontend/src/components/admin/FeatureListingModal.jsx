@@ -47,7 +47,7 @@ export default function FeatureListingModal({ listingType, listingId, title, onC
       });
       onCreated(data);
     } catch (err) {
-      const body = err?.response?.data;
+      const body = err?.details || {};
       setError(body?.error || body?.message || err.message || 'Failed');
     } finally {
       setSubmitting(false);

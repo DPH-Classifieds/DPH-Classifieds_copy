@@ -7,9 +7,9 @@ import { GlassCard, EmptyState, SegmentedControl } from './ui/dashboard';
 import { DEALER_REJECTION_REASONS } from './admin/rejectionConstants';
 
 const TABS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'verified', label: 'Approved' },
   { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'pending', label: 'Pending' },
 ];
 
 const SkeletonCard = () => (
@@ -76,7 +76,10 @@ const AdminDealers = () => {
   const [rejectReasonIndex, setRejectReasonIndex] = useState('');
   const [rejectNote, setRejectNote] = useState('');
 
-  const tab = (searchParams.get('filter') || 'pending').toLowerCase();
+  const rawTab = (searchParams.get('filter') || 'pending').toLowerCase();
+  // Keep old deep links working while presenting the lifecycle language used
+  // by the unified Dealerships hub.
+  const tab = rawTab === 'verified' ? 'active' : rawTab;
 
   const loadDealers = async () => {
     setLoading(true);
@@ -99,7 +102,7 @@ const AdminDealers = () => {
 
   const filteredDealers = useMemo(() => {
     if (tab === 'pending') return dealers.filter((d) => !d.dealer_verified);
-    if (tab === 'verified') return dealers.filter((d) => Boolean(d.dealer_verified));
+    if (tab === 'active') return dealers.filter((d) => Boolean(d.dealer_verified));
     return dealers;
   }, [dealers, tab]);
 

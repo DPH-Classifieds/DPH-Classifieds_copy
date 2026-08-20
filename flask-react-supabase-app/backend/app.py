@@ -10754,17 +10754,35 @@ def admin_create_featured_listing(current_user):
     }
     if note:
         insert_body["note"] = note
-    # Upsert: if a row already exists, refresh it. The unique index on
-    # (listing_type, listing_id) makes this safe to do via PostgREST's
-    # Prefer: resolution=merge-duplicates.
+    # Insert the first feature row.  `supabase_request` deliberately keeps a
+    # small, shared Prefer header and does not expose PostgREST's
+    # `resolution=merge-duplicates` mode, so handle the unique-key retry
+    # explicitly below.  This also makes the re-feature path work against
+    # older PostgREST deployments where query-string `on_conflict` alone is
+    # not enough to turn a POST into an upsert.
     body, code = supabase_request(
         "post", "/rest/v1/featured_listings",
         data=insert_body,
-        params={"on_conflict": "listing_type,listing_id",
-                "columns": "listing_type,listing_id,featured_by,featured_until,note,updated_at",
-                "select": "*"},
         use_service_role=True,
     )
+    if code == 409:
+        # Re-featuring an existing listing refreshes its duration/note rather
+        # than surfacing an opaque duplicate-key error to the admin UI.
+        patch_body = {
+            "featured_by": current_user,
+            "featured_until": payload["featured_until"],
+            "note": note,
+        }
+        body, code = supabase_request(
+            "patch",
+            "/rest/v1/featured_listings",
+            params={
+                "listing_type": f"eq.{payload['listing_type']}",
+                "listing_id": f"eq.{payload['listing_id']}",
+            },
+            data=patch_body,
+            use_service_role=True,
+        )
     if code >= 400:
         return jsonify({"error": "Failed to feature listing", "details": body}), 500
     # `body` may be a list (Prefer return=representation) or a dict (empty)

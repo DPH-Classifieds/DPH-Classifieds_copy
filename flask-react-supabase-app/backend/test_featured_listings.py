@@ -55,7 +55,7 @@ def test_validate_ok_no_until():
 
 def test_validate_ok_with_future_until():
     future = (NOW + timedelta(days=7)).isoformat()
-    out, err = validate_featured_input("bike", "abc-123", featured_until=future)
+    out, err = validate_featured_input("bike", "abc-123", featured_until=future, now=NOW)
     assert err is None
     assert out["listing_type"] == "bike"
     assert out["featured_until"] == future
@@ -81,19 +81,19 @@ def test_validate_rejects_too_short_listing_id():
 
 def test_validate_rejects_past_until():
     past = (NOW - timedelta(days=1)).isoformat()
-    out, err = validate_featured_input("car", "abc-123", featured_until=past)
+    out, err = validate_featured_input("car", "abc-123", featured_until=past, now=NOW)
     assert err is not None and err["code"] == "featured_until_in_past"
 
 
 def test_validate_rejects_until_too_far_in_future():
     far = (NOW + timedelta(days=MAX_FEATURED_DURATION_DAYS + 1)).isoformat()
-    out, err = validate_featured_input("car", "abc-123", featured_until=far)
+    out, err = validate_featured_input("car", "abc-123", featured_until=far, now=NOW)
     assert err is not None and err["code"] == "featured_until_too_far"
 
 
 def test_validate_accepts_until_within_max():
     within = (NOW + timedelta(days=MAX_FEATURED_DURATION_DAYS - 1)).isoformat()
-    out, err = validate_featured_input("car", "abc-123", featured_until=within)
+    out, err = validate_featured_input("car", "abc-123", featured_until=within, now=NOW)
     assert err is None
     assert out["featured_until"] == within
 
@@ -104,7 +104,7 @@ def test_validate_rejects_unparseable_until():
 
 
 def test_validate_accepts_datetime_object():
-    out, err = validate_featured_input("car", "abc-123", featured_until=NOW + timedelta(days=1))
+    out, err = validate_featured_input("car", "abc-123", featured_until=NOW + timedelta(days=1), now=NOW)
     assert err is None
     assert out["featured_until"] is not None
 

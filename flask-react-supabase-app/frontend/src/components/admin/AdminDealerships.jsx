@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Search, Store, ExternalLink, ChevronRight, ChevronDown } from 'lucide-react';
+import { Search, Store, ExternalLink, ChevronRight, ChevronDown, FileText } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
 
 const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', sales_rep: 'Sales rep' };
@@ -343,7 +343,18 @@ const AdminDealerships = () => {
                           ) : (
                             <div className="space-y-1.5">
                               {memberCache[d.id].members.map((m) => (
-                                <MemberRow key={m.id} member={m} />
+                                <div key={m.id} className="flex items-center gap-2">
+                                  <div className="min-w-0 flex-1"><MemberRow member={m} /></div>
+                                  {m.user?.id && (
+                                    <Link
+                                      to={`/admin/dealers/${m.user.id}`}
+                                      className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[11px] text-white/60 hover:bg-white/10 hover:text-emerald-300 transition"
+                                    >
+                                      <FileText size={12} />
+                                      Review documents
+                                    </Link>
+                                  )}
+                                </div>
                               ))}
                             </div>
                           )
