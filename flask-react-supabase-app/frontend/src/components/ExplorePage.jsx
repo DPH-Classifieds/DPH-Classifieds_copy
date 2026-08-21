@@ -7,7 +7,8 @@ import SearchBar from './ui/search-bar';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
 import BrowseSellCta from './BrowseSellCta';
-import FeaturedStrip from './FeaturedStrip';
+import useFeaturedPattern from '../hooks/useFeaturedPattern';
+import { applyFeaturedPlacement } from '../utils/featuredPlacement';
 import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
 import { buildCarPath } from '../utils/listingUrl';
@@ -516,6 +517,8 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const location = useLocation();
   const { user } = useAuth();
   const totalCounts = useListingCounts();
+  const featuredPattern = useFeaturedPattern();
+  const [featuredByCategory, setFeaturedByCategory] = useState({ cars: [], bikes: [], parts: [], plates: [] });
   // forcedCategory lets a dedicated route (e.g. /reddit) pin the mode without a
   // ?category= query param, so the URL stays clean.
   const initialCategory = forcedCategory || new URLSearchParams(location.search).get('category') || 'all';
@@ -658,6 +661,32 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     load();
     return () => { mounted = false; };
   }, [activeMode, fetchPage]);
+
+  // ── featured listings for placement — plain fetch(), not apiClient, since
+  // apiClient throws for anyone not logged in and this is a public read ────
+  useEffect(() => {
+    const targets = activeMode === 'all'
+      ? ['cars', 'bikes', 'parts', 'plates']
+      : [EXPLORE_MODE_TO_API_KEY[activeMode]].filter((k) => ['cars', 'bikes', 'parts', 'plates'].includes(k));
+    if (!targets.length) return undefined;
+    const singular = { cars: 'car', bikes: 'bike', parts: 'part', plates: 'plate' };
+    let mounted = true;
+    Promise.allSettled(
+      targets.map((apiKey) => fetchJsonWithCache(`${API_URL}/api/featured-listings?type=${singular[apiKey]}`))
+    ).then((results) => {
+      if (!mounted) return;
+      setFeaturedByCategory((prev) => {
+        const next = { ...prev };
+        targets.forEach((apiKey, index) => {
+          next[apiKey] = results[index].status === 'fulfilled' && Array.isArray(results[index].value)
+            ? results[index].value
+            : [];
+        });
+        return next;
+      });
+    });
+    return () => { mounted = false; };
+  }, [activeMode]);
 
   // ── load more: append next page for the relevant categories ──────────────
   const loadMore = useCallback(async () => {
@@ -962,6 +991,52 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     redditFilters,
   ]);
 
+  const normalizedFeatured = useMemo(() => {
+    const rowsToItems = (rows, normalize) =>
+      (rows || [])
+        .filter((row) => row.listing)
+        .map((row) => ({ ...normalize(row.listing), is_featured: true, featured_highlight: row.highlight !== false }));
+    return {
+      cars: rowsToItems(featuredByCategory.cars, normalizeCar),
+      bikes: rowsToItems(featuredByCategory.bikes, normalizeBike),
+      parts: rowsToItems(featuredByCategory.parts, normalizePart),
+      plates: rowsToItems(featuredByCategory.plates, normalizePlate),
+    };
+  }, [featuredByCategory]);
+
+  // Featured placement only reorders the default, unfiltered/unsorted view —
+  // once someone searches, filters, or explicitly re-sorts, they get plain
+  // relevance/price order, not promotional interleaving.
+  const isDefaultOrder = useMemo(() => {
+    if (activeMode === 'all') return !globalQuery.trim();
+    if (activeMode === 'cars') {
+      return !carFilters.query.trim() && carFilters.sortBy === 'newest' && !carFilters.manufacturer
+        && !carFilters.model && !carFilters.city && !carFilters.priceMin && !carFilters.priceMax;
+    }
+    if (activeMode === 'car-parts') {
+      return !partsFilters.query.trim() && partsFilters.sortBy === 'newest' && !partsFilters.category
+        && !partsFilters.priceMin && !partsFilters.priceMax;
+    }
+    if (activeMode === 'plates') {
+      return !plateFilters.query.trim() && plateFilters.sortBy === 'newest' && !plateFilters.city
+        && !plateFilters.code && !plateFilters.digits && !plateFilters.priceMin && !plateFilters.priceMax;
+    }
+    if (activeMode === 'bikes') {
+      return !bikeFilters.query.trim() && bikeFilters.sortBy === 'newest' && !bikeFilters.type
+        && !bikeFilters.brand && !bikeFilters.priceMin && !bikeFilters.priceMax
+        && !bikeFilters.yearMin && !bikeFilters.yearMax;
+    }
+    return false; // reddit, buying-requests: no featured placement
+  }, [activeMode, globalQuery, carFilters, partsFilters, plateFilters, bikeFilters]);
+
+  const displayedItems = useMemo(() => {
+    if (!isDefaultOrder) return filteredItems;
+    const featuredPool = activeMode === 'all'
+      ? [...normalizedFeatured.cars, ...normalizedFeatured.parts, ...normalizedFeatured.plates, ...normalizedFeatured.bikes]
+      : normalizedFeatured[EXPLORE_MODE_TO_API_KEY[activeMode]] || [];
+    return applyFeaturedPlacement(filteredItems, featuredPool, featuredPattern, (item) => `${item.categoryKey}-${item.id}`);
+  }, [filteredItems, normalizedFeatured, featuredPattern, isDefaultOrder, activeMode]);
+
   const activeTotalKey = activeMode === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[activeMode];
   const activeTotal = totalCounts && activeTotalKey && totalCounts[activeTotalKey] !== undefined
     ? totalCounts[activeTotalKey]
@@ -1256,29 +1331,6 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           </div>
         )}
 
-        {!loading && (
-          <FeaturedStrip
-            listingType={activeMode === 'all' ? null : (activeMode === 'reddit' ? 'car' : activeMode)}
-            renderCard={(row) => {
-              const listing = row.listing || {};
-              return (
-                <MarketplaceListingCard
-                  key={`featured-${row.id}`}
-                  item={{
-                    ...listing,
-                    id: listing.id || row.listing_id,
-                    categoryKey: row.listing_type === 'plate' ? 'plates'
-                      : row.listing_type === 'bike' ? 'bikes'
-                      : row.listing_type === 'part' ? 'parts'
-                      : 'cars',
-                    is_featured: true,
-                  }}
-                />
-              );
-            }}
-          />
-        )}
-
         {loading ? (
           <div className="explore-v2-state-card">
             <ListingSkeleton variant="grid" count={8} />
@@ -1295,7 +1347,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         ) : (
           <>
             <div className="explore-v2-horizontal-track">
-              {filteredItems.map((item) => (
+              {displayedItems.map((item) => (
                 item.categoryKey === 'buying-requests'
                   ? <BuyingRequestCard key={`${item.categoryKey}-${item.id}`} item={item} />
                   : <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />

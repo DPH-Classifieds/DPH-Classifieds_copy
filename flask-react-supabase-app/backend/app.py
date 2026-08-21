@@ -10799,11 +10799,15 @@ def admin_create_featured_listing(current_user):
         return jsonify(err), 400
     # Optional admin note
     note = (data.get("note") or "").strip() or None
+    # highlight: yellow border + "Featured" tag when true; a silent
+    # placement boost (no special styling) when false. Defaults on.
+    highlight = bool(data.get("highlight", True))
     insert_body = {
         "listing_type": payload["listing_type"],
         "listing_id": payload["listing_id"],
         "featured_by": current_user,
         "featured_until": payload["featured_until"],
+        "highlight": highlight,
     }
     if note:
         insert_body["note"] = note
@@ -10825,6 +10829,7 @@ def admin_create_featured_listing(current_user):
             "featured_by": current_user,
             "featured_until": payload["featured_until"],
             "note": note,
+            "highlight": highlight,
         }
         body, code = supabase_request(
             "patch",
@@ -10899,6 +10904,8 @@ def admin_update_featured_listing(current_user, row_id):
                                 "code": "invalid_featured_until"}), 400
     if "note" in data:
         patch["note"] = (data.get("note") or "").strip() or None
+    if "highlight" in data:
+        patch["highlight"] = bool(data.get("highlight"))
     if not patch:
         return jsonify({"error": "No supported fields provided"}), 400
     body, code = supabase_request(
@@ -10942,6 +10949,85 @@ def public_list_featured_listings():
                and r["listing"].get("is_approved") is True
                and not r["listing"].get("deleted_at")]
     return jsonify(visible), 200
+
+
+FEATURED_PLACEMENT_REDIS_KEY = "featured:placement_pattern"
+DEFAULT_FEATURED_PLACEMENT_PATTERN = [{"featured": 1}, {"normal": 5}]
+FEATURED_PLACEMENT_MAX_SEGMENTS = 20
+FEATURED_PLACEMENT_MAX_COUNT = 50
+
+
+def _validate_featured_placement_pattern(pattern):
+    """A pattern is an ordered list of {"featured": N} | {"normal": N}
+    segments the frontend cycles through to interleave featured listings
+    into a normal feed, e.g. 3 featured, 3 normal, 2 featured, 4 normal,
+    1 featured, repeat. Returns (clean_pattern_or_None, error_or_None)."""
+    if not isinstance(pattern, list) or not pattern:
+        return None, {"error": "pattern must be a non-empty array"}
+    if len(pattern) > FEATURED_PLACEMENT_MAX_SEGMENTS:
+        return None, {"error": f"pattern cannot have more than {FEATURED_PLACEMENT_MAX_SEGMENTS} segments"}
+    clean = []
+    for seg in pattern:
+        if not isinstance(seg, dict) or len(seg) != 1:
+            return None, {"error": "each segment must be {\"featured\": N} or {\"normal\": N}"}
+        key, value = next(iter(seg.items()))
+        if key not in ("featured", "normal"):
+            return None, {"error": "segment key must be 'featured' or 'normal'"}
+        if not isinstance(value, int) or isinstance(value, bool) or not (1 <= value <= FEATURED_PLACEMENT_MAX_COUNT):
+            return None, {"error": f"segment count must be an integer between 1 and {FEATURED_PLACEMENT_MAX_COUNT}"}
+        clean.append({key: value})
+    return clean, None
+
+
+@app.route("/api/admin/featured-placement/settings", methods=["GET", "PATCH"])
+@token_required
+def admin_featured_placement_settings(current_user):
+    """Configure the repeating featured/normal interleave pattern used to
+    place featured listings within the landing page and Explore feeds.
+    Redis-backed, same mechanism as the google-signin/reddit-explore toggles."""
+    user_details = _get_user_details_with_admin_status(current_user)
+    if not user_details or not user_details.get("is_admin"):
+        return jsonify({"error": "Admin access required"}), 403
+
+    rc = _get_redis_cache_client()
+
+    if request.method == "PATCH":
+        body = request.get_json(silent=True) or {}
+        clean, err = _validate_featured_placement_pattern(body.get("pattern"))
+        if err:
+            return jsonify(err), 400
+        if not rc:
+            return jsonify({"error": "Redis unavailable — cannot persist pattern"}), 503
+        try:
+            rc.set(FEATURED_PLACEMENT_REDIS_KEY, json.dumps(clean))
+        except Exception as exc:
+            return jsonify({"error": f"Redis error: {exc}"}), 500
+        return jsonify({"pattern": clean, "source": "redis"}), 200
+
+    # GET
+    if rc:
+        try:
+            raw = rc.get(FEATURED_PLACEMENT_REDIS_KEY)
+            if raw:
+                return jsonify({"pattern": json.loads(raw), "source": "redis"}), 200
+        except Exception:
+            pass
+    return jsonify({"pattern": DEFAULT_FEATURED_PLACEMENT_PATTERN, "source": "default"}), 200
+
+
+@app.route("/api/featured-placement/pattern", methods=["GET"])
+def public_featured_placement_pattern():
+    """Public read so Explore/landing pages know how to interleave featured
+    listings. No auth — exposes only the pattern shape, nothing sensitive."""
+    rc = _get_redis_cache_client()
+    if rc:
+        try:
+            raw = rc.get(FEATURED_PLACEMENT_REDIS_KEY)
+            if raw:
+                return jsonify({"pattern": json.loads(raw)}), 200
+        except Exception:
+            pass
+    return jsonify({"pattern": DEFAULT_FEATURED_PLACEMENT_PATTERN}), 200
 
 
 @app.route("/api/user/dealer-documents", methods=["DELETE"])

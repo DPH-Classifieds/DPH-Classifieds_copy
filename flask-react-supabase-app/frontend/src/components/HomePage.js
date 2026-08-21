@@ -11,6 +11,8 @@ import { buildListingRouteState } from '../utils/listingRouteState';
 import { buildCarPath } from '../utils/listingUrl';
 import { Button } from './ui/button';
 import { ArrowRight } from 'lucide-react';
+import useFeaturedPattern from '../hooks/useFeaturedPattern';
+import { applyFeaturedPlacement } from '../utils/featuredPlacement';
 import '../styles/HomePage.css';
 import './ExplorePage.css';
 
@@ -168,6 +170,7 @@ const HomePage = () => {
   const [marketplaceItems, setMarketplaceItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const featuredPattern = useFeaturedPattern();
   const seoData = buildStaticSeo({
     title: 'DPH Classifieds - Buy & Sell Cars, Bikes, Parts & Plates in UAE',
     description:
@@ -188,17 +191,27 @@ const HomePage = () => {
       setError(null);
 
       try {
-        const response = await axios.get(`${API_URL}/api/cars?limit=4&order=created_at.desc`);
-        const payload = response.data || [];
+        const [carsResponse, featuredResponse] = await Promise.all([
+          axios.get(`${API_URL}/api/cars?limit=8&order=created_at.desc`),
+          axios.get(`${API_URL}/api/featured-listings?type=car`).catch(() => ({ data: [] })),
+        ]);
+        const payload = carsResponse.data || [];
         const cars = Array.isArray(payload)
           ? payload
           : Array.isArray(payload?.cars)
             ? payload.cars
             : [];
+        const normalCars = cars.map((item) => normalizeMarketplaceItem('cars', item));
+        const featuredCars = (Array.isArray(featuredResponse.data) ? featuredResponse.data : [])
+          .filter((row) => row.listing)
+          .map((row) => ({
+            ...normalizeMarketplaceItem('cars', row.listing),
+            is_featured: true,
+            featured_highlight: row.highlight !== false,
+          }));
 
-        setMarketplaceItems(
-          cars.slice(0, 4).map((item) => normalizeMarketplaceItem('cars', item))
-        );
+        const placed = applyFeaturedPlacement(normalCars, featuredCars, featuredPattern, (item) => item.id);
+        setMarketplaceItems(placed.slice(0, 4));
       } catch (requestError) {
         console.error('Error fetching latest cars:', requestError);
         setError('We could not load the latest cars right now. Please refresh or contact support.');
@@ -209,7 +222,7 @@ const HomePage = () => {
     };
 
     fetchLatestCars();
-  }, []);
+  }, [featuredPattern]);
 
   return (
     <>

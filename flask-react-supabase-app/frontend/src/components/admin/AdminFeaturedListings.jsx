@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import apiClient from '../../utils/apiClient';
 import ListingPicker from './ListingPicker';
 import FeatureListingModal from './FeatureListingModal';
+import FeaturedPlacementSettings from './FeaturedPlacementSettings';
 
 const LISTING_TYPES = [
   { key: 'car',   label: 'Car' },
@@ -22,6 +23,20 @@ function FeaturedRow({ row, onRemoved, onUpdated }) {
   const [error, setError] = useState(null);
   const expired = isExpired(row.featured_until);
   const typeLabel = LISTING_TYPES.find((t) => t.key === row.listing_type)?.label || row.listing_type;
+
+  const toggleHighlight = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiClient.patch(`/api/admin/featured-listings/${row.id}`, { highlight: !row.highlight });
+      onUpdated();
+    } catch (err) {
+      setError(err?.details?.error || err?.message || 'Failed to update highlight');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div className="space-y-1 min-w-0">
@@ -51,6 +66,19 @@ function FeaturedRow({ row, onRemoved, onUpdated }) {
           </span>
         )}
         <button
+          type="button"
+          disabled={busy}
+          onClick={toggleHighlight}
+          title={row.highlight ? 'Highlighted — click to make it a silent boost' : 'Silent boost — click to highlight'}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium border disabled:opacity-50 ${
+            row.highlight
+              ? 'bg-amber-400/15 border-amber-500/40 text-amber-300'
+              : 'border-white/10 text-white/60 hover:bg-white/5'
+          }`}
+        >
+          {row.highlight ? '★ Highlighted' : 'Silent boost'}
+        </button>
+        <button
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -72,7 +100,13 @@ function FeaturedRow({ row, onRemoved, onUpdated }) {
   );
 }
 
+const TABS = [
+  { key: 'listings', label: 'Listings' },
+  { key: 'placement', label: 'Placement' },
+];
+
 export default function AdminFeaturedListings() {
+  const [activeTab, setActiveTab] = useState('listings');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -135,6 +169,27 @@ export default function AdminFeaturedListings() {
         </div>
       </div>
 
+      <div className="flex items-center gap-1 border-b border-white/10">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={
+              `px-4 py-2 -mb-px text-sm font-medium border-b-2 transition ` +
+              (activeTab === t.key
+                ? 'border-amber-400 text-white'
+                : 'border-transparent text-white/60 hover:text-white')
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'placement' && <FeaturedPlacementSettings />}
+
+      {activeTab === 'listings' && (
+        <>
       {loading && <p className="text-white/50">Loading…</p>}
       {error && <p className="text-red-300">{error}</p>}
       {!loading && !error && !rows.length && (
@@ -179,6 +234,8 @@ export default function AdminFeaturedListings() {
             setRows((prev) => [r, ...prev.filter((x) => x.id !== r.id)]);
           }}
         />
+      )}
+        </>
       )}
     </div>
   );

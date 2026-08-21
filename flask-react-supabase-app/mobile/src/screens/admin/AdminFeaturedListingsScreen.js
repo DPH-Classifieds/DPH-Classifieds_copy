@@ -10,13 +10,19 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import ListingPickerModal from '../../components/ui/ListingPickerModal';
 import FeatureListingModal from '../../components/ui/FeatureListingModal';
+import FeaturedPlacementSettings from '../../components/ui/FeaturedPlacementSettings';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+
+const TABS = [
+  { key: 'listings', label: 'Listings' },
+  { key: 'placement', label: 'Placement' },
+];
 
 const TYPE_LABELS = { car: 'Car', bike: 'Bike', plate: 'Plate', part: 'Part' };
 
 const isExpired = (until) => !!until && new Date(until).getTime() <= Date.now();
 
-function FeaturedRow({ row, onRemoved }) {
+function FeaturedRow({ row, onRemoved, onUpdated }) {
   const [busy, setBusy] = useState(false);
   const expired = isExpired(row.featured_until);
 
@@ -25,6 +31,18 @@ function FeaturedRow({ row, onRemoved }) {
     try {
       await apiClient.delete(`/api/admin/featured-listings/${row.id}`);
       onRemoved(row.id);
+    } catch (err) {
+      toastApiError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleHighlight = async () => {
+    setBusy(true);
+    try {
+      await apiClient.patch(`/api/admin/featured-listings/${row.id}`, { highlight: !row.highlight });
+      onUpdated();
     } catch (err) {
       toastApiError(err);
     } finally {
@@ -54,15 +72,29 @@ function FeaturedRow({ row, onRemoved }) {
       {row.listing?.is_approved === false && (
         <Text style={styles.notApproved}>Listing not approved</Text>
       )}
-      <TouchableOpacity style={styles.removeBtn} onPress={remove} disabled={busy} activeOpacity={0.7}>
-        <Ionicons name="close-circle-outline" size={16} color={busy ? COLORS.textMuted : COLORS.error} />
-        <Text style={[styles.removeText, busy && { color: COLORS.textMuted }]}>{busy ? 'Removing…' : 'Remove'}</Text>
-      </TouchableOpacity>
+      <View style={styles.rowActions}>
+        <TouchableOpacity
+          style={[styles.highlightBtn, row.highlight && styles.highlightBtnActive]}
+          onPress={toggleHighlight}
+          disabled={busy}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={row.highlight ? 'star' : 'star-outline'} size={14} color={row.highlight ? COLORS.warning : COLORS.textSecondary} />
+          <Text style={[styles.highlightBtnText, row.highlight && { color: COLORS.warning }]}>
+            {row.highlight ? 'Highlighted' : 'Silent boost'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.removeBtn} onPress={remove} disabled={busy} activeOpacity={0.7}>
+          <Ionicons name="close-circle-outline" size={16} color={busy ? COLORS.textMuted : COLORS.error} />
+          <Text style={[styles.removeText, busy && { color: COLORS.textMuted }]}>{busy ? 'Removing…' : 'Remove'}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 export default function AdminFeaturedListingsScreen() {
+  const [activeTab, setActiveTab] = useState('listings');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -110,6 +142,23 @@ export default function AdminFeaturedListingsScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.tabBar}>
+        {TABS.map((t) => (
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.tab, activeTab === t.key && styles.tabActive]}
+            onPress={() => setActiveTab(t.key)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === t.key && styles.tabTextActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {activeTab === 'placement' && <FeaturedPlacementSettings />}
+
+      {activeTab === 'listings' && (
+        <>
       <TouchableOpacity style={styles.toggleRow} onPress={() => setShowInactive((s) => !s)} activeOpacity={0.7}>
         <Ionicons name={showInactive ? 'checkbox' : 'square-outline'} size={18} color={showInactive ? COLORS.accent : COLORS.textMuted} />
         <Text style={styles.toggleText}>Show expired</Text>
@@ -124,7 +173,11 @@ export default function AdminFeaturedListingsScreen() {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
           renderItem={({ item }) => (
-            <FeaturedRow row={item} onRemoved={(id) => setRows((prev) => prev.filter((r) => r.id !== id))} />
+            <FeaturedRow
+              row={item}
+              onRemoved={(id) => setRows((prev) => prev.filter((r) => r.id !== id))}
+              onUpdated={load}
+            />
           )}
           ListEmptyComponent={
             <EmptyState
@@ -154,6 +207,8 @@ export default function AdminFeaturedListingsScreen() {
           setRows((prev) => [r, ...prev.filter((x) => x.id !== r.id)]);
         }}
       />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -186,6 +241,21 @@ const styles = StyleSheet.create({
   rowId: { ...FONTS.regular, fontSize: 11, color: COLORS.textMuted, marginBottom: 4 },
   rowMeta: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 8 },
   notApproved: { ...FONTS.medium, fontSize: 10, color: COLORS.warning, marginBottom: 8 },
-  removeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  highlightBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 8,
+    borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border,
+  },
+  highlightBtnActive: { backgroundColor: 'rgba(255,152,0,0.12)', borderColor: 'rgba(255,152,0,0.4)' },
+  highlightBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
+  removeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   removeText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: COLORS.error },
+  tabBar: {
+    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+    paddingHorizontal: SPACING.md, marginTop: SPACING.sm,
+  },
+  tab: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: COLORS.accent },
+  tabText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
+  tabTextActive: { color: COLORS.white },
 });

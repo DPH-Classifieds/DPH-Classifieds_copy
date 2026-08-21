@@ -61,14 +61,19 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
     enabled: hasGallery,
   });
 
+  // A featured listing always gets priority placement; `highlight` (default
+  // true) controls only whether that shows — a yellow border + tag, or a
+  // silent boost that reads as a normal card. See Admin > Featured.
+  const isHighlighted = item.is_featured && item.featured_highlight !== false;
+
   return (
     <article
-      className="explore-v2-card"
+      className={`explore-v2-card${isHighlighted ? ' explore-v2-card-highlighted' : ''}`}
       data-listing-type={item.categoryLabel?.toLowerCase()}
       data-listing-id={item.id}
       data-analytics-event="listing_click"
     >
-      {item.is_featured && (
+      {isHighlighted && (
         <FeaturedBadge
           className="absolute top-3 left-3 z-10"
         />

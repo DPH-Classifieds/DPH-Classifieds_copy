@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Modal, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Modal, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, StyleSheet } from 'react-native';
 import Text from './AppText';
 import apiClient from '../../utils/apiClient';
 import { toastApiError, showSuccess } from '../../utils/toast';
@@ -28,9 +28,10 @@ export default function FeatureListingModal({ visible, listingType, listingId, t
   // admins start using this a lot.
   const [customDate, setCustomDate] = useState('');
   const [note, setNote] = useState('');
+  const [highlight, setHighlight] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const reset = () => { setDuration(7); setCustomDate(''); setNote(''); };
+  const reset = () => { setDuration(7); setCustomDate(''); setNote(''); setHighlight(true); };
 
   const submit = async () => {
     let featuredUntil = null;
@@ -53,6 +54,7 @@ export default function FeatureListingModal({ visible, listingType, listingId, t
         listing_id: listingId,
         featured_until: featuredUntil,
         note: note.trim() || undefined,
+        highlight,
       });
       showSuccess('Listing featured', title || 'Listing is now featured.');
       reset();
@@ -114,6 +116,18 @@ export default function FeatureListingModal({ visible, listingType, listingId, t
               placeholderTextColor={COLORS.textMuted}
             />
 
+            <View style={styles.highlightRow}>
+              <View style={styles.highlightTextWrap}>
+                <Text style={styles.label}>Highlight</Text>
+                <Text style={styles.highlightHint}>
+                  {highlight
+                    ? 'Yellow border + "Featured" tag on the card.'
+                    : 'Silent boost — placed early, looks like a normal listing.'}
+                </Text>
+              </View>
+              <Switch value={highlight} onValueChange={setHighlight} />
+            </View>
+
             <View style={styles.actions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => { reset(); onClose?.(); }} disabled={submitting}>
                 <Text style={styles.cancelText}>Cancel</Text>
@@ -150,6 +164,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
     color: COLORS.white, fontSize: FONT_SIZES.sm, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
   },
+  highlightRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
+  highlightTextWrap: { flex: 1 },
+  highlightHint: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
   actions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
   cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: COLORS.textSecondary },

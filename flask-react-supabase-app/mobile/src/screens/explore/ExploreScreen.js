@@ -37,6 +37,8 @@ import { resolveMediaUrl } from '../../utils/media';
 import { prefetchListing } from '../../utils/listingCache';
 import { swrGet, swrSet } from '../../utils/swrCache';
 import useListingCounts from '../../hooks/useListingCounts';
+import useFeaturedPattern from '../../hooks/useFeaturedPattern';
+import { applyFeaturedPlacement } from '../../utils/featuredPlacement';
 
 // Cache key for the no-filter initial Explore payload.
 const EXPLORE_INITIAL_CACHE_KEY = 'explore:initial:v1';
@@ -420,10 +422,11 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
   // dedicated plate list / detail) instead of the gray placeholder.
   const isPlate = item.category === 'plates' || item.category === 'plate';
   const plate = isPlate ? (item.raw || item) : null;
+  const isHighlighted = item.is_featured && item.featured_highlight !== false;
   return (
     <Animated.View style={[animatedStyle, grid && styles.cardOuterGrid]}>
       <PressableScale onPress={onPress}>
-        <View style={[styles.card, grid && styles.cardGrid]}>
+        <View style={[styles.card, grid && styles.cardGrid, isHighlighted && styles.cardHighlighted]}>
           <View style={[styles.cardImageWrap, grid && styles.cardImageWrapGrid]}>
             {isPlate ? (
               <View style={styles.cardPlateWrap}>
@@ -456,7 +459,7 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
                 color={saved ? COLORS.error : COLORS.white}
               />
             </TouchableOpacity>
-            {item.is_featured && (
+            {isHighlighted && (
               <View style={styles.cardFeatured}>
                 <Ionicons name="star" size={10} color={COLORS.black} />
                 <Text style={styles.cardFeaturedText}>Featured</Text>
@@ -486,6 +489,8 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
 
 export default function ExploreScreen({ navigation, route }) {
   const totalCounts = useListingCounts();
+  const featuredPattern = useFeaturedPattern();
+  const [featuredByCategory, setFeaturedByCategory] = useState({ cars: [], bikes: [], plates: [], parts: [] });
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -774,6 +779,42 @@ export default function ExploreScreen({ navigation, route }) {
     });
   };
 
+  // Featured listings for placement — one fetch per relevant category,
+  // whenever the active tab changes.
+  useEffect(() => {
+    const targets = activeTab === 'all'
+      ? ['cars', 'bikes', 'plates', 'parts']
+      : ['cars', 'bikes', 'plates', 'parts'].includes(activeTab) ? [activeTab] : [];
+    if (!targets.length) return undefined;
+    const singular = { cars: 'car', bikes: 'bike', plates: 'plate', parts: 'part' };
+    let mounted = true;
+    Promise.allSettled(
+      targets.map((cat) => apiClient.get(`/api/featured-listings?type=${singular[cat]}`))
+    ).then((results) => {
+      if (!mounted) return;
+      setFeaturedByCategory((prev) => {
+        const next = { ...prev };
+        targets.forEach((cat, i) => {
+          next[cat] = results[i].status === 'fulfilled' && Array.isArray(results[i].value) ? results[i].value : [];
+        });
+        return next;
+      });
+    });
+    return () => { mounted = false; };
+  }, [activeTab]);
+
+  const normalizedFeatured = useMemo(() => {
+    const toItems = (rows, category) => (rows || [])
+      .filter((row) => row.listing)
+      .map((row) => ({ ...normalizeItem(category, row.listing), is_featured: true, featured_highlight: row.highlight !== false }));
+    return {
+      cars: toItems(featuredByCategory.cars, 'cars'),
+      bikes: toItems(featuredByCategory.bikes, 'bikes'),
+      plates: toItems(featuredByCategory.plates, 'plates'),
+      parts: toItems(featuredByCategory.parts, 'parts'),
+    };
+  }, [featuredByCategory]);
+
   const normalizedItems = useMemo(() => {
     let items = [];
     if (activeTab === 'all') {
@@ -818,6 +859,17 @@ export default function ExploreScreen({ navigation, route }) {
   // search/filter narrows the results, or for reddit/wanted (not tracked by
   // the counts endpoint). Doesn't touch loading/pagination — display only.
   const isUnfiltered = !search.trim() && activeFilterCount === 0;
+
+  // Featured placement only reorders the default, unfiltered/unsorted view —
+  // matches web's ExplorePage gating exactly.
+  const displayedItems = useMemo(() => {
+    if (!isUnfiltered || sortBy !== 'newest') return normalizedItems;
+    const featuredPool = activeTab === 'all'
+      ? [...normalizedFeatured.cars, ...normalizedFeatured.bikes, ...normalizedFeatured.plates, ...normalizedFeatured.parts]
+      : normalizedFeatured[activeTab] || [];
+    return applyFeaturedPlacement(normalizedItems, featuredPool, featuredPattern, (item) => `${item.category}-${item.id}`);
+  }, [normalizedItems, normalizedFeatured, featuredPattern, isUnfiltered, sortBy, activeTab]);
+
   const totalKey = activeTab === 'all' ? 'all' : activeTab;
   const activeTotal = isUnfiltered && totalCounts && totalCounts[totalKey] !== undefined
     ? totalCounts[totalKey]
@@ -995,7 +1047,7 @@ export default function ExploreScreen({ navigation, route }) {
         <FlashList
           key={`cols-${columns}`}
           estimatedItemSize={columns === 2 ? 294 : 260}
-          data={normalizedItems}
+          data={displayedItems}
           renderItem={renderItem}
           keyExtractor={(item, idx) => `${item.category || 'listing'}-${item.id || idx}`}
           numColumns={columns}
@@ -1163,6 +1215,7 @@ const styles = StyleSheet.create({
   },
   cardOuterGrid: { flex: 1, marginHorizontal: SPACING.xs },
   cardGrid: { marginHorizontal: 0 },
+  cardHighlighted: { borderWidth: 2, borderColor: COLORS.warning },
   cardImageWrap: { height: 210, position: 'relative' },
   cardPlateWrap: {
     width: '100%',

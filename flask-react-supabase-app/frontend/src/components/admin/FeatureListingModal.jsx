@@ -23,6 +23,7 @@ export default function FeatureListingModal({ listingType, listingId, title, onC
   const [duration, setDuration] = useState(7);
   const [customDate, setCustomDate] = useState('');
   const [note, setNote] = useState('');
+  const [highlight, setHighlight] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -44,6 +45,7 @@ export default function FeatureListingModal({ listingType, listingId, title, onC
         listing_id: listingId,
         featured_until: featuredUntil,
         note: note.trim() || undefined,
+        highlight,
       });
       onCreated(data);
     } catch (err) {
@@ -102,6 +104,22 @@ export default function FeatureListingModal({ listingType, listingId, title, onC
             className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white"
           />
         </label>
+        <label className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={highlight}
+            onChange={(e) => setHighlight(e.target.checked)}
+            className="rounded border-white/20 accent-amber-400"
+          />
+          <span className="text-sm text-white/80">
+            Highlight (yellow border + &ldquo;Featured&rdquo; tag)
+          </span>
+        </label>
+        <p className="text-xs text-white/40 -mt-2">
+          {highlight
+            ? 'Shown with the badge — reads as a sponsored/premium placement.'
+            : 'Silent boost — placed early with no special styling, looks like a normal listing.'}
+        </p>
         {error && <p className="text-sm text-red-300">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-white/70 hover:text-white">Cancel</button>

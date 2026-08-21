@@ -468,6 +468,10 @@
   border-radius: 22px;
 }
 
+.explore-v2-card-highlighted {
+  box-shadow: 0 0 0 2px #f0b429, 0 8px 24px rgba(240, 180, 41, 0.18);
+}
+
 /* Shared "N total listings" line used on CarList / CarParts / Plates / Bikes
    browse pages (all import this stylesheet already). */
 .listing-total-count {
