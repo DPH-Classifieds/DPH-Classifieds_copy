@@ -462,12 +462,19 @@ const AdminDealerDetail = () => {
   };
 
   const handleVerify = async () => {
+    const reason = window.prompt(
+      'Why are you force-approving this dealer? (required for audit log)'
+    );
+    const trimmed = (reason || '').trim();
+    if (!trimmed) {
+      return;
+    }
     try {
       setActionLoading(true);
-      await apiClient.post(`/api/admin/dealers/${dealerId}/verify`);
+      await apiClient.post(`/api/admin/dealers/${dealerId}/verify`, { reason: trimmed });
       await refreshData();
     } catch (actionError) {
-      setError(actionError.message || 'Failed to verify dealer');
+      setError(actionError.message || 'Failed to force-approve dealer');
     } finally {
       setActionLoading(false);
     }
@@ -830,7 +837,7 @@ const AdminDealerDetail = () => {
                   className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold rounded-xl px-5 py-3 text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ShieldCheck size={15} />
-                  {actionLoading ? 'Working…' : 'Approve dealer'}
+                  {actionLoading ? 'Working…' : 'Force approve (OCR override)'}
                 </button>
               )}
 

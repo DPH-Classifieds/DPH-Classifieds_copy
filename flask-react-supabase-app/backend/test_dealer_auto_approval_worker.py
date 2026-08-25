@@ -104,6 +104,26 @@ def test_process_one_calls_approve_then_marks_fired():
     assert any(fields.get("state") == "fired" for _, fields in captured["marks"])
 
 
+def test_process_one_marks_ocr_verified_documents_approved():
+    captured = {}
+
+    docs = [
+        {"id": "doc-trade", "document_type": "trade_license", "ocr_confidence": 0.95, "replaced_at": None},
+        {"id": "doc-trn", "document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None},
+    ]
+
+    with patch.object(w, "_approve_user"), \
+         patch.object(w, "_mark"), \
+         patch.object(w, "_send_approval_email"), \
+         patch.object(w, "_fetch_active_docs", return_value=docs), \
+         patch.object(w, "_fetch_user", return_value={"dealer_verified": False}), \
+         patch.object(w, "_approve_documents", create=True, side_effect=lambda rows: captured.setdefault("docs", rows)):
+        decision = w._process_one(_row())
+
+    assert decision["decision"] == "approve"
+    assert [doc["id"] for doc in captured["docs"]] == ["doc-trade", "doc-trn"]
+
+
 def test_process_one_cancels_when_doc_replaced_between_upload_and_fire():
     replaced = {"document_type": "trade_license", "ocr_confidence": 0.95,
                 "replaced_at": "2026-08-18T10:00:00Z"}

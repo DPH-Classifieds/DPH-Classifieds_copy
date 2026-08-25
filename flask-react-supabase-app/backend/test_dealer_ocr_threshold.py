@@ -68,6 +68,14 @@ def test_explicitly_rejected_doc_blocks():
     assert decision["missing"] == ["trade_license"]
 
 
+def test_explicitly_denied_doc_blocks():
+    docs = [_doc("trade_license", 0.95, status="denied"),
+            _doc("tax_registration", 0.95, status="approved")]
+    decision = should_auto_approve_dealer(docs, threshold=0.90)
+    assert decision["approve"] is False
+    assert decision["missing"] == ["trade_license"]
+
+
 def test_extra_docs_ignored():
     docs = [_doc("trade_license", 0.95),
             _doc("tax_registration", 0.92),

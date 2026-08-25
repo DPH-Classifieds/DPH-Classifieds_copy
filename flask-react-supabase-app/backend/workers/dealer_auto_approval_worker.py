@@ -121,6 +121,20 @@ def _approve_user(user_id):
     })
 
 
+def _approve_documents(documents):
+    """Record that OCR auto-approved the active required documents."""
+    now = datetime.utcnow().isoformat()
+    for doc in documents or []:
+        doc_id = doc.get("id")
+        if not doc_id:
+            continue
+        supabase_request(
+            "patch",
+            f"/rest/v1/dealer_documents?id=eq.{doc_id}",
+            data={"status": "approved", "reviewed_at": now},
+        )
+
+
 def _send_approval_email(user_id):
     """Best-effort approval email.
 
@@ -167,7 +181,14 @@ def _fire_pending_approval(row, current_docs=None, user_row=None,
 def _process_one(row):
     """Apply the pure decision to one row + persist the transition."""
     threshold = float(row.get("threshold") or DEFAULT_THRESHOLD)
-    decision = _fire_pending_approval(row, threshold=threshold)
+    current_docs = _fetch_active_docs(row["user_id"])
+    user_row = _fetch_user(row["user_id"])
+    decision = _fire_pending_approval(
+        row,
+        current_docs=current_docs,
+        user_row=user_row,
+        threshold=threshold,
+    )
     if decision["decision"] == "wait":
         return decision
     if decision["decision"] == "skip":
@@ -179,6 +200,7 @@ def _process_one(row):
               fired_at=_utc_now_iso())
         return decision
     # approve
+    _approve_documents(current_docs)
     _approve_user(row["user_id"])
     _mark(row["id"], state="fired", fired_at=_utc_now_iso())
     _send_approval_email(row["user_id"])

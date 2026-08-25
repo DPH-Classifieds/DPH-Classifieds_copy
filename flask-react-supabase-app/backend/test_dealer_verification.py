@@ -33,7 +33,7 @@ class TestRequireDealerVerifiedLogic(unittest.TestCase):
         if user.get("is_dealer") and not user.get("dealer_verified"):
             return (
                 {
-                    "error": "Your dealer account is pending admin verification. You will be able to post listings once your account is approved.",
+                    "error": "We're still verifying your documents — usually under a minute.",
                     "code": "dealer_not_verified",
                 },
                 403,
@@ -63,7 +63,7 @@ class TestRequireDealerVerifiedLogic(unittest.TestCase):
         body, status = result
         self.assertEqual(status, 403)
         self.assertEqual(body["code"], "dealer_not_verified")
-        self.assertIn("pending admin verification", body["error"])
+        self.assertIn("verifying your documents", body["error"])
 
     def test_db_error_does_not_block(self):
         """If DB query fails (None response), don't block (fail open)."""
@@ -142,6 +142,12 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
         # Find the upload handler and check it sets the flag
         upload_section = source[source.index("def upload_dealer_document") :]
         self.assertIn('"verification_documents_submitted": True', upload_section)
+
+    def test_upload_route_runs_ocr_for_trn_documents(self):
+        source = self._read_app_source()
+        upload_section = source[ source.index("def upload_dealer_document"): source.index("def dealer_submit_application") ]
+        self.assertIn("scan_trn_document", upload_section)
+        self.assertIn('insert_payload["ocr_confidence"]', upload_section)
 
     def test_listing_endpoints_have_dealer_check(self):
         """All 4 listing creation endpoints must call _require_dealer_verified."""
@@ -225,9 +231,9 @@ class TestDealerPendingBanner(unittest.TestCase):
         self.assertIn("dealer_verified", source)
 
     def test_shows_pending_message(self):
-        """Component must show the pending verification message."""
+        """Component must show the OCR-wait verification message."""
         source = self._read_banner_source()
-        self.assertIn("pending admin verification", source)
+        self.assertIn("Verifying your documents", source)
 
     def test_links_to_settings(self):
         """Component must link to /settings for viewing status."""
@@ -296,9 +302,9 @@ class TestProfilePendingState(unittest.TestCase):
             return f.read()
 
     def test_pending_verification_callout_exists(self):
-        """Profile must show a pending verification callout for unverified dealers."""
+        """Profile must show an OCR-wait callout for unverified dealers."""
         source = self._read_profile_source()
-        self.assertIn("pending admin verification", source)
+        self.assertIn("Verifying your documents", source)
 
     def test_callout_checks_dealer_status(self):
         """Callout must check is_dealer and !dealer_verified."""
@@ -390,7 +396,7 @@ class TestAccountSettingsDocumentUpload(unittest.TestCase):
     def test_file_input_for_documents(self):
         """AccountSettings must have a file input for document uploads."""
         source = self._read_settings_source()
-        self.assertIn("type=\"file\"", source)
+        self.assertIn('type="file"', source)
         self.assertIn('accept=".jpg,.jpeg,.png,.pdf"', source)
 
     def test_company_documents_state(self):

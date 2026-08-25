@@ -112,11 +112,33 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
     }
   };
 
-  const handleVerify = async () => {
+  const handleForceApprove = () => {
+    if (Alert.prompt) {
+      Alert.prompt(
+        'Force approve dealer',
+        'Reason (required for audit log):',
+        (reason) => {
+          const trimmed = (reason || '').trim();
+          if (!trimmed) {
+            return;
+          }
+          submitForceApprove(trimmed);
+        },
+      );
+      return;
+    }
+    Alert.alert(
+      'Force approve dealer',
+      'Provide a reason via web admin — this screen requires iOS Alert.prompt support.',
+      [{ text: 'OK' }],
+    );
+  };
+
+  const submitForceApprove = async (reason) => {
     setActionLoading(true);
     try {
-      await apiClient.post(`/api/admin/dealers/${dealerId}/verify`);
-      Alert.alert('Verified', 'Dealer has been verified.');
+      await apiClient.post(`/api/admin/dealers/${dealerId}/verify`, { reason });
+      Alert.alert('Force-approved', 'Dealer has been force-approved.');
       await loadDealer();
     } catch (err) {
       Alert.alert('Error', err.message);
@@ -273,12 +295,12 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
             )}
             <TouchableOpacity
               style={[styles.approveBtn, !allDocsApproved && styles.modalBtnDisabled]}
-              onPress={handleVerify}
+              onPress={handleForceApprove}
               disabled={!allDocsApproved || actionLoading}
               activeOpacity={0.7}
             >
               <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
-              <Text style={styles.approveBtnText}>{actionLoading ? 'Working…' : 'Verify'}</Text>
+              <Text style={styles.approveBtnText}>{actionLoading ? 'Working…' : 'Force approve (OCR override)'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} disabled={actionLoading} activeOpacity={0.7}>
               <Ionicons name="close-circle" size={18} color={COLORS.error} />

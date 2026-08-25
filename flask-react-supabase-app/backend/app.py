@@ -5624,7 +5624,7 @@ def _require_dealer_verified(user_id):
         if rows and rows[0].get("is_dealer") and not rows[0].get("dealer_verified"):
             return jsonify(
                 {
-                    "error": "Your dealer account is pending admin verification. You will be able to post listings once your account is approved.",
+                    "error": "We're still verifying your documents — usually under a minute.",
                     "code": "dealer_not_verified",
                 }
             ), 403
@@ -10019,6 +10019,15 @@ def upload_dealer_document(current_user):
             except Exception as ocr_error:
                 logger.warning("Trade-license OCR unavailable for %s: %s", current_user, ocr_error)
                 ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
+        elif document_type == "tax_registration":
+            try:
+                from services.registration_ocr import scan_trn_document
+                file.seek(0)
+                ocr_payload = scan_trn_document(file)
+                file.seek(0)
+            except Exception as ocr_error:
+                logger.warning("TRN OCR unavailable for %s: %s", current_user, ocr_error)
+                ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
         if raw_expires_at:
             try:
                 expires_at_dt = datetime.datetime.fromisoformat(raw_expires_at)
@@ -10105,11 +10114,12 @@ def upload_dealer_document(current_user):
         }
         if expires_at_iso:
             insert_payload["expires_at"] = expires_at_iso
-        if document_type == "trade_license":
-            insert_payload["ocr_expires_at"] = (ocr_payload or {}).get("expires_at")
+        if ocr_payload is not None:
             insert_payload["ocr_confidence"] = (ocr_payload or {}).get("confidence")
             insert_payload["ocr_raw_text"] = (ocr_payload or {}).get("raw_text") or None
             insert_payload["ocr_scanned_at"] = _isoformat_utc(_utc_now())
+        if document_type == "trade_license":
+            insert_payload["ocr_expires_at"] = (ocr_payload or {}).get("expires_at")
         insert_resp = requests.post(
             f"{SUPABASE_URL}/rest/v1/dealer_documents",
             headers={**headers, "Prefer": "return=representation"},
@@ -10217,22 +10227,9 @@ def dealer_submit_application(current_user):
             )
             return jsonify({"error": "Failed to submit application"}), 500
 
-        # Best-effort admin notification — uses the same _fetch_all_admin_emails
-        # distribution as the rest of the admin notifications so the team
-        # never misses a new signup.
-        try:
-            docs_resp, _docs_code = supabase_request(
-                "get", "/rest/v1/dealer_documents",
-                params={"user_id": f"eq.{current_user}",
-                        "select": "id,document_type,replaced_at,status",
-                        "replaced_at": "is.null"},
-                use_service_role=True,
-            )
-            _send_dealer_signup_admin_notification(
-                user_row, documents=docs_resp if isinstance(docs_resp, list) else None,
-            )
-        except Exception as notify_err:
-            logger.warning(f"Dealer signup admin notification failed: {notify_err}")
+        # No admin notification: PaddleOCR + the minute-tick dealer_auto_approval_worker
+        # is the only approval path. Admin keeps only an explicit override on the
+        # dealer detail page. Spec: docs/superpowers/specs/2026-08-25-...
 
         return jsonify({
             "message": "Application submitted",
@@ -23257,12 +23254,30 @@ def get_admin_dealers(current_user):
 @app.route("/api/admin/dealers/<dealer_id>/verify", methods=["POST"])
 @token_required
 def api_verify_dealer(current_user, dealer_id):
-    """Verify a dealer account"""
+    """Force-approve a dealer (admin OCR override).
+
+    Default approval path is PaddleOCR + minute-tick dealer_auto_approval_worker.
+    This endpoint exists so admins can rescue a borderline case or push a dealer
+    past OCR while they wait for a clearer upload. A reason is required for audit.
+    See spec docs/superpowers/specs/2026-08-25-dealer-ocr-auto-approval-copy-and-admin-override.md
+    """
     try:
         # Verify admin status
         user_details = _get_user_details_with_admin_status(current_user)
         if not user_details or not user_details.get("is_admin"):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        reason = ((request.json or {}).get("reason") if request.is_json else "") if request.json else ""
+        reason = (reason or "").strip() if isinstance(reason, str) else ""
+        if not reason:
+            return jsonify({
+                "error": "A reason is required when force-approving a dealer.",
+                "code": "force_approve_reason_required",
+            }), 400
+        logger.info(
+            "Admin force-approved dealer %s (actor=%s, reason=%s)",
+            dealer_id, current_user, reason,
+        )
 
         readiness, readiness_error = _get_dealer_application_readiness(dealer_id)
         if readiness_error:
@@ -23306,9 +23321,9 @@ def api_verify_dealer(current_user, dealer_id):
                         f"Dealer approval email failed for {dealer_id}: {email_error}"
                     )
 
-            logger.info(f"Admin {current_user} verified dealer {dealer_id}")
+            logger.info(f"Admin {current_user} force-approved dealer {dealer_id}: {reason}")
             return jsonify(
-                {"success": True, "message": "Dealer verified successfully"}
+                {"success": True, "message": "Dealer force-approved"}
             ), 200
         else:
             logger.error(
