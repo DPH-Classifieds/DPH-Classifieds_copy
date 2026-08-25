@@ -633,7 +633,7 @@ const Signup = () => {
             </div>
             {formData.isDealer && (
               <div className="dealer-note">
-                <strong>Note:</strong> Upload your Trade License and TRN. PaddleOCR verifies both documents automatically; approved dealers start with a 4-listing limit.
+                <strong>Note:</strong> New dealers start with a limit of 4 — upload your Trade License and TRN. PaddleOCR verifies both documents automatically; approved dealers start with a 4-listing limit.
               </div>
             )}
           </div>
