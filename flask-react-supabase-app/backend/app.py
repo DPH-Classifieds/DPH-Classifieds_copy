@@ -23249,7 +23249,7 @@ def api_verify_dealer(current_user, dealer_id):
     Default approval path is PaddleOCR + minute-tick dealer_auto_approval_worker.
     This endpoint exists so admins can rescue a borderline case or push a dealer
     past OCR while they wait for a clearer upload. A reason is required for audit.
-    See spec docs/superpowers/specs/2026-08-25-...
+    See spec docs/superpowers/specs/2026-08-25-dealer-ocr-auto-approval-copy-and-admin-override.md
     """
     try:
         # Verify admin status
