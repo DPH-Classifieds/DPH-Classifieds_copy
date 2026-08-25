@@ -225,9 +225,9 @@ class TestDealerPendingBanner(unittest.TestCase):
         self.assertIn("dealer_verified", source)
 
     def test_shows_pending_message(self):
-        """Component must show the pending verification message."""
+        """Component must show the OCR-wait verification message."""
         source = self._read_banner_source()
-        self.assertIn("pending admin verification", source)
+        self.assertIn("Verifying your documents", source)
 
     def test_links_to_settings(self):
         """Component must link to /settings for viewing status."""
@@ -296,9 +296,9 @@ class TestProfilePendingState(unittest.TestCase):
             return f.read()
 
     def test_pending_verification_callout_exists(self):
-        """Profile must show a pending verification callout for unverified dealers."""
+        """Profile must show an OCR-wait callout for unverified dealers."""
         source = self._read_profile_source()
-        self.assertIn("pending admin verification", source)
+        self.assertIn("Verifying your documents", source)
 
     def test_callout_checks_dealer_status(self):
         """Callout must check is_dealer and !dealer_verified."""
@@ -390,7 +390,7 @@ class TestAccountSettingsDocumentUpload(unittest.TestCase):
     def test_file_input_for_documents(self):
         """AccountSettings must have a file input for document uploads."""
         source = self._read_settings_source()
-        self.assertIn("type=\"file\"", source)
+        self.assertIn('type="file"', source)
         self.assertIn('accept=".jpg,.jpeg,.png,.pdf"', source)
 
     def test_company_documents_state(self):
