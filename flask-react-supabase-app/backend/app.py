@@ -10217,22 +10217,9 @@ def dealer_submit_application(current_user):
             )
             return jsonify({"error": "Failed to submit application"}), 500
 
-        # Best-effort admin notification — uses the same _fetch_all_admin_emails
-        # distribution as the rest of the admin notifications so the team
-        # never misses a new signup.
-        try:
-            docs_resp, _docs_code = supabase_request(
-                "get", "/rest/v1/dealer_documents",
-                params={"user_id": f"eq.{current_user}",
-                        "select": "id,document_type,replaced_at,status",
-                        "replaced_at": "is.null"},
-                use_service_role=True,
-            )
-            _send_dealer_signup_admin_notification(
-                user_row, documents=docs_resp if isinstance(docs_resp, list) else None,
-            )
-        except Exception as notify_err:
-            logger.warning(f"Dealer signup admin notification failed: {notify_err}")
+        # No admin notification: PaddleOCR + the minute-tick dealer_auto_approval_worker
+        # is the only approval path. Admin keeps only an explicit override on the
+        # dealer detail page. Spec: docs/superpowers/specs/2026-08-25-...
 
         return jsonify({
             "message": "Application submitted",
