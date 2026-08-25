@@ -23244,12 +23244,30 @@ def get_admin_dealers(current_user):
 @app.route("/api/admin/dealers/<dealer_id>/verify", methods=["POST"])
 @token_required
 def api_verify_dealer(current_user, dealer_id):
-    """Verify a dealer account"""
+    """Force-approve a dealer (admin OCR override).
+
+    Default approval path is PaddleOCR + minute-tick dealer_auto_approval_worker.
+    This endpoint exists so admins can rescue a borderline case or push a dealer
+    past OCR while they wait for a clearer upload. A reason is required for audit.
+    See spec docs/superpowers/specs/2026-08-25-...
+    """
     try:
         # Verify admin status
         user_details = _get_user_details_with_admin_status(current_user)
         if not user_details or not user_details.get("is_admin"):
             return jsonify({"error": "Unauthorized - Admin access required"}), 403
+
+        reason = ((request.json or {}).get("reason") if request.is_json else "") if request.json else ""
+        reason = (reason or "").strip() if isinstance(reason, str) else ""
+        if not reason:
+            return jsonify({
+                "error": "A reason is required when force-approving a dealer.",
+                "code": "force_approve_reason_required",
+            }), 400
+        logger.info(
+            "Admin force-approved dealer %s (actor=%s, reason=%s)",
+            dealer_id, current_user, reason,
+        )
 
         readiness, readiness_error = _get_dealer_application_readiness(dealer_id)
         if readiness_error:
@@ -23293,9 +23311,9 @@ def api_verify_dealer(current_user, dealer_id):
                         f"Dealer approval email failed for {dealer_id}: {email_error}"
                     )
 
-            logger.info(f"Admin {current_user} verified dealer {dealer_id}")
+            logger.info(f"Admin {current_user} force-approved dealer {dealer_id}: {reason}")
             return jsonify(
-                {"success": True, "message": "Dealer verified successfully"}
+                {"success": True, "message": "Dealer force-approved"}
             ), 200
         else:
             logger.error(
