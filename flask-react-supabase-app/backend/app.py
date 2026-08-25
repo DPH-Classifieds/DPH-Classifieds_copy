@@ -10170,7 +10170,7 @@ def upload_dealer_document(current_user):
 @app.route("/api/auth/dealer-submit-application", methods=["POST"])
 @token_required
 def dealer_submit_application(current_user):
-    """Mark the dealer's KYC application as submitted and notify admins.
+    """Mark the dealer's KYC application as submitted.
 
     Called by the frontend after the dealer has uploaded the trade license at
     signup (or on the resume-flow /dealer/onboarding page). Idempotent: a

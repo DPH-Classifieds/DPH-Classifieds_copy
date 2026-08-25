@@ -488,7 +488,18 @@ const Signup = () => {
       }
 
       if (formData.isDealer) {
-        if (!dealerJwt) throw new Error('Your account was created, but we could not start dealer verification. Please sign in and continue in Settings.');
+        // Supabase returns no session when email confirmation is enabled. The
+        // account is still created successfully; send the dealer through the
+        // normal confirmation flow and resume document upload in Settings.
+        if (!dealerJwt) {
+          navigate('/check-email', {
+            state: {
+              email: signupData.email,
+              redirect: '/settings?dealer_verification=continue',
+            },
+          });
+          return;
+        }
         const documents = [
           ['trade_license', formData.tradeLicenseFile],
           ['tax_registration', formData.taxRegistrationFile],
@@ -622,7 +633,7 @@ const Signup = () => {
             </div>
             {formData.isDealer && (
               <div className="dealer-note">
-                <strong>Note:</strong> Dealer accounts require admin verification before full access is granted.
+                <strong>Note:</strong> Upload your Trade License and TRN. PaddleOCR verifies both documents automatically; approved dealers start with a 4-listing limit.
               </div>
             )}
           </div>

@@ -75,7 +75,7 @@ const DealerDocumentsSection = () => {
         const body = await resp.json().catch(() => ({}));
         throw new Error(body?.error || 'Upload failed');
       }
-      setMessage('Uploaded. Awaiting admin review.');
+      setMessage('Uploaded. PaddleOCR is verifying this document.');
       await load();
     } catch (err) {
       setMessage(err?.message || 'Upload failed');
@@ -213,7 +213,7 @@ const DealerDocumentsSection = () => {
       )}
       <DealerApplicationSubmit
         hasAllDocuments={DOC_TYPES.every((type) => Boolean(byType(type.key)))}
-        onSubmitted={() => setMessage('Application submitted — admin review pending.')}
+        onSubmitted={() => setMessage('Application submitted — PaddleOCR verification is in progress.')}
       />
     </motion.div>
   );
