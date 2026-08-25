@@ -33,7 +33,7 @@ class TestRequireDealerVerifiedLogic(unittest.TestCase):
         if user.get("is_dealer") and not user.get("dealer_verified"):
             return (
                 {
-                    "error": "Your dealer account is pending admin verification. You will be able to post listings once your account is approved.",
+                    "error": "We're still verifying your documents — usually under a minute.",
                     "code": "dealer_not_verified",
                 },
                 403,
@@ -63,7 +63,7 @@ class TestRequireDealerVerifiedLogic(unittest.TestCase):
         body, status = result
         self.assertEqual(status, 403)
         self.assertEqual(body["code"], "dealer_not_verified")
-        self.assertIn("pending admin verification", body["error"])
+        self.assertIn("verifying your documents", body["error"])
 
     def test_db_error_does_not_block(self):
         """If DB query fails (None response), don't block (fail open)."""

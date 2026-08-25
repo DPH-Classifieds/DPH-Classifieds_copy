@@ -5624,7 +5624,7 @@ def _require_dealer_verified(user_id):
         if rows and rows[0].get("is_dealer") and not rows[0].get("dealer_verified"):
             return jsonify(
                 {
-                    "error": "Your dealer account is pending admin verification. You will be able to post listings once your account is approved.",
+                    "error": "We're still verifying your documents — usually under a minute.",
                     "code": "dealer_not_verified",
                 }
             ), 403
