@@ -10019,6 +10019,15 @@ def upload_dealer_document(current_user):
             except Exception as ocr_error:
                 logger.warning("Trade-license OCR unavailable for %s: %s", current_user, ocr_error)
                 ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
+        elif document_type == "tax_registration":
+            try:
+                from services.registration_ocr import scan_trn_document
+                file.seek(0)
+                ocr_payload = scan_trn_document(file)
+                file.seek(0)
+            except Exception as ocr_error:
+                logger.warning("TRN OCR unavailable for %s: %s", current_user, ocr_error)
+                ocr_payload = {"error": str(ocr_error), "raw_text": "", "confidence": 0.0}
         if raw_expires_at:
             try:
                 expires_at_dt = datetime.datetime.fromisoformat(raw_expires_at)
@@ -10105,11 +10114,12 @@ def upload_dealer_document(current_user):
         }
         if expires_at_iso:
             insert_payload["expires_at"] = expires_at_iso
-        if document_type == "trade_license":
-            insert_payload["ocr_expires_at"] = (ocr_payload or {}).get("expires_at")
+        if ocr_payload is not None:
             insert_payload["ocr_confidence"] = (ocr_payload or {}).get("confidence")
             insert_payload["ocr_raw_text"] = (ocr_payload or {}).get("raw_text") or None
             insert_payload["ocr_scanned_at"] = _isoformat_utc(_utc_now())
+        if document_type == "trade_license":
+            insert_payload["ocr_expires_at"] = (ocr_payload or {}).get("expires_at")
         insert_resp = requests.post(
             f"{SUPABASE_URL}/rest/v1/dealer_documents",
             headers={**headers, "Prefer": "return=representation"},

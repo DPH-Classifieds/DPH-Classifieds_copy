@@ -224,7 +224,7 @@ def should_auto_approve_dealer(active_docs, threshold=0.90):
     for doc in (active_docs or []):
         if doc.get("replaced_at"):
             continue
-        if doc.get("status") == "rejected":
+        if doc.get("status") in {"denied", "rejected"}:
             # An explicit rejection disqualifies auto-approval; the dealer
             # must re-submit before the worker will consider them again.
             continue

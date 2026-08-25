@@ -143,6 +143,12 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
         upload_section = source[source.index("def upload_dealer_document") :]
         self.assertIn('"verification_documents_submitted": True', upload_section)
 
+    def test_upload_route_runs_ocr_for_trn_documents(self):
+        source = self._read_app_source()
+        upload_section = source[ source.index("def upload_dealer_document"): source.index("def dealer_submit_application") ]
+        self.assertIn("scan_trn_document", upload_section)
+        self.assertIn('insert_payload["ocr_confidence"]', upload_section)
+
     def test_listing_endpoints_have_dealer_check(self):
         """All 4 listing creation endpoints must call _require_dealer_verified."""
         source = self._read_app_source()
