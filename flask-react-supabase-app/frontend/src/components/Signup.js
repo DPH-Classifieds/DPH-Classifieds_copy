@@ -24,8 +24,8 @@ const COUNTRY_CODES = [
 ];
 
 const FILENAME_NOISE_RE = /\b(license|licence|trade|certificate|cert|trn|tax|registration|uae|fta|freezone|dmcc|upload|scan|copy)\b/gi;
-const FILENAME_YEAR_SUFFIX_RE = /(?:[_\s\-]?(?:19|20)\d{2}(?:[_\s\-]\d{2,4})?)+$/;
-const FILENAME_PERIOD_SUFFIX_RE = /[_\s\-]+\d{2,4}(?:[_\s\-]+\d{2,4})?$/;
+const FILENAME_YEAR_SUFFIX_RE = /(?:[_\s-]?(?:19|20)\d{2}(?:[_\s-]\d{2,4})?)+$/;
+const FILENAME_PERIOD_SUFFIX_RE = /[_\s-]+\d{2,4}(?:[_\s-]+\d{2,4})?$/;
 
 function stripExtension(name) {
   return String(name || '').replace(/\.[a-z0-9]+$/i, '');
@@ -35,8 +35,8 @@ function cleanForBusinessField(name) {
   let cleaned = stripExtension(name);
   cleaned = cleaned.replace(FILENAME_YEAR_SUFFIX_RE, '');
   cleaned = cleaned.replace(FILENAME_PERIOD_SUFFIX_RE, '');
-  cleaned = cleaned.replace(/[_\-]+/g, ' ');
-  cleaned = cleaned.replace(/[()\[\]]+/g, ' ');
+  cleaned = cleaned.replace(/[_-]+/g, ' ');
+  cleaned = cleaned.replace(/[()[\]]+/g, ' ');
   cleaned = cleaned.replace(FILENAME_NOISE_RE, ' ');
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   return cleaned;
