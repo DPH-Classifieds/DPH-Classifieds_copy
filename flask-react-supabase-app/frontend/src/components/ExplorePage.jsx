@@ -543,6 +543,13 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [error, setError] = useState('');
   const sentinelRef = useRef(null);
   const isFetchingRef = useRef(false);
+  // Snapshot of the loaded-inventory counts taken the first time the page
+  // finishes loading. Used as a placeholder for the tab counts so the user
+  // never sees an em-dash while /api/listings/counts is in flight, and the
+  // number does not keep climbing as they scroll new pages in. Server totals
+  // (from useListingCounts) win once they arrive; this ref only matters
+  // during the brief window before that hook resolves.
+  const initialLoadCountsRef = useRef(null);
   const [activeMode, setActiveMode] = useState(
     exploreModes.some((mode) => mode.key === initialCategory) ? initialCategory : 'all'
   );
@@ -789,6 +796,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     }),
     [allItems.length, normalizedInventory]
   );
+
+  // Snapshot the initial featuredCounts the first time loading settles, so
+  // the tab-count placeholders do not keep growing as the user scrolls more
+  // pages in.
+  const wasLoadingRef = useRef(true);
+  useEffect(() => {
+    if (wasLoadingRef.current && !loading) {
+      wasLoadingRef.current = false;
+      initialLoadCountsRef.current = { ...featuredCounts };
+    }
+  }, [loading, featuredCounts]);
 
   const redditMakes = useMemo(
     () => [...new Set(
@@ -1168,17 +1186,22 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
           <div className="explore-v2-hero-stats">
             {exploreModes.map((mode) => {
-              // Tab counts must come straight from the DB totals endpoint —
-              // not from the loaded-but-still-paginating inventory. Showing
-              // the loaded count would let the number climb as the user
-              // scrolls, which contradicts the "total listings" label.
-              // Reddit and buying-requests aren't tracked server-side, so
-              // we render a placeholder until those endpoints exist.
+              // Priority order:
+              //   1. Server total from /api/listings/counts — the authoritative count.
+              //   2. Snapshot of the loaded count taken at first-paint — covers the
+              //      brief window before the counts endpoint returns, AND keeps the
+              //      number stable as the user scrolls more pages in.
+              //   3. Em-dash if neither is available yet.
               const totalKey = mode.key === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[mode.key];
               const hasServerTotal = Boolean(totalCounts) && totalKey != null && totalCounts[totalKey] !== undefined;
-              const total = hasServerTotal ? totalCounts[totalKey] : null;
-              const displayCount = total;
-              void featuredCounts;
+              let displayCount;
+              if (hasServerTotal) {
+                displayCount = totalCounts[totalKey];
+              } else if (initialLoadCountsRef.current && totalKey != null && initialLoadCountsRef.current[mode.key] != null) {
+                displayCount = initialLoadCountsRef.current[mode.key];
+              } else {
+                displayCount = null;
+              }
               return (
                 <button
                   key={mode.key}
