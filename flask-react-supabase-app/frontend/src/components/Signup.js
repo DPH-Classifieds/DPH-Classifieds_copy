@@ -5,6 +5,7 @@ import { DUBAI_AREAS, UAE_EMIRATES } from '../utils/listingConstants';
 import { saveAuthData, setAuthHeader } from '../utils/authService';
 import { checkUsernameAvailability, sanitizeUsernameInput, getUsernameValidationError } from '../utils/usernameAvailability';
 import { signInWithGoogle } from '../utils/supabaseClient';
+import { extractFieldsFromFile } from '../utils/dealerDocumentExtractor';
 import '../styles/Auth.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -59,21 +60,19 @@ function extractLicenseNumberFromFilename(name) {
   return '';
 }
 
-function prefillFromFilenames(currentData, fileKeys) {
+function applyFilenamePrefill(next, currentData, fileKeys) {
   const files = fileKeys
     .map((key) => currentData[key])
     .filter((f) => f && f.name);
-  if (files.length === 0) return currentData;
+  if (files.length === 0) return next;
 
-  const next = { ...currentData };
-
-  if (!next.companyName) {
-    const candidate = cleanForBusinessField(currentData.tradeLicenseFile ? currentData.tradeLicenseFile.name : '');
+  if (!next.companyName && currentData.tradeLicenseFile) {
+    const candidate = cleanForBusinessField(currentData.tradeLicenseFile.name);
     if (candidate && candidate.length >= 2) next.companyName = candidate;
   }
 
-  if (!next.legalBusinessName) {
-    const candidate = cleanForBusinessField(currentData.tradeLicenseFile ? currentData.tradeLicenseFile.name : '');
+  if (!next.legalBusinessName && currentData.tradeLicenseFile) {
+    const candidate = cleanForBusinessField(currentData.tradeLicenseFile.name);
     if (candidate && candidate.length >= 2) next.legalBusinessName = candidate;
   }
 
@@ -91,7 +90,32 @@ function prefillFromFilenames(currentData, fileKeys) {
       }
     }
   }
+  return next;
+}
 
+async function prefillFromUpload(currentData, fileKeys) {
+  const files = fileKeys
+    .map((key) => currentData[key])
+    .filter((f) => f && f.name);
+  let next = { ...currentData };
+  next = applyFilenamePrefill(next, currentData, fileKeys);
+
+  for (const file of files) {
+    try {
+      const extracted = await extractFieldsFromFile(file);
+      if (!extracted || typeof extracted !== 'object') continue;
+      if (extracted.trn && !next.trn) next.trn = extracted.trn;
+      if (extracted.tradeLicenseNumber && !next.tradeLicenseNumber) {
+        next.tradeLicenseNumber = extracted.tradeLicenseNumber;
+      }
+      if (extracted.legalBusinessName && !next.legalBusinessName) {
+        next.legalBusinessName = extracted.legalBusinessName;
+      }
+      if (extracted.companyName && !next.companyName) next.companyName = extracted.companyName;
+    } catch (extractError) {
+      console.warn('Document field extraction failed', extractError);
+    }
+  }
   return next;
 }
 
@@ -842,14 +866,20 @@ const Signup = () => {
                   accept="application/pdf,image/png,image/jpeg"
                   onChange={(e) => {
                     const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
-                    const nextData = prefillFromFilenames({ ...formData, tradeLicenseFile: file }, ['tradeLicenseFile']);
-                    setFormData(nextData);
+                    const baseData = { ...formData, tradeLicenseFile: file };
+                    const err = validateSingleField('tradeLicenseFile', file, baseData);
                     setTouchedFields((prev) => ({ ...prev, tradeLicenseFile: true }));
                     setFieldErrors((prev) => {
                       const next = { ...prev };
-                      const err = validateSingleField('tradeLicenseFile', file, nextData);
                       if (err) next.tradeLicenseFile = err; else delete next.tradeLicenseFile;
                       return next;
+                    });
+                    setFormData(baseData);
+                    prefillFromUpload(baseData, ['tradeLicenseFile']).then((filled) => {
+                      setFormData((prev) => {
+                        if (prev.tradeLicenseFile !== baseData.tradeLicenseFile) return prev;
+                        return filled;
+                      });
                     });
                   }}
                   required={formData.isDealer}
@@ -895,14 +925,20 @@ const Signup = () => {
                   className="upload-card-input"
                   onChange={(e) => {
                     const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
-                    const nextData = { ...formData, taxRegistrationFile: file };
-                    setFormData(prefillFromFilenames(nextData, ['taxRegistrationFile']));
+                    const baseData = { ...formData, taxRegistrationFile: file };
+                    const err = validateSingleField('taxRegistrationFile', file, baseData);
                     setTouchedFields((prev) => ({ ...prev, taxRegistrationFile: true }));
                     setFieldErrors((prev) => {
                       const next = { ...prev };
-                      const err = validateSingleField('taxRegistrationFile', file, { ...formData, taxRegistrationFile: file });
                       if (err) next.taxRegistrationFile = err; else delete next.taxRegistrationFile;
                       return next;
+                    });
+                    setFormData(baseData);
+                    prefillFromUpload(baseData, ['taxRegistrationFile']).then((filled) => {
+                      setFormData((prev) => {
+                        if (prev.taxRegistrationFile !== baseData.taxRegistrationFile) return prev;
+                        return filled;
+                      });
                     });
                   }}
                   required={formData.isDealer}

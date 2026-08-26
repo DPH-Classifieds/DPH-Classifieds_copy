@@ -824,7 +824,7 @@ def _batch_fetch_seller_map(user_ids, headers=None):
     if not unique_ids:
         return {}
 
-    user_fields = "id,first_name,last_name,email,username,profile_photo_url,is_dealer"
+    user_fields = "id,first_name,last_name,email,username,profile_photo_url,is_dealer,dealer_verified,company_name,legal_business_name"
     id_filter = ",".join(unique_ids)
     seller_map = {}
     try:
@@ -865,6 +865,12 @@ def _apply_seller_to_listing(item, seller):
     item["seller_id"] = seller.get("id")
     item["seller_profile_photo"] = seller.get("profile_photo_url")
     item["seller_verified"] = bool(seller.get("is_dealer", False))
+    item["seller_dealer_verified"] = bool(
+        seller.get("is_dealer", False) and seller.get("dealer_verified", False)
+    )
+    item["seller_company_name"] = (
+        seller.get("legal_business_name") or seller.get("company_name") or ""
+    ) or None
     return item
 
 
@@ -9490,6 +9496,12 @@ def get_license_plates():
         response, response_status = supabase_request("get", query)
         if response_status >= 400:
             return jsonify(response), response_status
+        try:
+            seller_map = _batch_fetch_seller_map([row.get("user_id") for row in (response or [])])
+            for row in response or []:
+                _apply_seller_to_listing(row, seller_map.get(row.get("user_id")))
+        except Exception as enrich_err:
+            logger.warning(f"license-plates seller enrichment failed: {enrich_err}")
         _api_cache_set(cache_key, response)
         return _cached_json_response(response)
     except Exception as e:
@@ -9955,6 +9967,22 @@ def get_dealer_verification_status(current_user):
     readiness, error = _get_dealer_application_readiness(current_user)
     if error:
         return jsonify({"error": error}), 500
+    try:
+        rows, _ = supabase_request(
+            "get",
+            (
+                f"/rest/v1/users?id=eq.{current_user}"
+                "&select=email,company_name,legal_business_name,dealer_verified_at,dealer_application_status"
+            ),
+            use_service_role=True,
+        )
+        user = rows[0] if isinstance(rows, list) and rows else {}
+        readiness["dealer_email"] = user.get("email")
+        readiness["dealer_company_name"] = user.get("legal_business_name") or user.get("company_name")
+        readiness["dealer_verified_at"] = user.get("dealer_verified_at")
+        readiness["application_status"] = user.get("dealer_application_status") or readiness.get("application_status")
+    except Exception as exc:
+        logger.warning("dealer-verification status enrichment failed: %s", exc)
     return jsonify(readiness), 200
 
 
@@ -14500,7 +14528,7 @@ def _enrich_listing_seller(item, headers=None):
 
     try:
         user = None
-        user_fields = "id,first_name,last_name,email,profile_photo_url,is_dealer"
+        user_fields = "id,first_name,last_name,email,profile_photo_url,is_dealer,dealer_verified,company_name,legal_business_name"
 
         if headers:
             user_url = (
@@ -14527,6 +14555,12 @@ def _enrich_listing_seller(item, headers=None):
             item["seller_id"] = user.get("id")
             item["seller_profile_photo"] = user.get("profile_photo_url")
             item["seller_verified"] = bool(user.get("is_dealer", False))
+            item["seller_dealer_verified"] = bool(
+                user.get("is_dealer", False) and user.get("dealer_verified", False)
+            )
+            item["seller_company_name"] = (
+                user.get("legal_business_name") or user.get("company_name") or ""
+            ) or None
     except Exception as seller_err:
         logger.warning(
             f"Failed to enrich seller for listing {item.get('id')}: {seller_err}"
@@ -25134,3 +25168,131 @@ def admin_auto_review_run(current_user):
     if "error" in result_box:
         return jsonify({"error": result_box["error"]}), 500
     return jsonify({"ok": True, "processed": result_box.get("processed", 0)}), 200
+def _send_dealer_verification_update_admin_notification(user_row, message_text, context=None):
+    """Email every admin when a dealer sends an update from the verification
+    status page. Mirrors the layout of the existing new-listing /
+    upgrade-request admin notifications so the inbox looks consistent.
+    """
+    from_email = os.getenv("RESEND_FROM_EMAIL")
+    if not from_email:
+        return None, "Missing RESEND_FROM_EMAIL"
+    admin_emails = _fetch_all_admin_emails()
+    fallback = os.getenv("RESEND_TO_EMAIL") or PRIMARY_SUPER_ADMIN_EMAIL
+    if not admin_emails:
+        admin_emails = [fallback]
+    dealer_label = ((user_row or {}).get("legal_business_name")
+                    or (user_row or {}).get("company_name")
+                    or (user_row or {}).get("email")
+                    or "Dealer")
+    safe_message = (message_text or "").strip()[:1500]
+    safe_context = (context or "").strip()[:200]
+    context_block = (
+        f"<p style='margin:6px 0 0;color:#94a3b8;font-size:13px;'>Context: {xml_escape(safe_context)}</p>"
+        if safe_context else ""
+    )
+    subject = f"[Dealer] Verification update — {dealer_label}"
+    html = (
+        "<div style=\"font-family:'Inter',-apple-system,sans-serif;max-width:600px;margin:0 auto;"
+        "padding:24px;background:#041008;color:#f0fdf4;\">"
+        "<h2 style=\"color:#8bd6b4;margin-top:0;\">Dealer sent a verification update</h2>"
+        f"<p><strong>Dealer:</strong> {xml_escape(dealer_label)}</p>"
+        f"<p><strong>Email:</strong> {xml_escape((user_row or {}).get('email') or '—')}</p>"
+        f"{context_block}"
+        "<p style='margin-top:18px;'><strong>Message:</strong></p>"
+        f"<blockquote style=\"border-left:3px solid #8bd6b4;padding-left:12px;margin-left:0;\">"
+        f"{xml_escape(safe_message).replace(chr(10), '<br>')}</blockquote>"
+        f"<p style='margin-top:24px;'>"
+        f"<a href=\"{SITE_URL}/admin/dealers\" "
+        "style=\"background:#8bd6b4;color:#041008;padding:12px 20px;border-radius:8px;"
+        "text-decoration:none;font-weight:600;\">Review in admin panel</a></p>"
+        "</div>"
+    )
+    return _send_resend_email(
+        {"from": from_email, "to": admin_emails, "subject": subject, "html": html},
+        email_type="dealer_verification_update",
+    )
+
+
+@app.route("/api/dealer/verification/notify-admin", methods=["POST"])
+@token_required
+def dealer_verification_notify_admin(current_user):
+    """Dealer-initiated ping from the verification status page. Records the
+    message in `dealer_admin_messages` (audit trail) and emails every admin.
+    Same delivery path as the existing dealer-side admin notifications.
+    """
+    body = request.get_json(silent=True) or {}
+    message = (body.get("message") or "").strip()
+    context = (body.get("context") or "").strip()
+    if len(message) < 4:
+        return jsonify({"error": "Message is too short"}), 400
+    if len(message) > 1500:
+        return jsonify({"error": "Message must be 1500 characters or fewer"}), 400
+    try:
+        user_row, _ = supabase_request(
+            "get",
+            (
+                f"/rest/v1/users?id=eq.{current_user}"
+                "&select=id,email,first_name,last_name,company_name,legal_business_name,"
+                "is_dealer,dealer_verified,dealer_application_status"
+            ),
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("dealer_verification_notify_admin: user lookup failed: %s", exc)
+        user_row = []
+    user = user_row[0] if isinstance(user_row, list) and user_row else {}
+    if not user or not user.get("is_dealer"):
+        return jsonify({"error": "Only dealers can send verification updates"}), 403
+
+    try:
+        supabase_request(
+            "post",
+            "/rest/v1/dealer_admin_messages",
+            data={
+                "dealer_id": current_user,
+                "channel": "verification_update",
+                "context": context[:200] or None,
+                "message": message[:1500],
+            },
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("dealer_verification_notify_admin: insert failed: %s", exc)
+
+    try:
+        _send_dealer_verification_update_admin_notification(user, message, context)
+    except Exception as exc:
+        logger.warning("dealer_verification_notify_admin: email send failed: %s", exc)
+
+    return jsonify({
+        "ok": True,
+        "dealer": {
+            "id": user.get("id"),
+            "email": user.get("email"),
+            "dealer_verified": bool(user.get("dealer_verified")),
+            "application_status": user.get("dealer_application_status"),
+        },
+    }), 200
+
+
+@app.route("/api/dealer/verification/messages", methods=["GET"])
+@token_required
+def dealer_verification_list_messages(current_user):
+    """Dealer-facing timeline of messages they have sent to admins from the
+    verification status page. Newest first, capped at 50 rows."""
+    try:
+        rows, status_code = supabase_request(
+            "get",
+            (
+                f"/rest/v1/dealer_admin_messages?dealer_id=eq.{current_user}"
+                "&select=id,channel,context,message,created_at"
+                "&order=created_at.desc&limit=50"
+            ),
+            use_service_role=True,
+        )
+    except Exception as exc:
+        logger.warning("dealer_verification_list_messages: fetch failed: %s", exc)
+        return jsonify({"error": "Failed to load messages"}), 500
+    if status_code >= 400:
+        return jsonify({"error": "Failed to load messages"}), 500
+    return jsonify({"messages": rows or []}), 200

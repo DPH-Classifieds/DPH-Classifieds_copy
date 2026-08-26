@@ -23,6 +23,7 @@ import DealerTeam from './components/dealer/DealerTeam';
 import DealerSettings from './components/dealer/DealerSettings';
 import DealerInviteAccept from './components/dealer/DealerInviteAccept';
 import DealerInfoRequest from './components/dealer/DealerInfoRequest';
+import DealerVerificationPage from './components/DealerVerificationPage';
 import PlatformAnalyticsTracker from './components/PlatformAnalyticsTracker';
 import PostHogPageview from './components/PostHogPageview';
 import UserBehaviorTracker from './components/UserBehaviorTracker';
@@ -303,6 +304,7 @@ function App() {
               <Route path="/reddit" element={<ExplorePage forcedCategory="reddit" />} />
               <Route path="/buying-requests" element={<BuyingRequestsPage />} />
               <Route path="/buying-requests/:id" element={<BuyingRequestDetail />} />
+              <Route path="/dealer/verification" element={<DealerVerificationPage />} />
 
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>

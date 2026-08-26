@@ -145,7 +145,11 @@ class TestCompanyDocumentsConstants(unittest.TestCase):
 
     def test_upload_route_runs_ocr_for_trn_documents(self):
         source = self._read_app_source()
-        upload_section = source[ source.index("def upload_dealer_document"): source.index("def dealer_submit_application") ]
+        upload_section = source[
+            source.index("def upload_dealer_document") : source.index(
+                "def dealer_submit_application"
+            )
+        ]
         self.assertIn("scan_trn_document", upload_section)
         self.assertIn('insert_payload["ocr_confidence"]', upload_section)
 
@@ -235,10 +239,10 @@ class TestDealerPendingBanner(unittest.TestCase):
         source = self._read_banner_source()
         self.assertIn("Verifying your documents", source)
 
-    def test_links_to_settings(self):
-        """Component must link to /settings for viewing status."""
+    def test_links_to_verification_page(self):
+        """Component must link to /dealer/verification for the new live status page."""
         source = self._read_banner_source()
-        self.assertIn('to="/settings"', source)
+        self.assertIn('to="/dealer/verification"', source)
         self.assertIn("View Status", source)
 
     def test_returns_null_for_verified_dealers(self):

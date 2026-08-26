@@ -303,6 +303,8 @@ const normalizeCar = (car) => {
     image: getPrimaryImage(car),
     images: getGalleryImages(car),
     createdAt: car.created_at,
+    sellerDealerVerified: Boolean(car.seller_dealer_verified),
+    sellerName: car.seller_name || null,
     searchableText: buildSearchableText([
       title,
       year,
@@ -340,16 +342,17 @@ const normalizeBike = (bike) => {
     numericPrice: toNumeric(price),
     route: `/bikes/${bike.id}`,
     routeState: buildListingRouteState(bike),
-    image: getPrimaryImage(bike),
+image: getPrimaryImage(bike),
     images: getGalleryImages(bike),
     createdAt: bike.created_at,
+    sellerDealerVerified: Boolean(bike.seller_dealer_verified),
+    sellerName: bike.seller_name || null,
     searchableText: buildSearchableText([
       title,
       brand,
       model,
       bikeType,
       bike.description,
-      location,
     ]),
     raw: bike,
   };
@@ -377,6 +380,8 @@ const normalizePart = (part) => {
     image: getPrimaryImage(part),
     images: getGalleryImages(part),
     createdAt: part.created_at,
+    sellerDealerVerified: Boolean(part.seller_dealer_verified),
+    sellerName: part.seller_name || null,
     searchableText: buildSearchableText([
       title,
       category,
@@ -413,6 +418,8 @@ const normalizePlate = (plate) => {
     image: getPrimaryImage(plate),
     images: getGalleryImages(plate),
     createdAt: plate.created_at,
+    sellerDealerVerified: Boolean(plate.seller_dealer_verified),
+    sellerName: plate.seller_name || null,
     searchableText: buildSearchableText([
       title,
       plateCode,
@@ -1161,15 +1168,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
           <div className="explore-v2-hero-stats">
             {exploreModes.map((mode) => {
-              // Prefer the true server-side total (all matching listings, not
-              // just what's been paginated in) — falls back to the loaded
-              // count for reddit/buying-requests (not tracked server-side)
-              // or while the totals request is still in flight.
+              // Tab counts must come straight from the DB totals endpoint —
+              // not from the loaded-but-still-paginating inventory. Showing
+              // the loaded count would let the number climb as the user
+              // scrolls, which contradicts the "total listings" label.
+              // Reddit and buying-requests aren't tracked server-side, so
+              // we render a placeholder until those endpoints exist.
               const totalKey = mode.key === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[mode.key];
-              const total = totalCounts && totalKey && totalCounts[totalKey] !== undefined
-                ? totalCounts[totalKey]
-                : null;
-              const displayCount = total !== null ? total : featuredCounts[mode.key];
+              const hasServerTotal = Boolean(totalCounts) && totalKey != null && totalCounts[totalKey] !== undefined;
+              const total = hasServerTotal ? totalCounts[totalKey] : null;
+              const displayCount = total;
+              void featuredCounts;
               return (
                 <button
                   key={mode.key}
@@ -1178,7 +1187,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
                   onClick={() => handleModeChange(mode.key)}
                 >
                   <span>{mode.label}</span>
-                  <small>{displayCount.toLocaleString()}</small>
+                  <small>{displayCount === null ? '—' : displayCount.toLocaleString()}</small>
                 </button>
               );
             })}

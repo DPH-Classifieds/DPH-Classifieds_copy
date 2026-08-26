@@ -667,6 +667,36 @@
   text-transform: uppercase;
 }
 
+.explore-v2-card-badge-dealer {
+  position: absolute;
+  top: 52px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(143, 230, 148, 0.95) 0%, rgba(70, 180, 100, 0.95) 100%);
+  color: #041008;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.explore-v2-card-badge-dealer svg {
+  flex: 0 0 11px;
+}
+
+.explore-v2-card[data-listing-type="car"] .explore-v2-card-badge-dealer,
+.explore-v2-card[data-listing-type="bike"] .explore-v2-card-badge-dealer,
+.explore-v2-card[data-listing-type="part"] .explore-v2-card-badge-dealer,
+.explore-v2-card[data-listing-type="plate"] .explore-v2-card-badge-dealer {
+  top: 52px;
+}
+
 .explore-v2-card-copy {
   display: flex;
   flex: 1;

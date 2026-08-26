@@ -20,7 +20,7 @@ const DealerPendingBanner = () => {
           </span>
         </div>
         <Link
-          to="/settings"
+          to="/dealer/verification"
           className="shrink-0 rounded-full border border-sky-400/30 bg-sky-400/10 px-3.5 py-1 text-[12px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/20"
         >
           View Status

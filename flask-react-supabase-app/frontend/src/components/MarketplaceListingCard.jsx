@@ -141,6 +141,14 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
           </div>
         )}
         <span className="explore-v2-card-badge">{item.categoryLabel}</span>
+        {item.sellerDealerVerified ? (
+          <span className="explore-v2-card-badge-dealer" aria-label="Verified dealer">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Verified Dealer
+          </span>
+        ) : null}
         {isReddit ? (
           <span className="explore-v2-card-badge-reddit">Reddit</span>
         ) : null}
