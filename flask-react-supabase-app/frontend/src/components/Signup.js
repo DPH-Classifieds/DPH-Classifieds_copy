@@ -23,6 +23,78 @@ const COUNTRY_CODES = [
   { code: '+92', country: 'Pakistan', flag: '🇵🇰' }
 ];
 
+const FILENAME_NOISE_RE = /\b(license|licence|trade|certificate|cert|trn|tax|registration|uae|fta|freezone|dmcc|upload|scan|copy)\b/gi;
+const FILENAME_YEAR_SUFFIX_RE = /(?:[_\s\-]?(?:19|20)\d{2}(?:[_\s\-]\d{2,4})?)+$/;
+const FILENAME_PERIOD_SUFFIX_RE = /[_\s\-]+\d{2,4}(?:[_\s\-]+\d{2,4})?$/;
+
+function stripExtension(name) {
+  return String(name || '').replace(/\.[a-z0-9]+$/i, '');
+}
+
+function cleanForBusinessField(name) {
+  let cleaned = stripExtension(name);
+  cleaned = cleaned.replace(FILENAME_YEAR_SUFFIX_RE, '');
+  cleaned = cleaned.replace(FILENAME_PERIOD_SUFFIX_RE, '');
+  cleaned = cleaned.replace(/[_\-]+/g, ' ');
+  cleaned = cleaned.replace(/[()\[\]]+/g, ' ');
+  cleaned = cleaned.replace(FILENAME_NOISE_RE, ' ');
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return cleaned;
+}
+
+function extractTrnFromFilename(name) {
+  const stripped = String(name || '').replace(/[^0-9]/g, '');
+  const match = stripped.match(/\d{15}/);
+  return match ? match[0] : '';
+}
+
+function extractLicenseNumberFromFilename(name) {
+  const base = stripExtension(name);
+  const matches = base.match(/\d{4,8}/g) || [];
+  for (const candidate of matches) {
+    if (candidate.length === 15) continue;
+    if (/^\d{4}$/.test(candidate) && (candidate.startsWith('19') || candidate.startsWith('20'))) continue;
+    return candidate;
+  }
+  return '';
+}
+
+function prefillFromFilenames(currentData, fileKeys) {
+  const files = fileKeys
+    .map((key) => currentData[key])
+    .filter((f) => f && f.name);
+  if (files.length === 0) return currentData;
+
+  const next = { ...currentData };
+
+  if (!next.companyName) {
+    const candidate = cleanForBusinessField(currentData.tradeLicenseFile ? currentData.tradeLicenseFile.name : '');
+    if (candidate && candidate.length >= 2) next.companyName = candidate;
+  }
+
+  if (!next.legalBusinessName) {
+    const candidate = cleanForBusinessField(currentData.tradeLicenseFile ? currentData.tradeLicenseFile.name : '');
+    if (candidate && candidate.length >= 2) next.legalBusinessName = candidate;
+  }
+
+  if (!next.tradeLicenseNumber && currentData.tradeLicenseFile) {
+    const candidate = extractLicenseNumberFromFilename(currentData.tradeLicenseFile.name);
+    if (candidate) next.tradeLicenseNumber = candidate;
+  }
+
+  if (!next.trn) {
+    for (const file of files) {
+      const candidate = extractTrnFromFilename(file.name);
+      if (candidate) {
+        next.trn = candidate;
+        break;
+      }
+    }
+  }
+
+  return next;
+}
+
 const Signup = () => {
   const location = useLocation();
   const redirectTarget = new URLSearchParams(location.search).get('redirect');
@@ -770,11 +842,12 @@ const Signup = () => {
                   accept="application/pdf,image/png,image/jpeg"
                   onChange={(e) => {
                     const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
-                    setFormData((prev) => ({ ...prev, tradeLicenseFile: file }));
+                    const nextData = prefillFromFilenames({ ...formData, tradeLicenseFile: file }, ['tradeLicenseFile']);
+                    setFormData(nextData);
                     setTouchedFields((prev) => ({ ...prev, tradeLicenseFile: true }));
                     setFieldErrors((prev) => {
                       const next = { ...prev };
-                      const err = validateSingleField('tradeLicenseFile', file, { ...formData, tradeLicenseFile: file });
+                      const err = validateSingleField('tradeLicenseFile', file, nextData);
                       if (err) next.tradeLicenseFile = err; else delete next.tradeLicenseFile;
                       return next;
                     });
@@ -812,36 +885,58 @@ const Signup = () => {
                 </label>
                 {renderFieldError('tradeLicenseFile')}
               </div>
-              {[
-                ['taxRegistrationFile', 'Tax Registration Certificate (TRN)', 'Upload the UAE FTA TRN certificate'],
-              ].map(([field, label, hint]) => (
-                <div className="form-group" key={field}>
-                  <label htmlFor={field}>{label} <span className="required">*</span></label>
-                  <input
-                    type="file"
-                    id={field}
-                    name={field}
-                    accept="application/pdf,image/png,image/jpeg"
-                    className="upload-card-input"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      const nextData = { ...formData, [field]: file };
-                      setFormData(nextData);
-                      setTouchedFields((prev) => ({ ...prev, [field]: true }));
-                      setFieldErrors((prev) => {
-                        const next = { ...prev };
-                        const err = validateSingleField(field, file, nextData);
-                        if (err) next[field] = err; else delete next[field];
-                        return next;
-                      });
-                    }}
-                  />
-                  <small className="form-hint">
-                    {formData[field] ? `${formData[field].name} · ${(formData[field].size / (1024 * 1024)).toFixed(2)} MB` : `${hint}. PDF, JPG, or PNG — up to 10 MB`}
-                  </small>
-                  {renderFieldError(field)}
-                </div>
-              ))}
+              <div className="form-group">
+                <label htmlFor="taxRegistrationFile">Tax Registration Certificate (TRN) <span className="required">*</span></label>
+                <input
+                  type="file"
+                  id="taxRegistrationFile"
+                  name="taxRegistrationFile"
+                  accept="application/pdf,image/png,image/jpeg"
+                  className="upload-card-input"
+                  onChange={(e) => {
+                    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                    const nextData = { ...formData, taxRegistrationFile: file };
+                    setFormData(prefillFromFilenames(nextData, ['taxRegistrationFile']));
+                    setTouchedFields((prev) => ({ ...prev, taxRegistrationFile: true }));
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      const err = validateSingleField('taxRegistrationFile', file, { ...formData, taxRegistrationFile: file });
+                      if (err) next.taxRegistrationFile = err; else delete next.taxRegistrationFile;
+                      return next;
+                    });
+                  }}
+                  required={formData.isDealer}
+                />
+                <label
+                  htmlFor="taxRegistrationFile"
+                  className={`upload-card ${formData.taxRegistrationFile ? 'has-file' : ''} ${
+                    touchedFields.taxRegistrationFile && fieldErrors.taxRegistrationFile ? 'error' : ''
+                  }`}
+                >
+                  {formData.taxRegistrationFile ? (
+                    <>
+                      <span className="upload-card-icon" aria-hidden="true">
+                        {formData.taxRegistrationFile.type === 'application/pdf' ? 'PDF' : 'IMG'}
+                      </span>
+                      <span className="upload-card-body">
+                        <span className="upload-card-title">{formData.taxRegistrationFile.name}</span>
+                        <span className="upload-card-meta">
+                          {(formData.taxRegistrationFile.size / (1024 * 1024)).toFixed(2)} MB · Click to replace
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="upload-card-icon" aria-hidden="true">↑</span>
+                      <span className="upload-card-body">
+                        <span className="upload-card-title">Click to upload your TRN certificate</span>
+                        <span className="upload-card-meta">PDF, JPG, or PNG — up to 10 MB</span>
+                      </span>
+                    </>
+                  )}
+                </label>
+                {renderFieldError('taxRegistrationFile')}
+              </div>
             </div>
           )}
 
