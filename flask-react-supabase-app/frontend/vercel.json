@@ -17,7 +17,7 @@
       "destination": "/api/cars/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!static/|images/|favicon.ico|manifest.json|robots.txt|sitemap.xml|asset-manifest.json).*)",
       "destination": "/index.html"
     }
   ],
