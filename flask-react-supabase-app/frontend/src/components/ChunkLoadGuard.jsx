@@ -96,7 +96,14 @@ export const ChunkLoadRecovery = () => {
     };
   }, []);
 
-  useEffect(clearReloadMarker, []);
+  useEffect(() => {
+    // Delay the clear so a chunk that fails again immediately after a
+    // reload (e.g. a permanently broken/poisoned asset, not just a stale
+    // index.html) still sees the marker and stops after one attempt
+    // instead of looping forever. See ChunkLoadGuard.test.jsx.
+    const timer = window.setTimeout(clearReloadMarker, 5000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return null;
 };

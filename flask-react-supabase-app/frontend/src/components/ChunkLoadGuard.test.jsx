@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ChunkLoadErrorBoundary } from './ChunkLoadGuard';
+import { ChunkLoadErrorBoundary, ChunkLoadRecovery } from './ChunkLoadGuard';
 
 const CHUNK_RELOAD_KEY = 'dph_chunk_reload_attempted';
 
@@ -8,6 +8,26 @@ describe('ChunkLoadGuard — post-deploy recovery', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     window.name = '';
+  });
+
+  describe('ChunkLoadRecovery', () => {
+    test('does not immediately clear the reload marker on mount', () => {
+      // Regression: if a fresh page load (post-reload) wipes the marker
+      // synchronously on mount, a chunk that fails again right away (a
+      // permanently broken asset, not a stale index.html) will trigger
+      // another auto-reload instead of stopping — an infinite loop.
+      jest.useFakeTimers();
+      window.sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+
+      render(<ChunkLoadRecovery />);
+
+      expect(window.sessionStorage.getItem(CHUNK_RELOAD_KEY)).toBe('1');
+
+      jest.advanceTimersByTime(5000);
+      expect(window.sessionStorage.getItem(CHUNK_RELOAD_KEY)).toBeNull();
+
+      jest.useRealTimers();
+    });
   });
 
   describe('ChunkLoadErrorBoundary', () => {
