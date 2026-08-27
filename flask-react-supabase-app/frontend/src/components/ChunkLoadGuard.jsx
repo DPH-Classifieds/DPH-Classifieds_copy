@@ -3,6 +3,33 @@ import LoadingSpinner from './LoadingSpinner';
 
 const CHUNK_RELOAD_KEY = 'dph_chunk_reload_attempted';
 
+const clearReloadMarker = () => {
+  try {
+    window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+  } catch (error) {
+    /* ignore */
+  }
+  if (window.name) {
+    window.name = window.name
+      .split('|')
+      .filter((part) => part && part !== CHUNK_RELOAD_KEY)
+      .join('|');
+  }
+};
+
+const forceFreshReload = () => {
+  // window.location.reload() can re-use a stale cached index.html after a
+  // deploy whose chunk hashes no longer match. Bypass the HTTP cache by
+  // navigating to the same URL with a cache-busting query string.
+  try {
+    const url = new window.URL(window.location.href);
+    url.searchParams.set('__dph_reload', String(Date.now()));
+    window.location.replace(url.toString());
+  } catch (error) {
+    window.location.reload();
+  }
+};
+
 const isChunkLoadError = (error) => {
   const message = String(error?.message || error || '');
   return (
@@ -48,7 +75,7 @@ export const ChunkLoadRecovery = () => {
         return;
       }
       if (shouldReloadOnce()) {
-        window.location.reload();
+        forceFreshReload();
       }
     };
 
@@ -69,19 +96,7 @@ export const ChunkLoadRecovery = () => {
     };
   }, []);
 
-  useEffect(() => {
-    try {
-      window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
-    } catch (error) {
-      /* session storage not available */
-    }
-    if (window.name) {
-      window.name = window.name
-        .split('|')
-        .filter((part) => part && part !== CHUNK_RELOAD_KEY)
-        .join('|');
-    }
-  }, []);
+  useEffect(clearReloadMarker, []);
 
   return null;
 };
@@ -104,17 +119,13 @@ export class ChunkLoadErrorBoundary extends React.Component {
 
   componentDidCatch(error) {
     if (isChunkLoadError(error) && shouldReloadOnce()) {
-      window.location.reload();
+      forceFreshReload();
     }
   }
 
   handleReload = () => {
-    try {
-      window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
-    } catch (error) {
-      /* ignore */
-    }
-    window.location.reload();
+    clearReloadMarker();
+    forceFreshReload();
   };
 
   render() {
@@ -159,8 +170,37 @@ export class ChunkLoadErrorBoundary extends React.Component {
     }
 
     return (
-      <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{
+          minHeight: '50vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 20,
+          padding: '32px 16px',
+          textAlign: 'center',
+        }}
+      >
         <LoadingSpinner message="Refreshing the app bundle..." size="large" />
+        <p style={{ color: 'rgba(255,255,255,0.72)', maxWidth: 520 }}>
+          The app is loading an updated bundle. If this takes longer than a few seconds, the browser cache may be stale.
+        </p>
+        <button
+          type="button"
+          onClick={this.handleReload}
+          style={{
+            border: 'none',
+            borderRadius: 999,
+            padding: '12px 18px',
+            background: '#8bd6b4',
+            color: '#041008',
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          Reload app
+        </button>
       </div>
     );
   }
