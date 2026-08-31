@@ -1,6 +1,6 @@
 const DEFAULT_SITE_URL = (process.env.REACT_APP_SITE_URL || 'https://www.dphclassifieds.com').replace(/\/+$/, '');
 const DEFAULT_SITE_NAME = 'DPH Classifieds';
-const DEFAULT_SEO_IMAGE = `${DEFAULT_SITE_URL}/hero.webp`;
+const DEFAULT_SEO_IMAGE = `${DEFAULT_SITE_URL}/hero.avif`;
 
 export const absoluteUrl = (path = '/') => {
   const value = String(path || '/');

@@ -23,36 +23,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL
     ? 'http://localhost:8000'
     : DEFAULT_PROD_API_URL);
 
-// Check if we need to use 127.0.0.1 instead of localhost due to CORS
-// Some backends have CORS configured only for 127.0.0.1
-const checkAndUpdateBaseUrl = () => {
-  // If we're running on localhost, we might need to switch to 127.0.0.1
-  if (window.location.hostname === 'localhost') {
-    // Check if the current hostname is allowed by the server
-    fetch(`${API_BASE_URL}/`, { method: 'OPTIONS' })
-      .then(response => {
-        logger.debug('CORS check response:', response.status);
-      })
-      .catch(error => {
-        logger.debug('CORS check failed with localhost, trying 127.0.0.1 instead:', error);
-        const altBaseUrl = API_BASE_URL.replace('localhost', '127.0.0.1');
-        fetch(`${altBaseUrl}/`, { method: 'OPTIONS' })
-          .then(response => {
-            if (response.ok) {
-              logger.debug('127.0.0.1 works for CORS, using it instead of localhost');
-              window.API_BASE_URL_OVERRIDE = altBaseUrl;
-            }
-          })
-          .catch(e => {
-            logger.debug('Both localhost and 127.0.0.1 failed CORS check:', e);
-          });
-      });
-  }
-};
-
-// Run the CORS check when the module loads
-checkAndUpdateBaseUrl();
-
 // Get the effective base URL, considering any CORS-based overrides
 const getEffectiveBaseUrl = () => window.API_BASE_URL_OVERRIDE || API_BASE_URL;
 
@@ -67,6 +37,7 @@ export const apiClient = {
    * @returns {Promise<object>} - Response data
    */
   async request(endpoint, options = {}) {
+    let didRetryAfterRefresh = false;
     try {
       // Get authorization token
       let token = await getBestAccessToken();
@@ -179,7 +150,7 @@ export const apiClient = {
         }
       }
 
-      if (response.status === 401 && !options.__retriedAfterRefresh) {
+      if (response.status === 401 && !didRetryAfterRefresh) {
         let message = '';
         try {
           const errorData = await response.clone().json();
@@ -197,7 +168,7 @@ export const apiClient = {
           const refreshedToken = refreshResult?.data?.access_token;
           if (refreshedToken) {
             token = refreshedToken;
-            options.__retriedAfterRefresh = true;
+            didRetryAfterRefresh = true;
             response = await executeRequest(url, token);
           }
         }

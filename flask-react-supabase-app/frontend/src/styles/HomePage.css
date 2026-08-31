@@ -835,6 +835,21 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .cn-brand-track {
+    animation: none;
+    transform: none;
+  }
+
+  .cn-hero-3d {
+    display: none;
+  }
+
+  .cn-hero-glow {
+    filter: none;
+  }
+}
+
 @media (max-width: 1100px) {
   .cn-insight-grid,
   .cn-collection-grid,

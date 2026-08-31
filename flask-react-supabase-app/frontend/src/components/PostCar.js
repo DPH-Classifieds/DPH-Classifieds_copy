@@ -1537,7 +1537,7 @@ const PostCar = () => {
   };
 
   const handleSaveDraft = async () => {
-    if (!user) return;
+    if (!user || isSubmitting || isDraftSaving || registrationOcrStatus === 'Scanning…' || registrationOcrStatus === 'Preparing…') return;
 
     setIsDraftSaving(true);
     setError(null);
@@ -1600,6 +1600,7 @@ const PostCar = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting || isDraftSaving || registrationOcrStatus === 'Scanning…' || registrationOcrStatus === 'Preparing…') return;
     
     if (!user) {
       setShowAuthModal(true);
@@ -3168,7 +3169,7 @@ const PostCar = () => {
           <button
             type="submit"
             className="btn btn-danger"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDraftSaving || registrationOcrStatus === 'Scanning…' || registrationOcrStatus === 'Preparing…'}
           >
             {isSubmitting ? (isEdit ? 'Updating...' : 'Submitting...') : (isEdit ? 'Update Listing' : 'Submit Listing')}
           </button>

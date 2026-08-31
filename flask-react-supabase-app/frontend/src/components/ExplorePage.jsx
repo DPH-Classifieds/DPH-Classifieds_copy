@@ -11,6 +11,7 @@ import useFeaturedPattern from '../hooks/useFeaturedPattern';
 import { applyFeaturedPlacement } from '../utils/featuredPlacement';
 import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
+import { paginateRedditRows } from '../utils/redditPagination';
 import { buildCarPath } from '../utils/listingUrl';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -18,6 +19,11 @@ import useListingCounts from '../hooks/useListingCounts';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PAGE_SIZE = 24;
+// Keep the DOM and client-side inventory buffer bounded as feeds grow. The
+// explicit reveal preserves access to already-loaded results without mounting
+// hundreds of interactive cards at once.
+export const MAX_RENDERED_ITEMS = 48;
+const MAX_LOADED_ITEMS_PER_CATEGORY = 240;
 const INVENTORY_CACHE_TTL_MS = 60 * 1000;
 const inflightInventoryRequests = new Map();
 
@@ -259,7 +265,7 @@ const compareBySort = (left, right, sortBy) => {
     return (right.numericPrice || 0) - (left.numericPrice || 0);
   }
 
-  return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
+  return Date.parse(right.createdAt || '') - Date.parse(left.createdAt || '');
 };
 
 const buildSearchableText = (parts) =>
@@ -305,6 +311,9 @@ const normalizeCar = (car) => {
     createdAt: car.created_at,
     sellerDealerVerified: Boolean(car.seller_dealer_verified),
     sellerName: car.seller_name || null,
+    manufacturer: make,
+    model,
+    city: location,
     searchableText: buildSearchableText([
       title,
       year,
@@ -314,7 +323,6 @@ const normalizeCar = (car) => {
       car.description,
       location,
     ]),
-    raw: car,
   };
 };
 
@@ -347,6 +355,9 @@ image: getPrimaryImage(bike),
     createdAt: bike.created_at,
     sellerDealerVerified: Boolean(bike.seller_dealer_verified),
     sellerName: bike.seller_name || null,
+    brand,
+    bikeType,
+    yearValue: toNumeric(year),
     searchableText: buildSearchableText([
       title,
       brand,
@@ -354,7 +365,6 @@ image: getPrimaryImage(bike),
       bikeType,
       bike.description,
     ]),
-    raw: bike,
   };
 };
 
@@ -382,13 +392,13 @@ const normalizePart = (part) => {
     createdAt: part.created_at,
     sellerDealerVerified: Boolean(part.seller_dealer_verified),
     sellerName: part.seller_name || null,
+    partCategory: category,
     searchableText: buildSearchableText([
       title,
       category,
       part.description,
       location,
     ]),
-    raw: part,
   };
 };
 
@@ -420,6 +430,10 @@ const normalizePlate = (plate) => {
     createdAt: plate.created_at,
     sellerDealerVerified: Boolean(plate.seller_dealer_verified),
     sellerName: plate.seller_name || null,
+    numberValue: plateNumber,
+    cityValue: location,
+    codeValue: plateCode,
+    digitsValue: digits,
     searchableText: buildSearchableText([
       title,
       plateCode,
@@ -428,7 +442,6 @@ const normalizePlate = (plate) => {
       location,
       plate.description,
     ]),
-    raw: plate,
   };
 };
 
@@ -463,7 +476,6 @@ const normalizeBuyingRequest = (row) => {
       row.regional_spec,
       row.reference_notes,
     ]),
-    raw: row,
   };
 };
 
@@ -560,9 +572,14 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
   const [redditFilters, setRedditFilters] = useState(carInitialFilters);
   const [buyingRequestFilters, setBuyingRequestFilters] = useState({ query: '', itemType: 'all' });
+  // Hides source_platform=reddit rows from cars/bikes/car-parts/plates/all —
+  // irrelevant on the dedicated Reddit tab (that view IS reddit listings) and
+  // on buying-requests (no source_platform there).
+  const [hideReddit, setHideReddit] = useState(false);
   const [heroQuery, setHeroQuery] = useState('');
   const [savingSearch, setSavingSearch] = useState(false);
   const [savedSearchNotice, setSavedSearchNotice] = useState('');
+  const [renderLimit, setRenderLimit] = useState(MAX_RENDERED_ITEMS);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -587,6 +604,10 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     }
   }, [location.search, forcedCategory]);
 
+  useEffect(() => {
+    setRenderLimit(MAX_RENDERED_ITEMS);
+  }, [activeMode]);
+
   const seoData = buildStaticSeo({
     title: activeMode === 'all'
       ? 'Explore UAE Cars, Bikes, Parts & Plates | DPH Classifieds'
@@ -609,14 +630,16 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const fetchPage = useCallback(async (apiKey, offset) => {
     const ttl = offset === 0 ? INVENTORY_CACHE_TTL_MS : 30_000;
     // Reddit tab aggregates every source_platform=reddit listing across all four
-    // types into one feed, each row tagged so it can be normalized correctly.
-    // ponytail: fetches up to 250/type in one page (curated import feed is small);
-    // raise the cap if Reddit inventory ever grows past that.
+    // types into one globally sorted feed. Fetch the prefix needed to produce
+    // the requested page, then deduplicate and slice after merging; applying
+    // the same offset independently to each type would skip rows and repeat
+    // page one when the category mix changes.
     if (apiKey === 'reddit') {
       const types = [['cars', 'car'], ['bikes', 'bike'], ['parts', 'part'], ['plates', 'plate']];
+      const requiredRows = offset + PAGE_SIZE + 1;
       const chunks = await Promise.all(
         types.map(async ([ep, type]) => {
-          const url = `${API_URL}/api/${ep}?limit=250&offset=0&order=created_at.desc&source_platform=reddit`;
+          const url = `${API_URL}/api/${ep}?limit=${requiredRows}&offset=0&order=created_at.desc&source_platform=reddit`;
           const data = await fetchJsonWithCache(url, ttl);
           return extractInventoryCollection(data, FALLBACK_KEYS[ep] || ['data']).map((row) => ({
             ...row,
@@ -624,19 +647,23 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           }));
         })
       );
-      return chunks.flat();
+      return paginateRedditRows(chunks, offset, PAGE_SIZE);
     }
     // /api/buying-requests ignores limit/offset — it always returns the full
     // active list, so fetch it once regardless of the requested offset.
     if (apiKey === 'buying_requests') {
       const url = `${API_URL}/api/buying-requests`;
       const data = await fetchJsonWithCache(url, ttl);
-      return extractInventoryCollection(data, FALLBACK_KEYS.buying_requests);
+      return {
+        items: extractInventoryCollection(data, FALLBACK_KEYS.buying_requests),
+        hasMore: false,
+      };
     }
-    const url = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
+    const url = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc${hideReddit ? '&exclude_reddit=true' : ''}`;
     const data = await fetchJsonWithCache(url, ttl);
-    return extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
-  }, []);
+    const items = extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
+    return { items, hasMore: items.length === PAGE_SIZE };
+  }, [hideReddit]);
 
   // ── initial load: only the active category unless "all" is selected ─────
   useEffect(() => {
@@ -656,11 +683,14 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       const failed = [];
 
       targets.forEach((apiKey, index) => {
-        const items = results[index].status === 'fulfilled' ? results[index].value : [];
+        const page = results[index].status === 'fulfilled'
+          ? results[index].value
+          : { items: [], hasMore: false };
+        const items = (page.items || []).slice(0, MAX_LOADED_ITEMS_PER_CATEGORY);
         nextInventory[apiKey] = items;
         nextPages[apiKey] = {
           offset: 0,
-          hasMore: apiKey === 'buying_requests' ? false : items.length === PAGE_SIZE,
+          hasMore: page.hasMore === true,
         };
         if (results[index].status === 'rejected') {
           failed.push(apiKey === 'parts' ? 'car parts' : apiKey);
@@ -722,16 +752,21 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     setInventory((prev) => {
       const next = { ...prev };
       toLoad.forEach((k, i) => {
-        const items = results[i].status === 'fulfilled' ? results[i].value : [];
-        next[k] = [...prev[k], ...items];
+        const page = results[i].status === 'fulfilled'
+          ? results[i].value
+          : { items: [], hasMore: false };
+        const items = page.items || [];
+        next[k] = [...prev[k], ...items].slice(0, MAX_LOADED_ITEMS_PER_CATEGORY);
       });
       return next;
     });
     setPages((prev) => {
       const next = { ...prev };
       toLoad.forEach((k, i) => {
-        const items = results[i].status === 'fulfilled' ? results[i].value : [];
-        next[k] = { offset: prev[k].offset + PAGE_SIZE, hasMore: items.length === PAGE_SIZE };
+        const page = results[i].status === 'fulfilled'
+          ? results[i].value
+          : { items: [], hasMore: false };
+        next[k] = { offset: prev[k].offset + PAGE_SIZE, hasMore: page.hasMore === true };
       });
       return next;
     });
@@ -810,7 +845,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
   const redditMakes = useMemo(
     () => [...new Set(
-      normalizedInventory.reddit.map((item) => normalizeText(item.raw?.car_manufacturer)).filter(Boolean)
+      normalizedInventory.reddit.map((item) => normalizeText(item.manufacturer || item.brand)).filter(Boolean)
     )].sort(),
     [normalizedInventory.reddit]
   );
@@ -835,18 +870,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           return right.relevanceScore - left.relevanceScore;
         }
 
-        return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
+        return Date.parse(right.createdAt || '') - Date.parse(left.createdAt || '');
       });
     }
 
     if (activeMode === 'reddit') {
       return normalizedInventory.reddit
         .filter((item) => {
-          const raw = item.raw;
           const query = redditFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(redditFilters.priceMin);
           const maxPrice = toNumeric(redditFilters.priceMax);
-          if (redditFilters.manufacturer && normalizeText(raw.car_manufacturer || raw.make) !== redditFilters.manufacturer) {
+          if (redditFilters.manufacturer && normalizeText(item.manufacturer || item.brand) !== redditFilters.manufacturer) {
             return false;
           }
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -866,18 +900,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     if (activeMode === 'cars') {
       return normalizedInventory.cars
         .filter((item) => {
-          const raw = item.raw;
           const query = carFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(carFilters.priceMin);
           const maxPrice = toNumeric(carFilters.priceMax);
 
-          if (carFilters.manufacturer && normalizeText(raw.car_manufacturer || raw.make) !== carFilters.manufacturer) {
+          if (carFilters.manufacturer && normalizeText(item.manufacturer) !== carFilters.manufacturer) {
             return false;
           }
-          if (carFilters.model && normalizeText(raw.car_model || raw.model) !== carFilters.model) {
+          if (carFilters.model && normalizeText(item.model) !== carFilters.model) {
             return false;
           }
-          if (carFilters.city && normalizeText(raw.car_city || raw.city || raw.location) !== carFilters.city) {
+          if (carFilters.city && normalizeText(item.city) !== carFilters.city) {
             return false;
           }
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -897,11 +930,10 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     if (activeMode === 'car-parts') {
       return normalizedInventory.parts
         .filter((item) => {
-          const raw = item.raw;
           const query = partsFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(partsFilters.priceMin);
           const maxPrice = toNumeric(partsFilters.priceMax);
-          const partCategory = normalizeText(raw.category || raw.part_type);
+          const partCategory = normalizeText(item.partCategory);
 
           if (partsFilters.category && partCategory !== partsFilters.category) {
             return false;
@@ -923,16 +955,15 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     if (activeMode === 'plates') {
       return normalizedInventory.plates
         .filter((item) => {
-          const raw = item.raw;
           const query = plateFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(plateFilters.priceMin);
           const maxPrice = toNumeric(plateFilters.priceMax);
-          const digits = normalizeText(raw.digits);
+          const digits = normalizeText(item.digitsValue);
 
           if (plateFilters.city && item.location !== plateFilters.city) {
             return false;
           }
-          if (plateFilters.code && normalizeText(raw.code) !== plateFilters.code) {
+          if (plateFilters.code && normalizeText(item.codeValue) !== plateFilters.code) {
             return false;
           }
           if (plateFilters.digits && digits !== plateFilters.digits) {
@@ -964,20 +995,19 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           }
           return true;
         })
-        .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
+        .sort((left, right) => Date.parse(right.createdAt || '') - Date.parse(left.createdAt || ''));
     }
 
     return normalizedInventory.bikes
       .filter((item) => {
-        const raw = item.raw;
         const query = bikeFilters.query.trim().toLowerCase();
         const minPrice = toNumeric(bikeFilters.priceMin);
         const maxPrice = toNumeric(bikeFilters.priceMax);
         const minYear = toNumeric(bikeFilters.yearMin);
         const maxYear = toNumeric(bikeFilters.yearMax);
-        const bikeType = normalizeText(raw.bike_type || raw.type || raw.bike_category);
-        const brand = normalizeText(raw.make || raw.manufacturer || raw.bike_brand);
-        const year = toNumeric(raw.year || raw.make_year);
+        const bikeType = normalizeText(item.bikeType);
+        const brand = normalizeText(item.brand);
+        const year = item.yearValue;
 
         if (bikeFilters.type && bikeType !== bikeFilters.type) {
           return false;
@@ -1061,6 +1091,11 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       : normalizedFeatured[EXPLORE_MODE_TO_API_KEY[activeMode]] || [];
     return applyFeaturedPlacement(filteredItems, featuredPool, featuredPattern, (item) => `${item.categoryKey}-${item.id}`);
   }, [filteredItems, normalizedFeatured, featuredPattern, isDefaultOrder, activeMode]);
+
+  const renderedItems = useMemo(
+    () => displayedItems.slice(0, renderLimit),
+    [displayedItems, renderLimit]
+  );
 
   const activeTotalKey = activeMode === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[activeMode];
   const activeTotal = totalCounts && activeTotalKey && totalCounts[activeTotalKey] !== undefined
@@ -1226,6 +1261,16 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           </div>
           <div className="explore-v2-results-meta">
             <p>{resultsDescription}</p>
+            {activeMode !== 'reddit' && activeMode !== 'buying-requests' && (
+              <label className="explore-v2-hide-reddit-toggle">
+                <input
+                  type="checkbox"
+                  checked={hideReddit}
+                  onChange={(e) => setHideReddit(e.target.checked)}
+                />
+                <span>Hide Reddit imports</span>
+              </label>
+            )}
             <button
               type="button"
               className="explore-v2-button explore-v2-button-secondary"
@@ -1379,12 +1424,22 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         ) : (
           <>
             <div className="explore-v2-horizontal-track">
-              {displayedItems.map((item) => (
+              {renderedItems.map((item) => (
                 item.categoryKey === 'buying-requests'
                   ? <BuyingRequestCard key={`${item.categoryKey}-${item.id}`} item={item} />
                   : <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
               ))}
             </div>
+
+            {renderedItems.length < displayedItems.length ? (
+              <button
+                type="button"
+                className="explore-v2-button explore-v2-button-secondary explore-v2-show-more"
+                onClick={() => setRenderLimit((current) => current + MAX_RENDERED_ITEMS)}
+              >
+                Show more loaded listings ({displayedItems.length - renderedItems.length} remaining)
+              </button>
+            ) : null}
 
             {/* Sentinel triggers loadMore via IntersectionObserver */}
             {(() => {
@@ -1392,7 +1447,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
               const hasMore = modeKey
                 ? pages[modeKey]?.hasMore
                 : Object.values(pages).some((p) => p.hasMore);
-              return hasMore ? (
+              return hasMore && renderedItems.length === displayedItems.length ? (
                 <div ref={sentinelRef} className="explore-v2-sentinel">
                   {loadingMore && <ListingSkeleton variant="grid" count={4} />}
                 </div>

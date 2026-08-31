@@ -1,6 +1,6 @@
 const API_ORIGIN = 'https://api.dphclassifieds.com';
 const SITE_ORIGIN = 'https://www.dphclassifieds.com';
-const FALLBACK_IMAGE = `${SITE_ORIGIN}/hero.webp`;
+const FALLBACK_IMAGE = `${SITE_ORIGIN}/hero.avif`;
 
 const crawlerPattern = /(facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|whatsapp|telegrambot|googlebot|bingbot|applebot|pinterest|embedly|quora link preview)/i;
 

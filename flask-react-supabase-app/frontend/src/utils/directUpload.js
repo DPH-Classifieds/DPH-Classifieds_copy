@@ -10,6 +10,11 @@ export const LISTING_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 export const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 const STORAGE_CACHE_CONTROL = '31536000';
+// Keep the source upload useful for zoom/detail while bounding the bytes sent
+// by the browser. The display variant below remains a smaller, card-sized copy.
+export const LISTING_IMAGE_MAX_DIMENSION = 2400;
+export const PROFILE_PHOTO_MAX_DIMENSION = 1600;
+export const PHOTO_OPTIMIZATION_QUALITY = 0.85;
 const LISTING_DISPLAY_WIDTH = 1600;
 const LISTING_DISPLAY_HEIGHT = 1000;
 const TUS_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
@@ -155,10 +160,55 @@ const loadImageElement = (file) =>
     image.src = objectUrl;
   });
 
-const requestSignedUploadUrl = async ({ bucketName, objectPath, upsert = false }) =>
+// Listing/profile photos are presentation assets, so normalize them to a
+// bounded JPEG before uploading. This is deliberately separate from
+// registration documents: documents keep their existing byte path and HEIC
+// conversion behavior, including their original MIME/extension when no
+// conversion is needed.
+export const optimizePhotoForUpload = async (
+  file,
+  { maxDimension = LISTING_IMAGE_MAX_DIMENSION, quality = PHOTO_OPTIMIZATION_QUALITY } = {}
+) => {
+  if (!file || !isListingImageCandidate(file)) return file;
+
+  try {
+    const image = await loadImageElement(file);
+    const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas rendering is unavailable in this browser.');
+    context.drawImage(image, 0, 0, image.width, image.height, 0, 0, width, height);
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((output) => {
+        if (output) resolve(output);
+        else reject(new Error('Failed to optimize the photo.'));
+      }, 'image/jpeg', quality);
+    });
+
+    const baseName = String(file.name || 'photo').replace(/\.[^.]+$/, '') || 'photo';
+    return new File([blob], `${baseName}.jpg`, {
+      type: 'image/jpeg',
+      lastModified: file.lastModified || Date.now(),
+    });
+  } catch (_error) {
+    // An image decoder/canvas is not available in every browser. Keep the
+    // upload usable for those files; HEIC still follows its existing explicit
+    // conversion/error path in ensureUploadableImage above.
+    return file;
+  }
+};
+
+const requestSignedUploadUrl = async ({ bucketName, objectPath, contentType, fileSize, upsert = false }) =>
   apiClient.post('/api/storage/signed-upload-url', {
     bucket_name: bucketName,
     object_path: objectPath,
+    content_type: contentType,
+    file_size: fileSize,
     upsert,
   });
 
@@ -236,7 +286,12 @@ const uploadSignedAsset = async ({
   preferResumable = false,
   onProgress,
 }) => {
-  const signed = await requestSignedUploadUrl({ bucketName, objectPath });
+  const signed = await requestSignedUploadUrl({
+    bucketName,
+    objectPath,
+    contentType: fileBody?.type,
+    fileSize: fileBody?.size,
+  });
 
   if (preferResumable) {
     try {
@@ -349,6 +404,7 @@ export const buildStorageObjectPath = ({
   userId,
   fileName,
   suffix = '',
+  folder = '',
   extension,
   idFactory = defaultIdFactory,
 }) => {
@@ -358,7 +414,8 @@ export const buildStorageObjectPath = ({
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '') || 'jpg';
 
-  return `${safeUserId}/${idFactory()}${safeSuffix}.${safeExtension}`;
+  const safeFolder = folder ? `${String(folder).replace(/[^a-zA-Z0-9_-]/g, '_')}/` : '';
+  return `${safeUserId}/${safeFolder}${idFactory()}${safeSuffix}.${safeExtension}`;
 };
 
 export const shouldUseResumableUpload = (fileSize) =>
@@ -368,7 +425,9 @@ export const uploadListingImagesDirect = async (files, { userId, cropSettings = 
   const uploadedImages = [];
 
   for (let index = 0; index < files.length; index += 1) {
-    const file = await ensureUploadableImage(files[index]);
+    const file = await optimizePhotoForUpload(await ensureUploadableImage(files[index]), {
+      maxDimension: LISTING_IMAGE_MAX_DIMENSION,
+    });
     const crop = cropSettings[index] || {};
     const originalPath = buildStorageObjectPath({
       userId,
@@ -429,7 +488,9 @@ export const uploadListingImageUrlsDirect = async (files, { userId, onProgress }
   const uploadedUrls = [];
 
   for (let index = 0; index < files.length; index += 1) {
-    const file = await ensureUploadableImage(files[index]);
+    const file = await optimizePhotoForUpload(await ensureUploadableImage(files[index]), {
+      maxDimension: LISTING_IMAGE_MAX_DIMENSION,
+    });
     const objectPath = buildStorageObjectPath({
       userId,
       fileName: file.name,
@@ -454,7 +515,9 @@ export const uploadListingImageUrlsDirect = async (files, { userId, onProgress }
 };
 
 export const uploadProfilePhotoDirect = async (rawFile, { userId } = {}) => {
-  const file = await ensureUploadableImage(rawFile);
+  const file = await optimizePhotoForUpload(await ensureUploadableImage(rawFile), {
+    maxDimension: PROFILE_PHOTO_MAX_DIMENSION,
+  });
   const objectPath = buildStorageObjectPath({
     userId,
     fileName: file.name,
@@ -471,11 +534,12 @@ export const uploadProfilePhotoDirect = async (rawFile, { userId } = {}) => {
   return upload.public_url;
 };
 
-export const uploadRegistrationDocument = async (rawFile, { userId } = {}) => {
+export const uploadRegistrationDocument = async (rawFile, { userId, pathPrefix = '' } = {}) => {
   const file = await ensureUploadableImage(rawFile);
   const objectPath = buildStorageObjectPath({
     userId,
     fileName: file.name,
+    folder: pathPrefix,
     extension: getFileExtension(file.name, 'jpg'),
   });
 
@@ -486,5 +550,5 @@ export const uploadRegistrationDocument = async (rawFile, { userId } = {}) => {
     contentType: file.type || 'application/octet-stream',
   });
 
-  return upload.public_url;
+  return upload.path;
 };

@@ -5,7 +5,7 @@ import { buildStaticSeo } from '../utils/seo';
 import '../styles/About.css';
 
 const whoWeAreImg = '/images/About-page-removebg-preview.png';
-const ourMissionImg = '/images/Our Mission.jpg';
+const ourMissionImg = '/images/Our Mission.avif';
 
 const stats = [
   { value: '80k+', label: 'Active petrolheads' },

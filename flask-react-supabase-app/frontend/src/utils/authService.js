@@ -14,23 +14,38 @@ const CURRENT_USER_CACHE_TTL_MS = 2 * 60 * 1000;
 const ACCESS_TOKEN_KEY = 'supabase_access_token';
 const AUTH_DATA_KEY = 'authData';
 
-let currentUserRequestPromise = null;
-let tokenStorageMode = 'local';
+const clearLegacyPersistentAuth = () => {
+  if (typeof window === 'undefined') return;
 
-const getWindowStorage = (preferredMode = tokenStorageMode) => {
+  try {
+    window.localStorage.removeItem(AUTH_DATA_KEY);
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => window.localStorage.removeItem(key));
+  } catch (error) {
+    logger.debug('Failed to clear persistent auth storage:', error);
+  }
+};
+
+clearLegacyPersistentAuth();
+
+let currentUserRequestPromise = null;
+// Bearer credentials are tab-scoped. They must not survive a browser restart.
+let tokenStorageMode = 'session';
+
+const getWindowStorage = () => {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  if (preferredMode === 'session') {
-    return window.sessionStorage;
-  }
-
-  return window.localStorage;
+  return window.sessionStorage;
 };
 
-export const setTokenStorageMode = (mode) => {
-  tokenStorageMode = mode === 'session' ? 'session' : 'local';
+export const setTokenStorageMode = () => {
+  // Kept as a compatibility API for existing callers. Persistent token
+  // storage is intentionally no longer supported.
+  tokenStorageMode = 'session';
 };
 
 export const getTokenStorageMode = () => tokenStorageMode;
@@ -41,20 +56,11 @@ const readStoredValue = (key) => {
   }
 
   try {
-    const sessionValue = window.sessionStorage.getItem(key);
-    if (sessionValue) {
-      return sessionValue;
-    }
+    return window.sessionStorage.getItem(key);
   } catch (error) {
     logger.debug(`Failed to read ${key} from sessionStorage:`, error);
   }
-
-  try {
-    return window.localStorage.getItem(key);
-  } catch (error) {
-    logger.debug(`Failed to read ${key} from localStorage:`, error);
-    return null;
-  }
+  return null;
 };
 
 export const storeAccessToken = (token) => {
@@ -63,16 +69,15 @@ export const storeAccessToken = (token) => {
   }
 
   const activeStorage = getWindowStorage();
-  const inactiveStorage = activeStorage === window.sessionStorage ? window.localStorage : window.sessionStorage;
 
   try {
     if (token) {
       activeStorage?.setItem(ACCESS_TOKEN_KEY, token);
-      inactiveStorage?.removeItem(ACCESS_TOKEN_KEY);
     } else {
       activeStorage?.removeItem(ACCESS_TOKEN_KEY);
-      inactiveStorage?.removeItem(ACCESS_TOKEN_KEY);
     }
+    // Remove credentials written by older builds that used localStorage.
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   } catch (error) {
     logger.debug('Failed to store access token:', error);
   }
@@ -110,52 +115,21 @@ const writeCurrentUserCache = (user) => {
   }
 };
 
-// Add axios debug interceptors
-axios.interceptors.request.use(request => {
-  logger.debug('Starting Request', {
-    url: request.url,
-    method: request.method,
-    headers: request.headers,
-    data: request.data
-  });
-  return request;
-});
-
-axios.interceptors.response.use(
-  response => {
-    logger.debug('Response:', {
-      status: response.status,
-      headers: response.headers,
-      data: response.data
-    });
-    return response;
-  },
-  error => {
-    logger.error('Response Error:', {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data
-    });
-    return Promise.reject(error);
-  }
-);
-
-// Save auth data to local storage
+// Save auth data to session storage only. Auth data contains bearer tokens.
 export const saveAuthData = (authData) => {
   logger.debug('Saving auth data to storage', { ...authData, access_token: '[REDACTED]' });
   if (typeof window === 'undefined') return;
 
   const activeStorage = getWindowStorage();
-  const inactiveStorage = activeStorage === window.sessionStorage ? window.localStorage : window.sessionStorage;
   try {
     activeStorage?.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
-    inactiveStorage?.removeItem(AUTH_DATA_KEY);
+    window.localStorage.removeItem(AUTH_DATA_KEY);
   } catch (error) {
     logger.debug('Failed to save auth data:', error);
   }
 };
 
-// Get auth data from local storage
+// Get auth data from session storage only.
 export const getAuthData = () => {
   const authData = readStoredValue(AUTH_DATA_KEY);
   const parsedData = authData ? JSON.parse(authData) : null;
@@ -164,7 +138,7 @@ export const getAuthData = () => {
   return parsedData;
 };
 
-// Clear auth data from local storage
+// Clear auth data from both stores, including credentials written by older builds.
 export const clearAuthData = () => {
   logger.debug('Clearing auth data from storage');
   if (typeof window === 'undefined') return;
@@ -201,24 +175,10 @@ export const getAccessToken = () => {
     logger.debug('Failed to read access token from sessionStorage:', error);
   }
 
-  if (!token) {
-    try {
-      token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
-      if (token) {
-        setTokenStorageMode('local');
-      }
-    } catch (error) {
-      logger.debug('Failed to read access token from localStorage:', error);
-    }
-  }
-
-  // Legacy fallback to authData if the newer token slot is missing
+  // Legacy fallback to session-scoped authData if the newer token slot is missing.
   if (!token) {
     const authData = getAuthData();
     token = authData?.access_token || null;
-    if (token) {
-      setTokenStorageMode('local');
-    }
   }
   
   logger.debug('Access token retrieved:', token ? '[REDACTED TOKEN PRESENT]' : 'No token found');
@@ -229,7 +189,6 @@ export const getAccessToken = () => {
 export const setAuthHeader = (token) => {
   if (token) {
     logger.debug('Setting Authorization header with token');
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     
     // Also update the active storage with the latest token
     const currentData = getAuthData() || {};
@@ -242,7 +201,6 @@ export const setAuthHeader = (token) => {
     storeAccessToken(token);
   } else {
     logger.debug('Removing Authorization header');
-    delete axios.defaults.headers.common['Authorization'];
   }
 };
 

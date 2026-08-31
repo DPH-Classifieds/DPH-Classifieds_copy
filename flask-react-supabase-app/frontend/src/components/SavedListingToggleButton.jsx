@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSavedListings } from '../context/SavedListingsContext';
+import { buildListingSaveData } from '../utils/listingRouteState';
 import '../styles/SavedListings.css';
 
 const SavedListingToggleButton = ({
@@ -35,7 +36,7 @@ const SavedListingToggleButton = ({
     await toggleSavedListing({
       listingType,
       listingId,
-      listingData,
+      listingData: buildListingSaveData(listingData),
     });
   };
 

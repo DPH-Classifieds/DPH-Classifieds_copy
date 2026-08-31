@@ -426,19 +426,11 @@ export const AuthProvider = ({ children }) => {
     updatePassword,
     syncWithSupabase,
     updateUser: (userData) => {
-      console.log('AuthContext: Updating user with data:', userData);
       setUser(prevUser => {
         const updatedUser = {
           ...(prevUser || {}),
           ...userData
         };
-        // Also update localStorage to persist changes
-        try {
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-          console.log('AuthContext: User data saved to localStorage');
-        } catch (e) {
-          console.error('AuthContext: Failed to save user to localStorage:', e);
-        }
         return updatedUser;
       });
     }

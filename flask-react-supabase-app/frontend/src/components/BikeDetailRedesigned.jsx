@@ -6,7 +6,7 @@ import { getAccessToken } from '../utils/supabaseClient';
 import ListingSkeleton from './ListingSkeleton';
 import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
-import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
+import { isRedditSourced } from './RedditSourcePanel';
 import RedditListingDetail from './RedditListingDetail';
 import ImageLightbox from './ImageLightbox';
 import SeoMeta from './SeoMeta';
@@ -22,6 +22,8 @@ import useSwipe from '../hooks/useSwipe';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://dphclassifieds.com';
 const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
+
+const normalizeContactPhone = (value) => String(value || '').replace(/\D/g, '').replace(/^0+/, '');
 
 const BikeDetailRedesigned = () => {
   const { id } = useParams();
@@ -152,11 +154,6 @@ const BikeDetailRedesigned = () => {
     return `${parsed.toLocaleString()} km`;
   };
 
-  const formatWhatsappNumber = () => {
-    const phone = (bike?.contact_phone || '').replace(/\D/g, '').replace(/^0+/, '');
-    return phone;
-  };
-
   const getWhatsappPrefillText = () =>
     buildWhatsappMessage({
       template: bike?.whatsapp_prefill_text,
@@ -273,13 +270,16 @@ const BikeDetailRedesigned = () => {
     );
   }
 
-  if (isRedditSourced(bike)) {
+  const isThirdPartyListing = isRedditSourced(bike);
+  if (isThirdPartyListing) {
     return <RedditListingDetail listing={bike} listingType="bike" />;
   }
 
   const galleryImages = getGalleryImages();
   const locationMapConfig = getLocationMapConfig();
   const listingArea = bike?.area || bike?.location || null;
+  const contactPhone = normalizeContactPhone(bike?.contact_phone);
+  const hasContactPhone = /^\d{7,15}$/.test(contactPhone);
 
   return (
     <div className="cd-container">
@@ -417,48 +417,39 @@ const BikeDetailRedesigned = () => {
 
               <div className="cd-divider"></div>
 
-              {isRedditSourced(bike) ? (
-                <div className="cd-cta-buttons">
-                  <RedditSourcePanel car={bike} listingType="bike" listingId={id} />
-                  <SavedListingToggleButton
-                    listingType="bike"
-                    listingId={id}
-                    listingData={bike}
-                    className="saved-listing-button-detail"
-                    label="Save listing"
-                    showLabel
-                  />
-                </div>
-              ) : (
               <div className="cd-cta-buttons">
-                <a
-                  href={`tel:${bike?.contact_phone || ''}`}
-                  className="cd-button cd-button-primary"
-                  onClick={(event) => {
-                    if (!handleCallClick()) {
-                      event.preventDefault();
-                      return;
-                    }
-                    trackLeadEvent('call_click');
-                  }}
-                >
-                  Call Seller
-                </a>
-                <a
-                  href={`https://wa.me/${formatWhatsappNumber()}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cd-button cd-button-secondary"
-                  onClick={(event) => {
-                    if (!handleWhatsappClick()) {
-                      event.preventDefault();
-                      return;
-                    }
-                    trackLeadEvent('whatsapp_click');
-                  }}
-                >
-                  WhatsApp
-                </a>
+                {hasContactPhone && (
+                  <>
+                    <a
+                      href={`tel:${contactPhone}`}
+                      className="cd-button cd-button-primary"
+                      onClick={(event) => {
+                        if (!handleCallClick()) {
+                          event.preventDefault();
+                          return;
+                        }
+                        trackLeadEvent('call_click');
+                      }}
+                    >
+                      Call Seller
+                    </a>
+                    <a
+                      href={`https://wa.me/${contactPhone}?text=${encodeURIComponent(getWhatsappPrefillText())}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cd-button cd-button-secondary"
+                      onClick={(event) => {
+                        if (!handleWhatsappClick()) {
+                          event.preventDefault();
+                          return;
+                        }
+                        trackLeadEvent('whatsapp_click');
+                      }}
+                    >
+                      WhatsApp
+                    </a>
+                  </>
+                )}
                 <SavedListingToggleButton
                   listingType="bike"
                   listingId={id}
@@ -468,7 +459,6 @@ const BikeDetailRedesigned = () => {
                   showLabel
                 />
               </div>
-              )}
             </div>
 
             <div className="cd-seller-card">
@@ -480,12 +470,12 @@ const BikeDetailRedesigned = () => {
                     className="seller-avatar-image"
                   />
                 ) : (
-                  (isRedditSourced(bike) ? 'DPH Classifieds' : (bike?.seller_name || bike?.contact_name || bike?.user_email || '')).charAt(0).toUpperCase()
+                  (bike?.seller_name || bike?.contact_name || bike?.user_email || '').charAt(0).toUpperCase()
                 )}
               </div>
               <div className="cd-seller-info">
                 <div className="cd-seller-name">
-                  {isRedditSourced(bike) ? 'DPH Classifieds' : (bike?.seller_name || bike?.contact_name || 'Private Seller')}
+                  {bike?.seller_name || bike?.contact_name || 'Private Seller'}
                 </div>
               </div>
               <div className="cd-divider"></div>

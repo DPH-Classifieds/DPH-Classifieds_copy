@@ -422,9 +422,8 @@ const CarDetail = () => {
     });
   };
 
-  const isOwner = Boolean(user?.id && car?.user_id && user.id === car.user_id);
   const isPhoneVerified = Boolean(viewerProfile?.phone_verified || user?.phone_verified);
-  const canViewVin = isOwner || isPhoneVerified;
+  const canViewVin = isPhoneVerified;
   const visibleVin = vinVisible ? (car?.vin_number || 'Not provided') : maskVin(car?.vin_number);
 
   // Phone + WhatsApp are public: no login / phone-verify required. The click is

@@ -19,7 +19,12 @@ import {
   shouldUseResumableUpload,
   ensureUploadableImage,
   isListingImageCandidate,
+  optimizePhotoForUpload,
+  LISTING_IMAGE_MAX_DIMENSION,
+  PROFILE_PHOTO_MAX_DIMENSION,
+  PHOTO_OPTIMIZATION_QUALITY,
   uploadListingImageUrlsDirect,
+  uploadRegistrationDocument,
 } from './directUpload';
 import apiClient from './apiClient';
 import { supabase } from './supabaseClient';
@@ -77,6 +82,87 @@ describe('directUpload helpers', () => {
     expect(await ensureUploadableImage(jpg)).toBe(jpg);
   });
 
+  test('bounds listing photos and converts them to quality-controlled JPEGs', async () => {
+    const originalImage = global.Image;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const canvas = {
+      getContext: jest.fn(() => ({ drawImage: jest.fn() })),
+      toBlob: jest.fn((callback, type, quality) => {
+        expect(type).toBe('image/jpeg');
+        expect(quality).toBe(PHOTO_OPTIMIZATION_QUALITY);
+        callback(new Blob(['optimized'], { type }));
+      }),
+    };
+
+    global.Image = class MockImage {
+      constructor() {
+        this.width = 4800;
+        this.height = 2400;
+      }
+
+      set src(_value) {
+        this.onload();
+      }
+    };
+    URL.createObjectURL = jest.fn(() => 'blob:photo');
+    URL.revokeObjectURL = jest.fn();
+    jest.spyOn(document, 'createElement').mockReturnValue(canvas);
+
+    try {
+      const photo = new File(['source'], 'large-photo.png', { type: 'image/png' });
+      const optimized = await optimizePhotoForUpload(photo);
+
+      expect(optimized).not.toBe(photo);
+      expect(optimized.type).toBe('image/jpeg');
+      expect(optimized.name).toBe('large-photo.jpg');
+      expect(canvas.width).toBe(LISTING_IMAGE_MAX_DIMENSION);
+      expect(canvas.height).toBe(LISTING_IMAGE_MAX_DIMENSION / 2);
+    } finally {
+      document.createElement.mockRestore();
+      global.Image = originalImage;
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
+  });
+
+  test('uses the smaller profile-photo dimension cap', async () => {
+    const originalImage = global.Image;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const canvas = {
+      getContext: jest.fn(() => ({ drawImage: jest.fn() })),
+      toBlob: jest.fn((callback) => callback(new Blob(['optimized'], { type: 'image/jpeg' }))),
+    };
+
+    global.Image = class MockImage {
+      constructor() {
+        this.width = 3200;
+        this.height = 2400;
+      }
+
+      set src(_value) {
+        this.onload();
+      }
+    };
+    URL.createObjectURL = jest.fn(() => 'blob:profile');
+    URL.revokeObjectURL = jest.fn();
+    jest.spyOn(document, 'createElement').mockReturnValue(canvas);
+
+    try {
+      const photo = new File(['source'], 'profile.webp', { type: 'image/webp' });
+      await optimizePhotoForUpload(photo, { maxDimension: PROFILE_PHOTO_MAX_DIMENSION });
+
+      expect(canvas.width).toBe(PROFILE_PHOTO_MAX_DIMENSION);
+      expect(canvas.height).toBe(1200);
+    } finally {
+      document.createElement.mockRestore();
+      global.Image = originalImage;
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    }
+  });
+
   test('detects a HEIC mislabeled as .jpg (image/jpeg) by sniffing bytes', async () => {
     // ISO-BMFF header: [size][ftyp][brand] — matches IMG_1506.jpg (ftypheic).
     const header = new Uint8Array([
@@ -117,5 +203,33 @@ describe('directUpload helpers', () => {
 
     await expect(uploadListingImageUrlsDirect([photo], { userId: 'user-123' }))
       .rejects.toThrow('did not return a usable image URL');
+  });
+
+  test('persists a private registration-document object path, never a public URL', async () => {
+    apiClient.post.mockResolvedValue({ token: 'upload-token', path: 'user-123/plate-proofs/server-issued.jpg' });
+    const document = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'proof.jpg', {
+      type: 'image/jpeg',
+    });
+
+    await expect(uploadRegistrationDocument(document, {
+      userId: 'user-123',
+      pathPrefix: 'plate-proofs',
+    })).resolves.toMatch(/^user-123\/plate-proofs\/[^/]+\.jpg$/);
+  });
+
+  test('does not run photo optimization for registration documents', async () => {
+    const documentFile = new File(['source'], 'proof.png', { type: 'image/png' });
+    const uploadToSignedUrl = jest.fn(async () => ({ data: {}, error: null }));
+    supabase.storage.from.mockReturnValue({ uploadToSignedUrl });
+    apiClient.post.mockResolvedValue({ token: 'upload-token', path: 'user-123/proof.png' });
+
+    await uploadRegistrationDocument(documentFile, { userId: 'user-123' });
+
+    expect(uploadToSignedUrl).toHaveBeenCalledWith(
+      expect.any(String),
+      'upload-token',
+      documentFile,
+      expect.objectContaining({ contentType: 'image/png' })
+    );
   });
 });

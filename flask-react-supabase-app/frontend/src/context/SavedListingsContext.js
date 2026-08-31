@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import apiClient from '../utils/apiClient';
 import { useAuth } from './AuthContext';
+import { buildListingSaveData } from '../utils/listingRouteState';
 
 const SavedListingsContext = createContext(null);
 
@@ -69,7 +70,9 @@ export const SavedListingsProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await apiClient.request('/api/user/saved-listings');
-      const items = Array.isArray(response?.items) ? response.items : [];
+      const items = Array.isArray(response?.items)
+        ? response.items.map(buildListingSaveData)
+        : [];
       setSavedListings(items);
       return items;
     } catch (error) {
@@ -148,7 +151,7 @@ export const SavedListingsProvider = ({ children }) => {
       const currentlySaved = savedLookup.has(key);
       const previousListings = savedListings;
       const optimisticItem = {
-        ...(listingData || {}),
+        ...buildListingSaveData(listingData),
         id: listingId,
         listingType: normalizedType,
         isSaved: true,
@@ -190,7 +193,7 @@ export const SavedListingsProvider = ({ children }) => {
           },
         });
 
-        const nextItem = response?.listing || optimisticItem;
+        const nextItem = buildListingSaveData(response?.listing || optimisticItem);
         setSavedListings((current) => [nextItem, ...current.filter((item) => normalizeSavedType(item?.listingType || item?.listing_type || item?.categoryKey, item?.id) !== key)]);
         showNotice('Added to favourites.');
         return { saved: true, listing: nextItem };

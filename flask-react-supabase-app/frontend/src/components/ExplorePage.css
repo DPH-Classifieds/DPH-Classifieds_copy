@@ -242,6 +242,24 @@
   font-weight: 700;
 }
 
+.explore-v2-hide-reddit-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ex-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.explore-v2-hide-reddit-toggle input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--ex-primary);
+}
+
 .explore-v2-filter-panel,
 .explore-v2-state-card,
 .explore-v2-card {
@@ -445,6 +463,11 @@
   grid-column: 1 / -1;
   min-height: 8px;
   margin-top: 8px;
+}
+
+.explore-v2-show-more {
+  margin: 24px auto 0;
+  display: flex;
 }
 
 .explore-v2-end-label {

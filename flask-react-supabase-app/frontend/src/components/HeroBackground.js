@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, MeshDistortMaterial } from '@react-three/drei';
 
@@ -7,17 +7,15 @@ const ParticleField = ({ count = 140 }) => {
   
   const particles = useMemo(() => {
     const positions = new Float32Array(count * 3);
-    const scales = new Float32Array(count);
     
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
       positions[i3] = (Math.random() - 0.5) * 15;
       positions[i3 + 1] = (Math.random() - 0.5) * 15;
       positions[i3 + 2] = (Math.random() - 0.5) * 15;
-      scales[i] = Math.random() * 0.5 + 0.1;
     }
     
-    return { positions, scales };
+    return { positions };
   }, [count]);
 
   useFrame((state) => {
@@ -115,12 +113,14 @@ const EnergyRings = () => {
   );
 };
 
-const Scene3D = () => {
+const Scene3D = ({ active }) => {
   return (
     <Canvas
       camera={{ position: [0, 0, 8], fov: 50 }}
       style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
       gl={{ alpha: true }}
+      dpr={[1, 1.5]}
+      frameloop={active ? 'always' : 'never'}
     >
       <ambientLight intensity={0.3} />
       <pointLight position={[8, 8, 8]} intensity={1.1} color="#8de191" />
@@ -140,9 +140,45 @@ const Scene3D = () => {
 };
 
 const HeroBackground = () => {
+  const containerRef = useRef(null);
+  const [isInViewport, setIsInViewport] = useState(false);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(
+    typeof document === 'undefined' || document.visibilityState === 'visible'
+  );
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsInViewport(entry.isIntersecting),
+      { threshold: 0, rootMargin: '120px' }
+    );
+    observer.observe(element);
+
+    const handleVisibilityChange = () => {
+      setIsDocumentVisible(document.visibilityState === 'visible');
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handleMotionChange = (event) => setPrefersReducedMotion(event.matches);
+    setPrefersReducedMotion(motionQuery.matches);
+    motionQuery.addEventListener?.('change', handleMotionChange);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      motionQuery.removeEventListener?.('change', handleMotionChange);
+    };
+  }, []);
+
+  const active = isInViewport && isDocumentVisible && !prefersReducedMotion;
+
   return (
-    <div className="cn-hero-3d" aria-hidden="true">
-      <Scene3D />
+    <div ref={containerRef} className="cn-hero-3d" aria-hidden="true">
+      <Scene3D active={active} />
       <div className="cn-hero-3d-overlay" />
     </div>
   );

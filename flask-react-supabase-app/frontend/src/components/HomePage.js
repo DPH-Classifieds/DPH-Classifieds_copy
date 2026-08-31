@@ -40,8 +40,8 @@ const marketplaceInsights = [
   },
 ];
 
-const heroImage = '/hero.webp';
-const ctaImage = '/images/bottom-landing.jpg';
+const heroImage = '/images/optimized/hero-1600.jpg';
+const ctaImage = '/images/optimized/bottom-landing-1600.jpg';
 const primaryHeroButtonClass =
   'group border-0 bg-gradient-to-r from-[#0b6b4c] via-[#0a5f47] to-[#004e37] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[#0b6b4c] hover:to-[#0a5f47]';
 const secondaryHeroButtonClass =
@@ -234,9 +234,9 @@ const HomePage = () => {
             src={heroImage} 
             alt="Luxury performance car in a dark studio" 
             className="cn-hero-image"
-            width="1920"
-            height="1080"
-            fetchpriority="high"
+            width="1600"
+            height="1143"
+            fetchPriority="high"
             decoding="async"
           />
           <Suspense fallback={null}>
@@ -322,7 +322,7 @@ const HomePage = () => {
 
       <section className="cn-cta-section">
         <div className="cn-cta-media">
-          <img src={ctaImage} alt="Abstract performance silhouette" className="cn-cta-image" loading="lazy" decoding="async" width="1920" height="600" />
+          <img src={ctaImage} alt="Abstract performance silhouette" className="cn-cta-image" loading="lazy" decoding="async" width="1600" height="1066" />
           <div className="cn-cta-overlay" />
         </div>
         <div className="cn-shell cn-cta-content">

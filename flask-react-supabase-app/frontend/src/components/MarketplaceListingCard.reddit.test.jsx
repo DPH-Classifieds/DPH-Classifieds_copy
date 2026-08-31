@@ -86,3 +86,21 @@ describe('MarketplaceListingCard — reddit normalization', () => {
     expect(screen.queryByText('Reddit')).toBeNull();
   });
 });
+
+test('renders a slim plate DTO without requiring the removed raw API row', () => {
+  renderCard({
+    id: 'plate-1',
+    categoryKey: 'plates',
+    categoryLabel: 'Plate',
+    cityValue: 'Dubai',
+    codeValue: '7',
+    numberValue: '12345',
+    route: '/plates/plate-1',
+    priceLabel: 'AED 50,000',
+    title: 'Dubai 7 12345',
+  });
+
+  expect(screen.getByText('دبي')).toBeInTheDocument();
+  expect(screen.getByText('7')).toBeInTheDocument();
+  expect(screen.getByText('12345')).toBeInTheDocument();
+});

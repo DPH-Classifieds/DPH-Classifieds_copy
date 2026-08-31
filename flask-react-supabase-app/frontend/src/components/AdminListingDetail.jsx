@@ -788,12 +788,12 @@ const AdminListingDetail = () => {
               </div>
 
               {/* Mulkiya */}
-              {listing.registration_document_url && (
+              {listing.registration_document_signed_url && (
                 <div>
                   <SectionLabel>Mulkiya (Reg. doc)</SectionLabel>
-                  <a href={listing.registration_document_url} target="_blank" rel="noopener noreferrer">
+                  <a href={listing.registration_document_signed_url} target="_blank" rel="noopener noreferrer">
                     <img
-                      src={listing.registration_document_url}
+                      src={listing.registration_document_signed_url}
                       alt="Registration document"
                       className="w-full rounded-xl border border-emerald-500/20 hover:border-emerald-500/40 transition cursor-zoom-in"
                       style={{ maxHeight: '180px', objectFit: 'cover' }}
@@ -807,12 +807,12 @@ const AdminListingDetail = () => {
               )}
 
               {/* Plate ownership proof document */}
-              {listing.proof_document_url && (
+              {listing.proof_document_signed_url && (
                 <div>
                   <SectionLabel>Ownership Proof (Plate)</SectionLabel>
-                  <a href={listing.proof_document_url} target="_blank" rel="noopener noreferrer">
+                  <a href={listing.proof_document_signed_url} target="_blank" rel="noopener noreferrer">
                     <img
-                      src={listing.proof_document_url}
+                      src={listing.proof_document_signed_url}
                       alt="Plate ownership proof"
                       className="w-full rounded-xl border border-purple-500/20 hover:border-purple-500/40 transition cursor-zoom-in"
                       style={{ maxHeight: '180px', objectFit: 'cover' }}
@@ -826,12 +826,12 @@ const AdminListingDetail = () => {
               )}
 
               {/* Bike / Plate registration doc */}
-              {listing.registration_doc_url && (
+              {listing.registration_doc_signed_url && (
                 <div>
                   <SectionLabel>Reg. doc (Bike/Plate)</SectionLabel>
-                  <a href={listing.registration_doc_url} target="_blank" rel="noopener noreferrer">
+                  <a href={listing.registration_doc_signed_url} target="_blank" rel="noopener noreferrer">
                     <img
-                      src={listing.registration_doc_url}
+                      src={listing.registration_doc_signed_url}
                       alt="Registration document"
                       className="w-full rounded-xl border border-emerald-500/20 hover:border-emerald-500/40 transition cursor-zoom-in"
                       style={{ maxHeight: '180px', objectFit: 'cover' }}

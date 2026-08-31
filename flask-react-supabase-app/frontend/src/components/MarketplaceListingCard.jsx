@@ -22,7 +22,17 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
   const listingId = item.id;
   // Plates have no photo by design — render the generated plate graphic instead
   // of falling into the empty-image text fallback.
-  const plateRaw = listingType === 'plate' ? (item.raw || item) : null;
+  // Explore passes a deliberately slim card DTO (it does not carry the full
+  // API row as `raw`). Keep the plate renderer on that DTO so plate cards do
+  // not silently lose their generated graphic when the payload is trimmed.
+  const plateData = listingType === 'plate'
+    ? {
+        city: item.cityValue || item.city || item.location,
+        code: item.codeValue || item.code,
+        number: item.numberValue ?? item.number ?? item.digitsValue ?? item.digits,
+        status: item.status,
+      }
+    : null;
   const isReddit = (item.sourcePlatform || item.source_platform) === 'reddit';
 
   const isCarListing = item?.categoryKey === 'cars';
@@ -88,16 +98,16 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
         />
       ) : null}
       <Link to={item.route} state={item.routeState} className="explore-v2-card-media" ref={swipeRef}>
-        {plateRaw ? (
+        {plateData ? (
           <div
             className="explore-v2-card-plate"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '12px' }}
           >
             <UAELicensePlate
-              city={plateRaw.city}
-              code={plateRaw.code}
-              number={String(plateRaw.number ?? '')}
-              className={plateRaw.status === 'sold' ? 'sold' : ''}
+              city={plateData.city}
+              code={plateData.code}
+              number={String(plateData.number ?? '')}
+              className={plateData.status === 'sold' ? 'sold' : ''}
             />
           </div>
         ) : galleryImages.length > 0 ? (
@@ -187,4 +197,4 @@ const MarketplaceListingCard = ({ item, showMoreLink = true }) => {
   );
 };
 
-export default MarketplaceListingCard;
+export default React.memo(MarketplaceListingCard);

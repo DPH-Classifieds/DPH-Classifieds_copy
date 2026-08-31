@@ -7,12 +7,32 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('Missing REACT_APP_SUPABASE_URL or REACT_APP_SUPABASE_KEY environment variables');
 }
 
-// Use default localStorage for session storage - more reliable than custom cookies
+// Keep browser sessions tab-scoped. Access tokens are bearer credentials and
+// should not survive a browser restart in persistent localStorage.
+const authStorage = typeof window !== 'undefined' ? window.sessionStorage : undefined;
+
+const clearLegacyPersistentAuth = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.removeItem('supabase_access_token');
+    window.localStorage.removeItem('authData');
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => window.localStorage.removeItem(key));
+  } catch (error) {
+    console.error('Failed to clear persistent auth storage:', error);
+  }
+};
+
+clearLegacyPersistentAuth();
+
 export const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
   auth: {
     detectSessionInUrl: true,
     autoRefreshToken: true,
-    persistSession: true
+    persistSession: true,
+    storage: authStorage
   }
 });
 
@@ -20,19 +40,14 @@ const syncStoredAccessToken = (token) => {
   if (!token) return;
 
   try {
-    const sessionToken = window.sessionStorage.getItem('supabase_access_token');
-    if (sessionToken || window.sessionStorage.getItem('authData')) {
-      window.sessionStorage.setItem('supabase_access_token', token);
-      window.localStorage.removeItem('supabase_access_token');
-    } else {
-      window.localStorage.setItem('supabase_access_token', token);
-    }
+    window.sessionStorage.setItem('supabase_access_token', token);
+    window.localStorage.removeItem('supabase_access_token');
   } catch (error) {
     console.error('Failed to sync supabase_access_token:', error);
   }
 
   try {
-    const storage = window.sessionStorage.getItem('authData') ? window.sessionStorage : window.localStorage;
+    const storage = window.sessionStorage;
     const authData = storage.getItem('authData');
     if (!authData) return;
 
@@ -110,20 +125,12 @@ export const getBestAccessToken = async () => {
       return session.access_token;
     }
 
-    // Supabase session unavailable/expired — try stored tokens.
-    // If they're also expired, clear them so we don't keep sending stale tokens.
+    // Supabase session unavailable/expired — try tab-scoped stored tokens.
     const sessionToken = window.sessionStorage.getItem('supabase_access_token');
     if (sessionToken && !isTokenExpired(sessionToken)) {
       _trace('source-session-storage', 'Got valid token from sessionStorage supabase_access_token');
       syncStoredAccessToken(sessionToken);
       return sessionToken;
-    }
-
-    const storedToken = localStorage.getItem('supabase_access_token');
-    if (storedToken && !isTokenExpired(storedToken)) {
-      _trace('source-local-storage', 'Got valid token from localStorage supabase_access_token');
-      syncStoredAccessToken(storedToken);
-      return storedToken;
     }
 
     const sessionAuthData = window.sessionStorage.getItem('authData');
@@ -137,20 +144,6 @@ export const getBestAccessToken = async () => {
         }
       } catch (e) {
         console.error('Error parsing session authData:', e);
-      }
-    }
-
-    const authData = localStorage.getItem('authData');
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData);
-        if (parsed.access_token && !isTokenExpired(parsed.access_token)) {
-          _trace('source-local-authdata', 'Got valid token from authData localStorage');
-          syncStoredAccessToken(parsed.access_token);
-          return parsed.access_token;
-        }
-      } catch (e) {
-        console.error('Error parsing authData:', e);
       }
     }
 

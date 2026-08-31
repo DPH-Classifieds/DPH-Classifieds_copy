@@ -397,22 +397,11 @@ const PostPlate = () => {
     setIsUploadingProof(true);
     setError(null);
     try {
-      const ext = file.name.includes('.') ? file.name.split('.').pop() : 'pdf';
-      const objectPath = `${user.id}/plate-proofs/${Date.now()}.${ext}`;
-      const signed = await apiClient.post('/api/storage/signed-upload-url', {
-        bucket_name: 'listing-images',
-        object_path: objectPath,
-        upsert: false,
+      const objectPath = await uploadRegistrationDocument(file, {
+        userId: user.id,
+        pathPrefix: 'plate-proofs',
       });
-      const { supabase: supabaseClient } = await import('../utils/supabaseClient');
-      await supabaseClient.storage.from('listing-images').uploadToSignedUrl(
-        objectPath,
-        signed.token,
-        file,
-        { cacheControl: '31536000', contentType: file.type }
-      );
-      const { data: urlData } = supabaseClient.storage.from('listing-images').getPublicUrl(objectPath);
-      setProofDocumentUrl(urlData.publicUrl);
+      setProofDocumentUrl(objectPath);
     } catch (uploadErr) {
       setError({ message: 'Failed to upload proof document. Please try again.' });
       setProofFile(null);

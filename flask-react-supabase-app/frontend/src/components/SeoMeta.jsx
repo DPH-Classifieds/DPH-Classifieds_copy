@@ -54,7 +54,7 @@ const SeoMeta = ({
 }) => {
   useEffect(() => {
     const canonicalUrl = canonical ? absoluteUrl(canonical) : SITE_URL;
-    const resolvedImage = image || `${SITE_URL}/hero.webp`;
+    const resolvedImage = image || `${SITE_URL}/hero.avif`;
     const schemaList = Array.isArray(schema) ? schema.filter(Boolean) : [schema].filter(Boolean);
 
     if (title) {
