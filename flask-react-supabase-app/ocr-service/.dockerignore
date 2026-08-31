@@ -1,0 +1,11 @@
+# Docker builds for this service use this directory as their context.
+# Keep local credentials and private keys out of COPY . /app.
+.env
+.env.*
+*.pem
+*.key
+*client_secret*.json
+*credentials*.json
+__pycache__/
+*.py[cod]
+.pytest_cache/

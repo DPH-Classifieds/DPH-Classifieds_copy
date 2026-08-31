@@ -20,6 +20,11 @@
         "type": "string",
         "isSecret": true,
         "label": "Optional read-only GitHub token (leave blank for a public bridge repo)"
+      },
+      "roundupHmacSecret": {
+        "type": "string",
+        "isSecret": true,
+        "label": "Optional bridge HMAC secret (must match REDDIT_ROUNDUP_BRIDGE_HMAC_SECRET)"
       }
     },
     "subreddit": {

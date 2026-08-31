@@ -9,6 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/opt/venv/bin:$PATH
 
 WORKDIR /app
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
 # PaddleOCR/OpenCV runtime libs.
 RUN apt-get update \
@@ -27,7 +28,8 @@ RUN python -m venv /opt/venv \
 # compute. app.py loads the model in a background thread at startup and /health
 # stays 503 until it's ready, so a slightly slower first-boot is the only cost.
 
-COPY . /app
+COPY --chown=appuser:appuser . /app
+USER appuser
 
 EXPOSE 8000
 

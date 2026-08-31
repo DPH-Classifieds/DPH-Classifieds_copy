@@ -1,6 +1,7 @@
 import type {IncomingMessage, ServerResponse} from 'node:http'
 import {context, reddit, redis, settings} from '@devvit/web/server'
 import type {PartialJsonValue, TriggerResponse, UiResponse} from '@devvit/web/shared'
+import {verifyPayloadSignature} from './hmac.js'
 
 type AppResponse = TriggerResponse | UiResponse | {error: string; status: number}
 const FORCE_REPOST_COOLDOWN_MS = 10 * 60 * 1000
@@ -51,6 +52,7 @@ async function forceRoundupFromMenu(): Promise<UiResponse> {
 async function postRoundup(force = false): Promise<{count: number; url?: string; skipped?: boolean}> {
   const githubUrl = (await settings.get<string>('roundupUrl'))?.trim()
   const githubToken = (await settings.get<string>('roundupToken'))?.trim()
+  const hmacSecret = (await settings.get<string>('roundupHmacSecret'))?.trim()
   // Reddit's API expects a bare subreddit name. Moderators often enter the
   // familiar `r/name` form in settings, so normalize it before submitting.
   const configuredSubreddit = (await settings.get<string>('targetSubreddit'))?.trim()
@@ -71,13 +73,14 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   const source = (await response.json()) as {content?: string; encoding?: string}
   if (source.encoding !== 'base64' || !source.content) throw Error('GitHub bridge response has no base64 content')
   const payload = JSON.parse(Buffer.from(source.content, 'base64').toString('utf8')) as {
-    schema?: string; title?: string; body?: string; posts?: Array<{title?: string; body?: string}>; count?: number; cycle_id?: string; content_hash?: string
+    schema?: string; title?: string; body?: string; posts?: Array<{title?: string; body?: string}>; count?: number; cycle_id?: string; content_hash?: string; generated_at?: string; signature?: string; signature_version?: string
   }
   if (payload.schema !== 'dph-reddit-roundup/v2' || !Number.isInteger(payload.count)) {
     throw Error('GitHub bridge payload is invalid')
   }
-  if (!payload.count) return {count: 0, skipped: true}
   if (!payload.cycle_id || !payload.content_hash) throw Error('GitHub bridge payload has no cycle_id/content_hash')
+  if (hmacSecret) verifyPayloadSignature(payload, hmacSecret)
+  if (!payload.count) return {count: 0, skipped: true}
   const posts = payload.posts
   if (!posts?.length || posts.some(post => !post.title || !post.body)) throw Error('GitHub bridge payload has no posts')
   const postedKeyPrefix = `roundup:posted:${targetSubreddit}:${payload.cycle_id}`

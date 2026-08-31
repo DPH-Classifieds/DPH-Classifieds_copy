@@ -6,6 +6,13 @@
 .playwright-mcp
 .ruff_cache
 .temp
+# Never send local credentials or private keys to a Docker build context.
+.env
+.env.*
+*.pem
+*.key
+*client_secret*.json
+*credentials*.json
 **/__pycache__
 **/*.py[cod]
 **/*.pyo

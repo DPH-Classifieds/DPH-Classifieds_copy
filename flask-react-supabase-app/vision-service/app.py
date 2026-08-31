@@ -23,6 +23,8 @@ CLIP_MODEL = os.getenv("VISION_CLIP_MODEL", "ViT-B-32")
 CLIP_PRETRAINED = os.getenv("VISION_CLIP_PRETRAINED", "laion2b_s34b_b79k")
 NSFW_THRESHOLD = float(os.getenv("VISION_NSFW_SCORE_THRESHOLD", "0.85"))
 MAX_IMAGE_BYTES = int(os.getenv("VISION_MAX_IMAGE_MB", "20")) * 1024 * 1024
+MAX_IMAGE_PIXELS = int(os.getenv("VISION_MAX_IMAGE_PIXELS", "25000000"))
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 MAX_CONCURRENCY = int(os.getenv("VISION_MAX_CONCURRENCY", "1"))
 QUEUE_TIMEOUT = float(os.getenv("VISION_QUEUE_TIMEOUT_SECONDS", "20"))
 
@@ -90,7 +92,7 @@ def _image_from_bytes(data):
     try:
         image = Image.open(io.BytesIO(data))
         image.load()
-    except (UnidentifiedImageError, OSError) as exc:
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
         raise ValueError("invalid image") from exc
     return ImageOps.exif_transpose(image).convert("RGB")
 
@@ -131,7 +133,7 @@ def _analyze(data):
 
 @app.post("/v1/analyze")
 async def analyze(image: UploadFile = File(...), x_vision_service_key: str = Header(default="")):
-    if VISION_SERVICE_KEY and x_vision_service_key != VISION_SERVICE_KEY:
+    if not VISION_SERVICE_KEY or x_vision_service_key != VISION_SERVICE_KEY:
         raise HTTPException(status_code=401, detail="invalid service key")
     if not _ready.is_set() or _load_error is not None:
         raise HTTPException(status_code=503, detail="model unavailable")

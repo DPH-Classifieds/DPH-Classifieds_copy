@@ -32,6 +32,8 @@ OCR_MIN_CONFIDENCE = float(os.getenv("OCR_MIN_CONFIDENCE", "0.3"))
 OCR_MAX_CONCURRENCY = int(os.getenv("OCR_MAX_CONCURRENCY", "2"))
 OCR_QUEUE_TIMEOUT = float(os.getenv("OCR_QUEUE_TIMEOUT_SECONDS", "20"))
 MAX_IMAGE_BYTES = int(os.getenv("OCR_MAX_IMAGE_MB", "20")) * 1024 * 1024
+MAX_IMAGE_PIXELS = int(os.getenv("OCR_MAX_IMAGE_PIXELS", "25000000"))
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 app = FastAPI(title="ocr-service", docs_url=None, redoc_url=None)
 
@@ -82,7 +84,7 @@ def _run_ocr(image_bytes):
     try:
         image = Image.open(io.BytesIO(image_bytes))
         image.load()
-    except (UnidentifiedImageError, OSError) as exc:
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
         raise ValueError("invalid image") from exc
     from PIL import ImageOps
 
@@ -120,7 +122,7 @@ async def scan(
     image: UploadFile = File(...),
     x_ocr_service_key: str = Header(default=""),
 ):
-    if OCR_SERVICE_KEY and x_ocr_service_key != OCR_SERVICE_KEY:
+    if not OCR_SERVICE_KEY or x_ocr_service_key != OCR_SERVICE_KEY:
         raise HTTPException(status_code=401, detail="invalid service key")
     if not _ready.is_set():
         raise HTTPException(status_code=503, detail="model loading")
