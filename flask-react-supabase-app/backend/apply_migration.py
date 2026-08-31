@@ -1,8 +1,21 @@
 from app import supabase_request
 import sys
 import os
+from pathlib import Path
+
+MIGRATION_ROOTS = (
+    Path(__file__).resolve().parent / "migrations",
+    Path(__file__).resolve().parents[1] / "supabase" / "migrations",
+)
+
+def _validated_migration_path(value):
+    candidate = Path(value).expanduser().resolve()
+    if candidate.suffix.lower() != ".sql" or not any(root in candidate.parents for root in MIGRATION_ROOTS):
+        raise ValueError("migration must be an SQL file under an approved migrations directory")
+    return candidate
 
 def apply_migration(migration_file):
+    migration_file = _validated_migration_path(migration_file)
     print(f"Applying migration from {migration_file}...")
     
     try:
@@ -34,7 +47,12 @@ if __name__ == "__main__":
         
     migration_file = sys.argv[1]
     
-    if not os.path.exists(migration_file):
+    try:
+        migration_file = _validated_migration_path(migration_file)
+    except ValueError as exc:
+        print(f"Invalid migration path: {exc}")
+        sys.exit(1)
+    if not migration_file.exists():
         print(f"Migration file {migration_file} does not exist")
         sys.exit(1)
         

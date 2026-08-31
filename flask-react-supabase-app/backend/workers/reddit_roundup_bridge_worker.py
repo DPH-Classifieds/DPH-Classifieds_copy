@@ -11,6 +11,7 @@ read-only token stored as a secret app setting.
 """
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -35,7 +36,35 @@ def _settings():
         "path": os.getenv("REDDIT_ROUNDUP_GITHUB_PATH", "dph-roundup.json").strip().strip("/"),
         "branch": os.getenv("REDDIT_ROUNDUP_GITHUB_BRANCH", "main").strip() or "main",
         "token": os.getenv("REDDIT_ROUNDUP_GITHUB_TOKEN", "").strip(),
+        "hmac_secret": os.getenv("REDDIT_ROUNDUP_BRIDGE_HMAC_SECRET", "").strip(),
+        "hmac_required": _truthy(os.getenv("REDDIT_ROUNDUP_BRIDGE_HMAC_REQUIRED")),
     }
+
+
+def _signing_bytes(payload):
+    """Return deterministic JSON shared with the Devvit verifier.
+
+    ``generated_at`` is deliberately excluded so a refresh of the same cycle
+    has a stable signature. Signature metadata is excluded to avoid signing
+    the value being verified.
+    """
+    unsigned = {
+        key: value
+        for key, value in payload.items()
+        if key not in ("generated_at", "signature", "signature_version")
+    }
+    return json.dumps(unsigned, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _sign_payload(payload, secret):
+    if not secret:
+        return payload
+    signed = dict(payload)
+    signed["signature_version"] = "hmac-sha256-v1"
+    signed["signature"] = hmac.new(
+        secret.encode("utf-8"), _signing_bytes(signed), hashlib.sha256
+    ).hexdigest()
+    return signed
 
 
 def _rolling_window(hours=48, now=None):
@@ -131,7 +160,9 @@ def run():
     if not _truthy(os.getenv("REDDIT_ROUNDUP_BRIDGE_ENABLED")):
         return {"status": "disabled"}
     config = _settings()
-    missing = [name for name, value in config.items() if not value]
+    missing = [name for name in ("repo", "path", "branch", "token") if not config[name]]
+    if config["hmac_required"] and not config["hmac_secret"]:
+        missing.append("hmac_secret")
     if missing:
         logger.error("reddit_roundup_bridge: missing config %s", ", ".join(missing))
         return {"status": "failed", "error": "missing configuration"}
@@ -140,7 +171,10 @@ def run():
     except ValueError:
         hours = 48
     try:
-        result = _publish(_build_payload(hours), config)
+        payload = _build_payload(hours)
+        if config["hmac_secret"]:
+            payload = _sign_payload(payload, config["hmac_secret"])
+        result = _publish(payload, config)
     except Exception as exc:
         logger.exception("reddit_roundup_bridge: publish failed")
         return {"status": "failed", "error": str(exc)[:300]}

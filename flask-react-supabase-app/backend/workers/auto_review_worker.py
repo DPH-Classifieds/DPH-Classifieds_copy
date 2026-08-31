@@ -183,12 +183,14 @@ def _fetch_image_urls(type_label, row):
 
 def _fetch_image_bytes(urls):
     import requests
+    from services.url_safety import assert_safe_outbound
     blobs = []
     for url in urls:
         try:
-            resp = requests.get(url, timeout=8)
+            safe_url = assert_safe_outbound(url)
+            resp = requests.get(safe_url, timeout=8, stream=True)
             if resp.status_code < 400 and resp.content:
-                blobs.append(resp.content)
+                blobs.append(resp.content[:25 * 1024 * 1024])
         except requests.RequestException:
             logger.warning("auto-review image fetch failed: %s", url)
     return blobs
@@ -256,12 +258,53 @@ def _trust_context_for(user_id):
         return TrustContext(False, False, 0, 0, 0, False)
     u = user_rows[0]
     dealer_verified = _dealer_verified(user_id) if u.get("is_dealer") else False
+    cutoff = (datetime.now(timezone.utc).timestamp() - 90 * 86400)
+    cutoff_iso = datetime.fromtimestamp(cutoff, timezone.utc).isoformat()
+    approved_count = 0
+    rejected_count = 0
+    report_count = 0
+    for type_label, table in ITEM_TYPE_TO_TABLE.items():
+        listing_rows, listing_status = sb(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "select": "id,status",
+                "user_id": f"eq.{user_id}",
+                "created_at": f"gte.{cutoff_iso}",
+                "limit": "200",
+            },
+            use_service_role=True,
+        )
+        if listing_status >= 400 or not isinstance(listing_rows, list):
+            continue
+        listing_ids = [str(row.get("id")) for row in listing_rows if row.get("id")]
+        approved_count += sum(
+            1 for row in listing_rows if str(row.get("status") or "").lower() == "approved"
+        )
+        rejected_count += sum(
+            1 for row in listing_rows if str(row.get("status") or "").lower() == "rejected"
+        )
+        if listing_ids:
+            report_rows, report_status = sb(
+                "get",
+                "/rest/v1/reports",
+                params={
+                    "select": "id",
+                    "listing_type": f"eq.{type_label.rstrip('s')}",
+                    "listing_id": f"in.({','.join(listing_ids)})",
+                    "created_at": f"gte.{cutoff_iso}",
+                    "limit": "200",
+                },
+                use_service_role=True,
+            )
+            if report_status < 400 and isinstance(report_rows, list):
+                report_count += len(report_rows)
     return TrustContext(
         is_admin=bool(u.get("is_admin")),
         dealer_verified=dealer_verified,
-        approved_listings_count=0,
-        rejections_last_90d=0,
-        reports_last_90d=0,
+        approved_listings_count=approved_count,
+        rejections_last_90d=rejected_count,
+        reports_last_90d=report_count,
         email_verified=bool(profile.get("email_verified")),
         phone_verified=bool(profile.get("phone_verified")),
     )

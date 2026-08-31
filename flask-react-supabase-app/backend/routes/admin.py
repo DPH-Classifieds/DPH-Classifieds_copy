@@ -15,6 +15,15 @@ logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
+
+def _internal_error(context, exc):
+    """Log server details while keeping credentials/upstream bodies out of JSON."""
+    logger.error(
+        "%s", context,
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
+    return jsonify({"error": "Internal server error"}), 500
+
 # Get config from environment
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -590,7 +599,7 @@ def get_all_listings():
 
     except Exception as e:
         logger.error(f"Error fetching admin listings: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/listings/<listing_id>/approve", methods=["POST"])
@@ -699,7 +708,7 @@ def approve_listing(listing_id):
             return jsonify({"error": f"Error approving item"}), 500
     except Exception as e:
         logger.error(f"Exception approving {listing_type} {listing_id}: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/approve/<item_type>/<item_id>/reject", methods=["POST"])
@@ -769,7 +778,7 @@ def reject_item(item_type, item_id):
             return jsonify({"error": f"Error rejecting item"}), 500
     except Exception as e:
         logger.error(f"Exception rejecting {item_type} {item_id}: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/listings/<listing_id>/delete", methods=["DELETE"])
@@ -832,7 +841,7 @@ def delete_listing(listing_id):
 
     except Exception as e:
         logger.error(f"Error deleting listing: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 # Reports Management
@@ -877,7 +886,7 @@ def get_reports():
 
     except Exception as e:
         logger.error(f"Error fetching reports: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/reports/<report_id>/resolve", methods=["POST"])
@@ -916,7 +925,7 @@ def resolve_report(report_id):
 
     except Exception as e:
         logger.error(f"Error resolving report: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/dealers/pending", methods=["GET"])
@@ -943,7 +952,7 @@ def get_pending_dealers():
             ), response.status_code
     except Exception as e:
         logger.error(f"Error fetching pending dealers: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 # Dealer Management
@@ -978,7 +987,7 @@ def get_dealers():
 
     except Exception as e:
         logger.error(f"Error fetching dealers: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/dealers/<user_id>/verify", methods=["POST"])
@@ -1013,7 +1022,7 @@ def verify_dealer(user_id):
 
     except Exception as e:
         logger.error(f"Error verifying dealer: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/dealers/<user_id>/reject", methods=["POST"])
@@ -1051,7 +1060,7 @@ def reject_dealer(user_id):
 
     except Exception as e:
         logger.error(f"Error rejecting dealer: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/dealers/<user_id>/listing-limit", methods=["PATCH"])
@@ -1109,7 +1118,7 @@ def set_dealer_listing_limit(user_id):
         }), 200
     except Exception as e:
         logger.error(f"Error setting dealer listing limit: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 # User Management
@@ -1181,7 +1190,7 @@ def get_users():
                 "Admin users fetch failed: status=%s detail=%s",
                 response.status_code, detail,
             )
-            return jsonify({"error": "Failed to fetch users", "detail": detail}), response.status_code
+            return jsonify({"error": "Failed to fetch users"}), response.status_code
 
         users = response.json() or []
         auth_email_confirmations = _admin_fetch_auth_email_confirmation_map(
@@ -1213,7 +1222,7 @@ def get_users():
 
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/users/<user_id>/make-admin", methods=["POST"])
@@ -1249,7 +1258,7 @@ def make_admin(user_id):
             return jsonify({"error": "Failed to make user admin"}), 500
     except Exception as e:
         logger.error(f"Error making user admin: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/users/<user_id>/remove-admin", methods=["POST"])
@@ -1257,6 +1266,10 @@ def make_admin(user_id):
 def remove_admin(user_id):
     """Remove admin privileges from a user"""
     try:
+        from app import _protect_super_admin_target
+        protected = _protect_super_admin_target(user_id, "remove admin privileges from")
+        if protected:
+            return protected
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -1283,7 +1296,7 @@ def remove_admin(user_id):
             return jsonify({"error": "Failed to remove admin privileges"}), 500
     except Exception as e:
         logger.error(f"Error removing admin privileges: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 _LISTING_TABLES_FOR_USER_ARCHIVE = (
@@ -1417,7 +1430,7 @@ def update_user_status(user_id):
         ), 200
     except Exception as e:
         logger.error(f"Error updating user status: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/users/<user_id>", methods=["DELETE"])
@@ -1504,7 +1517,7 @@ def delete_user(user_id):
 
     except Exception as e:
         logger.error(f"Error deleting user: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/users/<user_id>/actions", methods=["GET"])
@@ -1535,7 +1548,7 @@ def get_user_action_history(user_id):
         return jsonify({"actions": actions}), 200
     except Exception as e:
         logger.error(f"Error fetching action history for user {user_id}: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/actions", methods=["GET"])
@@ -1584,7 +1597,7 @@ def get_action_log():
         return jsonify({"actions": actions, "total": total, "limit": limit, "offset": offset}), 200
     except Exception as e:
         logger.error(f"Error fetching action log: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 # ---------------------------------------------------------------------------
@@ -1753,7 +1766,7 @@ def _admin_serve_listings(slug):
         return jsonify(payload), 200
     except Exception as exc:
         logger.error(f"Error fetching admin {slug}: {exc}")
-        return jsonify({"error": str(exc)}), 500
+        return _internal_error("Admin route failed", exc)
 
 
 @admin_bp.route("/plates", methods=["GET"])
@@ -2022,7 +2035,7 @@ def get_listing_history():
         return jsonify(response.json() or []), 200
     except Exception as e:
         logger.error(f"Error fetching listing history: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/lead-metrics", methods=["GET"])
@@ -2095,7 +2108,7 @@ def get_lead_metrics():
         ), 200
     except Exception as e:
         logger.error(f"Error fetching lead metrics: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/vin-opens", methods=["GET"])
@@ -2190,7 +2203,7 @@ def get_vin_open_events():
         ), 200
     except Exception as e:
         logger.error(f"Error fetching VIN-open events: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/users/<user_id>/overview", methods=["GET"])
@@ -2236,7 +2249,7 @@ def get_user_overview(user_id):
         ), 200
     except Exception as e:
         logger.error(f"Error fetching user overview: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/dealers/<dealer_id>/overview", methods=["GET"])
@@ -2279,7 +2292,7 @@ def get_dealer_overview(dealer_id):
         ), 200
     except Exception as e:
         logger.error(f"Error fetching dealer overview: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route("/listings/<item_type>/<item_id>/overview", methods=["GET"])
@@ -2451,7 +2464,7 @@ def get_listing_overview(item_type, item_id):
         ), 200
     except Exception as e:
         logger.error(f"Error fetching listing overview: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 @admin_bp.route(
@@ -2617,7 +2630,7 @@ def send_listing_renewal_nudge(item_type, item_id):
         ), 200
     except Exception as e:
         logger.error(f"Error sending renewal nudge: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)
 
 
 # View tracking endpoint
@@ -2655,4 +2668,4 @@ def get_listing_views(listing_type, listing_id):
 
     except Exception as e:
         logger.error(f"Error fetching view count: {e}")
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Admin route failed", e)

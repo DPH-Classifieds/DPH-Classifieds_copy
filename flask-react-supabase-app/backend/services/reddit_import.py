@@ -754,6 +754,93 @@ _PART_TYPE_MAP = {
 
 _PLATE_KEYWORDS = ("number plate", "numberplate", "plate number", "\\bplate\\b", "\\bplates\\b")
 
+# UAE emirates, longest alias first so "abu dhabi" beats a bare "dhabi", etc.
+_EMIRATE_ALIASES = (
+    ("umm al quwain", "Umm Al Quwain"), ("umm al-quwain", "Umm Al Quwain"), ("uaq", "Umm Al Quwain"),
+    ("ras al khaimah", "Ras Al Khaimah"), ("ras al-khaimah", "Ras Al Khaimah"), ("rak", "Ras Al Khaimah"),
+    ("abu dhabi", "Abu Dhabi"), ("abudhabi", "Abu Dhabi"), ("auh", "Abu Dhabi"),
+    ("fujairah", "Fujairah"), ("fuj", "Fujairah"),
+    ("sharjah", "Sharjah"), ("shj", "Sharjah"),
+    ("ajman", "Ajman"), ("ajm", "Ajman"),
+    ("dubai", "Dubai"), ("dxb", "Dubai"),
+)
+_EMIRATE_ALIASES_BY_LEN = sorted(_EMIRATE_ALIASES, key=lambda kv: -len(kv[0]))
+# Short alphabetic tokens that can sit right after an emirate name without being
+# a plate code ("Dubai is selling fast" should not read "is" as the code).
+_CODE_STOPWORDS = {"is", "in", "at", "on", "of", "to", "or", "an", "my", "no", "for", "and"}
+_CURRENCY_WORD_RE = re.compile(r"\b(?:aed|dhs?|dirhams?)\b", re.IGNORECASE)
+
+
+def _resolve_emirate(text):
+    """Canonical emirate name found in the post text, else None (caller
+    decides the fallback — never guess an emirate that wasn't stated)."""
+    low = (text or "").lower()
+    for alias, canonical in _EMIRATE_ALIASES_BY_LEN:
+        if re.search(rf"\b{re.escape(alias)}\b", low):
+            return canonical
+    return None
+
+
+def _plate_number_candidates(text):
+    """1-5 digit tokens in text, excluding ones that are actually part of a
+    price: comma-grouped ('25,000' -> skip '25' and '000', but not a plain
+    list-separator comma like '5, code O'), 'k'-shorthand ('85k'), or sitting
+    directly next to a currency word ('AED 5,000' / '5,000 AED')."""
+    out = []
+    for m in re.finditer(r"(?<!\d)(\d{1,5})(?!\d)", text):
+        start, end = m.start(), m.end()
+        if text[end:end + 1] == "," and text[end + 1:end + 2].isdigit():
+            continue
+        if text[start - 1:start] == "," and text[start - 2:start - 1].isdigit():
+            continue
+        if text[end:end + 1].lower() == "k":
+            continue
+        # Only a currency word directly BEFORE the digits is unambiguous
+        # ("AED 5,000" is clearly a price). A currency word after is not
+        # disqualifying on its own — "plate 5555 AED 30,000" has a real plate
+        # number immediately followed by an unrelated price mention.
+        if _CURRENCY_WORD_RE.search(text[max(0, start - 4):start]):
+            continue
+        out.append((start, m.group(1)))
+    return out
+
+
+def _extract_plate_number(title, combined):
+    """The plate number, preferring a digit run near a plate/number/code cue
+    word over the first stray digit run in the text (which is often a price
+    fragment the price parser already claimed)."""
+    for source in (title, combined):
+        candidates = _plate_number_candidates(source)
+        if not candidates:
+            continue
+        low = source.lower()
+        # "number"/"plate"/"digits" point at the serial digits; "code" is
+        # deliberately excluded — it labels the category token (e.g. Abu
+        # Dhabi's numeric code), which would otherwise get mistaken for the
+        # actual plate number when both are stated ("code 1 number 7").
+        for cue in ("number", "plate", "digits"):
+            pos = low.find(cue)
+            if pos == -1:
+                continue
+            near = [c for c in candidates if 0 <= c[0] - (pos + len(cue)) <= 15]
+            if near:
+                return near[0][1]
+        return candidates[0][1]
+    return None
+
+
+def _extract_plate_code(text):
+    """Plate code: an explicit 'code: X' label (letter or numeric category),
+    else the Dubai-style '<emirate> <letter>' pattern ('Dubai O 12345')."""
+    m = re.search(r"\bcode\s*[:\-]?\s*([A-Za-z]{1,2}|\d{1,2})\b", text, re.IGNORECASE)
+    if m:
+        return m.group(1).upper()
+    for alias, _canonical in _EMIRATE_ALIASES_BY_LEN:
+        m = re.search(rf"\b{re.escape(alias)}\b(?:\s+plates?)?\s+([A-Za-z]{{1,2}})\b", text, re.IGNORECASE)
+        if m and m.group(1).lower() not in _CODE_STOPWORDS:
+            return m.group(1).upper()
+    return None
+
 
 def _match_keywords(text_low, needles):
     """Word-boundary match so 'tire' doesn't hit 'entire' and 'seat' doesn't
@@ -777,18 +864,33 @@ def _first_keyword_pos(text_low, needles):
 
 
 def _vehicle_identity_pos(title, title_low, now):
-    """Earliest index of a plausible model-year or a car make alias in the title."""
+    """Earliest index of a plausible model-year, a car make alias, or a definite
+    motorcycle make alias in the title (bike ambiguous makes excluded — those
+    need a bike signal elsewhere to count as an identity at all)."""
     positions = []
     for m in re.finditer(r"(?<!\d)(\d{4})(?!\d)", title):
         if MIN_YEAR <= int(m.group(1)) <= now.year + 1:
             positions.append(m.start())
             break
-    for alias, _canon in _MAKE_ALIASES_BY_LEN:
+    for alias, _canon in _MAKE_ALIASES_BY_LEN + _BIKE_MAKES_BY_LEN:
         m = re.search(rf"\b{re.escape(alias)}\b", title_low)
         if m:
             positions.append(m.start())
             break
     return min(positions) if positions else None
+
+
+_FITMENT_WORD_RE = re.compile(r"\bfor\b|\bfits?\b|\bfitting\b|\bsuit(?:s|able)?\b|\bcompatible\b")
+
+
+def _part_word_is_fitment_not_descriptor(title_low, part_pos, identity_pos):
+    """True when a part keyword appearing before the vehicle identity is really
+    'part FOR car' (a fitment word sits between them, e.g. 'Recaro seats for
+    2019 Patrol'). False means the part word is just an adjacent descriptor on
+    the car itself (e.g. 'Turbo BMW 335i 2013 for sale') — that's still a car."""
+    if part_pos is None or identity_pos is None or part_pos >= identity_pos:
+        return False
+    return bool(_FITMENT_WORD_RE.search(title_low[part_pos:identity_pos]))
 
 
 def _resolve_bike_make(title):
@@ -826,16 +928,25 @@ def classify(submission, now):
     plate_pos = _first_keyword_pos(title_low, _PLATE_KEYWORDS)
     car_mm = _resolve_make_model(title)
     year = _parse_year(title, now)
-    car_pos = _vehicle_identity_pos(title, title_low, now)
-    # A complete, title-leading vehicle wins over an incidental part word.
-    # ponytail: naive position rule; a genuine 'YEAR MAKE MODEL <part>' parts post
-    # (e.g. '2008 BMW M3 wheels') still reads as a car. Upgrade path: a dedicated
-    # Parts flair, or require the part word not to immediately follow the model.
-    car_wins = bool(
-        car_mm and year and car_pos is not None
-        and (part_pos is None or car_pos <= part_pos)
+    # Definite bike makes count as an identity here too, so a bike title with a
+    # leading part word (e.g. 'Akrapovic Exhaust Kawasaki ZX10R 2018') doesn't
+    # fall into the same trap as the car case below.
+    identity_mm = car_mm or _resolve_bike_make(title)
+    identity_pos = _vehicle_identity_pos(title, title_low, now)
+    # A complete vehicle identity wins over an incidental part word, whether the
+    # identity leads the title OR the part word is just an adjacent descriptor
+    # on the vehicle itself ('Turbo BMW 335i 2013 for sale' is a car). A part
+    # word stays a part only when it's genuinely FOR the vehicle ('Recaro seats
+    # for 2019 Patrol' — a fitment word sits between the two).
+    vehicle_wins = bool(
+        identity_mm and year and identity_pos is not None
+        and (
+            part_pos is None
+            or identity_pos <= part_pos
+            or not _part_word_is_fitment_not_descriptor(title_low, part_pos, identity_pos)
+        )
     )
-    if part_pos is not None and not car_wins:
+    if part_pos is not None and not vehicle_wins:
         return "part"
     if plate_pos is not None:
         return "plate"
@@ -1042,17 +1153,16 @@ def parse_listing(submission, now):
 
     if category == "plate":
         # Require an actual plate number token to publish (else too vague).
-        m = re.search(r"\b(\d{1,5})\b", title) or re.search(r"\b(\d{1,5})\b", combined)
-        if not m:
+        number = _extract_plate_number(title, combined)
+        if not number:
             return None
-        number = m.group(1)
-        code_m = re.search(r"\bcode\s*[:\-]?\s*([A-Za-z]{1,2})\b", combined, re.IGNORECASE)
-        code = (code_m.group(1).upper() if code_m else None)
+        code = _extract_plate_code(combined)
+        emirate = _resolve_emirate(combined)
         parts = [f"Plate {number}", f"AED {price:,}"]
         return ParsedListing(
             category="plate", title=(safe_title or f"Plate {number}")[:200],
             description=_common(submission, "plate", price, parts), **base,
-            fields={"number": number, "digits": str(len(number)), "code": code},
+            fields={"number": number, "digits": str(len(number)), "code": code, "emirate": emirate},
         )
     return None
 
@@ -1142,9 +1252,10 @@ def build_imported_payload(parsed, owner_id, now):
             "price": parsed.price_aed, "location": _DUBAI, "emirate": _DUBAI,
             "description": parsed.description}
     elif parsed.category == "plate":
+        emirate = f.get("emirate") or _DUBAI
         payload = {**src,
             "number": f["number"], "digits": f["digits"], "code": f.get("code") or "A",
-            "plate_format": "Any format", "emirate": _DUBAI, "city": _DUBAI,
+            "plate_format": "Any format", "emirate": emirate, "city": emirate,
             "price": parsed.price_aed, "listing_title": parsed.title,
             "description": parsed.description}
     else:

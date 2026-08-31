@@ -37,7 +37,8 @@ def listing_diagnostic(current_user, listing_type, listing_id):
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/{table}",
         headers=_svc(),
-        params={"select": "*", "id": f"eq.{listing_id}", "limit": 1},
+        params={"select": "*", "id": f"eq.{listing_id}",
+                "dealership_id": f"eq.{g.dealer_ctx['dealership_id']}", "limit": 1},
         timeout=10,
     )
     if r.status_code != 200 or not r.json():

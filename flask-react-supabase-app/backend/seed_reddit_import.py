@@ -101,7 +101,9 @@ def main():
         if not plist:
             continue
         table = LISTING_TABLES[cat]["table"]
-        existing = w._fetch_existing_by_source_ids(table, [p.source_id for p in plist])
+        existing = w._fetch_existing_by_source_ids(
+            table, [p.source_id for p in plist], owner_id
+        )
         for parsed in plist:
             w._upsert_listing(parsed, owner_id, existing, now, counts, visible=visible)
         print(f"  {cat:5}: {len(plist)} eligible")

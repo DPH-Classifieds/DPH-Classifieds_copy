@@ -136,7 +136,8 @@ class SeoRouteTests(unittest.TestCase):
         ), patch.object(backend, "_create_listing_with_lifecycle_fallback", side_effect=fake_create_listing), patch.object(
             backend, "supabase_request", side_effect=fake_supabase_request
         ), patch.object(backend, "_require_verified_user_for_listing", return_value=None), patch.object(
-            backend, "_sync_gate_error", return_value=None
+            backend, "_require_dealer_verified", return_value=None
+        ), patch.object(backend, "_sync_gate_error", return_value=None
         ):
             with backend.app.test_request_context("/api/cars", method="POST", json=payload):
                 response = backend.create_car.__wrapped__("user-123")

@@ -7,6 +7,7 @@ Endpoints:
   DELETE /api/dealer/api-sources/<id>       -- delete
   POST   /api/dealer/api-sources/<id>/test  -- test the connection, return row count sample
 """
+import json
 import logging
 import os
 from functools import wraps
@@ -16,6 +17,12 @@ from flask import Blueprint, Response, g, jsonify, request
 
 from ._decorators import dealer_required, role_required
 from services.dealer_credentials import KeyMissingError, encrypt_credentials, decrypt_credentials
+from services.url_safety import (
+    ResponseTooLarge,
+    assert_safe_outbound,
+    read_bounded_response,
+    request_with_safe_redirects,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +40,11 @@ _SOURCE_COLS = (
 _VALID_ADAPTERS = {"generic_json"}
 _VALID_AUTH_TYPES = {"bearer", "basic", "hmac", "none"}
 _MIN_POLL_INTERVAL = 5
+_MAX_POLL_INTERVAL = 7 * 24 * 60
+_TEST_RESPONSE_BYTES = max(
+    1024,
+    int(os.getenv("DEALER_API_TEST_MAX_RESPONSE_BYTES", str(1024 * 1024))),
+)
 
 api_sources_bp = Blueprint("dealer_api_sources", __name__, url_prefix="/api/dealer")
 
@@ -71,6 +83,16 @@ def _strip_credentials(row: dict) -> dict:
     out = dict(row)
     out.pop("credentials_enc", None)
     return out
+
+
+def _poll_interval(value, default=None):
+    if value is None and default is not None:
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if _MIN_POLL_INTERVAL <= parsed <= _MAX_POLL_INTERVAL else None
 
 
 def _fetch_source_for_dealership(source_id: str, dealership_id: str, include_credentials: bool = False):
@@ -147,6 +169,10 @@ def create_source(current_user=None):
     endpoint_url = (body.get("endpoint_url") or "").strip()
     if not endpoint_url:
         return jsonify({"error": {"code": "endpoint_url_required"}}), 400
+    try:
+        endpoint_url = assert_safe_outbound(endpoint_url)
+    except ValueError:
+        return jsonify({"error": {"code": "unsafe_endpoint_url"}}), 400
 
     adapter = body.get("adapter")
     if adapter not in _VALID_ADAPTERS:
@@ -158,13 +184,12 @@ def create_source(current_user=None):
         return jsonify({"error": {"code": "invalid_auth_type",
                                   "message": f"auth_type must be one of {sorted(_VALID_AUTH_TYPES)}"}}), 400
 
-    try:
-        poll_interval_min = int(body.get("poll_interval_min", _MIN_POLL_INTERVAL))
-    except (TypeError, ValueError):
-        poll_interval_min = _MIN_POLL_INTERVAL
-    if poll_interval_min < _MIN_POLL_INTERVAL:
+    poll_interval_min = _poll_interval(
+        body.get("poll_interval_min"), default=_MIN_POLL_INTERVAL
+    )
+    if poll_interval_min is None:
         return jsonify({"error": {"code": "invalid_poll_interval",
-                                  "message": f"poll_interval_min must be >= {_MIN_POLL_INTERVAL}"}}), 400
+                                  "message": f"poll_interval_min must be between {_MIN_POLL_INTERVAL} and {_MAX_POLL_INTERVAL}"}}), 400
 
     # --- Encrypt credentials ---
     credentials = body.get("credentials") or {}
@@ -221,6 +246,16 @@ def update_source(current_user=None, source_id=None):
                   "poll_interval_min", "enabled"):
         if field in body:
             update[field] = body[field]
+    if "endpoint_url" in update:
+        try:
+            update["endpoint_url"] = assert_safe_outbound(update["endpoint_url"])
+        except ValueError:
+            return jsonify({"error": {"code": "unsafe_endpoint_url"}}), 400
+    if "poll_interval_min" in update:
+        interval = _poll_interval(update["poll_interval_min"])
+        if interval is None:
+            return jsonify({"error": {"code": "invalid_poll_interval"}}), 400
+        update["poll_interval_min"] = interval
 
     # Re-encrypt credentials only if caller explicitly sent them
     if "credentials" in body:
@@ -320,6 +355,10 @@ def test_source(current_user=None, source_id=None):
         creds = {}
 
     endpoint_url = source.get("endpoint_url", "")
+    try:
+        endpoint_url = assert_safe_outbound(endpoint_url)
+    except ValueError:
+        return jsonify({"error": {"code": "unsafe_endpoint_url"}}), 400
     auth_type = source.get("auth_type", "none")
     field_mapping = source.get("field_mapping") or {}
 
@@ -338,22 +377,33 @@ def test_source(current_user=None, source_id=None):
 
     # Fetch the endpoint
     try:
-        resp = requests.get(endpoint_url, headers=headers, timeout=15)
+        resp = request_with_safe_redirects(
+            requests.get,
+            endpoint_url,
+            headers=headers,
+            timeout=15,
+            stream=True,
+        )
+    except ValueError:
+        return jsonify({"error": {"code": "unsafe_endpoint_url"}}), 400
     except Exception as exc:
         return jsonify({"error": {"code": "connection_error", "message": str(exc)[:300]}}), 502
 
-    if resp.status_code != 200:
-        return jsonify({"error": {
-            "code": "endpoint_error",
-            "message": f"Endpoint returned {resp.status_code}: {resp.text[:200]}",
-        }}), 502
-
-    # Parse response body
     try:
-        payload = resp.json()
-    except Exception:
+        if resp.status_code != 200:
+            return jsonify({"error": {
+                "code": "endpoint_error",
+                "message": f"Endpoint returned {resp.status_code}",
+            }}), 502
+        raw_body = read_bounded_response(resp, _TEST_RESPONSE_BYTES)
+        payload = json.loads(raw_body)
+    except ResponseTooLarge:
+        return jsonify({"error": {"code": "response_too_large"}}), 502
+    except (UnicodeDecodeError, json.JSONDecodeError):
         return jsonify({"error": {"code": "parse_error",
                                   "message": "Response is not valid JSON"}}), 502
+    finally:
+        resp.close()
 
     if isinstance(payload, list):
         raw_rows = payload

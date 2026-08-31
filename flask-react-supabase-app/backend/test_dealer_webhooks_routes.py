@@ -1,4 +1,5 @@
 """Tests for dealer webhooks CRUD routes (Task 7 — Phase 4)."""
+import json
 import sys
 import pytest
 from unittest.mock import patch, MagicMock
@@ -87,6 +88,8 @@ def _resp(status, body, headers=None):
         m.headers = headers
     else:
         m.headers = {}
+    m.content = body if isinstance(body, bytes) else json.dumps(body).encode()
+    m.iter_content.return_value = [m.content]
     return m
 
 

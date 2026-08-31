@@ -5,7 +5,7 @@ the import worker and from request handlers. Designed for cars only in v1.
 """
 import csv
 import io
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from typing import Iterable, Optional, Tuple
 
 CANONICAL_FIELDS = (

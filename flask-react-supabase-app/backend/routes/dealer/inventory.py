@@ -18,6 +18,7 @@ from uuid import uuid4
 
 import requests
 from flask import Blueprint, Response, g, jsonify, request
+from werkzeug.utils import secure_filename
 
 from ._decorators import dealer_required, role_required
 
@@ -235,9 +236,18 @@ def post_import(current_user=None):
     except (ValueError, TypeError):
         return jsonify({"error": {"code": "invalid_mapping"}}), 400
 
-    filename = upload.filename or "upload.csv"
     job_id = str(uuid4())
-    storage_path = f"dealer-imports/{dealership_id}/{job_id}/{filename}"
+    # The client filename is metadata only. Storage names are generated from
+    # the server UUID and a fixed import kind, so traversal/control characters
+    # can never become part of an object path.
+    original_filename = upload.filename or ""
+    if any(ord(char) < 32 or ord(char) == 127 for char in original_filename):
+        return jsonify({"error": {"code": "invalid_filename"}}), 400
+    source_filename = secure_filename(original_filename)
+    if not source_filename:
+        return jsonify({"error": {"code": "invalid_filename"}}), 400
+    extension = "xml" if kind == "xml_import" else "csv"
+    storage_path = f"dealer-imports/{dealership_id}/{job_id}.{extension}"
     content_type = upload.content_type or "application/octet-stream"
 
     # Upload to Supabase Storage

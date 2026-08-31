@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import requests
 from flask import Blueprint, g, jsonify, request
 
-from ._decorators import _is_admin
+from ._decorators import _is_admin, _request_client_ip
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = (
@@ -98,7 +98,7 @@ def suspend(current_user, dealership_id):
             "http_method": "POST", "endpoint": request.path,
             "result_status": r.status_code,
             "user_agent": request.headers.get("User-Agent"),
-            "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "ip_address": _request_client_ip(),
         }, timeout=5,
     )
     return jsonify({"ok": r.status_code in (200, 204)})
@@ -124,7 +124,7 @@ def restore(current_user, dealership_id):
             "http_method": "POST", "endpoint": request.path,
             "result_status": r.status_code,
             "user_agent": request.headers.get("User-Agent"),
-            "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "ip_address": _request_client_ip(),
         }, timeout=5,
     )
     return jsonify({"ok": r.status_code in (200, 204)})

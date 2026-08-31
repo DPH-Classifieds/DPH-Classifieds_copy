@@ -1,6 +1,8 @@
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from functools import wraps
+from threading import BoundedSemaphore
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -9,6 +11,14 @@ from services.registration_ocr import scan_registration_image
 logger = logging.getLogger(__name__)
 
 ocr_bp = Blueprint("ocr", __name__, url_prefix="/api/ocr")
+
+_OCR_WORKERS = max(1, min(int(os.getenv("OCR_REGISTRATION_MAX_WORKERS", "2")), 8))
+_OCR_MAX_INFLIGHT = max(
+    _OCR_WORKERS,
+    min(int(os.getenv("OCR_REGISTRATION_MAX_INFLIGHT", str(_OCR_WORKERS * 2))), 16),
+)
+_OCR_POOL = ThreadPoolExecutor(max_workers=_OCR_WORKERS, thread_name_prefix="registration-ocr")
+_OCR_SLOTS = BoundedSemaphore(_OCR_MAX_INFLIGHT)
 
 LISTING_OWNERSHIP_TABLES = {
     "car": "cars",
@@ -175,7 +185,6 @@ def scan_registration(current_user):
     }
 
     import io as _io
-    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FuturesTimeout
 
     # Keep the API deadline below the upstream/gateway deadline. The Paddle
     # service has its own bounded queue; this only prevents a slow dependency
@@ -191,30 +200,24 @@ def scan_registration(current_user):
             _io.BytesIO(raw_bytes), document_type=doc_type, metadata=metadata
         )
 
-    # Not using a `with` block on purpose: ThreadPoolExecutor.__exit__ calls
-    # shutdown(wait=True), which blocks until the submitted task finishes
-    # regardless of a timeout already being raised below — that defeated the
-    # timeout entirely and let slow scans run past Cloudflare's ~100s limit
-    # (524). shutdown(wait=False) lets the response return immediately while
-    # the thread finishes (or the reader itself gives up) in the background.
-    _pool = ThreadPoolExecutor(max_workers=1)
+    if not _OCR_SLOTS.acquire(blocking=False):
+        return jsonify({"error": "registration OCR is busy; retry shortly"}), 503
+
+    _future = _OCR_POOL.submit(_run_scan)
+    _future.add_done_callback(lambda _completed: _OCR_SLOTS.release())
     try:
-        _future = _pool.submit(_run_scan)
         result = _future.result(timeout=_OCR_TIMEOUT)
-        _pool.shutdown(wait=False)
         if result.get("fields", {}).get("vin"):
             logger.info("PaddleOCR extracted VIN for user %s", current_user)
         return jsonify(result), 200
-    except _FuturesTimeout:
-        _pool.shutdown(wait=False)
+    except FuturesTimeout:
+        _future.cancel()
         logger.warning("PaddleOCR registration scan timed out after %ss", _OCR_TIMEOUT)
         _record_ocr_failure(current_user, doc_type, "ocr_timeout", f"registration OCR timed out after {_OCR_TIMEOUT}s")
     except ValueError as exc:
-        _pool.shutdown(wait=False)
         _record_ocr_failure(current_user, doc_type, "ocr_invalid", str(exc))
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
-        _pool.shutdown(wait=False)
         logger.warning("PaddleOCR registration scan unavailable: %s", exc)
         _record_ocr_failure(current_user, doc_type, "ocr_unavailable", str(exc))
 

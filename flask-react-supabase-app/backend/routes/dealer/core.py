@@ -31,6 +31,12 @@ def _svc_headers():
     }
 
 
+def _logout_user_sessions(user_id):
+    """Globally block target-user JWTs after membership revocation."""
+    from app import revoke_user_sessions
+    return revoke_user_sessions(user_id)
+
+
 def _token_required(fn):
     """Late-binding shim so app.py imports cleanly before routes register."""
     from app import token_required
@@ -196,6 +202,22 @@ def revoke_invitation(current_user, invite_id):
 @dealer_required
 @role_required("owner")
 def revoke_member(current_user, member_id):
+    member_response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/dealership_members",
+        headers=_svc_headers(),
+        params={
+            "select": "id,user_id,status",
+            "id": f"eq.{member_id}",
+            "dealership_id": f"eq.{g.dealer_ctx['dealership_id']}",
+            "limit": 1,
+        },
+        timeout=10,
+    )
+    members = member_response.json() if member_response.status_code == 200 else []
+    if not members:
+        return jsonify({"error": {"code": "member_not_found"}}), 404
+    member = members[0]
+
     r = requests.patch(
         f"{SUPABASE_URL}/rest/v1/dealership_members",
         headers=_svc_headers(),
@@ -206,7 +228,15 @@ def revoke_member(current_user, member_id):
         json={"status": "revoked"},
         timeout=10,
     )
-    return jsonify({"ok": r.status_code in (200, 204)})
+    if r.status_code not in (200, 204):
+        return jsonify({"error": {"code": "member_revoke_failed"}}), 502
+    if not _logout_user_sessions(member["user_id"]):
+        return jsonify({
+            "ok": False,
+            "membership_revoked": True,
+            "error": {"code": "session_invalidation_failed"},
+        }), 502
+    return jsonify({"ok": True})
 
 
 @core_bp.route("/invitations/accept", methods=["POST"])

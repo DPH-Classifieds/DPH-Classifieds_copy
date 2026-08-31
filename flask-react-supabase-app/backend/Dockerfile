@@ -9,6 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/opt/venv/bin:$PATH
 
 WORKDIR /app
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
 COPY requirements.txt /app/requirements.txt
 
@@ -18,7 +19,8 @@ RUN python -m venv /opt/venv \
     && pip install --upgrade pip setuptools wheel \
     && pip install -r /app/requirements.txt
 
-COPY . /app
+COPY --chown=appuser:appuser . /app
+USER appuser
 
 EXPOSE 8000
 

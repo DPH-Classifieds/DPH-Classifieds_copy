@@ -10,6 +10,13 @@ from flask import Blueprint, g, jsonify, request
 from ._decorators import dealer_required, role_required
 from services.dealer_secrets import decrypt_secret, encrypt_secret, KeyMissingError
 from services.webhook_signing import sign
+from services.url_safety import (
+    SAFE_POST_REDIRECT_STATUSES,
+    ResponseTooLarge,
+    assert_safe_outbound,
+    read_bounded_response,
+    request_with_safe_redirects,
+)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = (
@@ -20,6 +27,9 @@ ALLOWED_EVENTS = {
     "lead.created", "lead.status_changed", "lead.assigned",
     "listing.sold", "listing.view_milestone", "inventory.import_completed",
 }
+_TEST_RESPONSE_BYTES = max(
+    500, int(os.getenv("DEALER_WEBHOOK_TEST_MAX_RESPONSE_BYTES", "8192"))
+)
 
 webhooks_bp = Blueprint("dealer_webhooks", __name__, url_prefix="/api/dealer")
 
@@ -82,6 +92,10 @@ def create_webhook(current_user):
         return jsonify({"error": {"code": "invalid_label", "message": "label is required"}}), 400
     if not url or not (url.startswith("http://") or url.startswith("https://")):
         return jsonify({"error": {"code": "invalid_url", "message": "url must start with http:// or https://"}}), 400
+    try:
+        url = assert_safe_outbound(url)
+    except ValueError:
+        return jsonify({"error": {"code": "unsafe_url"}}), 400
     if not events or not isinstance(events, list) or len(events) == 0:
         return jsonify({"error": {"code": "invalid_events", "message": "events must be a non-empty list"}}), 400
     unknown = [e for e in events if e not in ALLOWED_EVENTS]
@@ -143,6 +157,10 @@ def update_webhook(current_user, webhook_id):
         url = (update["url"] or "").strip()
         if not url or not (url.startswith("http://") or url.startswith("https://")):
             return jsonify({"error": {"code": "invalid_url"}}), 400
+        try:
+            url = assert_safe_outbound(url)
+        except ValueError:
+            return jsonify({"error": {"code": "unsafe_url"}}), 400
         update["url"] = url
 
     # Validate events if present
@@ -231,6 +249,10 @@ def send_test(current_user, webhook_id):
         return jsonify({"error": {"code": "not_found"}}), 404
 
     webhook = wh_resp.json()[0]
+    try:
+        webhook["url"] = assert_safe_outbound(webhook["url"])
+    except ValueError:
+        return jsonify({"error": {"code": "unsafe_url"}}), 400
 
     try:
         secret = decrypt_secret(webhook["secret_enc"])
@@ -258,12 +280,33 @@ def send_test(current_user, webhook_id):
     }
 
     try:
-        resp = requests.post(webhook["url"], data=body_bytes, headers=headers, timeout=(10, 10))
+        resp = request_with_safe_redirects(
+            requests.post,
+            webhook["url"],
+            data=body_bytes,
+            headers=headers,
+            timeout=(10, 10),
+            stream=True,
+            redirect_statuses=SAFE_POST_REDIRECT_STATUSES,
+        )
+        try:
+            response_body = read_bounded_response(resp, _TEST_RESPONSE_BYTES)
+            response_text = response_body[:500].decode("utf-8", errors="replace")
+        except ResponseTooLarge:
+            response_text = "[response body exceeded limit]"
+        finally:
+            resp.close()
         return jsonify({
             "status_code": resp.status_code,
-            "response_body": (resp.text or "")[:500],
+            "response_body": response_text,
             "signature": signature,
         })
+    except ValueError:
+        return jsonify({
+            "status_code": None,
+            "response_body": "unsafe redirect target",
+            "signature": signature,
+        }), 502
     except Exception as exc:
         return jsonify({
             "status_code": None,

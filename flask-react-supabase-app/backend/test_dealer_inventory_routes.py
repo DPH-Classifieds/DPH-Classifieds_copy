@@ -82,6 +82,10 @@ def test_post_import_creates_job_and_uploads_file(mock_is_admin, mock_lookup, mo
     )
     assert rv.status_code == 201
     assert rv.get_json()["job"]["id"] == "job-99"
+    storage_call = mock_requests.post.call_args_list[0]
+    assert "/dealer-imports/d1/" in storage_call.args[0]
+    assert storage_call.args[0].endswith(".csv?upsert=true")
+    assert "file.csv" not in storage_call.args[0]
 
 
 @patch("routes.dealer.inventory.requests")

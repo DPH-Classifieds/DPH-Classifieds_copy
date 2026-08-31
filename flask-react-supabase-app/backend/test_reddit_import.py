@@ -257,6 +257,54 @@ class MultiCategoryTests(unittest.TestCase):
         self.assertEqual(built["config"]["table"], "license_plates")
         self.assertEqual(built["payload"]["number"], "12345")
 
+    def test_engine_descriptor_leading_title_is_still_a_car(self):
+        # A part word used as a descriptor directly on the vehicle (no fitment
+        # word like "for"/"fits" separating them) must not demote a full car
+        # to a car_parts row — this was the reported "car miscoded as an
+        # engine" bug (turbo/exhaust/intake all map to part_type "Engine").
+        for t in [
+            "WTS Turbo BMW 335i 2013, low mileage AED 45,000",
+            "WTS Twin Turbo Mercedes G63 2016 AED 350,000",
+            "WTS Supercharged Range Rover Sport 2019 AED 180,000",
+        ]:
+            self.assertEqual(self._p(t).category, "car", t)
+
+    def test_engine_part_genuinely_for_a_car_stays_a_part(self):
+        # The fitment word ("for") between the part word and the vehicle it
+        # fits is what makes this genuinely a parts listing, not a car.
+        p = self._p("WTS Turbo for BMW 335i, single turbo upgrade AED 3,500")
+        self.assertEqual(p.category, "part")
+        built = build_imported_payload(p, "owner", NOW)
+        self.assertEqual(built["payload"]["part_type"], "Engine")
+
+    def test_part_descriptor_leading_bike_title_is_still_a_bike(self):
+        p = self._p("WTS Akrapovic Exhaust Kawasaki ZX10R 2018 AED 42,000")
+        self.assertEqual(p.category, "bike")
+
+    def test_plate_number_survives_a_price_mentioned_first(self):
+        # The plate number must not be confused with a nearby price fragment.
+        p = self._p("WTS AED 30,000 Dubai plate 5555")
+        self.assertEqual(p.category, "plate")
+        built = build_imported_payload(p, "owner", NOW)
+        self.assertEqual(built["payload"]["number"], "5555")
+        self.assertEqual(built["payload"]["price"], 30000)
+
+    def test_plate_code_and_number_both_labelled_are_not_swapped(self):
+        # Abu Dhabi style: a numeric category "code" and a separate "number"
+        # must resolve to their own fields, not double up on the code digit.
+        p = self._p("WTS Abu Dhabi plate code 1 number 7 AED 40,000")
+        built = build_imported_payload(p, "owner", NOW)
+        self.assertEqual(built["payload"]["number"], "7")
+        self.assertEqual(built["payload"]["code"], "1")
+        self.assertEqual(built["payload"]["emirate"], "Abu Dhabi")
+        self.assertEqual(built["payload"]["city"], "Abu Dhabi")
+
+    def test_plate_emirate_is_not_always_dubai(self):
+        p = self._p("WTS Sharjah plate O 5 AED 20,000")
+        built = build_imported_payload(p, "owner", NOW)
+        self.assertEqual(built["payload"]["emirate"], "Sharjah")
+        self.assertEqual(built["payload"]["code"], "O")
+
     def test_every_category_payload_carries_source_contract(self):
         for title in ["WTS 2018 BMW 120i AED 39,000", "WTS Yamaha MT-09 2022 AED 40,000",
                       "WTS exhaust for Golf AED 2,000", "WTS plate 5555 AED 30,000"]:
@@ -372,6 +420,13 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(car_post["data"]["user_id"], OWNER_ID)
         self.assertEqual(car_post["data"]["source_external_id"], "t3_new1")
         self.assertEqual(car_post["data"]["status"], "approved")
+        source_lookup = next(
+            c for c in db.calls
+            if c["path"] == "/rest/v1/cars"
+            and c["method"] == "get"
+            and c["params"].get("source_external_id")
+        )
+        self.assertEqual(source_lookup["params"]["user_id"], f"eq.{OWNER_ID}")
 
     @patch("workers.reddit_import_worker.fetch_submissions_by_ids", return_value={})
     @patch("workers.reddit_import_worker.get_app_access_token", return_value="tok")
@@ -397,11 +452,15 @@ class WorkerTests(unittest.TestCase):
         with patch.object(w, "supabase_request", db), \
                 patch("workers.reddit_import_worker.fetch_submissions_by_ids", return_value={}):
             # t3_gone is absent from the fresh page and absent from /api/info → removed.
-            result = w.sync_removed_imports(session, "tok", live_source_ids=set(), user_agent="ua", now=NOW)
+            result = w.sync_removed_imports(
+                session, "tok", live_source_ids=set(), user_agent="ua", now=NOW,
+                owner_id=OWNER_ID,
+            )
         self.assertEqual(result["removed"], 1)
         patch_call = next(c for c in db.calls if c["path"].startswith("/rest/v1/cars?") and c["method"] == "patch")
         self.assertEqual(patch_call["data"]["status"], "source_removed")
         self.assertIs(patch_call["data"]["is_approved"], False)
+        self.assertIn(f"user_id=eq.{OWNER_ID}", patch_call["path"])
 
     def test_still_live_post_out_of_window_is_not_removed(self):
         import workers.reddit_import_worker as w
@@ -411,7 +470,10 @@ class WorkerTests(unittest.TestCase):
         still_live = {"t3_live": complete_post("live")}
         with patch.object(w, "supabase_request", db), \
                 patch("workers.reddit_import_worker.fetch_submissions_by_ids", return_value=still_live):
-            result = w.sync_removed_imports(session, "tok", live_source_ids=set(), user_agent="ua", now=NOW)
+            result = w.sync_removed_imports(
+                session, "tok", live_source_ids=set(), user_agent="ua", now=NOW,
+                owner_id=OWNER_ID,
+            )
         self.assertEqual(result["removed"], 0)
         self.assertFalse(any(c["method"] == "patch" for c in db.calls))
 

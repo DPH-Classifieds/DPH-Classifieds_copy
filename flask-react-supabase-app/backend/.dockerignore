@@ -7,6 +7,13 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+# Never bake local credentials or private keys into COPY . /app.
+.env
+.env.*
+*.pem
+*.key
+*client_secret*.json
+*credentials*.json
 easyocr_models/
 tests/
 test_*.py

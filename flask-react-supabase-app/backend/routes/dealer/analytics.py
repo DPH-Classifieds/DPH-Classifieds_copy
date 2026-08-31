@@ -29,6 +29,30 @@ SUPABASE_SERVICE_KEY = (
 )
 
 analytics_bp = Blueprint("dealer_analytics", __name__, url_prefix="/api/dealer")
+MAX_SYNC_EVENTS = max(1000, int(os.getenv("DEALER_ANALYTICS_MAX_SYNC_EVENTS", "20000")))
+
+
+class AnalyticsVolumeExceeded(RuntimeError):
+    pass
+
+
+@analytics_bp.errorhandler(AnalyticsVolumeExceeded)
+def _analytics_volume_exceeded(_error):
+    return jsonify({
+        "error": {
+            "code": "analytics_window_too_large",
+            "message": "Choose a smaller analytics window.",
+        }
+    }), 422
+
+
+def _bounded_rows(response, remaining):
+    rows = response.json() if response.status_code == 200 else []
+    if not isinstance(rows, list):
+        return []
+    if len(rows) > remaining:
+        raise AnalyticsVolumeExceeded()
+    return rows
 
 
 def _token_required(fn):
@@ -84,13 +108,16 @@ def _fetch_platform_events(dealership_id, start, end, page_kind=None):
         # PostgREST `in.()` has length limits, chunk.
         ids_list = list(ids)
         for i in range(0, len(ids_list), 200):
+            remaining = MAX_SYNC_EVENTS - len(events)
+            if remaining <= 0:
+                raise AnalyticsVolumeExceeded()
             chunk = ids_list[i:i + 200]
             params = {
                 "select": "visitor_id,listing_id,listing_type,event_name,page_kind,created_at,metadata",
                 "listing_type": f"eq.{kind}",
                 "listing_id": f"in.({','.join(chunk)})",
                 "created_at": f"gte.{start.isoformat()}",
-                "limit": 50000,
+                "limit": remaining + 1,
             }
             if page_kind:
                 params["page_kind"] = f"eq.{page_kind}"
@@ -99,7 +126,7 @@ def _fetch_platform_events(dealership_id, start, end, page_kind=None):
                 headers=_svc(), params=params, timeout=30,
             )
             if r.status_code == 200:
-                events.extend(r.json())
+                events.extend(_bounded_rows(r, remaining))
     return events
 
 
@@ -111,11 +138,11 @@ def _fetch_lead_events(dealership_id, start, end):
             "select": "visitor_id,listing_id,listing_type,action,created_at",
             "dealership_id": f"eq.{dealership_id}",
             "created_at": f"gte.{start.isoformat()}",
-            "limit": 50000,
+            "limit": MAX_SYNC_EVENTS + 1,
         },
         timeout=20,
     )
-    return r.json() if r.status_code == 200 else []
+    return _bounded_rows(r, MAX_SYNC_EVENTS)
 
 
 @analytics_bp.route("/analytics/kpis", methods=["GET"])
@@ -398,11 +425,11 @@ def listing_analytics(current_user, listing_type, listing_id):
             "listing_type": f"eq.{listing_type}",
             "listing_id": f"eq.{listing_id}",
             "created_at": f"gte.{start.isoformat()}",
-            "limit": 50000,
+            "limit": MAX_SYNC_EVENTS + 1,
         },
         timeout=20,
     )
-    events = r.json() if r.status_code == 200 else []
+    events = _bounded_rows(r, MAX_SYNC_EVENTS)
     leads_r = requests.get(
         f"{SUPABASE_URL}/rest/v1/lead_events",
         headers=_svc(),
@@ -411,11 +438,11 @@ def listing_analytics(current_user, listing_type, listing_id):
             "listing_type": f"eq.{listing_type}",
             "listing_id": f"eq.{listing_id}",
             "created_at": f"gte.{start.isoformat()}",
-            "limit": 50000,
+            "limit": MAX_SYNC_EVENTS + 1,
         },
         timeout=20,
     )
-    lead_events = leads_r.json() if leads_r.status_code == 200 else []
+    lead_events = _bounded_rows(leads_r, MAX_SYNC_EVENTS)
 
     impressions = dedupe_impressions(events)
     detail_events = [e for e in events if e.get("page_kind") == "listing_detail"]

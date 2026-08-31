@@ -1,4 +1,5 @@
 """Tests for dealer api_sources CRUD routes (Task 7 — Phase 3)."""
+import json
 import pytest
 from unittest.mock import patch, MagicMock
 from flask import request as flask_request
@@ -33,6 +34,21 @@ def app_with_api_sources():
             # register_blueprint. Reset so this module can register cleanly.
             flask_app_module.app._got_first_request = False
             flask_app_module.app.register_blueprint(api_sources_bp)
+        # The application may have imported the blueprint before this fixture
+        # patched app.token_required (for example when another test imports
+        # app during collection). Remove only the outer auth wrapper so these
+        # route-contract tests can exercise dealer authorization with their
+        # injected request user and mocked membership lookup.
+        for endpoint in (
+            "dealer_api_sources.list_sources",
+            "dealer_api_sources.create_source",
+            "dealer_api_sources.update_source",
+            "dealer_api_sources.delete_source",
+            "dealer_api_sources.test_source",
+        ):
+            view = flask_app_module.app.view_functions.get(endpoint)
+            if view is not None and hasattr(view, "__wrapped__"):
+                flask_app_module.app.view_functions[endpoint] = view.__wrapped__
         flask_app_module.app.config["TESTING"] = True
         yield flask_app_module.app
     finally:
@@ -57,8 +73,18 @@ def _resp(status, body, headers=None):
     r.json.return_value = body
     r.text = str(body)
     r.headers = headers or {}
-    r.content = body if isinstance(body, (bytes, bytearray)) else str(body).encode()
+    r.content = body if isinstance(body, (bytes, bytearray)) else json.dumps(body).encode()
+    r.iter_content.return_value = [r.content]
     return r
+
+
+def test_poll_interval_validation_is_strict_and_bounded():
+    from routes.dealer import api_sources
+    assert api_sources._poll_interval("5") == 5
+    assert api_sources._poll_interval(10080) == 10080
+    assert api_sources._poll_interval("not-a-number") is None
+    assert api_sources._poll_interval(4) is None
+    assert api_sources._poll_interval(10081) is None
 
 
 # ---------------------------------------------------------------------------

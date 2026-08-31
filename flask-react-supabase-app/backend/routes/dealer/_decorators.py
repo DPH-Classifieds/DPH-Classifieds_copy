@@ -17,6 +17,11 @@ from flask import g, jsonify, request
 
 logger = logging.getLogger(__name__)
 
+
+def _request_client_ip():
+    """Use forwarded IPs only after the app has explicitly trusted a proxy."""
+    return request.remote_addr or ""
+
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv(
     "SUPABASE_SERVICE_ROLE_KEY", ""
@@ -110,7 +115,7 @@ def _audit_write(*, admin_user_id, dealership_id, method, endpoint, payload, sta
                 "payload_digest": digest,
                 "result_status": status_code,
                 "user_agent": request.headers.get("User-Agent"),
-                "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+                "ip_address": _request_client_ip(),
             },
             timeout=10,
         )

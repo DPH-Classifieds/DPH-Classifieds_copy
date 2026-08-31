@@ -626,6 +626,17 @@ class RegistrationOCRRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 413)
 
+    @patch("routes.ocr._authenticate_bearer_token")
+    def test_scan_registration_route_rejects_when_worker_bound_is_full(self, mock_authenticate):
+        mock_authenticate.return_value = ("auth-user-123", {"id": "auth-user-123"})
+        with patch.object(ocr_route._OCR_SLOTS, "acquire", return_value=False):
+            response = self.client.post(
+                "/api/ocr/scan-registration",
+                data={"image": (_jpeg_bytes(), "mulkiya.jpg")},
+                headers={"Authorization": "Bearer test-token"},
+            )
+        self.assertEqual(response.status_code, 503)
+
     def test_upload_validation_checks_actual_file_size(self):
         with backend.app.test_request_context(
             "/api/ocr/scan-registration",

@@ -108,6 +108,17 @@ def _fetch_active_docs(user_id):
     return []
 
 
+def _claim(row_id):
+    """Atomically claim a pending row; only one replica may continue."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return True
+    body, status = supabase_request(
+        "patch", f"/rest/v1/dealer_pending_approvals?id=eq.{row_id}&state=eq.pending",
+        data={"state": "firing"},
+    )
+    return (status == 204) or (status < 300 and bool(body)) or (not SUPABASE_URL)
+
+
 def _mark(row_id, **fields):
     supabase_request("patch", f"/rest/v1/dealer_pending_approvals?id=eq.{row_id}", data=fields)
 
@@ -180,6 +191,8 @@ def _fire_pending_approval(row, current_docs=None, user_row=None,
 
 def _process_one(row):
     """Apply the pure decision to one row + persist the transition."""
+    if not _claim(row["id"]):
+        return {"decision": "skip", "reason": "already_claimed"}
     threshold = float(row.get("threshold") or DEFAULT_THRESHOLD)
     current_docs = _fetch_active_docs(row["user_id"])
     user_row = _fetch_user(row["user_id"])

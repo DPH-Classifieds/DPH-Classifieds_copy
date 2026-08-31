@@ -15,6 +15,7 @@ from flask import (
 )
 import atexit
 import datetime
+import io
 import hashlib
 import threading
 import logging
@@ -37,6 +38,7 @@ from flask_cors import CORS
 from PIL import Image
 from posthog import Posthog
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from xml.sax.saxutils import escape as xml_escape
 
 from analytics_metrics import build_platform_metrics, classify_platform_path
@@ -76,6 +78,9 @@ from health_monitoring import (  # noqa: E402
 )
 
 app = Flask(__name__, static_folder="static")
+_trusted_proxy_hops = int(os.getenv("TRUSTED_PROXY_HOPS", "0"))
+if _trusted_proxy_hops:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=_trusted_proxy_hops, x_proto=_trusted_proxy_hops)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
@@ -151,6 +156,7 @@ CONTACT_LEAD_RATE_LIMIT = defaultdict(deque)
 AUTH_RATE_LIMIT_WINDOW_SEC = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SEC", "300"))
 AUTH_RATE_LIMIT_MAX = int(os.getenv("AUTH_RATE_LIMIT_MAX", "5"))
 AUTH_RATE_LIMIT = defaultdict(deque)
+_RATE_LIMIT_LOCK = threading.Lock()
 REQUEST_POOL_CONNECTIONS = int(os.getenv("REQUEST_POOL_CONNECTIONS", "100"))
 REQUEST_POOL_MAXSIZE = int(os.getenv("REQUEST_POOL_MAXSIZE", "100"))
 HTTP_DEFAULT_TIMEOUT_SECONDS = float(os.getenv("HTTP_DEFAULT_TIMEOUT_SECONDS", "15"))
@@ -351,6 +357,10 @@ LISTING_IMAGE_ALLOWED_MIME_TYPES = [
 LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("LISTING_IMAGE_FILE_SIZE_LIMIT_MB", "20")) * 1024 * 1024
 )
+PART_IMAGE_MAX_COUNT = int(os.getenv("PART_IMAGE_MAX_COUNT", "10"))
+PART_IMAGE_MAX_TOTAL_BYTES = int(
+    os.getenv("PART_IMAGE_MAX_TOTAL_MB", "20")
+) * 1024 * 1024
 PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("PROFILE_PHOTO_FILE_SIZE_LIMIT_MB", "5")) * 1024 * 1024
 )
@@ -363,6 +373,12 @@ DEALER_DOCUMENT_ALLOWED_MIME_TYPES = [
 DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES = (
     int(os.getenv("DEALER_DOCUMENT_FILE_SIZE_LIMIT_MB", "10")) * 1024 * 1024
 )
+DEALER_INFO_REQUEST_MAX_UPLOADS = int(
+    os.getenv("DEALER_INFO_REQUEST_MAX_UPLOADS", "10")
+)
+DEALER_INFO_REQUEST_MAX_TOTAL_BYTES = int(
+    os.getenv("DEALER_INFO_REQUEST_MAX_TOTAL_MB", "20")
+) * 1024 * 1024
 REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES = [
     "image/jpeg",
     "image/jpg",
@@ -603,6 +619,8 @@ def _api_cache_get(key):
                 return json.loads(cached)
             logger.info("API_CACHE_MISS backend=redis key=%s", key)
         except Exception as cache_err:
+            global _REDIS_CACHE_CLIENT
+            _REDIS_CACHE_CLIENT = None
             logger.warning(f"Redis cache read failed: {cache_err}")
     # When Redis is healthy and returned a miss, that means the cache was
     # intentionally invalidated. Don't fall through to stale per-worker memory
@@ -637,6 +655,8 @@ def _api_cache_set(key, payload, ttl_seconds=API_CACHE_TTL_SECONDS):
                 len(payload) if isinstance(payload, list) else 1,
             )
         except Exception as cache_err:
+            global _REDIS_CACHE_CLIENT
+            _REDIS_CACHE_CLIENT = None
             logger.warning(f"Redis cache write failed: {cache_err}")
     with _MEMORY_API_CACHE_LOCK:
         _MEMORY_API_CACHE[key] = {
@@ -735,6 +755,8 @@ def _cache_lock_acquire(cache_key, ttl_seconds=5):
     try:
         return bool(redis_client.set(f"{cache_key}:lock", "1", nx=True, ex=ttl_seconds))
     except Exception:
+        global _REDIS_CACHE_CLIENT
+        _REDIS_CACHE_CLIENT = None
         return True
 
 
@@ -1148,6 +1170,25 @@ def _preview_listing_record(record):
     return preview
 
 
+def _listing_visible_to_requester(record, requesting_user=None):
+    """Apply the shared approval/lifecycle/owner rule to detail reads."""
+    if not isinstance(record, dict):
+        return False, False
+    is_owner = bool(requesting_user and record.get("user_id") == requesting_user)
+    lifecycle = _compute_listing_lifecycle(record)
+    is_public = (
+        str(record.get("status") or "").lower() == "approved"
+        and record.get("is_approved") is True
+        and lifecycle["state"] == "active"
+    )
+    return is_public or is_owner, is_public
+
+
+def _request_client_ip():
+    """Return the peer IP; ProxyFix supplies forwarded IPs only when trusted."""
+    return request.remote_addr or ""
+
+
 def _fetch_listing_lifecycle_rows():
     rows_by_type = {}
 
@@ -1487,19 +1528,22 @@ def _get_recent_listing_expiry_notice_dates(listing_type, cutoff):
     return notices
 
 
-def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
+def _sync_listing_lifecycle(
+    table_name, record, *, hard_delete_archived=False, persist=True
+):
     if not isinstance(record, dict):
         return record
     if _is_listing_deleted(record):
         _apply_listing_lifecycle_metadata(record)
-        _log_listing_expiry_decision(
-            "skipping_listing_expiry_job",
-            listingId=record.get("id"),
-            table=table_name,
-            status=record.get("status"),
-            deletedAt=record.get("deleted_at"),
-            reason="listing_deleted",
-        )
+        if persist:
+            _log_listing_expiry_decision(
+                "skipping_listing_expiry_job",
+                listingId=record.get("id"),
+                table=table_name,
+                status=record.get("status"),
+                deletedAt=record.get("deleted_at"),
+                reason="listing_deleted",
+            )
         return record
 
     repaired = {}
@@ -1574,7 +1618,7 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
     if lifecycle["is_archived"] and not record.get("is_archived"):
         updates["is_archived"] = True
 
-    if updates:
+    if updates and persist:
         patch_response, patch_status = supabase_request(
             "patch",
             f"/rest/v1/{table_name}?id=eq.{record.get('id')}",
@@ -1609,6 +1653,9 @@ def _sync_listing_lifecycle(table_name, record, *, hard_delete_archived=False):
                     )
 
     _apply_listing_lifecycle_metadata(record)
+
+    if not persist:
+        return record
 
     _log_listing_expiry_decision(
         "processing_listing_expiry_job",
@@ -3334,6 +3381,80 @@ def _decode_supabase_jwt_secret(raw_secret):
         pass
 
 
+_AUTH_REVOCATION_PREFIX = "auth:revoked-user:"
+_MEMORY_AUTH_REVOCATIONS = set()
+_AUTH_REVOCATION_LOCK = threading.Lock()
+
+
+def _auth_revocation_key(user_id):
+    return f"{_AUTH_REVOCATION_PREFIX}{user_id}"
+
+
+def revoke_user_sessions(user_id):
+    """Record a cutoff so tokens issued before it are rejected everywhere."""
+    if not user_id:
+        return False
+    client = _get_redis_cache_client()
+    if client:
+        try:
+            # JWT ``iat`` values are second-resolution; move the cutoff one
+            # second into the future so a token minted in the same second is
+            # never accidentally retained.
+            client.set(_auth_revocation_key(user_id), str(int(time.time()) + 1))
+            return True
+        except Exception as exc:
+            logger.error("Global auth revocation write failed: %s", exc)
+            return False
+    if REDIS_URL:
+        return False
+    with _AUTH_REVOCATION_LOCK:
+        _MEMORY_AUTH_REVOCATIONS.add(str(user_id))
+    return True
+
+
+def _clear_user_session_revocation(user_id):
+    if not user_id:
+        return False
+    client = _get_redis_cache_client()
+    if client:
+        try:
+            client.delete(_auth_revocation_key(user_id))
+            return True
+        except Exception as exc:
+            logger.error("Global auth revocation clear failed: %s", exc)
+            return False
+    if REDIS_URL:
+        return False
+    with _AUTH_REVOCATION_LOCK:
+        _MEMORY_AUTH_REVOCATIONS.discard(str(user_id))
+    return True
+
+
+def _user_session_revocation_state(user_id):
+    """Return cutoff epoch, ``0`` when clear, or ``None`` when unavailable."""
+    client = _get_redis_cache_client()
+    if client:
+        try:
+            value = client.get(_auth_revocation_key(user_id))
+            return int(value) if value else 0
+        except Exception as exc:
+            logger.error("Global auth revocation read failed: %s", exc)
+            return None
+    if REDIS_URL:
+        return None
+    with _AUTH_REVOCATION_LOCK:
+        return 1 if str(user_id) in _MEMORY_AUTH_REVOCATIONS else 0
+
+
+def _revocation_auth_response(user_id, token_iat=None):
+    state = _user_session_revocation_state(user_id)
+    if state is None:
+        return jsonify({"message": "Authentication state unavailable"}), 503
+    if state and (token_iat is None or int(token_iat) < state):
+        return jsonify({"message": "Session has been revoked"}), 401
+    return None
+
+
 def token_required(f):
     """Validate Supabase JWT (header/cookie) and inject `current_user` (user id).
 
@@ -3363,7 +3484,6 @@ def token_required(f):
             )
 
         token = parts[1]
-        token_preview = token[:20] + "..." if len(token) > 20 else token
 
         # ── 1) Try local JWT validation when secret is available. ──────────
         jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
@@ -3385,6 +3505,10 @@ def token_required(f):
                                 {"message": "Invalid token: missing user ID"}
                             ), 401
 
+                        revoked_response = _revocation_auth_response(current_user, payload.get("iat"))
+                        if revoked_response:
+                            return revoked_response
+
                         request.user_id = current_user
                         request.user_data = {
                             "id": current_user,
@@ -3397,11 +3521,11 @@ def token_required(f):
                         continue
 
                 logger.warning(
-                    f"[auth] All local JWT key attempts failed for token {token_preview}"
+                    "[auth] All local JWT key attempts failed"
                 )
             except Exception as local_error:
                 logger.warning(
-                    f"[auth] Local JWT validation failed for token {token_preview}: {local_error}"
+                    "[auth] Local JWT validation failed: %s", local_error
                 )
         else:
             logger.warning(
@@ -3434,7 +3558,7 @@ def token_required(f):
             if auth_response.status_code != 200:
                 logger.warning(
                     f"[auth] Supabase auth API returned {auth_response.status_code} "
-                    f"for token {token_preview}: {auth_response.text[:200]}"
+                    "; response=%s", auth_response.text[:200]
                 )
                 return jsonify({"message": "Token has expired or is invalid"}), 401
 
@@ -3446,6 +3570,21 @@ def token_required(f):
                 )
                 return jsonify({"message": "Invalid token"}), 401
 
+            # The Auth API has already verified this token. Decode only its
+            # non-authoritative ``iat`` claim to compare against our cutoff;
+            # never use this decode as authentication.
+            token_iat = None
+            try:
+                import base64 as _base64
+                token_payload = token.split(".")[1]
+                token_payload += "=" * (-len(token_payload) % 4)
+                token_iat = json.loads(_base64.urlsafe_b64decode(token_payload)).get("iat")
+            except Exception:
+                pass
+            revoked_response = _revocation_auth_response(current_user, token_iat)
+            if revoked_response:
+                return revoked_response
+
             request.user_id = current_user
             request.user_data = {
                 "id": current_user,
@@ -3454,11 +3593,11 @@ def token_required(f):
             }
             request.supabase_token = token
         except requests.Timeout:
-            logger.error(f"[auth] Supabase auth API timeout for token {token_preview}")
+            logger.error("[auth] Supabase auth API timeout")
             return jsonify({"message": "Authentication service timeout"}), 503
         except Exception as fallback_error:
             logger.error(
-                f"[auth] Fallback token validation error for token {token_preview}: {fallback_error}"
+                "[auth] Fallback token validation error: %s", fallback_error
             )
             return jsonify({"message": "Token has expired or is invalid"}), 401
 
@@ -3502,6 +3641,11 @@ def token_required_optional(f):
                         )
                         current_user = payload.get("sub")
                         if current_user:
+                            revocation_cutoff = _user_session_revocation_state(current_user)
+                            if revocation_cutoff is None or (
+                                revocation_cutoff and int(payload.get("iat") or 0) < revocation_cutoff
+                            ):
+                                return f(None, *args, **kwargs)
                             request.user_id = current_user
                             request.user_data = {
                                 "id": current_user,
@@ -3535,6 +3679,8 @@ def token_required_optional(f):
                 supabase_user = auth_response.json()
                 current_user = supabase_user.get("id")
                 if current_user:
+                    if _user_session_revocation_state(current_user) is None:
+                        return f(None, *args, **kwargs)
                     request.user_id = current_user
                     request.user_data = {
                         "id": current_user,
@@ -4340,15 +4486,16 @@ def _contact_rate_limited(client_ip):
     )
     if redis_limited is not None:
         return redis_limited
-    now = time.time()
-    window_start = now - CONTACT_RATE_LIMIT_WINDOW_SEC
-    entries = CONTACT_RATE_LIMIT[client_ip]
-    while entries and entries[0] < window_start:
-        entries.popleft()
-    if len(entries) >= CONTACT_RATE_LIMIT_MAX:
-        return True
-    entries.append(now)
-    return False
+    with _RATE_LIMIT_LOCK:
+        now = time.time()
+        window_start = now - CONTACT_RATE_LIMIT_WINDOW_SEC
+        entries = CONTACT_RATE_LIMIT[client_ip]
+        while entries and entries[0] < window_start:
+            entries.popleft()
+        if len(entries) >= CONTACT_RATE_LIMIT_MAX:
+            return True
+        entries.append(now)
+        return False
 
 
 def _contact_lead_rate_limited(rl_key):
@@ -4362,15 +4509,16 @@ def _contact_lead_rate_limited(rl_key):
     )
     if redis_limited is not None:
         return redis_limited
-    now = time.time()
-    window_start = now - CONTACT_LEAD_RATE_LIMIT_WINDOW_SEC
-    entries = CONTACT_LEAD_RATE_LIMIT[rl_key]
-    while entries and entries[0] < window_start:
-        entries.popleft()
-    if len(entries) >= CONTACT_LEAD_RATE_LIMIT_MAX:
-        return True
-    entries.append(now)
-    return False
+    with _RATE_LIMIT_LOCK:
+        now = time.time()
+        window_start = now - CONTACT_LEAD_RATE_LIMIT_WINDOW_SEC
+        entries = CONTACT_LEAD_RATE_LIMIT[rl_key]
+        while entries and entries[0] < window_start:
+            entries.popleft()
+        if len(entries) >= CONTACT_LEAD_RATE_LIMIT_MAX:
+            return True
+        entries.append(now)
+        return False
 
 
 # Non-browser clients (curl/python-requests/headless) are the bulk-scraper case.
@@ -4402,15 +4550,16 @@ def _auth_rate_limited(client_ip):
     )
     if redis_limited is not None:
         return redis_limited
-    now = time.time()
-    window_start = now - AUTH_RATE_LIMIT_WINDOW_SEC
-    entries = AUTH_RATE_LIMIT[client_ip]
-    while entries and entries[0] < window_start:
-        entries.popleft()
-    if len(entries) >= AUTH_RATE_LIMIT_MAX:
-        return True
-    entries.append(now)
-    return False
+    with _RATE_LIMIT_LOCK:
+        now = time.time()
+        window_start = now - AUTH_RATE_LIMIT_WINDOW_SEC
+        entries = AUTH_RATE_LIMIT[client_ip]
+        while entries and entries[0] < window_start:
+            entries.popleft()
+        if len(entries) >= AUTH_RATE_LIMIT_MAX:
+            return True
+        entries.append(now)
+        return False
 
 
 def _normalize_phone_number(phone, country_code=None):
@@ -5626,7 +5775,9 @@ def _require_dealer_verified(user_id):
             use_service_role=True,
         )
         if status >= 400:
-            return None  # Don't block on query errors
+            return jsonify({"error": "Dealer verification is temporarily unavailable", "code": "dealer_verification_unavailable"}), 503
+        if not rows:
+            return jsonify({"error": "Dealer verification could not be confirmed", "code": "dealer_verification_unavailable"}), 503
         if rows and rows[0].get("is_dealer") and not rows[0].get("dealer_verified"):
             return jsonify(
                 {
@@ -5659,7 +5810,7 @@ def _require_dealer_verified(user_id):
                 }), 403
     except Exception as e:
         logger.error(f"Error checking dealer verification: {e}")
-    return None
+        return jsonify({"error": "Dealer verification is temporarily unavailable", "code": "dealer_verification_unavailable"}), 503
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -6337,6 +6488,8 @@ def home():
 # Debug endpoint to test JSON parsing
 @app.route("/api/debug/json", methods=["POST"])
 def debug_json():
+    if os.getenv("FLASK_ENV", "production").lower() == "production":
+        return jsonify({"error": "Not found"}), 404
     logger.info(f"DEBUG: Content-Type: {request.content_type}")
     logger.info(f"DEBUG: Content-Length: {request.content_length}")
     logger.info(f"DEBUG: Raw data: {request.data[:500] if request.data else 'None'}")
@@ -6736,13 +6889,12 @@ def get_car_by_id(car_id):
             return jsonify({"error": "Car not found"}), 404
 
         car = _sync_listing_lifecycle(
-            "cars", car_response[0], hard_delete_archived=True
+            "cars", car_response[0], hard_delete_archived=False, persist=False
         )
         if not car:
             return jsonify({"error": "Car not found"}), 404
 
-        is_owner = requesting_user and car.get("user_id") == requesting_user
-        is_public = car.get("is_approved") and car.get("listing_state") == "active"
+        visible, is_public = _listing_visible_to_requester(car, requesting_user)
 
         # Dev preview (LOCAL_SHOW_HIDDEN_REDDIT=1, never set in prod): allow viewing
         # a hidden (is_approved=false) Reddit import's detail page for review.
@@ -6754,7 +6906,8 @@ def get_car_by_id(car_id):
         ):
             is_public = True
 
-        if not is_owner and not is_public:
+        is_owner = bool(requesting_user and car.get("user_id") == requesting_user)
+        if not visible and not is_public:
             return jsonify({"error": "Car not found"}), 404
 
         if is_public and not is_owner:
@@ -6914,18 +7067,20 @@ def create_car(current_user):
         # Log request details for debugging
         logger.info(f"POST /api/cars - Content-Type: {request.content_type}")
         logger.info(f"POST /api/cars - Content-Length: {request.content_length}")
-        logger.info(f"POST /api/cars - Headers: {dict(request.headers)}")
+        logger.info(
+            "POST /api/cars request received content_type=%s content_length=%s",
+            request.content_type,
+            request.content_length,
+        )
 
         # Validate input
         if not request.json:
-            logger.error(
-                f"No JSON data in request. Raw data: {request.data[:500] if request.data else 'None'}"
-            )
+            logger.error("No JSON data in car listing request")
             return jsonify(
                 {
                     "error": "Invalid request data - no JSON received",
                     "content_type": request.content_type,
-                    "raw_data": str(request.data[:200]),
+                    "raw_data": None,
                 }
             ), 400
 
@@ -7866,7 +8021,12 @@ def create_storage_signed_upload_url(current_user):
     try:
         payload = request.get_json(silent=True) or {}
         bucket_name = str(payload.get("bucket_name") or "").strip()
-        object_path = str(payload.get("object_path") or "").strip().lstrip("/")
+        object_path = str(payload.get("object_path") or "").strip()
+        content_type = str(payload.get("content_type") or "").strip().lower()
+        try:
+            file_size = int(payload.get("file_size"))
+        except (TypeError, ValueError):
+            file_size = 0
         upsert = bool(payload.get("upsert"))
 
         if bucket_name not in {
@@ -7877,13 +8037,24 @@ def create_storage_signed_upload_url(current_user):
         }:
             return jsonify({"error": "Unsupported bucket"}), 400
 
-        if not object_path:
-            return jsonify({"error": "object_path is required"}), 400
-
-        if not object_path.startswith(f"{current_user}/"):
+        if not _safe_generated_object_path(object_path, current_user):
             return jsonify(
-                {"error": "object_path must be scoped to the authenticated user"}
-            ), 403
+                {"error": "object_path must be a safe generated path scoped to the authenticated user"}
+            ), 400
+
+        if bucket_name in {"listing-images", "profile-photos"}:
+            allowed_types = set(LISTING_IMAGE_ALLOWED_MIME_TYPES)
+            max_size = PROFILE_PHOTO_FILE_SIZE_LIMIT_BYTES if bucket_name == "profile-photos" else LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES
+        else:
+            allowed_types = set(DEALER_DOCUMENT_ALLOWED_MIME_TYPES if bucket_name == "dealer-documents" else REGISTRATION_DOCUMENT_ALLOWED_MIME_TYPES)
+            max_size = DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES if bucket_name == "dealer-documents" else REGISTRATION_DOCUMENT_FILE_SIZE_LIMIT_BYTES
+        if content_type not in allowed_types or file_size <= 0 or file_size > max_size:
+            return jsonify({"error": "Invalid upload type or size"}), 400
+        extension = object_path.rsplit(".", 1)[-1].lower() if "." in object_path else ""
+        if bucket_name in {"listing-images", "profile-photos"} and extension not in {"jpg", "jpeg", "png", "gif", "webp"}:
+            return jsonify({"error": "Image uploads require an image extension"}), 400
+        if bucket_name in {"dealer-documents", "registration-documents"} and extension not in {"jpg", "jpeg", "png", "pdf", "webp"}:
+            return jsonify({"error": "Document uploads require an allowed extension"}), 400
 
         if not ensure_storage_bucket(bucket_name):
             return jsonify({"error": "Storage bucket not available"}), 500
@@ -7930,21 +8101,16 @@ def upload_car_images(current_user, car_id):
         verify_query = f"/rest/v1/cars?id=eq.{car_id}&user_id=eq.{current_user}"
         verify_response, verify_status = supabase_request("get", verify_query)
 
-        if not verify_response or len(verify_response) == 0:
-            # Try checking if the car has a null user_id (for demo purposes)
-            null_verify_query = f"/rest/v1/cars?id=eq.{car_id}&user_id=is.null"
-            null_verify_response, null_verify_status = supabase_request(
-                "get", null_verify_query
-            )
-
-            if not null_verify_response or len(null_verify_response) == 0:
-                return jsonify(
-                    {"error": "Car not found or you don't have permission"}
-                ), 403
+        if verify_status >= 400 or not verify_response:
+            return jsonify({"error": "Car not found or you don't have permission"}), 403
 
         # Process the images (in a real implementation, you would handle file uploads)
         data = request.json
         image_urls = data.get("image_urls", [])
+        if not isinstance(image_urls, list) or len(image_urls) > PART_IMAGE_MAX_COUNT:
+            return jsonify({"error": "Invalid image list"}), 400
+        if any(not _validate_listing_image_entry(image_url, current_user) for image_url in image_urls):
+            return jsonify({"error": "Images must be public listing uploads for this user"}), 400
 
         # Save each image URL to the database
         for index, image_url in enumerate(image_urls):
@@ -8231,9 +8397,167 @@ def _get_public_storage_object_url(bucket_name, object_path):
     return f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{object_path}"
 
 
+def _safe_generated_object_path(object_path, user_id):
+    """Validate the client-generated path without allowing path confusion."""
+    value = str(object_path or "")
+    if not value or len(value) > 300 or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        return False
+    if "\\" in value or "?" in value or "#" in value or value.startswith("/"):
+        return False
+    parts = value.split("/")
+    if len(parts) not in (2, 3) or parts[0] != str(user_id) or any(
+        not part or part in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?", part)
+        for part in parts
+    ):
+        return False
+    filename = parts[-1]
+    if "." not in filename:
+        return False
+    stem, extension = filename.rsplit(".", 1)
+    if len(stem) < 1 or len(stem) > 128 or extension.lower() not in {
+        "jpg", "jpeg", "png", "gif", "webp", "pdf"
+    }:
+        return False
+    return True
+
+
+def _validate_listing_image_reference(value, user_id):
+    """Allow only this user's public listing-image objects, never arbitrary URLs."""
+    if not isinstance(value, str) or not value or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        return False
+    parsed = urlparse(value)
+    path = parsed.path if parsed.scheme or parsed.netloc else value
+    if parsed.scheme and (parsed.scheme != "https" or not SUPABASE_URL):
+        return False
+    if parsed.netloc and parsed.netloc != (urlparse(SUPABASE_URL).netloc if SUPABASE_URL else ""):
+        return False
+    prefix = f"/storage/v1/object/public/listing-images/{user_id}/"
+    if not path.startswith(prefix):
+        return False
+    return _safe_generated_object_path(path[len("/storage/v1/object/public/listing-images/"):], user_id)
+
+
+def _validate_listing_image_entry(entry, user_id):
+    if isinstance(entry, dict):
+        references = [entry.get(key) for key in ("url", "image_url", "display_url") if entry.get(key)]
+        return bool(references) and all(_validate_listing_image_reference(ref, user_id) for ref in references)
+    return _validate_listing_image_reference(entry, user_id)
+
+
+def _validate_private_document_path(value, user_id, required_prefix=None):
+    """Accept only a server-issued private object path for document fields."""
+    if not isinstance(value, str) or not value:
+        return False
+    parsed = urlparse(value)
+    if parsed.scheme or parsed.netloc:
+        return False
+    if not _safe_generated_object_path(value, user_id):
+        return False
+    if required_prefix and not value.startswith(f"{user_id}/{required_prefix}/"):
+        return False
+    return True
+
+
+def _with_private_listing_document_urls(listing, requesting_user=None, is_admin=False):
+    """Add ephemeral document reads for an already-authorized listing view."""
+    item = dict(listing or {})
+    owner_id = str(item.get("user_id") or "")
+    if not is_admin and (not requesting_user or str(requesting_user) != owner_id):
+        return item
+
+    for field, signed_field, required_prefix in (
+        ("proof_document_url", "proof_document_signed_url", "plate-proofs"),
+        ("registration_doc_url", "registration_doc_signed_url", None),
+        ("registration_document_url", "registration_document_signed_url", None),
+    ):
+        object_path = item.get(field)
+        if not object_path:
+            continue
+        if _validate_private_document_path(object_path, owner_id, required_prefix):
+            signed_url, _ = _create_signed_storage_read_url(
+                "registration-documents", object_path
+            )
+            if signed_url:
+                item[signed_field] = signed_url
+        item.pop(field, None)
+    return item
+
+
+def _validate_raster_upload(file, max_bytes=None):
+    """Return (raw bytes, PIL image) only for bounded, decodable raster bytes."""
+    if not file or not file.filename:
+        raise ValueError("No file provided")
+    content_type = (getattr(file, "mimetype", None) or getattr(file, "content_type", None) or "").lower()
+    if content_type not in set(LISTING_IMAGE_ALLOWED_MIME_TYPES):
+        ext_mime = {
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+            ".gif": "image/gif", ".webp": "image/webp",
+        }
+        content_type = ext_mime.get(os.path.splitext(file.filename or "")[1].lower(), content_type)
+    if content_type not in set(LISTING_IMAGE_ALLOWED_MIME_TYPES):
+        raise ValueError("Unsupported image type")
+    file.seek(0)
+    raw = file.read((max_bytes or LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES) + 1)
+    if len(raw) > (max_bytes or LISTING_IMAGE_FILE_SIZE_LIMIT_BYTES):
+        raise ValueError("File too large")
+    try:
+        image = Image.open(io.BytesIO(raw))
+        if image.format not in {"JPEG", "PNG", "GIF", "WEBP"}:
+            raise ValueError("Unsupported image type")
+        image.verify()
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except Exception as exc:
+        raise ValueError("File is not a valid raster image") from exc
+    file.seek(0)
+    return raw, image
+
+
+def extension_to_mime(filename):
+    """Return the allow-listed MIME type for a document extension."""
+    extension = os.path.splitext(str(filename or ""))[1].lower()
+    return {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".pdf": "application/pdf",
+    }.get(extension)
+
+
+def _validate_info_request_document(file):
+    """Validate document bytes by signature; multipart MIME is not authoritative."""
+    if not file or not file.filename:
+        raise ValueError("No file selected")
+    content_type = (file.content_type or "").lower()
+    if content_type not in set(DEALER_DOCUMENT_ALLOWED_MIME_TYPES):
+        content_type = extension_to_mime(file.filename) or content_type
+    if content_type not in set(DEALER_DOCUMENT_ALLOWED_MIME_TYPES):
+        raise ValueError("Invalid file type. Allowed: JPG, PNG, PDF")
+    file.seek(0)
+    raw = file.read(DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES + 1)
+    if len(raw) > DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES:
+        raise ValueError("File too large")
+    if content_type == "application/pdf":
+        valid = raw.startswith(b"%PDF-")
+    else:
+        try:
+            image = Image.open(io.BytesIO(raw))
+            valid = image.format in {"JPEG", "PNG"}
+            image.verify()
+        except Exception:
+            valid = False
+    if not valid:
+        raise ValueError("File content does not match an allowed document")
+    file.seek(0)
+    return raw
+
+
 def _create_signed_upload_url(bucket_name, object_path, upsert=False):
     if not bucket_name or not object_path:
         return None, "bucket_name and object_path are required"
+    path_parts = str(object_path).split("/")
+    if not _safe_generated_object_path(object_path, path_parts[0] if path_parts else ""):
+        return None, "object_path must be a safe generated path"
 
     upload_url = (
         f"{SUPABASE_URL}/storage/v1/object/upload/sign/{bucket_name}/{object_path}"
@@ -8329,6 +8653,29 @@ def _with_private_dealer_attachment_url(attachment):
     return item
 
 
+def _sanitize_dealer_document_bytes(raw_bytes, content_type):
+    """Remove image EXIF/XMP metadata before private KYC storage.
+
+    PDFs are intentionally left byte-for-byte intact because rasterizing them
+    would lose pages and reduce document fidelity; their storage remains private.
+    """
+    if not raw_bytes or not str(content_type or "").lower().startswith("image/"):
+        return raw_bytes
+    try:
+        from PIL import ImageOps
+
+        with Image.open(io.BytesIO(raw_bytes)) as image:
+            image = ImageOps.exif_transpose(image)
+            output = io.BytesIO()
+            image_format = "PNG" if content_type.lower() == "image/png" else "JPEG"
+            if image_format == "JPEG" and image.mode not in ("RGB", "L"):
+                image = image.convert("RGB")
+            image.save(output, format=image_format, exif=b"", optimize=True)
+            return output.getvalue()
+    except Exception as exc:
+        raise ValueError("Unable to sanitize dealer document") from exc
+
+
 def upload_to_supabase_storage(
     file,
     bucket_name="listing-images",
@@ -8359,11 +8706,12 @@ def upload_to_supabase_storage(
         if normalized_mimetype not in allowed_types:
             return None, "Unsupported image type"
 
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
-        file.seek(0)
-        if file_size > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-            return None, f"File too large (max {MAX_UPLOAD_SIZE_MB}MB)"
+        try:
+            _raw_bytes, img = _validate_raster_upload(
+                file, max_bytes=MAX_UPLOAD_SIZE_MB * 1024 * 1024
+            )
+        except ValueError as validation_error:
+            return None, str(validation_error)
 
         # Generate unique filename
         filename = secure_filename(file.filename)
@@ -8373,12 +8721,6 @@ def upload_to_supabase_storage(
             if folder
             else f"{uuid.uuid4().hex}{file_extension}"
         )
-
-        # Read and compress image
-        img = Image.open(file)
-        img.verify()
-        file.seek(0)
-        img = Image.open(file)
 
         # Convert alpha-based images to RGB before saving as JPEG.
         if img.mode == "RGBA":
@@ -9361,7 +9703,7 @@ def send_contact_message():
         if len(name) > 100 or len(subject) > 200 or len(message) > 5000:
             return jsonify({"error": "Message is too long"}), 400
 
-        client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        client_ip = _request_client_ip()
         if _contact_rate_limited(client_ip):
             return jsonify({"error": "Too many requests. Please try again later."}), 429
 
@@ -9410,7 +9752,7 @@ def send_car_model_request():
         if any(len(value) > 2000 for value in [name, make, model, year, notes, source]):
             return jsonify({"error": "Request is too long"}), 400
 
-        client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        client_ip = _request_client_ip()
         if _contact_rate_limited(client_ip):
             return jsonify({"error": "Too many requests. Please try again later."}), 429
 
@@ -10077,12 +10419,15 @@ def upload_dealer_document(current_user):
         if not ensure_storage_bucket("dealer-documents"):
             return jsonify({"error": "Storage bucket not available"}), 500
 
+        safe_original_filename = secure_filename(file.filename) or f"{document_type}.bin"
         ext = (
-            file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
+            safe_original_filename.rsplit(".", 1)[-1].lower()
+            if "." in safe_original_filename
+            else "bin"
         )
         object_path = f"{current_user}/{document_type}_{uuid.uuid4()}.{ext}"
 
-        file_bytes = file.read()
+        file_bytes = _sanitize_dealer_document_bytes(file.read(), content_type)
         upload_url = f"{SUPABASE_URL}/storage/v1/object/dealer-documents/{object_path}"
         upload_headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -10135,7 +10480,7 @@ def upload_dealer_document(current_user):
             # Keep only a non-public storage reference. Access is granted through
             # short-lived signed URLs after the caller has been authorized.
             "url": object_path,
-            "filename": file.filename,
+            "filename": safe_original_filename,
             "file_type": content_type,
             "storage_path": object_path,
             "status": "pending",
@@ -11373,9 +11718,9 @@ def find_user_email_by_username(username):
 # User authentication routes
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     if _auth_rate_limited(client_ip):
-        logger.warning(f"[Login] Rate limit exceeded for IP: {client_ip}")
+        logger.warning("[Login] Rate limit exceeded")
         return jsonify(
             {"message": "Too many login attempts. Please try again later."}
         ), 429
@@ -11383,7 +11728,7 @@ def login():
     data = request.get_json(silent=True) or {}
     identifier = str(data.get("email", "")).strip()  # email or username
     remember_me = bool(data.get("remember_me", False))
-    logger.info(f"[Login] Attempt for identifier: {identifier}")
+    logger.info("[Login] Authentication attempt")
 
     if not data or not identifier or not data.get("password"):
         logger.warning("[Login] Missing email/username or password in request.")
@@ -11399,17 +11744,17 @@ def login():
     email = identifier
     if "@" not in identifier:
         # It's a username, find the corresponding email
-        logger.info(f"[Login] Identifier appears to be username: {identifier}")
+        logger.info("[Login] Resolving username identifier")
         email = find_user_email_by_username(identifier)
         if not email:
-            logger.warning(f"[Login] No user found with username: {identifier}")
+            logger.warning("[Login] Username identifier was not found")
             return jsonify(
                 {"message": "Invalid email or password. Please try again."}
             ), 401
-        logger.info(f"[Login] Found email for username {identifier}: {email}")
+        logger.info("[Login] Username identifier resolved")
         email_exists = True
     else:
-        logger.info(f"[Login] Identifier appears to be email: {identifier}")
+        logger.info("[Login] Resolving email identifier")
 
     url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
     headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json"}
@@ -11431,7 +11776,6 @@ def login():
             if supabase_user_info and token:
                 user_id = supabase_user_info.get("id")
                 logger.info(f"[Login] Extracted user_id from Supabase auth: {user_id}")
-
                 user_details_for_session = _get_user_details_with_admin_status(user_id)
                 logger.info(
                     f"[Login] Details from _get_user_details_with_admin_status: {user_details_for_session}"
@@ -11703,9 +12047,9 @@ def check_username_availability():
 
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     if _auth_rate_limited(client_ip):
-        logger.warning(f"[Signup] Rate limit exceeded for IP: {client_ip}")
+        logger.warning("[Signup] Rate limit exceeded")
         return jsonify(
             {"message": "Too many signup attempts. Please try again later."}
         ), 429
@@ -11915,7 +12259,7 @@ def signup():
 @app.route("/api/phone-verifications/start", methods=["POST"])
 def start_phone_verification():
     current_user = _get_optional_user_id_from_auth_header()
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     user_agent = request.headers.get("User-Agent", "")
 
     if _auth_rate_limited(client_ip):
@@ -12055,7 +12399,7 @@ def start_phone_verification():
 @app.route("/api/phone-verifications/verify", methods=["POST"])
 def verify_phone_verification():
     current_user = _get_optional_user_id_from_auth_header()
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     user_agent = request.headers.get("User-Agent", "")
 
     if _auth_rate_limited(client_ip):
@@ -12123,7 +12467,7 @@ def verify_phone_verification_token():
     as the SMS path (_finalize_phone_verification). No code is checked here — the
     proof of possession is the MSG91-issued token."""
     current_user = _get_optional_user_id_from_auth_header()
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     user_agent = request.headers.get("User-Agent", "")
 
     if _auth_rate_limited(client_ip):
@@ -12259,7 +12603,27 @@ def verify_phone_verification_token():
 @app.route("/api/auth/logout", methods=["POST"])
 @token_required
 def logout(current_user):
-    response = make_response(jsonify({"message": "Successfully logged out"}), 200)
+    token = getattr(request, "supabase_token", None)
+    provider_ok = False
+    if token:
+        try:
+            provider_response = requests.post(
+                f"{SUPABASE_URL}/auth/v1/logout",
+                params={"scope": "global"},
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {token}",
+                },
+                timeout=10,
+            )
+            provider_ok = provider_response.status_code in (200, 204)
+        except Exception:
+            logger.exception("Supabase global logout failed for user %s", current_user)
+
+    revocation_ok = revoke_user_sessions(current_user)
+    status = 200 if provider_ok and revocation_ok else 502
+    message = "Successfully logged out" if status == 200 else "Logout revocation incomplete"
+    response = make_response(jsonify({"message": message}), status)
     response.set_cookie("access_token", "", expires=0)
     response.set_cookie("refresh_token", "", expires=0)
     return response
@@ -14212,9 +14576,9 @@ def get_user_info(current_user):  # current_user is user_id from @token_required
 
 @app.route("/api/auth/refresh", methods=["POST"])
 def refresh_token():
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     if _auth_rate_limited(client_ip):
-        logger.warning(f"[Refresh Token] Rate limit exceeded for IP: {client_ip}")
+        logger.warning("[Refresh Token] Rate limit exceeded")
         return jsonify(
             {"message": "Too many refresh attempts. Please try again later."}
         ), 429
@@ -14249,9 +14613,9 @@ def refresh_token():
 
 @app.route("/api/auth/reset-password", methods=["POST"])
 def reset_password():
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     if _auth_rate_limited(client_ip):
-        logger.warning(f"[Reset Password] Rate limit exceeded for IP: {client_ip}")
+        logger.warning("[Reset Password] Rate limit exceeded")
         return jsonify(
             {"message": "Too many password reset attempts. Please try again later."}
         ), 429
@@ -14291,9 +14655,9 @@ def reset_password():
 
 @app.route("/api/auth/resend-confirmation", methods=["POST"])
 def resend_confirmation():
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _request_client_ip()
     if _auth_rate_limited(client_ip):
-        logger.warning(f"[Resend Confirmation] Rate limit exceeded for IP: {client_ip}")
+        logger.warning("[Resend Confirmation] Rate limit exceeded")
         return jsonify(
             {"message": "Too many confirmation email attempts. Please try again later."}
         ), 429
@@ -14477,6 +14841,27 @@ def update_password():
         response = requests.put(url, headers=headers, json=payload)
 
         if response.status_code == 200:
+            user_payload = response.json() or {}
+            user_id = user_payload.get("id")
+            revocation_ok = revoke_user_sessions(user_id)
+            try:
+                logout_response = requests.post(
+                    f"{SUPABASE_URL}/auth/v1/logout",
+                    params={"scope": "global"},
+                    headers={
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": f"Bearer {access_token}",
+                    },
+                    timeout=10,
+                )
+                provider_ok = logout_response.status_code in (200, 204)
+            except Exception:
+                provider_ok = False
+                logger.exception("Global logout failed after password update")
+            if not revocation_ok or not provider_ok:
+                return jsonify({
+                    "message": "Password updated, but session revocation was incomplete"
+                }), 502
             return jsonify({"message": "Password updated successfully"}), 200
         else:
             error_data = response.json()
@@ -14788,8 +15173,10 @@ def get_bike_by_id(bike_id):
     try:
         logger.info(f"Fetching bike details for ID: {bike_id}")
 
+        requesting_user = _optional_user_id()
+
         cache_key = f"api-cache:{request.path}"
-        cached_payload = _api_cache_get(cache_key)
+        cached_payload = _api_cache_get(cache_key) if not requesting_user else None
         if cached_payload is not None:
             logger.info(f"Redis cache hit for bike detail {bike_id}")
             return _cached_json_response(cached_payload)
@@ -14803,9 +15190,10 @@ def get_bike_by_id(bike_id):
             return jsonify({"error": "Bike not found"}), 404
 
         bike = _sync_listing_lifecycle(
-            "bikes", bike_response[0], hard_delete_archived=True
+            "bikes", bike_response[0], hard_delete_archived=False, persist=False
         )
-        if not bike or bike.get("listing_state") != "active":
+        visible, is_public = _listing_visible_to_requester(bike, requesting_user)
+        if not visible:
             return jsonify({"error": "Bike not found"}), 404
         _normalize_bike_record(bike)
         logger.info(
@@ -14862,7 +15250,11 @@ def get_bike_by_id(bike_id):
         logger.info(f"Returning bike with {len(bike['images'])} images")
         for _f in _PUBLIC_STRIP_FIELDS:
             bike.pop(_f, None)
-        _api_cache_set(cache_key, bike)
+        if not is_public:
+            for _f in _PUBLIC_STRIP_FIELDS:
+                bike.pop(_f, None)
+        if not requesting_user and is_public:
+            _api_cache_set(cache_key, bike)
         return _cached_json_response(bike)
     except Exception as e:
         logger.error(f"Error fetching bike details: {e}")
@@ -16505,7 +16897,7 @@ def get_plates():
 @token_required_optional
 def plate_handler(current_user, plate_id):
     if request.method == "GET":
-        return get_plate_details(plate_id)
+        return get_plate_details(plate_id, current_user)
 
     # For update methods, token is required
     if not current_user:
@@ -16514,13 +16906,13 @@ def plate_handler(current_user, plate_id):
     return update_plate(current_user, plate_id)
 
 
-def get_plate_details(plate_id):
+def get_plate_details(plate_id, requesting_user=None):
     """Get details for a specific license plate by ID"""
     try:
         logger.info(f"Fetching plate details for ID: {plate_id}")
 
         cache_key = f"api-cache:{request.path}"
-        cached_payload = _api_cache_get(cache_key)
+        cached_payload = _api_cache_get(cache_key) if not requesting_user else None
         if cached_payload is not None:
             logger.info(f"Redis cache hit for plate detail {plate_id}")
             return _cached_json_response(cached_payload)
@@ -16542,9 +16934,10 @@ def get_plate_details(plate_id):
                 return jsonify({"error": "Plate not found"}), 404
 
             plate = _sync_listing_lifecycle(
-                "license_plates", plates[0], hard_delete_archived=True
+                "license_plates", plates[0], hard_delete_archived=False, persist=False
             )
-            if not plate:
+            visible, is_public = _listing_visible_to_requester(plate, requesting_user)
+            if not visible:
                 return jsonify({"error": "Plate not found"}), 404
 
             # Normalize images
@@ -16563,9 +16956,16 @@ def get_plate_details(plate_id):
             ]
 
             _enrich_listing_seller(plate, headers=headers)
+            plate = _with_private_listing_document_urls(
+                plate, requesting_user=requesting_user
+            )
             for _f in _PUBLIC_STRIP_FIELDS:
                 plate.pop(_f, None)
-            _api_cache_set(cache_key, plate)
+            if not is_public:
+                for _f in _PUBLIC_STRIP_FIELDS:
+                    plate.pop(_f, None)
+            if not requesting_user and is_public:
+                _api_cache_set(cache_key, plate)
             return _cached_json_response(plate)
         else:
             return jsonify({"error": "Failed to fetch plate"}), response.status_code
@@ -16607,6 +17007,10 @@ def update_plate(current_user, plate_id):
         for key in allowed_fields:
             if key in data:
                 update_data[key] = data[key]
+        if "proof_document_url" in update_data and not _validate_private_document_path(
+            update_data["proof_document_url"], current_user, required_prefix="plate-proofs"
+        ):
+            return jsonify({"error": "proof_document_url must be a server-issued private document path"}), 400
         try:
             _require_whatsapp_prefill_and_phone_alignment(update_data, "plates")
         except ValueError as validation_error:
@@ -16933,28 +17337,32 @@ def create_part(current_user):
                 else:
                     part_data[key] = value
 
-            # Handle file uploads
+            # Handle bounded, content-sniffed raster uploads into the public
+            # listing bucket. Never persist multipart bytes under /static/uploads.
+            part_files = [
+                file for key, file in request.files.items()
+                if key.startswith("image_") and file and file.filename
+            ]
+            if len(part_files) > PART_IMAGE_MAX_COUNT:
+                return jsonify({"error": f"A maximum of {PART_IMAGE_MAX_COUNT} images is allowed"}), 413
             uploaded_files = []
-            for key, file in request.files.items():
-                if key.startswith("image_") and file and file.filename:
-                    # Save the uploaded file
-                    filename = secure_filename(file.filename)
-                    timestamp = int(time.time())
-                    random_suffix = secrets.token_hex(4)
-                    file_extension = (
-                        filename.rsplit(".", 1)[1].lower() if "." in filename else "jpg"
+            total_bytes = 0
+            for file in part_files:
+                try:
+                    file.seek(0)
+                    raw = file.read(PART_IMAGE_MAX_TOTAL_BYTES + 1)
+                    file.seek(0)
+                    total_bytes += len(raw)
+                    if total_bytes > PART_IMAGE_MAX_TOTAL_BYTES:
+                        return jsonify({"error": "Total image upload size is too large"}), 413
+                    metadata, upload_error = upload_to_supabase_storage(
+                        file, bucket_name="listing-images", folder=str(current_user), return_metadata=True
                     )
-                    unique_filename = f"{timestamp}_{random_suffix}.{file_extension}"
-                    file_path = os.path.join(
-                        app.config["UPLOAD_FOLDER"], unique_filename
-                    )
-
-                    file.save(file_path)
-
-                    # Store the URL for the database
-                    file_url = f"/static/uploads/{unique_filename}"
-                    uploaded_files.append(file_url)
-                    logger.info(f"Saved part image: {unique_filename}")
+                    if not metadata:
+                        return jsonify({"error": upload_error or "Invalid image upload"}), 400
+                    uploaded_files.append(metadata)
+                except ValueError as validation_error:
+                    return jsonify({"error": str(validation_error)}), 400
 
         else:
             # Handle JSON data
@@ -16962,6 +17370,10 @@ def create_part(current_user):
                 return jsonify({"error": "Invalid request data"}), 400
             part_data = request.json.copy()
             uploaded_files = part_data.pop("images", [])
+            if not isinstance(uploaded_files, list) or len(uploaded_files) > PART_IMAGE_MAX_COUNT:
+                return jsonify({"error": f"A maximum of {PART_IMAGE_MAX_COUNT} images is allowed"}), 400
+            if any(not _validate_listing_image_entry(image, current_user) for image in uploaded_files):
+                return jsonify({"error": "Images must be public listing uploads for this user"}), 400
 
         # Set required fields
         part_data["user_id"] = current_user
@@ -16971,6 +17383,10 @@ def create_part(current_user):
             _require_whatsapp_prefill_and_phone_alignment(part_data, "parts")
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
+
+        sync_error = _sync_gate_error("part", part_data, len(uploaded_files))
+        if sync_error:
+            return sync_error
 
         # Whitelist allowed fields for car parts
         part_allowed_fields = {
@@ -17114,7 +17530,7 @@ def create_part(current_user):
 @token_required_optional
 def part_handler(current_user, part_id):
     if request.method == "GET":
-        return get_part_details(part_id)
+        return get_part_details(part_id, current_user)
 
     # For update methods, token is required
     if not current_user:
@@ -17123,13 +17539,13 @@ def part_handler(current_user, part_id):
     return update_part(current_user, part_id)
 
 
-def get_part_details(part_id):
+def get_part_details(part_id, requesting_user=None):
     """Get details for a specific car part by ID"""
     try:
         logger.info(f"Fetching part details for ID: {part_id}")
 
         cache_key = f"api-cache:{request.path}"
-        cached_payload = _api_cache_get(cache_key)
+        cached_payload = _api_cache_get(cache_key) if not requesting_user else None
         if cached_payload is not None:
             logger.info(f"Redis cache hit for part detail {part_id}")
             return _cached_json_response(cached_payload)
@@ -17150,8 +17566,11 @@ def get_part_details(part_id):
         if not parts:
             return jsonify({"error": "Part not found"}), 404
 
-        part = _sync_listing_lifecycle("car_parts", parts[0], hard_delete_archived=True)
-        if not part:
+        part = _sync_listing_lifecycle(
+            "car_parts", parts[0], hard_delete_archived=False, persist=False
+        )
+        visible, is_public = _listing_visible_to_requester(part, requesting_user)
+        if not visible:
             return jsonify({"error": "Part not found"}), 404
 
         part_images = part.pop("part_images", [])
@@ -17184,7 +17603,11 @@ def get_part_details(part_id):
             ]
 
         _enrich_listing_seller(part, headers=headers)
-        _api_cache_set(cache_key, part)
+        if not is_public:
+            for _f in _PUBLIC_STRIP_FIELDS:
+                part.pop(_f, None)
+        if not requesting_user and is_public:
+            _api_cache_set(cache_key, part)
         return _cached_json_response(part)
 
     except Exception as e:
@@ -17995,6 +18418,10 @@ def _create_plate_with_image_impl(current_user):
         # Create plate entry
         plate_number_str = str(number).strip() if number is not None else ""
         proof_document_url = payload.get("proof_document_url") or None
+        if proof_document_url and not _validate_private_document_path(
+            proof_document_url, current_user, required_prefix="plate-proofs"
+        ):
+            return jsonify({"error": "proof_document_url must be a server-issued private document path"}), 400
         registration_doc_url = payload.get("registration_doc_url") or None
         plate_data = {
             "city": city,
@@ -18026,6 +18453,12 @@ def _create_plate_with_image_impl(current_user):
             _require_whatsapp_prefill_and_phone_alignment(plate_data, "plates")
         except ValueError as validation_error:
             return jsonify({"error": str(validation_error)}), 400
+
+        # Plate listings render a generated plate image after insert, so the
+        # canonical listing gate counts that required gallery item here.
+        sync_error = _sync_gate_error("plate", plate_data, 1)
+        if sync_error:
+            return sync_error
 
         logger.info(f"Creating plate entry with data: {plate_data}")
 
@@ -18490,8 +18923,8 @@ def _trigger_auto_review_async():
 
     def _run():
         try:
-            from workers.auto_review_worker import run as _ar_run
-            _ar_run()
+            from workers.auto_review_worker import run as auto_review_run
+            auto_review_run()
         except Exception as exc:
             logger.warning("Auto-review immediate trigger failed: %s", exc)
 
@@ -21092,11 +21525,8 @@ def track_listing_lead_event(item_type, item_id):
         # the scraper rotates one dimension. ponytail: 40/hour ceiling; escalate to
         # Turnstile (_verify_turnstile_token) only if abuse survives this.
         if action in CONTACT_LEAD_ACTIONS:
-            client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-            visitor_id = (payload.get("visitor_id") or "").strip()
-            if _contact_lead_rate_limited(f"ip:{client_ip}") or (
-                visitor_id and _contact_lead_rate_limited(f"vid:{visitor_id}")
-            ):
+            client_ip = request.remote_addr
+            if _contact_lead_rate_limited(f"ip:{client_ip}"):
                 return jsonify({"error": "Too many requests. Please try again later."}), 429
 
         listing_resp, listing_status = supabase_request(
@@ -21142,7 +21572,7 @@ def track_listing_lead_event(item_type, item_id):
             "session_id": canonical["session_id"],
             "source": payload.get("source"),
             "user_agent": request.headers.get("User-Agent"),
-            "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "ip_address": _request_client_ip(),
             "payload": payload.get("payload") or {},
         }
 
@@ -23068,6 +23498,7 @@ def get_admin_listing_overview(current_user, item_type, item_id):
 
         listing = listing_rows[0]
         listing["listing_type"] = item_type
+        listing = _with_private_listing_document_urls(listing, is_admin=True)
         owner_id = listing.get("user_id")
         owner_row = _admin_fetch_user_rows(owner_id) if owner_id else None
 
@@ -23952,25 +24383,27 @@ def upload_public_info_request(token):
             return jsonify({"error": "No file selected"}), 400
 
         content_type = (file.content_type or "").lower()
-        extension_to_mime = {
-            "jpg": "image/jpeg",
-            "jpeg": "image/jpeg",
-            "png": "image/png",
-            "pdf": "application/pdf",
-        }
-        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
-        if content_type not in DEALER_DOCUMENT_ALLOWED_MIME_TYPES:
-            content_type = extension_to_mime.get(ext, content_type)
-        if content_type not in DEALER_DOCUMENT_ALLOWED_MIME_TYPES:
-            return jsonify({"error": "Invalid file type. Allowed: JPG, PNG, PDF"}), 400
+        if content_type not in set(DEALER_DOCUMENT_ALLOWED_MIME_TYPES):
+            content_type = extension_to_mime(file.filename) or content_type
+        try:
+            file_bytes = _validate_info_request_document(file)
+        except ValueError as validation_error:
+            return jsonify({"error": str(validation_error)}), 400
+        size = len(file_bytes)
 
-        file.seek(0, 2)
-        size = file.tell()
-        file.seek(0)
-        if size > DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES:
-            return jsonify({
-                "error": f"File too large. Maximum size: {DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES // (1024 * 1024)}MB"
-            }), 400
+        existing_resp, existing_status = supabase_request(
+            "get", "/rest/v1/dealer_info_request_uploads",
+            params={"select": "id,storage_path", "request_id": f"eq.{req['id']}"},
+            use_service_role=True,
+        )
+        existing_uploads = existing_resp if existing_status < 400 and isinstance(existing_resp, list) else []
+        if len(existing_uploads) >= DEALER_INFO_REQUEST_MAX_UPLOADS:
+            return jsonify({"error": "This request has reached its upload limit"}), 413
+        # Existing rows predate size tracking, so count each as the maximum
+        # permitted file size. This conservative bound prevents quota bypass.
+        reserved_bytes = len(existing_uploads) * DEALER_DOCUMENT_FILE_SIZE_LIMIT_BYTES
+        if reserved_bytes + size > DEALER_INFO_REQUEST_MAX_TOTAL_BYTES:
+            return jsonify({"error": "Total upload size for this request is too large"}), 413
 
         document_type = _dealer_document_type_from_label(document_label)
         expires_at = None
@@ -23988,7 +24421,7 @@ def upload_public_info_request(token):
         if not ensure_storage_bucket("dealer-documents"):
             return jsonify({"error": "Storage bucket not available"}), 500
 
-        ext = ext or "bin"
+        ext = secure_filename(file.filename).rsplit(".", 1)[-1].lower() if "." in secure_filename(file.filename) else "bin"
         safe_dealer_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(req["dealer_user_id"]))
         object_path = f"{safe_dealer_id}/info-requests/{req['id']}/{uuid.uuid4().hex}.{ext}"
 
@@ -24001,7 +24434,7 @@ def upload_public_info_request(token):
                 "Content-Type": content_type,
                 "x-upsert": "true",
             },
-            data=file.read(),
+            data=file_bytes,
             timeout=30,
         )
         if upload_response.status_code not in (200, 201):

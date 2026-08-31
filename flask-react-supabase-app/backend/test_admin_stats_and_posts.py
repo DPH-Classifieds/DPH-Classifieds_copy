@@ -428,9 +428,13 @@ class PostListingSmokeTests(unittest.TestCase):
             "description": "New brake pads",
             "is_negotiable": False,
             "is_dealer": False,
-            "images": ["https://example.com/part.jpg"],
+            "images": [
+                "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/partfront123.jpg",
+                "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/partback123.jpg",
+            ],
         }
 
+        backend.SUPABASE_URL = "https://project-ref.supabase.co"
         with backend.app.test_request_context("/api/parts", method="POST", json=payload):
             response, status = backend.create_part.__wrapped__("user-123")
 

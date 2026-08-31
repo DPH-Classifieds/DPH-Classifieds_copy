@@ -15,6 +15,7 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
         mock_get_user_email,
         mock_send_listing_status_email,
     ):
+        backend.SUPABASE_URL = "https://project-ref.supabase.co"
         mock_get_user_email.return_value = "seller@example.com"
         mock_send_listing_status_email.return_value = (True, None)
 
@@ -34,8 +35,8 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
                         {
                             "id": "img-1",
                             "car_id": "car-123",
-                            "image_url": "https://example.com/original.jpg",
-                            "display_url": "https://example.com/display.jpg",
+                            "image_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
+                            "display_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123_display.jpg",
                             "focal_x": 35,
                             "focal_y": 62,
                             "crop_meta": {"width": 1600, "height": 1000},
@@ -53,9 +54,9 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
                         {
                             "id": "img-1",
                             "car_id": "car-123",
-                            "url": "https://example.com/original.jpg",
-                            "image_url": "https://example.com/original.jpg",
-                            "display_url": "https://example.com/display.jpg",
+                            "url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
+                            "image_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
+                            "display_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123_display.jpg",
                             "focal_x": 35,
                             "focal_y": 62,
                             "crop_meta": {"width": 1600, "height": 1000},
@@ -74,8 +75,8 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
             "whatsapp_number": "501234567",
             "images": [
                 {
-                    "image_url": "https://example.com/original.jpg",
-                    "display_url": "https://example.com/display.jpg",
+                    "image_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
+                    "display_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123_display.jpg",
                     "focal_x": 35,
                     "focal_y": 62,
                     "crop_meta": {"width": 1600, "height": 1000},
@@ -92,7 +93,7 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
 
         self.assertEqual(status_code, 200)
         body = response.get_json()
-        self.assertEqual(body["images"][0]["display_url"], "https://example.com/display.jpg")
+        self.assertEqual(body["images"][0]["display_url"], "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123_display.jpg")
 
         snapshot_call = next(
             call
@@ -120,9 +121,9 @@ class UpdateCarJsonImagesTests(unittest.TestCase):
             [
                 {
                     "car_id": "car-123",
-                    "url": "https://example.com/original.jpg",
-                    "image_url": "https://example.com/original.jpg",
-                    "display_url": "https://example.com/display.jpg",
+                    "url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
+                    "image_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
+                    "display_url": "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123_display.jpg",
                     "focal_x": 35.0,
                     "focal_y": 62.0,
                     "crop_meta": {"width": 1600, "height": 1000},
@@ -149,12 +150,12 @@ class SignedUploadUrlTests(unittest.TestCase):
         mock_response = mock_post.return_value
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "url": "/object/upload/sign/listing-images/user-123/abc123.jpg?token=test-token"
+            "url": "/object/upload/sign/listing-images/user-123/abc12345.jpg?token=test-token"
         }
 
         data, error = backend._create_signed_upload_url(
             bucket_name="listing-images",
-            object_path="user-123/abc123.jpg",
+            object_path="user-123/abc12345.jpg",
             upsert=False,
         )
 
@@ -162,7 +163,7 @@ class SignedUploadUrlTests(unittest.TestCase):
         self.assertEqual(data["token"], "test-token")
         self.assertEqual(
             data["public_url"],
-            "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc123.jpg",
+            "https://project-ref.supabase.co/storage/v1/object/public/listing-images/user-123/abc12345.jpg",
         )
 
 

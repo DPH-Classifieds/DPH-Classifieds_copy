@@ -143,7 +143,7 @@ def _validate_owner(owner_id):
 
 # --- Upsert -----------------------------------------------------------------
 
-def _fetch_existing_by_source_ids(table, source_ids):
+def _fetch_existing_by_source_ids(table, source_ids, owner_id):
     """Return {source_external_id: {"id":.., "status":..}} for the given reddit
     source ids in a table. Status rides along so the update path can tell a
     live/source_removed row (safe to resync) from an admin-hidden or
@@ -156,6 +156,7 @@ def _fetch_existing_by_source_ids(table, source_ids):
         params={
             "select": "id,source_external_id,status",
             "source_platform": "eq.reddit",
+            "user_id": f"eq.{owner_id}",
             "source_external_id": f"in.({','.join(ids)})",
         },
     )
@@ -339,11 +340,15 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
         if current_status not in ("approved", "source_removed", None):
             update.pop("status", None)
             update.pop("is_approved", None)
-        _, status = supabase_request("patch", f"/rest/v1/{table}?id=eq.{row_id}", data=update)
+        _, status = supabase_request(
+            "patch", f"/rest/v1/{table}?id=eq.{row_id}&user_id=eq.{owner_id}", data=update
+        )
         if status >= 400 and "import_field_sources" in update:
             # provenance column not yet added (migration pending) — retry without it
             update.pop("import_field_sources")
-            _, status = supabase_request("patch", f"/rest/v1/{table}?id=eq.{row_id}", data=update)
+            _, status = supabase_request(
+                "patch", f"/rest/v1/{table}?id=eq.{row_id}&user_id=eq.{owner_id}", data=update
+            )
         if status >= 400:
             counts["failed"] += 1
             return
@@ -385,7 +390,7 @@ def _record_price_history(config, row_id, new_price):
 
 # --- Removal sync -----------------------------------------------------------
 
-def sync_removed_imports(session, access_token, live_source_ids, user_agent, now):
+def sync_removed_imports(session, access_token, live_source_ids, user_agent, now, owner_id):
     """Unpublish previously-imported rows (across all tables) whose source post is
     confirmed removed. A row is a candidate only if its source id was NOT in this
     run's fresh fetch; each candidate is then verified via /api/info."""
@@ -395,6 +400,7 @@ def sync_removed_imports(session, access_token, live_source_ids, user_agent, now
         body, status = supabase_request(
             "get", f"/rest/v1/{table}",
             params={"select": "id,source_external_id", "source_platform": "eq.reddit",
+                    "user_id": f"eq.{owner_id}",
                     "source_removed_at": "is.null"},
         )
         if status >= 400 or not isinstance(body, list):
@@ -418,7 +424,7 @@ def sync_removed_imports(session, access_token, live_source_ids, user_agent, now
             if sub is not None and not sub.is_removed_or_deleted:
                 continue  # still live upstream
             _, st = supabase_request(
-                "patch", f"/rest/v1/{table}?id=eq.{row['id']}",
+                "patch", f"/rest/v1/{table}?id=eq.{row['id']}&user_id=eq.{owner_id}",
                 data={"status": "source_removed", "is_approved": False,
                       "source_removed_at": now.isoformat()},
             )
@@ -427,12 +433,12 @@ def sync_removed_imports(session, access_token, live_source_ids, user_agent, now
     return {"removed": removed, "checked": checked}
 
 
-def _expire_stale_reddit(now):
+def _expire_stale_reddit(now, owner_id):
     """Unpublish Reddit rows that have been on the site longer than the max age
     (default 7 days, by created_at). Sets status='expired' so they leave every
     public feed (all require status=approved) and stay gone even if the Reddit
     visibility toggle later flips is_approved back on."""
-    if _REDDIT_MAX_AGE_DAYS <= 0:
+    if _REDDIT_MAX_AGE_DAYS <= 0 or not owner_id:
         return {"expired": 0}
     cutoff = (now - timedelta(days=_REDDIT_MAX_AGE_DAYS)).isoformat()
     expired = 0
@@ -441,6 +447,7 @@ def _expire_stale_reddit(now):
         body, st = supabase_request(
             "patch", f"/rest/v1/{table}",
             params={"source_platform": "eq.reddit", "status": "eq.approved",
+                    "user_id": f"eq.{owner_id}",
                     "created_at": f"lt.{cutoff}"},
             data={"status": "expired", "is_approved": False},
         )
@@ -458,7 +465,8 @@ def run():
     # 7-day cutoff must hold even when importing is paused or misconfigured —
     # otherwise old Reddit posts would stay live on the site forever instead of
     # dropping off at REDDIT_LISTING_MAX_AGE_DAYS.
-    expired = _expire_stale_reddit(_now())["expired"]
+    owner_id = os.getenv("REDDIT_IMPORT_OWNER_ID", "").strip()
+    expired = _expire_stale_reddit(_now(), owner_id)["expired"]
 
     if not _truthy(os.getenv("REDDIT_IMPORT_ENABLED")):
         return {"status": "disabled", "expired": expired}
@@ -467,7 +475,6 @@ def run():
     client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
     client_secret = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
     user_agent = os.getenv("REDDIT_USER_AGENT", "").strip()
-    owner_id = os.getenv("REDDIT_IMPORT_OWNER_ID", "").strip()
     try:
         max_posts = int(os.getenv("REDDIT_IMPORT_MAX_POSTS", "100"))
     except ValueError:
@@ -510,7 +517,9 @@ def run():
             if not parsed_list:
                 continue
             table = LISTING_TABLES[cat]["table"]
-            existing_map = _fetch_existing_by_source_ids(table, [p.source_id for p in parsed_list])
+            existing_map = _fetch_existing_by_source_ids(
+                table, [p.source_id for p in parsed_list], owner_id
+            )
             for parsed in parsed_list:
                 try:
                     _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=visible)
@@ -519,7 +528,9 @@ def run():
                     logger.exception("reddit_import: upsert error for %s", parsed.source_id)
 
         live_ids = {sub.id for sub in subs}
-        counts["removed"] = sync_removed_imports(_SESSION, token, live_ids, user_agent, now)["removed"]
+        counts["removed"] = sync_removed_imports(
+            _SESSION, token, live_ids, user_agent, now, owner_id
+        )["removed"]
         # Expiry already ran unconditionally at the top of run(); reuse that count.
         counts["expired"] = expired
 

@@ -35,6 +35,7 @@ def listing_market(current_user, listing_type, listing_id):
             "select": "*",
             "listing_type": f"eq.{listing_type}",
             "listing_id": f"eq.{listing_id}",
+            "dealership_id": f"eq.{g.dealer_ctx['dealership_id']}",
             "order": "snapshot_at.desc",
             "limit": 1,
         }, timeout=10,

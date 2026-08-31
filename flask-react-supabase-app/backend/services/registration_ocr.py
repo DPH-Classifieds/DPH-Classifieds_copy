@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import re
+import warnings
 from datetime import datetime, timezone
 
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
@@ -31,6 +32,10 @@ DEFAULT_MAX_IMAGE_PIXELS = 25000000
 DEFAULT_MAX_RESIZE_PIXELS = 6000000
 DEFAULT_MAX_RESIZE_WIDTH = 2400
 DEFAULT_MAX_RESIZE_HEIGHT = 2400
+DEFAULT_MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+DEFAULT_MAX_PDF_PAGES = 10
+DEFAULT_MAX_PDF_PAGE_POINTS = 4_000_000
+DEFAULT_MAX_PDF_PAGE_SIDE = 20_000
 # I, O, Q can never legally appear in a VIN (VIN_ALLOWED_RE excludes them) —
 # any occurrence is definitely an OCR misread, so substituting these is a
 # correction, not a guess, and is always applied to reach a charset-valid
@@ -446,6 +451,25 @@ def _env_int(name, fallback):
         return fallback
 
 
+def _max_upload_bytes():
+    return max(1, _env_int("OCR_MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD_BYTES))
+
+
+def _validate_upload_size(image_file, max_upload_bytes=None):
+    """Reject oversized seekable uploads before image/PDF decoders inspect them."""
+    limit = _max_upload_bytes() if max_upload_bytes is None else max_upload_bytes
+    stream = getattr(image_file, "stream", image_file)
+    if not hasattr(stream, "seek") or not hasattr(stream, "tell"):
+        return
+    current = stream.tell()
+    try:
+        stream.seek(0, os.SEEK_END)
+        if stream.tell() > limit:
+            raise ValueError("image upload is too large")
+    finally:
+        stream.seek(current)
+
+
 def _resize_guardrails(max_resize_pixels=None, max_width=None, max_height=None):
     return {
         "pixels": (
@@ -483,11 +507,38 @@ def _render_pdf_first_page(image_file):
         raise RuntimeError("pypdfium2 is not installed") from exc
 
     image_file.seek(0)
-    pdf = pdfium.PdfDocument(image_file.read())
+    raw_pdf = image_file.read(_max_upload_bytes() + 1)
+    if len(raw_pdf) > _max_upload_bytes():
+        raise ValueError("image upload is too large")
+    pdf = pdfium.PdfDocument(raw_pdf)
     if len(pdf) < 1:
         raise ValueError("PDF upload must contain at least one page")
+    max_pages = max(1, _env_int("OCR_MAX_PDF_PAGES", DEFAULT_MAX_PDF_PAGES))
+    if len(pdf) > max_pages:
+        raise ValueError(f"PDF upload must contain at most {max_pages} pages")
     page = pdf[0]
-    bitmap = page.render(scale=3).to_pil()
+    page_width, page_height = page.get_size()
+    max_page_points = max(
+        1, _env_int("OCR_MAX_PDF_PAGE_POINTS", DEFAULT_MAX_PDF_PAGE_POINTS)
+    )
+    max_page_side = max(
+        1, _env_int("OCR_MAX_PDF_PAGE_SIDE", DEFAULT_MAX_PDF_PAGE_SIDE)
+    )
+    if (
+        page_width <= 0
+        or page_height <= 0
+        or page_width > max_page_side
+        or page_height > max_page_side
+        or page_width * page_height > max_page_points
+    ):
+        raise ValueError("PDF page dimensions are too large")
+    render_scale = 3
+    if page_width * page_height * render_scale * render_scale > _max_image_pixels():
+        raise ValueError("rendered PDF page dimensions are too large")
+    bitmap = page.render(scale=render_scale)
+    if bitmap.width * bitmap.height > _max_image_pixels():
+        raise ValueError("rendered PDF page dimensions are too large")
+    bitmap = bitmap.to_pil()
     return bitmap
 
 
@@ -507,14 +558,19 @@ def preprocess_image(
     max_width=None,
     max_height=None,
 ):
+    _validate_upload_size(image_file)
     image_file.seek(0)
     try:
         if _looks_like_pdf(image_file):
             image = _render_pdf_first_page(image_file)
         else:
-            image = Image.open(image_file)
-    except UnidentifiedImageError as exc:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                image = Image.open(image_file)
+    except (UnidentifiedImageError, Image.DecompressionBombError) as exc:
         raise ValueError("image upload must be a valid image") from exc
+    except Image.DecompressionBombWarning as exc:
+        raise ValueError("image dimensions are too large") from exc
     max_pixels = _max_image_pixels() if max_pixels is None else max_pixels
     if image.width * image.height > max_pixels:
         raise ValueError("image dimensions are too large")

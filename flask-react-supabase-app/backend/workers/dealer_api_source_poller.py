@@ -9,11 +9,13 @@ last_status on the source row.
 import base64
 import hashlib
 import hmac
+import json
 import logging
 import os
 from datetime import datetime, timezone
 
 import requests
+from services.url_safety import assert_safe_outbound, request_with_safe_redirects
 
 from services.dealer_credentials import decrypt_credentials, KeyMissingError
 from services.dealer_inventory import apply_column_mapping, validate_row, coerce_row
@@ -27,6 +29,32 @@ SUPABASE_SERVICE_KEY = (
 
 # How many sources to process per tick
 _BATCH_SIZE = 5
+_MAX_RESPONSE_BYTES = max(1024, int(os.getenv("DEALER_API_MAX_RESPONSE_BYTES", str(5 * 1024 * 1024))))
+_MIN_POLL_INTERVAL = 5
+_MAX_POLL_INTERVAL = 7 * 24 * 60
+_CLAIM_STALE_SECONDS = max(60, int(os.getenv("DEALER_API_CLAIM_STALE_SECONDS", "300")))
+
+
+def _read_bounded_response(response, max_bytes=_MAX_RESPONSE_BYTES):
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None:
+        try:
+            declared_size = int(content_length)
+        except (TypeError, ValueError):
+            declared_size = None
+        if declared_size is not None and declared_size > max_bytes:
+            raise ValueError("response_too_large")
+
+    chunks = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=64 * 1024):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError("response_too_large")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _svc(prefer="return=representation"):
@@ -47,7 +75,7 @@ def _fetch_due_sources():
         params={
             "select": "id,dealership_id,adapter,endpoint_url,auth_type,"
                       "credentials_enc,field_mapping,poll_interval_min,"
-                      "last_pulled_at,enabled",
+                      "last_pulled_at,last_status,enabled",
             "enabled": "eq.true",
             "order": "last_pulled_at.asc.nullsfirst",
             "limit": _BATCH_SIZE,
@@ -70,7 +98,12 @@ def _fetch_due_sources():
             if last.endswith("Z"):
                 last = last[:-1] + "+00:00"
             last_dt = datetime.fromisoformat(last)
-            interval_sec = (src.get("poll_interval_min") or 60) * 60
+            interval = int(src.get("poll_interval_min") or 60)
+            interval = max(_MIN_POLL_INTERVAL, min(_MAX_POLL_INTERVAL, interval))
+            if src.get("last_status") == "polling":
+                interval_sec = _CLAIM_STALE_SECONDS
+            else:
+                interval_sec = interval * 60
             if (now - last_dt).total_seconds() >= interval_sec:
                 due.append(src)
         except Exception:
@@ -101,21 +134,42 @@ def _generic_json_fetch(endpoint_url, auth_type, credentials):
 
     Returns (rows, None) on success or (None, status_string) on failure.
     """
+    try:
+        endpoint_url = assert_safe_outbound(endpoint_url)
+    except ValueError as exc:
+        return None, f"unsafe_endpoint_url: {exc}"
     headers = _build_auth_headers(auth_type, credentials, endpoint_url)
     try:
-        resp = requests.get(endpoint_url, headers=headers, timeout=30)
+        resp = request_with_safe_redirects(
+            requests.get,
+            endpoint_url,
+            headers=headers,
+            timeout=30,
+            stream=True,
+        )
+    except ValueError as exc:
+        return None, f"unsafe_endpoint_url: {exc}"
     except Exception as exc:
         return None, f"http_error_connection: {exc}"
 
-    if resp.status_code == 401:
-        return None, "auth_failed"
-    if resp.status_code != 200:
-        return None, f"http_error_{resp.status_code}"
-
     try:
-        payload = resp.json()
-    except Exception:
-        return None, "parse_failed"
+        if resp.status_code == 401:
+            return None, "auth_failed"
+        if resp.status_code != 200:
+            return None, f"http_error_{resp.status_code}"
+        try:
+            raw = _read_bounded_response(resp)
+        except ValueError:
+            return None, "response_too_large"
+        try:
+            payload = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            # A malformed successful response is a source contract failure, not
+            # a transient transport error. Record it once; the normal source
+            # poll interval controls the next attempt.
+            return None, "parse_failed"
+    finally:
+        resp.close()
 
     if isinstance(payload, list):
         return payload, None
@@ -212,21 +266,42 @@ def _bulk_upsert_cars(dealership_id, rows_with_ext, rows_without_ext, counts):
             counts["failed"] += 1
 
 
-def _update_source(source_id, last_status, last_error=None):
+def _claim_source(source):
+    """Atomically lease a due source using existing last_pulled_at/status columns."""
+    claimed_at = datetime.now(timezone.utc).isoformat()
+    params = {"id": f"eq.{source['id']}", "enabled": "eq.true"}
+    previous = source.get("last_pulled_at")
+    params["last_pulled_at"] = f"eq.{previous}" if previous else "is.null"
+    response = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/dealer_api_sources",
+        headers=_svc(prefer="return=representation"),
+        params=params,
+        json={"last_pulled_at": claimed_at, "last_status": "polling", "last_error": None},
+        timeout=10,
+    )
+    rows = response.json() if response.status_code < 300 and response.content else []
+    return claimed_at if rows else None
+
+
+def _update_source(source_id, last_status, last_error=None, claimed_at=None):
     body = {
         "last_pulled_at": datetime.now(timezone.utc).isoformat(),
         "last_status": last_status,
         "last_error": last_error,
     }
+    params = {"id": f"eq.{source_id}"}
+    if claimed_at:
+        params.update({"last_status": "eq.polling", "last_pulled_at": f"eq.{claimed_at}"})
     requests.patch(
-        f"{SUPABASE_URL}/rest/v1/dealer_api_sources?id=eq.{source_id}",
+        f"{SUPABASE_URL}/rest/v1/dealer_api_sources",
         headers=_svc(prefer="return=minimal"),
+        params=params,
         json=body,
         timeout=10,
     )
 
 
-def _process_source(source):
+def _process_source(source, claimed_at):
     source_id = source["id"]
     dealership_id = source["dealership_id"]
     credentials_enc = source.get("credentials_enc")
@@ -241,18 +316,18 @@ def _process_source(source):
             credentials = decrypt_credentials(credentials_enc)
         except KeyMissingError:
             _update_source(source_id, "key_missing",
-                           "DEALER_INTEGRATIONS_KEY env var is unset")
+                           "DEALER_INTEGRATIONS_KEY env var is unset", claimed_at)
             return
         if credentials is None:
             _update_source(source_id, "credentials_unreadable",
-                           "Credentials token is tampered or invalid")
+                           "Credentials token is tampered or invalid", claimed_at)
             return
 
     # --- Fetch from DMS ---
     rows, error_status = _generic_json_fetch(endpoint_url, auth_type, credentials)
     if error_status:
         _update_source(source_id, error_status,
-                       f"Fetch failed: {error_status}")
+                       f"Fetch failed: {error_status}", claimed_at)
         return
 
     # --- Import rows ---
@@ -283,19 +358,23 @@ def _process_source(source):
         final_status = "failed"
 
     error_msg = (f"{total_bad} row(s) failed to import" if total_bad else None)
-    _update_source(source_id, final_status, error_msg)
+    _update_source(source_id, final_status, error_msg, claimed_at)
 
 
 def run():
     """Process all due sources for this tick. Returns count of sources processed."""
     due_sources = _fetch_due_sources()
+    processed = 0
     for source in due_sources:
         try:
-            _process_source(source)
+            claimed_at = _claim_source(source)
+            if claimed_at:
+                processed += 1
+                _process_source(source, claimed_at)
         except Exception:
             logger.exception("dealer_api_source_poller: unexpected error on source %s",
                              source.get("id"))
-    return len(due_sources)
+    return processed
 
 
 if __name__ == "__main__":

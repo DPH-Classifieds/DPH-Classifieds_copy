@@ -90,7 +90,8 @@ def test_process_one_calls_approve_then_marks_fired():
         {"document_type": "trade_license", "ocr_confidence": 0.95, "replaced_at": None},
         {"document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None},
     ]
-    with patch.object(w, "_approve_user", side_effect=fake_approve), \
+    with patch.object(w, "_claim", return_value=True), \
+         patch.object(w, "_approve_user", side_effect=fake_approve), \
          patch.object(w, "_mark", side_effect=fake_mark), \
          patch.object(w, "_send_approval_email", side_effect=fake_email), \
          patch.object(w, "_fetch_active_docs", return_value=docs), \
@@ -112,7 +113,8 @@ def test_process_one_marks_ocr_verified_documents_approved():
         {"id": "doc-trn", "document_type": "tax_registration", "ocr_confidence": 0.92, "replaced_at": None},
     ]
 
-    with patch.object(w, "_approve_user"), \
+    with patch.object(w, "_claim", return_value=True), \
+         patch.object(w, "_approve_user"), \
          patch.object(w, "_mark"), \
          patch.object(w, "_send_approval_email"), \
          patch.object(w, "_fetch_active_docs", return_value=docs), \
@@ -134,7 +136,8 @@ def test_process_one_cancels_when_doc_replaced_between_upload_and_fire():
     def fake_approve(uid):
         captured["approve"] = uid  # must NOT be called
 
-    with patch.object(w, "_approve_user", side_effect=fake_approve), \
+    with patch.object(w, "_claim", return_value=True), \
+         patch.object(w, "_approve_user", side_effect=fake_approve), \
          patch.object(w, "_mark", side_effect=lambda rid, **f: captured.setdefault("marks", []).append((rid, f))), \
          patch.object(w, "_send_approval_email", side_effect=lambda uid: captured.setdefault("emails", []).append(uid)), \
          patch.object(w, "_fetch_active_docs", return_value=docs), \

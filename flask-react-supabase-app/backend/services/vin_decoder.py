@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import time
+import threading
 
 import requests
 
@@ -25,6 +26,7 @@ TRANSLITERATION = {
 }
 WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2]
 _VIN_CACHE = {}
+_VIN_CACHE_LOCK = threading.Lock()
 
 # Position 10 (index 9) encodes model year per ISO 3779 (30-year cycle from 1980)
 _YEAR_CODES = {
@@ -125,11 +127,12 @@ class VINDecoder:
         return self._cache(normalized_vin, base_result)
 
     def _cache(self, vin, result):
-        self.cache[vin] = {
-            "expires_at": self.clock() + self.cache_ttl_seconds,
-            "result": copy.deepcopy(result),
-        }
-        self._enforce_cache_bound()
+        with _VIN_CACHE_LOCK:
+            self.cache[vin] = {
+                "expires_at": self.clock() + self.cache_ttl_seconds,
+                "result": copy.deepcopy(result),
+            }
+            self._enforce_cache_bound()
         return copy.deepcopy(result)
 
     def _enforce_cache_bound(self):
@@ -138,15 +141,16 @@ class VINDecoder:
             self.cache.pop(oldest_key, None)
 
     def _get_cached(self, vin):
-        cached = self.cache.get(vin)
-        if cached is None:
-            return None
-        if "result" not in cached or "expires_at" not in cached:
-            return copy.deepcopy(cached)
-        if cached["expires_at"] <= self.clock():
-            self.cache.pop(vin, None)
-            return None
-        return copy.deepcopy(cached["result"])
+        with _VIN_CACHE_LOCK:
+            cached = self.cache.get(vin)
+            if cached is None:
+                return None
+            if "result" not in cached or "expires_at" not in cached:
+                return copy.deepcopy(cached)
+            if cached["expires_at"] <= self.clock():
+                self.cache.pop(vin, None)
+                return None
+            return copy.deepcopy(cached["result"])
 
     @staticmethod
     def normalize_vin(vin):

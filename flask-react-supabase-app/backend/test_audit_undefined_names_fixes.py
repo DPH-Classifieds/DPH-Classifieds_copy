@@ -52,12 +52,14 @@ def test_public_featured_listings_filters_via_is_listing_active_featured():
 
 def test_update_password_parses_access_token_out_of_hash_fragment():
     with patch.object(app_module, "requests") as mock_requests:
-        mock_requests.put.return_value = MagicMock(status_code=200, json=lambda: {})
+        mock_requests.put.return_value = MagicMock(status_code=200, json=lambda: {"id": "user-1"})
+        mock_requests.post.return_value = MagicMock(status_code=204)
         client = app_module.app.test_client()
-        resp = client.post("/api/auth/update-password", json={
-            "password": "Passw0rd!",
-            "hash": "access_token=real-token-abc&type=recovery",
-        })
+        with patch.object(app_module, "revoke_user_sessions", return_value=True):
+            resp = client.post("/api/auth/update-password", json={
+                "password": "Passw0rd!",
+                "hash": "access_token=real-token-abc&type=recovery",
+            })
         assert resp.status_code == 200
         _, put_kwargs = mock_requests.put.call_args
         assert put_kwargs["headers"]["Authorization"] == "Bearer real-token-abc"

@@ -23,6 +23,11 @@ class TrustResult:
 def evaluate_trust(ctx):
     if ctx.is_admin:
         return TrustResult(True, "admin")
+    # A verified identity is necessary but not sufficient for automatic
+    # approval. Recent rejected listings or reports keep the account in the
+    # manual-review queue until an operator clears the history.
+    if ctx.rejections_last_90d or ctx.reports_last_90d:
+        return TrustResult(False, None)
     if ctx.dealer_verified:
         return TrustResult(True, "dealer_verified")
     if ctx.email_verified and ctx.phone_verified:
