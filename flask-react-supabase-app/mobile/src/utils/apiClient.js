@@ -1,9 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../constants/config';
 import * as authService from './authService';
 import { supabase } from './supabaseClient';
-
-const AUTH_DATA_KEY = 'auth_data';
 
 const PUBLIC_ENDPOINTS = [
   '/api/homepage/preview',
@@ -35,27 +32,20 @@ const isTokenExpired = (token) => {
 
 const getBestAccessToken = async () => {
   try {
-    const raw = await AsyncStorage.getItem(AUTH_DATA_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const token = parsed?.access_token;
-      if (token) {
-        if (isTokenExpired(token)) {
-          const refreshed = await authService.refreshToken();
-          if (refreshed?.data?.access_token) return refreshed.data.access_token;
-        } else {
-          return token;
-        }
-      }
+    const token = await authService.getAccessToken();
+    if (token && !isTokenExpired(token)) {
+      return token;
+    }
+    if (token && isTokenExpired(token)) {
+      const refreshed = await authService.refreshToken();
+      if (refreshed?.data?.access_token) return refreshed.data.access_token;
     }
   } catch (error) {
-    // fall through to the Supabase session below
+    // Fall through to the Supabase session below.
   }
-  // authService's auth_data is only populated by email/password sign-in.
-  // Google/OAuth sign-in only ever creates a Supabase session, so without
-  // this fallback every apiClient call for those users went out with no
-  // Authorization header at all — silently unauthenticated, not just for
-  // saved listings/searches but every authed endpoint.
+
+  // Google/OAuth sign-in is stored by Supabase in SecureStore rather than the
+  // backend auth_data record, so retain the session fallback for that flow.
   try {
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token || null;
@@ -76,6 +66,7 @@ const executeRequest = async (url, options, token) => {
 
 const apiClient = {
   async request(endpoint, options = {}) {
+    let didRetryAfterRefresh = false;
     try {
       const requiresAuth = options.requiresAuth !== false && !isPublicEndpoint(endpoint);
 
@@ -126,7 +117,7 @@ const apiClient = {
         throw networkError;
       }
 
-      if (response.status === 401 && !options.__retriedAfterRefresh) {
+      if (response.status === 401 && !didRetryAfterRefresh) {
         let message = '';
         try {
           const errorData = await response.clone().json();
@@ -144,7 +135,7 @@ const apiClient = {
           const refreshedToken = refreshResult?.data?.access_token;
           if (refreshedToken) {
             token = refreshedToken;
-            options.__retriedAfterRefresh = true;
+            didRetryAfterRefresh = true;
             response = await executeRequest(url, requestOptions, token);
           }
         }

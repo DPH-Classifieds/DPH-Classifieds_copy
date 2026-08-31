@@ -1,12 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// Expo resolves this native module at build time; the lint resolver does not
+// understand its platform package metadata.
+// eslint-disable-next-line import/no-unresolved
+import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../constants/config';
 
 const AUTH_DATA_KEY = 'auth_data';
 
 const readAuthData = async () => {
   try {
-    const raw = await AsyncStorage.getItem(AUTH_DATA_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const secureRaw = await SecureStore.getItemAsync(AUTH_DATA_KEY);
+    if (secureRaw) return JSON.parse(secureRaw);
+    // One-time migration for users upgraded from the plaintext implementation.
+    const legacyRaw = await AsyncStorage.getItem(AUTH_DATA_KEY);
+    if (!legacyRaw) return null;
+    await SecureStore.setItemAsync(AUTH_DATA_KEY, legacyRaw);
+    await AsyncStorage.removeItem(AUTH_DATA_KEY);
+    return JSON.parse(legacyRaw);
   } catch (error) {
     return null;
   }
@@ -14,13 +24,14 @@ const readAuthData = async () => {
 
 const saveAuthData = async (authData) => {
   try {
-    await AsyncStorage.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
+    await SecureStore.setItemAsync(AUTH_DATA_KEY, JSON.stringify(authData));
   } catch (error) {
   }
 };
 
 export const clearAuthData = async () => {
   try {
+    await SecureStore.deleteItemAsync(AUTH_DATA_KEY);
     await AsyncStorage.removeItem(AUTH_DATA_KEY);
   } catch (error) {
   }

@@ -514,6 +514,9 @@ export default function ExploreScreen({ navigation, route }) {
   const [bikeFilters, setBikeFilters] = useState(INITIAL_BIKE_FILTERS);
   const [plateFilters, setPlateFilters] = useState(INITIAL_PLATE_FILTERS);
   const [partFilters, setPartFilters] = useState(INITIAL_PART_FILTERS);
+  // Mirrors the "Hide Reddit" chip already on Car/Bike/Plate/PartListScreen —
+  // this aggregated Explore tab was missing it entirely.
+  const [hideReddit, setHideReddit] = useState(false);
 
   const [pickerState, setPickerState] = useState({ visible: false, title: '', options: [], onSelect: () => {}, selectedValue: '' });
 
@@ -615,8 +618,10 @@ export default function ExploreScreen({ navigation, route }) {
       if (partFilters.min_price) params.min_price = partFilters.min_price;
       if (partFilters.max_price) params.max_price = partFilters.max_price;
     }
+    // Shared across every category endpoint (mirrors the per-list-screen chip).
+    if (hideReddit) params.exclude_reddit = 'true';
     return params;
-  }, [activeTab, carFilters, bikeFilters, plateFilters, partFilters]);
+  }, [activeTab, carFilters, bikeFilters, plateFilters, partFilters, hideReddit]);
 
   const fetchAllListings = useCallback(async () => {
     try {
@@ -740,14 +745,16 @@ export default function ExploreScreen({ navigation, route }) {
     Object.values(bikeFilters).forEach(v => { if (v) count++; });
     Object.values(plateFilters).forEach(v => { if (v) count++; });
     Object.values(partFilters).forEach(v => { if (v) count++; });
+    if (hideReddit) count++;
     return count;
-  }, [carFilters, bikeFilters, plateFilters, partFilters]);
+  }, [carFilters, bikeFilters, plateFilters, partFilters, hideReddit]);
 
   const resetFilters = useCallback(() => {
     setCarFilters(INITIAL_CAR_FILTERS);
     setBikeFilters(INITIAL_BIKE_FILTERS);
     setPlateFilters(INITIAL_PLATE_FILTERS);
     setPartFilters(INITIAL_PART_FILTERS);
+    setHideReddit(false);
   }, []);
 
   const currentFiltersForTab = () => {
@@ -924,7 +931,7 @@ export default function ExploreScreen({ navigation, route }) {
         <View style={styles.ctaContent}>
           <View style={styles.ctaLeft}>
             <Text style={styles.ctaTitle}>List Your Vehicle</Text>
-            <Text style={styles.ctaSubtitle}>It's free to post your listing</Text>
+            <Text style={styles.ctaSubtitle}>It&apos;s free to post your listing</Text>
           </View>
           <View style={styles.ctaIconWrap}>
             <Ionicons name="add-circle" size={36} color={COLORS.accent} />
@@ -990,6 +997,20 @@ export default function ExploreScreen({ navigation, route }) {
               </TouchableOpacity>
             );
           })}
+          <TouchableOpacity
+            style={[styles.catPill, hideReddit && styles.catPillActive]}
+            onPress={() => setHideReddit((prev) => !prev)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={hideReddit ? 'eye-off' : 'logo-reddit'}
+              size={14}
+              color={hideReddit ? COLORS.accent : COLORS.textSecondary}
+            />
+            <Text style={[styles.catPillLabel, hideReddit && styles.catPillLabelActive]}>
+              {hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -1036,7 +1057,7 @@ export default function ExploreScreen({ navigation, route }) {
         </TouchableOpacity>
       )}
     </View>
-  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns, activeTotal, totalCounts]);
+  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns, activeTotal, totalCounts, hideReddit]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

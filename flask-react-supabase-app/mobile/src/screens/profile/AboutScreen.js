@@ -43,7 +43,7 @@ export default function AboutScreen() {
       </View>
 
       <Text style={styles.description}>
-        UAE's premier marketplace for cars, bikes, plates, and parts.
+        UAE&apos;s premier marketplace for cars, bikes, plates, and parts.
       </Text>
 
       <View style={styles.linksSection}>

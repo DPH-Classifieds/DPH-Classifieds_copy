@@ -93,7 +93,7 @@ export default function RedditListScreen({ navigation }) {
     const results = await Promise.all(
       ENDPOINTS.map(([cat, ep]) =>
         apiClient
-          .get(`${ep}?source_platform=reddit&limit=250&order=created_at.desc`)
+          .get(`${ep}?source_platform=reddit&limit=30&order=created_at.desc`)
           .catch(() => [])
           .then((res) => (Array.isArray(res) ? res : res?.[cat] || res?.data || []).map((r) => normalize(cat, r)))
       )

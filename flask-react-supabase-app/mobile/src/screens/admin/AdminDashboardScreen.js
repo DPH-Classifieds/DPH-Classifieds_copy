@@ -269,7 +269,7 @@ export default function AdminDashboardScreen({ navigation }) {
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
         <Ionicons name="lock-closed" size={48} color={COLORS.textMuted} />
         <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: '600', marginTop: 16 }}>Access Denied</Text>
-        <Text style={{ color: COLORS.textSecondary, marginTop: 8 }}>You don't have admin privileges.</Text>
+        <Text style={{ color: COLORS.textSecondary, marginTop: 8 }}>You don&apos;t have admin privileges.</Text>
       </SafeAreaView>
     );
   }

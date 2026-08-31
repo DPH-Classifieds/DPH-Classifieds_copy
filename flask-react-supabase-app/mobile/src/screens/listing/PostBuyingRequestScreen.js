@@ -58,7 +58,7 @@ export default function PostBuyingRequestScreen({ navigation }) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
             <Text style={styles.heading}>Post a Buying Request</Text>
-            <Text style={styles.subheading}>Tell sellers what you're looking for</Text>
+            <Text style={styles.subheading}>Tell sellers what you&apos;re looking for</Text>
 
             <Label>Category</Label>
             <View style={styles.chipRow}>

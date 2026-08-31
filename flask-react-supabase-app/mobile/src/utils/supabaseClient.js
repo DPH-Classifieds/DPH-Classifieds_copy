@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 import { SUPABASE_URL, SUPABASE_KEY } from '../constants/config';
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -11,6 +12,11 @@ export const supabase = createClient(SUPABASE_URL || '', SUPABASE_KEY || '', {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
+    storage: {
+      getItem: (key) => SecureStore.getItemAsync(key),
+      setItem: (key, value) => SecureStore.setItemAsync(key, value),
+      removeItem: (key) => SecureStore.deleteItemAsync(key),
+    },
     // false because we manually pick up the OAuth redirect via deep links
     // (see signInWithGoogle below).
     detectSessionInUrl: false,

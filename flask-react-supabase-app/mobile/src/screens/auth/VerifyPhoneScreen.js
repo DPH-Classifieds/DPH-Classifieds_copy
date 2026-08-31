@@ -240,7 +240,7 @@ export default function VerifyPhoneScreen({ navigation, route }) {
           ) : (
             <View style={styles.stepContainer}>
               <Text style={styles.description}>
-                We've sent a {otpLength}-digit code to {countryCode} {phoneNumber}
+                We&apos;ve sent a {otpLength}-digit code to {countryCode} {phoneNumber}
               </Text>
 
               <OtpInput
