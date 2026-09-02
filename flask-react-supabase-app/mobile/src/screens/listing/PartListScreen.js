@@ -8,7 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import { formatPrice } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
@@ -86,6 +87,7 @@ function PartCard({ item, index, onPress, columns }) {
 }
 
 export default function PartListScreen({ navigation }) {
+  const { colors } = useTheme();
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -198,7 +200,7 @@ export default function PartListScreen({ navigation }) {
       onPress={() => setFilterModal(key)}
     >
       <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{label}</Text>
-      <Ionicons name="chevron-down" size={14} color={isActive ? COLORS.accent : COLORS.textMuted} />
+      <Ionicons name="chevron-down" size={14} color={isActive ? colors.accent : colors.textMuted} />
     </TouchableOpacity>
   );
 
@@ -225,7 +227,7 @@ export default function PartListScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{title}</Text>
               <TouchableOpacity onPress={() => setFilterModal(null)}>
-                <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalOptions}>
@@ -238,7 +240,7 @@ export default function PartListScreen({ navigation }) {
                     onPress={() => applyFilter(filterModal, opt === 'All' ? '' : opt)}
                   >
                     <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>{opt}</Text>
-                    {isSelected && <Ionicons name="checkmark" size={18} color={COLORS.accent} />}
+                    {isSelected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
                   </TouchableOpacity>
                 );
               })}
@@ -262,6 +264,57 @@ export default function PartListScreen({ navigation }) {
     prefetchListingWindow('parts', viewableItems.map((v) => v.item).filter(Boolean));
   }).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    searchContainer: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
+    filtersRow: { marginBottom: SPACING.sm },
+    filtersContent: { paddingHorizontal: SPACING.md, gap: SPACING.sm },
+    filterChip: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, marginRight: SPACING.sm, gap: 4,
+    },
+    filterChipActive: { backgroundColor: colors.primary },
+    filterChipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
+    filterChipTextActive: { color: colors.accent },
+    clearFiltersChip: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76,175,80,0.1)',
+      paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, gap: 4,
+    },
+    clearFiltersText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '500' },
+    listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xxl },
+    listContentGrid: { paddingHorizontal: SPACING.md - SPACING.xs, paddingBottom: SPACING.xxl },
+    card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, overflow: 'hidden' },
+    cardGrid: { flex: 1, marginHorizontal: SPACING.xs },
+    cardImageContainer: { height: 120 },
+    cardImageContainerGrid: { height: 100 },
+    cardImage: { width: '100%', height: '100%' },
+    cardImagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceDark },
+    cardBody: { padding: SPACING.md },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+    cardTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600', flex: 1, marginRight: 8 },
+    cardSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
+    cardPrice: { color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '700' },
+    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    footerLoader: { paddingVertical: SPACING.lg, alignItems: 'center' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+    modalContent: {
+      backgroundColor: colors.surface, borderTopLeftRadius: BORDER_RADIUS.xl, borderTopRightRadius: BORDER_RADIUS.xl, maxHeight: '60%',
+    },
+    modalHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    modalOptions: { padding: SPACING.sm },
+    modalOption: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingVertical: 14, paddingHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.md,
+    },
+    modalOptionSelected: { backgroundColor: colors.primary },
+    modalOptionText: { color: colors.white, fontSize: FONT_SIZES.md },
+    modalOptionTextSelected: { color: colors.accent, fontWeight: '600' },
+  }), [colors]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -287,7 +340,7 @@ export default function PartListScreen({ navigation }) {
               <Ionicons
                 name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
                 size={14}
-                color={activeFilters.hideReddit ? COLORS.accent : COLORS.textMuted}
+                color={activeFilters.hideReddit ? colors.accent : colors.textMuted}
               />
               <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
                 {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
@@ -295,14 +348,14 @@ export default function PartListScreen({ navigation }) {
             </TouchableOpacity>
             {hasActiveFilters && (
               <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
-                <Ionicons name="close-circle" size={14} color={COLORS.accent} />
+                <Ionicons name="close-circle" size={14} color={colors.accent} />
                 <Text style={styles.clearFiltersText}>Clear</Text>
               </TouchableOpacity>
             )}
           </ScrollView>
         </View>
         {loading ? (
-          <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.accent} /></View>
+          <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.accent} /></View>
         ) : (
           <FlashList
             key={`cols-${columns}`}
@@ -313,12 +366,12 @@ export default function PartListScreen({ navigation }) {
             keyExtractor={(item, idx) => String(item.id || idx)}
             contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.3}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
-            ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={COLORS.accent} /></View> : null}
+            ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={colors.accent} /></View> : null}
             ListEmptyComponent={
               <EmptyState icon="construct-outline" title="No parts found" message="Try adjusting your filters" actionLabel="Clear Filters" onAction={clearFilters} />
             }
@@ -329,54 +382,3 @@ export default function PartListScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  searchContainer: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
-  filtersRow: { marginBottom: SPACING.sm },
-  filtersContent: { paddingHorizontal: SPACING.md, gap: SPACING.sm },
-  filterChip: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, marginRight: SPACING.sm, gap: 4,
-  },
-  filterChipActive: { backgroundColor: COLORS.primary },
-  filterChipText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
-  filterChipTextActive: { color: COLORS.accent },
-  clearFiltersChip: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76,175,80,0.1)',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, gap: 4,
-  },
-  clearFiltersText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '500' },
-  listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xxl },
-  listContentGrid: { paddingHorizontal: SPACING.md - SPACING.xs, paddingBottom: SPACING.xxl },
-  card: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, overflow: 'hidden' },
-  cardGrid: { flex: 1, marginHorizontal: SPACING.xs },
-  cardImageContainer: { height: 120 },
-  cardImageContainerGrid: { height: 100 },
-  cardImage: { width: '100%', height: '100%' },
-  cardImagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceDark },
-  cardBody: { padding: SPACING.md },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  cardTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600', flex: 1, marginRight: 8 },
-  cardSubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
-  cardPrice: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700' },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  footerLoader: { paddingVertical: SPACING.lg, alignItems: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalContent: {
-    backgroundColor: COLORS.surface, borderTopLeftRadius: BORDER_RADIUS.xl, borderTopRightRadius: BORDER_RADIUS.xl, maxHeight: '60%',
-  },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  modalTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
-  modalOptions: { padding: SPACING.sm },
-  modalOption: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 14, paddingHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.md,
-  },
-  modalOptionSelected: { backgroundColor: COLORS.primary },
-  modalOptionText: { color: COLORS.white, fontSize: FONT_SIZES.md },
-  modalOptionTextSelected: { color: COLORS.accent, fontWeight: '600' },
-});

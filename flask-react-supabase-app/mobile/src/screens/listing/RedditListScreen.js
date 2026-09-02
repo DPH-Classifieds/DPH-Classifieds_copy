@@ -7,7 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatNumber } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { resolveMediaUrl } from '../../utils/media';
 import PressableScale from '../../components/ui/PressableScale';
 import { LayoutToggleButton } from '../../components/ui/ListHeader';
@@ -81,6 +82,7 @@ const normalize = (category, raw) => {
 };
 
 export default function RedditListScreen({ navigation }) {
+  const { colors } = useTheme();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -164,11 +166,41 @@ export default function RedditListScreen({ navigation }) {
     </PressableScale>
   ), [navigation]);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+    backBtn: { width: 24, alignItems: 'flex-start' },
+    headerTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700' },
+    filters: { flexGrow: 0, maxHeight: 52 },
+    filtersContent: { paddingHorizontal: SPACING.md, gap: 8, alignItems: 'center' },
+    chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+    chipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    chipTextActive: { color: colors.background },
+    divider: { width: 1, height: 22, backgroundColor: colors.border, marginHorizontal: 4 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+    emptyText: { color: colors.textMuted, fontSize: FONT_SIZES.md },
+    listContent: { padding: SPACING.sm },
+    cardWrap: { flex: 1, padding: 6 },
+    card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+    imageWrap: { aspectRatio: 4 / 3, backgroundColor: colors.surfaceDark },
+    image: { width: '100%', height: '100%' },
+    imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    redditBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#ff4500', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    redditBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+    categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(5,16,10,0.72)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    categoryBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    cardBody: { padding: 10, gap: 3 },
+    cardTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '700' },
+    cardSubtitle: { color: colors.textMuted, fontSize: FONT_SIZES.sm },
+    cardPrice: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '800', marginTop: 2 },
+  }), [colors]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.textPrimary} />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reddit Listings</Text>
         <LayoutToggleButton columns={columns} onToggle={toggleColumns} />
@@ -195,10 +227,10 @@ export default function RedditListScreen({ navigation }) {
       </ScrollView>
 
       {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color={COLORS.accent} /></View>
+        <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>
       ) : visible.length === 0 ? (
         <View style={styles.center}>
-          <Ionicons name="logo-reddit" size={44} color={COLORS.textMuted} />
+          <Ionicons name="logo-reddit" size={44} color={colors.textMuted} />
           <Text style={styles.emptyText}>No Reddit listings found.</Text>
         </View>
       ) : (
@@ -210,39 +242,9 @@ export default function RedditListScreen({ navigation }) {
           numColumns={columns}
           estimatedItemSize={columns === 2 ? 240 : 320}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         />
       )}
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
-  backBtn: { width: 24, alignItems: 'flex-start' },
-  headerTitle: { color: COLORS.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700' },
-  filters: { flexGrow: 0, maxHeight: 52 },
-  filtersContent: { paddingHorizontal: SPACING.md, gap: 8, alignItems: 'center' },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
-  chipActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  chipText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  chipTextActive: { color: COLORS.background },
-  divider: { width: 1, height: 22, backgroundColor: COLORS.border, marginHorizontal: 4 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  emptyText: { color: COLORS.textMuted, fontSize: FONT_SIZES.md },
-  listContent: { padding: SPACING.sm },
-  cardWrap: { flex: 1, padding: 6 },
-  card: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
-  imageWrap: { aspectRatio: 4 / 3, backgroundColor: COLORS.surfaceDark },
-  image: { width: '100%', height: '100%' },
-  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  redditBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#ff4500', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  redditBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(5,16,10,0.72)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  categoryBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  cardBody: { padding: 10, gap: 3 },
-  cardTitle: { color: COLORS.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '700' },
-  cardSubtitle: { color: COLORS.textMuted, fontSize: FONT_SIZES.sm },
-  cardPrice: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '800', marginTop: 2 },
-});

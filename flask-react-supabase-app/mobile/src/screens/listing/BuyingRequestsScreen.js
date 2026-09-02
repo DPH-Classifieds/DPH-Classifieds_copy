@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +12,8 @@ import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
 import EmptyState from '../../components/ui/EmptyState';
 import ListingSkeleton from '../../components/ui/ListingSkeleton';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { formatPrice } from '../../utils/formatters';
 
 const PAGE_SIZE = 20;
@@ -47,6 +48,7 @@ function RequestCard({ item, index, onPress }) {
 }
 
 export default function BuyingRequestsScreen({ navigation }) {
+  const { colors } = useTheme();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,6 +95,22 @@ export default function BuyingRequestsScreen({ navigation }) {
     if (!loadingMore && hasMore) fetchRequests(page + 1);
   }, [loadingMore, hasMore, page, fetchRequests]);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.md },
+    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.white },
+    postBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8 },
+    postBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.black },
+    card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md, borderWidth: 1, borderColor: colors.borderLight },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+    categoryBadge: { backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 10, paddingVertical: 3 },
+    categoryText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.accent },
+    date: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textMuted },
+    title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.white, marginBottom: SPACING.xs },
+    budget: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.accent, marginBottom: 2 },
+    detail: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
+  }), [colors]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenEntrance>
@@ -103,7 +121,7 @@ export default function BuyingRequestsScreen({ navigation }) {
             haptic="medium"
             style={styles.postBtn}
           >
-            <Ionicons name="add" size={20} color={COLORS.black} />
+            <Ionicons name="add" size={20} color={colors.black} />
             <Text style={styles.postBtnText}>Post Request</Text>
           </PressableScale>
         </View>
@@ -125,7 +143,7 @@ export default function BuyingRequestsScreen({ navigation }) {
             onEndReached={loadMore}
             onEndReachedThreshold={0.4}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" />}
-            ListFooterComponent={loadingMore ? <ActivityIndicator color={COLORS.accent} style={{ padding: 20 }} /> : null}
+            ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.accent} style={{ padding: 20 }} /> : null}
             ListEmptyComponent={<EmptyState icon="search" title="No buying requests yet" message="Be the first to post what you're looking for" />}
           />
         )}
@@ -133,19 +151,3 @@ export default function BuyingRequestsScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.md },
-  heading: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: COLORS.white },
-  postBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8 },
-  postBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: COLORS.black },
-  card: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl, marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.borderLight },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
-  categoryBadge: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 10, paddingVertical: 3 },
-  categoryText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.accent },
-  date: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textMuted },
-  title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: COLORS.white, marginBottom: SPACING.xs },
-  budget: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.accent, marginBottom: 2 },
-  detail: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-});
