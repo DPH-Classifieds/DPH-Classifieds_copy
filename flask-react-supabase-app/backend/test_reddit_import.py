@@ -120,6 +120,13 @@ class ParserTests(unittest.TestCase):
         # preview.redd.it is rewritten to the hotlinkable i.redd.it CDN.
         self.assertEqual(sub.images, ["https://i.redd.it/ok.jpg"])
 
+        insecure = RedditSubmission.from_api({
+            "id": "z2", "name": "t3_z2", "title": "WTS 2018 BMW 120i AED 39,000",
+            "author": "s", "permalink": "/r/DubaiPetrolHeads/comments/z2/t/",
+            "created_utc": 1, "url": "http://i.redd.it/insecure.jpg",
+        })
+        self.assertEqual(insecure.images, [])
+
     def test_gallery_post_images_are_extracted(self):
         # Real car sales post as galleries: image URLs live in media_metadata,
         # ordered by gallery_data. data.url is only the /gallery/ permalink.
@@ -305,6 +312,31 @@ class MultiCategoryTests(unittest.TestCase):
         self.assertEqual(built["payload"]["emirate"], "Sharjah")
         self.assertEqual(built["payload"]["code"], "O")
 
+    def test_vehicle_identity_wins_when_plate_is_incidental(self):
+        for title in [
+            "WTS 2020 Nissan Patrol plate number 1234 AED 120,000",
+            "WTS 2018 BMW 320i with plate 1234 AED 60,000",
+            "WTS 2018 BMW 320i number plate AED 60,000",
+        ]:
+            parsed = self._p(title)
+            self.assertIsNotNone(parsed, title)
+            self.assertEqual(parsed.category, "car", title)
+
+    def test_plate_sale_before_vehicle_fitment_stays_a_plate(self):
+        parsed = self._p("WTS Dubai number plate 1234 for BMW 320i AED 60,000")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.category, "plate")
+        self.assertEqual(parsed.fields["number"], "1234")
+
+    def test_plate_requires_number_near_plate_cue(self):
+        for title in [
+            "WTS 2018 BMW 320i number plate AED 60,000",
+            "WTS number plate frame for BMW 320i AED 5,000",
+            "WTS 2018 BMW 320i new plate AED 60,000",
+        ]:
+            parsed = self._p(title)
+            self.assertTrue(parsed is None or parsed.category != "plate", title)
+
     def test_every_category_payload_carries_source_contract(self):
         for title in ["WTS 2018 BMW 120i AED 39,000", "WTS Yamaha MT-09 2022 AED 40,000",
                       "WTS exhaust for Golf AED 2,000", "WTS plate 5555 AED 30,000"]:
@@ -344,8 +376,9 @@ _ENV = {
 class FakeDB:
     """Route (method, path) → (body, status) like the service-role PostgREST layer."""
 
-    def __init__(self, existing_cars=None, live_cars=None):
+    def __init__(self, existing_cars=None, existing_plates=None, live_cars=None):
         self.existing_cars = existing_cars or []   # for in.() lookup by source id
+        self.existing_plates = existing_plates or []
         self.live_cars = live_cars if live_cars is not None else []  # for removal scan
         self.calls = []
 
@@ -362,6 +395,8 @@ class FakeDB:
             if params.get("source_removed_at") == "is.null":
                 return list(self.live_cars), 200
             return list(self.existing_cars), 200
+        if path == "/rest/v1/license_plates" and method == "get":
+            return list(self.existing_plates), 200
         if path == "/rest/v1/cars" and method == "post":
             return [{"id": "new-car"}], 201
         if path.startswith("/rest/v1/cars?") and method == "patch":
@@ -372,6 +407,12 @@ class FakeDB:
             return [{"id": "img-1"}], 201
         if path.startswith("/rest/v1/car_images?") and method == "delete":
             return [], 204
+        if path == "/rest/v1/license_plates" and method == "post":
+            return [{"id": "new-plate"}], 201
+        if path == "/rest/v1/plate_images" and method == "get":
+            return [], 200
+        if path == "/rest/v1/plate_images" and method == "post":
+            return [{"id": "img-plate-1"}], 201
         return [], 200
 
 
@@ -444,6 +485,28 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(result["updated"], 1)
         # No new insert into cars.
         self.assertFalse(any(c["path"] == "/rest/v1/cars" and c["method"] == "post" for c in db.calls))
+
+    @patch("workers.reddit_import_worker.fetch_submissions_by_ids", return_value={})
+    @patch("workers.reddit_import_worker.get_app_access_token", return_value="tok")
+    @patch("workers.reddit_import_worker.fetch_new_submissions")
+    def test_resync_retires_a_previous_wrong_category_before_creating_correct_one(self, mock_fetch, _tok, _info):
+        import workers.reddit_import_worker as w
+        mock_fetch.return_value = [submission(
+            title="WTS 2020 Nissan Patrol plate number AED 120,000",
+            id="wrong-category", images=[IMG],
+        )]
+        db = FakeDB(existing_plates=[{
+            "id": "old-plate", "source_external_id": "t3_wrong-category", "status": "approved",
+        }])
+        with patch.object(w, "supabase_request", db):
+            result = w.run()
+        self.assertEqual(result["created"], 1)
+        self.assertEqual(result["failed"], 0)
+        retired = next(c for c in db.calls
+                       if c["method"] == "patch" and c["path"].startswith("/rest/v1/license_plates?"))
+        self.assertEqual(retired["data"], {"status": "expired", "is_approved": False})
+        self.assertTrue(any(c["path"] == "/rest/v1/cars" and c["method"] == "post"
+                            for c in db.calls))
 
     def test_removed_import_is_unpublished_not_deleted(self):
         import workers.reddit_import_worker as w
