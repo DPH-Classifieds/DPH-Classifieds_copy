@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, TouchableOpacity, ScrollView, Linking, StyleSheet } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const LINKS = [
   {
@@ -28,6 +29,79 @@ const LINKS = [
 ];
 
 export default function AboutScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      paddingVertical: SPACING.xl,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: SPACING.lg,
+    },
+    logoContainer: {
+      width: 88,
+      height: 88,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: SPACING.md,
+    },
+    appName: {
+      color: colors.white,
+      fontSize: FONT_SIZES.xxl,
+      fontWeight: '800',
+    },
+    version: {
+      color: colors.textMuted,
+      fontSize: FONT_SIZES.sm,
+      marginTop: 4,
+    },
+    description: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZES.md,
+      textAlign: 'center',
+      paddingHorizontal: SPACING.xl,
+      lineHeight: 22,
+      marginBottom: SPACING.xl,
+    },
+    linksSection: {
+      backgroundColor: colors.surface,
+      marginHorizontal: SPACING.md,
+      borderRadius: BORDER_RADIUS.lg,
+      overflow: 'hidden',
+    },
+    linkRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: SPACING.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderLight,
+    },
+    linkLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.sm,
+    },
+    linkLabel: {
+      color: colors.white,
+      fontSize: FONT_SIZES.md,
+      fontWeight: '500',
+    },
+    footer: {
+      color: colors.textMuted,
+      fontSize: FONT_SIZES.sm,
+      textAlign: 'center',
+      marginTop: SPACING.xxl,
+    },
+  }), [colors]);
+
   const handleOpenLink = (url) => {
     Linking.openURL(url).catch(() => {});
   };
@@ -36,7 +110,7 @@ export default function AboutScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.logoContainer}>
-          <Ionicons name="car-sport" size={48} color={COLORS.accent} />
+          <Ionicons name="car-sport" size={48} color={colors.accent} />
         </View>
         <Text style={styles.appName}>DPH Classifieds</Text>
         <Text style={styles.version}>v1.0.0</Text>
@@ -55,10 +129,10 @@ export default function AboutScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.linkLeft}>
-              <Ionicons name={link.icon} size={20} color={COLORS.textSecondary} />
+              <Ionicons name={link.icon} size={20} color={colors.textSecondary} />
               <Text style={styles.linkLabel}>{link.label}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         ))}
       </View>
@@ -67,75 +141,3 @@ export default function AboutScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  content: {
-    paddingVertical: SPACING.xl,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  logoContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 22,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  appName: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '800',
-  },
-  version: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.sm,
-    marginTop: 4,
-  },
-  description: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-    textAlign: 'center',
-    paddingHorizontal: SPACING.xl,
-    lineHeight: 22,
-    marginBottom: SPACING.xl,
-  },
-  linksSection: {
-    backgroundColor: COLORS.surface,
-    marginHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.borderLight,
-  },
-  linkLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  linkLabel: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
-  },
-  footer: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.sm,
-    textAlign: 'center',
-    marginTop: SPACING.xxl,
-  },
-});

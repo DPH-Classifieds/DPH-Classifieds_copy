@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet, RefreshControl, Alert, ScrollView } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,10 +13,11 @@ import PressableScale from '../../components/ui/PressableScale';
 import { toastApiError } from '../../utils/toast';
 import apiClient from '../../utils/apiClient';
 import { useSavedListings } from '../../context/SavedListingsContext';
+import { useTheme } from '../../context/ThemeContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import ListingCard from '../../components/ui/ListingCard';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
 import { resolveMediaUrl } from '../../utils/media';
 
 const TABS = ['Cars', 'Bikes', 'Plates', 'Parts', 'Searches'];
@@ -40,21 +41,21 @@ const buildSearchSubtitle = (search) => {
   return parts.join(' • ') || 'Saved from Explore';
 };
 
-function SavedSearchCard({ search, index, onPress, onDelete }) {
+function SavedSearchCard({ search, index, onPress, onDelete, styles, colors }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   return (
     <Animated.View style={animatedStyle}>
       <PressableScale onPress={onPress}>
         <View style={styles.searchCard}>
           <View style={styles.searchCardIcon}>
-            <Ionicons name="search" size={18} color={COLORS.accent} />
+            <Ionicons name="search" size={18} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.searchCardTitle} numberOfLines={1}>{buildSearchTitle(search)}</Text>
             <Text style={styles.searchCardSubtitle} numberOfLines={1}>{buildSearchSubtitle(search)}</Text>
           </View>
           <TouchableOpacity onPress={onDelete} style={styles.searchDeleteBtn} hitSlop={8}>
-            <Ionicons name="trash-outline" size={18} color={COLORS.textMuted} />
+            <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
       </PressableScale>
@@ -88,7 +89,7 @@ const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDe
 
 // Horizontally-scrolling row of category chips. Each chip is sized to its
 // content with comfortable padding/spacing; the active chip is highlighted.
-function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
+function SegmentedTabs({ tabs, activeIndex, counts, onSelect, styles, colors }) {
   return (
     <ScrollView
       horizontal
@@ -108,7 +109,7 @@ function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
             <Ionicons
               name={TAB_ICONS[index]}
               size={15}
-              color={active ? COLORS.accent : COLORS.textMuted}
+              color={active ? colors.accent : colors.textMuted}
             />
             <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
               {tab}
@@ -128,6 +129,178 @@ function SegmentedTabs({ tabs, activeIndex, counts, onSelect }) {
 }
 
 export default function SavedScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.black,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: SPACING.lg,
+      paddingTop: SPACING.md,
+      paddingBottom: SPACING.sm,
+    },
+    title: {
+      fontSize: FONT_SIZES.hero,
+      fontWeight: '700',
+      color: colors.white,
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: FONT_SIZES.sm,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    headerBadge: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // flexGrow:0 stops the horizontal ScrollView from stretching vertically and
+    // pushing the chips down; it now hugs its content right under the header.
+    chipScroll: {
+      flexGrow: 0,
+    },
+    chipRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.sm,
+      paddingHorizontal: SPACING.md,
+      paddingBottom: SPACING.sm,
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 9,
+      paddingHorizontal: SPACING.md,
+      borderRadius: BORDER_RADIUS.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    chipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.accent,
+    },
+    chipText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.textMuted,
+    },
+    chipTextActive: {
+      color: colors.accent,
+    },
+    segmentBadge: {
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      paddingHorizontal: 4,
+      backgroundColor: colors.surfaceHigher,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    segmentBadgeActive: {
+      backgroundColor: colors.accent,
+    },
+    segmentBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    segmentBadgeTextActive: {
+      color: colors.black,
+    },
+    listContent: {
+      padding: SPACING.md,
+      paddingBottom: TAB_BAR_CLEARANCE,
+    },
+    cardWrap: {
+      flex: 1,
+      maxWidth: '50%',
+      padding: 5,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      overflow: 'hidden',
+    },
+    cardImage: {
+      width: '100%',
+      height: 130,
+      backgroundColor: colors.surfaceHigher,
+    },
+    imagePlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    cardOverlay: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+    },
+    heartButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardInfo: {
+      padding: SPACING.sm,
+    },
+    cardTitle: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.white,
+      marginBottom: 4,
+    },
+    cardPrice: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+    searchCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.sm,
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      marginBottom: SPACING.sm,
+    },
+    searchCardIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    searchCardTitle: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+      color: colors.white,
+      textTransform: 'capitalize',
+    },
+    searchCardSubtitle: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textSecondary,
+      marginTop: 2,
+      textTransform: 'capitalize',
+    },
+    searchDeleteBtn: {
+      padding: 6,
+    },
+  }), [colors]);
+
   const { savedListings, loading, toggleSaveListing, savedCounts, loadSavedListings } = useSavedListings();
   const [activeTab, setActiveTab] = useState('Cars');
   const [refreshing, setRefreshing] = useState(false);
@@ -181,10 +354,10 @@ export default function SavedScreen({ navigation }) {
     await toggleSaveListing(type, item);
   };
 
-  const renderListing = ({ item, index }) => (
+  const renderListing = ({ item, index: i }) => (
     <ListingCard
       item={{ ...item, image: getImageUri(item), title: getItemTitle(item) }}
-      index={index}
+      index={i}
       saved
       onPress={() => navigation.navigate(DETAIL_ROUTES[activeKey], { listingId: item.id || item.listing_id })}
       onSave={() => handleUnsave(item)}
@@ -225,12 +398,14 @@ export default function SavedScreen({ navigation }) {
     });
   };
 
-  const renderSearch = ({ item, index }) => (
+  const renderSearch = ({ item, index: i }) => (
     <SavedSearchCard
       search={item}
-      index={index}
+      index={i}
       onPress={() => handleOpenSearch(item)}
       onDelete={() => handleDeleteSearch(item)}
+      styles={styles}
+      colors={colors}
     />
   );
 
@@ -253,11 +428,11 @@ export default function SavedScreen({ navigation }) {
             </Text>
           </View>
           <View style={styles.headerBadge}>
-            <Ionicons name="heart" size={16} color={COLORS.accent} />
+            <Ionicons name="heart" size={16} color={colors.accent} />
           </View>
         </View>
 
-        <SegmentedTabs tabs={TABS} activeIndex={activeIndex} counts={counts} onSelect={selectTab} />
+        <SegmentedTabs tabs={TABS} activeIndex={activeIndex} counts={counts} onSelect={selectTab} styles={styles} colors={colors} />
 
         {activeTab === 'Searches' && searchesLoading ? (
           <LoadingSpinner message="Loading saved searches..." size="small" />
@@ -273,7 +448,7 @@ export default function SavedScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
             }
             ListEmptyComponent={
               activeTab === 'Searches' ? (
@@ -296,174 +471,3 @@ export default function SavedScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  title: {
-    fontSize: FONT_SIZES.hero,
-    fontWeight: '700',
-    color: COLORS.white,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  headerBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // flexGrow:0 stops the horizontal ScrollView from stretching vertically and
-  // pushing the chips down; it now hugs its content right under the header.
-  chipScroll: {
-    flexGrow: 0,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    paddingHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.accent,
-  },
-  chipText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textMuted,
-  },
-  chipTextActive: {
-    color: COLORS.accent,
-  },
-  segmentBadge: {
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    backgroundColor: COLORS.surfaceHigher,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentBadgeActive: {
-    backgroundColor: COLORS.accent,
-  },
-  segmentBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  segmentBadgeTextActive: {
-    color: COLORS.black,
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: TAB_BAR_CLEARANCE,
-  },
-  cardWrap: {
-    flex: 1,
-    maxWidth: '50%',
-    padding: 5,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-  },
-  cardImage: {
-    width: '100%',
-    height: 130,
-    backgroundColor: COLORS.surfaceHigher,
-  },
-  imagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardOverlay: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-  },
-  heartButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardInfo: {
-    padding: SPACING.sm,
-  },
-  cardTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginBottom: 4,
-  },
-  cardPrice: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.accent,
-  },
-  searchCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  searchCardIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchCardTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
-    textTransform: 'capitalize',
-  },
-  searchCardSubtitle: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
-  searchDeleteBtn: {
-    padding: 6,
-  },
-});
