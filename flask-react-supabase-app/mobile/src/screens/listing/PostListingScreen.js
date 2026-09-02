@@ -43,7 +43,8 @@ import {
   UAE_EMIRATES,
   getAreasForEmirate,
 } from '../../utils/listingConstants';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import PhotoEditorModal from '../../components/ui/PhotoEditorModal';
@@ -106,11 +107,94 @@ const getCodeOptions = (city) => {
 const COUNTRY_CODES = PHONE_CODES;
 
 function PickerModal({ visible, onClose, title, options, onSelect, selectedValue }) {
+  const { colors } = useTheme();
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!visible) setSearch('');
   }, [visible]);
+
+  const pickerStyles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.surfaceHigher,
+      borderTopLeftRadius: BORDER_RADIUS.xl,
+      borderTopRightRadius: BORDER_RADIUS.xl,
+      maxHeight: SCREEN_HEIGHT * 0.6,
+      paddingBottom: 30,
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      backgroundColor: colors.border,
+      borderRadius: 2,
+      alignSelf: 'center',
+      marginTop: 10,
+      marginBottom: 8,
+    },
+    title: {
+      color: colors.white,
+      fontSize: FONT_SIZES.lg,
+      fontWeight: '700',
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+    },
+    listContent: {
+      paddingHorizontal: SPACING.md,
+    },
+    option: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      borderRadius: BORDER_RADIUS.md,
+    },
+    optionSelected: {
+      backgroundColor: colors.primary,
+    },
+    optionText: {
+      color: colors.white,
+      fontSize: FONT_SIZES.md,
+      flex: 1,
+    },
+    optionTextSelected: {
+      color: colors.accent,
+      fontWeight: '600',
+    },
+    separator: {
+      height: 0.5,
+      backgroundColor: colors.borderLight,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginHorizontal: SPACING.md,
+      marginBottom: SPACING.sm,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    searchInput: {
+      flex: 1,
+      color: colors.white,
+      fontSize: FONT_SIZES.md,
+      padding: 0,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: FONT_SIZES.sm,
+      textAlign: 'center',
+      paddingVertical: SPACING.lg,
+    },
+  }), [colors]);
 
   const filteredOptions = useMemo(() => {
     if (!search.trim()) return options;
@@ -134,7 +218,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
         <Text style={[pickerStyles.optionText, isSelected && pickerStyles.optionTextSelected]}>
           {label}
         </Text>
-        {isSelected && <Ionicons name="checkmark" size={18} color={COLORS.accent} />}
+        {isSelected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
       </TouchableOpacity>
     );
   }, [onSelect, onClose, selectedValue]);
@@ -146,7 +230,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
           <View style={pickerStyles.handle} />
           <Text style={pickerStyles.title}>{title}</Text>
           <View style={pickerStyles.searchContainer}>
-            <Ionicons name="search" size={16} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+            <Ionicons name="search" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={pickerStyles.searchInput}
               value={search}
@@ -158,7 +242,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+                <Ionicons name="close-circle" size={18} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -182,88 +266,6 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
   );
 }
 
-const pickerStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: COLORS.surfaceHigher,
-    borderTopLeftRadius: BORDER_RADIUS.xl,
-    borderTopRightRadius: BORDER_RADIUS.xl,
-    maxHeight: SCREEN_HEIGHT * 0.6,
-    paddingBottom: 30,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  title: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  listContent: {
-    paddingHorizontal: SPACING.md,
-  },
-  option: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: BORDER_RADIUS.md,
-  },
-  optionSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  optionText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    flex: 1,
-  },
-  optionTextSelected: {
-    color: COLORS.accent,
-    fontWeight: '600',
-  },
-  separator: {
-    height: 0.5,
-    backgroundColor: COLORS.borderLight,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  searchInput: {
-    flex: 1,
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    padding: 0,
-  },
-  emptyText: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.sm,
-    textAlign: 'center',
-    paddingVertical: SPACING.lg,
-  },
-});
-
 function Picker({ label, value, options, onSelect, placeholder }) {
   const [visible, setVisible] = useState(false);
   const displayValue = typeof value === 'string' ? value : '';
@@ -271,10 +273,10 @@ function Picker({ label, value, options, onSelect, placeholder }) {
     <View style={styles.pickerContainer}>
       {label && <Text style={styles.pickerLabel}>{label}</Text>}
       <TouchableOpacity style={styles.pickerTrigger} onPress={() => setVisible(true)}>
-        <Text style={[styles.pickerText, !displayValue && { color: COLORS.textMuted }]}>
+        <Text style={[styles.pickerText, !displayValue && { color: colors.textMuted }]}>
           {displayValue || placeholder || 'Select...'}
         </Text>
-        <Ionicons name="chevron-down" size={18} color={COLORS.textSecondary} />
+        <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
       </TouchableOpacity>
       <PickerModal
         visible={visible}
@@ -295,7 +297,7 @@ function CountryCodePicker({ label, value, onSelect }) {
       {label && <Text style={styles.pickerLabel}>{label}</Text>}
       <TouchableOpacity style={styles.codePickerTrigger} onPress={() => setVisible(true)}>
         <Text style={styles.pickerText}>{value || '+971'}</Text>
-        <Ionicons name="chevron-down" size={14} color={COLORS.textSecondary} />
+        <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
       </TouchableOpacity>
       <PickerModal
         visible={visible}
@@ -337,8 +339,8 @@ function ToggleRow({ label, value, onValueChange }) {
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: COLORS.surfaceHigher, true: COLORS.primaryLight }}
-        thumbColor={value ? COLORS.accent : COLORS.textMuted}
+        trackColor={{ false: colors.surfaceHigher, true: colors.primaryLight }}
+        thumbColor={value ? colors.accent : colors.textMuted}
       />
     </View>
   );
@@ -353,7 +355,7 @@ function CollapsibleSection({ title, expanded, onToggle, children, hidden }) {
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={20}
-          color={COLORS.textSecondary}
+          color={colors.textSecondary}
         />
       </TouchableOpacity>
       {expanded && <View style={styles.sectionContent}>{children}</View>}
@@ -370,7 +372,7 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, on
       </View>
       {images.length === 0 ? (
         <TouchableOpacity style={styles.emptyAddImage} onPress={onPickImages} activeOpacity={0.7}>
-          <Ionicons name="images-outline" size={40} color={COLORS.accent} />
+          <Ionicons name="images-outline" size={40} color={colors.accent} />
           <Text style={styles.emptyAddImageTitle}>Add Photos</Text>
           <Text style={styles.emptyAddImageSubtitle}>
             Up to 10. The first photo will be the cover image.
@@ -383,34 +385,34 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, on
               <TouchableOpacity activeOpacity={0.8} onPress={() => onEditImage(i)} style={styles.imageThumbImage}>
                 <Image source={{ uri }} style={styles.imageThumbImage} resizeMode="cover" />
                 <View style={styles.imageEditBadge}>
-                  <Ionicons name="create-outline" size={13} color={COLORS.white} />
+                  <Ionicons name="create-outline" size={13} color={colors.white} />
                   <Text style={styles.imageEditText}>Edit</Text>
                 </View>
               </TouchableOpacity>
               {i === 0 && (
                 <View style={styles.imageCoverBadge}>
-                  <Ionicons name="star" size={10} color={COLORS.white} />
+                  <Ionicons name="star" size={10} color={colors.white} />
                   <Text style={styles.imageCoverText}>Cover</Text>
                 </View>
               )}
               <TouchableOpacity style={styles.imageRemove} onPress={() => onRemoveImage(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={22} color={COLORS.error} />
+                <Ionicons name="close-circle" size={22} color={colors.error} />
               </TouchableOpacity>
               {i > 0 && (
                 <TouchableOpacity style={styles.imageReorderLeft} onPress={() => onReorderImages(i, i - 1)}>
-                  <Ionicons name="chevron-back" size={14} color={COLORS.white} />
+                  <Ionicons name="chevron-back" size={14} color={colors.white} />
                 </TouchableOpacity>
               )}
               {i < images.length - 1 && (
                 <TouchableOpacity style={styles.imageReorderRight} onPress={() => onReorderImages(i, i + 1)}>
-                  <Ionicons name="chevron-forward" size={14} color={COLORS.white} />
+                  <Ionicons name="chevron-forward" size={14} color={colors.white} />
                 </TouchableOpacity>
               )}
             </View>
           ))}
           {images.length < 10 && (
             <TouchableOpacity style={styles.addImageBtn} onPress={onPickImages} activeOpacity={0.7}>
-              <Ionicons name="add" size={28} color={COLORS.accent} />
+              <Ionicons name="add" size={28} color={colors.accent} />
               <Text style={styles.addImageText}>Add</Text>
             </TouchableOpacity>
           )}
@@ -427,6 +429,233 @@ export default function PostListingScreen({ navigation, route }) {
   const { editMode, listingType, listingId } = route.params || {};
   const isEditMode = !!editMode;
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    moderatingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      zIndex: 20,
+    },
+    moderatingText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
+    headerTitle: { color: colors.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
+    headerSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginTop: 4 },
+    categoryGrid: {
+      flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
+      padding: SPACING.md, gap: 12,
+    },
+    categoryCard: {
+      width: '47%', backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg,
+      paddingVertical: 32, alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: colors.border,
+    },
+    categoryLabel: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: 12 },
+    wantedCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      marginHorizontal: SPACING.md, marginTop: 4, padding: SPACING.md,
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    wantedTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    wantedSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
+    formHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    },
+    formHeaderTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    stepRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
+    },
+    stepDot: { width: 24, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)' },
+    stepDotActive: { backgroundColor: colors.accent },
+    stepDotDone: { backgroundColor: 'rgba(76,175,80,0.6)' },
+    stepLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600', marginLeft: 8 },
+    wizardNavRow: {
+      flexDirection: 'row', gap: 10, marginTop: SPACING.lg, paddingHorizontal: SPACING.md,
+    },
+    wizardNavBtn: {
+      flex: 1, paddingVertical: 14, borderRadius: BORDER_RADIUS.md,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+      minHeight: 48,
+    },
+    wizardNavBtnPrimary: { backgroundColor: colors.accent },
+    wizardNavBtnSecondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    wizardNavBtnDisabled: { opacity: 0.4 },
+    wizardNavBtnPrimaryText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },
+    wizardNavBtnSecondaryText: { color: colors.white, fontWeight: '600', fontSize: FONT_SIZES.md },
+    formContent: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
+    section: { marginBottom: 8 },
+    sectionHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingVertical: 14, paddingHorizontal: 14,
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.md,
+      marginBottom: 2,
+    },
+    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    sectionContent: { paddingTop: 12 },
+    fieldLabel: {
+      color: colors.textSecondary, fontSize: FONT_SIZES.sm,
+      marginBottom: 6, fontWeight: '500',
+    },
+    charCounter: {
+      color: colors.textMuted, fontSize: FONT_SIZES.xs,
+      marginBottom: 4, textAlign: 'right',
+    },
+    pickerContainer: { marginBottom: 16 },
+    pickerLabel: {
+      color: colors.textSecondary, fontSize: FONT_SIZES.sm,
+      marginBottom: 6, fontWeight: '500',
+    },
+    pickerTrigger: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12,
+    },
+    pickerText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+    phoneRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    codePickerContainer: { width: 100 },
+    codePickerTrigger: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, paddingVertical: 12,
+    },
+    phoneInputContainer: { flex: 1 },
+    toggleRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: colors.borderLight,
+    },
+    toggleLabel: { color: colors.white, fontSize: FONT_SIZES.md },
+    extrasCategory: { marginBottom: 16 },
+    extrasCategoryTitle: {
+      color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '700',
+      textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5,
+    },
+    submitBtn: { marginTop: 8 },
+    imageHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: SPACING.sm,
+    },
+    imageCount: {
+      color: colors.textMuted,
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+    },
+    imageScroll: {
+      marginTop: 4,
+    },
+    imageThumb: {
+      width: 96, height: 96, borderRadius: BORDER_RADIUS.md,
+      overflow: 'hidden', marginRight: 10, position: 'relative',
+      backgroundColor: colors.surfaceHigher,
+    },
+    imageThumbImage: {
+      width: '100%',
+      height: '100%',
+    },
+    imageEditBadge: {
+      position: 'absolute',
+      top: 4,
+      left: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: BORDER_RADIUS.sm,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+    },
+    imageEditText: {
+      color: colors.white,
+      fontSize: 9,
+      fontWeight: '700',
+    },
+    imageCoverBadge: {
+      position: 'absolute',
+      bottom: 4,
+      left: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: BORDER_RADIUS.sm,
+      backgroundColor: 'rgba(76,175,80,0.95)',
+    },
+    imageCoverText: {
+      color: colors.white,
+      fontSize: 9,
+      fontWeight: '700',
+    },
+    imageRemove: {
+      position: 'absolute',
+      top: 2,
+      right: 2,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      borderRadius: 12,
+    },
+    imageReorderLeft: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+    imageReorderRight: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+    addImageBtn: {
+      width: 96, height: 96, borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1.5, borderColor: colors.accent, borderStyle: 'dashed',
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: 'rgba(76,175,80,0.06)',
+    },
+    addImageText: { color: colors.accent, fontSize: FONT_SIZES.xs, marginTop: 4, fontWeight: '600' },
+    emptyAddImage: {
+      borderWidth: 1.5,
+      borderColor: colors.accent,
+      borderStyle: 'dashed',
+      borderRadius: BORDER_RADIUS.lg,
+      paddingVertical: SPACING.xl,
+      paddingHorizontal: SPACING.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(76,175,80,0.06)',
+    },
+    emptyAddImageTitle: {
+      color: colors.white,
+      fontSize: FONT_SIZES.md,
+      fontWeight: '700',
+      marginTop: 8,
+    },
+    emptyAddImageSubtitle: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZES.sm,
+      marginTop: 4,
+      textAlign: 'center',
+    },
+    imageHint: {
+      marginTop: 8,
+      color: colors.textMuted,
+      fontSize: FONT_SIZES.xs,
+    },
+    scanButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.surfaceHigher,
+      borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      borderStyle: 'dashed',
+      paddingVertical: 12,
+      marginBottom: SPACING.md,
+    },
+  scanButtonText: {
+    color: colors.accent,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  }), [colors]);
   const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
@@ -1454,7 +1683,7 @@ export default function PostListingScreen({ navigation, route }) {
               activeOpacity={0.7}
               onPress={() => setCategory(cat.key)}
             >
-              <Ionicons name={cat.icon} size={40} color={COLORS.accent} />
+              <Ionicons name={cat.icon} size={40} color={colors.accent} />
               <Text style={styles.categoryLabel}>{cat.label}</Text>
             </TouchableOpacity>
           ))}
@@ -1464,12 +1693,12 @@ export default function PostListingScreen({ navigation, route }) {
           activeOpacity={0.7}
           onPress={() => navigation.navigate('PostBuyingRequest')}
         >
-          <Ionicons name="search-outline" size={22} color={COLORS.accent} />
+          <Ionicons name="search-outline" size={22} color={colors.accent} />
           <View style={{ flex: 1 }}>
             <Text style={styles.wantedTitle}>Looking to buy instead?</Text>
             <Text style={styles.wantedSubtitle}>Post a buying request and let sellers find you.</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -1554,7 +1783,7 @@ export default function PostListingScreen({ navigation, route }) {
             );
           }}
         >
-          <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
+          <Ionicons name="scan-outline" size={20} color={colors.accent} />
           <Text style={styles.scanButtonText}>Scan Registration</Text>
         </TouchableOpacity>
         <Text style={styles.scanDisclaimer}>
@@ -1921,18 +2150,18 @@ export default function PostListingScreen({ navigation, route }) {
           onPress={() => setShowMapPicker(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="location" size={20} color={COLORS.accent} />
+          <Ionicons name="location" size={20} color={colors.accent} />
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[styles.pickerText, !carEmirate && { color: COLORS.textMuted }]}>
+            <Text style={[styles.pickerText, !carEmirate && { color: colors.textMuted }]}>
               {carEmirate ? `${carEmirate}${carArea ? `, ${carArea}` : ''}` : 'Tap to set location'}
             </Text>
             {selectedLocation && (
-              <Text style={{ color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginTop: 2 }}>
+              <Text style={{ color: colors.textMuted, fontSize: FONT_SIZES.xs, marginTop: 2 }}>
                 {selectedLocation.latitude.toFixed(4)}, {selectedLocation.longitude.toFixed(4)}
               </Text>
             )}
           </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
 
         <Input
@@ -2038,7 +2267,7 @@ export default function PostListingScreen({ navigation, route }) {
             extractField: 'vin',
           })}
         >
-          <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
+          <Ionicons name="scan-outline" size={20} color={colors.accent} />
           <Text style={styles.scanButtonText}>
             {bikeOcrStatus === 'scanning' ? 'Scanning…' : 'Scan mulkiyya for VIN'}
           </Text>
@@ -2179,7 +2408,7 @@ export default function PostListingScreen({ navigation, route }) {
             extractField: 'plate_number',
           })}
         >
-          <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
+          <Ionicons name="scan-outline" size={20} color={colors.accent} />
           <Text style={styles.scanButtonText}>
             {plateOcrStatus === 'scanning' ? 'Scanning…' : 'Scan registration for plate number'}
           </Text>
@@ -2330,8 +2559,8 @@ export default function PostListingScreen({ navigation, route }) {
           <Switch
             value={partsForm.is_negotiable}
             onValueChange={(v) => updatePartsForm('is_negotiable', v)}
-            trackColor={{ false: COLORS.surfaceHigher, true: COLORS.primaryLight }}
-            thumbColor={partsForm.is_negotiable ? COLORS.accent : COLORS.textMuted}
+            trackColor={{ false: colors.surfaceHigher, true: colors.primaryLight }}
+            thumbColor={partsForm.is_negotiable ? colors.accent : colors.textMuted}
           />
         </View>
       </CollapsibleSection>
@@ -2429,14 +2658,14 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== MAP PICKER MODAL ====================
   const renderMapPickerModal = () => (
     <Modal visible={showMapPicker} animationType="slide" onRequestClose={() => setShowMapPicker(false)}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.black }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.black }}>
         <View style={styles.mapPickerHeader}>
           <TouchableOpacity onPress={() => setShowMapPicker(false)}>
-            <Text style={{ color: COLORS.accent, fontSize: FONT_SIZES.md }}>Cancel</Text>
+            <Text style={{ color: colors.accent, fontSize: FONT_SIZES.md }}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.lg }}>Set Location</Text>
+          <Text style={{ color: colors.white, fontWeight: '700', fontSize: FONT_SIZES.lg }}>Set Location</Text>
           <TouchableOpacity onPress={() => setShowMapPicker(false)}>
-            <Text style={{ color: COLORS.accent, fontSize: FONT_SIZES.md }}>Confirm</Text>
+            <Text style={{ color: colors.accent, fontSize: FONT_SIZES.md }}>Confirm</Text>
           </TouchableOpacity>
         </View>
 
@@ -2473,7 +2702,7 @@ export default function PostListingScreen({ navigation, route }) {
 
         <View style={styles.mapPickerControls}>
           <TouchableOpacity style={styles.useLocationBtn} onPress={useMyLocation}>
-            <Ionicons name="navigate" size={18} color={COLORS.accent} />
+            <Ionicons name="navigate" size={18} color={colors.accent} />
             <Text style={styles.useLocationBtnText}>Use My Location</Text>
           </TouchableOpacity>
 
@@ -2519,7 +2748,7 @@ export default function PostListingScreen({ navigation, route }) {
       />
       {moderating && (
         <View style={styles.moderatingOverlay} pointerEvents="auto">
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.moderatingText}>Checking photos…</Text>
         </View>
       )}
@@ -2529,7 +2758,7 @@ export default function PostListingScreen({ navigation, route }) {
       >
         <View style={styles.formHeader}>
           <TouchableOpacity onPress={resetAndGoBack}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.formHeaderTitle}>
             {isEditMode ? 'Edit' : 'Post'} {CATEGORIES.find(c => c.key === category)?.label}
@@ -2602,7 +2831,7 @@ export default function PostListingScreen({ navigation, route }) {
                 activeOpacity={0.7}
               >
                 <Text style={styles.wizardNavBtnPrimaryText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={16} color={COLORS.background} />
+                <Ionicons name="arrow-forward" size={16} color={colors.background} />
               </TouchableOpacity>
             </View>
           )}
@@ -2612,324 +2841,3 @@ export default function PostListingScreen({ navigation, route }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  moderatingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    zIndex: 20,
-  },
-  moderatingText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
-  headerTitle: { color: COLORS.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
-  headerSubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginTop: 4 },
-  categoryGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
-    padding: SPACING.md, gap: 12,
-  },
-  categoryCard: {
-    width: '47%', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
-    paddingVertical: 32, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  categoryLabel: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: 12 },
-  wantedCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: SPACING.md, marginTop: 4, padding: SPACING.md,
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  wantedTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  wantedSubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
-  formHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-  },
-  formHeaderTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
-  stepRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
-  },
-  stepDot: { width: 24, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)' },
-  stepDotActive: { backgroundColor: COLORS.accent },
-  stepDotDone: { backgroundColor: 'rgba(76,175,80,0.6)' },
-  stepLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600', marginLeft: 8 },
-  wizardNavRow: {
-    flexDirection: 'row', gap: 10, marginTop: SPACING.lg, paddingHorizontal: SPACING.md,
-  },
-  wizardNavBtn: {
-    flex: 1, paddingVertical: 14, borderRadius: BORDER_RADIUS.md,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    minHeight: 48,
-  },
-  wizardNavBtnPrimary: { backgroundColor: COLORS.accent },
-  wizardNavBtnSecondary: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
-  wizardNavBtnDisabled: { opacity: 0.4 },
-  wizardNavBtnPrimaryText: { color: COLORS.background, fontWeight: '700', fontSize: FONT_SIZES.md },
-  wizardNavBtnSecondaryText: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.md },
-  formContent: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
-  section: { marginBottom: 8 },
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 14, paddingHorizontal: 14,
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md,
-    marginBottom: 2,
-  },
-  sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
-  sectionContent: { paddingTop: 12 },
-  fieldLabel: {
-    color: COLORS.textSecondary, fontSize: FONT_SIZES.sm,
-    marginBottom: 6, fontWeight: '500',
-  },
-  charCounter: {
-    color: COLORS.textMuted, fontSize: FONT_SIZES.xs,
-    marginBottom: 4, textAlign: 'right',
-  },
-  pickerContainer: { marginBottom: 16 },
-  pickerLabel: {
-    color: COLORS.textSecondary, fontSize: FONT_SIZES.sm,
-    marginBottom: 6, fontWeight: '500',
-  },
-  pickerTrigger: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, paddingVertical: 12,
-  },
-  pickerText: { color: COLORS.white, fontSize: FONT_SIZES.md, flex: 1 },
-  phoneRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  codePickerContainer: { width: 100 },
-  codePickerTrigger: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 10, paddingVertical: 12,
-  },
-  phoneInputContainer: { flex: 1 },
-  toggleRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: COLORS.borderLight,
-  },
-  toggleLabel: { color: COLORS.white, fontSize: FONT_SIZES.md },
-  extrasCategory: { marginBottom: 16 },
-  extrasCategoryTitle: {
-    color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '700',
-    textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5,
-  },
-  submitBtn: { marginTop: 8 },
-  imageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  imageCount: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  imageScroll: {
-    marginTop: 4,
-  },
-  imageThumb: {
-    width: 96, height: 96, borderRadius: BORDER_RADIUS.md,
-    overflow: 'hidden', marginRight: 10, position: 'relative',
-    backgroundColor: COLORS.surfaceHigher,
-  },
-  imageThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageEditBadge: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  imageEditText: {
-    color: COLORS.white,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  imageCoverBadge: {
-    position: 'absolute',
-    bottom: 4,
-    left: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: 'rgba(76,175,80,0.95)',
-  },
-  imageCoverText: {
-    color: COLORS.white,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  imageRemove: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 12,
-  },
-  imageReorderLeft: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-  imageReorderRight: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-  addImageBtn: {
-    width: 96, height: 96, borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1.5, borderColor: COLORS.accent, borderStyle: 'dashed',
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(76,175,80,0.06)',
-  },
-  addImageText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, marginTop: 4, fontWeight: '600' },
-  emptyAddImage: {
-    borderWidth: 1.5,
-    borderColor: COLORS.accent,
-    borderStyle: 'dashed',
-    borderRadius: BORDER_RADIUS.lg,
-    paddingVertical: SPACING.xl,
-    paddingHorizontal: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(76,175,80,0.06)',
-  },
-  emptyAddImageTitle: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  emptyAddImageSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.sm,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  imageHint: {
-    marginTop: 8,
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.xs,
-  },
-  scanButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.accent,
-    borderStyle: 'dashed',
-    paddingVertical: 12,
-    marginBottom: SPACING.md,
-  },
-  scanButtonText: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  scanResultCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    gap: 6,
-  },
-  scanResultHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  scanResultTitle: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-  },
-  scanResultBadge: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '700',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  scanResultBadgeVerified: {
-    color: COLORS.accent,
-    backgroundColor: 'rgba(39, 174, 96, 0.18)',
-  },
-  scanResultBadgeReview: {
-    color: '#f59e0b',
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
-  },
-  scanResultLine: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.sm,
-  },
-  scanResultMeta: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.xs,
-  },
-  scanDisclaimer: {
-    color: COLORS.warning,
-    fontSize: FONT_SIZES.xs,
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  locationPickerTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginBottom: 12,
-  },
-  mapPickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-  },
-  mapPickerControls: {
-    padding: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: BORDER_RADIUS.xl,
-    borderTopRightRadius: BORDER_RADIUS.xl,
-  },
-  useLocationBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.accent,
-    paddingVertical: 12,
-  },
-  useLocationBtnText: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  draftIndicator: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.xs,
-    fontStyle: 'italic',
-  },
-});

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Linking, ActivityIndicator, Alert } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,14 +7,36 @@ import apiClient from '../../utils/apiClient';
 import { toastApiError } from '../../utils/toast';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { formatPrice } from '../../utils/formatters';
 import { trackLeadEvent } from '../../utils/leadTracking';
 
 export default function BuyingRequestDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { requestId } = route.params;
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scroll: { padding: SPACING.md, paddingBottom: 40 },
+    categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+    badge: { backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 12, paddingVertical: 4 },
+    badgeText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.accent },
+    date: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textMuted },
+    title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.white, marginBottom: SPACING.sm },
+    description: { ...FONTS.regular, fontSize: FONT_SIZES.md, color: colors.textSecondary, lineHeight: 22, marginBottom: SPACING.md },
+    specsCard: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: colors.borderLight },
+    row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+    rowLabel: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textMuted },
+    rowValue: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.white },
+    actions: { flexDirection: 'row', gap: SPACING.sm },
+    actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14 },
+    whatsappBtn: { backgroundColor: '#25D366' },
+    callBtn: { backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.accent },
+    actionBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: '#fff' },
+  }), [colors]);
 
   useEffect(() => {
     (async () => {
@@ -53,7 +75,7 @@ export default function BuyingRequestDetailScreen({ route, navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ActivityIndicator color={COLORS.accent} style={{ flex: 1 }} />
+        <ActivityIndicator color={colors.accent} style={{ flex: 1 }} />
       </SafeAreaView>
     );
   }
@@ -115,23 +137,3 @@ function Row({ label, value }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.md, paddingBottom: 40 },
-  categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
-  badge: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 12, paddingVertical: 4 },
-  badgeText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.accent },
-  date: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textMuted },
-  title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: COLORS.white, marginBottom: SPACING.sm },
-  description: { ...FONTS.regular, fontSize: FONT_SIZES.md, color: COLORS.textSecondary, lineHeight: 22, marginBottom: SPACING.md },
-  specsCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.borderLight },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
-  rowLabel: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: COLORS.textMuted },
-  rowValue: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.white },
-  actions: { flexDirection: 'row', gap: SPACING.sm },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14 },
-  whatsappBtn: { backgroundColor: '#25D366' },
-  callBtn: { backgroundColor: COLORS.primary, borderWidth: 1, borderColor: COLORS.accent },
-  actionBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: '#fff' },
-});
