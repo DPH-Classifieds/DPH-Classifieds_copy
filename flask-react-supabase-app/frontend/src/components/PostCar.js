@@ -6,6 +6,7 @@ import apiClient from '../utils/apiClient';
 import { getAccessToken } from '../utils/supabaseClient';
 import { trackEvent } from '../utils/analytics';
 import '../styles/PostForms.css';
+import '../styles/shell-tokens.css';
 import { carMakes, carModels, carTrims } from '../utils/carData';
 import LoadingSpinner from './LoadingSpinner';
 import { countryCodes, defaultCountryCode, splitPhoneNumberForInput } from '../utils/countryCodes';

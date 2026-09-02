@@ -3,8 +3,8 @@
 }
 
 .profile-menu-button {
-  background: rgba(148, 218, 153, 0.08);
-  border: 1px solid rgba(148, 218, 153, 0.15);
+  background: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 15%, transparent);
   border-radius: 999px;
   cursor: pointer;
   padding: 4px;
@@ -23,14 +23,14 @@
 
 .profile-menu-button:hover {
   transform: translateY(-1px);
-  background: rgba(148, 218, 153, 0.12);
-  border-color: rgba(148, 218, 153, 0.25);
-  box-shadow: 0 4px 16px rgba(139, 214, 180, 0.15);
+  background: color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 25%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ex-shell-accent) 15%, transparent);
 }
 
 .profile-menu-button:active .avatar {
   transform: scale(0.95);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ex-overlay-scrim) 20%, transparent);
 }
 
 .avatar {
@@ -40,15 +40,15 @@
   min-height: 34px;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8bd6b4 0%, #004e37 100%);
+  background: linear-gradient(135deg, var(--ex-shell-accent) 0%, #004e37 100%);
   color: white;
   display: grid;
   place-items: center;
   font-weight: 600;
   font-size: 14px;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(139, 214, 180, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ex-shell-accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-text) 20%, transparent);
   overflow: hidden;
   flex-shrink: 0;
   line-height: 1;
@@ -64,11 +64,11 @@
   object-position: center;
   border-radius: 50%;
   display: block;
-  background-color: rgba(0, 78, 55, 0.1);
+  background-color: color-mix(in srgb, var(--ex-shell-on-accent) 10%, transparent);
 }
 
 .profile-menu-button:hover .avatar {
-  box-shadow: 0 4px 12px rgba(139, 214, 180, 0.25);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ex-shell-accent) 25%, transparent);
 }
 
 .profile-dropdown {
@@ -76,25 +76,25 @@
   top: calc(100% + 10px);
   right: 0;
   background:
-    radial-gradient(circle at top right, rgba(139, 214, 180, 0.08), transparent 40%),
-    linear-gradient(180deg, rgba(12, 28, 19, 0.98) 0%, rgba(7, 15, 10, 0.99) 100%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--ex-shell-accent) 8%, transparent), transparent 40%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 98%, transparent) 0%, var(--ex-shell-bg) 100%);
   border-radius: 20px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--ex-overlay-scrim) 35%, transparent);
   width: 280px;
   z-index: 1000;
   overflow: hidden;
   animation: fadeIn 0.2s ease-out;
-  border: 1px solid rgba(148, 218, 153, 0.12);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
   backdrop-filter: blur(20px);
 }
 
 .profile-header {
   padding: 18px 20px;
-  border-bottom: 1px solid rgba(148, 218, 153, 0.08);
+  border-bottom: 1px solid color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
   display: flex;
   align-items: center;
   gap: 14px;
-  background: linear-gradient(180deg, rgba(148, 218, 153, 0.04) 0%, transparent 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-accent) 4%, transparent) 0%, transparent 100%);
 }
 
 .profile-header-avatar {
@@ -115,13 +115,13 @@
 .user-name {
   font-weight: 600;
   font-size: 14px;
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .user-email {
   font-weight: 400;
   font-size: 12px;
-  color: rgba(191, 201, 196, 0.7);
+  color: color-mix(in srgb, var(--ex-shell-text-muted) 70%, transparent);
   white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -144,7 +144,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 20px;
-  color: rgba(255, 255, 255, 0.8);
+  color: color-mix(in srgb, var(--ex-shell-text) 80%, transparent);
   text-decoration: none;
   transition: all 0.2s ease;
   font-size: 14px;
@@ -158,8 +158,8 @@
 }
 
 .profile-menu-item:hover {
-  background-color: rgba(148, 218, 153, 0.08);
-  color: #ffffff;
+  background-color: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
+  color: var(--ex-shell-text);
 }
 
 .profile-icon {
@@ -168,16 +168,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #8bd6b4;
+  color: var(--ex-shell-accent);
   flex-shrink: 0;
 }
 
 .admin-link {
-  color: #8bd6b4;
+  color: var(--ex-shell-accent);
 }
 
 .admin-link:hover {
-  background-color: rgba(139, 214, 180, 0.1);
+  background-color: color-mix(in srgb, var(--ex-shell-accent) 10%, transparent);
   color: #9fe0c4;
 }
 
@@ -228,6 +228,6 @@
 
 .profile-menu-divider {
   height: 1px;
-  background-color: rgba(148, 218, 153, 0.08);
+  background-color: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
   margin: 6px 0;
 }

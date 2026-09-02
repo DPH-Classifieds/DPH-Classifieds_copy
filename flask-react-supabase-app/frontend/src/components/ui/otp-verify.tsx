@@ -476,10 +476,10 @@ export function OTPVerification({
           transition={{ type: "spring", stiffness: 700, damping: 22, delay: index * 0.05 }}
           whileFocus={{ y: -4, scale: 1.05 }}
           className={cn(
-            "rounded-2xl border text-center font-semibold text-white caret-[#8bd6b4] outline-none transition-colors duration-150",
+            "rounded-2xl border text-center font-semibold text-white caret-[color:var(--ex-shell-accent)] outline-none transition-colors duration-150",
             otpLength <= 4 ? "h-16 w-14 text-3xl" : "h-14 w-11 text-2xl",
-            "focus:border-[#8bd6b4]/70 focus:bg-white/[0.08] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.18)]",
-            digit ? "border-[#8bd6b4]/50 bg-white/[0.07]" : "border-white/10 bg-white/[0.03]"
+            "focus:border-[color:var(--ex-shell-accent)]/70 focus:bg-white/[0.08] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.18)]",
+            digit ? "border-[color:var(--ex-shell-accent)]/50 bg-white/[0.07]" : "border-white/10 bg-white/[0.03]"
           )}
         />
       ))}
@@ -506,7 +506,7 @@ export function OTPVerification({
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 500, damping: 22 }}
-              className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8bd6b4] text-[#05100a] ring-8 ring-[#8bd6b4]/12"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-[color:var(--ex-shell-accent)] text-[#05100a] ring-8 ring-[#8bd6b4]/12"
             >
               <Check className="h-8 w-8" strokeWidth={3} />
             </motion.div>
@@ -522,7 +522,7 @@ export function OTPVerification({
           </div>
         ) : !hasSession ? (
           <div className="flex flex-col items-center text-center animate-in fade-in duration-200">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[#8bd6b4]/20 bg-[#0e2418] text-[#8bd6b4] ring-4 ring-[#8bd6b4]/10">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[color:var(--ex-shell-accent)]/20 bg-[#0e2418] text-[color:var(--ex-shell-accent)] ring-4 ring-[#8bd6b4]/10">
               <ShieldCheck className="h-8 w-8" />
             </div>
             <h3 id="otp-verification-title" className="text-2xl font-semibold tracking-[-0.03em] text-white">{title}</h3>
@@ -543,7 +543,7 @@ export function OTPVerification({
               placeholder="+971 50 123 4567"
               autoComplete="tel"
               autoFocus
-              className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-center text-base text-white outline-none transition placeholder:text-white/30 focus:border-[#8bd6b4]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]"
+              className="mt-6 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-center text-base text-white outline-none transition placeholder:text-white/30 focus:border-[color:var(--ex-shell-accent)]/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_4px_rgba(139,214,180,0.12)]"
             />
             {phoneComplete ? (
               <p className="mt-3 text-sm leading-5 text-white/65">
@@ -582,7 +582,7 @@ export function OTPVerification({
               initial={{ scale: 0.6, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
-              className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[#8bd6b4]/20 bg-[#0e2418] text-[#8bd6b4] ring-4 ring-[#8bd6b4]/10"
+              className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-[color:var(--ex-shell-accent)]/20 bg-[#0e2418] text-[color:var(--ex-shell-accent)] ring-4 ring-[#8bd6b4]/10"
             >
               <ShieldCheck className="h-8 w-8" />
             </motion.div>

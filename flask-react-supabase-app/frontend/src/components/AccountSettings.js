@@ -14,6 +14,7 @@ import LoadingSpinner from './LoadingSpinner';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import { useSavedListings } from '../context/SavedListingsContext';
 import '../styles/AccountSettings.css';
+import '../styles/shell-tokens.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 

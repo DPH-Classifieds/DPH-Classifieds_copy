@@ -2,6 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { useSavedListings } from '../context/SavedListingsContext';
 import '../styles/SavedListings.css';
+import '../styles/shell-tokens.css';
 
 const SavedListingsNotice = () => {
   const savedListingsContext = useSavedListings();

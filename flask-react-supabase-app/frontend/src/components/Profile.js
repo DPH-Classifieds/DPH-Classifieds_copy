@@ -12,6 +12,7 @@ import { resolveMediaUrl } from '../utils/media';
 import { formatPhoneNumber } from '../utils/countryCodes';
 import LoadingSpinner from './LoadingSpinner';
 import '../styles/Profile.css';
+import '../styles/shell-tokens.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 

@@ -6,9 +6,9 @@
   min-height: 40px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(139, 214, 180, 0.18);
-  background: rgba(4, 16, 8, 0.72);
-  color: #edf6ee;
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--ex-shell-bg) 72%, transparent);
+  color: var(--ex-shell-text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -18,14 +18,14 @@
 
 .saved-listing-button:hover {
   transform: translateY(-1px);
-  border-color: rgba(139, 214, 180, 0.35);
-  background: rgba(7, 21, 13, 0.88);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--ex-shell-bg) 88%, transparent);
 }
 
 .saved-listing-button.is-saved {
-  background: linear-gradient(135deg, rgba(139, 214, 180, 0.2) 0%, rgba(0, 78, 55, 0.34) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ex-shell-accent) 20%, transparent) 0%, color-mix(in srgb, var(--ex-shell-on-accent) 34%, transparent) 100%);
   color: #f4fff8;
-  border-color: rgba(139, 214, 180, 0.45);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 45%, transparent);
 }
 
 .saved-listing-button.is-saving {
@@ -77,10 +77,10 @@
   max-width: min(420px, calc(100vw - 24px));
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(139, 214, 180, 0.22);
-  background: rgba(4, 16, 8, 0.96);
-  color: #eef8f1;
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--ex-shell-bg) 96%, transparent);
+  color: var(--ex-shell-text);
+  box-shadow: 0 24px 50px color-mix(in srgb, var(--ex-overlay-scrim) 35%, transparent);
 }
 
 .saved-listings-notice.is-error {
@@ -88,7 +88,7 @@
 }
 
 .saved-listings-notice.is-success {
-  border-color: rgba(139, 214, 180, 0.3);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 30%, transparent);
 }
 
 .saved-listings-notice-close {

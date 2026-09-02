@@ -376,7 +376,7 @@
 
 .part-card:hover {
   border-color: var(--ex-line-strong);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--ex-overlay-scrim) 12%, transparent);
 }
 
 .part-image {
@@ -404,14 +404,14 @@
 .car-parts-container .view-details-btn,
 .retry-button {
   background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
-  color: #ffffff;
+  color: var(--ex-shell-text);
   border-radius: 999px;
 }
 
 .car-parts-container .view-details-btn:hover,
 .retry-button:hover {
   transform: translateY(-1px);
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .no-parts {

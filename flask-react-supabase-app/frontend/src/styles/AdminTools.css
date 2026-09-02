@@ -35,17 +35,17 @@
 .admin-tools-card {
   padding: 24px;
   border-radius: 28px;
-  border: 1px solid rgba(171, 229, 176, 0.12);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
   background:
-    radial-gradient(circle at top left, rgba(107, 192, 114, 0.14), transparent 42%),
-    linear-gradient(180deg, rgba(14, 32, 18, 0.96), rgba(7, 18, 10, 0.98));
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--ex-shell-accent) 14%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 96%, transparent), color-mix(in srgb, var(--ex-shell-bg) 98%, transparent));
+  box-shadow: 0 30px 80px color-mix(in srgb, var(--ex-overlay-scrim) 30%, transparent);
 }
 
 .admin-tools-card-success {
   background:
-    radial-gradient(circle at top left, rgba(139, 224, 146, 0.16), transparent 42%),
-    linear-gradient(180deg, rgba(17, 45, 23, 0.98), rgba(8, 25, 12, 0.98));
+    radial-gradient(circle at top left, color-mix(in srgb, var(--ex-shell-accent) 16%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 98%, transparent), color-mix(in srgb, var(--ex-shell-bg) 98%, transparent));
 }
 
 .admin-tools-button,
@@ -81,14 +81,14 @@
 .admin-tools-button-primary,
 .admin-tools-link {
   background: linear-gradient(135deg, #8be091, #61be66);
-  color: #041008;
+  color: var(--ex-shell-on-accent);
   box-shadow: 0 18px 36px rgba(97, 190, 102, 0.2);
 }
 
 .admin-tools-button-secondary {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--ex-shell-text) 5%, transparent);
   color: #eef7ef;
-  border-color: rgba(171, 229, 176, 0.12);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
 }
 
 .admin-tools-button-danger {
@@ -105,7 +105,7 @@
 
 .admin-tools-alert-success {
   background: rgba(82, 177, 90, 0.16);
-  border-color: rgba(148, 224, 154, 0.16);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 16%, transparent);
   color: #dff6e1;
 }
 
@@ -131,7 +131,7 @@
   margin-top: 12px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(0, 0, 0, 0.24);
+  background: color-mix(in srgb, var(--ex-overlay-scrim) 24%, transparent);
   color: #f3f8f4;
   overflow: auto;
   font-size: 0.8rem;

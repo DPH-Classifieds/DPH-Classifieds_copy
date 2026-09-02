@@ -27,7 +27,7 @@ const DealerInviteAccept = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d10] flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-[color:var(--ex-shell-bg)] flex items-center justify-center px-4 py-16">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

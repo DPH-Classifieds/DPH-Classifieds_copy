@@ -115,7 +115,7 @@ const SVGChart = ({ series, height, visibleSeries }) => {
             x2={W - PAD_X}
             y1={y}
             y2={y}
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--ex-shell-line)"
             strokeWidth={1}
             strokeDasharray="3 4"
           />
@@ -153,7 +153,7 @@ const SVGChart = ({ series, height, visibleSeries }) => {
               x2={seriesPoints[0][tooltip.index].x}
               y1={PAD_Y}
               y2={H - PAD_Y}
-              stroke="rgba(255,255,255,0.15)"
+              stroke="var(--ex-shell-line)"
               strokeWidth={1}
               strokeDasharray="3 3"
             />
@@ -172,7 +172,7 @@ const SVGChart = ({ series, height, visibleSeries }) => {
       {/* Tooltip box */}
       {tooltip != null && seriesPoints.length > 0 && seriesPoints[0][tooltip.index] && (
         <div
-          className="pointer-events-none absolute top-2 bg-[#0d1a15] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white/80 shadow-xl"
+          className="pointer-events-none absolute top-2 bg-[color:var(--ex-shell-surface)] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white/80 shadow-xl"
           style={{
             left: `${(seriesPoints[0][tooltip.index].x / W) * 100}%`,
             transform: 'translateX(-50%)',
@@ -257,7 +257,7 @@ export const TrendChart = ({
               >
                 <span
                   className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: active ? color : 'rgba(255,255,255,0.15)' }}
+                  style={{ backgroundColor: active ? color : 'color-mix(in srgb, var(--ex-shell-text) 15%, transparent)' }}
                 />
                 {s.label}
               </button>

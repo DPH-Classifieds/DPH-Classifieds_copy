@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import '../styles/AnnouncementBanner.css';
+import '../styles/shell-tokens.css';
 
 const STORAGE_KEY = 'dph_announcement_banner_dismissed_v1';
 

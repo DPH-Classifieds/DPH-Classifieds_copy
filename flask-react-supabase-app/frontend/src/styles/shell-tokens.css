@@ -1,0 +1,29 @@
+/* Shell tokens for the admin/dealer portals. Declared in a dedicated file
+   so the JSX that mounts the portal layouts can @import it once and every
+   stylesheet in the bundle gets the same --ex-shell-* values.
+
+   These tokens are intentionally identical in both :root and .dark so the
+   portal chrome stays dark regardless of the theme toggle — the dealer and
+   admin experiences are dark-by-design. */
+
+:root {
+  --ex-shell-bg: #070d10;
+  --ex-shell-surface: #0b120e;
+  --ex-shell-surface-strong: #0c120f;
+  --ex-shell-line: rgba(148, 218, 153, 0.12);
+  --ex-shell-text: #edf6ee;
+  --ex-shell-text-muted: #bfc9c4;
+  --ex-shell-accent: #8bd6b4;
+  --ex-shell-on-accent: #041008;
+}
+
+.dark {
+  --ex-shell-bg: #070d10;
+  --ex-shell-surface: #0b120e;
+  --ex-shell-surface-strong: #0c120f;
+  --ex-shell-line: rgba(148, 218, 153, 0.12);
+  --ex-shell-text: #edf6ee;
+  --ex-shell-text-muted: #bfc9c4;
+  --ex-shell-accent: #8bd6b4;
+  --ex-shell-on-accent: #041008;
+}

@@ -16,6 +16,7 @@ import { moderateImage } from '../utils/imageModeration';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import { fieldLabel, firstMissingRequiredField, revealListingFieldError } from '../utils/listingFormValidation';
 import '../styles/PostForms.css';
+import '../styles/shell-tokens.css';
 
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = LISTING_IMAGE_MAX_BYTES;

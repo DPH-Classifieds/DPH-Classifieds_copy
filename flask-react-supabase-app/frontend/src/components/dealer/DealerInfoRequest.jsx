@@ -119,7 +119,7 @@ const DealerInfoRequest = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070d10] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[color:var(--ex-shell-bg)] flex items-center justify-center px-4">
         <Loader2 size={28} className="text-emerald-400 animate-spin" />
       </div>
     );
@@ -127,7 +127,7 @@ const DealerInfoRequest = () => {
 
   if (loadError || !requestData) {
     return (
-      <div className="min-h-screen bg-[#070d10] flex items-center justify-center px-4 py-16">
+      <div className="min-h-screen bg-[color:var(--ex-shell-bg)] flex items-center justify-center px-4 py-16">
         <div className="w-full max-w-[480px] bg-white/[0.03] border border-white/[0.06] rounded-2xl p-8 text-center">
           <ShieldAlert size={32} className="text-rose-400 mx-auto mb-3" />
           <h1 className="text-lg font-semibold text-white mb-1">Link unavailable</h1>
@@ -141,7 +141,7 @@ const DealerInfoRequest = () => {
   const isClosed = status === 'submitted' || status === 'cancelled' || status === 'expired';
 
   return (
-    <div className="min-h-screen bg-[#070d10] px-4 py-12 sm:py-16">
+    <div className="min-h-screen bg-[color:var(--ex-shell-bg)] px-4 py-12 sm:py-16">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

@@ -117,7 +117,7 @@ const smoothPath = (pts) => {
 };
 
 const SERIES_CFG = [
-  { key: 'impressions',   label: 'Impressions',   color: '#10b981' },
+  { key: 'impressions',   label: 'Impressions',   color: 'var(--ex-shell-accent)' },
   { key: 'detail_views',  label: 'Detail views',  color: '#3b82f6' },
   { key: 'leads',         label: 'Leads',          color: '#a78bfa' },
 ];
@@ -195,7 +195,7 @@ const MultiSeriesChart = ({ data, activeKeys }) => {
           <line
             key={i}
             x1={PAD_X} x2={W - PAD_X} y1={y} y2={y}
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--ex-shell-line)"
             strokeWidth={1}
             strokeDasharray="3 4"
           />
@@ -232,7 +232,7 @@ const MultiSeriesChart = ({ data, activeKeys }) => {
         {tooltip && (
           <line
             x1={tooltip.x} x2={tooltip.x} y1={PAD_Y} y2={H - PAD_Y}
-            stroke="rgba(255,255,255,0.12)"
+            stroke="var(--ex-shell-line)"
             strokeWidth={1}
             strokeDasharray="3 3"
           />
@@ -241,7 +241,7 @@ const MultiSeriesChart = ({ data, activeKeys }) => {
 
       {tooltip && (
         <div
-          className="pointer-events-none absolute top-2 bg-[#0d1a15] border border-white/10 rounded-lg px-3 py-2 text-xs text-white/80 shadow-xl z-10"
+          className="pointer-events-none absolute top-2 bg-[color:var(--ex-shell-surface)] border border-white/10 rounded-lg px-3 py-2 text-xs text-white/80 shadow-xl z-10"
           style={{ left: `${(tooltip.x / W) * 100}%`, transform: 'translateX(-50%)' }}
         >
           <p className="text-[10px] text-white/40 mb-1">{data[tooltip.index]?.date}</p>

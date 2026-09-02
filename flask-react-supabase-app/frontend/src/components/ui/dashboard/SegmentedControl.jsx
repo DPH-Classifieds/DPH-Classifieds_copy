@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../../styles/shell-tokens.css';
 
 export const SegmentedControl = ({ options = [], value, onChange }) => (
   <div className="flex bg-white/[0.04] border border-white/[0.06] rounded-full p-1">

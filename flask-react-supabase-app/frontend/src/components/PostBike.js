@@ -20,6 +20,7 @@ import { moderateImage } from '../utils/imageModeration';
 import UnifiedCropper from './cropper/UnifiedCropper';
 import { fieldLabel, firstMissingRequiredField, revealListingFieldError } from '../utils/listingFormValidation';
 import '../styles/PostForms.css';
+import '../styles/shell-tokens.css';
 
 const RequiredMark = () => <span className="required-asterisk">*</span>;
 

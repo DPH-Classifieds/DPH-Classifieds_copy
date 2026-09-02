@@ -14,6 +14,7 @@ import { ArrowRight } from 'lucide-react';
 import useFeaturedPattern from '../hooks/useFeaturedPattern';
 import { applyFeaturedPlacement } from '../utils/featuredPlacement';
 import '../styles/HomePage.css';
+import '../styles/shell-tokens.css';
 import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';

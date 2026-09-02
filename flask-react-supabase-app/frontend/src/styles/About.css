@@ -1,16 +1,16 @@
 .about-v2 {
-  --ab-bg: #041008;
+  --ab-bg: var(--ex-shell-on-accent);
   --ab-surface: #0b1b12;
   --ab-surface-soft: #eef5ef;
-  --ab-line: rgba(180, 227, 185, 0.12);
-  --ab-text: #edf6ee;
-  --ab-text-muted: rgba(226, 239, 229, 0.72);
+  --ab-line: color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
+  --ab-text: var(--ex-shell-text);
+  --ab-text-muted: color-mix(in srgb, var(--ex-shell-text) 72%, transparent);
   --ab-dark: #0c1d13;
   --ab-dark-muted: rgba(12, 29, 19, 0.68);
   min-height: 100vh;
   padding-bottom: 96px;
   background:
-    radial-gradient(circle at top center, rgba(97, 191, 102, 0.14), transparent 30%),
+    radial-gradient(circle at top center, color-mix(in srgb, var(--ex-shell-accent) 14%, transparent), transparent 30%),
     linear-gradient(180deg, #06130b 0%, #040907 100%);
   color: var(--ab-text);
   overflow-x: clip;
@@ -24,7 +24,7 @@
 .about-v2-kicker {
   display: inline-block;
   margin-bottom: 14px;
-  color: #98d99c;
+  color: var(--ex-shell-accent);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.24em;
@@ -50,8 +50,8 @@
 .about-v2-hero .about-v2-shell {
   border: 1px solid var(--ab-line);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(12, 28, 19, 0.94) 0%, rgba(6, 15, 10, 0.98) 100%);
-  box-shadow: inset 0 1px 0 rgba(230, 248, 232, 0.03);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 94%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 98%, transparent) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
   padding: 24px 20px;
 }
 
@@ -101,7 +101,7 @@
 .about-v2-button-primary {
   background: linear-gradient(135deg, #0b6b4c 0%, #004e37 100%);
   color: #ffffff;
-  box-shadow: 0 16px 28px rgba(0, 78, 55, 0.22);
+  box-shadow: 0 16px 28px color-mix(in srgb, var(--ex-shell-on-accent) 22%, transparent);
 }
 
 .about-v2-button-secondary {
@@ -125,8 +125,8 @@
 .about-v2-community-card {
   border: 1px solid var(--ab-line);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(12, 28, 19, 0.92) 0%, rgba(6, 15, 10, 0.96) 100%);
-  box-shadow: inset 0 1px 0 rgba(230, 248, 232, 0.03);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 92%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 96%, transparent) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
 }
 
 .about-v2-stat-card {
@@ -245,7 +245,7 @@
 .about-v2-community-copy span {
   display: inline-block;
   margin-top: 14px;
-  color: #8bd6b4;
+  color: var(--ex-shell-accent);
   font-weight: 700;
 }
 
@@ -255,10 +255,10 @@
 
 .legal-v2-body {
   padding: 28px;
-  border: 1px solid rgba(180, 227, 185, 0.12);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
   border-radius: 28px;
-  background: linear-gradient(180deg, rgba(12, 28, 19, 0.92) 0%, rgba(6, 15, 10, 0.96) 100%);
-  box-shadow: inset 0 1px 0 rgba(230, 248, 232, 0.03);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 92%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 96%, transparent) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
 }
 
 .legal-v2-body h2 {
@@ -272,7 +272,7 @@
 .legal-v2-body li,
 .legal-v2-body td,
 .legal-v2-body th {
-  color: rgba(226, 239, 229, 0.78);
+  color: color-mix(in srgb, var(--ex-shell-text) 78%, transparent);
   line-height: 1.8;
 }
 
@@ -281,7 +281,7 @@
 }
 
 .legal-v2-body a {
-  color: #a4e7a8;
+  color: var(--ex-shell-accent);
 }
 
 .legal-v2-body table {
@@ -290,7 +290,7 @@
   margin: 18px 0;
   overflow: hidden;
   border-radius: 18px;
-  border: 1px solid rgba(180, 227, 185, 0.12);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
 }
 
 .legal-v2-body th,
@@ -298,11 +298,11 @@
   padding: 14px;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid rgba(180, 227, 185, 0.08);
+  border-bottom: 1px solid color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
 }
 
 .legal-v2-body thead {
-  background: rgba(97, 191, 102, 0.08);
+  background: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
 }
 
 @media (max-width: 1080px) {

@@ -2,6 +2,7 @@ import React from 'react';
 import SeoMeta from './SeoMeta';
 import { buildStaticSeo } from '../utils/seo';
 import '../styles/About.css';
+import '../styles/shell-tokens.css';
 
 const PrivacyPolicy = () => {
   const seoData = buildStaticSeo({

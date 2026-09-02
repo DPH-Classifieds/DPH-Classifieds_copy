@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
+import '../styles/shell-tokens.css';
 import {
   LayoutDashboard,
   FileText,
@@ -84,7 +85,7 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
   return (
     <aside
       className={`${sidebarBase} ${mobileClass}`}
-      style={{ background: 'linear-gradient(180deg, #0a1410 0%, #070d10 100%)' }}
+      style={{ background: 'linear-gradient(180deg, var(--ex-shell-surface) 0%, var(--ex-shell-bg) 100%)' }}
     >
       {/* Brand */}
       <div className="px-5 pt-6 pb-5 border-b border-white/[0.06]">
@@ -115,7 +116,7 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border-l-2 ${
                   isActive
-                    ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.06)]'
+                    ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-[0_0_12px_color-mix(in_srgb,var(--ex-shell-accent)_6%,transparent)]'
                     : 'border-transparent text-white/60 hover:bg-white/[0.04] hover:text-white'
                 }`
               }
@@ -139,7 +140,7 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
         {/* Profile menu popup */}
         {profileMenuOpen && (
           <div
-            className="mb-2 rounded-xl overflow-hidden border border-white/[0.08] bg-[#0d1a15] shadow-2xl shadow-black/40"
+            className="mb-2 rounded-xl overflow-hidden border border-white/[0.08] bg-[color:var(--ex-shell-surface)] shadow-2xl shadow-black/40"
             role="menu"
             aria-label="Admin account menu"
           >

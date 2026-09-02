@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../../styles/shell-tokens.css';
 
 export const GlassCard = ({ className = '', children, ...rest }) => (
   <div

@@ -61,7 +61,7 @@ export default function ListingPicker({ onClose, onSelect }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="bg-[#0c1410] border border-white/10 rounded-2xl p-6 w-full max-w-lg text-white space-y-4">
+      <div className="bg-[color:var(--ex-shell-surface)] border border-white/10 rounded-2xl p-6 w-full max-w-lg text-white space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Choose a listing to feature</h3>
           <button onClick={onClose} className="text-white/40 hover:text-white/80">

@@ -82,8 +82,8 @@ const AreaChart = ({ data, accessor, height = 200 }) => {
       >
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.30" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0.00" />
+            <stop offset="0%" stopColor="var(--ex-shell-accent)" stopOpacity="0.30" />
+            <stop offset="100%" stopColor="var(--ex-shell-accent)" stopOpacity="0.00" />
           </linearGradient>
         </defs>
 
@@ -95,7 +95,7 @@ const AreaChart = ({ data, accessor, height = 200 }) => {
             x2={W - PAD_X}
             y1={y}
             y2={y}
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--ex-shell-line)"
             strokeWidth={1}
             strokeDasharray="3 4"
           />
@@ -111,7 +111,7 @@ const AreaChart = ({ data, accessor, height = 200 }) => {
           <path
             d={linePath}
             fill="none"
-            stroke="#10b981"
+            stroke="var(--ex-shell-accent)"
             strokeWidth={1.8}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -126,11 +126,11 @@ const AreaChart = ({ data, accessor, height = 200 }) => {
               x2={tooltip.x}
               y1={PAD_Y}
               y2={H - PAD_Y}
-              stroke="rgba(255,255,255,0.15)"
+              stroke="var(--ex-shell-line)"
               strokeWidth={1}
               strokeDasharray="3 3"
             />
-            <circle cx={tooltip.x} cy={tooltip.y} r={4} fill="#10b981" />
+            <circle cx={tooltip.x} cy={tooltip.y} r={4} fill="var(--ex-shell-accent)" />
           </>
         )}
       </svg>
@@ -138,7 +138,7 @@ const AreaChart = ({ data, accessor, height = 200 }) => {
       {/* Tooltip box */}
       {tooltip && points[tooltip.index] && (
         <div
-          className="pointer-events-none absolute top-2 bg-[#0d1a15] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white/80 shadow-xl"
+          className="pointer-events-none absolute top-2 bg-[color:var(--ex-shell-surface)] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white/80 shadow-xl"
           style={{
             left: `${(tooltip.x / W) * 100}%`,
             transform: 'translateX(-50%)',

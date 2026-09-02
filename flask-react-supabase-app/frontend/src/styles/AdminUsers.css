@@ -19,28 +19,28 @@
   flex: 1;
   min-width: 300px;
   padding: 16px 22px;
-  background: rgba(148, 218, 153, 0.05);
-  border: 1px solid rgba(148, 218, 153, 0.15);
+  background: color-mix(in srgb, var(--ex-shell-accent) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 15%, transparent);
   border-radius: 16px;
   font-size: 15px;
-  color: #ffffff;
+  color: var(--ex-shell-text);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(148, 218, 153, 0.08);
+  border-color: color-mix(in srgb, var(--ex-shell-text) 20%, transparent);
+  background: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
   box-shadow: none;
 }
 
 .search-input::placeholder {
-  color: rgba(191, 201, 196, 0.5);
+  color: color-mix(in srgb, var(--ex-shell-text-muted) 50%, transparent);
 }
 
 .user-count {
   font-size: 13px;
-  color: #bfc9c4;
+  color: var(--ex-shell-text-muted);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -54,8 +54,8 @@
 }
 
 .user-card {
-  background: linear-gradient(180deg, rgba(12, 28, 19, 0.96) 0%, rgba(7, 15, 10, 0.98) 100%);
-  border: 1px solid rgba(148, 218, 153, 0.12);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 96%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 98%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
   border-radius: 24px;
   padding: 24px;
   display: flex;
@@ -65,9 +65,9 @@
 }
 
 .user-card:hover {
-  border-color: rgba(148, 218, 153, 0.2);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 20%, transparent);
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--ex-overlay-scrim) 20%, transparent);
 }
 
 .user-header {
@@ -81,7 +81,7 @@
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid rgba(148, 218, 153, 0.2);
+  border: 2px solid color-mix(in srgb, var(--ex-shell-accent) 20%, transparent);
 }
 
 .user-avatar img {
@@ -98,8 +98,8 @@
 .avatar-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #8bd6b4 0%, #004e37 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--ex-shell-accent) 0%, #004e37 100%);
+  color: var(--ex-shell-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,19 +119,19 @@
 .user-info h3 {
   font-size: 17px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--ex-shell-text);
   margin: 0 0 4px 0;
 }
 
 .user-info p {
   font-size: 14px;
-  color: #bfc9c4;
+  color: var(--ex-shell-text-muted);
   margin: 3px 0;
 }
 
 .user-joined {
   font-size: 12px !important;
-  color: rgba(191, 201, 196, 0.6) !important;
+  color: color-mix(in srgb, var(--ex-shell-text-muted) 60%, transparent) !important;
 }
 
 /* Status Badges */
@@ -163,9 +163,9 @@
 }
 
 .status-admin {
-  background: linear-gradient(135deg, rgba(139, 214, 180, 0.15) 0%, rgba(0, 78, 55, 0.2) 100%);
-  border: 1px solid rgba(148, 218, 153, 0.25);
-  color: #8bd6b4;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ex-shell-accent) 15%, transparent) 0%, color-mix(in srgb, var(--ex-shell-on-accent) 20%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 25%, transparent);
+  color: var(--ex-shell-accent);
 }
 
 /* User Actions */
@@ -190,19 +190,19 @@
   gap: 24px;
   margin-bottom: 28px;
   padding-bottom: 24px;
-  border-bottom: 1px solid rgba(148, 218, 153, 0.1);
+  border-bottom: 1px solid color-mix(in srgb, var(--ex-shell-accent) 10%, transparent);
 }
 
 .user-detail-header h3 {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--ex-shell-text);
   margin: 0 0 6px 0;
 }
 
 .user-detail-header p {
   font-size: 14px;
-  color: #bfc9c4;
+  color: var(--ex-shell-text-muted);
   margin: 0;
 }
 
@@ -221,14 +221,14 @@
 .detail-item label {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(191, 201, 196, 0.6);
+  color: color-mix(in srgb, var(--ex-shell-text-muted) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .detail-item span {
   font-size: 14px;
-  color: #ffffff;
+  color: var(--ex-shell-text);
   font-weight: 500;
 }
 

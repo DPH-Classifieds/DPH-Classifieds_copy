@@ -8,6 +8,7 @@ import { fetchJsonWithCache, readJsonSessionCache } from '../utils/fetchCache';
 import { buildListingRouteState } from '../utils/listingRouteState';
 import useListingCounts from '../hooks/useListingCounts';
 import '../styles/CarParts.css';
+import '../styles/shell-tokens.css';
 import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';

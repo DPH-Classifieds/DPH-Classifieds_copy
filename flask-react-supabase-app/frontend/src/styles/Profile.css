@@ -37,7 +37,7 @@
   background: white;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ex-overlay-scrim) 10%, transparent);
   border-left: 4px solid #ffaa00;
 }
 
@@ -58,7 +58,7 @@
 .completion-percentage {
   font-size: 20px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .completion-bar {
@@ -72,7 +72,7 @@
 .completion-fill {
   height: 100%;
   transition: width 0.5s ease, background-color 0.5s ease;
-  background-color: #ffffff !important;
+  background-color: var(--ex-shell-text) !important;
 }
 
 .completion-message {
@@ -85,7 +85,7 @@
 .modern-card {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--ex-overlay-scrim) 8%, transparent);
   overflow: hidden;
 }
 
@@ -99,7 +99,7 @@
   align-items: center;
   gap: 32px;
   padding: 40px;
-  background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+  background: linear-gradient(to bottom, #f8f9fa 0%, var(--ex-shell-text) 100%);
   border-bottom: 1px solid #e0e0e0;
 }
 
@@ -117,7 +117,7 @@
   object-position: center;
   display: block;
   border: 4px solid white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ex-overlay-scrim) 15%, transparent);
   background-color: #f5f5f5;
 }
 
@@ -241,7 +241,7 @@
 .profile-statistics {
   padding: 24px 40px;
   border-bottom: 1px solid #e3e8e5;
-  background: linear-gradient(135deg, #f6fbf8 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #f6fbf8 0%, var(--ex-shell-text) 100%);
 }
 
 .profile-statistics h3 {
@@ -260,7 +260,7 @@
 .stat-item {
   text-align: center;
   padding: 16px 14px;
-  background: #ffffff;
+  background: var(--ex-shell-text);
   border-radius: 12px;
   border: 1px solid #e2e6e3;
   transition: border-color 0.2s ease, transform 0.2s ease;
@@ -481,7 +481,7 @@
 
 .profile-container .btn-secondary:hover {
   background: #5a6268;
-  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.2);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--ex-shell-text-muted) 20%, transparent);
 }
 
 .profile-container .btn-success {
@@ -569,12 +569,12 @@
 .profile-container {
   max-width: 1240px;
   padding: 48px 24px 96px;
-  color: #edf6ee;
+  color: var(--ex-shell-text);
 }
 
 .profile-header-banner {
   padding: 56px 28px;
-  border: 1px solid rgba(148, 218, 153, 0.16);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 16%, transparent);
   border-radius: 30px;
   background:
     radial-gradient(circle at top, rgba(112, 201, 119, 0.24), transparent 42%),
@@ -604,14 +604,14 @@
 
 .profile-completion-card,
 .modern-card {
-  background: linear-gradient(180deg, rgba(12, 28, 19, 0.96) 0%, rgba(7, 15, 10, 0.98) 100%);
-  border: 1px solid rgba(148, 218, 153, 0.12);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 96%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 98%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
   border-radius: 28px;
   box-shadow: inset 0 1px 0 rgba(245, 252, 246, 0.04);
 }
 
 .profile-completion-card {
-  border-left: 1px solid rgba(148, 218, 153, 0.12);
+  border-left: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
 }
 
 .completion-bar {
@@ -631,12 +631,12 @@
 .profile-statistics,
 .profile-actions {
   background: transparent;
-  border-color: rgba(148, 218, 153, 0.1);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 10%, transparent);
 }
 
 .profile-avatar-large {
   border-color: rgba(244, 251, 245, 0.84);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--ex-overlay-scrim) 32%, transparent);
 }
 
 .profile-avatar-large.placeholder {
@@ -646,7 +646,7 @@
 
 .change-photo-btn {
   background: rgba(10, 18, 12, 0.84);
-  border: 1px solid rgba(148, 218, 153, 0.18);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 18%, transparent);
 }
 
 .profile-badges .badge,
@@ -654,7 +654,7 @@
 .status-badge,
 .social-link {
   border-radius: 999px;
-  border: 1px solid rgba(148, 218, 153, 0.14);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 14%, transparent);
 }
 
 .badge-verified,
@@ -684,7 +684,7 @@
 
 .profile-section,
 .profile-bio-section {
-  border-color: rgba(148, 218, 153, 0.08);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
 }
 
 .dealer-info-section {
@@ -693,7 +693,7 @@
 }
 
 .profile-info-row {
-  border-color: rgba(148, 218, 153, 0.08);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
 }
 
 .profile-info-value,
@@ -717,17 +717,17 @@
 
 .social-link:hover {
   background: rgba(112, 201, 119, 0.14);
-  border-color: rgba(148, 218, 153, 0.3);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 30%, transparent);
   color: #f6fbf6;
 }
 
 .stat-item {
   background: rgba(244, 251, 245, 0.04);
-  border: 1px solid rgba(148, 218, 153, 0.12);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
 }
 
 .stat-item:hover {
-  border-color: rgba(148, 218, 153, 0.3);
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 30%, transparent);
 }
 
 .stat-number {
@@ -762,7 +762,7 @@
 .profile-container .btn-secondary {
   background: rgba(112, 201, 119, 0.12);
   color: #e7f3e8;
-  border: 1px solid rgba(148, 218, 153, 0.2);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 20%, transparent);
 }
 
 .profile-container .btn-secondary:hover {
@@ -954,7 +954,7 @@
 .profile-bio-section h3,
 .profile-statistics h3,
 .profile-section h3 {
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .profile-username,
@@ -1013,7 +1013,7 @@
 }
 
 .stat-number {
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .stat-label {
@@ -1034,7 +1034,7 @@
 }
 
 .profile-info-value {
-  color: #edf6ee;
+  color: var(--ex-shell-text);
   word-break: break-word;
   overflow-wrap: anywhere;
 }
@@ -1067,13 +1067,13 @@
 .social-link {
   background: #141414;
   border: 1px solid var(--pf-border);
-  color: #edf6ee;
+  color: var(--ex-shell-text);
 }
 
 .social-link:hover {
   background: #1a1a1a;
   border-color: var(--pf-accent);
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .profile-verification-callout {
@@ -1099,7 +1099,7 @@
 
 .profile-container .btn-secondary {
   background: rgba(74, 222, 128, 0.08);
-  color: #edf6ee;
+  color: var(--ex-shell-text);
 }
 
 .profile-container .btn-danger {

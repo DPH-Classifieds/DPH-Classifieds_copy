@@ -4,8 +4,8 @@
   gap: 8px;
   padding: 8px 14px;
   border-radius: 12px;
-  border: 1px solid var(--ex-line-strong, rgba(255, 255, 255, 0.08));
-  background: var(--ex-input-bg, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--ex-line-strong, color-mix(in srgb, var(--ex-shell-text) 8%, transparent));
+  background: var(--ex-input-bg, color-mix(in srgb, var(--ex-shell-text) 4%, transparent));
   transition: all 0.2s;
   flex: 1;
   max-width: 480px;
@@ -23,7 +23,7 @@
 }
 
 .search-bar__icon {
-  color: var(--ex-text-muted, rgba(255, 255, 255, 0.35));
+  color: var(--ex-text-muted, color-mix(in srgb, var(--ex-shell-text) 35%, transparent));
   flex-shrink: 0;
   transition: color 0.15s;
 }
@@ -48,7 +48,7 @@
 }
 
 .search-bar__input::placeholder {
-  color: var(--ex-text-muted, rgba(255, 255, 255, 0.3));
+  color: var(--ex-text-muted, color-mix(in srgb, var(--ex-shell-text) 30%, transparent));
   opacity: 0.75;
 }
 
@@ -60,14 +60,14 @@
   height: 22px;
   border-radius: 6px;
   border: none;
-  background: var(--ex-surface-low, rgba(255, 255, 255, 0.08));
-  color: var(--ex-text-muted, rgba(255, 255, 255, 0.5));
+  background: var(--ex-surface-low, color-mix(in srgb, var(--ex-shell-text) 8%, transparent));
+  color: var(--ex-text-muted, color-mix(in srgb, var(--ex-shell-text) 50%, transparent));
   cursor: pointer;
   transition: all 0.12s;
   flex-shrink: 0;
 }
 
 .search-bar__clear:hover {
-  background: var(--ex-line-strong, rgba(255, 255, 255, 0.15));
+  background: var(--ex-line-strong, color-mix(in srgb, var(--ex-shell-text) 15%, transparent));
   color: var(--ex-text, #fff);
 }

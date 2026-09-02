@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
+import '../styles/shell-tokens.css';
 import '../styles/AdminLayout.css';
 
 const AdminRoute = ({ children }) => {
