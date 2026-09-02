@@ -70,7 +70,9 @@ _MODEL_STOPWORDS = {
 _UNSPECIFIED = "Unspecified"
 
 # PII scrubbing patterns (applied to any text we keep, e.g. the title).
-_PHONE_RE = re.compile(r"(?:\+?\d[\d\s\-().]{6,}\d)")
+# Require at least seven digits so short plate formats such as "3692, 4 digit"
+# are not mistaken for phone numbers and scrubbed out of the listing title.
+_PHONE_RE = re.compile(r"(?<!\d)\+?(?:\d[\s\-().]*){6,}\d(?!\d)")
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 _URL_RE = re.compile(r"https?://\S+|www\.\S+")
 _WS_RE = re.compile(r"\s+")
@@ -828,6 +830,18 @@ def _extract_plate_number(title, combined):
         low = source.lower()
         for cue in cue_re.finditer(low):
             cue_end = cue.end()
+            # In phrases like "3692, 4 digit number plate", the serial is
+            # explicitly before the cue; the nearby "4" describes its length
+            # and must not win as the number.
+            before = []
+            for c in candidates:
+                if not 0 <= cue.start() - (c[0] + len(c[1])) <= 20:
+                    continue
+                gap = low[c[0] + len(c[1]):cue.start()]
+                if re.search(r"\b\d+\s*[- ]?digits?\b", gap):
+                    before.append(c)
+            if before:
+                return before[-1][1]
             after = []
             for c in candidates:
                 if not 0 <= c[0] - cue_end <= 15:
@@ -843,9 +857,10 @@ def _extract_plate_number(title, combined):
                 return after[0][1]
             # Also accept the natural "1234 Dubai plate" ordering, but keep
             # the distance tight enough that a vehicle year cannot qualify.
-            before = [c for c in candidates if 0 <= cue.start() - (c[0] + len(c[1])) <= 10]
-            if before:
-                return before[-1][1]
+            if cue.group().lower() not in ("digit", "digits"):
+                before = [c for c in candidates if 0 <= cue.start() - (c[0] + len(c[1])) <= 10]
+                if before:
+                    return before[-1][1]
     return None
 
 
