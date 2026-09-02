@@ -222,16 +222,29 @@ def _sync_images(config, row_id, image_urls):
     images_table, fk = config["images_table"], config["fk"]
     body, status = supabase_request(
         "get", f"/rest/v1/{images_table}",
-        params={"select": f"id,image_url", fk: f"eq.{row_id}"},
+        params={"select": "id,image_url", fk: f"eq.{row_id}"},
     )
+    image_column = "image_url"
+    if status >= 400:
+        # Older plate_images deployments expose only `url`.
+        body, status = supabase_request(
+            "get", f"/rest/v1/{images_table}",
+            params={"select": "id,url", fk: f"eq.{row_id}"},
+        )
+        image_column = "url"
     existing = body if (status < 400 and isinstance(body, list)) else []
-    if {img.get("image_url") for img in existing} == set(desired):
+    if {img.get(image_column) for img in existing} == set(desired):
         return  # unchanged
     if existing:
         supabase_request("delete", f"/rest/v1/{images_table}?{fk}=eq.{row_id}")
-    rows = [{fk: row_id, "image_url": u, "url": u, "is_primary": (i == 0)}
+    rows = [{fk: row_id, image_column: u, "is_primary": (i == 0)}
             for i, u in enumerate(desired)]
-    supabase_request("post", f"/rest/v1/{images_table}", data=rows)
+    _, insert_status = supabase_request("post", f"/rest/v1/{images_table}", data=rows)
+    if insert_status >= 400 and image_column == "image_url":
+        # If the deployment is on the legacy schema, retry with its real column.
+        legacy_rows = [{fk: row_id, "url": u, "is_primary": (i == 0)}
+                       for i, u in enumerate(desired)]
+        supabase_request("post", f"/rest/v1/{images_table}", data=legacy_rows)
 
 
 def _reddit_visible():

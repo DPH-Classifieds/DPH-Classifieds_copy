@@ -337,6 +337,18 @@ class MultiCategoryTests(unittest.TestCase):
             parsed = self._p(title)
             self.assertTrue(parsed is None or parsed.category != "plate", title)
 
+    def test_plate_serial_before_digit_count_is_not_scrubbed_or_replaced(self):
+        parsed = parse_listing(submission(
+            title="WTS: Dubai K 3692, 4 digit number plate, Starting 369",
+            selftext="AED 28,000",
+            id="plate-3692", images=[IMG],
+        ), NOW
+        )
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.category, "plate")
+        self.assertEqual(parsed.fields["number"], "3692")
+        self.assertIn("3692", parsed.title)
+
     def test_every_category_payload_carries_source_contract(self):
         for title in ["WTS 2018 BMW 120i AED 39,000", "WTS Yamaha MT-09 2022 AED 40,000",
                       "WTS exhaust for Golf AED 2,000", "WTS plate 5555 AED 30,000"]:
