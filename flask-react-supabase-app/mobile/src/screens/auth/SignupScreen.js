@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform, Linking, Switch } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import apiClient from '../../utils/apiClient';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { TurnstileModal } from '../../utils/turnstile';
 import { TURNSTILE_SITE_KEY } from '../../constants/config';
 import { toastApiError } from '../../utils/toast';
@@ -84,6 +85,7 @@ function getPasswordStrength(pw) {
 }
 
 export default function SignupScreen({ navigation }) {
+  const { colors } = useTheme();
   const { signUp, signInWithGoogle } = useAuth();
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -254,6 +256,344 @@ export default function SignupScreen({ navigation }) {
   };
 
   const selectedCountry = COUNTRY_CODES.find((c) => c.code === countryCode) || COUNTRY_CODES[0];
+const styles = useMemo(() => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xxl,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+  },
+  logoText: {
+    fontSize: 42,
+    fontWeight: '800',
+    color: colors.accent,
+    letterSpacing: 2,
+  },
+  logoSubtext: {
+    fontSize: FONT_SIZES.lg,
+    color: colors.white,
+    fontWeight: '400',
+    marginTop: -2,
+    letterSpacing: 4,
+  },
+  subtitle: {
+    fontSize: FONT_SIZES.md,
+    color: colors.textSecondary,
+    marginTop: SPACING.md,
+  },
+  googleSignupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: colors.white,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: 14,
+    marginBottom: SPACING.xs,
+  },
+  googleSignupButtonText: {
+    color: '#1f2937',
+    fontWeight: '600',
+    fontSize: FONT_SIZES.md,
+  },
+  googleSignupNote: {
+    color: colors.textMuted,
+    fontSize: FONT_SIZES.xs,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  signupDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg,
+    gap: 10,
+  },
+  signupDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  signupDividerLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: FONT_SIZES.xs,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  accountTypeContainer: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xl,
+    justifyContent: 'center',
+  },
+  accountTypePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  accountTypePillActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  accountTypeText: {
+    fontSize: FONT_SIZES.sm,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  accountTypeTextActive: {
+    color: colors.black,
+    fontWeight: '600',
+  },
+  form: {
+    marginBottom: SPACING.lg,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  halfInput: {
+    flex: 1,
+  },
+  fieldWithStatus: {
+    position: 'relative',
+  },
+  usernameStatus: {
+    position: 'absolute',
+    right: 14,
+    top: 38,
+    zIndex: 1,
+  },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  phonePrefix: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surface,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginRight: SPACING.sm,
+  },
+  flagText: {
+    fontSize: 16,
+  },
+  phonePrefixText: {
+    color: colors.white,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  phoneInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  sectionLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: colors.surface,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: SPACING.sm,
+  },
+  pickerButtonText: {
+    flex: 1,
+    fontSize: FONT_SIZES.md,
+    color: colors.white,
+  },
+  pickerPlaceholder: {
+    color: colors.textMuted,
+  },
+  pickerDropdown: {
+    backgroundColor: colors.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    marginBottom: SPACING.md,
+    maxHeight: 200,
+    overflow: 'scroll',
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  pickerItemActive: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  pickerFlag: {
+    fontSize: 18,
+  },
+  pickerItemText: {
+    flex: 1,
+    fontSize: FONT_SIZES.md,
+    color: colors.white,
+  },
+  pickerItemCode: {
+    fontSize: FONT_SIZES.sm,
+    color: colors.textMuted,
+  },
+  errorText: {
+    fontSize: FONT_SIZES.xs,
+    color: '#FF3B30',
+    marginTop: -8,
+    marginBottom: SPACING.sm,
+    marginLeft: 4,
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 14,
+    top: 38,
+    zIndex: 1,
+  },
+  strengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+    marginTop: -8,
+  },
+  strengthBar: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.surfaceHigher,
+    overflow: 'hidden',
+  },
+  strengthFill: {
+    height: '100%',
+    borderRadius: 2,
+    transition: 'width 0.3s ease',
+  },
+  strengthLabel: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    minWidth: 40,
+  },
+  checksContainer: {
+    gap: 6,
+    marginBottom: SPACING.md,
+    paddingLeft: 4,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  checkText: {
+    fontSize: FONT_SIZES.sm,
+    color: colors.textMuted,
+  },
+  checkTextMet: {
+    color: '#34C759',
+  },
+  termsSection: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: colors.accent,
+    fontWeight: '500',
+  },
+  commsContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    gap: SPACING.md,
+  },
+  commsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  commsLabel: {
+    fontSize: FONT_SIZES.md,
+    color: colors.white,
+  },
+  signUpButton: {
+    width: '100%',
+    marginTop: SPACING.sm,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.lg,
+  },
+  footerText: {
+    color: colors.textSecondary,
+    fontSize: FONT_SIZES.md,
+  },
+  footerLink: {
+    color: colors.accent,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+}), [colors]);
   const areasForEmirate = emirate === 'Dubai' ? DUBAI_AREAS : [];
 
   return (
@@ -302,7 +642,7 @@ export default function SignupScreen({ navigation }) {
             <Ionicons
               name="person-outline"
               size={16}
-              color={accountType === 'individual' ? COLORS.black : COLORS.textSecondary}
+              color={accountType === 'individual' ? colors.black : colors.textSecondary}
             />
             <Text style={[styles.accountTypeText, accountType === 'individual' && styles.accountTypeTextActive]}>
               Individual
@@ -316,7 +656,7 @@ export default function SignupScreen({ navigation }) {
             <Ionicons
               name="business-outline"
               size={16}
-              color={accountType === 'dealer' ? COLORS.black : COLORS.textSecondary}
+              color={accountType === 'dealer' ? colors.black : colors.textSecondary}
             />
             <Text style={[styles.accountTypeText, accountType === 'dealer' && styles.accountTypeTextActive]}>
               Dealer / Business
@@ -339,7 +679,7 @@ export default function SignupScreen({ navigation }) {
             {username.length >= 3 && (
               <View style={styles.usernameStatus}>
                 {usernameChecking ? (
-                  <Ionicons name="time-outline" size={16} color={COLORS.textMuted} />
+                  <Ionicons name="time-outline" size={16} color={colors.textMuted} />
                 ) : usernameStatus === 'available' ? (
                   <Ionicons name="checkmark-circle" size={16} color="#34C759" />
                 ) : usernameStatus === 'taken' ? (
@@ -399,7 +739,7 @@ export default function SignupScreen({ navigation }) {
             >
               <Text style={styles.flagText}>{selectedCountry.flag}</Text>
               <Text style={styles.phonePrefixText}>{selectedCountry.code}</Text>
-              <Ionicons name="chevron-down" size={14} color={COLORS.textSecondary} />
+              <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
             <View style={styles.phoneInput}>
               <Input
@@ -444,11 +784,11 @@ export default function SignupScreen({ navigation }) {
             style={styles.pickerButton}
             onPress={() => setShowEmiratePicker(!showEmiratePicker)}
           >
-            <Ionicons name="location-outline" size={18} color={COLORS.textSecondary} />
+            <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
             <Text style={[styles.pickerButtonText, !emirate && styles.pickerPlaceholder]}>
               {emirate || 'Select Emirate'}
             </Text>
-            <Ionicons name="chevron-down" size={16} color={COLORS.textSecondary} />
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
           {errors.emirate && <Text style={styles.errorText}>{errors.emirate}</Text>}
 
@@ -476,11 +816,11 @@ export default function SignupScreen({ navigation }) {
                 style={styles.pickerButton}
                 onPress={() => setShowAreaPicker(!showAreaPicker)}
               >
-                <Ionicons name="map-outline" size={18} color={COLORS.textSecondary} />
+                <Ionicons name="map-outline" size={18} color={colors.textSecondary} />
                 <Text style={[styles.pickerButtonText, !area && styles.pickerPlaceholder]}>
                   {area || 'Select Area (optional)'}
                 </Text>
-                <Ionicons name="chevron-down" size={16} color={COLORS.textSecondary} />
+                <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
 
               {showAreaPicker && (
@@ -570,7 +910,7 @@ export default function SignupScreen({ navigation }) {
                   <Ionicons
                     name={check.met ? 'checkmark-circle' : 'ellipse-outline'}
                     size={16}
-                    color={check.met ? '#34C759' : COLORS.textMuted}
+                    color={check.met ? '#34C759' : colors.textMuted}
                   />
                   <Text style={[styles.checkText, check.met && styles.checkTextMet]}>
                     {check.label}
@@ -605,7 +945,7 @@ export default function SignupScreen({ navigation }) {
               activeOpacity={0.7}
             >
               <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                {termsAccepted && <Ionicons name="checkmark" size={14} color={COLORS.black} />}
+                {termsAccepted && <Ionicons name="checkmark" size={14} color={colors.black} />}
               </View>
               <Text style={styles.termsText}>
                 I agree to the{' '}
@@ -628,7 +968,7 @@ export default function SignupScreen({ navigation }) {
               activeOpacity={0.7}
             >
               <View style={[styles.checkbox, privacyAccepted && styles.checkboxChecked]}>
-                {privacyAccepted && <Ionicons name="checkmark" size={14} color={COLORS.black} />}
+                {privacyAccepted && <Ionicons name="checkmark" size={14} color={colors.black} />}
               </View>
               <Text style={styles.termsText}>
                 I agree to the{' '}
@@ -651,8 +991,8 @@ export default function SignupScreen({ navigation }) {
               <Switch
                 value={emailComms}
                 onValueChange={setEmailComms}
-                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: colors.surfaceHigher, true: colors.accent }}
+                thumbColor={colors.white}
               />
             </View>
             <View style={styles.commsRow}>
@@ -660,8 +1000,8 @@ export default function SignupScreen({ navigation }) {
               <Switch
                 value={smsComms}
                 onValueChange={setSmsComms}
-                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: colors.surfaceHigher, true: colors.accent }}
+                thumbColor={colors.white}
               />
             </View>
             <View style={styles.commsRow}>
@@ -669,8 +1009,8 @@ export default function SignupScreen({ navigation }) {
               <Switch
                 value={marketingComms}
                 onValueChange={setMarketingComms}
-                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: colors.surfaceHigher, true: colors.accent }}
+                thumbColor={colors.white}
               />
             </View>
           </View>
@@ -707,342 +1047,3 @@ export default function SignupScreen({ navigation }) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xxl,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-  },
-  logoText: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: COLORS.accent,
-    letterSpacing: 2,
-  },
-  logoSubtext: {
-    fontSize: FONT_SIZES.lg,
-    color: COLORS.white,
-    fontWeight: '400',
-    marginTop: -2,
-    letterSpacing: 4,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.md,
-  },
-  googleSignupButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: 14,
-    marginBottom: SPACING.xs,
-  },
-  googleSignupButtonText: {
-    color: '#1f2937',
-    fontWeight: '600',
-    fontSize: FONT_SIZES.md,
-  },
-  googleSignupNote: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.xs,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  signupDividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SPACING.lg,
-    gap: 10,
-  },
-  signupDividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  signupDividerLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: FONT_SIZES.xs,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  accountTypeContainer: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.xl,
-    justifyContent: 'center',
-  },
-  accountTypePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm + 2,
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  accountTypePillActive: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
-  },
-  accountTypeText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  accountTypeTextActive: {
-    color: COLORS.black,
-    fontWeight: '600',
-  },
-  form: {
-    marginBottom: SPACING.lg,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  fieldWithStatus: {
-    position: 'relative',
-  },
-  usernameStatus: {
-    position: 'absolute',
-    right: 14,
-    top: 38,
-    zIndex: 1,
-  },
-  phoneContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  phonePrefix: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginRight: SPACING.sm,
-  },
-  flagText: {
-    fontSize: 16,
-  },
-  phonePrefixText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  phoneInput: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  sectionLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  pickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginBottom: SPACING.sm,
-  },
-  pickerButtonText: {
-    flex: 1,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.white,
-  },
-  pickerPlaceholder: {
-    color: COLORS.textMuted,
-  },
-  pickerDropdown: {
-    backgroundColor: COLORS.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    marginBottom: SPACING.md,
-    maxHeight: 200,
-    overflow: 'scroll',
-  },
-  pickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  pickerItemActive: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
-  },
-  pickerFlag: {
-    fontSize: 18,
-  },
-  pickerItemText: {
-    flex: 1,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.white,
-  },
-  pickerItemCode: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textMuted,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.xs,
-    color: '#FF3B30',
-    marginTop: -8,
-    marginBottom: SPACING.sm,
-    marginLeft: 4,
-  },
-  passwordContainer: {
-    position: 'relative',
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: 14,
-    top: 38,
-    zIndex: 1,
-  },
-  strengthContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-    marginTop: -8,
-  },
-  strengthBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.surfaceHigher,
-    overflow: 'hidden',
-  },
-  strengthFill: {
-    height: '100%',
-    borderRadius: 2,
-    transition: 'width 0.3s ease',
-  },
-  strengthLabel: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    minWidth: 40,
-  },
-  checksContainer: {
-    gap: 6,
-    marginBottom: SPACING.md,
-    paddingLeft: 4,
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  checkText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textMuted,
-  },
-  checkTextMet: {
-    color: '#34C759',
-  },
-  termsSection: {
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
-  },
-  termsText: {
-    flex: 1,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  termsLink: {
-    color: COLORS.accent,
-    fontWeight: '500',
-  },
-  commsContainer: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-    gap: SPACING.md,
-  },
-  commsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  commsLabel: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.white,
-  },
-  signUpButton: {
-    width: '100%',
-    marginTop: SPACING.sm,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  footerText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-  },
-  footerLink: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-});

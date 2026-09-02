@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import apiClient from '../../utils/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   shouldUseMsg91,
   toMsg91Identifier,
@@ -17,11 +18,12 @@ import {
 import Input from '../../components/ui/Input';
 import OtpInput from '../../components/ui/OtpInput';
 import Button from '../../components/ui/Button';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
 const PHONE_CODES = ['+971', '+966', '+973', '+974', '+965', '+968', '+92', '+91', '+1', '+44'];
 
 export default function VerifyPhoneScreen({ navigation, route }) {
+  const { colors } = useTheme();
   const { user, updateUser } = useAuth();
   const purpose = route?.params?.purpose || 'profile_verify';
   const redirect = route?.params?.redirect || null;
@@ -184,6 +186,93 @@ export default function VerifyPhoneScreen({ navigation, route }) {
     }
   };
 
+const styles = useMemo(() => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  backButton: {
+    padding: SPACING.xs,
+  },
+  headerTitle: {
+    color: colors.white,
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: SPACING.lg,
+  },
+  stepContainer: {
+    marginTop: SPACING.xl,
+  },
+  description: {
+    color: colors.textSecondary,
+    fontSize: FONT_SIZES.md,
+    marginBottom: SPACING.xl,
+    lineHeight: 22,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: SPACING.lg,
+  },
+  codePickerContainer: {
+    width: 100,
+  },
+  codePicker: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    marginTop: 24,
+  },
+  codePickerText: {
+    color: colors.white,
+    fontSize: FONT_SIZES.md,
+  },
+  phoneInputContainer: {
+    flex: 1,
+  },
+  label: {
+    color: colors.textSecondary,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  button: {
+    marginTop: SPACING.md,
+  },
+  resendContainer: {
+    alignItems: 'center',
+    marginTop: SPACING.xl,
+  },
+  resendText: {
+    color: colors.accent,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+  },
+  countdownText: {
+    color: colors.textSecondary,
+    fontSize: FONT_SIZES.md,
+  },
+}), [colors]);
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -195,7 +284,7 @@ export default function VerifyPhoneScreen({ navigation, route }) {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {step === 'phone' ? 'Verify Phone Number' : 'Enter Code'}
@@ -215,7 +304,7 @@ export default function VerifyPhoneScreen({ navigation, route }) {
                   <Text style={styles.label}>Country Code</Text>
                   <TouchableOpacity style={styles.codePicker}>
                     <Text style={styles.codePickerText}>{countryCode}</Text>
-                    <Ionicons name="chevron-down" size={14} color={COLORS.textSecondary} />
+                    <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.phoneInputContainer}>
@@ -281,91 +370,3 @@ export default function VerifyPhoneScreen({ navigation, route }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  backButton: {
-    padding: SPACING.xs,
-  },
-  headerTitle: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  stepContainer: {
-    marginTop: SPACING.xl,
-  },
-  description: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-    marginBottom: SPACING.xl,
-    lineHeight: 22,
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: SPACING.lg,
-  },
-  codePickerContainer: {
-    width: 100,
-  },
-  codePicker: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    marginTop: 24,
-  },
-  codePickerText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-  },
-  phoneInputContainer: {
-    flex: 1,
-  },
-  label: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.sm,
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  button: {
-    marginTop: SPACING.md,
-  },
-  resendContainer: {
-    alignItems: 'center',
-    marginTop: SPACING.xl,
-  },
-  resendText: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
-  },
-  countdownText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-  },
-});
