@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Image, TextInput, Switch, Modal, FlatList, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -276,6 +276,278 @@ export default function SettingsScreen({ navigation }) {
       setDealerSaving(false);
     }
   };
+
+  const styles = useMemo(
+    () => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: themeColors.black,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  photoSection: {
+    alignItems: 'center',
+    paddingVertical: SPACING.lg,
+  },
+  photoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    position: 'relative',
+  },
+  photo: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  photoPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: themeColors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: themeColors.border,
+    borderStyle: 'dashed',
+  },
+  photoBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: themeColors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: themeColors.black,
+  },
+  photoHint: {
+    fontSize: FONT_SIZES.sm,
+    color: themeColors.textMuted,
+    marginTop: SPACING.sm,
+  },
+  form: {
+    paddingHorizontal: SPACING.lg,
+  },
+  saveButton: {
+    marginTop: SPACING.sm,
+  },
+  completionBar: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    backgroundColor: themeColors.surface,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  completionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  completionLabel: {
+    color: themeColors.white,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  completionPercent: {
+    color: themeColors.accent,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '700',
+  },
+  completionTrack: {
+    height: 6,
+    backgroundColor: themeColors.surfaceHigher,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  completionFill: {
+    height: '100%',
+    backgroundColor: themeColors.accent,
+    borderRadius: 3,
+  },
+  usernameHint: {
+    color: themeColors.textMuted,
+    fontSize: FONT_SIZES.xs,
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  bioInput: {
+    backgroundColor: themeColors.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: themeColors.white,
+    fontSize: FONT_SIZES.md,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  sectionDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg,
+    gap: 12,
+  },
+  sectionDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: themeColors.border,
+  },
+  sectionDividerText: {
+    color: themeColors.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '700',
+  },
+  pickerField: {
+    marginBottom: 16,
+  },
+  pickerLabel: {
+    color: themeColors.textSecondary,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: themeColors.surfaceHigher,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  pickerButtonText: {
+    flex: 1,
+    color: themeColors.white,
+    fontSize: FONT_SIZES.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: themeColors.surface,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    maxHeight: '60%',
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: themeColors.border,
+  },
+  modalTitle: {
+    color: themeColors.white,
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: themeColors.borderLight,
+  },
+  modalItemActive: {
+    backgroundColor: themeColors.surfaceHigher,
+  },
+  modalItemText: {
+    color: themeColors.textSecondary,
+    fontSize: FONT_SIZES.md,
+  },
+  modalItemTextActive: {
+    color: themeColors.accent,
+    fontWeight: '600',
+  },
+  passwordStrengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 4,
+    gap: 8,
+  },
+  strengthBars: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  strengthBar: {
+    width: 24,
+    height: 4,
+    borderRadius: 2,
+  },
+  strengthLabel: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+  },
+  toggleCard: {
+    backgroundColor: themeColors.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  toggleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleTextWrap: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  toggleLabel: {
+    color: themeColors.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  toggleDesc: {
+    color: themeColors.textMuted,
+    fontSize: FONT_SIZES.xs,
+    marginTop: 2,
+  },
+  dealerStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: themeColors.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  dealerStatusLabel: {
+    color: themeColors.textMuted,
+    fontSize: FONT_SIZES.xs,
+  },
+  dealerStatusValue: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  dealerFields: {
+    marginBottom: SPACING.sm,
+  },
+    }),
+    [themeColors]
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -756,278 +1028,6 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </Modal>
     </SafeAreaView>
-  );
-
-  const styles = useMemo(
-    () => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: themeColors.black,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  photoSection: {
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  photoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    position: 'relative',
-  },
-  photo: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  photoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: themeColors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: themeColors.border,
-    borderStyle: 'dashed',
-  },
-  photoBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: themeColors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: themeColors.black,
-  },
-  photoHint: {
-    fontSize: FONT_SIZES.sm,
-    color: themeColors.textMuted,
-    marginTop: SPACING.sm,
-  },
-  form: {
-    paddingHorizontal: SPACING.lg,
-  },
-  saveButton: {
-    marginTop: SPACING.sm,
-  },
-  completionBar: {
-    marginBottom: SPACING.lg,
-    padding: SPACING.md,
-    backgroundColor: themeColors.surface,
-    borderRadius: BORDER_RADIUS.md,
-  },
-  completionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  completionLabel: {
-    color: themeColors.white,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  completionPercent: {
-    color: themeColors.accent,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '700',
-  },
-  completionTrack: {
-    height: 6,
-    backgroundColor: themeColors.surfaceHigher,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  completionFill: {
-    height: '100%',
-    backgroundColor: themeColors.accent,
-    borderRadius: 3,
-  },
-  usernameHint: {
-    color: themeColors.textMuted,
-    fontSize: FONT_SIZES.xs,
-    marginTop: -8,
-    marginBottom: 12,
-    marginLeft: 4,
-  },
-  bioInput: {
-    backgroundColor: themeColors.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: themeColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: themeColors.white,
-    fontSize: FONT_SIZES.md,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    marginBottom: 16,
-  },
-  sectionDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SPACING.lg,
-    gap: 12,
-  },
-  sectionDividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: themeColors.border,
-  },
-  sectionDividerText: {
-    color: themeColors.white,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-  },
-  pickerField: {
-    marginBottom: 16,
-  },
-  pickerLabel: {
-    color: themeColors.textSecondary,
-    fontSize: FONT_SIZES.sm,
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  pickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: themeColors.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: themeColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  pickerButtonText: {
-    flex: 1,
-    color: themeColors.white,
-    fontSize: FONT_SIZES.md,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: themeColors.surface,
-    borderTopLeftRadius: BORDER_RADIUS.xl,
-    borderTopRightRadius: BORDER_RADIUS.xl,
-    maxHeight: '60%',
-    paddingBottom: 30,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: themeColors.border,
-  },
-  modalTitle: {
-    color: themeColors.white,
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-  },
-  modalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: themeColors.borderLight,
-  },
-  modalItemActive: {
-    backgroundColor: themeColors.surfaceHigher,
-  },
-  modalItemText: {
-    color: themeColors.textSecondary,
-    fontSize: FONT_SIZES.md,
-  },
-  modalItemTextActive: {
-    color: themeColors.accent,
-    fontWeight: '600',
-  },
-  passwordStrengthContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: -8,
-    marginBottom: 12,
-    marginLeft: 4,
-    gap: 8,
-  },
-  strengthBars: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  strengthBar: {
-    width: 24,
-    height: 4,
-    borderRadius: 2,
-  },
-  strengthLabel: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-  },
-  toggleCard: {
-    backgroundColor: themeColors.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  toggleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
-  },
-  toggleTextWrap: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  toggleLabel: {
-    color: themeColors.white,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  toggleDesc: {
-    color: themeColors.textMuted,
-    fontSize: FONT_SIZES.xs,
-    marginTop: 2,
-  },
-  dealerStatusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: themeColors.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  dealerStatusLabel: {
-    color: themeColors.textMuted,
-    fontSize: FONT_SIZES.xs,
-  },
-  dealerStatusValue: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  dealerFields: {
-    marginBottom: SPACING.sm,
-  },
-    }),
-    [themeColors]
   );
 }
 

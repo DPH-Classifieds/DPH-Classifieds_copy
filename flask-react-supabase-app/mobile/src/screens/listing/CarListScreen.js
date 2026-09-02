@@ -473,83 +473,6 @@ export default function CarListScreen({ navigation }) {
   }).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScreenEntrance>
-        <ListHeader
-          title="Browse Cars"
-          onBack={() => navigation.goBack()}
-          columns={columns}
-          onToggleColumns={toggleColumns}
-        />
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value={search}
-            onChangeText={handleSearch}
-            placeholder="Search cars..."
-          />
-        </View>
-        <View style={styles.filtersRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
-            {renderFilterChip(activeFilters.sort !== 'Newest' ? activeFilters.sort : 'Sort', 'sort', activeFilters.sort !== 'Newest')}
-            {renderFilterChip('Make', 'make', !!activeFilters.make)}
-            {activeFilters.make && (CAR_MODELS[activeFilters.make] || []).length > 0
-              ? renderFilterChip('Model', 'model', !!activeFilters.model)
-              : null}
-            {renderFilterChip('Body', 'bodyType', !!activeFilters.bodyType)}
-            {renderFilterChip('Price', 'priceRange', !!activeFilters.priceRange)}
-            {renderFilterChip('Mileage', 'mileageRange', !!activeFilters.mileageRange)}
-            {renderFilterChip('Fuel', 'fuel', !!activeFilters.fuel)}
-            {renderFilterChip('More', 'more', MORE_FILTERS.some(({ key }) => !!activeFilters[key]))}
-            <TouchableOpacity
-              style={[styles.filterChip, activeFilters.hideReddit && styles.filterChipActive]}
-              onPress={toggleHideReddit}
-            >
-              <Ionicons
-                name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
-                size={14}
-                color={activeFilters.hideReddit ? colors.accent : colors.textMuted}
-              />
-              <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
-                {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
-              </Text>
-            </TouchableOpacity>
-            {hasActiveFilters && (
-              <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
-                <Ionicons name="close-circle" size={14} color={colors.accent} />
-                <Text style={styles.clearFiltersText}>Clear</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        </View>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.accent} />
-          </View>
-        ) : (
-          <FlashList
-            key={`cols-${columns}`}
-            numColumns={columns}
-            data={visibleCars}
-            keyExtractor={(item) => item.id}
-            estimatedItemSize={columns === 2 ? 210 : 280}
-            renderItem={renderCarItem}
-            contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
-            showsVerticalScrollIndicator={false}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.4}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" />}
-            ListFooterComponent={loadingMore ? <ActivityIndicator color="#4CAF50" style={{ padding: 20 }} /> : null}
-            ListEmptyComponent={!loading ? <EmptyState icon="car-sport-outline" title="No cars found" message="Try adjusting your filters or search." /> : null}
-          />
-        )}
-        {renderFilterModal()}
-      </ScreenEntrance>
-    </SafeAreaView>
-  );
-
   const styles = useMemo(
     () => StyleSheet.create({
 
@@ -745,4 +668,82 @@ export default function CarListScreen({ navigation }) {
     }),
     [colors]
   );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenEntrance>
+        <ListHeader
+          title="Browse Cars"
+          onBack={() => navigation.goBack()}
+          columns={columns}
+          onToggleColumns={toggleColumns}
+        />
+        <View style={styles.searchContainer}>
+          <SearchBar
+            value={search}
+            onChangeText={handleSearch}
+            placeholder="Search cars..."
+          />
+        </View>
+        <View style={styles.filtersRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+            {renderFilterChip(activeFilters.sort !== 'Newest' ? activeFilters.sort : 'Sort', 'sort', activeFilters.sort !== 'Newest')}
+            {renderFilterChip('Make', 'make', !!activeFilters.make)}
+            {activeFilters.make && (CAR_MODELS[activeFilters.make] || []).length > 0
+              ? renderFilterChip('Model', 'model', !!activeFilters.model)
+              : null}
+            {renderFilterChip('Body', 'bodyType', !!activeFilters.bodyType)}
+            {renderFilterChip('Price', 'priceRange', !!activeFilters.priceRange)}
+            {renderFilterChip('Mileage', 'mileageRange', !!activeFilters.mileageRange)}
+            {renderFilterChip('Fuel', 'fuel', !!activeFilters.fuel)}
+            {renderFilterChip('More', 'more', MORE_FILTERS.some(({ key }) => !!activeFilters[key]))}
+            <TouchableOpacity
+              style={[styles.filterChip, activeFilters.hideReddit && styles.filterChipActive]}
+              onPress={toggleHideReddit}
+            >
+              <Ionicons
+                name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
+                size={14}
+                color={activeFilters.hideReddit ? colors.accent : colors.textMuted}
+              />
+              <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
+                {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
+              </Text>
+            </TouchableOpacity>
+            {hasActiveFilters && (
+              <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
+                <Ionicons name="close-circle" size={14} color={colors.accent} />
+                <Text style={styles.clearFiltersText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <FlashList
+            key={`cols-${columns}`}
+            numColumns={columns}
+            data={visibleCars}
+            keyExtractor={(item) => item.id}
+            estimatedItemSize={columns === 2 ? 210 : 280}
+            renderItem={renderCarItem}
+            contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.4}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" />}
+            ListFooterComponent={loadingMore ? <ActivityIndicator color="#4CAF50" style={{ padding: 20 }} /> : null}
+            ListEmptyComponent={!loading ? <EmptyState icon="car-sport-outline" title="No cars found" message="Try adjusting your filters or search." /> : null}
+          />
+        )}
+        {renderFilterModal()}
+      </ScreenEntrance>
+    </SafeAreaView>
+  );
+
 }
