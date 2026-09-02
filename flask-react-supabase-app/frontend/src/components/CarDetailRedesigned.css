@@ -151,6 +151,27 @@
   aspect-ratio: unset !important;
   height: auto;
   padding: 2.5rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-plate-hero .uae-license-plate {
+  width: min(100%, 500px);
+  margin: 0;
+  flex: 0 1 500px;
+}
+
+@media (max-width: 768px) {
+  .cd-plate-hero .uae-license-plate {
+    width: min(100%, 400px);
+  }
+}
+
+@media (max-width: 480px) {
+  .cd-plate-hero .uae-license-plate {
+    width: min(100%, 300px);
+  }
 }
 
 .cd-image-placeholder {
