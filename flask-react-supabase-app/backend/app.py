@@ -2368,6 +2368,49 @@ def _normalize_preview_images(record, relation_key):
     return record
 
 
+def _fetch_plate_image_map(plate_ids, headers):
+    """Fetch plate photos separately because the plates table has no exposed
+    PostgREST relationship in all deployed schemas."""
+    ids = [str(value) for value in plate_ids if value]
+    if not ids:
+        return {}
+    image_map = {}
+    for start in range(0, len(ids), 100):
+        chunk = ids[start:start + 100]
+        image_params = {
+            "select": "id,plate_id,image_url,display_url,uploaded_at,is_primary",
+            "plate_id": f"in.({','.join(chunk)})",
+            "order": "is_primary.desc,uploaded_at.asc",
+        }
+        response = requests.get(
+            f"{app.config['SUPABASE_URL']}/rest/v1/plate_images",
+            headers=headers, params=image_params, timeout=10,
+        )
+        if response.status_code >= 400:
+            # Older deployments may expose only the legacy `url` column.
+            image_params["select"] = "id,plate_id,url,uploaded_at,is_primary"
+            response = requests.get(
+                f"{app.config['SUPABASE_URL']}/rest/v1/plate_images",
+                headers=headers, params=image_params, timeout=10,
+            )
+        if response.status_code >= 400:
+            logger.warning("Failed to fetch plate images: %s", response.status_code)
+            continue
+        payload = response.json()
+        rows = payload if isinstance(payload, list) else []
+        for image in rows:
+            image_url = image.get("display_url") or image.get("image_url") or image.get("url")
+            if image_url:
+                image_map.setdefault(str(image.get("plate_id")), []).append({
+                    "id": image.get("id"),
+                    "url": image_url,
+                    "image_url": image_url,
+                    "uploaded_at": image.get("uploaded_at"),
+                    "is_primary": image.get("is_primary"),
+                })
+    return image_map
+
+
 def _sort_listing_images(images):
     def _sort_key(image):
         if not isinstance(image, dict):
@@ -16854,26 +16897,15 @@ def get_plates():
             plates = response.json()
             plates = _filter_public_listing_records("license_plates", plates)
             logger.info(f"Found {len(plates)} plates")
+            plate_images_by_id = _fetch_plate_image_map(
+                [plate.get("id") for plate in plates], headers
+            )
 
             seller_map = _batch_fetch_seller_map(
                 [plate.get("user_id") for plate in plates], headers=headers
             )
             for plate in plates:
-                # Normalize images
-                plate_images = plate.pop("plate_images", [])
-                plate["images"] = [
-                    {
-                        "id": img.get("id"),
-                        "url": img.get("url") or img.get("image_url"),
-                        "image_url": img.get("image_url") or img.get("url"),
-                        "display_url": img.get("display_url"),
-                        "focal_x": img.get("focal_x"),
-                        "focal_y": img.get("focal_y"),
-                        "crop_meta": img.get("crop_meta"),
-                    }
-                    for img in plate_images
-                    if img.get("url") or img.get("image_url")
-                ]
+                plate["images"] = plate_images_by_id.get(str(plate.get("id")), [])
                 # Fallback for main image if images list is empty but one of these fields exists
                 if not plate["images"]:
                     if plate.get("image_url") or plate.get("url"):
@@ -16956,20 +16988,8 @@ def get_plate_details(plate_id, requesting_user=None):
             if not visible:
                 return jsonify({"error": "Plate not found"}), 404
 
-            # Normalize images
-            plate_images = plate.pop("plate_images", [])
-            plate["images"] = [
-                {
-                    "id": img.get("id"),
-                    "url": img.get("url") or img.get("image_url"),
-                    "image_url": img.get("image_url") or img.get("url"),
-                    "display_url": img.get("display_url"),
-                    "focal_x": img.get("focal_x"),
-                    "focal_y": img.get("focal_y"),
-                    "crop_meta": img.get("crop_meta"),
-                }
-                for img in plate_images
-            ]
+            plate_images_by_id = _fetch_plate_image_map([plate.get("id")], headers)
+            plate["images"] = plate_images_by_id.get(str(plate.get("id")), [])
 
             _enrich_listing_seller(plate, headers=headers)
             plate = _with_private_listing_document_urls(
