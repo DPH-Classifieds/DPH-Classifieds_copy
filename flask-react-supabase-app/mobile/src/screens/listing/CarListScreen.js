@@ -23,7 +23,8 @@ const MORE_FILTERS = [
   { key: 'horsepower', label: 'Horsepower' },
   { key: 'engineCapacity', label: 'Engine' },
 ];
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import SearchBar from '../../components/ui/SearchBar';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
@@ -106,6 +107,7 @@ function CarCard({ item, index, onPress, columns }) {
 }
 
 export default function CarListScreen({ navigation }) {
+  const { colors } = useTheme();
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -281,7 +283,7 @@ export default function CarListScreen({ navigation }) {
       <Ionicons
         name="chevron-down"
         size={14}
-        color={isActive ? COLORS.accent : COLORS.textMuted}
+        color={isActive ? colors.accent : colors.textMuted}
       />
     </TouchableOpacity>
   );
@@ -293,7 +295,7 @@ export default function CarListScreen({ navigation }) {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>More filters</Text>
             <TouchableOpacity onPress={() => setFilterModal(null)}>
-              <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalOptions} keyboardShouldPersistTaps="handled">
@@ -301,10 +303,10 @@ export default function CarListScreen({ navigation }) {
               <TouchableOpacity key={key} style={styles.modalOption} onPress={() => setFilterModal(key)}>
                 <Text style={styles.modalOptionText}>{label}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[styles.modalOptionText, { color: activeFilters[key] ? COLORS.accent : COLORS.textMuted, marginRight: 6 }]}>
+                  <Text style={[styles.modalOptionText, { color: activeFilters[key] ? colors.accent : colors.textMuted, marginRight: 6 }]}>
                     {activeFilters[key] || 'Any'}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </View>
               </TouchableOpacity>
             ))}
@@ -401,12 +403,12 @@ export default function CarListScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{title}</Text>
               <TouchableOpacity onPress={() => setFilterModal(null)}>
-                <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             {searchable && (
               <View style={styles.modalSearchWrap}>
-                <Ionicons name="search" size={16} color={COLORS.textMuted} />
+                <Ionicons name="search" size={16} color={colors.textMuted} />
                 <TextInput
                   style={styles.modalSearchInput}
                   value={optionSearch}
@@ -443,7 +445,7 @@ export default function CarListScreen({ navigation }) {
                     <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>
                       {opt}
                     </Text>
-                    {isSelected && <Ionicons name="checkmark" size={18} color={COLORS.accent} />}
+                    {isSelected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
                   </TouchableOpacity>
                 );
               })}
@@ -506,7 +508,7 @@ export default function CarListScreen({ navigation }) {
               <Ionicons
                 name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
                 size={14}
-                color={activeFilters.hideReddit ? COLORS.accent : COLORS.textMuted}
+                color={activeFilters.hideReddit ? colors.accent : colors.textMuted}
               />
               <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
                 {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
@@ -514,7 +516,7 @@ export default function CarListScreen({ navigation }) {
             </TouchableOpacity>
             {hasActiveFilters && (
               <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
-                <Ionicons name="close-circle" size={14} color={COLORS.accent} />
+                <Ionicons name="close-circle" size={14} color={colors.accent} />
                 <Text style={styles.clearFiltersText}>Clear</Text>
               </TouchableOpacity>
             )}
@@ -522,7 +524,7 @@ export default function CarListScreen({ navigation }) {
         </View>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
+            <ActivityIndicator size="large" color={colors.accent} />
           </View>
         ) : (
           <FlashList
@@ -547,12 +549,13 @@ export default function CarListScreen({ navigation }) {
       </ScreenEntrance>
     </SafeAreaView>
   );
-}
 
-const styles = StyleSheet.create({
+  const styles = useMemo(
+    () => StyleSheet.create({
+
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   searchContainer: {
     paddingHorizontal: SPACING.md,
@@ -568,7 +571,7 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: BORDER_RADIUS.pill,
@@ -576,15 +579,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   filterChipActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   filterChipText: {
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     fontSize: FONT_SIZES.sm,
     fontWeight: '500',
   },
   filterChipTextActive: {
-    color: COLORS.accent,
+    color: colors.accent,
   },
   clearFiltersChip: {
     flexDirection: 'row',
@@ -596,7 +599,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   clearFiltersText: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontSize: FONT_SIZES.sm,
     fontWeight: '500',
   },
@@ -609,7 +612,7 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xxl,
   },
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.md,
     overflow: 'hidden',
@@ -620,7 +623,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     height: 160,
-    backgroundColor: COLORS.surfaceHigher,
+    backgroundColor: colors.surfaceHigher,
   },
   imageContainerGrid: {
     height: 120,
@@ -633,7 +636,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surfaceDark,
+    backgroundColor: colors.surfaceDark,
   },
   featuredBadge: {
     position: 'absolute',
@@ -644,18 +647,18 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   cardTitle: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     marginBottom: 4,
   },
   cardSubtitle: {
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     fontSize: FONT_SIZES.sm,
     marginBottom: 8,
   },
   cardPrice: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontSize: FONT_SIZES.lg,
     fontWeight: '700',
   },
@@ -674,7 +677,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
     maxHeight: '60%',
@@ -685,10 +688,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   modalTitle: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZES.lg,
     fontWeight: '600',
   },
@@ -701,18 +704,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   modalSearchInput: {
     flex: 1,
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZES.md,
     padding: 0,
   },
   modalEmptyText: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     paddingVertical: SPACING.lg,
   },
@@ -728,14 +731,18 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
   },
   modalOptionSelected: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   modalOptionText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZES.md,
   },
   modalOptionTextSelected: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontWeight: '600',
   },
-});
+
+    }),
+    [colors]
+  );
+}
