@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, ScrollView } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
@@ -18,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatPriceUSD } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
@@ -44,6 +45,7 @@ const getImageUri = (item) => {
 };
 
 export default function BikeDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { listing: routeListing, listingId } = route.params || {};
   const initialBike = (routeListing && typeof routeListing === 'object' ? routeListing : null)
     || getCachedListing('bikes', listingId) || null;
@@ -112,6 +114,72 @@ export default function BikeDetailScreen({ route, navigation }) {
     }
   }, [bike, user, navigation]);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    imageSection: { height: 280, backgroundColor: colors.surfaceDark },
+    imageSlide: { width: SCREEN_WIDTH, height: 280 },
+    image: { width: '100%', height: '100%' },
+    imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceDark },
+    paginationDots: { flexDirection: 'row', position: 'absolute', bottom: 12, alignSelf: 'center', gap: 6 },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
+    dotActive: { backgroundColor: colors.accent, width: 10, height: 10, borderRadius: 5 },
+    saveButton: {
+      position: 'absolute', top: 12, right: 12,
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
+    },
+    reportButtonWrap: {
+      position: 'absolute', top: 12, right: 60,
+    },
+    content: { padding: SPACING.md },
+    price: { color: colors.white, fontSize: 24, fontWeight: '700', marginBottom: 8 },
+    usdPrice: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
+    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 16 },
+    specsGrid: {
+      flexDirection: 'row', flexWrap: 'wrap', backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg, marginBottom: 16,
+    },
+    specItem: { width: '50%', paddingVertical: 14, paddingHorizontal: 14, borderWidth: 0.5, borderColor: colors.border },
+    specLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
+    specValue: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    section: { marginBottom: 16 },
+    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
+    featuresRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    featurePill: { backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border },
+    featurePillText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    description: { color: colors.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 22 },
+    locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    locationText: { color: colors.textSecondary, fontSize: FONT_SIZES.md },
+    sellerCard: {
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: 8,
+    },
+    sellerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+    sellerAvatar: {
+      width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary,
+      alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    },
+    sellerInitial: { color: colors.accent, fontSize: 20, fontWeight: '700' },
+    sellerName: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    sellerActions: { flexDirection: 'row', gap: 10 },
+    callButton: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: colors.primary, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
+    },
+    callButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    whatsappButton: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
+    },
+    whatsappButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
+    lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
+    lightboxImage: { width: '92%', height: '82%' },
+    lightboxClose: { position: 'absolute', top: 50, right: 20, padding: 8, zIndex: 10 },
+    lightboxCounter: { position: 'absolute', top: 55, alignSelf: 'center', color: '#fff', fontSize: 14, fontWeight: '600', zIndex: 10 },
+    lightboxPrev: { position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
+    lightboxNext: { position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
+  }), [colors]);
+
   if (loading && !bike) return <ListingDetailSkeleton />;
   if (!bike) return <LoadingSpinner message="Bike not found" />;
 
@@ -170,7 +238,7 @@ export default function BikeDetailScreen({ route, navigation }) {
             </View>
           )}
           <TouchableOpacity style={styles.saveButton} onPress={() => requireAuth(() => handleSave())} activeOpacity={0.7}>
-            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? colors.accent : colors.white} />
           </TouchableOpacity>
           <View style={styles.reportButtonWrap}>
             <ReportButton listingType="bike" listingId={bikeId} />
@@ -258,7 +326,7 @@ export default function BikeDetailScreen({ route, navigation }) {
           {bike.city ? (
             <View style={styles.section}>
               <View style={styles.locationRow}>
-                <Ionicons name="location" size={16} color={COLORS.textSecondary} />
+                <Ionicons name="location" size={16} color={colors.textSecondary} />
                 <Text style={styles.locationText}>{bike.city || bike.area || bike.emirate}</Text>
               </View>
               <ListingMap
@@ -292,11 +360,11 @@ export default function BikeDetailScreen({ route, navigation }) {
             ) : (
               <View style={styles.sellerActions}>
                 <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
-                  <Ionicons name="call" size={18} color={COLORS.white} />
+                  <Ionicons name="call" size={18} color={colors.white} />
                   <Text style={styles.callButtonText}>Call Now</Text>
                 </PressableScale>
                 <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
-                  <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
+                  <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
                   <Text style={styles.whatsappButtonText}>WhatsApp</Text>
                 </PressableScale>
               </View>
@@ -331,69 +399,3 @@ export default function BikeDetailScreen({ route, navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  imageSection: { height: 280, backgroundColor: COLORS.surfaceDark },
-  imageSlide: { width: SCREEN_WIDTH, height: 280 },
-  image: { width: '100%', height: '100%' },
-  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceDark },
-  paginationDots: { flexDirection: 'row', position: 'absolute', bottom: 12, alignSelf: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
-  dotActive: { backgroundColor: COLORS.accent, width: 10, height: 10, borderRadius: 5 },
-  saveButton: {
-    position: 'absolute', top: 12, right: 12,
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
-  },
-  reportButtonWrap: {
-    position: 'absolute', top: 12, right: 60,
-  },
-  content: { padding: SPACING.md },
-  price: { color: COLORS.white, fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 16 },
-  specsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg, marginBottom: 16,
-  },
-  specItem: { width: '50%', paddingVertical: 14, paddingHorizontal: 14, borderWidth: 0.5, borderColor: COLORS.border },
-  specLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
-  specValue: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  section: { marginBottom: 16 },
-  sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
-  featuresRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  featurePill: { backgroundColor: COLORS.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border },
-  featurePillText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  description: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 22 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  locationText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
-  sellerCard: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: 8,
-  },
-  sellerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  sellerAvatar: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.primary,
-    alignItems: 'center', justifyContent: 'center', marginRight: 12,
-  },
-  sellerInitial: { color: COLORS.accent, fontSize: 20, fontWeight: '700' },
-  sellerName: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  sellerActions: { flexDirection: 'row', gap: 10 },
-  callButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.primary, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
-  },
-  callButtonText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  whatsappButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
-  },
-  whatsappButtonText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
-  lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
-  lightboxImage: { width: '92%', height: '82%' },
-  lightboxClose: { position: 'absolute', top: 50, right: 20, padding: 8, zIndex: 10 },
-  lightboxCounter: { position: 'absolute', top: 55, alignSelf: 'center', color: '#fff', fontSize: 14, fontWeight: '600', zIndex: 10 },
-  lightboxPrev: { position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
-  lightboxNext: { position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
-});

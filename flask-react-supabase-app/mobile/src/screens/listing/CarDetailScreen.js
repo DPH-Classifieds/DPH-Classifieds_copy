@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Linking, Alert, ScrollView, Share } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Image } from 'expo-image';
@@ -17,7 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatPriceUSD, formatNumber, formatDate } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { trackLeadEvent } from '../../utils/leadTracking';
@@ -98,6 +99,7 @@ const normalizeImages = (images = []) =>
     .filter(Boolean);
 
 export default function CarDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { listing: routeListing, listingId } = route.params || {};
   // Render instantly from the list item / prefetch cache; the network fetch
   // below only enriches (full images, seller photo, freshest fields).
@@ -201,6 +203,133 @@ export default function CarDetailScreen({ route, navigation }) {
     }
   }, [car, user, navigation]);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    imageSection: {
+      position: 'relative',
+    },
+    imageSlide: {
+      width: SCREEN_WIDTH,
+      height: 320,
+    },
+    image: {
+      width: '100%',
+      height: '100%',
+    },
+    imagePlaceholder: {
+      flex: 1,
+      backgroundColor: colors.surfaceHigher,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveButton: {
+      position: 'absolute',
+      top: 14,
+      right: 14,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    shareButton: {
+      position: 'absolute',
+      top: 14,
+      right: 62,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    reportButtonWrap: {
+      position: 'absolute',
+      top: 14,
+      left: 14,
+    },
+    paginationDots: {
+      position: 'absolute',
+      bottom: 14,
+      alignSelf: 'center',
+      flexDirection: 'row',
+      gap: 6,
+      backgroundColor: 'rgba(0,0,0,0.28)',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: BORDER_RADIUS.pill,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: 'rgba(255,255,255,0.35)',
+    },
+    dotActive: {
+      width: 18,
+      backgroundColor: colors.accent,
+    },
+    content: { padding: SPACING.md },
+    price: { color: colors.white, fontSize: 26, fontWeight: '800', marginBottom: 8 },
+    usdPrice: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
+    badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 16 },
+    specsGrid: {
+      flexDirection: 'row', flexWrap: 'wrap', gap: 0, backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg, marginBottom: 16,
+    },
+    specItem: { width: '50%', paddingVertical: 14, paddingHorizontal: 14, borderWidth: 0.5, borderColor: colors.border },
+    specLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
+    specValue: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    section: { marginBottom: 16 },
+    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
+    extrasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    extraPill: {
+      backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 8,
+      borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border,
+    },
+    extraPillText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    description: { color: colors.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 22 },
+    viewMore: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '600', marginTop: 6 },
+    locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    locationText: { color: colors.textSecondary, fontSize: FONT_SIZES.md },
+    sellerCard: {
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: 8,
+    },
+    sellerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+    sellerAvatar: {
+      width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary,
+      alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    },
+    sellerInitial: { color: colors.accent, fontSize: 20, fontWeight: '700' },
+    sellerName: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    sellerMember: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
+    sellerActions: { flexDirection: 'row', gap: 10 },
+    callButton: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: colors.primary, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
+    },
+    callButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    whatsappButton: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
+    },
+    whatsappButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    vinSection: { backgroundColor: '#1c1c1e', borderRadius: 8, padding: 12, marginTop: 8 },
+    vinLabel: { fontSize: 12, color: 'rgba(255,255,255,0.53)', textTransform: 'uppercase', marginBottom: 4 },
+    vinValue: { fontSize: 14, fontWeight: '600', color: colors.white, fontFamily: 'monospace' },
+    vinMasked: { fontSize: 14, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' },
+    vinRevealBtn: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: 6 },
+    lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
+    lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
+    lightboxImage: { width: '92%', height: '82%' },
+    lightboxClose: { position: 'absolute', top: 50, right: 20, padding: 8, zIndex: 10 },
+    lightboxCounter: { position: 'absolute', top: 55, alignSelf: 'center', color: '#fff', fontSize: 14, fontWeight: '600', zIndex: 10 },
+    lightboxPrev: { position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
+    lightboxNext: { position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
+  }), [colors]);
+
   if (loading && !car) return <ListingDetailSkeleton />;
   if (!car) return <LoadingSpinner message="Car not found" />;
 
@@ -291,7 +420,7 @@ export default function CarDetailScreen({ route, navigation }) {
             </View>
           )}
           <TouchableOpacity style={styles.saveButton} onPress={() => requireAuth(() => handleSave())} activeOpacity={0.7}>
-            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? COLORS.accent : COLORS.white} />
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={saved ? colors.accent : colors.white} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.shareButton}
@@ -300,7 +429,7 @@ export default function CarDetailScreen({ route, navigation }) {
             accessibilityLabel="Share listing link"
             activeOpacity={0.7}
           >
-            <Ionicons name="share-outline" size={22} color={COLORS.white} />
+            <Ionicons name="share-outline" size={22} color={colors.white} />
           </TouchableOpacity>
           <View style={styles.reportButtonWrap}>
             <ReportButton listingType="car" listingId={carId} />
@@ -383,7 +512,7 @@ export default function CarDetailScreen({ route, navigation }) {
           {(car.city || car.location || car.emirate || car.area || car.latitude || car.longitude) && (
             <View style={styles.section}>
               <View style={styles.locationRow}>
-                <Ionicons name="location" size={16} color={COLORS.textSecondary} />
+                <Ionicons name="location" size={16} color={colors.textSecondary} />
                 <Text style={styles.locationText}>{car.city || car.location || car.emirate || car.area}</Text>
               </View>
               <ListingMap
@@ -420,11 +549,11 @@ export default function CarDetailScreen({ route, navigation }) {
             ) : (
               <View style={styles.sellerActions}>
                 <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
-                  <Ionicons name="call" size={18} color={COLORS.white} />
+                  <Ionicons name="call" size={18} color={colors.white} />
                   <Text style={styles.callButtonText}>Call Now</Text>
                 </PressableScale>
                 <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
-                  <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
+                  <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
                   <Text style={styles.whatsappButtonText}>WhatsApp</Text>
                 </PressableScale>
               </View>
@@ -459,130 +588,3 @@ export default function CarDetailScreen({ route, navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  imageSection: {
-    position: 'relative',
-  },
-  imageSlide: {
-    width: SCREEN_WIDTH,
-    height: 320,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceHigher,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButton: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareButton: {
-    position: 'absolute',
-    top: 14,
-    right: 62,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reportButtonWrap: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-  },
-  paginationDots: {
-    position: 'absolute',
-    bottom: 14,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: BORDER_RADIUS.pill,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  dotActive: {
-    width: 18,
-    backgroundColor: COLORS.accent,
-  },
-  content: { padding: SPACING.md },
-  price: { color: COLORS.white, fontSize: 26, fontWeight: '800', marginBottom: 8 },
-  usdPrice: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
-  badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 16 },
-  specsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 0, backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg, marginBottom: 16,
-  },
-  specItem: { width: '50%', paddingVertical: 14, paddingHorizontal: 14, borderWidth: 0.5, borderColor: COLORS.border },
-  specLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
-  specValue: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  section: { marginBottom: 16 },
-  sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
-  extrasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  extraPill: {
-    backgroundColor: COLORS.surface, paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border,
-  },
-  extraPillText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  description: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 22 },
-  viewMore: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600', marginTop: 6 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  locationText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
-  sellerCard: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: 8,
-  },
-  sellerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  sellerAvatar: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.primary,
-    alignItems: 'center', justifyContent: 'center', marginRight: 12,
-  },
-  sellerInitial: { color: COLORS.accent, fontSize: 20, fontWeight: '700' },
-  sellerName: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  sellerMember: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
-  sellerActions: { flexDirection: 'row', gap: 10 },
-  callButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.primary, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
-  },
-  callButtonText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  whatsappButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
-  },
-  whatsappButtonText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  vinSection: { backgroundColor: '#1c1c1e', borderRadius: 8, padding: 12, marginTop: 8 },
-  vinLabel: { fontSize: 12, color: 'rgba(255,255,255,0.53)', textTransform: 'uppercase', marginBottom: 4 },
-  vinValue: { fontSize: 14, fontWeight: '600', color: COLORS.white, fontFamily: 'monospace' },
-  vinMasked: { fontSize: 14, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' },
-  vinRevealBtn: { color: COLORS.accent, fontSize: 13, fontWeight: '600', marginTop: 6 },
-  lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
-  lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
-  lightboxImage: { width: '92%', height: '82%' },
-  lightboxClose: { position: 'absolute', top: 50, right: 20, padding: 8, zIndex: 10 },
-  lightboxCounter: { position: 'absolute', top: 55, alignSelf: 'center', color: '#fff', fontSize: 14, fontWeight: '600', zIndex: 10 },
-  lightboxPrev: { position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
-  lightboxNext: { position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center', padding: 12, zIndex: 20 },
-});
