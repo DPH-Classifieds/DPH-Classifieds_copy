@@ -63,7 +63,8 @@ _MODEL_STOPWORDS = {
     "gcc", "spec", "specs", "for", "sale", "sell", "selling", "wts", "wtb", "urgent",
     "clean", "low", "mileage", "km", "kms", "full", "service", "history", "aed", "price",
     "negotiable", "neg", "excellent", "condition", "used", "new", "the", "a", "an", "in",
-    "dubai", "abu", "dhabi", "sharjah", "uae", "and", "with", "warranty",
+    "dubai", "abu", "dhabi", "sharjah", "uae", "and", "with", "warranty", "plate", "plates",
+    "number", "registration", "reg", "code", "digits",
 }
 
 _UNSPECIFIED = "Unspecified"
@@ -324,10 +325,12 @@ def _to_hotlinkable(url: str) -> str:
 
 def _is_allowed_image(url: str) -> bool:
     try:
-        host = urlparse(url).hostname or ""
+        parsed = urlparse(url)
     except ValueError:
         return False
-    return host in ALLOWED_IMAGE_HOSTS
+    # Reddit image hosts are trusted only over HTTPS. Reject protocol-relative,
+    # HTTP, malformed, and non-image-host URLs before they reach the database.
+    return parsed.scheme == "https" and (parsed.hostname or "") in ALLOWED_IMAGE_HOSTS
 
 
 def _scrub_pii(text: str) -> str:
@@ -806,26 +809,43 @@ def _plate_number_candidates(text):
 
 
 def _extract_plate_number(title, combined):
-    """The plate number, preferring a digit run near a plate/number/code cue
-    word over the first stray digit run in the text (which is often a price
-    fragment the price parser already claimed)."""
+    """Return only digits tied to an explicit plate-number cue.
+
+    A plate listing must not borrow an unrelated year, model number, price, or
+    fitment vehicle number.  This is deliberately conservative: uncertain
+    imports are skipped instead of being published into the wrong category.
+    """
+    cue_re = re.compile(
+        r"\b(?:number\s*plate|numberplate|number(?!\s*plate)|"
+        r"plate(?:\s+(?:number|no|#))?|digits?|"
+        r"registration(?:\s+(?:number|no))?)\b",
+        re.IGNORECASE,
+    )
     for source in (title, combined):
         candidates = _plate_number_candidates(source)
         if not candidates:
             continue
         low = source.lower()
-        # "number"/"plate"/"digits" point at the serial digits; "code" is
-        # deliberately excluded — it labels the category token (e.g. Abu
-        # Dhabi's numeric code), which would otherwise get mistaken for the
-        # actual plate number when both are stated ("code 1 number 7").
-        for cue in ("number", "plate", "digits"):
-            pos = low.find(cue)
-            if pos == -1:
-                continue
-            near = [c for c in candidates if 0 <= c[0] - (pos + len(cue)) <= 15]
-            if near:
-                return near[0][1]
-        return candidates[0][1]
+        for cue in cue_re.finditer(low):
+            cue_end = cue.end()
+            after = []
+            for c in candidates:
+                if not 0 <= c[0] - cue_end <= 15:
+                    continue
+                gap = low[cue_end:c[0]]
+                # Do not treat a fitment vehicle's model/year as the plate
+                # number ("number plate frame for BMW 320i"). Likewise, a
+                # numeric code is not the serial number when both are given.
+                if re.search(r"\b(?:for|fit|fits|fitting|compatible|frame|code|category|class)\b", gap):
+                    continue
+                after.append(c)
+            if after:
+                return after[0][1]
+            # Also accept the natural "1234 Dubai plate" ordering, but keep
+            # the distance tight enough that a vehicle year cannot qualify.
+            before = [c for c in candidates if 0 <= cue.start() - (c[0] + len(c[1])) <= 10]
+            if before:
+                return before[-1][1]
     return None
 
 
@@ -946,6 +966,12 @@ def classify(submission, now):
             or not _part_word_is_fitment_not_descriptor(title_low, part_pos, identity_pos)
         )
     )
+    # "plate" often appears as an included vehicle detail (e.g. a car being
+    # sold with its plate number). Only let it route to license_plates when it
+    # leads the vehicle identity; a complete identity already established
+    # before the cue is stronger evidence for a car/bike listing.
+    if vehicle_wins and plate_pos is not None and identity_pos <= plate_pos:
+        plate_pos = None
     if part_pos is not None and not vehicle_wins:
         return "part"
     if plate_pos is not None:

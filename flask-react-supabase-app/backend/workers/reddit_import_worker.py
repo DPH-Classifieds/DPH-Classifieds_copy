@@ -168,6 +168,46 @@ def _fetch_existing_by_source_ids(table, source_ids, owner_id):
     }
 
 
+def _find_existing_source_rows(source_id, owner_id):
+    """Find an imported source id across every category table.
+
+    Classification rules evolve. A source that was previously misclassified
+    must not remain live in its old table when a re-sync routes it correctly;
+    otherwise the repair creates a second public listing. Only rows owned by
+    the dedicated importer account are eligible for this move.
+    """
+    if not source_id or not owner_id:
+        return []
+    found = []
+    for category, config in LISTING_TABLES.items():
+        body, status = supabase_request(
+            "get", f"/rest/v1/{config['table']}",
+            params={
+                "select": "id,source_external_id,status",
+                "source_platform": "eq.reddit",
+                "user_id": f"eq.{owner_id}",
+                "source_external_id": f"eq.{source_id}",
+            },
+        )
+        if status < 400 and isinstance(body, list):
+            found.extend({**row, "category": category, "table": config["table"]}
+                         for row in body if row.get("id"))
+    return found
+
+
+def _retire_misclassified_rows(rows, owner_id, counts):
+    """Hide old-category copies before creating the correctly routed listing."""
+    for row in rows:
+        _, status = supabase_request(
+            "patch", f"/rest/v1/{row['table']}?id=eq.{row['id']}&user_id=eq.{owner_id}",
+            data={"status": "expired", "is_approved": False},
+        )
+        if status >= 400:
+            counts["failed"] += 1
+            return False
+    return True
+
+
 def _sync_images(config, row_id, image_urls):
     """Sync the full imported gallery (first = primary). Idempotent: leaves the
     rows untouched when the set already matches, else replaces them wholesale."""
@@ -284,6 +324,20 @@ def _upsert_listing(parsed, owner_id, existing_map, now, counts, visible=True):
     existing_entry = existing_map.get(parsed.source_id) or {}
     row_id = existing_entry.get("id")
     current_status = existing_entry.get("status")
+
+    # A corrected classifier can route a source into a different table than
+    # its original import. Reconcile that source identity before inserting so
+    # a backfill cannot leave both the misclassified and corrected rows live.
+    if not row_id:
+        source_rows = _find_existing_source_rows(parsed.source_id, owner_id)
+        same_category = next((r for r in source_rows if r["category"] == parsed.category), None)
+        if same_category:
+            row_id = same_category["id"]
+            current_status = same_category.get("status")
+        else:
+            wrong_category_rows = [r for r in source_rows if r["category"] != parsed.category]
+            if wrong_category_rows and not _retire_misclassified_rows(wrong_category_rows, owner_id, counts):
+                return
 
     # A native DPH listing always takes priority over a Reddit import of the
     # same vehicle. This check deliberately runs for both new rows and rows
