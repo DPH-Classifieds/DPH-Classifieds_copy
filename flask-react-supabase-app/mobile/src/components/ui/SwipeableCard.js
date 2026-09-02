@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -8,11 +8,37 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, BORDER_RADIUS } from '../../constants/theme';
+import { BORDER_RADIUS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const SWIPE_THRESHOLD = 80;
 
 export default function SwipeableCard({ children, onSwipeRight, onSwipeLeft, style }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      position: 'relative',
+      overflow: 'hidden',
+      borderRadius: BORDER_RADIUS.lg,
+    },
+    swipeBg: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: BORDER_RADIUS.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    greenBg: {
+      backgroundColor: colors.success,
+    },
+    redBg: {
+      backgroundColor: colors.error,
+    },
+    cardContent: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+    },
+  }), [colors]);
+
   const translateX = useSharedValue(0);
 
   const panGesture = Gesture.Pan()
@@ -64,26 +90,3 @@ export default function SwipeableCard({ children, onSwipeRight, onSwipeLeft, sty
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: BORDER_RADIUS.lg,
-  },
-  swipeBg: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  greenBg: {
-    backgroundColor: COLORS.success,
-  },
-  redBg: {
-    backgroundColor: COLORS.error,
-  },
-  cardContent: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-  },
-});

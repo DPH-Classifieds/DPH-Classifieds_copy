@@ -1,9 +1,34 @@
 import React, { useState, useMemo } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import Text from './AppText';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function LoanCalculator({ price }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md, marginTop: SPACING.md,
+    },
+    headerRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+      marginBottom: SPACING.sm,
+    },
+    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700' },
+    resultInline: { alignItems: 'flex-end' },
+    row: { flexDirection: 'row', gap: 8 },
+    field: { flex: 1 },
+    label: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4, height: 30 },
+    input: {
+      backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1, borderColor: colors.border, color: colors.white,
+      fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingVertical: 8,
+    },
+    resultLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs },
+    resultValue: { color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginTop: 2 },
+  }), [colors]);
+
   const [downPayment, setDownPayment] = useState('');
   const [termYears, setTermYears] = useState('5');
   const [interestRate, setInterestRate] = useState('4.5');
@@ -66,27 +91,3 @@ export default function LoanCalculator({ price }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md, marginTop: SPACING.md,
-  },
-  headerRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    marginBottom: SPACING.sm,
-  },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700' },
-  resultInline: { alignItems: 'flex-end' },
-  row: { flexDirection: 'row', gap: 8 },
-  field: { flex: 1 },
-  // Fixed 2-line height so the longer "Down Payment (AED)" label wraps without
-  // pushing its input below the single-line siblings (Term / Rate).
-  label: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4, height: 30 },
-  input: {
-    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border, color: COLORS.white,
-    fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingVertical: 8,
-  },
-  resultLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs },
-  resultValue: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginTop: 2 },
-});

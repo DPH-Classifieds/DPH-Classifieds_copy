@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Modal, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import Text from './AppText';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const PAD = 8;           // spotlight padding around the target
 const SCRIM = 'rgba(4,8,6,0.82)';
@@ -12,6 +13,43 @@ const SCRIM = 'rgba(4,8,6,0.82)';
 // blocks the flow.
 export default function CoachMarks({ visible, steps, onDone }) {
   const { width: W, height: H } = useWindowDimensions();
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    scrim: { position: 'absolute', backgroundColor: SCRIM },
+    highlight: {
+      position: 'absolute',
+      borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+    tooltip: {
+      position: 'absolute',
+      alignSelf: 'center',
+      backgroundColor: colors.surfaceHigh,
+      borderRadius: BORDER_RADIUS.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.md,
+    },
+    step: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '700', marginBottom: 4, letterSpacing: 0.5 },
+    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6 },
+    text: { color: colors.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 20 },
+    actions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: SPACING.md,
+    },
+    skip: { color: colors.textMuted, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    nextBtn: {
+      backgroundColor: colors.accent,
+      paddingHorizontal: 20,
+      paddingVertical: 9,
+      borderRadius: BORDER_RADIUS.pill,
+    },
+    nextText: { color: colors.black, fontSize: FONT_SIZES.sm, fontWeight: '800' },
+  }), [colors]);
+
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState(null);
 
@@ -95,38 +133,3 @@ export default function CoachMarks({ visible, steps, onDone }) {
   );
 }
 
-const styles = StyleSheet.create({
-  scrim: { position: 'absolute', backgroundColor: SCRIM },
-  highlight: {
-    position: 'absolute',
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 2,
-    borderColor: COLORS.accent,
-  },
-  tooltip: {
-    position: 'absolute',
-    alignSelf: 'center',
-    backgroundColor: COLORS.surfaceHigh,
-    borderRadius: BORDER_RADIUS.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.md,
-  },
-  step: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '700', marginBottom: 4, letterSpacing: 0.5 },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6 },
-  text: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 20 },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: SPACING.md,
-  },
-  skip: { color: COLORS.textMuted, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  nextBtn: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: 20,
-    paddingVertical: 9,
-    borderRadius: BORDER_RADIUS.pill,
-  },
-  nextText: { color: COLORS.black, fontSize: FONT_SIZES.sm, fontWeight: '800' },
-});

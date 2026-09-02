@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -9,12 +9,32 @@ import Animated, {
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
-import { COLORS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const HOLD_MS = 900;
 const FADE_OUT_MS = 350;
 
 export default function SplashIntro({ onFinish }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.black,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 999,
+    },
+    mark: { width: 120, height: 120, borderRadius: 28 },
+    wordmark: {
+      marginTop: 14,
+      color: colors.white,
+      fontSize: 20,
+      fontWeight: '600',
+      letterSpacing: 4,
+      textTransform: 'uppercase',
+    },
+  }), [colors]);
+
   const [visible, setVisible] = useState(true);
   const markScale = useSharedValue(0.85);
   const markOpacity = useSharedValue(0);
@@ -62,22 +82,3 @@ export default function SplashIntro({ onFinish }) {
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.black,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 999,
-  },
-  mark: { width: 120, height: 120, borderRadius: 28 },
-  wordmark: {
-    marginTop: 14,
-    color: COLORS.white,
-    fontSize: 20,
-    fontWeight: '600',
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-  },
-});

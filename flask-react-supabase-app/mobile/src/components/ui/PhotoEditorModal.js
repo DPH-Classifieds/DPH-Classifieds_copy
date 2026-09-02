@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Modal, StyleSheet, Image as RNImage, ActivityIndicator, PanResponder, ScrollView } from 'react-native';
 import Text from './AppText';
 import { Canvas, Image as SkiaImage, ColorMatrix, useImage } from '@shopify/react-native-skia';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from './PressableScale';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { showError } from '../../utils/toast';
 import { buildMatrix } from '../../utils/colorMatrix';
 import { fitContain, computeCropRect, defaultBox } from '../../utils/cropGeometry';
@@ -66,6 +67,56 @@ function AdjustSlider({ label, value, min, max, onChange }) {
 }
 
 export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#0a0a0a' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.md, paddingTop: SPACING.xl, paddingBottom: SPACING.sm,
+    },
+    headerBtn: { padding: 6 },
+    title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.white },
+    cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: colors.textSecondary },
+    saveBtn: { backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 18, paddingVertical: 8, minWidth: 64, alignItems: 'center' },
+    saveText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.black },
+    previewArea: { flex: 1, margin: SPACING.md, alignItems: 'center', justifyContent: 'center' },
+    cropBox: {
+      position: 'absolute', borderWidth: 2, borderColor: colors.white,
+      backgroundColor: 'rgba(255,255,255,0.04)',
+    },
+    gridV: { position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
+    gridH: { position: 'absolute', top: '50%', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
+    handle: {
+      position: 'absolute', width: HANDLE, height: HANDLE, borderRadius: HANDLE / 2,
+      backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center',
+    },
+    handleBR: { right: -HANDLE / 2, bottom: -HANDLE / 2 },
+    tabs: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: SPACING.sm, borderTopWidth: 1, borderTopColor: colors.border },
+    tab: { alignItems: 'center', gap: 3, paddingHorizontal: SPACING.lg, paddingVertical: 4, borderRadius: BORDER_RADIUS.md },
+    tabActive: { backgroundColor: colors.surface },
+    tabText: { fontSize: FONT_SIZES.xs, color: colors.textSecondary },
+    tabTextActive: { color: colors.accent },
+    controls: { minHeight: 130, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, backgroundColor: '#141414' },
+    chipsRow: { gap: SPACING.sm, paddingVertical: 4 },
+    chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface, marginRight: SPACING.sm },
+    chipActive: { backgroundColor: colors.primary },
+    chipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    chipTextActive: { color: colors.accent },
+    actionRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.md },
+    actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surface, paddingVertical: 12, borderRadius: BORDER_RADIUS.md },
+    actionText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    sliderRow: { marginBottom: SPACING.md },
+    sliderLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    sliderLabel: { color: colors.white, fontSize: FONT_SIZES.sm },
+    sliderValue: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    sliderTrack: { height: 28, justifyContent: 'center' },
+    sliderBase: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: colors.surface },
+    sliderFill: { position: 'absolute', left: 0, height: 4, borderRadius: 2, backgroundColor: colors.accent },
+    sliderThumb: { position: 'absolute', width: 20, height: 20, borderRadius: 10, backgroundColor: colors.white, marginLeft: -10, top: 4 },
+    resetBtn: { alignSelf: 'flex-start', paddingVertical: 6 },
+    resetText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  }), [colors]);
+
   const [workingUri, setWorkingUri] = useState(imageUri);
   const [size, setSize] = useState(null);        // { width, height } of workingUri
   const [area, setArea] = useState(null);        // preview area layout
@@ -192,7 +243,7 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
           </PressableScale>
           <Text style={styles.title}>Edit Photo</Text>
           <PressableScale onPress={handleSave} haptic="success" style={styles.saveBtn} disabled={busy}>
-            {busy ? <ActivityIndicator size="small" color={COLORS.black} /> : <Text style={styles.saveText}>Done</Text>}
+            {busy ? <ActivityIndicator size="small" color={colors.black} /> : <Text style={styles.saveText}>Done</Text>}
           </PressableScale>
         </View>
 
@@ -211,13 +262,13 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
                 >
                   <View style={styles.gridV} /><View style={styles.gridH} />
                   <View style={[styles.handle, styles.handleBR]} {...resizePan.panHandlers}>
-                    <Ionicons name="resize" size={14} color={COLORS.black} />
+                    <Ionicons name="resize" size={14} color={colors.black} />
                   </View>
                 </View>
               )}
             </>
           ) : (
-            <ActivityIndicator size="large" color={COLORS.accent} />
+            <ActivityIndicator size="large" color={colors.accent} />
           )}
         </View>
 
@@ -227,7 +278,7 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
               <Ionicons
                 name={m === 'crop' ? 'crop' : m === 'adjust' ? 'options' : 'color-filter'}
                 size={20}
-                color={mode === m ? COLORS.accent : COLORS.textSecondary}
+                color={mode === m ? colors.accent : colors.textSecondary}
               />
               <Text style={[styles.tabText, mode === m && styles.tabTextActive]}>
                 {m[0].toUpperCase() + m.slice(1)}
@@ -252,11 +303,11 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
               </ScrollView>
               <View style={styles.actionRow}>
                 <PressableScale onPress={doRotate} style={styles.actionBtn}>
-                  <Ionicons name="refresh" size={20} color={COLORS.white} />
-                  <Text style={styles.actionText}>Rotate</Text>
-                </PressableScale>
-                <PressableScale onPress={doFlip} style={styles.actionBtn}>
-                  <Ionicons name="swap-horizontal" size={20} color={COLORS.white} />
+<Ionicons name="refresh" size={20} color={colors.white} />
+                <Text style={styles.actionText}>Rotate</Text>
+              </PressableScale>
+              <PressableScale onPress={doFlip} style={styles.actionBtn}>
+                <Ionicons name="swap-horizontal" size={20} color={colors.white} />
                   <Text style={styles.actionText}>Flip</Text>
                 </PressableScale>
               </View>
@@ -293,51 +344,3 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md, paddingTop: SPACING.xl, paddingBottom: SPACING.sm,
-  },
-  headerBtn: { padding: 6 },
-  title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: COLORS.white },
-  cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  saveBtn: { backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 18, paddingVertical: 8, minWidth: 64, alignItems: 'center' },
-  saveText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: COLORS.black },
-  previewArea: { flex: 1, margin: SPACING.md, alignItems: 'center', justifyContent: 'center' },
-  cropBox: {
-    position: 'absolute', borderWidth: 2, borderColor: COLORS.white,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  gridV: { position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
-  gridH: { position: 'absolute', top: '50%', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
-  handle: {
-    position: 'absolute', width: HANDLE, height: HANDLE, borderRadius: HANDLE / 2,
-    backgroundColor: COLORS.accent, alignItems: 'center', justifyContent: 'center',
-  },
-  handleBR: { right: -HANDLE / 2, bottom: -HANDLE / 2 },
-  tabs: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.border },
-  tab: { alignItems: 'center', gap: 3, paddingHorizontal: SPACING.lg, paddingVertical: 4, borderRadius: BORDER_RADIUS.md },
-  tabActive: { backgroundColor: COLORS.surface },
-  tabText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  tabTextActive: { color: COLORS.accent },
-  controls: { minHeight: 130, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, backgroundColor: '#141414' },
-  chipsRow: { gap: SPACING.sm, paddingVertical: 4 },
-  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surface, marginRight: SPACING.sm },
-  chipActive: { backgroundColor: COLORS.primary },
-  chipText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  chipTextActive: { color: COLORS.accent },
-  actionRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.md },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.surface, paddingVertical: 12, borderRadius: BORDER_RADIUS.md },
-  actionText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  sliderRow: { marginBottom: SPACING.md },
-  sliderLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  sliderLabel: { color: COLORS.white, fontSize: FONT_SIZES.sm },
-  sliderValue: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  sliderTrack: { height: 28, justifyContent: 'center' },
-  sliderBase: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: COLORS.surface },
-  sliderFill: { position: 'absolute', left: 0, height: 4, borderRadius: 2, backgroundColor: COLORS.accent },
-  sliderThumb: { position: 'absolute', width: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.white, marginLeft: -10, top: 4 },
-  resetBtn: { alignSelf: 'flex-start', paddingVertical: 6 },
-  resetText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-});

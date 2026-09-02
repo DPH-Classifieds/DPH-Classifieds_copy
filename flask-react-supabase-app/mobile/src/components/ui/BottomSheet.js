@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import Text from './AppText';
 import Animated, {
@@ -11,12 +11,59 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 100;
 
 export default function BottomSheet({ visible, onClose, title, children, maxHeight }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'black',
+      zIndex: 100,
+    },
+    sheet: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: BORDER_RADIUS.xl,
+      borderTopRightRadius: BORDER_RADIUS.xl,
+      zIndex: 101,
+      paddingBottom: 34,
+    },
+    handle: {
+      alignItems: 'center',
+      paddingVertical: SPACING.sm,
+    },
+    handleBar: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: 'rgba(255,255,255,0.3)',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: SPACING.lg,
+      paddingBottom: SPACING.sm,
+    },
+    title: {
+      color: colors.white,
+      fontSize: FONT_SIZES.lg,
+      fontWeight: '700',
+    },
+    content: {
+      paddingHorizontal: SPACING.lg,
+      maxHeight: SCREEN_HEIGHT * 0.55,
+    },
+  }), [colors]);
+
   const translateY = useSharedValue(SCREEN_HEIGHT);
   const backdropOpacity = useSharedValue(0);
 
@@ -74,7 +121,7 @@ export default function BottomSheet({ visible, onClose, title, children, maxHeig
                 <View style={styles.header}>
                   <Text style={styles.title}>{title}</Text>
                   <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+                    <Ionicons name="close" size={22} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -88,48 +135,3 @@ export default function BottomSheet({ visible, onClose, title, children, maxHeig
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'black',
-    zIndex: 100,
-  },
-  sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: BORDER_RADIUS.xl,
-    borderTopRightRadius: BORDER_RADIUS.xl,
-    zIndex: 101,
-    paddingBottom: 34,
-  },
-  handle: {
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.sm,
-  },
-  title: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-  },
-  content: {
-    paddingHorizontal: SPACING.lg,
-    maxHeight: SCREEN_HEIGHT * 0.55,
-  },
-});

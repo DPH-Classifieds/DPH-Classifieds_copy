@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, TouchableOpacity, Modal, FlatList, StyleSheet, Alert } from 'react-native';
 import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const REPORT_REASONS = [
   'Spam or fake listing', 'Wrong category', 'Already sold',
@@ -11,6 +12,26 @@ const REPORT_REASONS = [
 ];
 
 export default function ReportButton({ listingType, listingId }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    trigger: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingVertical: 8, paddingHorizontal: 12,
+      borderRadius: BORDER_RADIUS.md, backgroundColor: colors.surfaceHigher,
+    },
+    triggerText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+    sheet: {
+      backgroundColor: colors.surfaceHigher, borderTopLeftRadius: BORDER_RADIUS.xl,
+      borderTopRightRadius: BORDER_RADIUS.xl, maxHeight: '60%', paddingBottom: 30,
+    },
+    handle: { width: 40, height: 4, backgroundColor: colors.border, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 8 },
+    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
+    option: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: SPACING.md },
+    optionText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+    separator: { height: 0.5, backgroundColor: colors.borderLight, marginHorizontal: SPACING.md },
+  }), [colors]);
+
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,7 +51,7 @@ export default function ReportButton({ listingType, listingId }) {
   return (
     <>
       <TouchableOpacity onPress={() => setVisible(true)} style={styles.trigger}>
-        <Ionicons name="flag-outline" size={16} color={COLORS.textSecondary} />
+        <Ionicons name="flag-outline" size={16} color={colors.textSecondary} />
         <Text style={styles.triggerText}>Report</Text>
       </TouchableOpacity>
       <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
@@ -44,7 +65,7 @@ export default function ReportButton({ listingType, listingId }) {
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.option} onPress={() => handleReport(item)} disabled={submitting}>
                   <Text style={styles.optionText}>{item}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -55,22 +76,3 @@ export default function ReportButton({ listingType, listingId }) {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  trigger: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 8, paddingHorizontal: 12,
-    borderRadius: BORDER_RADIUS.md, backgroundColor: COLORS.surfaceHigher,
-  },
-  triggerText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  overlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: COLORS.surfaceHigher, borderTopLeftRadius: BORDER_RADIUS.xl,
-    borderTopRightRadius: BORDER_RADIUS.xl, maxHeight: '60%', paddingBottom: 30,
-  },
-  handle: { width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 8 },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
-  option: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: SPACING.md },
-  optionText: { color: COLORS.white, fontSize: FONT_SIZES.md, flex: 1 },
-  separator: { height: 0.5, backgroundColor: COLORS.borderLight, marginHorizontal: SPACING.md },
-});

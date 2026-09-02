@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
 import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import { toastApiError, showSuccess } from '../../utils/toast';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const DEFAULT_PATTERN = [{ type: 'featured', count: 1 }, { type: 'normal', count: 5 }];
 
@@ -30,6 +31,40 @@ const previewCycle = (rows, totalSlots = 24) => {
 
 // Mirrors frontend/src/components/admin/FeaturedPlacementSettings.jsx.
 export default function FeaturedPlacementSettings() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1 },
+    content: { padding: SPACING.md, paddingBottom: 40 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    description: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textSecondary, lineHeight: 18, marginBottom: SPACING.md },
+    row: {
+      flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginBottom: 8, borderWidth: 1, borderColor: colors.border,
+    },
+    rowIndex: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.textMuted, width: 16, textAlign: 'center' },
+    typeToggle: { flexDirection: 'row', gap: 4, flex: 1 },
+    typeBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surfaceHigher },
+    typeBtnActiveFeatured: { backgroundColor: colors.warning },
+    typeBtnActiveNormal: { backgroundColor: colors.accent },
+    typeBtnText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.textSecondary },
+    typeBtnTextActive: { color: colors.black },
+    countInput: {
+      width: 44, textAlign: 'center', backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.sm,
+      paddingVertical: 6, color: colors.white, fontSize: FONT_SIZES.sm, borderWidth: 1, borderColor: colors.border,
+    },
+    addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: SPACING.md },
+    addRowText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.accent },
+    previewLabel: { ...FONTS.label, fontSize: 10, color: colors.textMuted, textTransform: 'uppercase', marginBottom: 8 },
+    previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: SPACING.lg },
+    previewCell: { width: 20, height: 20, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+    previewCellFeatured: { backgroundColor: colors.warning },
+    previewCellNormal: { backgroundColor: colors.surfaceHigher },
+    previewCellFeaturedText: { fontSize: 10, fontWeight: '700', color: colors.black },
+    previewCellNormalText: { fontSize: 10, color: colors.textMuted },
+    saveBtn: { backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+    saveBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: colors.black },
+  }), [colors]);
+
   const [rows, setRows] = useState(toRows(DEFAULT_PATTERN));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,7 +102,7 @@ export default function FeaturedPlacementSettings() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={COLORS.accent} />
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }
@@ -107,13 +142,13 @@ export default function FeaturedPlacementSettings() {
             maxLength={2}
           />
           <TouchableOpacity onPress={() => removeRow(i)} disabled={rows.length <= 1} hitSlop={8}>
-            <Ionicons name="close" size={18} color={rows.length <= 1 ? COLORS.textMuted : COLORS.error} />
+            <Ionicons name="close" size={18} color={rows.length <= 1 ? colors.textMuted : colors.error} />
           </TouchableOpacity>
         </View>
       ))}
 
       <TouchableOpacity style={styles.addRowBtn} onPress={addRow}>
-        <Ionicons name="add" size={16} color={COLORS.accent} />
+        <Ionicons name="add" size={16} color={colors.accent} />
         <Text style={styles.addRowText}>Add a step</Text>
       </TouchableOpacity>
 
@@ -129,41 +164,8 @@ export default function FeaturedPlacementSettings() {
       </View>
 
       <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving} activeOpacity={0.8}>
-        {saving ? <ActivityIndicator size="small" color={COLORS.black} /> : <Text style={styles.saveBtnText}>Save pattern</Text>}
+        {saving ? <ActivityIndicator size="small" color={colors.black} /> : <Text style={styles.saveBtnText}>Save pattern</Text>}
       </TouchableOpacity>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: SPACING.md, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  description: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, lineHeight: 18, marginBottom: SPACING.md },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border,
-  },
-  rowIndex: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.textMuted, width: 16, textAlign: 'center' },
-  typeToggle: { flexDirection: 'row', gap: 4, flex: 1 },
-  typeBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surfaceHigher },
-  typeBtnActiveFeatured: { backgroundColor: COLORS.warning },
-  typeBtnActiveNormal: { backgroundColor: COLORS.accent },
-  typeBtnText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  typeBtnTextActive: { color: COLORS.black },
-  countInput: {
-    width: 44, textAlign: 'center', backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.sm,
-    paddingVertical: 6, color: COLORS.white, fontSize: FONT_SIZES.sm, borderWidth: 1, borderColor: COLORS.border,
-  },
-  addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: SPACING.md },
-  addRowText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: COLORS.accent },
-  previewLabel: { ...FONTS.label, fontSize: 10, color: COLORS.textMuted, textTransform: 'uppercase', marginBottom: 8 },
-  previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: SPACING.lg },
-  previewCell: { width: 20, height: 20, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
-  previewCellFeatured: { backgroundColor: COLORS.warning },
-  previewCellNormal: { backgroundColor: COLORS.surfaceHigher },
-  previewCellFeaturedText: { fontSize: 10, fontWeight: '700', color: COLORS.black },
-  previewCellNormalText: { fontSize: 10, color: COLORS.textMuted },
-  saveBtn: { backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-  saveBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: COLORS.black },
-});

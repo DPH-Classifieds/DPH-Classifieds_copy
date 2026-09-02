@@ -1,15 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import { formatPrice } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 // Compact price-analysis card. Only renders when a listing has actually changed
 // price (more than one point); otherwise it stays out of the way. Data comes
 // from /api/<type>/<id>/price-history (falls back to current price server-side).
 export default function PriceHistory({ listingType, listingId }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      marginBottom: 16,
+    },
+    headerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+    title: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    currentLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 2 },
+    current: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '800' },
+    changeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: BORDER_RADIUS.pill },
+    changeText: { fontSize: FONT_SIZES.sm, fontWeight: '700' },
+    sparkline: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 52, marginBottom: 10 },
+    bar: { flex: 1, backgroundColor: colors.border, borderRadius: 3, minWidth: 4 },
+    barActive: { backgroundColor: colors.accent },
+    rangeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    rangeText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs },
+  }), [colors]);
+
   const [analysis, setAnalysis] = useState(null);
   const [points, setPoints] = useState([]);
 
@@ -33,7 +56,7 @@ export default function PriceHistory({ listingType, listingId }) {
 
   const dropped = analysis.change < 0;
   const flat = analysis.change === 0;
-  const changeColor = flat ? COLORS.textSecondary : dropped ? '#22c55e' : '#ef4444';
+  const changeColor = flat ? colors.textSecondary : dropped ? '#22c55e' : '#ef4444';
   const changeIcon = flat ? 'remove' : dropped ? 'arrow-down' : 'arrow-up';
 
   // Normalise bar heights across the observed range.
@@ -46,7 +69,7 @@ export default function PriceHistory({ listingType, listingId }) {
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Ionicons name="trending-down" size={16} color={COLORS.accent} />
+        <Ionicons name="trending-down" size={16} color={colors.accent} />
         <Text style={styles.title}>Price History</Text>
       </View>
 
@@ -86,23 +109,3 @@ export default function PriceHistory({ listingType, listingId }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: 16,
-  },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  currentLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 2 },
-  current: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '800' },
-  changeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: BORDER_RADIUS.pill },
-  changeText: { fontSize: FONT_SIZES.sm, fontWeight: '700' },
-  sparkline: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 52, marginBottom: 10 },
-  bar: { flex: 1, backgroundColor: COLORS.border, borderRadius: 3, minWidth: 4 },
-  barActive: { backgroundColor: COLORS.accent },
-  rangeRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  rangeText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs },
-});
