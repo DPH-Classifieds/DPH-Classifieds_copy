@@ -14,7 +14,8 @@ import { toastApiError, showSuccess, showInfo } from '../../utils/toast';
 import apiClient from '../../utils/apiClient';
 import { useAuthPrompt } from '../../components/ui/RequireAuth';
 import { formatPrice, formatNumber } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   CAR_MAKES,
   CAR_MODELS,
@@ -85,8 +86,7 @@ const INITIAL_BIKE_FILTERS = { type: '', brand: '', city: '', min_price: '', max
 const INITIAL_PLATE_FILTERS = { city: '', code: '', min_price: '', max_price: '' };
 const INITIAL_PART_FILTERS = { category: '', min_price: '', max_price: '' };
 
-const CATEGORY_COLORS = {
-  cars: COLORS.accent,
+const FIXED_CATEGORY_COLORS = {
   bikes: '#2196f3',
   plates: '#ff9800',
   parts: '#9c27b0',
@@ -165,7 +165,8 @@ const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateD
 const LIST_SCREENS = { cars: 'CarList', bikes: 'BikeList', plates: 'PlateList', parts: 'PartList', reddit: 'RedditList', wanted: 'BuyingRequests' };
 const LISTING_PAGE_SIZE = 18;
 
-function PickerContent({ options, onSelect, onClose, selectedValue }) {
+function PickerContent({ options, onSelect, onClose, selectedValue, colors }) {
+  const pkStyles = pkStylesFor(colors);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -194,15 +195,15 @@ function PickerContent({ options, onSelect, onClose, selectedValue }) {
         <Text style={[pkStyles.optionText, isSelected && pkStyles.optionTextSelected]}>
           {label}
         </Text>
-        {isSelected && <Ionicons name="checkmark" size={18} color={COLORS.accent} />}
+        {isSelected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
       </TouchableOpacity>
     );
-  }, [onSelect, onClose, selectedValue]);
+  }, [onSelect, onClose, selectedValue, colors]);
 
   return (
     <>
       <View style={pkStyles.searchWrap}>
-        <Ionicons name="search" size={16} color={COLORS.textMuted} />
+        <Ionicons name="search" size={16} color={colors.textMuted} />
         <TextInput
           style={pkStyles.searchInput}
           value={search}
@@ -214,7 +215,7 @@ function PickerContent({ options, onSelect, onClose, selectedValue }) {
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -237,42 +238,44 @@ function PickerContent({ options, onSelect, onClose, selectedValue }) {
   );
 }
 
-const pkStyles = StyleSheet.create({
+const pkStylesFor = (colors) => StyleSheet.create({
   list: { paddingHorizontal: SPACING.md },
   option: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 14, paddingHorizontal: 12, borderRadius: BORDER_RADIUS.md,
   },
-  optionSelected: { backgroundColor: COLORS.primary },
-  optionText: { color: COLORS.white, fontSize: FONT_SIZES.md, flex: 1 },
-  optionTextSelected: { color: COLORS.accent, fontWeight: '600' },
-  separator: { height: 0.5, backgroundColor: COLORS.borderLight },
+  optionSelected: { backgroundColor: colors.primary },
+  optionText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+  optionTextSelected: { color: colors.accent, fontWeight: '600' },
+  separator: { height: 0.5, backgroundColor: colors.borderLight },
   searchWrap: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+    borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: colors.border,
     marginHorizontal: SPACING.md, marginBottom: SPACING.sm, paddingHorizontal: 12, paddingVertical: 10, gap: 8,
   },
-  searchInput: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.md, padding: 0 },
-  empty: { color: COLORS.textMuted, fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: SPACING.lg },
+  searchInput: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md, padding: 0 },
+  empty: { color: colors.textMuted, fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: SPACING.lg },
 });
 
 function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setBikeFilters,
-  plateFilters, setPlateFilters, partFilters, setPartFilters, onReset, openPicker, yearOptions }) {
+  plateFilters, setPlateFilters, partFilters, setPartFilters, onReset, openPicker, yearOptions, colors }) {
+
+  const fcStyles = fcStylesFor(colors);
 
   const renderCar = () => (
     <>
-      <FilterRow label="Make" value={carFilters.manufacturer} onPress={() =>
+      <FilterRow label="Make" value={carFilters.manufacturer} colors={colors} onPress={() =>
         openPicker('manufacturer', 'Manufacturer', CAR_MAKES, (v) => setCarFilters(p => ({ ...p, manufacturer: v, model: '' })), carFilters.manufacturer)
       } />
-      <FilterRow label="Model" value={carFilters.model} onPress={() => {
+      <FilterRow label="Model" value={carFilters.model} colors={colors} onPress={() => {
         const models = carFilters.manufacturer && CAR_MODELS[carFilters.manufacturer] ? CAR_MODELS[carFilters.manufacturer] : [];
         if (models.length === 0) return;
         openPicker('model', 'Model', models, (v) => setCarFilters(p => ({ ...p, model: v })), carFilters.model);
       }} />
-      <FilterRow label="City" value={carFilters.city} onPress={() =>
+      <FilterRow label="City" value={carFilters.city} colors={colors} onPress={() =>
         openPicker('city', 'City', EMIRATES, (v) => setCarFilters(p => ({ ...p, city: v })), carFilters.city)
       } />
-      <PriceRange min={carFilters.min_price} max={carFilters.max_price}
+      <PriceRange min={carFilters.min_price} max={carFilters.max_price} colors={colors}
         onMin={(v) => setCarFilters(p => ({ ...p, min_price: v }))}
         onMax={(v) => setCarFilters(p => ({ ...p, max_price: v }))} />
     </>
@@ -280,22 +283,22 @@ function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setB
 
   const renderBike = () => (
     <>
-      <FilterRow label="Type" value={bikeFilters.type} onPress={() =>
+      <FilterRow label="Type" value={bikeFilters.type} colors={colors} onPress={() =>
         openPicker('type', 'Bike Type', BIKE_TYPES, (v) => setBikeFilters(p => ({ ...p, type: v })), bikeFilters.type)
       } />
-      <FilterRow label="Brand" value={bikeFilters.brand} onPress={() =>
+      <FilterRow label="Brand" value={bikeFilters.brand} colors={colors} onPress={() =>
         openPicker('brand', 'Brand', BIKE_BRANDS, (v) => setBikeFilters(p => ({ ...p, brand: v })), bikeFilters.brand)
       } />
-      <FilterRow label="City" value={bikeFilters.city} onPress={() =>
+      <FilterRow label="City" value={bikeFilters.city} colors={colors} onPress={() =>
         openPicker('city', 'City', EMIRATES, (v) => setBikeFilters(p => ({ ...p, city: v })), bikeFilters.city)
       } />
-      <PriceRange min={bikeFilters.min_price} max={bikeFilters.max_price}
+      <PriceRange min={bikeFilters.min_price} max={bikeFilters.max_price} colors={colors}
         onMin={(v) => setBikeFilters(p => ({ ...p, min_price: v }))}
         onMax={(v) => setBikeFilters(p => ({ ...p, max_price: v }))} />
-      <FilterRow label="Min Year" value={bikeFilters.min_year} onPress={() =>
+      <FilterRow label="Min Year" value={bikeFilters.min_year} colors={colors} onPress={() =>
         openPicker('min_year', 'Min Year', yearOptions, (v) => setBikeFilters(p => ({ ...p, min_year: v })), bikeFilters.min_year)
       } />
-      <FilterRow label="Max Year" value={bikeFilters.max_year} onPress={() =>
+      <FilterRow label="Max Year" value={bikeFilters.max_year} colors={colors} onPress={() =>
         openPicker('max_year', 'Max Year', yearOptions, (v) => setBikeFilters(p => ({ ...p, max_year: v })), bikeFilters.max_year)
       } />
     </>
@@ -303,13 +306,13 @@ function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setB
 
   const renderPlate = () => (
     <>
-      <FilterRow label="City" value={plateFilters.city} onPress={() =>
+      <FilterRow label="City" value={plateFilters.city} colors={colors} onPress={() =>
         openPicker('city', 'City', EMIRATES, (v) => setPlateFilters(p => ({ ...p, city: v })), plateFilters.city)
       } />
-      <FilterRow label="Code" value={plateFilters.code} onPress={() =>
+      <FilterRow label="Code" value={plateFilters.code} colors={colors} onPress={() =>
         openPicker('code', 'Code', PLATE_CODES, (v) => setPlateFilters(p => ({ ...p, code: v })), plateFilters.code)
       } />
-      <PriceRange min={plateFilters.min_price} max={plateFilters.max_price}
+      <PriceRange min={plateFilters.min_price} max={plateFilters.max_price} colors={colors}
         onMin={(v) => setPlateFilters(p => ({ ...p, min_price: v }))}
         onMax={(v) => setPlateFilters(p => ({ ...p, max_price: v }))} />
     </>
@@ -317,10 +320,10 @@ function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setB
 
   const renderPart = () => (
     <>
-      <FilterRow label="Category" value={partFilters.category} onPress={() =>
+      <FilterRow label="Category" value={partFilters.category} colors={colors} onPress={() =>
         openPicker('category', 'Part Category', PART_CATEGORIES, (v) => setPartFilters(p => ({ ...p, category: v })), partFilters.category)
       } />
-      <PriceRange min={partFilters.min_price} max={partFilters.max_price}
+      <PriceRange min={partFilters.min_price} max={partFilters.max_price} colors={colors}
         onMin={(v) => setPartFilters(p => ({ ...p, min_price: v }))}
         onMax={(v) => setPartFilters(p => ({ ...p, max_price: v }))} />
     </>
@@ -342,7 +345,8 @@ function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setB
   );
 }
 
-function FilterRow({ label, value, onPress }) {
+function FilterRow({ label, value, onPress, colors }) {
+  const frStyles = frStylesFor(colors);
   return (
     <TouchableOpacity style={frStyles.row} onPress={onPress} activeOpacity={0.7}>
       <Text style={frStyles.label}>{label}</Text>
@@ -350,32 +354,33 @@ function FilterRow({ label, value, onPress }) {
         <Text style={[frStyles.value, !value && frStyles.valueMuted]} numberOfLines={1}>
           {value || 'All'}
         </Text>
-        <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
       </View>
     </TouchableOpacity>
   );
 }
 
-const frStyles = StyleSheet.create({
+const frStylesFor = (colors) => StyleSheet.create({
   row: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 14, paddingHorizontal: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
   },
-  label: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '500' },
+  label: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '500' },
   right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
-  value: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, textAlign: 'right', maxWidth: 140 },
-  valueMuted: { color: COLORS.textMuted },
+  value: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, textAlign: 'right', maxWidth: 140 },
+  valueMuted: { color: colors.textMuted },
 });
 
-function PriceRange({ min, max, onMin, onMax }) {
+function PriceRange({ min, max, onMin, onMax, colors }) {
+  const prStyles = prStylesFor(colors);
   return (
     <View style={prStyles.container}>
       <View style={prStyles.field}>
         <Text style={prStyles.fieldLabel}>Min AED</Text>
         <TextInput
           style={prStyles.input} value={min} onChangeText={onMin}
-          placeholder="0" placeholderTextColor={COLORS.textMuted} keyboardType="numeric"
+          placeholder="0" placeholderTextColor={colors.textMuted} keyboardType="numeric"
         />
       </View>
       <View style={prStyles.divider} />
@@ -383,40 +388,40 @@ function PriceRange({ min, max, onMin, onMax }) {
         <Text style={prStyles.fieldLabel}>Max AED</Text>
         <TextInput
           style={prStyles.input} value={max} onChangeText={onMax}
-          placeholder="No limit" placeholderTextColor={COLORS.textMuted} keyboardType="numeric"
+          placeholder="No limit" placeholderTextColor={colors.textMuted} keyboardType="numeric"
         />
       </View>
     </View>
   );
 }
 
-const prStyles = StyleSheet.create({
+const prStylesFor = (colors) => StyleSheet.create({
   container: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md,
-    paddingVertical: 10, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight,
+    paddingVertical: 10, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
   },
   field: { flex: 1 },
-  fieldLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4, fontWeight: '500' },
+  fieldLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4, fontWeight: '500' },
   input: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border,
-    color: COLORS.white, fontSize: FONT_SIZES.sm, paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: colors.border,
+    color: colors.white, fontSize: FONT_SIZES.sm, paddingHorizontal: 12, paddingVertical: 8,
   },
-  divider: { width: 1, height: 30, backgroundColor: COLORS.borderLight },
+  divider: { width: 1, height: 30, backgroundColor: colors.borderLight },
 });
 
-const fcStyles = StyleSheet.create({
+const fcStylesFor = (colors) => StyleSheet.create({
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
   },
-  headerTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700' },
-  resetText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  headerTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700' },
+  resetText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
 });
 
-function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
+function ExploreCard({ item, index, onPress, onSave, saved, columns, colors, styles }) {
   const { animatedStyle } = useStaggeredEntrance(index);
-  const catColor = CATEGORY_COLORS[item.category] || COLORS.accent;
+  const catColor = FIXED_CATEGORY_COLORS[item.category] || colors.accent;
   const grid = columns === 2;
   // Plates have no photo — render the generated plate graphic (same as the
   // dedicated plate list / detail) instead of the gray placeholder.
@@ -442,7 +447,7 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
               <FadeInImage source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
             ) : (
               <View style={styles.cardImagePlaceholder}>
-                <Ionicons name="image-outline" size={28} color={COLORS.textMuted} />
+                <Ionicons name="image-outline" size={28} color={colors.textMuted} />
               </View>
             )}
             <View style={[styles.cardCatBadge, { backgroundColor: catColor }]}>
@@ -456,12 +461,12 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
               <Ionicons
                 name={saved ? 'heart' : 'heart-outline'}
                 size={18}
-                color={saved ? COLORS.error : COLORS.white}
+                color={saved ? colors.error : colors.white}
               />
             </TouchableOpacity>
             {isHighlighted && (
               <View style={styles.cardFeatured}>
-                <Ionicons name="star" size={10} color={COLORS.black} />
+                <Ionicons name="star" size={10} color={colors.black} />
                 <Text style={styles.cardFeaturedText}>Featured</Text>
               </View>
             )}
@@ -476,7 +481,7 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
             ) : null}
             {item.location ? (
               <View style={styles.cardLocationRow}>
-                <Ionicons name="location-outline" size={11} color={COLORS.textMuted} />
+                <Ionicons name="location-outline" size={11} color={colors.textMuted} />
                 <Text style={styles.cardLocation} numberOfLines={1}>{item.location}</Text>
               </View>
             ) : null}
@@ -488,6 +493,167 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns }) {
 }
 
 export default function ExploreScreen({ navigation, route }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+
+    hero: {
+      paddingHorizontal: SPACING.md,
+      paddingTop: SPACING.md,
+      paddingBottom: SPACING.sm,
+    },
+    heroKicker: {
+      color: colors.accent,
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      marginBottom: 4,
+    },
+    heroTitle: {
+      color: colors.white,
+      fontSize: 26,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+
+    searchWrap: { paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
+    searchBar: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 16, paddingVertical: 11, gap: 10,
+      borderWidth: 1, borderColor: colors.borderLight,
+    },
+    searchInput: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md },
+
+    catRowWrap: { marginBottom: SPACING.md },
+    catRow: {
+      flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, gap: 8,
+    },
+    catPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 8,
+      borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.borderLight,
+    },
+    catPillActive: { backgroundColor: colors.primary, borderColor: colors.accent + '40' },
+    catPillLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
+    catPillLabelActive: { color: colors.accent },
+    catPillCount: { color: colors.textMuted, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+
+    controlsRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: SPACING.md, marginBottom: SPACING.md,
+    },
+    controlsRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    filterBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 7,
+      borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.borderLight,
+    },
+    filterBtnActive: { backgroundColor: colors.primary, borderColor: colors.accent + '40' },
+    filterBtnText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+    filterBtnTextActive: { color: colors.accent },
+    resultCount: { color: colors.textMuted, fontSize: FONT_SIZES.sm },
+    sortBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 7,
+      borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.borderLight,
+    },
+    sortBtnText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '500' },
+
+    activeChips: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
+    clearAllChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+      backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: BORDER_RADIUS.pill,
+    },
+    clearAllText: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+    saveSearchBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+      marginHorizontal: SPACING.md, marginBottom: SPACING.sm,
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: BORDER_RADIUS.pill,
+      borderWidth: 1, borderColor: colors.borderLight,
+    },
+    saveSearchText: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+
+    listContent: { paddingBottom: TAB_BAR_CLEARANCE },
+    listContentGrid: { paddingBottom: TAB_BAR_CLEARANCE, paddingHorizontal: SPACING.md - SPACING.xs },
+
+    card: {
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl,
+      overflow: 'hidden', marginHorizontal: SPACING.md, marginBottom: SPACING.md,
+      borderWidth: 1, borderColor: colors.borderLight,
+    },
+    cardOuterGrid: { flex: 1, marginHorizontal: SPACING.xs },
+    cardGrid: { marginHorizontal: 0 },
+    cardHighlighted: { borderWidth: 2, borderColor: colors.warning },
+    cardImageWrap: { height: 210, position: 'relative' },
+    cardPlateWrap: {
+      width: '100%',
+      height: '100%',
+      backgroundColor: colors.surfaceDark,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: SPACING.lg,
+    },
+    cardImageWrapGrid: { height: 130 },
+    cardImage: { width: '100%', height: '100%' },
+    cardImagePlaceholder: {
+      width: '100%', height: '100%', backgroundColor: colors.surfaceDark,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    cardCatBadge: {
+      position: 'absolute', top: 8, left: 8,
+      paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm,
+    },
+    cardCatText: { color: colors.white, fontSize: 10, fontWeight: '700' },
+    cardSaveBtn: {
+      position: 'absolute', top: 8, right: 8,
+      width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.5)',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    cardFeatured: {
+      position: 'absolute', bottom: 8, left: 8,
+      flexDirection: 'row', alignItems: 'center', gap: 3,
+      backgroundColor: colors.accent, paddingHorizontal: 8, paddingVertical: 3,
+      borderRadius: BORDER_RADIUS.sm,
+    },
+    cardFeaturedText: { color: colors.black, fontSize: 9, fontWeight: '700' },
+
+    cardBody: { paddingHorizontal: 14, paddingVertical: 14 },
+    cardBodyGrid: { height: 148, overflow: 'hidden' },
+    cardPrice: {
+      color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6,
+    },
+    cardTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 6 },
+    cardSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8, lineHeight: 18 },
+    cardLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    cardLocation: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
+
+    loadMoreWrap: { paddingVertical: SPACING.md, alignItems: 'center' },
+    ctaCard: {
+      marginHorizontal: SPACING.md, marginTop: SPACING.sm, marginBottom: SPACING.md,
+      backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden',
+      borderWidth: 1, borderColor: colors.accent + '30',
+    },
+    ctaContent: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: SPACING.md,
+    },
+    ctaLeft: { flex: 1 },
+    ctaTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 2 },
+    ctaSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    ctaIconWrap: { marginLeft: SPACING.md },
+
+    emptyContainer: { alignItems: 'center', paddingTop: SPACING.xxl * 2, paddingHorizontal: SPACING.lg },
+    emptyTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: SPACING.md, marginBottom: SPACING.xs },
+    emptySubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.md, textAlign: 'center' },
+    clearSearchBtn: {
+      marginTop: SPACING.md, backgroundColor: colors.surface,
+      paddingHorizontal: 20, paddingVertical: 10, borderRadius: BORDER_RADIUS.pill,
+    },
+    clearSearchText: { color: colors.accent, fontWeight: '600' },
+  }), [colors]);
+
   const totalCounts = useListingCounts();
   const featuredPattern = useFeaturedPattern();
   const [featuredByCategory, setFeaturedByCategory] = useState({ cars: [], bikes: [], plates: [], parts: [] });
@@ -900,12 +1066,14 @@ export default function ExploreScreen({ navigation, route }) {
         item={item}
         index={index}
         columns={columns}
+        colors={colors}
+        styles={styles}
         onPress={() => { prefetchListing(item.category, item.raw); navigation.navigate(detailScreen, { listingId: item.id }); }}
         onSave={() => toggleSaveListing(item.category, item.raw)}
         saved={saved}
       />
     );
-  }, [navigation, isSaved, toggleSaveListing, columns]);
+  }, [navigation, isSaved, toggleSaveListing, columns, colors, styles]);
 
   // Warm the images of the landing feed's visible cards (first ~5-6 on app open,
   // then a sliding window as the user scrolls) so opening any of them is instant.
@@ -916,11 +1084,13 @@ export default function ExploreScreen({ navigation, route }) {
   }).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
+  const sortStyles = sortStylesFor(colors);
+
   const renderCTA = useCallback(() => (
     <>
       {loadingMore && (
         <View style={styles.loadMoreWrap}>
-          <ActivityIndicator size="small" color={COLORS.accent} />
+          <ActivityIndicator size="small" color={colors.accent} />
         </View>
       )}
       <TouchableOpacity
@@ -934,7 +1104,7 @@ export default function ExploreScreen({ navigation, route }) {
             <Text style={styles.ctaSubtitle}>It&apos;s free to post your listing</Text>
           </View>
           <View style={styles.ctaIconWrap}>
-            <Ionicons name="add-circle" size={36} color={COLORS.accent} />
+            <Ionicons name="add-circle" size={36} color={colors.accent} />
           </View>
         </View>
       </TouchableOpacity>
@@ -950,11 +1120,11 @@ export default function ExploreScreen({ navigation, route }) {
 
       <View style={styles.searchWrap} ref={searchRef} collapsable={false}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={COLORS.textMuted} />
+          <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search cars, bikes, plates..."
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
@@ -962,7 +1132,7 @@ export default function ExploreScreen({ navigation, route }) {
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -985,7 +1155,7 @@ export default function ExploreScreen({ navigation, route }) {
                 onPress={() => handleCategoryPress(cat.key)}
                 activeOpacity={0.7}
               >
-                <Ionicons name={cat.icon} size={14} color={isActive ? COLORS.accent : COLORS.textSecondary} />
+                <Ionicons name={cat.icon} size={14} color={isActive ? colors.accent : colors.textSecondary} />
                 <Text style={[styles.catPillLabel, isActive && styles.catPillLabelActive]}>
                   {cat.label}
                 </Text>
@@ -1005,7 +1175,7 @@ export default function ExploreScreen({ navigation, route }) {
             <Ionicons
               name={hideReddit ? 'eye-off' : 'logo-reddit'}
               size={14}
-              color={hideReddit ? COLORS.accent : COLORS.textSecondary}
+              color={hideReddit ? colors.accent : colors.textSecondary}
             />
             <Text style={[styles.catPillLabel, hideReddit && styles.catPillLabelActive]}>
               {hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
@@ -1020,7 +1190,7 @@ export default function ExploreScreen({ navigation, route }) {
           onPress={() => setFilterSheetOpen(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? COLORS.accent : COLORS.textSecondary} />
+          <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? colors.accent : colors.textSecondary} />
           <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>
             {activeFilterCount > 0 ? `${activeFilterCount} Active` : 'Filters'}
           </Text>
@@ -1032,9 +1202,9 @@ export default function ExploreScreen({ navigation, route }) {
           </Text>
 
           <TouchableOpacity style={styles.sortBtn} onPress={() => setSortSheetOpen(true)} activeOpacity={0.7}>
-            <Ionicons name={currentSort?.icon || 'swap-vertical'} size={14} color={COLORS.textSecondary} />
+            <Ionicons name={currentSort?.icon || 'swap-vertical'} size={14} color={colors.textSecondary} />
             <Text style={styles.sortBtnText}>{currentSort?.label || 'Sort'}</Text>
-            <Ionicons name="chevron-down" size={12} color={COLORS.textMuted} />
+            <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
           </TouchableOpacity>
 
           <LayoutToggleButton columns={columns} onToggle={toggleColumns} />
@@ -1044,7 +1214,7 @@ export default function ExploreScreen({ navigation, route }) {
       {activeFilterCount > 0 && activeTab !== 'all' && (
         <View style={styles.activeChips}>
           <TouchableOpacity style={styles.clearAllChip} onPress={resetFilters}>
-            <Ionicons name="close-circle" size={14} color={COLORS.accent} />
+            <Ionicons name="close-circle" size={14} color={colors.accent} />
             <Text style={styles.clearAllText}>Clear all</Text>
           </TouchableOpacity>
         </View>
@@ -1052,7 +1222,7 @@ export default function ExploreScreen({ navigation, route }) {
 
       {(search.trim() || activeTab !== 'all' || activeFilterCount > 0) && (
         <TouchableOpacity style={styles.saveSearchBtn} onPress={handleSaveSearch} activeOpacity={0.7}>
-          <Ionicons name="bookmark-outline" size={14} color={COLORS.accent} />
+          <Ionicons name="bookmark-outline" size={14} color={colors.accent} />
           <Text style={styles.saveSearchText}>Save this search</Text>
         </TouchableOpacity>
       )}
@@ -1077,7 +1247,7 @@ export default function ExploreScreen({ navigation, route }) {
           ListHeaderComponent={renderHeader}
           keyboardShouldPersistTaps="handled"
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
           }
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
@@ -1086,7 +1256,7 @@ export default function ExploreScreen({ navigation, route }) {
           ListFooterComponent={renderCTA}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={44} color={COLORS.textMuted} />
+              <Ionicons name="search-outline" size={44} color={colors.textMuted} />
               <Text style={styles.emptyTitle}>No listings found</Text>
               <Text style={styles.emptySubtitle}>
                 {search ? 'Try a different search term' : 'Check back later for new listings'}
@@ -1107,6 +1277,7 @@ export default function ExploreScreen({ navigation, route }) {
           onSelect={pickerState.onSelect}
           onClose={closePicker}
           selectedValue={pickerState.selectedValue}
+          colors={colors}
         />
       </BottomSheet>
 
@@ -1120,6 +1291,7 @@ export default function ExploreScreen({ navigation, route }) {
           onReset={resetFilters}
           openPicker={openPicker}
           yearOptions={yearOptions}
+          colors={colors}
         />
       </BottomSheet>
 
@@ -1131,11 +1303,11 @@ export default function ExploreScreen({ navigation, route }) {
             onPress={() => { setSortBy(opt.key); setSortSheetOpen(false); }}
             activeOpacity={0.7}
           >
-            <Ionicons name={opt.icon} size={18} color={sortBy === opt.key ? COLORS.accent : COLORS.textSecondary} />
+            <Ionicons name={opt.icon} size={18} color={sortBy === opt.key ? colors.accent : colors.textSecondary} />
             <Text style={[sortStyles.optionText, sortBy === opt.key && sortStyles.optionTextActive]}>
               {opt.label}
             </Text>
-            {sortBy === opt.key && <Ionicons name="checkmark" size={18} color={COLORS.accent} />}
+            {sortBy === opt.key && <Ionicons name="checkmark" size={18} color={colors.accent} />}
           </TouchableOpacity>
         ))}
       </BottomSheet>
@@ -1145,177 +1317,13 @@ export default function ExploreScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-
-  hero: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  heroKicker: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 4,
-  },
-  heroTitle: {
-    color: COLORS.white,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-
-  searchWrap: { paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 16, paddingVertical: 11, gap: 10,
-    borderWidth: 1, borderColor: COLORS.borderLight,
-  },
-  searchInput: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.md },
-
-  catRowWrap: { marginBottom: SPACING.md },
-  catRow: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, gap: 8,
-  },
-  catPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.borderLight,
-  },
-  catPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.accent + '40' },
-  catPillLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
-  catPillLabelActive: { color: COLORS.accent },
-  catPillCount: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-
-  controlsRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: SPACING.md, marginBottom: SPACING.md,
-  },
-  controlsRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  filterBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.borderLight,
-  },
-  filterBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.accent + '40' },
-  filterBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-  filterBtnTextActive: { color: COLORS.accent },
-  resultCount: { color: COLORS.textMuted, fontSize: FONT_SIZES.sm },
-  sortBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.borderLight,
-  },
-  sortBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '500' },
-
-  activeChips: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
-  clearAllChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: BORDER_RADIUS.pill,
-  },
-  clearAllText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-  saveSearchBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
-    marginHorizontal: SPACING.md, marginBottom: SPACING.sm,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: BORDER_RADIUS.pill,
-    borderWidth: 1, borderColor: COLORS.borderLight,
-  },
-  saveSearchText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-
-  listContent: { paddingBottom: TAB_BAR_CLEARANCE },
-  listContentGrid: { paddingBottom: TAB_BAR_CLEARANCE, paddingHorizontal: SPACING.md - SPACING.xs },
-
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl,
-    overflow: 'hidden', marginHorizontal: SPACING.md, marginBottom: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.borderLight,
-  },
-  cardOuterGrid: { flex: 1, marginHorizontal: SPACING.xs },
-  cardGrid: { marginHorizontal: 0 },
-  cardHighlighted: { borderWidth: 2, borderColor: COLORS.warning },
-  cardImageWrap: { height: 210, position: 'relative' },
-  cardPlateWrap: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: COLORS.surfaceDark,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-  },
-  cardImageWrapGrid: { height: 130 },
-  cardImage: { width: '100%', height: '100%' },
-  cardImagePlaceholder: {
-    width: '100%', height: '100%', backgroundColor: COLORS.surfaceDark,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  cardCatBadge: {
-    position: 'absolute', top: 8, left: 8,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm,
-  },
-  cardCatText: { color: COLORS.white, fontSize: 10, fontWeight: '700' },
-  cardSaveBtn: {
-    position: 'absolute', top: 8, right: 8,
-    width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cardFeatured: {
-    position: 'absolute', bottom: 8, left: 8,
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: COLORS.accent, paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  cardFeaturedText: { color: COLORS.black, fontSize: 9, fontWeight: '700' },
-
-  cardBody: { paddingHorizontal: 14, paddingVertical: 14 },
-  // Grid (2-col) cards get a fixed body height so both FlashList columns stay
-  // aligned regardless of title/subtitle length or mixed categories. Content is
-  // top-aligned; shorter cards just leave whitespace. overflow clips the rare
-  // 2-line-title + subtitle + location combo.
-  cardBodyGrid: { height: 148, overflow: 'hidden' },
-  cardPrice: {
-    color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6,
-  },
-  cardTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 6 },
-  cardSubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8, lineHeight: 18 },
-  cardLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cardLocation: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs },
-
-  loadMoreWrap: { paddingVertical: SPACING.md, alignItems: 'center' },
-  ctaCard: {
-    marginHorizontal: SPACING.md, marginTop: SPACING.sm, marginBottom: SPACING.md,
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden',
-    borderWidth: 1, borderColor: COLORS.accent + '30',
-  },
-  ctaContent: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: SPACING.md,
-  },
-  ctaLeft: { flex: 1 },
-  ctaTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 2 },
-  ctaSubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  ctaIconWrap: { marginLeft: SPACING.md },
-
-  emptyContainer: { alignItems: 'center', paddingTop: SPACING.xxl * 2, paddingHorizontal: SPACING.lg },
-  emptyTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: SPACING.md, marginBottom: SPACING.xs },
-  emptySubtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, textAlign: 'center' },
-  clearSearchBtn: {
-    marginTop: SPACING.md, backgroundColor: COLORS.surface,
-    paddingHorizontal: 20, paddingVertical: 10, borderRadius: BORDER_RADIUS.pill,
-  },
-  clearSearchText: { color: COLORS.accent, fontWeight: '600' },
-});
-
-const sortStyles = StyleSheet.create({
+const sortStylesFor = (colors) => StyleSheet.create({
   option: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 14, paddingHorizontal: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
   },
-  optionActive: { backgroundColor: COLORS.primary },
-  optionText: { color: COLORS.white, fontSize: FONT_SIZES.md, flex: 1 },
-  optionTextActive: { color: COLORS.accent, fontWeight: '600' },
+  optionActive: { backgroundColor: colors.primary },
+  optionText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+  optionTextActive: { color: colors.accent, fontWeight: '600' },
 });
