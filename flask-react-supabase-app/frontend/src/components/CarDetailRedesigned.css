@@ -34,6 +34,23 @@
   }
 }
 
+/* Toggle-driven dark mode (.dark on <html>) — mirrors the prefers-color-scheme
+   block above so users who explicitly pick dark get the same palette. */
+.dark :root {
+  --cd-color-background-primary: #0a0a0a;
+  --cd-color-background-secondary: #1a1a1a;
+  --cd-color-text-primary: #ffffff;
+  --cd-color-text-secondary: #999999;
+  --cd-color-border-tertiary: #2a2a2a;
+  --cd-color-border-secondary: #3a3a3a;
+  --cd-color-info: #4da3ff;
+  --cd-color-info-bg: #1a2a3a;
+  --cd-color-success: #4dff4d;
+  --cd-color-success-bg: #1a3a1a;
+  --cd-color-warning: #ffb84d;
+  --cd-color-warning-bg: #3a2a1a;
+}
+
 .cd-container {
   min-height: 100vh;
   padding: 0 1.5rem 3rem;

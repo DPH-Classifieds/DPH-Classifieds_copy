@@ -6,6 +6,7 @@ import { useSavedListings } from '../context/SavedListingsContext';
 import LoadingSpinner from './LoadingSpinner';
 import UAELicensePlate from './UAELicensePlate';
 import '../styles/MyListings.css';
+import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const LISTING_PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
@@ -896,7 +897,7 @@ const MyListings = () => {
                       width: 28,
                       height: 6,
                       borderRadius: 3,
-                      background: i < listingLimit.current ? '#8bd6b4' : 'rgba(255,255,255,0.1)',
+                      background: i < listingLimit.current ? 'var(--ex-accent-green)' : 'var(--ex-line)',
                       transition: 'background 0.2s',
                     }}
                   />
@@ -904,7 +905,7 @@ const MyListings = () => {
               </div>
             ) : null}
             {!hasUnlimitedListings && hasPerTypeLimits ? (
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+              <span style={{ fontSize: 13, color: 'var(--ex-text-muted)' }}>
                 Cars {listingLimitPerType?.car?.current ?? 0}/{listingLimitPerType?.car?.max ?? 4}
                 {' • '}
                 Bikes {listingLimitPerType?.bike?.current ?? 0}/{listingLimitPerType?.bike?.max ?? 4}
@@ -914,11 +915,11 @@ const MyListings = () => {
                 Parts {listingLimitPerType?.part?.current ?? 0}/{listingLimitPerType?.part?.max ?? 4}
               </span>
             ) : null}
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+            <span style={{ fontSize: 13, color: 'var(--ex-text-muted)' }}>
               {hasUnlimitedListings ? (
                 <>
                   {listingLimit.current} listings used
-                  <span style={{ color: '#8bd6b4', marginLeft: 4 }}>(unlimited for your account)</span>
+                  <span style={{ color: 'var(--ex-accent-green)', marginLeft: 4 }}>(unlimited for your account)</span>
                 </>
               ) : hasPerTypeLimits ? (
                 <>
@@ -928,7 +929,7 @@ const MyListings = () => {
                 <>
                   {listingLimit.current} of {listingLimit.max} listings used
                   {listingLimit.remaining > 0 && (
-                    <span style={{ color: '#8bd6b4', marginLeft: 4 }}>({listingLimit.remaining} left)</span>
+                    <span style={{ color: 'var(--ex-accent-green)', marginLeft: 4 }}>({listingLimit.remaining} left)</span>
                   )}
                   {listingLimit.remaining === 0 && (
                     <span style={{ color: '#ef4444', marginLeft: 4 }}>(limit reached)</span>

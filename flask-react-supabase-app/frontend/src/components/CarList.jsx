@@ -200,10 +200,17 @@ const CarList = () => {
       params.append('limit', String(LIST_PAGE_SIZE));
       params.append('offset', String(Math.max(0, offset)));
       
-      // Add all active filters, excluding empty values
+      // Add all active filters. exclude_reddit is sent explicitly (true|false)
+      // because the backend default (_should_hide_reddit(False, False, False)
+      // → True at app.py:18898-18906) hides Reddit rows when the param is
+      // omitted, which would contradict the unchecked UI label.
       const activeFilters = { ...filters, ...filterParams };
       Object.entries(activeFilters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
+        if (key === 'exclude_reddit') {
+          params.append('exclude_reddit', value ? 'true' : 'false');
+        } else if (value) {
+          params.append(key, value);
+        }
       });
       
       const queryString = params.toString() ? `?${params.toString()}` : '';

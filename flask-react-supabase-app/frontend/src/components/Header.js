@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { accentText, line, surfaceDark } from '../lib/themeClasses';
+import './ExplorePage.css';
 import ProfileMenu from './ProfileMenu';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Button } from './ui/button';
@@ -142,8 +144,8 @@ const Header = () => {
   };
 
   const headerTone = scrolled
-    ? 'border-b border-white/10 bg-[rgba(4,16,8,0.95)] shadow-[0_18px_48px_rgba(0,0,0,0.3)]'
-    : 'border-b border-white/5 bg-[rgba(4,16,8,0.85)]';
+    ? `border-b ${line} ${surfaceDark} shadow-[0_18px_48px_rgba(0,0,0,0.3)]`
+    : `border-b border-white/5 ${surfaceDark}`;
 
   return (
     <header
@@ -153,7 +155,7 @@ const Header = () => {
         {/* Logo */}
         <Link to="/" onClick={handleHomeNavigation} className="flex items-center text-white transition-opacity hover:opacity-80">
           <span className="text-[1.3rem] font-bold tracking-[-0.03em] text-white">
-            DPH<span className="text-[#8bd6b4]">Classifieds</span>
+            DPH<span className={accentText}>Classifieds</span>
           </span>
         </Link>
 
@@ -322,7 +324,7 @@ const Header = () => {
               <SheetTitle>
                 <Link to="/" onClick={handleHomeNavigation} className="flex items-center gap-3 text-left text-white">
                   <span className="text-[1.2rem] font-bold tracking-[-0.03em] text-white">
-                    DPH<span className="text-[#8bd6b4]">Classifieds</span>
+            DPH<span className={accentText}>Classifieds</span>
                   </span>
                 </Link>
               </SheetTitle>
