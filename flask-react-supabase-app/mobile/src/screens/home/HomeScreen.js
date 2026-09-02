@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, FlatList, TouchableOpacity, RefreshControl, Image, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +6,8 @@ import apiClient from '../../utils/apiClient';
 import { formatPrice, formatNumber } from '../../utils/formatters';
 import SearchBar from '../../components/ui/SearchBar';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const CATEGORIES = [
   { id: 'cars', label: 'Cars', icon: 'car', screen: 'CarList' },
@@ -38,6 +39,140 @@ const DETAIL_SCREENS = {
 };
 
 export default function HomeScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        scrollView: {
+          flex: 1,
+        },
+        scrollContent: {
+          paddingBottom: SPACING.xxl,
+        },
+        topBar: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: SPACING.md,
+          paddingTop: SPACING.sm,
+          paddingBottom: SPACING.md,
+        },
+        logoText: {
+          fontSize: 28,
+          fontWeight: '800',
+          color: colors.accent,
+          letterSpacing: 1,
+        },
+        bellButton: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: colors.surface,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        searchBar: {
+          marginHorizontal: SPACING.md,
+          marginBottom: SPACING.md,
+        },
+        section: {
+          marginBottom: SPACING.lg,
+        },
+        sectionHeader: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: SPACING.md,
+          marginBottom: SPACING.sm,
+        },
+        sectionTitle: {
+          fontSize: FONT_SIZES.lg,
+          fontWeight: '700',
+          color: colors.textPrimary,
+        },
+        seeAllText: {
+          fontSize: FONT_SIZES.sm,
+          color: colors.accent,
+          fontWeight: '600',
+        },
+        categoriesList: {
+          paddingHorizontal: SPACING.md,
+          gap: SPACING.sm,
+        },
+        categoryCard: {
+          width: 100,
+          height: 80,
+          backgroundColor: colors.surface,
+          borderRadius: BORDER_RADIUS.lg,
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: SPACING.xs,
+        },
+        categoryLabel: {
+          fontSize: FONT_SIZES.sm,
+          color: colors.textPrimary,
+          fontWeight: '500',
+        },
+        horizontalList: {
+          paddingHorizontal: SPACING.md,
+          gap: SPACING.sm,
+        },
+        horizontalCard: {
+          width: 180,
+          backgroundColor: colors.surface,
+          borderRadius: BORDER_RADIUS.lg,
+          overflow: 'hidden',
+        },
+        horizontalImage: {
+          width: '100%',
+          height: 110,
+        },
+        imagePlaceholder: {
+          width: '100%',
+          height: 110,
+          backgroundColor: colors.surfaceDark,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        horizontalCardContent: {
+          padding: SPACING.sm,
+        },
+        cardTitle: {
+          fontSize: FONT_SIZES.sm,
+          fontWeight: '600',
+          color: colors.textPrimary,
+          marginBottom: 4,
+        },
+        cardPrice: {
+          fontSize: FONT_SIZES.md,
+          fontWeight: '700',
+          color: colors.accent,
+          marginBottom: 4,
+        },
+        emptyState: {
+          alignItems: 'center',
+          paddingTop: SPACING.xxl * 2,
+          paddingHorizontal: SPACING.lg,
+        },
+        emptyTitle: {
+          fontSize: FONT_SIZES.xl,
+          fontWeight: '600',
+          color: colors.textPrimary,
+          marginTop: SPACING.md,
+          marginBottom: SPACING.sm,
+        },
+        emptySubtitle: {
+          fontSize: FONT_SIZES.md,
+          color: colors.textSecondary,
+          textAlign: 'center',
+        },
+      }),
+    [colors]
+  );
   const [homepageData, setHomepageData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,7 +222,7 @@ export default function HomeScreen({ navigation }) {
       onPress={() => navigation.navigate(item.screen)}
       activeOpacity={0.7}
     >
-      <Ionicons name={item.icon} size={28} color={COLORS.accent} />
+      <Ionicons name={item.icon} size={28} color={colors.accent} />
       <Text style={styles.categoryLabel}>{item.label}</Text>
     </TouchableOpacity>
   );
@@ -111,7 +246,7 @@ export default function HomeScreen({ navigation }) {
           <Image source={{ uri: getImageUri(item) }} style={styles.horizontalImage} resizeMode="cover" />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Ionicons name={type === 'cars' ? 'car' : type === 'bikes' ? 'bicycle' : type === 'plates' ? 'key' : 'construct'} size={32} color={COLORS.textMuted} />
+            <Ionicons name={type === 'cars' ? 'car' : type === 'bikes' ? 'bicycle' : type === 'plates' ? 'key' : 'construct'} size={32} color={colors.textMuted} />
           </View>
         )}
         <View style={styles.horizontalCardContent}>
@@ -157,8 +292,8 @@ export default function HomeScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.accent}
-            colors={[COLORS.accent]}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -170,7 +305,7 @@ export default function HomeScreen({ navigation }) {
             onPress={() => Alert.alert('Notifications', 'No new notifications')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="notifications-outline" size={24} color={COLORS.white} />
+            <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -214,7 +349,7 @@ export default function HomeScreen({ navigation }) {
 
         {!loading && !hasAnyData && (
           <View style={styles.emptyState}>
-            <Ionicons name="car" size={64} color={COLORS.textMuted} />
+            <Ionicons name="car" size={64} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No Listings Yet</Text>
             <Text style={styles.emptySubtitle}>
               Check back later for new listings in your area.
@@ -225,133 +360,3 @@ export default function HomeScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: SPACING.xxl,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
-  },
-  logoText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.accent,
-    letterSpacing: 1,
-  },
-  bellButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchBar: {
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  section: {
-    marginBottom: SPACING.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  seeAllText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.accent,
-    fontWeight: '600',
-  },
-  categoriesList: {
-    paddingHorizontal: SPACING.md,
-    gap: SPACING.sm,
-  },
-  categoryCard: {
-    width: 100,
-    height: 80,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  categoryLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.white,
-    fontWeight: '500',
-  },
-  horizontalList: {
-    paddingHorizontal: SPACING.md,
-    gap: SPACING.sm,
-  },
-  horizontalCard: {
-    width: 180,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-  },
-  horizontalImage: {
-    width: '100%',
-    height: 110,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: 110,
-    backgroundColor: '#1a1a1c',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  horizontalCardContent: {
-    padding: SPACING.sm,
-  },
-  cardTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginBottom: 4,
-  },
-  cardPrice: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.accent,
-    marginBottom: 4,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingTop: SPACING.xxl * 2,
-    paddingHorizontal: SPACING.lg,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  emptySubtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-});

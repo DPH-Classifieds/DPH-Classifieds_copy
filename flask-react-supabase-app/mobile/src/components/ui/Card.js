@@ -1,8 +1,33 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
-import { COLORS, BORDER_RADIUS, SPACING } from '../../constants/theme';
+import { BORDER_RADIUS, SPACING } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function Card({ children, style, onPress, variant = 'default' }) {
+  const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        base: {
+          backgroundColor: colors.surface,
+          borderRadius: BORDER_RADIUS.lg,
+          padding: SPACING.md,
+        },
+        elevated: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 6,
+        },
+        outlined: {
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+      }),
+    [colors]
+  );
+
   const cardStyle = [
     styles.base,
     variant === 'elevated' && styles.elevated,
@@ -20,22 +45,3 @@ export default function Card({ children, style, onPress, variant = 'default' }) 
 
   return <View style={cardStyle}>{children}</View>;
 }
-
-const styles = StyleSheet.create({
-  base: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-  },
-  elevated: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  outlined: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-});

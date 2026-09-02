@@ -10,7 +10,7 @@ import { resolveMediaUrl } from '../../utils/media';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { isPushEnabledPref, setPushEnabledPref } from '../../utils/pushNotifications';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { UAE_EMIRATES, EMIRATE_AREAS } from '../../utils/listingConstants';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -182,10 +182,10 @@ export default function SettingsScreen({ navigation }) {
     if (/[0-9]/.test(pw)) score++;
     if (/[^A-Za-z0-9]/.test(pw)) score++;
 
-    if (score <= 2) return { score: 1, label: 'Weak', color: COLORS.error };
-    if (score <= 3) return { score: 2, label: 'Fair', color: COLORS.warning };
-    if (score <= 4) return { score: 3, label: 'Good', color: COLORS.info };
-    return { score: 4, label: 'Strong', color: COLORS.success };
+    if (score <= 2) return { score: 1, label: 'Weak', color: themeColors.error };
+    if (score <= 3) return { score: 2, label: 'Fair', color: themeColors.warning };
+    if (score <= 4) return { score: 3, label: 'Good', color: themeColors.info };
+    return { score: 4, label: 'Strong', color: themeColors.success };
   };
 
   const passwordStrength = getPasswordStrength(newPassword);
@@ -283,7 +283,7 @@ export default function SettingsScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.accent} colors={[themeColors.accent]} />
         }
       >
         <View style={styles.photoSection}>
@@ -292,11 +292,11 @@ export default function SettingsScreen({ navigation }) {
               <Image source={{ uri: resolveMediaUrl(profilePhoto) }} style={styles.photo} />
             ) : (
               <View style={styles.photoPlaceholder}>
-                <Ionicons name="camera-outline" size={32} color={COLORS.textMuted} />
+                <Ionicons name="camera-outline" size={32} color={themeColors.textMuted} />
               </View>
             )}
             <View style={styles.photoBadge}>
-              <Ionicons name="pencil" size={12} color={COLORS.background} />
+              <Ionicons name="pencil" size={12} color={themeColors.background} />
             </View>
           </TouchableOpacity>
           <Text style={styles.photoHint}>Tap to change photo</Text>
@@ -401,8 +401,8 @@ export default function SettingsScreen({ navigation }) {
               icon="at-outline"
             />
             {usernameChecking && <Text style={styles.usernameHint}>Checking availability...</Text>}
-            {usernameStatus === 'available' && <Text style={[styles.usernameHint, { color: COLORS.success }]}>Username available</Text>}
-            {usernameStatus === 'taken' && <Text style={[styles.usernameHint, { color: COLORS.error }]}>Username already taken</Text>}
+            {usernameStatus === 'available' && <Text style={[styles.usernameHint, { color: themeColors.success }]}>Username available</Text>}
+            {usernameStatus === 'taken' && <Text style={[styles.usernameHint, { color: themeColors.error }]}>Username already taken</Text>}
           </View>
 
           <Input
@@ -415,12 +415,12 @@ export default function SettingsScreen({ navigation }) {
           />
 
           <View>
-            <Text style={{ color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 6, fontWeight: '500' }}>Bio</Text>
+            <Text style={{ color: themeColors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 6, fontWeight: '500' }}>Bio</Text>
             <TextInput
               value={bio}
               onChangeText={setBio}
               placeholder="Tell others about yourself..."
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               multiline
               numberOfLines={3}
               style={styles.bioInput}
@@ -440,11 +440,11 @@ export default function SettingsScreen({ navigation }) {
               onPress={() => setShowEmiratePicker(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="location-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 10 }} />
-              <Text style={[styles.pickerButtonText, !emirate && { color: COLORS.textMuted }]}>
+              <Ionicons name="location-outline" size={18} color={themeColors.textMuted} style={{ marginRight: 10 }} />
+              <Text style={[styles.pickerButtonText, !emirate && { color: themeColors.textMuted }]}>
                 {emirate || 'Select Emirate'}
               </Text>
-              <Ionicons name="chevron-down" size={18} color={COLORS.textMuted} />
+              <Ionicons name="chevron-down" size={18} color={themeColors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -456,11 +456,11 @@ export default function SettingsScreen({ navigation }) {
                 onPress={() => setShowAreaPicker(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="map-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 10 }} />
-                <Text style={[styles.pickerButtonText, !area && { color: COLORS.textMuted }]}>
+                <Ionicons name="map-outline" size={18} color={themeColors.textMuted} style={{ marginRight: 10 }} />
+                <Text style={[styles.pickerButtonText, !area && { color: themeColors.textMuted }]}>
                   {area || 'Select Area'}
                 </Text>
-                <Ionicons name="chevron-down" size={18} color={COLORS.textMuted} />
+                <Ionicons name="chevron-down" size={18} color={themeColors.textMuted} />
               </TouchableOpacity>
             </View>
           ) : null}
@@ -497,7 +497,7 @@ export default function SettingsScreen({ navigation }) {
                     style={[
                       styles.strengthBar,
                       {
-                        backgroundColor: i <= passwordStrength.score ? passwordStrength.color : COLORS.surfaceHigher,
+                        backgroundColor: i <= passwordStrength.score ? passwordStrength.color : themeColors.surfaceHigher,
                       },
                     ]}
                   />
@@ -518,7 +518,7 @@ export default function SettingsScreen({ navigation }) {
             icon="lock-closed-outline"
           />
           {confirmPassword.length > 0 && newPassword !== confirmPassword && (
-            <Text style={{ color: COLORS.error, fontSize: FONT_SIZES.xs, marginTop: -8, marginBottom: 12, marginLeft: 4 }}>
+            <Text style={{ color: themeColors.error, fontSize: FONT_SIZES.xs, marginTop: -8, marginBottom: 12, marginLeft: 4 }}>
               Passwords do not match
             </Text>
           )}
@@ -541,7 +541,7 @@ export default function SettingsScreen({ navigation }) {
           <View style={styles.toggleCard}>
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="notifications-outline" size={20} color={COLORS.white} />
+                <Ionicons name="notifications-outline" size={20} color={themeColors.white} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>Push Notifications</Text>
                   <Text style={styles.toggleDesc}>Instant alerts for leads, saved cars, and expiring listings</Text>
@@ -550,14 +550,14 @@ export default function SettingsScreen({ navigation }) {
               <Switch
                 value={notifPush}
                 onValueChange={handleTogglePush}
-                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: themeColors.surfaceHigher, true: themeColors.accent }}
+                thumbColor={themeColors.white}
               />
             </View>
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="mail-outline" size={20} color={COLORS.white} />
+                <Ionicons name="mail-outline" size={20} color={themeColors.white} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>Email Notifications</Text>
                   <Text style={styles.toggleDesc}>Get notified about your listings via email</Text>
@@ -566,14 +566,14 @@ export default function SettingsScreen({ navigation }) {
               <Switch
                 value={notifEmail}
                 onValueChange={setNotifEmail}
-                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: themeColors.surfaceHigher, true: themeColors.accent }}
+                thumbColor={themeColors.white}
               />
             </View>
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="chatbubble-outline" size={20} color={COLORS.white} />
+                <Ionicons name="chatbubble-outline" size={20} color={themeColors.white} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>SMS Notifications</Text>
                   <Text style={styles.toggleDesc}>Receive text messages for important updates</Text>
@@ -582,14 +582,14 @@ export default function SettingsScreen({ navigation }) {
               <Switch
                 value={notifSms}
                 onValueChange={setNotifSms}
-                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: themeColors.surfaceHigher, true: themeColors.accent }}
+                thumbColor={themeColors.white}
               />
             </View>
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="megaphone-outline" size={20} color={COLORS.white} />
+                <Ionicons name="megaphone-outline" size={20} color={themeColors.white} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>Marketing Emails</Text>
                   <Text style={styles.toggleDesc}>Receive tips, promotions, and news</Text>
@@ -598,8 +598,8 @@ export default function SettingsScreen({ navigation }) {
               <Switch
                 value={notifMarketing}
                 onValueChange={setNotifMarketing}
-                trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: themeColors.surfaceHigher, true: themeColors.accent }}
+                thumbColor={themeColors.white}
               />
             </View>
           </View>
@@ -624,11 +624,11 @@ export default function SettingsScreen({ navigation }) {
               <Ionicons
                 name={dealerStatus === 'verified' ? 'checkmark-circle' : 'time-outline'}
                 size={24}
-                color={dealerStatus === 'verified' ? COLORS.success : COLORS.warning}
+                color={dealerStatus === 'verified' ? themeColors.success : themeColors.warning}
               />
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <Text style={styles.dealerStatusLabel}>Dealer Status</Text>
-                <Text style={[styles.dealerStatusValue, { color: dealerStatus === 'verified' ? COLORS.success : COLORS.warning }]}>
+                <Text style={[styles.dealerStatusValue, { color: dealerStatus === 'verified' ? themeColors.success : themeColors.warning }]}>
                   {dealerStatus === 'verified' ? 'Verified Dealer' : dealerStatus === 'pending' ? 'Verification Pending' : dealerStatus}
                 </Text>
               </View>
@@ -638,7 +638,7 @@ export default function SettingsScreen({ navigation }) {
               <View style={styles.toggleCard}>
                 <View style={styles.toggleRow}>
                   <View style={styles.toggleInfo}>
-                    <Ionicons name="business-outline" size={20} color={COLORS.white} />
+                    <Ionicons name="business-outline" size={20} color={themeColors.white} />
                     <View style={styles.toggleTextWrap}>
                       <Text style={styles.toggleLabel}>Become a Dealer / Business Account</Text>
                       <Text style={styles.toggleDesc}>List vehicles as a business and reach more buyers</Text>
@@ -647,8 +647,8 @@ export default function SettingsScreen({ navigation }) {
                   <Switch
                     value={isDealer}
                     onValueChange={setIsDealer}
-                    trackColor={{ false: COLORS.surfaceHigher, true: COLORS.accent }}
-                    thumbColor={COLORS.white}
+                    trackColor={{ false: themeColors.surfaceHigher, true: themeColors.accent }}
+                    thumbColor={themeColors.white}
                   />
                 </View>
               </View>
@@ -699,7 +699,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Emirate</Text>
               <TouchableOpacity onPress={() => setShowEmiratePicker(false)}>
-                <Ionicons name="close" size={24} color={COLORS.white} />
+                <Ionicons name="close" size={24} color={themeColors.white} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -717,7 +717,7 @@ export default function SettingsScreen({ navigation }) {
                   <Text style={[styles.modalItemText, emirate === item && styles.modalItemTextActive]}>
                     {item}
                   </Text>
-                  {emirate === item && <Ionicons name="checkmark" size={20} color={COLORS.accent} />}
+                  {emirate === item && <Ionicons name="checkmark" size={20} color={themeColors.accent} />}
                 </TouchableOpacity>
               )}
             />
@@ -731,7 +731,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Area ({emirate})</Text>
               <TouchableOpacity onPress={() => setShowAreaPicker(false)}>
-                <Ionicons name="close" size={24} color={COLORS.white} />
+                <Ionicons name="close" size={24} color={themeColors.white} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -748,7 +748,7 @@ export default function SettingsScreen({ navigation }) {
                   <Text style={[styles.modalItemText, area === item && styles.modalItemTextActive]}>
                     {item}
                   </Text>
-                  {area === item && <Ionicons name="checkmark" size={20} color={COLORS.accent} />}
+                  {area === item && <Ionicons name="checkmark" size={20} color={themeColors.accent} />}
                 </TouchableOpacity>
               )}
             />
@@ -757,12 +757,12 @@ export default function SettingsScreen({ navigation }) {
       </Modal>
     </SafeAreaView>
   );
-}
 
-const styles = StyleSheet.create({
+  const styles = useMemo(
+    () => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: themeColors.black,
   },
   scrollContent: {
     paddingBottom: 40,
@@ -786,11 +786,11 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: COLORS.surface,
+    backgroundColor: themeColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: themeColors.border,
     borderStyle: 'dashed',
   },
   photoBadge: {
@@ -800,15 +800,15 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: COLORS.accent,
+    backgroundColor: themeColors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.black,
+    borderColor: themeColors.black,
   },
   photoHint: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.textMuted,
+    color: themeColors.textMuted,
     marginTop: SPACING.sm,
   },
   form: {
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
   completionBar: {
     marginBottom: SPACING.lg,
     padding: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: themeColors.surface,
     borderRadius: BORDER_RADIUS.md,
   },
   completionHeader: {
@@ -829,41 +829,41 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   completionLabel: {
-    color: COLORS.white,
+    color: themeColors.white,
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',
   },
   completionPercent: {
-    color: COLORS.accent,
+    color: themeColors.accent,
     fontSize: FONT_SIZES.sm,
     fontWeight: '700',
   },
   completionTrack: {
     height: 6,
-    backgroundColor: COLORS.surfaceHigher,
+    backgroundColor: themeColors.surfaceHigher,
     borderRadius: 3,
     overflow: 'hidden',
   },
   completionFill: {
     height: '100%',
-    backgroundColor: COLORS.accent,
+    backgroundColor: themeColors.accent,
     borderRadius: 3,
   },
   usernameHint: {
-    color: COLORS.textMuted,
+    color: themeColors.textMuted,
     fontSize: FONT_SIZES.xs,
     marginTop: -8,
     marginBottom: 12,
     marginLeft: 4,
   },
   bioInput: {
-    backgroundColor: COLORS.surfaceHigher,
+    backgroundColor: themeColors.surfaceHigher,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: themeColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: COLORS.white,
+    color: themeColors.white,
     fontSize: FONT_SIZES.md,
     minHeight: 80,
     textAlignVertical: 'top',
@@ -878,10 +878,10 @@ const styles = StyleSheet.create({
   sectionDividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: themeColors.border,
   },
   sectionDividerText: {
-    color: COLORS.white,
+    color: themeColors.white,
     fontSize: FONT_SIZES.md,
     fontWeight: '700',
   },
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pickerLabel: {
-    color: COLORS.textSecondary,
+    color: themeColors.textSecondary,
     fontSize: FONT_SIZES.sm,
     marginBottom: 6,
     fontWeight: '500',
@@ -897,16 +897,16 @@ const styles = StyleSheet.create({
   pickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceHigher,
+    backgroundColor: themeColors.surfaceHigher,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: themeColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   pickerButtonText: {
     flex: 1,
-    color: COLORS.white,
+    color: themeColors.white,
     fontSize: FONT_SIZES.md,
   },
   modalOverlay: {
@@ -915,7 +915,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: themeColors.surface,
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
     maxHeight: '60%',
@@ -927,10 +927,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: themeColors.border,
   },
   modalTitle: {
-    color: COLORS.white,
+    color: themeColors.white,
     fontSize: FONT_SIZES.lg,
     fontWeight: '700',
   },
@@ -941,17 +941,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: 14,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.borderLight,
+    borderBottomColor: themeColors.borderLight,
   },
   modalItemActive: {
-    backgroundColor: COLORS.surfaceHigher,
+    backgroundColor: themeColors.surfaceHigher,
   },
   modalItemText: {
-    color: COLORS.textSecondary,
+    color: themeColors.textSecondary,
     fontSize: FONT_SIZES.md,
   },
   modalItemTextActive: {
-    color: COLORS.accent,
+    color: themeColors.accent,
     fontWeight: '600',
   },
   passwordStrengthContainer: {
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   toggleCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: themeColors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -998,25 +998,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toggleLabel: {
-    color: COLORS.white,
+    color: themeColors.white,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
   },
   toggleDesc: {
-    color: COLORS.textMuted,
+    color: themeColors.textMuted,
     fontSize: FONT_SIZES.xs,
     marginTop: 2,
   },
   dealerStatusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: themeColors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
   },
   dealerStatusLabel: {
-    color: COLORS.textMuted,
+    color: themeColors.textMuted,
     fontSize: FONT_SIZES.xs,
   },
   dealerStatusValue: {
@@ -1026,7 +1026,11 @@ const styles = StyleSheet.create({
   dealerFields: {
     marginBottom: SPACING.sm,
   },
-});
+    }),
+    [themeColors]
+  );
+}
+
 
 // Colors for this block come from useTheme() inline (see JSX) — it's the one
 // part of this screen that must respond live to the toggle it renders.

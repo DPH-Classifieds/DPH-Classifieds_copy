@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function Input({
   label,
@@ -17,13 +18,57 @@ export default function Input({
   style,
   ...rest
 }) {
+  const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          marginBottom: 16,
+        },
+        label: {
+          color: colors.textSecondary,
+          fontSize: FONT_SIZES.sm,
+          marginBottom: 6,
+          fontWeight: '500',
+        },
+        inputWrapper: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: colors.surfaceHigher,
+          borderRadius: BORDER_RADIUS.md,
+          borderWidth: 1,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+        },
+        icon: {
+          marginRight: 10,
+        },
+        input: {
+          flex: 1,
+          color: colors.textPrimary,
+          fontSize: FONT_SIZES.md,
+          padding: 0,
+        },
+        multiline: {
+          minHeight: 80,
+          textAlignVertical: 'top',
+        },
+        error: {
+          color: colors.error,
+          fontSize: FONT_SIZES.sm,
+          marginTop: 4,
+        },
+      }),
+    [colors]
+  );
+
   const borderColor = error
-    ? COLORS.error
+    ? colors.error
     : isFocused
-    ? COLORS.accent
-    : 'rgba(255,255,255,0.15)';
+    ? colors.accent
+    : colors.borderLight;
 
   return (
     <View style={[styles.container, style]}>
@@ -33,7 +78,7 @@ export default function Input({
           <Ionicons
             name={icon}
             size={18}
-            color={isFocused ? COLORS.accent : COLORS.textMuted}
+            color={isFocused ? colors.accent : colors.textMuted}
             style={styles.icon}
           />
         )}
@@ -42,7 +87,7 @@ export default function Input({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="rgba(255,255,255,0.4)"
+          placeholderTextColor={colors.textMuted}
           secureTextEntry={secureTextEntry}
           multiline={multiline}
           keyboardType={keyboardType}
@@ -55,42 +100,3 @@ export default function Input({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.sm,
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceHigher,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    padding: 0,
-  },
-  multiline: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  error: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.sm,
-    marginTop: 4,
-  },
-});

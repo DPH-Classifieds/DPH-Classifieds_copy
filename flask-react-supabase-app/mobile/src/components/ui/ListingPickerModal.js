@@ -6,7 +6,8 @@ import apiClient from '../../utils/apiClient';
 import { toastApiError } from '../../utils/toast';
 import LoadingSpinner from './LoadingSpinner';
 import EmptyState from './EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const PLURAL_TO_SINGULAR = { cars: 'car', bikes: 'bike', plates: 'plate', parts: 'part' };
 const TYPE_LABELS = { car: 'Car', bike: 'Bike', plate: 'Plate', part: 'Part' };
@@ -26,6 +27,33 @@ const getThumbnail = (item) => {
 // Mirrors frontend/src/components/admin/ListingPicker.jsx — search-as-you-type
 // over the same admin listings-search endpoint the Listings screen uses.
 export default function ListingPickerModal({ visible, onClose, onSelect }) {
+  const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+        sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, height: '75%' },
+        header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
+        title: { ...FONTS.bold, fontSize: FONT_SIZES.lg, color: colors.textPrimary },
+        searchWrap: {
+          flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md,
+          paddingHorizontal: 12, paddingVertical: 10, marginBottom: SPACING.md, borderWidth: 1, borderColor: colors.border,
+        },
+        searchInput: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.sm },
+        list: { flex: 1 },
+        row: {
+          flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surfaceVariant,
+          borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginBottom: 6, borderWidth: 1, borderColor: colors.border,
+        },
+        thumb: { width: 36, height: 36, borderRadius: 6, backgroundColor: colors.surfaceHigher },
+        thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+        typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: colors.surfaceHigher },
+        typeBadgeText: { ...FONTS.label, fontSize: 9, color: colors.textMuted },
+        rowTitle: { flex: 1, ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textPrimary },
+      }),
+    [colors]
+  );
+
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -66,18 +94,18 @@ export default function ListingPickerModal({ visible, onClose, onSelect }) {
           <View style={styles.header}>
             <Text style={styles.title}>Choose a listing to feature</Text>
             <TouchableOpacity onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={22} color={COLORS.textMuted} />
+              <Ionicons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
           <View style={styles.searchWrap}>
-            <Ionicons name="search" size={16} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+            <Ionicons name="search" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               autoFocus
               style={styles.searchInput}
               value={query}
               onChangeText={setQuery}
               placeholder="Search by make, model, plate number…"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
             />
           </View>
           {loading ? (
@@ -96,13 +124,13 @@ export default function ListingPickerModal({ visible, onClose, onSelect }) {
                   <TouchableOpacity style={styles.row} onPress={() => pick(listing, title)} activeOpacity={0.7}>
                     {singularType === 'plate' ? (
                       <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                        <Ionicons name="key-outline" size={16} color={COLORS.textMuted} />
+                        <Ionicons name="key-outline" size={16} color={colors.textMuted} />
                       </View>
                     ) : thumb ? (
                       <Image source={{ uri: thumb }} style={styles.thumb} />
                     ) : (
                       <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                        <Ionicons name="image-outline" size={16} color={COLORS.textMuted} />
+                        <Ionicons name="image-outline" size={16} color={colors.textMuted} />
                       </View>
                     )}
                     <View style={styles.typeBadge}>
@@ -119,25 +147,3 @@ export default function ListingPickerModal({ visible, onClose, onSelect }) {
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, height: '75%' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
-  title: { ...FONTS.bold, fontSize: FONT_SIZES.lg, color: COLORS.white },
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: 12, paddingVertical: 10, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  searchInput: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.sm },
-  list: { flex: 1 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.surfaceVariant,
-    borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginBottom: 6, borderWidth: 1, borderColor: COLORS.border,
-  },
-  thumb: { width: 36, height: 36, borderRadius: 6, backgroundColor: COLORS.surfaceHigher },
-  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: COLORS.surfaceHigher },
-  typeBadgeText: { ...FONTS.label, fontSize: 9, color: COLORS.textMuted },
-  rowTitle: { flex: 1, ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.white },
-});

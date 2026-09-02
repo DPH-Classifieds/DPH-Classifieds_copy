@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import Text from './AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const SIZES = {
   sm: { paddingH: 16, paddingV: 8, fontSize: FONT_SIZES.sm },
@@ -22,6 +23,42 @@ export default function Button({
   icon,
   style,
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        base: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: BORDER_RADIUS.pill,
+          backgroundColor: colors.primary,
+        },
+        secondary: {
+          backgroundColor: 'transparent',
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        ghost: {
+          backgroundColor: 'transparent',
+        },
+        disabled: {
+          opacity: 0.5,
+        },
+        text: {
+          color: colors.white,
+          fontWeight: '600',
+        },
+        ghostText: {
+          color: colors.white,
+        },
+        disabledText: {
+          opacity: 0.5,
+        },
+      }),
+    [colors]
+  );
+
   const sizeConfig = SIZES[size];
 
   const handlePress = () => {
@@ -32,14 +69,14 @@ export default function Button({
   const content = (
     <>
       {loading ? (
-        <ActivityIndicator size="small" color={COLORS.white} />
+        <ActivityIndicator size="small" color={colors.white} />
       ) : (
         <>
           {icon && (
             <Ionicons
               name={icon}
               size={sizeConfig.fontSize}
-              color={variant === 'secondary' || variant === 'ghost' ? COLORS.white : COLORS.white}
+              color={colors.white}
               style={{ marginRight: title ? 8 : 0 }}
             />
           )}
@@ -81,7 +118,7 @@ export default function Button({
         style={[{ borderRadius: BORDER_RADIUS.pill }, disabled && styles.disabled]}
       >
         <LinearGradient
-          colors={[COLORS.primary, COLORS.primaryLight]}
+          colors={[colors.primary, colors.primaryLight]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[
@@ -110,34 +147,3 @@ export default function Button({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.primary,
-  },
-  secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  text: {
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  ghostText: {
-    color: COLORS.white,
-  },
-  disabledText: {
-    opacity: 0.5,
-  },
-});
