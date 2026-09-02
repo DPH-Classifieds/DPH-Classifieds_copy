@@ -1,7 +1,32 @@
 /* Fonts loaded in index.html */
 
-.explore-v2 {
-  --ex-bg: #111414;
+/* ── Theme tokens ───────────────────────────────────────────────────────────
+   Defined on :root (not just .explore-v2) so every page that imports this
+   stylesheet for the shared card/button classes (CarList, CarParts,
+   PlatesRedesigned, BikesRedesigned, HomePage) gets consistent theming too.
+   Light values are the default; .dark (toggled on <html> by ThemeContext)
+   overrides them. */
+:root {
+  --ex-page-bg: #fafafa;
+  --ex-surface-low: #f1f3f1;
+  --ex-surface: #ffffff;
+  --ex-surface-high: #f6f8f7;
+  --ex-line: rgba(15, 23, 20, 0.10);
+  --ex-line-strong: rgba(15, 23, 20, 0.18);
+  --ex-text: #101613;
+  --ex-text-muted: #5b655f;
+  --ex-primary: #0b6b4c;
+  --ex-primary-strong: #004e37;
+  --ex-brand-subtle-bg: rgba(11, 107, 76, 0.08);
+  --ex-input-bg: #ffffff;
+  --ex-overlay-scrim: rgba(0, 0, 0, 0.55);
+  --ex-card-shadow: 0 1px 2px rgba(15, 23, 20, 0.05);
+}
+
+.dark {
+  --ex-page-bg:
+    radial-gradient(circle at top, rgba(139, 214, 180, 0.08), transparent 24%),
+    linear-gradient(180deg, #07110b 0%, #040806 100%);
   --ex-surface-low: #1a1d1d;
   --ex-surface: #222525;
   --ex-surface-high: #323535;
@@ -11,28 +36,24 @@
   --ex-text-muted: #bfc9c4;
   --ex-primary: #0b6b4c;
   --ex-primary-strong: #004e37;
+  --ex-brand-subtle-bg: rgba(139, 214, 180, 0.14);
+  --ex-input-bg: rgba(255, 255, 255, 0.04);
+  --ex-overlay-scrim: rgba(0, 0, 0, 0.62);
+  --ex-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.explore-v2 {
   min-height: 100vh;
-  padding-bottom: 96px;
-  background:
-    radial-gradient(circle at top, rgba(139, 214, 180, 0.08), transparent 24%),
-    linear-gradient(180deg, #07110b 0%, #040806 100%);
+  padding: 96px 0 96px;
+  background: var(--ex-page-bg);
   color: var(--ex-text);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 .explore-v2-shell {
-  width: min(1280px, calc(100% - 48px));
+  width: min(1400px, calc(100% - 32px));
   margin: 0 auto;
-}
-
-.explore-v2-kicker {
-  display: inline-block;
-  margin-bottom: 14px;
-  color: var(--ex-primary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
 }
 
 .explore-v2 h1,
@@ -45,279 +66,420 @@
 .explore-v2 h1,
 .explore-v2 h2,
 .explore-v2 h3 {
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
-.explore-v2-hero {
-  padding: 72px 0 20px;
-}
-
-.explore-v2-hero-copy {
-  max-width: 980px;
-}
-
-.explore-v2-hero-search {
-  margin-top: 28px;
-  max-width: 760px;
-}
-
-.explore-v2-hero-searchbar {
-  width: 100%;
-  max-width: none;
-}
-
-.explore-v2-hero-copy h1 {
-  font-size: clamp(2.6rem, 5vw, 4.6rem);
-  line-height: 1;
-  margin-bottom: 18px;
-}
-
-.explore-v2-hero-copy p,
-.explore-v2-filter-header p,
-.explore-v2-results-header p,
-.explore-v2-card-description,
-.explore-v2-filter-note {
-  color: var(--ex-text-muted);
-  line-height: 1.75;
-}
-
-.explore-v2-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 22px;
-}
-
-.explore-v2-stat,
-.explore-v2-filter-panel,
-.explore-v2-card,
-.explore-v2-state-card,
-.explore-v2-mode-switch {
-  border: 1px solid var(--ex-line);
-  background: linear-gradient(180deg, rgba(12, 28, 19, 0.96) 0%, rgba(7, 15, 10, 0.98) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
-.explore-v2-stat {
+/* ── Compact page header ───────────────────────────────────────────────── */
+.explore-v2-pageheader {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  border-radius: 20px;
-  padding: 14px 16px;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease;
+  gap: 16px;
+  padding-top: 8px;
 }
 
-.explore-v2-stat:hover,
-.explore-v2-mode-chip:hover,
-.explore-v2-card:hover {
-  transform: translateY(-2px);
+.explore-v2-pageheader h1 {
+  font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+  font-weight: 800;
 }
 
-.explore-v2-stat.is-active {
-  border-color: rgba(139, 214, 180, 0.28);
-  background:
-    radial-gradient(circle at top right, rgba(139, 214, 180, 0.12), transparent 40%),
-    linear-gradient(180deg, rgba(15, 35, 24, 0.98) 0%, rgba(8, 18, 12, 1) 100%);
-}
-
-.explore-v2-stat span {
-  flex: 1;
+.explore-v2-pageheader p {
+  margin-top: 4px;
   color: var(--ex-text-muted);
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: 0.95rem;
 }
 
-.explore-v2-stat small {
+.explore-v2-postad {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 0.6rem;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 20px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--ex-text);
-  font-size: 0.86rem;
+  background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
+  color: #ffffff;
+  font-size: 0.9rem;
   font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: transform 150ms ease;
 }
 
-.explore-v2-mode-band,
-.explore-v2-filter-section,
-.explore-v2-results-section {
-  margin-top: 22px;
+.explore-v2-postad:hover {
+  transform: translateY(-1px);
 }
 
-.explore-v2-mode-switch {
-  border-radius: 32px;
-  padding: 10px;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+/* ── Search row ────────────────────────────────────────────────────────── */
+.explore-v2-searchrow {
+  margin-top: 18px;
 }
 
-.explore-v2-mode-chip {
-  border: 1px solid transparent;
-  border-radius: 24px;
-  background: transparent;
-  color: var(--ex-text-muted);
-  padding: 14px 14px;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
-    color 180ms ease;
-}
-
-.explore-v2-mode-chip span,
-.explore-v2-mode-chip small {
-  display: block;
-}
-
-.explore-v2-mode-chip span {
-  color: var(--ex-text);
-  font-size: 0.98rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-.explore-v2-mode-chip small {
-  color: inherit;
-  font-size: 0.82rem;
-  line-height: 1.55;
-}
-
-.explore-v2-mode-chip.is-active {
-  color: #dff7e6;
-  border-color: rgba(139, 214, 180, 0.22);
-  background:
-    radial-gradient(circle at top right, rgba(139, 214, 180, 0.12), transparent 40%),
-    rgba(255, 255, 255, 0.03);
-}
-
-.explore-v2-filter-header,
-.explore-v2-results-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
-}
-
-.explore-v2-filter-header h2,
-.explore-v2-results-header h2 {
-  font-size: clamp(1.8rem, 3vw, 3rem);
-  line-height: 1.04;
-}
-
-.explore-v2-filter-header p,
-.explore-v2-results-header p {
-  max-width: 460px;
-}
-
-.explore-v2-results-meta {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
+.explore-v2-searchrow .search-bar {
   max-width: 620px;
 }
 
-.explore-v2-results-meta p {
-  flex: 1 1 100%;
-  text-align: right;
+/* ── Primary controls: Location / Category / Filters ──────────────────── */
+.explore-v2-primary-controls {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.explore-v2-select,
+.explore-v2-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ex-line-strong);
+  background: var(--ex-input-bg);
+  color: var(--ex-text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.explore-v2-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ex-text-muted) 50%), linear-gradient(135deg, var(--ex-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.explore-v2-select:hover,
+.explore-v2-filters-btn:hover {
+  border-color: var(--ex-primary);
+}
+
+.explore-v2-filters-btn {
+  position: relative;
+}
+
+.explore-v2-filters-btn .explore-v2-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ex-primary);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+/* ── Category chips ────────────────────────────────────────────────────── */
+.explore-v2-chips {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.explore-v2-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.explore-v2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--ex-line-strong);
+  background: var(--ex-surface);
+  color: var(--ex-text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.explore-v2-chip:hover {
+  border-color: var(--ex-primary);
+}
+
+.explore-v2-chip.is-active {
+  border-color: var(--ex-primary);
+  background: var(--ex-brand-subtle-bg);
+  color: var(--ex-primary);
+}
+
+.explore-v2-chip small {
+  font-weight: 800;
+  opacity: 0.75;
+}
+
+/* ── Active filter pills ───────────────────────────────────────────────── */
+.explore-v2-pills {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.explore-v2-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ex-line-strong);
+  background: var(--ex-brand-subtle-bg);
+  color: var(--ex-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.explore-v2-pill button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.explore-v2-pill button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.explore-v2-clear-all {
+  border: none;
+  background: transparent;
+  color: var(--ex-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Results bar ───────────────────────────────────────────────────────── */
+.explore-v2-resultsbar {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.explore-v2-resultsbar p {
+  color: var(--ex-text-muted);
+  font-size: 0.88rem;
+}
+
+.explore-v2-resultsbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .explore-v2-save-search-note {
   color: var(--ex-text-muted);
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
-.explore-v2-hide-reddit-toggle {
+/* ── Listing grid (Explore's own — do not confuse with the legacy
+   .explore-v2-grid rule below, which CarList.jsx depends on directly) ──── */
+.explore-v2-listing-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (min-width: 700px) {
+  .explore-v2-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+}
+
+@media (min-width: 1024px) {
+  .explore-v2-listing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+}
+
+@media (min-width: 1600px) {
+  .explore-v2-listing-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* ── Filter drawer ─────────────────────────────────────────────────────── */
+.explore-v2-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 90;
+  animation: explore-fade-in 160ms ease;
+}
+
+.explore-v2-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100%);
+  background: var(--ex-surface);
+  color: var(--ex-text);
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25);
+  animation: explore-slide-in-right 220ms ease;
+}
+
+.explore-v2-drawer-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.86rem;
-  font-weight: 600;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--ex-line);
+  flex-shrink: 0;
+}
+
+.explore-v2-drawer-header h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.explore-v2-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ex-line-strong);
+  background: transparent;
   color: var(--ex-text);
   cursor: pointer;
-  white-space: nowrap;
 }
 
-.explore-v2-hide-reddit-toggle input {
-  width: 16px;
-  height: 16px;
+.explore-v2-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 20px 20px;
+}
+
+.explore-v2-drawer-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--ex-line);
+}
+
+.explore-v2-drawer-section:last-child {
+  border-bottom: none;
+}
+
+.explore-v2-drawer-section-title {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--ex-text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.explore-v2-checkrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
   cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.explore-v2-checkrow input {
+  width: 18px;
+  height: 18px;
   accent-color: var(--ex-primary);
+  cursor: pointer;
 }
 
-.explore-v2-filter-panel,
-.explore-v2-state-card,
-.explore-v2-card {
-  border-radius: 30px;
-}
-
-.explore-v2-filter-panel {
-  padding: 24px;
-}
-
-.explore-v2-filter-grid {
+.explore-v2-drawer-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.explore-v2-search-only {
-  display: grid;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .explore-v2-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
+
+.explore-v2-field.is-full {
+  grid-column: 1 / -1;
+}
+
 .explore-v2-field > span {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ex-text-muted);
 }
+
 .explore-v2-input {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--ex-line);
-  background: rgba(255, 255, 255, 0.04);
-  color: #fff;
-  font-size: 14px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--ex-line-strong);
+  background: var(--ex-input-bg);
+  color: var(--ex-text);
+  font-size: 0.9rem;
+  font-family: inherit;
   outline: none;
-  appearance: none;
 }
+
 .explore-v2-input:focus {
-  border-color: rgba(139, 214, 180, 0.5);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--ex-primary);
 }
+
+.explore-v2-input::placeholder {
+  color: var(--ex-text-muted);
+  opacity: 0.75;
+}
+
 .explore-v2-input option {
   color: #111;
 }
-.explore-v2-results-section .explore-v2-filter-panel {
-  margin-bottom: 18px;
+
+.explore-v2-drawer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--ex-line);
+  flex-shrink: 0;
 }
 
-/* Reddit price filter: quick buttons + slider */
-.rp-price-field {
-  grid-column: 1 / -1;
-}
+/* Reddit price filter: quick buttons + slider (kept from the existing
+   Reddit panel design, now theme-aware) */
 .rp-presets {
   display: flex;
   flex-wrap: wrap;
@@ -326,100 +488,78 @@
 .rp-preset {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid var(--ex-line);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--ex-line-strong);
+  background: var(--ex-input-bg);
+  color: var(--ex-text-muted);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
-.rp-preset:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
 .rp-preset.is-active {
-  background: #8bd6b4;
-  border-color: #8bd6b4;
-  color: #062015;
+  background: var(--ex-primary);
+  border-color: var(--ex-primary);
+  color: #fff;
 }
 .rp-slider {
   width: 100%;
   margin-top: 12px;
-  accent-color: #8bd6b4;
+  accent-color: var(--ex-primary);
   cursor: pointer;
 }
 .rp-slider-label {
   margin-top: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--ex-text-muted);
 }
 
-.explore-v2-field-full {
-  width: 100%;
+@keyframes explore-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.explore-v2-field span {
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+@keyframes explore-slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
-.explore-v2-field input,
-.explore-v2-field select {
-  width: 100%;
-  min-height: 54px;
-  border: 1px solid var(--ex-line-strong);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--ex-text);
-  padding: 0 16px;
-  font-size: 0.95rem;
-  font-family: inherit;
+@media (max-width: 768px) {
+  .explore-v2-drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 12px 12px 0 0;
+    animation: explore-slide-in-up 220ms ease;
+  }
+
+  .explore-v2-drawer-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.explore-v2-field input::placeholder {
-  color: rgba(191, 201, 196, 0.45);
+@keyframes explore-slide-in-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
-.explore-v2-field select option {
-  background: #132019;
-}
-
-.explore-v2-field input:focus,
-.explore-v2-field select:focus {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: none;
-}
-
-.explore-v2-filter-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-}
-
+/* ── Buttons (shared — also used by MarketplaceListingCard everywhere it
+   renders: HomePage, RecommendedListings, AccountSettings, CarList, etc.) ── */
 .explore-v2-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 50px;
-  padding: 0 22px;
+  min-height: 44px;
+  padding: 0 20px;
   border-radius: 999px;
   border: 1px solid transparent;
-  font-size: 0.94rem;
+  font-size: 0.88rem;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
-  transition:
-    transform 180ms ease,
-    background-color 180ms ease,
-    color 180ms ease,
-    border-color 180ms ease;
+  transition: transform 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .explore-v2-button:hover {
@@ -434,82 +574,44 @@
 .explore-v2-button-secondary {
   background: transparent;
   color: var(--ex-text);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: var(--ex-line-strong);
 }
 
+/* ── Legacy grid — CarList.jsx renders this class directly. Left
+   untouched (own breakpoints) so that page's layout is unaffected. ──────── */
 .explore-v2-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
 
-.explore-v2-horizontal-track {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
-  overflow: visible;
-  padding-bottom: 0;
+@media (max-width: 1180px) {
+  .explore-v2-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-.explore-v2-horizontal-track .explore-v2-card {
-  min-width: 0;
-  max-width: none;
-  width: 100%;
-  flex: unset;
-  scroll-snap-align: unset;
+@media (max-width: 860px) {
+  .explore-v2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-.explore-v2-sentinel {
-  grid-column: 1 / -1;
-  min-height: 8px;
-  margin-top: 8px;
-}
-
-.explore-v2-show-more {
-  margin: 24px auto 0;
-  display: flex;
-}
-
-.explore-v2-end-label {
-  grid-column: 1 / -1;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 13px;
-  padding: 32px 0 16px;
-  letter-spacing: 0.04em;
-}
-
-.explore-v2-card {
-  --ex-text: #ffffff;
-  --ex-text-muted: #bfc9c4;
-  --ex-primary: #0b6b4c;
-  --ex-primary-strong: #004e37;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  border-radius: 22px;
-}
-
-.explore-v2-card-highlighted {
-  box-shadow: 0 0 0 2px #f0b429, 0 8px 24px rgba(240, 180, 41, 0.18);
+@media (max-width: 560px) {
+  .explore-v2-grid { grid-template-columns: 1fr; }
 }
 
 /* Shared "N total listings" line used on CarList / CarParts / Plates / Bikes
    browse pages (all import this stylesheet already). */
 .listing-total-count {
   margin: -8px 0 16px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--ex-text-muted);
   font-size: 14px;
 }
 
 .explore-v2-wtb-card {
   display: flex;
   flex-direction: column;
-  border-radius: 22px;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--ex-line);
-  background: linear-gradient(180deg, rgba(12, 28, 19, 0.96) 0%, rgba(7, 15, 10, 0.98) 100%);
+  background: var(--ex-surface);
   color: var(--ex-text);
   text-decoration: none;
   transition: border-color 0.15s ease, transform 0.15s ease;
@@ -522,7 +624,7 @@
 
 .explore-v2-wtb-card-image {
   aspect-ratio: 16 / 10;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ex-surface-low);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -548,7 +650,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #8bd6b4;
+  color: var(--ex-primary);
   font-weight: 700;
 }
 
@@ -572,12 +674,34 @@
   color: var(--ex-text);
 }
 
+/* ── Listing card (shared across the whole app via MarketplaceListingCard) ── */
+.explore-v2-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--ex-line);
+  background: var(--ex-surface);
+  box-shadow: var(--ex-card-shadow);
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.explore-v2-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--ex-line-strong);
+}
+
+.explore-v2-card-highlighted {
+  box-shadow: 0 0 0 2px #f0b429, 0 8px 24px rgba(240, 180, 41, 0.18);
+}
+
 .explore-v2-card-media {
   position: relative;
   display: block;
   aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ex-surface-low);
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -592,7 +716,7 @@
 }
 
 .explore-v2-card:hover .explore-v2-card-media img {
-  transform: scale(1.05);
+  transform: scale(1.04);
 }
 
 .explore-v2-card-track {
@@ -618,13 +742,13 @@
 
 .explore-v2-card-photo-count {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
-  padding: 4px 10px;
+  bottom: 10px;
+  right: 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.62);
+  background: var(--ex-overlay-scrim);
   color: #fff;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   pointer-events: none;
@@ -638,72 +762,71 @@
   display: grid;
   place-items: center;
   text-align: center;
-  padding: 24px;
-  background:
-    radial-gradient(circle at top right, rgba(139, 214, 180, 0.16), transparent 36%),
-    linear-gradient(180deg, rgba(17, 31, 24, 0.98) 0%, rgba(10, 17, 13, 0.98) 100%);
+  padding: 20px;
+  background: var(--ex-surface-low);
 }
 
 .explore-v2-card-fallback span {
   display: block;
   color: var(--ex-primary);
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .explore-v2-card-fallback strong {
   display: block;
-  margin-top: 10px;
+  margin-top: 8px;
   max-width: 260px;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   line-height: 1.3;
+  color: var(--ex-text);
 }
 
 .explore-v2-card-badge {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  padding: 7px 12px;
+  top: 10px;
+  left: 10px;
+  padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(5, 15, 10, 0.8);
+  background: var(--ex-overlay-scrim);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  color: var(--ex-text);
-  font-size: 0.7rem;
+  color: #fff;
+  font-size: 0.64rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .explore-v2-card-badge-reddit {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 7px 12px;
+  top: 10px;
+  right: 10px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: #ff4500;
   color: #ffffff;
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .explore-v2-card-badge-dealer {
   position: absolute;
-  top: 52px;
-  right: 16px;
+  top: 42px;
+  right: 10px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(143, 230, 148, 0.95) 0%, rgba(70, 180, 100, 0.95) 100%);
   color: #041008;
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -713,18 +836,17 @@
   flex: 0 0 11px;
 }
 
-.explore-v2-card[data-listing-type="car"] .explore-v2-card-badge-dealer,
-.explore-v2-card[data-listing-type="bike"] .explore-v2-card-badge-dealer,
-.explore-v2-card[data-listing-type="part"] .explore-v2-card-badge-dealer,
-.explore-v2-card[data-listing-type="plate"] .explore-v2-card-badge-dealer {
-  top: 52px;
+/* Favorite/save toggle button rendered inside MarketplaceListingCard's media
+   frame — keep it legible against photos in both themes. */
+.explore-v2-card .saved-listing-button-card {
+  z-index: 2;
 }
 
 .explore-v2-card-copy {
   display: flex;
   flex: 1;
   flex-direction: column;
-  padding: 16px;
+  padding: 12px 14px 14px;
 }
 
 .explore-v2-card-head {
@@ -734,14 +856,19 @@
 }
 
 .explore-v2-card-price {
-  margin-bottom: 6px;
-  color: #d8f5e6;
-  font-size: 1rem;
+  margin-bottom: 4px;
+  color: var(--ex-primary);
+  font-size: 0.98rem;
   font-weight: 800;
 }
 
+.dark .explore-v2-card-price {
+  color: #d8f5e6;
+}
+
 .explore-v2-card-head h3 {
-  font-size: 1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
   line-height: 1.32;
 }
 
@@ -751,97 +878,25 @@
 }
 
 .explore-v2-card-head a:hover {
-  color: #dff7e6;
+  color: var(--ex-primary);
 }
 
 .explore-v2-card-meta {
-  margin-top: 10px;
+  margin-top: 6px;
   color: var(--ex-text-muted);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   line-height: 1.5;
 }
 
 .explore-v2-card-description {
-  margin-top: 10px;
-  font-size: 0.84rem;
-  line-height: 1.55;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ex-text-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.explore-v2-card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.explore-v2-card-tag {
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(74, 222, 128, 0.22);
-  background: rgba(74, 222, 128, 0.08);
-  color: #dff7e6;
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.explore-v2-seller-row {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.explore-v2-seller {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.explore-v2-seller-avatar {
-  display: inline-grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, #8ce592 0%, #57bc60 100%);
-  color: #ffffff;
-  font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-}
-
-.explore-v2-seller-avatar-image {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-}
-
-.explore-v2-seller strong,
-.explore-v2-seller span {
-  display: block;
-}
-
-.explore-v2-seller strong {
-  color: var(--ex-text);
-  font-size: 0.92rem;
-}
-
-.explore-v2-seller span {
-  color: var(--ex-text-muted);
-  font-size: 0.78rem;
 }
 
 .explore-v2-card-actions {
@@ -850,23 +905,14 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 12px;
 }
 
 .explore-v2-card-actions .explore-v2-button {
-  min-height: 42px;
-  padding: 0 16px;
-}
-
-.explore-v2-card-link {
-  color: #dff7e6;
-  font-size: 0.84rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.explore-v2-card-link:hover {
-  text-decoration: underline;
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  width: 100%;
 }
 
 .explore-v2-state-card {
@@ -876,261 +922,71 @@
   gap: 16px;
   padding: 32px;
   text-align: center;
+  border: 1px dashed var(--ex-line-strong);
+  border-radius: 10px;
+  margin-top: 16px;
+  color: var(--ex-text-muted);
 }
 
 .explore-v2-inline-alert {
   margin-top: 18px;
-  color: #f0c7c7;
+  color: #d9534f;
   font-size: 0.9rem;
 }
 
-@media (max-width: 1180px) {
-  .explore-v2-hero-stats,
-  .explore-v2-mode-switch {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .explore-v2-filter-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .explore-v2-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.explore-v2-sentinel {
+  grid-column: 1 / -1;
+  min-height: 8px;
+  margin-top: 8px;
 }
 
-@media (max-width: 860px) {
-  .explore-v2-shell {
-    width: min(100% - 32px, 1280px);
+.explore-v2-show-more {
+  margin: 24px auto 0;
+  display: flex;
+}
+
+.explore-v2-end-label {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--ex-text-muted);
+  opacity: 0.7;
+  font-size: 13px;
+  padding: 32px 0 16px;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 640px) {
+  .explore-v2 {
+    padding-top: 80px;
   }
 
-  .explore-v2-mode-switch,
-  .explore-v2-filter-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .explore-v2-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .explore-v2-hero-stats {
-    display: flex;
+  .explore-v2-pageheader {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 6px;
-    scroll-snap-type: x mandatory;
   }
 
-  .explore-v2-stat {
-    min-width: 152px;
-    flex: 0 0 auto;
-    scroll-snap-align: start;
+  .explore-v2-postad {
+    width: 100%;
   }
 
-  .explore-v2-filter-header,
-  .explore-v2-results-header,
-  .explore-v2-card-head {
+  .explore-v2-searchrow .search-bar {
+    max-width: none;
+  }
+
+  .explore-v2-select,
+  .explore-v2-filters-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .explore-v2-resultsbar {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .explore-v2-results-meta {
+  .explore-v2-resultsbar-actions {
     width: 100%;
-    max-width: none;
-    justify-content: flex-start;
-  }
-
-  .explore-v2-results-meta p {
-    text-align: left;
-  }
-
-  .explore-v2-button,
-  .explore-v2-card-actions .explore-v2-button {
-    width: 100%;
-  }
-
-  .explore-v2-card-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .explore-v2-horizontal-track {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
-    overflow: visible;
-    scroll-snap-type: none;
-    padding-bottom: 0;
-  }
-
-  .explore-v2-horizontal-track .explore-v2-card {
-    min-width: 0;
-    max-width: none;
-    flex: unset;
-    scroll-snap-align: unset;
-  }
-}
-
-@media (max-width: 560px) {
-  .explore-v2-hero {
-    padding-top: 40px;
-    padding-bottom: 16px;
-  }
-
-  .explore-v2-hero-copy h1 {
-    font-size: clamp(1.8rem, 8vw, 2.5rem);
-    margin-bottom: 12px;
-  }
-
-  .explore-v2-hero-copy p,
-  .explore-v2-filter-header p,
-  .explore-v2-results-header p {
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-
-  .explore-v2-hero-search {
-    margin-top: 20px;
-  }
-
-  .explore-v2-hero-stats {
-    gap: 10px;
-    margin-top: 16px;
-  }
-
-  .explore-v2-stat {
-    padding: 12px 14px;
-    border-radius: 18px;
-  }
-
-  .explore-v2-stat span {
-    font-size: 0.84rem;
-  }
-
-  .explore-v2-stat small {
-    min-width: 1.8rem;
-    height: 1.8rem;
-    font-size: 0.8rem;
-  }
-
-  .explore-v2-mode-band,
-  .explore-v2-filter-section,
-  .explore-v2-results-section {
-    margin-top: 16px;
-  }
-
-  .explore-v2-mode-switch,
-  .explore-v2-filter-grid,
-  .explore-v2-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .explore-v2-filter-panel,
-  .explore-v2-state-card {
-    padding: 16px;
-  }
-
-  .explore-v2-filter-header h2,
-  .explore-v2-results-header h2 {
-    font-size: 1.5rem;
-    margin-bottom: 8px;
-  }
-
-  .explore-v2-filter-header,
-  .explore-v2-results-header {
-    margin-bottom: 12px;
-  }
-
-  .explore-v2-filter-grid {
-    gap: 10px;
-  }
-
-  .explore-v2-field {
-    gap: 6px;
-  }
-
-  .explore-v2-field input,
-  .explore-v2-field select {
-    min-height: 48px;
-    padding: 0 14px;
-    font-size: 0.9rem;
-  }
-
-  .explore-v2-field span {
-    font-size: 0.72rem;
-  }
-
-  .explore-v2-filter-actions {
-    margin-top: 12px;
-  }
-
-  .explore-v2-button {
-    min-height: 44px;
-    padding: 0 18px;
-    font-size: 0.9rem;
-  }
-
-  .explore-v2-grid {
-    gap: 14px;
-  }
-
-  .explore-v2-horizontal-track {
-    gap: 10px;
-  }
-
-  .explore-v2-card {
-    border-radius: 18px;
-  }
-
-  .explore-v2-card-media {
-    aspect-ratio: 16 / 9;
-  }
-
-  .explore-v2-card-copy {
-    padding: 14px;
-  }
-
-  .explore-v2-card-price {
-    font-size: 0.92rem;
-  }
-
-  .explore-v2-card-head h3 {
-    font-size: 0.94rem;
-  }
-
-  .explore-v2-card-meta {
-    font-size: 0.78rem;
-  }
-
-  .explore-v2-card-description {
-    font-size: 0.78rem;
-  }
-
-  .explore-v2-card-tags {
-    justify-content: flex-start;
-  }
-
-  .explore-v2-seller-avatar {
-    width: 36px;
-    height: 36px;
-  }
-
-  .explore-v2-seller strong {
-    font-size: 0.86rem;
-  }
-
-  .explore-v2-seller span {
-    font-size: 0.74rem;
-  }
-
-  .explore-v2-card-actions {
-    padding-top: 12px;
-  }
-
-  .explore-v2-card-actions .explore-v2-button {
-    min-height: 40px;
-    padding: 0 14px;
-    font-size: 0.86rem;
+    justify-content: space-between;
   }
 }

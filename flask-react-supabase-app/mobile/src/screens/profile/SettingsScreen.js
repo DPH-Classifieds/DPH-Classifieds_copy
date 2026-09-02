@@ -12,11 +12,13 @@ import Input from '../../components/ui/Input';
 import { isPushEnabledPref, setPushEnabledPref } from '../../utils/pushNotifications';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { UAE_EMIRATES, EMIRATE_AREAS } from '../../utils/listingConstants';
+import { useTheme } from '../../context/ThemeContext';
 
 const UAE_EMIRATES_WITH_AL_AIN = [...UAE_EMIRATES, 'Al Ain'];
 
 export default function SettingsScreen({ navigation }) {
   const { user, updateUser, syncWithSupabase } = useAuth();
+  const { theme, colors: themeColors, setTheme } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -298,6 +300,43 @@ export default function SettingsScreen({ navigation }) {
             </View>
           </TouchableOpacity>
           <Text style={styles.photoHint}>Tap to change photo</Text>
+        </View>
+
+        <View style={[appearanceStyles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <View style={appearanceStyles.row}>
+            <Ionicons name="contrast-outline" size={20} color={themeColors.textPrimary} />
+            <View style={appearanceStyles.textWrap}>
+              <Text style={[appearanceStyles.label, { color: themeColors.textPrimary }]}>Appearance</Text>
+              <Text style={[appearanceStyles.desc, { color: themeColors.textMuted }]}>Choose how DPHClassifieds looks on this device</Text>
+            </View>
+          </View>
+          <View style={appearanceStyles.segmented}>
+            {[
+              { value: 'light', label: 'Light', icon: 'sunny-outline' },
+              { value: 'dark', label: 'Dark', icon: 'moon-outline' },
+            ].map((option) => {
+              const active = theme === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  onPress={() => setTheme(option.value)}
+                  activeOpacity={0.8}
+                  style={[
+                    appearanceStyles.segment,
+                    {
+                      backgroundColor: active ? themeColors.accent : 'transparent',
+                      borderColor: themeColors.border,
+                    },
+                  ]}
+                >
+                  <Ionicons name={option.icon} size={16} color={active ? '#FFFFFF' : themeColors.textMuted} />
+                  <Text style={[appearanceStyles.segmentLabel, { color: active ? '#FFFFFF' : themeColors.textMuted }]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.form}>
@@ -986,5 +1025,53 @@ const styles = StyleSheet.create({
   },
   dealerFields: {
     marginBottom: SPACING.sm,
+  },
+});
+
+// Colors for this block come from useTheme() inline (see JSX) — it's the one
+// part of this screen that must respond live to the toggle it renders.
+// Layout-only values are theme-invariant, so a plain StyleSheet is fine here.
+const appearanceStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  textWrap: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  label: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  desc: {
+    fontSize: FONT_SIZES.xs,
+    marginTop: 2,
+  },
+  segmented: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+  },
+  segmentLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
   },
 });

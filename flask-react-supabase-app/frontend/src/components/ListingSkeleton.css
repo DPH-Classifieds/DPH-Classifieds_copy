@@ -32,7 +32,7 @@
 }
 
 .listing-skeleton-card {
-  border-radius: 26px;
+  border-radius: 10px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(1, 53, 28, 0.08);

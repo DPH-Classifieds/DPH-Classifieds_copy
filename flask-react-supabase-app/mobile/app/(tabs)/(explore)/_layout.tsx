@@ -3,15 +3,17 @@
 // filenames, so the existing screens' navigation.navigate('CarDetail', {...})
 // calls resolve here.
 import { Stack } from 'expo-router';
+import { useTheme } from '../../../src/context/ThemeContext';
 
 export default function ExploreStackLayout() {
+  const { colors } = useTheme();
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: '#000000' },
-        headerTintColor: '#ffffff',
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.textPrimary,
         headerTitleStyle: { fontWeight: '600' },
-        contentStyle: { backgroundColor: '#000000' },
+        contentStyle: { backgroundColor: colors.background },
         animation: 'slide_from_right',
         fullScreenGestureEnabled: true,
       }}

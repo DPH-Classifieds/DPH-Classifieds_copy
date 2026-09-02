@@ -6513,7 +6513,7 @@ _LISTING_COUNT_TABLES = {
 }
 
 
-def _approved_table_count(table):
+def _table_count(table, filters):
     """HEAD-style count via PostgREST's Prefer: count=exact, read off the
     Content-Range response header. Doesn't fetch any rows, so it's cheap
     enough to run on every /api/listings/counts call within its cache TTL."""
@@ -6527,12 +6527,7 @@ def _approved_table_count(table):
                 "Authorization": f"Bearer {auth}",
                 "Prefer": "count=exact",
             },
-            params={
-                "select": "id",
-                "status": "eq.approved",
-                "is_approved": "eq.true",
-                "limit": "1",
-            },
+            params={"select": "id", "limit": "1", **filters},
             timeout=HTTP_DEFAULT_TIMEOUT_SECONDS,
         )
         total = (resp.headers.get("Content-Range") or "").split("/")[-1]
@@ -6540,6 +6535,17 @@ def _approved_table_count(table):
     except Exception as e:
         logger.warning(f"Error counting {table}: {e}")
         return 0
+
+
+def _approved_table_count(table):
+    return _table_count(table, {"status": "eq.approved", "is_approved": "eq.true"})
+
+
+def _approved_reddit_table_count(table):
+    return _table_count(
+        table,
+        {"status": "eq.approved", "is_approved": "eq.true", "source_platform": "eq.reddit"},
+    )
 
 
 # Total live listing counts per category (public) — headline numbers for the
@@ -6554,6 +6560,16 @@ def get_listing_counts():
 
     counts = {key: _approved_table_count(table) for key, table in _LISTING_COUNT_TABLES.items()}
     counts["all"] = sum(counts.values())
+    # Reddit isn't a separate table — it's a source_platform on rows already
+    # counted above — so this is informational (a filtered view), not added
+    # into "all".
+    counts["reddit"] = sum(
+        _approved_reddit_table_count(table) for table in _LISTING_COUNT_TABLES.values()
+    )
+    counts["buying_requests"] = _table_count(
+        "buying_requests",
+        {"status": "in.(approved,active)", "is_archived": "eq.false", "expired_at": "is.null"},
+    )
     _api_cache_set(cache_key, counts, ttl_seconds=60)
     return jsonify(counts), 200
 

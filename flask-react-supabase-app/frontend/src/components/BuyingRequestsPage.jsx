@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { resolveMediaUrl } from '../utils/media';
+import BrowseSellCta from './BrowseSellCta';
+import ListingSkeleton from './ListingSkeleton';
+import SeoMeta from './SeoMeta';
+import { buildStaticSeo } from '../utils/seo';
+import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PLACEHOLDER_IMAGE = '/images/listing-placeholder.svg';
@@ -13,6 +18,13 @@ const ITEM_TYPES = [
   { value: 'part', label: 'Parts' },
   { value: 'bike', label: 'Bikes' },
 ];
+
+const seoData = buildStaticSeo({
+  title: 'Buying Requests | DPH Classifieds',
+  description: 'Browse anonymous buying requests from UAE members, or post your own to let sellers come to you.',
+  path: '/buying-requests',
+  keywords: ['want to buy UAE', 'buying request', 'UAE marketplace'],
+});
 
 export default function BuyingRequestsPage() {
   const [rows, setRows] = useState([]);
@@ -41,81 +53,87 @@ export default function BuyingRequestsPage() {
   }, [rows, activeType]);
 
   return (
-    <div className="mx-auto max-w-[1480px] px-5 pb-16 pt-10 sm:px-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Buying Requests</h1>
-          <p className="mt-1 text-sm text-white/60">
-            Posters stay anonymous. Verify your phone to reveal WhatsApp contact links.
-          </p>
-        </div>
+    <>
+      <SeoMeta {...seoData} />
+      <div className="explore-v2">
+        <div className="explore-v2-shell">
+          <div className="explore-v2-pageheader">
+            <div>
+              <h1>Buying Requests</h1>
+              <p>Posters stay anonymous. Verify your phone to reveal WhatsApp contact links.</p>
+            </div>
+            <Link to="/post-buying-request" className="explore-v2-postad">
+              Post a Request
+            </Link>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          {ITEM_TYPES.map((type) => (
-            <button
-              key={type.value}
-              onClick={() => setActiveType(type.value)}
-              className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                activeType === type.value
-                  ? 'border-[#8bd6b4]/40 bg-[#8bd6b4]/15 text-[#c7f3df]'
-                  : 'border-white/10 bg-white/5 text-white/70 hover:border-[#8bd6b4]/25 hover:text-white'
-              }`}
-            >
-              {type.label}
-            </button>
-          ))}
+          <div className="explore-v2-chips" role="tablist" aria-label="Item type" style={{ marginTop: 16 }}>
+            {ITEM_TYPES.map((type) => (
+              <button
+                key={type.value}
+                type="button"
+                role="tab"
+                aria-selected={activeType === type.value}
+                className={`explore-v2-chip ${activeType === type.value ? 'is-active' : ''}`}
+                onClick={() => setActiveType(type.value)}
+              >
+                {type.label}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="explore-v2-state-card">
+              <ListingSkeleton variant="grid" count={6} />
+            </div>
+          ) : error ? (
+            <div className="explore-v2-inline-alert">{error}</div>
+          ) : filtered.length === 0 ? (
+            <div className="explore-v2-state-card">
+              <p>No buying requests yet.</p>
+              <Link to="/post-buying-request" className="explore-v2-button explore-v2-button-primary">
+                Post a Request
+              </Link>
+            </div>
+          ) : (
+            <div className="explore-v2-listing-grid">
+              {filtered.map((row) => {
+                const title = row?.item_name || 'Buying request';
+                const type = String(row?.item_type || '').toUpperCase();
+                const imageUrl =
+                  resolveMediaUrl(row?.images?.[0]?.display_url) ||
+                  resolveMediaUrl(row?.images?.[0]?.image_url) ||
+                  resolveMediaUrl(row?.images?.[0]?.url) ||
+                  resolveMediaUrl(row?.display_url) ||
+                  resolveMediaUrl(row?.image_url) ||
+                  PLACEHOLDER_IMAGE;
+                return (
+                  <Link key={row.id} to={`/buying-requests/${row.id}`} className="explore-v2-wtb-card">
+                    <div className="explore-v2-wtb-card-image">
+                      <img src={imageUrl} alt={title} loading="lazy" />
+                    </div>
+                    <div className="explore-v2-wtb-card-body">
+                      <span className="explore-v2-wtb-card-kicker">
+                        {type}
+                        {row?.regional_spec ? ` · ${row.regional_spec}` : ''}
+                      </span>
+                      <h3>{title}</h3>
+                      {row?.mileage_preference ? <p>Mileage: {row.mileage_preference}</p> : null}
+                      {row?.budget ? (
+                        <span className="explore-v2-wtb-card-budget">
+                          {new Intl.NumberFormat('en-AE', { style: 'currency', currency: 'AED', maximumFractionDigits: 0 }).format(row.budget)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          <BrowseSellCta category="buying-requests" />
         </div>
       </div>
-
-      {loading ? (
-        <div className="text-white/70">Loading…</div>
-      ) : error ? (
-        <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-red-100">{error}</div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-white/65">
-          No buying requests yet.
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((row) => {
-            const title = row?.item_name || 'Buying request';
-            const type = String(row?.item_type || '').toUpperCase();
-            const imageUrl =
-              resolveMediaUrl(row?.images?.[0]?.display_url) ||
-              resolveMediaUrl(row?.images?.[0]?.image_url) ||
-              resolveMediaUrl(row?.images?.[0]?.url) ||
-              resolveMediaUrl(row?.display_url) ||
-              resolveMediaUrl(row?.image_url) ||
-              PLACEHOLDER_IMAGE;
-            return (
-              <Link
-                key={row.id}
-                to={`/buying-requests/${row.id}`}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-[#8bd6b4]/25"
-              >
-                <div className="aspect-[16/10] w-full bg-black/20">
-                  <img
-                    src={imageUrl}
-                    alt={title}
-                    className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="p-4">
-                  <div className="text-[15px] font-semibold text-white">{title}</div>
-                  <div className="mt-1 text-sm text-white/55">
-                    {type}
-                    {row?.regional_spec ? ` · ${row.regional_spec}` : ''}
-                  </div>
-                  {row?.mileage_preference ? (
-                    <div className="mt-2 text-sm text-white/60">Mileage: {row.mileage_preference}</div>
-                  ) : null}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    </>
   );
 }

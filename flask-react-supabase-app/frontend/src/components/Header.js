@@ -5,11 +5,14 @@ import {
   CarFront,
   ChevronRight,
   MenuIcon,
+  Moon,
   Package,
   Plus,
+  Sun,
   Tag,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import ProfileMenu from './ProfileMenu';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Button } from './ui/button';
@@ -73,6 +76,7 @@ const resourceLinks = [{ title: 'About', href: '/about' }];
 
 const Header = () => {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
@@ -264,8 +268,19 @@ const Header = () => {
           </NavigationMenuList>
         </NavigationMenu>
 
-        {/* Auth Buttons / Profile Menu */}
-        <div className="hidden items-center gap-2.5 lg:flex">
+        {/* Theme toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-transparent text-white/80 transition-all duration-200 hover:border-white/20 hover:bg-white/8 hover:text-white"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+
+          {/* Auth Buttons / Profile Menu */}
+          <div className="hidden items-center gap-2.5 lg:flex">
           {user ? (
             <ProfileMenu user={user} onLogout={handleLogout} />
           ) : (
@@ -285,6 +300,7 @@ const Header = () => {
               </Button>
             </>
           )}
+          </div>
         </div>
 
         {/* Mobile Menu Button */}

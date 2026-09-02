@@ -1,11 +1,13 @@
 import { Stack } from 'expo-router';
+import { useTheme } from '../../../src/context/ThemeContext';
 export default function SavedStackLayout() {
+  const { colors } = useTheme();
   return (
     <Stack screenOptions={{
-        headerStyle: { backgroundColor: '#000000' },
-        headerTintColor: '#ffffff',
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.textPrimary,
         headerTitleStyle: { fontWeight: '600' },
-        contentStyle: { backgroundColor: '#000000' },
+        contentStyle: { backgroundColor: colors.background },
         animation: 'slide_from_right',
     }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />

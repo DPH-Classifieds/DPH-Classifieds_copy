@@ -51,12 +51,12 @@ const sharedStyles = {
   control: (base, state) => ({
     ...base,
     minHeight: 44,
-    borderRadius: 10,
-    borderColor: '#2a2a2a',
-    background: '#1a1a1a',
+    borderRadius: 8,
+    borderColor: 'var(--ex-line-strong)',
+    background: 'var(--ex-input-bg)',
     boxShadow: 'none',
     '&:hover': {
-      borderColor: '#3b3b3b',
+      borderColor: 'var(--ex-primary)',
     },
   }),
   valueContainer: (base) => ({
@@ -65,33 +65,33 @@ const sharedStyles = {
   }),
   input: (base) => ({
     ...base,
-    color: '#ffffff',
+    color: 'var(--ex-text)',
     margin: 0,
     padding: 0,
   }),
   placeholder: (base) => ({
     ...base,
-    color: '#555555',
+    color: 'var(--ex-text-muted)',
   }),
   singleValue: (base) => ({
     ...base,
-    color: '#ffffff',
+    color: 'var(--ex-text)',
   }),
   indicatorSeparator: () => ({
     display: 'none',
   }),
   dropdownIndicator: (base, state) => ({
     ...base,
-    color: state.isFocused ? '#b5b5b5' : '#8a8a8a',
+    color: 'var(--ex-text-muted)',
     '&:hover': {
-      color: '#b5b5b5',
+      color: 'var(--ex-text)',
     },
   }),
   clearIndicator: (base) => ({
     ...base,
-    color: '#8a8a8a',
+    color: 'var(--ex-text-muted)',
     '&:hover': {
-      color: '#b5b5b5',
+      color: 'var(--ex-text)',
     },
   }),
   menuPortal: (base) => ({
@@ -101,10 +101,10 @@ const sharedStyles = {
   menu: (base) => ({
     ...base,
     overflow: 'hidden',
-    borderRadius: 10,
-    border: '1px solid #2a2a2a',
-    background: '#1c1c1c',
-    boxShadow: '0 16px 28px rgba(0, 0, 0, 0.35)',
+    borderRadius: 8,
+    border: '1px solid var(--ex-line-strong)',
+    background: 'var(--ex-surface)',
+    boxShadow: '0 16px 28px rgba(0, 0, 0, 0.18)',
   }),
   menuList: (base) => ({
     ...base,
@@ -112,19 +112,19 @@ const sharedStyles = {
   }),
   option: (base, state) => ({
     ...base,
-    borderRadius: 8,
+    borderRadius: 6,
     cursor: state.isDisabled ? 'not-allowed' : 'pointer',
     backgroundColor: state.isSelected
-      ? 'rgba(255, 255, 255, 0.08)'
+      ? 'var(--ex-brand-subtle-bg)'
       : state.isFocused
-        ? 'rgba(255, 255, 255, 0.06)'
+        ? 'var(--ex-surface-low)'
         : 'transparent',
-    color: state.isSelected ? '#ffffff' : state.isDisabled ? '#666666' : '#f0f0f0',
+    color: state.isSelected ? 'var(--ex-primary)' : state.isDisabled ? 'var(--ex-text-muted)' : 'var(--ex-text)',
     padding: '10px 12px',
   }),
   groupHeading: (base) => ({
     ...base,
-    color: '#8a8a8a',
+    color: 'var(--ex-text-muted)',
     fontSize: '0.72rem',
     fontWeight: 700,
     letterSpacing: '0.08em',

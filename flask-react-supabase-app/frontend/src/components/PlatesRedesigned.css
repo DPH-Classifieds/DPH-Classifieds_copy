@@ -1,22 +1,23 @@
 :root {
-  --platesd-bg: #0a0a0a;
-  --platesd-surface: rgba(9, 23, 15, 0.98);
-  --platesd-surface-strong: rgba(13, 31, 21, 0.96);
-  --platesd-surface-soft: rgba(18, 42, 29, 0.88);
-  --platesd-line: rgba(177, 228, 182, 0.12);
-  --platesd-line-strong: rgba(177, 228, 182, 0.24);
-  --platesd-text: #eef7ef;
-  --platesd-text-muted: rgba(226, 239, 229, 0.72);
-  --platesd-accent: #8fe694;
-  --platesd-accent-strong: #57bc60;
-  --platesd-border-radius-lg: 12px;
+  --platesd-bg: var(--ex-page-bg);
+  --platesd-surface: var(--ex-surface);
+  --platesd-surface-strong: var(--ex-surface);
+  --platesd-surface-soft: var(--ex-surface-low);
+  --platesd-line: var(--ex-line);
+  --platesd-line-strong: var(--ex-line-strong);
+  --platesd-text: var(--ex-text);
+  --platesd-text-muted: var(--ex-text-muted);
+  --platesd-accent: var(--ex-primary);
+  --platesd-accent-strong: var(--ex-primary-strong);
+  --platesd-border-radius-lg: 10px;
   --platesd-border-radius-md: 8px;
 }
 
 .platesd-container {
   min-height: 100vh;
-  padding: 0 24px 48px;
-  background-color: var(--platesd-bg);
+  padding: 32px 24px 48px;
+  background: var(--ex-page-bg);
+  color: var(--ex-text);
 }
 
 .platesd-max-width {
@@ -25,23 +26,24 @@
 }
 
 .platesd-header {
-  text-align: center;
-  margin-bottom: 32px;
+  text-align: left;
+  margin-bottom: 24px;
 }
 
 .platesd-title {
   font-family: var(--cd-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif);
-  font-size: 42px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   color: var(--platesd-text);
-  margin: 0 0 12px;
-  line-height: 1.1;
+  margin: 0 0 4px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .platesd-subtitle {
-  font-size: 18px;
+  font-size: 14px;
   color: var(--platesd-text-muted);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .platesd-filters {
@@ -86,7 +88,7 @@
   padding: 12px 16px;
   border: 1px solid var(--platesd-line-strong);
   border-radius: var(--platesd-border-radius-md);
-  background-color: var(--platesd-bg);
+  background-color: var(--ex-input-bg);
   color: var(--platesd-text);
   width: 100%;
   min-height: 48px;
@@ -96,7 +98,7 @@
 .platesd-filter-group select:focus,
 .platesd-filter-group input:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: var(--ex-primary);
   box-shadow: none;
 }
 
@@ -201,15 +203,10 @@
   overflow: hidden;
   margin-bottom: 48px;
   padding: 1px;
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at top left, rgba(143, 230, 148, 0.18), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(87, 188, 96, 0.14), transparent 30%),
-    linear-gradient(180deg, rgba(12, 28, 19, 0.98) 0%, rgba(7, 15, 10, 0.99) 100%);
-  border: 1px solid rgba(177, 228, 182, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 24px 70px rgba(0, 0, 0, 0.36);
+  border-radius: 10px;
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-line-strong);
+  box-shadow: var(--ex-card-shadow);
 }
 
 .platesd-cta::before {
@@ -217,8 +214,7 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(120deg, rgba(143, 230, 148, 0.08), transparent 30%),
-    radial-gradient(circle at 20% 0%, rgba(143, 230, 148, 0.08), transparent 40%);
+    radial-gradient(circle at 20% 0%, var(--ex-brand-subtle-bg), transparent 40%);
   pointer-events: none;
 }
 
@@ -241,7 +237,7 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  color: #a8dcb0;
+  color: var(--ex-primary);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 12px;
@@ -250,17 +246,17 @@
 
 .platesd-cta h2 {
   margin: 0;
-  color: #f5fbf5;
+  color: var(--ex-text);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: clamp(2rem, 4vw, 2.9rem);
-  line-height: 1.1;
-  letter-spacing: -0.05em;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .platesd-cta p {
   max-width: 620px;
   margin: 14px 0 0;
-  color: rgba(226, 239, 229, 0.72);
+  color: var(--ex-text-muted);
   font-size: 16px;
   line-height: 1.65;
 }
@@ -279,9 +275,9 @@
   min-height: 36px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(244, 251, 245, 0.06);
-  border: 1px solid rgba(177, 228, 182, 0.14);
-  color: #dff1e0;
+  background: var(--ex-surface-low);
+  border: 1px solid var(--ex-line-strong);
+  color: var(--ex-text-muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -299,22 +295,19 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 52px;
+  min-height: 48px;
   padding: 0 24px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #88d86f 0%, #5bac58 100%);
-  color: #081008;
+  background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
+  color: #ffffff;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.26);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .platesd-cta-button:hover {
   transform: translateY(-1px);
-  filter: brightness(1.05);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.3);
 }
 
 .platesd-cta-secondary {
@@ -324,19 +317,18 @@
   min-height: 44px;
   padding: 0 18px;
   border-radius: 999px;
-  color: rgba(226, 239, 229, 0.82);
+  color: var(--ex-text);
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  border: 1px solid rgba(177, 228, 182, 0.14);
-  background: rgba(244, 251, 245, 0.04);
+  border: 1px solid var(--ex-line-strong);
+  background: transparent;
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
 .platesd-cta-secondary:hover {
-  background: rgba(244, 251, 245, 0.08);
-  border-color: rgba(177, 228, 182, 0.24);
-  color: #f5fbf5;
+  background: var(--ex-surface-low);
+  border-color: var(--ex-line-strong);
 }
 .platesd-no-results {
   text-align: center;
@@ -387,9 +379,9 @@
   justify-content: center;
   padding: 12px 24px;
   background-color: var(--platesd-accent);
-  color: var(--platesd-bg);
+  color: #ffffff;
   border: none;
-  border-radius: var(--platesd-border-radius-md);
+  border-radius: 999px;
   font-size: 16px;
   font-weight: 700;
   text-decoration: none;

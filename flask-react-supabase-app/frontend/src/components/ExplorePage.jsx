@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Plus, SlidersHorizontal, X } from 'lucide-react';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import ListingSkeleton from './ListingSkeleton';
 import SeoMeta from './SeoMeta';
 import SearchBar from './ui/search-bar';
 import { resolveMediaUrl } from '../utils/media';
 import { buildStaticSeo } from '../utils/seo';
+import { UAE_EMIRATES } from '../utils/listingConstants';
 import BrowseSellCta from './BrowseSellCta';
 import useFeaturedPattern from '../hooks/useFeaturedPattern';
 import { applyFeaturedPlacement } from '../utils/featuredPlacement';
@@ -109,7 +111,7 @@ const fetchJsonWithCache = async (url, ttlMs = INVENTORY_CACHE_TTL_MS) => {
 };
 
 const exploreModes = [
-  { key: 'all', label: 'Explore All', description: 'Search everything in one place.' },
+  { key: 'all', label: 'All', description: 'Search everything in one place.' },
   { key: 'cars', label: 'Cars', description: 'Luxury, commuter, and enthusiast cars.' },
   { key: 'car-parts', label: 'Car Parts', description: 'Parts, upgrades, and accessories.' },
   { key: 'plates', label: 'Plates', description: 'Premium UAE number plates.' },
@@ -122,7 +124,6 @@ const carInitialFilters = {
   query: '',
   manufacturer: '',
   model: '',
-  city: '',
   priceMin: '',
   priceMax: '',
   sortBy: 'newest',
@@ -138,7 +139,6 @@ const partsInitialFilters = {
 
 const plateInitialFilters = {
   query: '',
-  city: '',
   code: '',
   digits: '',
   priceMin: '',
@@ -165,20 +165,18 @@ const PRICE_PRESETS = [
   { label: '200k+', min: 200000, max: 0 },
 ];
 
-const categoryMeta = {
-  all: { heroTitle: 'Search the full UAE marketplace with one premium browse surface.' },
-  cars: { heroTitle: 'Browse cars with make-aware filters and a cleaner path to detail.' },
-  'car-parts': { heroTitle: 'Compare parts and accessories without losing the showroom feel.' },
-  plates: { heroTitle: 'Surface premium UAE plates with focused city and code filters.' },
-  bikes: { heroTitle: 'Explore motorcycles with the same premium rhythm as the car journey.' },
-  reddit: { heroTitle: 'Cars imported from r/DubaiPetrolHeads, in one clean browse surface.' },
-  'buying-requests': { heroTitle: "Browse what other members are looking to buy, or post your own request." },
-};
-
 const mapExploreModeToSellCtaCategory = (modeKey) => {
   if (modeKey === 'car-parts') return 'parts';
   if (modeKey === 'all') return 'cars';
   return modeKey;
+};
+
+const POST_HREF_BY_CATEGORY = {
+  cars: '/post-car',
+  parts: '/post-car-parts',
+  plates: '/post-plate',
+  bikes: '/post-bike',
+  'buying-requests': '/post-buying-request',
 };
 
 const formatPrice = (value) => {
@@ -194,7 +192,18 @@ const formatPrice = (value) => {
   }).format(numericValue);
 };
 
+const priceRangeLabel = (filters) => {
+  const min = filters.priceMin ? Number(filters.priceMin).toLocaleString() : null;
+  const max = filters.priceMax ? Number(filters.priceMax).toLocaleString() : null;
+  if (min && max) return `AED ${min}–${max}`;
+  if (min) return `AED ${min}+`;
+  return `Up to AED ${max}`;
+};
+
 const normalizeText = (value) => (value ? String(value).trim() : '');
+
+const distinctValues = (items, getter) =>
+  [...new Set(items.map((item) => normalizeText(getter(item))).filter(Boolean))].sort();
 
 const getPrimaryImage = (item) => {
   const candidate =
@@ -263,6 +272,10 @@ const compareBySort = (left, right, sortBy) => {
 
   if (sortBy === 'price-high') {
     return (right.numericPrice || 0) - (left.numericPrice || 0);
+  }
+
+  if (sortBy === 'oldest') {
+    return Date.parse(left.createdAt || '') - Date.parse(right.createdAt || '');
   }
 
   return Date.parse(right.createdAt || '') - Date.parse(left.createdAt || '');
@@ -350,7 +363,7 @@ const normalizeBike = (bike) => {
     numericPrice: toNumeric(price),
     route: `/bikes/${bike.id}`,
     routeState: buildListingRouteState(bike),
-image: getPrimaryImage(bike),
+    image: getPrimaryImage(bike),
     images: getGalleryImages(bike),
     createdAt: bike.created_at,
     sellerDealerVerified: Boolean(bike.seller_dealer_verified),
@@ -533,14 +546,14 @@ const BuyingRequestCard = ({ item }) => (
 );
 
 const ExplorePage = ({ forcedCategory } = {}) => {
-  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const totalCounts = useListingCounts();
   const featuredPattern = useFeaturedPattern();
   const [featuredByCategory, setFeaturedByCategory] = useState({ cars: [], bikes: [], parts: [], plates: [] });
   // forcedCategory lets a dedicated route (e.g. /reddit) pin the mode without a
   // ?category= query param, so the URL stays clean.
-  const initialCategory = forcedCategory || new URLSearchParams(location.search).get('category') || 'all';
+  const initialCategory = forcedCategory || searchParams.get('category') || 'all';
   const [inventory, setInventory] = useState({
     cars: [],
     bikes: [],
@@ -555,13 +568,13 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [error, setError] = useState('');
   const sentinelRef = useRef(null);
   const isFetchingRef = useRef(false);
-  // Snapshot of the loaded-inventory counts taken the first time the page
-  // finishes loading. Used as a placeholder for the tab counts so the user
-  // never sees an em-dash while /api/listings/counts is in flight, and the
-  // number does not keep climbing as they scroll new pages in. Server totals
-  // (from useListingCounts) win once they arrive; this ref only matters
-  // during the brief window before that hook resolves.
-  const initialLoadCountsRef = useRef(null);
+  // Last-loaded count per category. Used as the tab-count placeholder so the
+  // user never sees an em-dash while /api/listings/counts is in flight, and
+  // as the ONLY source for reddit/buying-requests (that endpoint has no total
+  // for either — see /api/listings/counts). Must be real state, not a ref:
+  // it's read during render, and a ref mutation alone doesn't trigger the
+  // re-render needed to show an updated count immediately.
+  const [knownCounts, setKnownCounts] = useState({});
   const [activeMode, setActiveMode] = useState(
     exploreModes.some((mode) => mode.key === initialCategory) ? initialCategory : 'all'
   );
@@ -572,20 +585,24 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [bikeFilters, setBikeFilters] = useState(bikeInitialFilters);
   const [redditFilters, setRedditFilters] = useState(carInitialFilters);
   const [buyingRequestFilters, setBuyingRequestFilters] = useState({ query: '', itemType: 'all' });
-  // Hides source_platform=reddit rows from cars/bikes/car-parts/plates/all —
-  // irrelevant on the dedicated Reddit tab (that view IS reddit listings) and
-  // on buying-requests (no source_platform there).
-  const [hideReddit, setHideReddit] = useState(false);
+  const [locationFilter, setLocationFilter] = useState('');
+  // All three default on. toggleSource() below refuses to leave all off.
+  const [sourceFilter, setSourceFilter] = useState({ private: true, dealer: true, reddit: true });
+  const [allSortBy, setAllSortBy] = useState('newest');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [heroQuery, setHeroQuery] = useState('');
   const [savingSearch, setSavingSearch] = useState(false);
   const [savedSearchNotice, setSavedSearchNotice] = useState('');
   const [renderLimit, setRenderLimit] = useState(MAX_RENDERED_ITEMS);
 
+  // ── one-way-ish read from the URL: applies on mount, and again if the URL
+  // changes from outside this page (back/forward, a saved-search link) ─────
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const q = params.get('q') || '';
-    const city = params.get('city') || '';
-    const cat = forcedCategory || params.get('category') || 'all';
+    const q = searchParams.get('q') || '';
+    const city = searchParams.get('city') || '';
+    const source = searchParams.get('source') || '';
+    const sort = searchParams.get('sort') || '';
+    const cat = forcedCategory || searchParams.get('category') || 'all';
 
     if (q) {
       setGlobalQuery(q);
@@ -596,13 +613,31 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       setBikeFilters((prev) => ({ ...prev, query: q }));
     }
     if (city) {
-      setCarFilters((prev) => ({ ...prev, city }));
-      setPlateFilters((prev) => ({ ...prev, city }));
+      setLocationFilter(city);
+    }
+    if (source) {
+      const included = new Set(source.split(','));
+      if (included.size > 0) {
+        setSourceFilter({
+          private: included.has('private'),
+          dealer: included.has('dealer'),
+          reddit: included.has('reddit'),
+        });
+      }
+    }
+    if (sort) {
+      setCarFilters((prev) => ({ ...prev, sortBy: sort }));
+      setPartsFilters((prev) => ({ ...prev, sortBy: sort }));
+      setPlateFilters((prev) => ({ ...prev, sortBy: sort }));
+      setBikeFilters((prev) => ({ ...prev, sortBy: sort }));
+      setRedditFilters((prev) => ({ ...prev, sortBy: sort }));
+      setAllSortBy(sort);
     }
     if (cat && exploreModes.some((m) => m.key === cat)) {
       setActiveMode(cat);
     }
-  }, [location.search, forcedCategory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, forcedCategory]);
 
   useEffect(() => {
     setRenderLimit(MAX_RENDERED_ITEMS);
@@ -659,11 +694,38 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         hasMore: false,
       };
     }
-    const url = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc${hideReddit ? '&exclude_reddit=true' : ''}`;
-    const data = await fetchJsonWithCache(url, ttl);
-    const items = extractInventoryCollection(data, FALLBACK_KEYS[apiKey] || ['data']);
+    // Source filter has 3 independent toggles (private/dealer/reddit), but the
+    // backend only knows how to include-or-exclude Reddit rows — private vs
+    // dealer is decided client-side afterwards via sellerDealerVerified (see
+    // matchesSource in filteredItems). Every browse route EXCLUDES Reddit rows
+    // by default (confirmed: /api/cars with no params returns 0 reddit rows
+    // locally) — it only returns them when source_platform=reddit is passed
+    // explicitly. So when the user wants BOTH DPH and Reddit (the default
+    // state), a single request can never surface both; two parallel requests
+    // are required and merged client-side.
+    const wantsDph = sourceFilter.private || sourceFilter.dealer;
+    const wantsReddit = sourceFilter.reddit;
+    const baseUrl = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
+    const fallbackKeys = FALLBACK_KEYS[apiKey] || ['data'];
+
+    if (wantsDph && wantsReddit) {
+      const [dphData, redditData] = await Promise.all([
+        fetchJsonWithCache(`${baseUrl}&exclude_reddit=true`, ttl),
+        fetchJsonWithCache(`${baseUrl}&source_platform=reddit`, ttl),
+      ]);
+      const dphItems = extractInventoryCollection(dphData, fallbackKeys);
+      const redditItems = extractInventoryCollection(redditData, fallbackKeys);
+      return {
+        items: [...dphItems, ...redditItems],
+        hasMore: dphItems.length === PAGE_SIZE || redditItems.length === PAGE_SIZE,
+      };
+    }
+
+    const sourceParam = !wantsReddit ? '&exclude_reddit=true' : '&source_platform=reddit';
+    const data = await fetchJsonWithCache(`${baseUrl}${sourceParam}`, ttl);
+    const items = extractInventoryCollection(data, fallbackKeys);
     return { items, hasMore: items.length === PAGE_SIZE };
-  }, [hideReddit]);
+  }, [sourceFilter]);
 
   // ── initial load: only the active category unless "all" is selected ─────
   useEffect(() => {
@@ -792,6 +854,16 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     return () => obs.disconnect();
   }, [loading, activeMode]);
 
+  // Escape closes the filter drawer regardless of where focus landed inside it.
+  useEffect(() => {
+    if (!filterDrawerOpen) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setFilterDrawerOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [filterDrawerOpen]);
+
   const normalizedInventory = useMemo(
     () => ({
       cars: inventory.cars.map(normalizeCar),
@@ -832,21 +904,32 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     [allItems.length, normalizedInventory]
   );
 
-  // Snapshot the initial featuredCounts the first time loading settles, so
-  // the tab-count placeholders do not keep growing as the user scrolls more
-  // pages in.
-  const wasLoadingRef = useRef(true);
+  // Learn the count for whichever category the fetch that just completed
+  // actually targeted. Switching category replaces `inventory` wholesale
+  // (see the initial-load effect above), which zeroes out every OTHER
+  // category's normalizedInventory — so only merge in the key(s) actually
+  // targeted here, or a previously-learned Reddit/WTB count would get
+  // clobbered back to 0 the moment the user switches to Cars.
   useEffect(() => {
-    if (wasLoadingRef.current && !loading) {
-      wasLoadingRef.current = false;
-      initialLoadCountsRef.current = { ...featuredCounts };
-    }
-  }, [loading, featuredCounts]);
+    if (loading) return;
+    const targets = activeMode === 'all'
+      ? ['all', 'cars', 'car-parts', 'plates', 'bikes']
+      : [activeMode];
+    setKnownCounts((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      targets.forEach((key) => {
+        if (featuredCounts[key] !== undefined && prev[key] !== featuredCounts[key]) {
+          next[key] = featuredCounts[key];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [loading, featuredCounts, activeMode]);
 
   const redditMakes = useMemo(
-    () => [...new Set(
-      normalizedInventory.reddit.map((item) => normalizeText(item.manufacturer || item.brand)).filter(Boolean)
-    )].sort(),
+    () => distinctValues(normalizedInventory.reddit, (item) => item.manufacturer || item.brand),
     [normalizedInventory.reddit]
   );
 
@@ -855,10 +938,47 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     return Math.max(50000, Math.ceil(top / 10000) * 10000);
   }, [normalizedInventory.reddit]);
 
+  const carMakes = useMemo(
+    () => distinctValues(normalizedInventory.cars, (item) => item.manufacturer),
+    [normalizedInventory.cars]
+  );
+  const carModels = useMemo(() => {
+    const pool = carFilters.manufacturer
+      ? normalizedInventory.cars.filter((item) => normalizeText(item.manufacturer) === carFilters.manufacturer)
+      : normalizedInventory.cars;
+    return distinctValues(pool, (item) => item.model);
+  }, [normalizedInventory.cars, carFilters.manufacturer]);
+  const partCategories = useMemo(
+    () => distinctValues(normalizedInventory.parts, (item) => item.partCategory),
+    [normalizedInventory.parts]
+  );
+  const bikeTypes = useMemo(
+    () => distinctValues(normalizedInventory.bikes, (item) => item.bikeType),
+    [normalizedInventory.bikes]
+  );
+  const bikeBrands = useMemo(
+    () => distinctValues(normalizedInventory.bikes, (item) => item.brand),
+    [normalizedInventory.bikes]
+  );
+  const plateDigitOptions = useMemo(
+    () => distinctValues(normalizedInventory.plates, (item) => item.digitsValue),
+    [normalizedInventory.plates]
+  );
+
   const filteredItems = useMemo(() => {
+    const matchesLocation = (item) => !locationFilter || item.location === locationFilter;
+    // Reddit rows are always Reddit; everything else is a DPHClassifieds
+    // listing, split into private-seller vs dealer via sellerDealerVerified.
+    const matchesSource = (item) => {
+      if (item.sourcePlatform === 'reddit') return sourceFilter.reddit;
+      return item.sellerDealerVerified ? sourceFilter.dealer : sourceFilter.private;
+    };
+    const matchesLocationAndSource = (item) => matchesLocation(item) && matchesSource(item);
+
     if (activeMode === 'all') {
       const query = globalQuery.trim().toLowerCase();
       const ranked = allItems
+        .filter(matchesLocationAndSource)
         .map((item) => ({
           ...item,
           relevanceScore: scoreAllMatch(item, query),
@@ -866,16 +986,16 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         .filter((item) => !query || item.relevanceScore > 0);
 
       return ranked.sort((left, right) => {
-        if (right.relevanceScore !== left.relevanceScore) {
+        if (query && right.relevanceScore !== left.relevanceScore) {
           return right.relevanceScore - left.relevanceScore;
         }
-
-        return Date.parse(right.createdAt || '') - Date.parse(left.createdAt || '');
+        return compareBySort(left, right, allSortBy);
       });
     }
 
     if (activeMode === 'reddit') {
       return normalizedInventory.reddit
+        .filter(matchesLocation)
         .filter((item) => {
           const query = redditFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(redditFilters.priceMin);
@@ -899,6 +1019,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
     if (activeMode === 'cars') {
       return normalizedInventory.cars
+        .filter(matchesLocationAndSource)
         .filter((item) => {
           const query = carFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(carFilters.priceMin);
@@ -908,9 +1029,6 @@ const ExplorePage = ({ forcedCategory } = {}) => {
             return false;
           }
           if (carFilters.model && normalizeText(item.model) !== carFilters.model) {
-            return false;
-          }
-          if (carFilters.city && normalizeText(item.city) !== carFilters.city) {
             return false;
           }
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -929,6 +1047,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
     if (activeMode === 'car-parts') {
       return normalizedInventory.parts
+        .filter(matchesLocationAndSource)
         .filter((item) => {
           const query = partsFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(partsFilters.priceMin);
@@ -954,15 +1073,13 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
     if (activeMode === 'plates') {
       return normalizedInventory.plates
+        .filter(matchesLocationAndSource)
         .filter((item) => {
           const query = plateFilters.query.trim().toLowerCase();
           const minPrice = toNumeric(plateFilters.priceMin);
           const maxPrice = toNumeric(plateFilters.priceMax);
           const digits = normalizeText(item.digitsValue);
 
-          if (plateFilters.city && item.location !== plateFilters.city) {
-            return false;
-          }
           if (plateFilters.code && normalizeText(item.codeValue) !== plateFilters.code) {
             return false;
           }
@@ -999,6 +1116,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     }
 
     return normalizedInventory.bikes
+      .filter(matchesLocationAndSource)
       .filter((item) => {
         const query = bikeFilters.query.trim().toLowerCase();
         const minPrice = toNumeric(bikeFilters.priceMin);
@@ -1036,14 +1154,17 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   }, [
     activeMode,
     allItems,
+    allSortBy,
     bikeFilters,
     buyingRequestFilters,
     carFilters,
     globalQuery,
+    locationFilter,
     normalizedInventory,
     partsFilters,
     plateFilters,
     redditFilters,
+    sourceFilter,
   ]);
 
   const normalizedFeatured = useMemo(() => {
@@ -1063,17 +1184,19 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   // once someone searches, filters, or explicitly re-sorts, they get plain
   // relevance/price order, not promotional interleaving.
   const isDefaultOrder = useMemo(() => {
-    if (activeMode === 'all') return !globalQuery.trim();
+    const sourceIsDefault = sourceFilter.private && sourceFilter.dealer && sourceFilter.reddit;
+    if (!sourceIsDefault || locationFilter) return false;
+    if (activeMode === 'all') return !globalQuery.trim() && allSortBy === 'newest';
     if (activeMode === 'cars') {
       return !carFilters.query.trim() && carFilters.sortBy === 'newest' && !carFilters.manufacturer
-        && !carFilters.model && !carFilters.city && !carFilters.priceMin && !carFilters.priceMax;
+        && !carFilters.model && !carFilters.priceMin && !carFilters.priceMax;
     }
     if (activeMode === 'car-parts') {
       return !partsFilters.query.trim() && partsFilters.sortBy === 'newest' && !partsFilters.category
         && !partsFilters.priceMin && !partsFilters.priceMax;
     }
     if (activeMode === 'plates') {
-      return !plateFilters.query.trim() && plateFilters.sortBy === 'newest' && !plateFilters.city
+      return !plateFilters.query.trim() && plateFilters.sortBy === 'newest'
         && !plateFilters.code && !plateFilters.digits && !plateFilters.priceMin && !plateFilters.priceMax;
     }
     if (activeMode === 'bikes') {
@@ -1082,7 +1205,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         && !bikeFilters.yearMin && !bikeFilters.yearMax;
     }
     return false; // reddit, buying-requests: no featured placement
-  }, [activeMode, globalQuery, carFilters, partsFilters, plateFilters, bikeFilters]);
+  }, [activeMode, globalQuery, allSortBy, carFilters, partsFilters, plateFilters, bikeFilters, locationFilter, sourceFilter]);
 
   const displayedItems = useMemo(() => {
     if (!isDefaultOrder) return filteredItems;
@@ -1119,11 +1242,13 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       reddit: redditFilters,
       'buying-requests': buyingRequestFilters,
     };
-    const filters = filtersByMode[activeMode] || {};
+    const filters = { ...(filtersByMode[activeMode] || {}), location: locationFilter, source: sourceFilter };
     const query = filters.query || globalQuery || heroQuery || '';
     const hasSpecificSignal =
       activeMode !== 'all' ||
-      Object.entries(filters).some(([key, value]) => key !== 'sortBy' && String(value || '').trim());
+      Boolean(locationFilter) ||
+      !sourceFilter.private || !sourceFilter.dealer || !sourceFilter.reddit ||
+      Object.entries(filters).some(([key, value]) => !['sortBy', 'location', 'source'].includes(key) && String(value || '').trim());
     return {
       category: activeMode,
       query,
@@ -1139,13 +1264,59 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     filteredItems.length,
     globalQuery,
     heroQuery,
+    locationFilter,
     partsFilters,
     plateFilters,
     redditFilters,
+    sourceFilter,
   ]);
+
+  // ── keep the URL in sync with the visible filter state (shareable,
+  // survives refresh/back-forward) — replace, not push, so every keystroke
+  // doesn't spam browser history ────────────────────────────────────────────
+  const activeSortBy = activeMode === 'all' ? allSortBy
+    : activeMode === 'cars' ? carFilters.sortBy
+    : activeMode === 'car-parts' ? partsFilters.sortBy
+    : activeMode === 'plates' ? plateFilters.sortBy
+    : activeMode === 'bikes' ? bikeFilters.sortBy
+    : activeMode === 'reddit' ? redditFilters.sortBy
+    : 'newest';
+
+  useEffect(() => {
+    if (forcedCategory) return; // /reddit keeps a clean URL
+    const params = new URLSearchParams();
+    if (activeMode !== 'all') params.set('category', activeMode);
+    if (locationFilter) params.set('city', locationFilter);
+    if (!sourceFilter.private || !sourceFilter.dealer || !sourceFilter.reddit) {
+      const included = ['private', 'dealer', 'reddit'].filter((key) => sourceFilter[key]);
+      params.set('source', included.join(','));
+    }
+    if (activeSortBy && activeSortBy !== 'newest') params.set('sort', activeSortBy);
+    const q = globalQuery.trim();
+    if (q) params.set('q', q);
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMode, locationFilter, sourceFilter, activeSortBy, globalQuery, forcedCategory]);
 
   const handleModeChange = (modeKey) => {
     setActiveMode(modeKey);
+  };
+
+  const handleSortChange = (value) => {
+    if (activeMode === 'all') setAllSortBy(value);
+    else if (activeMode === 'cars') setCarFilters((prev) => ({ ...prev, sortBy: value }));
+    else if (activeMode === 'car-parts') setPartsFilters((prev) => ({ ...prev, sortBy: value }));
+    else if (activeMode === 'plates') setPlateFilters((prev) => ({ ...prev, sortBy: value }));
+    else if (activeMode === 'bikes') setBikeFilters((prev) => ({ ...prev, sortBy: value }));
+    else if (activeMode === 'reddit') setRedditFilters((prev) => ({ ...prev, sortBy: value }));
+  };
+
+  const toggleSource = (key) => {
+    setSourceFilter((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (!next.private && !next.dealer && !next.reddit) return prev; // require at least one source
+      return next;
+    });
   };
 
   const handleHeroSearch = (query) => {
@@ -1159,6 +1330,20 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     if (!nextQuery) {
       setActiveMode('all');
     }
+  };
+
+  const handleClearAll = () => {
+    setLocationFilter('');
+    setSourceFilter({ private: true, dealer: true, reddit: true });
+    setGlobalQuery('');
+    setHeroQuery('');
+    setCarFilters(carInitialFilters);
+    setPartsFilters(partsInitialFilters);
+    setPlateFilters(plateInitialFilters);
+    setBikeFilters(bikeInitialFilters);
+    setRedditFilters(carInitialFilters);
+    setBuyingRequestFilters({ query: '', itemType: 'all' });
+    setAllSortBy('newest');
   };
 
   const handleSaveSearch = async () => {
@@ -1191,49 +1376,162 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     }
   };
 
+  const activePills = useMemo(() => {
+    const pills = [];
+    if (locationFilter) {
+      pills.push({ id: 'location', label: locationFilter, onRemove: () => setLocationFilter('') });
+    }
+    if (!sourceFilter.private) {
+      pills.push({ id: 'source-private', label: 'No Private Sellers', onRemove: () => setSourceFilter((prev) => ({ ...prev, private: true })) });
+    }
+    if (!sourceFilter.dealer) {
+      pills.push({ id: 'source-dealer', label: 'No Dealers', onRemove: () => setSourceFilter((prev) => ({ ...prev, dealer: true })) });
+    }
+    if (!sourceFilter.reddit) {
+      pills.push({ id: 'source-reddit', label: 'No Reddit', onRemove: () => setSourceFilter((prev) => ({ ...prev, reddit: true })) });
+    }
+    if (activeMode === 'cars') {
+      if (carFilters.manufacturer) {
+        pills.push({ id: 'make', label: carFilters.manufacturer, onRemove: () => setCarFilters((prev) => ({ ...prev, manufacturer: '', model: '' })) });
+      }
+      if (carFilters.model) {
+        pills.push({ id: 'model', label: carFilters.model, onRemove: () => setCarFilters((prev) => ({ ...prev, model: '' })) });
+      }
+      if (carFilters.priceMin || carFilters.priceMax) {
+        pills.push({ id: 'price', label: priceRangeLabel(carFilters), onRemove: () => setCarFilters((prev) => ({ ...prev, priceMin: '', priceMax: '' })) });
+      }
+    }
+    if (activeMode === 'car-parts') {
+      if (partsFilters.category) {
+        pills.push({ id: 'category', label: partsFilters.category, onRemove: () => setPartsFilters((prev) => ({ ...prev, category: '' })) });
+      }
+      if (partsFilters.priceMin || partsFilters.priceMax) {
+        pills.push({ id: 'price', label: priceRangeLabel(partsFilters), onRemove: () => setPartsFilters((prev) => ({ ...prev, priceMin: '', priceMax: '' })) });
+      }
+    }
+    if (activeMode === 'plates') {
+      if (plateFilters.code) {
+        pills.push({ id: 'code', label: `Code ${plateFilters.code}`, onRemove: () => setPlateFilters((prev) => ({ ...prev, code: '' })) });
+      }
+      if (plateFilters.digits) {
+        pills.push({ id: 'digits', label: `${plateFilters.digits} digits`, onRemove: () => setPlateFilters((prev) => ({ ...prev, digits: '' })) });
+      }
+      if (plateFilters.priceMin || plateFilters.priceMax) {
+        pills.push({ id: 'price', label: priceRangeLabel(plateFilters), onRemove: () => setPlateFilters((prev) => ({ ...prev, priceMin: '', priceMax: '' })) });
+      }
+    }
+    if (activeMode === 'bikes') {
+      if (bikeFilters.brand) {
+        pills.push({ id: 'brand', label: bikeFilters.brand, onRemove: () => setBikeFilters((prev) => ({ ...prev, brand: '' })) });
+      }
+      if (bikeFilters.type) {
+        pills.push({ id: 'type', label: bikeFilters.type, onRemove: () => setBikeFilters((prev) => ({ ...prev, type: '' })) });
+      }
+      if (bikeFilters.yearMin || bikeFilters.yearMax) {
+        pills.push({ id: 'year', label: `${bikeFilters.yearMin || 'Any'}–${bikeFilters.yearMax || 'Any'}`, onRemove: () => setBikeFilters((prev) => ({ ...prev, yearMin: '', yearMax: '' })) });
+      }
+      if (bikeFilters.priceMin || bikeFilters.priceMax) {
+        pills.push({ id: 'price', label: priceRangeLabel(bikeFilters), onRemove: () => setBikeFilters((prev) => ({ ...prev, priceMin: '', priceMax: '' })) });
+      }
+    }
+    return pills;
+  }, [activeMode, locationFilter, sourceFilter, carFilters, partsFilters, plateFilters, bikeFilters]);
+
+  const priceFiltersByMode = {
+    cars: [carFilters, setCarFilters],
+    'car-parts': [partsFilters, setPartsFilters],
+    plates: [plateFilters, setPlateFilters],
+    bikes: [bikeFilters, setBikeFilters],
+  };
+  const [activePriceFilters, setActivePriceFilters] = priceFiltersByMode[activeMode] || [null, null];
+
+  const postCategory = mapExploreModeToSellCtaCategory(activeMode);
+  const postHref = POST_HREF_BY_CATEGORY[postCategory] || '/post-car';
+  const postAdHref = user ? postHref : `/login?redirect=${encodeURIComponent(postHref)}`;
+
+  const showSourceSection = activeMode !== 'reddit' && activeMode !== 'buying-requests';
+  const showSortControl = activeMode !== 'buying-requests';
+  const emptyStateMessage = (!sourceFilter.private && !sourceFilter.dealer)
+    ? 'No Reddit-imported listings match these filters.'
+    : 'No listings found. Try changing your filters or searching for something else.';
 
   return (
     <>
       <SeoMeta {...seoData} />
       <div className="explore-v2">
-      <section className="explore-v2-hero">
         <div className="explore-v2-shell">
-          <div className="explore-v2-hero-copy">
-            <span className="explore-v2-kicker">Marketplace Hub</span>
-            <h1>{(categoryMeta[activeMode] || categoryMeta.all).heroTitle}</h1>
-            <p>
-              Explore is now the dedicated marketplace layer on the navbar. Browse everything at once,
-              or switch into a category and let the filters adapt around the inventory that actually
-              exists there.
-            </p>
+          <div className="explore-v2-pageheader">
+            <div>
+              <h1>Explore</h1>
+              <p>Browse listings across the UAE.</p>
+            </div>
+            <Link to={postAdHref} className="explore-v2-postad">
+              <Plus className="h-4 w-4" />
+              Post Ad
+            </Link>
           </div>
 
-          <div className="explore-v2-hero-search">
+          <div className="explore-v2-searchrow">
             <SearchBar
               value={heroQuery}
               onChange={setHeroQuery}
               onSubmit={handleHeroSearch}
               placeholder="Search cars, parts, plates, bikes..."
-              size="large"
-              className="explore-v2-hero-searchbar"
             />
           </div>
 
-          <div className="explore-v2-hero-stats">
+          <div className="explore-v2-primary-controls">
+            <select
+              className="explore-v2-select"
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              aria-label="Filter by location"
+            >
+              <option value="">All UAE</option>
+              {UAE_EMIRATES.map((emirate) => (
+                <option key={emirate} value={emirate}>{emirate}</option>
+              ))}
+            </select>
+
+            <select
+              className="explore-v2-select"
+              value={activeMode}
+              onChange={(e) => handleModeChange(e.target.value)}
+              aria-label="Filter by category"
+            >
+              {exploreModes.map((mode) => (
+                <option key={mode.key} value={mode.key}>{mode.label}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="explore-v2-filters-btn"
+              onClick={() => setFilterDrawerOpen(true)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {activePills.length > 0 ? (
+                <span className="explore-v2-filter-count">{activePills.length}</span>
+              ) : null}
+            </button>
+          </div>
+
+          <div className="explore-v2-chips" role="tablist" aria-label="Category">
             {exploreModes.map((mode) => {
               // Priority order:
               //   1. Server total from /api/listings/counts — the authoritative count.
-              //   2. Snapshot of the loaded count taken at first-paint — covers the
-              //      brief window before the counts endpoint returns, AND keeps the
-              //      number stable as the user scrolls more pages in.
+              //      (Has no entry for reddit/buying-requests — those fall through.)
+              //   2. Last-loaded count for that category — the only source at all for
+              //      reddit/buying-requests, a brief placeholder for everything else.
               //   3. Em-dash if neither is available yet.
               const totalKey = mode.key === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[mode.key];
               const hasServerTotal = Boolean(totalCounts) && totalKey != null && totalCounts[totalKey] !== undefined;
               let displayCount;
               if (hasServerTotal) {
                 displayCount = totalCounts[totalKey];
-              } else if (initialLoadCountsRef.current && totalKey != null && initialLoadCountsRef.current[mode.key] != null) {
-                displayCount = initialLoadCountsRef.current[mode.key];
+              } else if (knownCounts[mode.key] != null) {
+                displayCount = knownCounts[mode.key];
               } else {
                 displayCount = null;
               }
@@ -1241,227 +1539,401 @@ const ExplorePage = ({ forcedCategory } = {}) => {
                 <button
                   key={mode.key}
                   type="button"
-                  className={`explore-v2-stat ${activeMode === mode.key ? 'is-active' : ''}`}
+                  role="tab"
+                  aria-selected={activeMode === mode.key}
+                  className={`explore-v2-chip ${activeMode === mode.key ? 'is-active' : ''}`}
                   onClick={() => handleModeChange(mode.key)}
                 >
-                  <span>{mode.label}</span>
+                  {mode.label}
                   <small>{displayCount === null ? '—' : displayCount.toLocaleString()}</small>
                 </button>
               );
             })}
           </div>
-        </div>
-      </section>
 
-      <section className="explore-v2-shell explore-v2-results-section">
-        <div className="explore-v2-results-header">
-          <div>
-            <span className="explore-v2-kicker">Live Inventory</span>
-            <h2>{exploreModes.find((mode) => mode.key === activeMode)?.label}</h2>
-          </div>
-          <div className="explore-v2-results-meta">
-            <p>{resultsDescription}</p>
-            {activeMode !== 'reddit' && activeMode !== 'buying-requests' && (
-              <label className="explore-v2-hide-reddit-toggle">
-                <input
-                  type="checkbox"
-                  checked={hideReddit}
-                  onChange={(e) => setHideReddit(e.target.checked)}
-                />
-                <span>Hide Reddit imports</span>
-              </label>
-            )}
-            <button
-              type="button"
-              className="explore-v2-button explore-v2-button-secondary"
-              onClick={handleSaveSearch}
-              disabled={savingSearch || loading || !activeSearchPayload.hasSpecificSignal}
-            >
-              {savingSearch ? 'Saving...' : 'Save Search'}
-            </button>
-            <Link
-              to="/my-listings?tab=searches"
-              className="explore-v2-button explore-v2-button-secondary"
-            >
-              View Saved Searches
-            </Link>
-            {savedSearchNotice ? <span className="explore-v2-save-search-note">{savedSearchNotice}</span> : null}
-          </div>
-        </div>
-
-        {activeMode === 'reddit' && (
-          <div className="explore-v2-filter-panel">
-            <div className="explore-v2-filter-grid">
-              <label className="explore-v2-field">
-                <span>Search</span>
-                <input
-                  className="explore-v2-input"
-                  type="search"
-                  value={redditFilters.query}
-                  onChange={(e) => setRedditFilters((prev) => ({ ...prev, query: e.target.value }))}
-                  placeholder="Make, model, keyword"
-                />
-              </label>
-              <label className="explore-v2-field">
-                <span>Make</span>
-                <select
-                  className="explore-v2-input"
-                  value={redditFilters.manufacturer}
-                  onChange={(e) => setRedditFilters((prev) => ({ ...prev, manufacturer: e.target.value }))}
-                >
-                  <option value="">All makes</option>
-                  {redditMakes.map((make) => (
-                    <option key={make} value={make}>{make}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="explore-v2-field">
-                <span>Sort</span>
-                <select
-                  className="explore-v2-input"
-                  value={redditFilters.sortBy}
-                  onChange={(e) => setRedditFilters((prev) => ({ ...prev, sortBy: e.target.value }))}
-                >
-                  <option value="newest">Newest</option>
-                  <option value="price-low">Price: low to high</option>
-                  <option value="price-high">Price: high to low</option>
-                </select>
-              </label>
-              <div className="explore-v2-field rp-price-field">
-                <span>Price (AED)</span>
-                <div className="rp-presets">
-                  {PRICE_PRESETS.map((p) => {
-                    const active =
-                      redditFilters.priceMin === (p.min ? String(p.min) : '') &&
-                      redditFilters.priceMax === (p.max ? String(p.max) : '');
-                    return (
-                      <button
-                        key={p.label}
-                        type="button"
-                        className={`rp-preset ${active ? 'is-active' : ''}`}
-                        onClick={() =>
-                          setRedditFilters((prev) => ({
-                            ...prev,
-                            priceMin: p.min ? String(p.min) : '',
-                            priceMax: p.max ? String(p.max) : '',
-                          }))
-                        }
-                      >
-                        {p.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <input
-                  className="rp-slider"
-                  type="range"
-                  min="0"
-                  max={redditPriceMax}
-                  step="5000"
-                  value={redditFilters.priceMax ? Number(redditFilters.priceMax) : redditPriceMax}
-                  onChange={(e) =>
-                    setRedditFilters((prev) => ({
-                      ...prev,
-                      priceMax: Number(e.target.value) >= redditPriceMax ? '' : e.target.value,
-                    }))
-                  }
-                />
-                <div className="rp-slider-label">
-                  {redditFilters.priceMax
-                    ? `Up to AED ${Number(redditFilters.priceMax).toLocaleString()}`
-                    : 'Any price'}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeMode === 'buying-requests' && (
-          <div className="explore-v2-filter-panel">
-            <div className="explore-v2-filter-grid">
-              <label className="explore-v2-field">
-                <span>Search</span>
-                <input
-                  className="explore-v2-input"
-                  type="search"
-                  value={buyingRequestFilters.query}
-                  onChange={(e) => setBuyingRequestFilters((prev) => ({ ...prev, query: e.target.value }))}
-                  placeholder="Make, model, keyword"
-                />
-              </label>
-              <div className="explore-v2-field rp-price-field">
-                <span>Type</span>
-                <div className="rp-presets">
-                  {BUYING_REQUEST_TYPES.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      className={`rp-preset ${buyingRequestFilters.itemType === t.value ? 'is-active' : ''}`}
-                      onClick={() => setBuyingRequestFilters((prev) => ({ ...prev, itemType: t.value }))}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="explore-v2-state-card">
-            <ListingSkeleton variant="grid" count={8} />
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="explore-v2-state-card">
-            <p>No listings matched the current explore settings.</p>
-            <div className="explore-v2-filter-actions">
-              <button type="button" className="explore-v2-button explore-v2-button-primary" onClick={() => handleModeChange('all')}>
-                Back to Explore All
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="explore-v2-horizontal-track">
-              {renderedItems.map((item) => (
-                item.categoryKey === 'buying-requests'
-                  ? <BuyingRequestCard key={`${item.categoryKey}-${item.id}`} item={item} />
-                  : <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
+          {activePills.length > 0 ? (
+            <div className="explore-v2-pills">
+              {activePills.map((pill) => (
+                <span key={`${pill.id}-${pill.label}`} className="explore-v2-pill">
+                  {pill.label}
+                  <button type="button" onClick={pill.onRemove} aria-label={`Remove ${pill.label} filter`}>×</button>
+                </span>
               ))}
+              <button type="button" className="explore-v2-clear-all" onClick={handleClearAll}>Clear All</button>
             </div>
+          ) : null}
 
-            {renderedItems.length < displayedItems.length ? (
+          <div className="explore-v2-resultsbar">
+            <p>{resultsDescription}</p>
+            <div className="explore-v2-resultsbar-actions">
+              {showSortControl ? (
+                <select
+                  className="explore-v2-select"
+                  value={activeSortBy}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  aria-label="Sort listings"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                </select>
+              ) : null}
               <button
                 type="button"
-                className="explore-v2-button explore-v2-button-secondary explore-v2-show-more"
-                onClick={() => setRenderLimit((current) => current + MAX_RENDERED_ITEMS)}
+                className="explore-v2-button explore-v2-button-secondary"
+                onClick={handleSaveSearch}
+                disabled={savingSearch || loading || !activeSearchPayload.hasSpecificSignal}
               >
-                Show more loaded listings ({displayedItems.length - renderedItems.length} remaining)
+                {savingSearch ? 'Saving...' : 'Save Search'}
               </button>
-            ) : null}
+              <Link to="/my-listings?tab=searches" className="explore-v2-button explore-v2-button-secondary">
+                Saved Searches
+              </Link>
+              {savedSearchNotice ? <span className="explore-v2-save-search-note">{savedSearchNotice}</span> : null}
+            </div>
+          </div>
 
-            {/* Sentinel triggers loadMore via IntersectionObserver */}
-            {(() => {
-              const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
-              const hasMore = modeKey
-                ? pages[modeKey]?.hasMore
-                : Object.values(pages).some((p) => p.hasMore);
-              return hasMore && renderedItems.length === displayedItems.length ? (
-                <div ref={sentinelRef} className="explore-v2-sentinel">
-                  {loadingMore && <ListingSkeleton variant="grid" count={4} />}
-                </div>
-              ) : filteredItems.length > 0 ? (
-                <p className="explore-v2-end-label">You've seen all listings.</p>
-              ) : null;
-            })()}
+          {loading ? (
+            <div className="explore-v2-state-card">
+              <ListingSkeleton variant="grid" count={8} />
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="explore-v2-state-card">
+              <p>{emptyStateMessage}</p>
+              <button type="button" className="explore-v2-button explore-v2-button-primary" onClick={handleClearAll}>
+                Clear Filters
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="explore-v2-listing-grid">
+                {renderedItems.map((item) => (
+                  item.categoryKey === 'buying-requests'
+                    ? <BuyingRequestCard key={`${item.categoryKey}-${item.id}`} item={item} />
+                    : <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
+                ))}
+              </div>
+
+              {renderedItems.length < displayedItems.length ? (
+                <button
+                  type="button"
+                  className="explore-v2-button explore-v2-button-secondary explore-v2-show-more"
+                  onClick={() => setRenderLimit((current) => current + MAX_RENDERED_ITEMS)}
+                >
+                  Show more loaded listings ({displayedItems.length - renderedItems.length} remaining)
+                </button>
+              ) : null}
+
+              {/* Sentinel triggers loadMore via IntersectionObserver */}
+              {(() => {
+                const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
+                const hasMore = modeKey
+                  ? pages[modeKey]?.hasMore
+                  : Object.values(pages).some((p) => p.hasMore);
+                return hasMore && renderedItems.length === displayedItems.length ? (
+                  <div ref={sentinelRef} className="explore-v2-sentinel">
+                    {loadingMore && <ListingSkeleton variant="grid" count={4} />}
+                  </div>
+                ) : filteredItems.length > 0 ? (
+                  <p className="explore-v2-end-label">You've seen all listings.</p>
+                ) : null;
+              })()}
+            </>
+          )}
+
+          {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}
+
+          <BrowseSellCta category={postCategory} />
+        </div>
+
+        {filterDrawerOpen ? (
+          <>
+            <div className="explore-v2-drawer-backdrop" onClick={() => setFilterDrawerOpen(false)} />
+            <div className="explore-v2-drawer" role="dialog" aria-modal="true" aria-label="Filters">
+              <div className="explore-v2-drawer-header">
+                <h2>Filters</h2>
+                <button
+                  type="button"
+                  className="explore-v2-drawer-close"
+                  onClick={() => setFilterDrawerOpen(false)}
+                  aria-label="Close filters"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="explore-v2-drawer-body">
+                {showSourceSection ? (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Listing Source</span>
+                    <label className="explore-v2-checkrow">
+                      <input type="checkbox" checked={sourceFilter.private} onChange={() => toggleSource('private')} />
+                      Private Sellers
+                    </label>
+                    <label className="explore-v2-checkrow">
+                      <input type="checkbox" checked={sourceFilter.dealer} onChange={() => toggleSource('dealer')} />
+                      Dealers
+                    </label>
+                    <label className="explore-v2-checkrow">
+                      <input type="checkbox" checked={sourceFilter.reddit} onChange={() => toggleSource('reddit')} />
+                      Reddit
+                    </label>
+                  </div>
+                ) : null}
+
+                {activeMode === 'cars' && (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Car Filters</span>
+                    <div className="explore-v2-drawer-grid">
+                      <label className="explore-v2-field">
+                        <span>Make</span>
+                        <select
+                          className="explore-v2-input"
+                          value={carFilters.manufacturer}
+                          onChange={(e) => setCarFilters((prev) => ({ ...prev, manufacturer: e.target.value, model: '' }))}
+                        >
+                          <option value="">All makes</option>
+                          {carMakes.map((make) => <option key={make} value={make}>{make}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Model</span>
+                        <select
+                          className="explore-v2-input"
+                          value={carFilters.model}
+                          onChange={(e) => setCarFilters((prev) => ({ ...prev, model: e.target.value }))}
+                        >
+                          <option value="">All models</option>
+                          {carModels.map((model) => <option key={model} value={model}>{model}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {activeMode === 'car-parts' && (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Part Filters</span>
+                    <label className="explore-v2-field is-full">
+                      <span>Category</span>
+                      <select
+                        className="explore-v2-input"
+                        value={partsFilters.category}
+                        onChange={(e) => setPartsFilters((prev) => ({ ...prev, category: e.target.value }))}
+                      >
+                        <option value="">All categories</option>
+                        {partCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                )}
+
+                {activeMode === 'plates' && (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Plate Filters</span>
+                    <div className="explore-v2-drawer-grid">
+                      <label className="explore-v2-field">
+                        <span>Code</span>
+                        <input
+                          className="explore-v2-input"
+                          type="text"
+                          value={plateFilters.code}
+                          onChange={(e) => setPlateFilters((prev) => ({ ...prev, code: e.target.value }))}
+                          placeholder="e.g. A"
+                        />
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Digits</span>
+                        <select
+                          className="explore-v2-input"
+                          value={plateFilters.digits}
+                          onChange={(e) => setPlateFilters((prev) => ({ ...prev, digits: e.target.value }))}
+                        >
+                          <option value="">Any length</option>
+                          {plateDigitOptions.map((digits) => <option key={digits} value={digits}>{digits} digits</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {activeMode === 'bikes' && (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Bike Filters</span>
+                    <div className="explore-v2-drawer-grid">
+                      <label className="explore-v2-field">
+                        <span>Brand</span>
+                        <select
+                          className="explore-v2-input"
+                          value={bikeFilters.brand}
+                          onChange={(e) => setBikeFilters((prev) => ({ ...prev, brand: e.target.value }))}
+                        >
+                          <option value="">All brands</option>
+                          {bikeBrands.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Type</span>
+                        <select
+                          className="explore-v2-input"
+                          value={bikeFilters.type}
+                          onChange={(e) => setBikeFilters((prev) => ({ ...prev, type: e.target.value }))}
+                        >
+                          <option value="">All types</option>
+                          {bikeTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                        </select>
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Year from</span>
+                        <input
+                          className="explore-v2-input"
+                          type="number"
+                          value={bikeFilters.yearMin}
+                          onChange={(e) => setBikeFilters((prev) => ({ ...prev, yearMin: e.target.value }))}
+                          placeholder="e.g. 2015"
+                        />
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Year to</span>
+                        <input
+                          className="explore-v2-input"
+                          type="number"
+                          value={bikeFilters.yearMax}
+                          onChange={(e) => setBikeFilters((prev) => ({ ...prev, yearMax: e.target.value }))}
+                          placeholder="e.g. 2024"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {activePriceFilters ? (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Price (AED)</span>
+                    <div className="explore-v2-drawer-grid">
+                      <label className="explore-v2-field">
+                        <span>Minimum</span>
+                        <input
+                          className="explore-v2-input"
+                          type="number"
+                          min="0"
+                          value={activePriceFilters.priceMin}
+                          onChange={(e) => setActivePriceFilters((prev) => ({ ...prev, priceMin: e.target.value }))}
+                          placeholder="0"
+                        />
+                      </label>
+                      <label className="explore-v2-field">
+                        <span>Maximum</span>
+                        <input
+                          className="explore-v2-input"
+                          type="number"
+                          min="0"
+                          value={activePriceFilters.priceMax}
+                          onChange={(e) => setActivePriceFilters((prev) => ({ ...prev, priceMax: e.target.value }))}
+                          placeholder="Any"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeMode === 'reddit' && (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Reddit Filters</span>
+                    <label className="explore-v2-field is-full">
+                      <span>Make</span>
+                      <select
+                        className="explore-v2-input"
+                        value={redditFilters.manufacturer}
+                        onChange={(e) => setRedditFilters((prev) => ({ ...prev, manufacturer: e.target.value }))}
+                      >
+                        <option value="">All makes</option>
+                        {redditMakes.map((make) => <option key={make} value={make}>{make}</option>)}
+                      </select>
+                    </label>
+                    <div className="explore-v2-field is-full" style={{ marginTop: 12 }}>
+                      <span>Price (AED)</span>
+                      <div className="rp-presets">
+                        {PRICE_PRESETS.map((preset) => {
+                          const active =
+                            redditFilters.priceMin === (preset.min ? String(preset.min) : '') &&
+                            redditFilters.priceMax === (preset.max ? String(preset.max) : '');
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              className={`rp-preset ${active ? 'is-active' : ''}`}
+                              onClick={() =>
+                                setRedditFilters((prev) => ({
+                                  ...prev,
+                                  priceMin: preset.min ? String(preset.min) : '',
+                                  priceMax: preset.max ? String(preset.max) : '',
+                                }))
+                              }
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <input
+                        className="rp-slider"
+                        type="range"
+                        min="0"
+                        max={redditPriceMax}
+                        step="5000"
+                        value={redditFilters.priceMax ? Number(redditFilters.priceMax) : redditPriceMax}
+                        onChange={(e) =>
+                          setRedditFilters((prev) => ({
+                            ...prev,
+                            priceMax: Number(e.target.value) >= redditPriceMax ? '' : e.target.value,
+                          }))
+                        }
+                      />
+                      <div className="rp-slider-label">
+                        {redditFilters.priceMax
+                          ? `Up to AED ${Number(redditFilters.priceMax).toLocaleString()}`
+                          : 'Any price'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeMode === 'buying-requests' && (
+                  <div className="explore-v2-drawer-section">
+                    <span className="explore-v2-drawer-section-title">Request Type</span>
+                    <div className="rp-presets">
+                      {BUYING_REQUEST_TYPES.map((type) => (
+                        <button
+                          key={type.value}
+                          type="button"
+                          className={`rp-preset ${buyingRequestFilters.itemType === type.value ? 'is-active' : ''}`}
+                          onClick={() => setBuyingRequestFilters((prev) => ({ ...prev, itemType: type.value }))}
+                        >
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="explore-v2-drawer-footer">
+                <button type="button" className="explore-v2-button explore-v2-button-secondary" onClick={handleClearAll}>
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  className="explore-v2-button explore-v2-button-primary"
+                  onClick={() => setFilterDrawerOpen(false)}
+                >
+                  Show {filteredItems.length.toLocaleString()} Results
+                </button>
+              </div>
+            </div>
           </>
-        )}
-
-        {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}
-
-        <BrowseSellCta category={mapExploreModeToSellCtaCategory(activeMode)} />
-      </section>
+        ) : null}
       </div>
     </>
   );

@@ -22,6 +22,7 @@ import { posthog } from '../src/utils/posthogClient';
 // Existing app code (JS) reused as-is.
 import { AuthProvider } from '../src/context/AuthContext';
 import { SavedListingsProvider } from '../src/context/SavedListingsContext';
+import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
 import ErrorBoundary from '../src/components/ui/ErrorBoundary';
 import { attachNotificationResponseHandler } from '../src/utils/pushNotifications';
 import { trackMobilePlatformEvent } from '../src/utils/platformTracker';
@@ -68,18 +69,32 @@ export default function RootLayout() {
           client={posthog}
           autocapture={{ captureScreens: false, captureTouches: true }}
         >
-          <AuthProvider>
-            <SavedListingsProvider>
-              <StatusBar style="light" />
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
-              </Stack>
-              <Toast />
-            </SavedListingsProvider>
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <SavedListingsProvider>
+                <AppShell />
+                <Toast />
+              </SavedListingsProvider>
+            </AuthProvider>
+          </ThemeProvider>
         </PostHogProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
+  );
+}
+
+// Needs to render INSIDE ThemeProvider to read the current theme via
+// useTheme() — the status bar's icon/text color is the inverse of the
+// background (light icons need a dark bg and vice versa).
+function AppShell() {
+  const { theme } = useTheme();
+  return (
+    <>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
+      </Stack>
+    </>
   );
 }

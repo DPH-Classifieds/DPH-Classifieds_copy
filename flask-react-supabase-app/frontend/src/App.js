@@ -2,6 +2,7 @@ import React, { useEffect, Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SavedListingsProvider } from './context/SavedListingsContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Header from './components/Header';
 import DealerPendingBanner from './components/DealerPendingBanner';
 import UsernameRequiredBanner from './components/UsernameRequiredBanner';
@@ -256,6 +257,7 @@ function App() {
   }, [showAnalytics, telemetryEnabled]);
 
   return (
+    <ThemeProvider>
     <AuthProvider>
       <SavedListingsProvider>
         <Router>
@@ -405,6 +407,7 @@ function App() {
         </Router>
       </SavedListingsProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

@@ -11,13 +11,13 @@
 
 .car-parts-header h1 {
   font-size: 2.5rem;
-  color: #333;
+  color: var(--ex-text);
   margin-bottom: 10px;
 }
 
 .car-parts-header p {
   font-size: 1.1rem;
-  color: #666;
+  color: var(--ex-text-muted);
 }
 
 .car-parts-filters {
@@ -25,11 +25,11 @@
   flex-direction: column;
   gap: 15px;
   margin-bottom: 30px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  background: var(--ex-surface);
   padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: var(--ex-card-shadow);
+  border: 1px solid var(--ex-line);
 }
 
 .search-bar {
@@ -40,22 +40,24 @@
 .search-bar input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--ex-line-strong);
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.2s, box-shadow 0.2s;
   min-height: 48px;
+  background: var(--ex-input-bg);
+  color: var(--ex-text);
 }
 
 .search-bar input:focus {
   outline: none;
-  border-color: #01351c;
-  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.15);
+  border-color: var(--ex-primary);
+  box-shadow: 0 0 0 3px var(--ex-brand-subtle-bg);
 }
 
 .search-bar button {
   padding: 12px 24px;
-  background-color: #01351c;
+  background-color: var(--ex-primary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -66,7 +68,7 @@
 }
 
 .search-bar button:hover {
-  background-color: #012513;
+  background-color: var(--ex-primary-strong);
   transform: translateY(-1px);
 }
 
@@ -78,9 +80,10 @@
 
 .filter-options select {
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--ex-line-strong);
   border-radius: 8px;
-  background-color: white;
+  background-color: var(--ex-input-bg);
+  color: var(--ex-text);
   font-size: 0.9rem;
   flex: 1;
   min-width: 150px;
@@ -90,8 +93,8 @@
 
 .filter-options select:focus {
   outline: none;
-  border-color: #01351c;
-  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.15);
+  border-color: var(--ex-primary);
+  box-shadow: 0 0 0 3px var(--ex-brand-subtle-bg);
 }
 
 .car-parts-grid {
@@ -102,32 +105,37 @@
 }
 
 .part-card {
-  border: 1px solid #eee;
-  border-radius: 8px;
+  border: 1px solid var(--ex-line);
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--ex-card-shadow);
   transition: transform 0.2s, box-shadow 0.2s;
-  background-color: white;
+  background-color: var(--ex-surface);
 }
 
 .part-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+  border-color: var(--ex-line-strong);
 }
 
 .part-image {
   aspect-ratio: var(--listing-image-frame-ratio, 16 / 10);
   overflow: hidden;
+  background: var(--ex-surface-low);
 }
 
 .part-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--ex-line);
 }
 
 .part-details {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
   padding: 15px;
 }
 
@@ -135,21 +143,22 @@
   margin-top: 0;
   margin-bottom: 5px;
   font-size: 1.2rem;
-  color: #333;
+  color: var(--ex-text);
 }
 
 .part-category {
-  color: #666;
+  color: var(--ex-text-muted);
   font-size: 0.9rem;
   margin-bottom: 10px;
   padding: 3px 8px;
-  background-color: #f0f0f0;
-  border-radius: 4px;
+  background-color: var(--ex-surface-low);
+  border: 1px solid var(--ex-line);
+  border-radius: 999px;
   display: inline-block;
 }
 
 .part-description {
-  color: #555;
+  color: var(--ex-text-muted);
   font-size: 0.95rem;
   margin-bottom: 15px;
   line-height: 1.4;
@@ -163,9 +172,9 @@
 }
 
 .part-price {
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--ex-primary);
 }
 
 .part-actions {
@@ -175,13 +184,13 @@
 
 .view-details-btn {
   padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
   text-decoration: none;
   text-align: center;
-  background-color: #01351c;
+  background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
   color: white;
   border: none;
   transition: all 0.2s ease;
@@ -189,9 +198,7 @@
 }
 
 .view-details-btn:hover {
-  background-color: #012513;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(1, 53, 28, 0.2);
   color: white;
 }
 
@@ -201,8 +208,8 @@
 }
 
 .loading-spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #01351c;
+  border: 4px solid var(--ex-surface-low);
+  border-top: 4px solid var(--ex-primary);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -228,23 +235,18 @@
 
 .retry-button {
   padding: 10px 20px;
-  background-color: #01351c;
+  background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 999px;
   cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-
-.retry-button:hover {
-  background-color: #012513;
+  font-weight: 700;
 }
 
 .no-parts {
   text-align: center;
   padding: 40px 0;
-  color: #666;
+  color: var(--ex-text-muted);
   font-size: 1.1rem;
 }
 
@@ -253,21 +255,21 @@
   .car-parts-grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }
-  
+
   .filter-options {
     flex-direction: column;
   }
-  
+
   .part-price-actions {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
   }
-  
+
   .part-actions {
     width: 100%;
   }
-  
+
   .view-details-btn {
     width: 100%;
   }
@@ -277,43 +279,46 @@
   .car-parts-header h1 {
     font-size: 2rem;
   }
-  
+
   .search-bar {
     flex-direction: column;
   }
-  
+
   .search-bar button {
     width: 100%;
   }
-  
+
   .car-parts-grid {
     grid-template-columns: 1fr;
   }
 }
 
-/* Scoped 2026 refresh */
+/* Scoped 2026 refresh — compact header to match Explore */
 .car-parts-container {
   max-width: 1480px;
-  padding: 56px 32px 96px;
-  color: #eef7ef;
+  padding: 32px 32px 96px;
+  color: var(--ex-text);
+  background: var(--ex-page-bg);
 }
 
 .car-parts-header {
   width: min(100%, 1420px);
-  margin: 0 auto 36px;
+  margin: 0 auto 24px;
+  text-align: left;
 }
 
 .car-parts-header h1 {
-  color: #f5fbf5;
-  font-size: clamp(2.4rem, 5vw, 4rem);
-  letter-spacing: -0.06em;
+  color: var(--ex-text);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .car-parts-header p,
 .car-parts-results-count,
 .part-description,
 .no-parts {
-  color: rgba(226, 238, 227, 0.72);
+  color: var(--ex-text-muted);
 }
 
 .car-parts-filters,
@@ -326,12 +331,10 @@
 }
 
 .car-parts-container .car-parts-filters {
-  background:
-    radial-gradient(circle at top right, rgba(97, 191, 102, 0.16), transparent 34%),
-    linear-gradient(180deg, rgba(25, 28, 26, 0.98) 0%, rgba(17, 18, 17, 0.98) 100%);
-  border: 1px solid rgba(148, 218, 153, 0.16);
-  border-radius: 28px;
-  box-shadow: inset 0 1px 0 rgba(240, 252, 241, 0.05);
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-line-strong);
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 .car-parts-container .search-bar,
@@ -343,69 +346,55 @@
 
 .car-parts-container .search-bar input,
 .car-parts-container .filter-options select {
-  color-scheme: dark;
-  background: rgba(244, 251, 245, 0.05);
-  color: #f7fcf7;
-  border: 1px solid rgba(148, 218, 153, 0.16);
-  border-radius: 16px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: var(--ex-input-bg);
+  color: var(--ex-text);
+  border: 1px solid var(--ex-line-strong);
+  border-radius: 8px;
+  box-shadow: none;
 }
 
 .car-parts-container .search-bar input:focus,
 .car-parts-container .filter-options select:focus {
-  border-color: #79d07f;
-  box-shadow: 0 0 0 4px rgba(97, 191, 102, 0.16);
+  border-color: var(--ex-primary);
+  box-shadow: 0 0 0 3px var(--ex-brand-subtle-bg);
 }
 
 .car-parts-grid {
   grid-template-columns: repeat(auto-fit, minmax(300px, 360px));
   justify-content: center;
-  gap: 28px;
+  gap: 20px;
 }
 
 .part-card {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, rgba(18, 22, 19, 0.98) 0%, rgba(10, 14, 11, 1) 100%);
-  border: 1px solid rgba(148, 218, 153, 0.12);
-  border-radius: 24px;
-  box-shadow: none;
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-line);
+  border-radius: 10px;
+  box-shadow: var(--ex-card-shadow);
 }
 
 .part-card:hover {
-  border-color: rgba(148, 218, 153, 0.28);
-  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.42);
+  border-color: var(--ex-line-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
 }
 
 .part-image {
-  background:
-    radial-gradient(circle at top, rgba(97, 191, 102, 0.16), transparent 40%),
-    #151917;
+  background: var(--ex-surface-low);
 }
 
 .part-image img {
-  border-bottom-color: rgba(148, 218, 153, 0.08);
-}
-
-.part-details {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.part-details h3 {
-  color: #f5fbf5;
+  border-bottom-color: var(--ex-line);
 }
 
 .part-category {
-  background: rgba(244, 251, 245, 0.06);
-  border: 1px solid rgba(148, 218, 153, 0.12);
-  color: #eef7ef;
+  background: var(--ex-surface-low);
+  border: 1px solid var(--ex-line);
+  color: var(--ex-text-muted);
 }
 
 .part-price {
-  color: #a7eba9;
+  color: var(--ex-primary);
 }
 
 .part-price-actions {
@@ -414,29 +403,27 @@
 
 .car-parts-container .view-details-btn,
 .retry-button {
-  background: linear-gradient(135deg, #88d86f 0%, #5bac58 100%);
-  color: #0d160f;
+  background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
+  color: #ffffff;
   border-radius: 999px;
 }
 
 .car-parts-container .view-details-btn:hover,
 .retry-button:hover {
-  background: linear-gradient(135deg, #9ae284 0%, #71c56d 100%);
-  color: #081008;
+  transform: translateY(-1px);
+  color: #ffffff;
 }
 
 .no-parts {
-  padding: 36px;
-  background:
-    radial-gradient(circle at top right, rgba(97, 191, 102, 0.14), transparent 36%),
-    linear-gradient(180deg, rgba(16, 20, 17, 0.98) 0%, rgba(11, 14, 12, 1) 100%);
-  border: 1px solid rgba(148, 218, 153, 0.12);
-  border-radius: 24px;
+  padding: 32px;
+  background: var(--ex-surface);
+  border: 1px dashed var(--ex-line-strong);
+  border-radius: 10px;
 }
 
 @media (max-width: 900px) {
   .car-parts-container {
-    padding: 44px 20px 84px;
+    padding: 24px 20px 84px;
   }
 
   .car-parts-container .search-bar,

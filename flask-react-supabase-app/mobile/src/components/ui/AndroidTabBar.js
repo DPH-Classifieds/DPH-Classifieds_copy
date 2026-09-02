@@ -5,8 +5,9 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Text from './AppText';
-import { COLORS, FONTS, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
+import { FONTS, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { SPRING_FAST, SPRING_NORMAL } from '../../constants/motion';
+import { useTheme } from '../../context/ThemeContext';
 
 // route group name -> icon/label. Mirrors the (explore)/(post)/(saved)/(profile)
 // groups wired in app/(tabs)/_layout.tsx and the iOS NativeTabs labels.
@@ -18,6 +19,7 @@ const TAB_META = {
 };
 
 function TabButton({ route, isFocused, onPress, onLongPress }) {
+  const { colors } = useTheme();
   const meta = TAB_META[route.name] || { label: route.name, outline: 'ellipse-outline', filled: 'ellipse' };
   const scale = useSharedValue(1);
   const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -37,10 +39,10 @@ function TabButton({ route, isFocused, onPress, onLongPress }) {
         <Ionicons
           name={isFocused ? meta.filled : meta.outline}
           size={24}
-          color={isFocused ? COLORS.accent : COLORS.textMuted}
+          color={isFocused ? colors.accent : colors.textMuted}
         />
       </Animated.View>
-      <Text style={[styles.label, { color: isFocused ? COLORS.accent : COLORS.textMuted }]}>
+      <Text style={[styles.label, { color: isFocused ? colors.accent : colors.textMuted }]}>
         {meta.label}
       </Text>
     </Pressable>
@@ -48,6 +50,7 @@ function TabButton({ route, isFocused, onPress, onLongPress }) {
 }
 
 export default function AndroidTabBar({ state, descriptors, navigation, insets }) {
+  const { theme, colors } = useTheme();
   const [barWidth, setBarWidth] = useState(0);
   const tabWidth = barWidth / state.routes.length;
   const pillX = useSharedValue(0);
@@ -57,9 +60,12 @@ export default function AndroidTabBar({ state, descriptors, navigation, insets }
     width: tabWidth > 0 ? tabWidth - 12 : 0,
   }));
 
+  const barBg = theme === 'dark' ? 'rgba(7,17,11,0.55)' : 'rgba(255,255,255,0.65)';
+  const pillBg = theme === 'dark' ? 'rgba(139,214,180,0.16)' : 'rgba(11,107,76,0.12)';
+
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <BlurView intensity={40} tint="dark" style={styles.bar}>
+      <BlurView intensity={40} tint={theme === 'dark' ? 'dark' : 'light'} style={[styles.bar, { borderColor: colors.border, backgroundColor: barBg }]}>
         <View
           style={styles.row}
           onLayout={(e) => {
@@ -69,7 +75,10 @@ export default function AndroidTabBar({ state, descriptors, navigation, insets }
           }}
         >
           {tabWidth > 0 && (
-            <Animated.View style={[styles.pill, pillStyle]} pointerEvents="none" />
+            <Animated.View
+              style={[styles.pill, pillStyle, { backgroundColor: pillBg, borderColor: colors.border }]}
+              pointerEvents="none"
+            />
           )}
           {state.routes.map((route, index) => {
             const isFocused = state.index === index;
@@ -113,9 +122,8 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: BORDER_RADIUS.pill,
     borderWidth: 1,
-    borderColor: COLORS.border,
     overflow: 'hidden',
-    backgroundColor: 'rgba(7,17,11,0.55)',
+    // borderColor/backgroundColor come from the theme, applied inline (see render).
   },
   row: {
     flex: 1,
@@ -128,9 +136,8 @@ const styles = StyleSheet.create({
     top: 6,
     bottom: 6,
     borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: 'rgba(139,214,180,0.16)',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    // borderColor/backgroundColor come from the theme, applied inline (see render).
   },
   tab: {
     flex: 1,

@@ -3,7 +3,13 @@ import { Platform } from 'react-native';
 // Palette from DPHClassifieds Brand Kit v1.0 (2026). Dark-premium, green-tinted
 // surfaces — the brand explicitly forbids pure black (#000000), solid white
 // borders, and bright white backgrounds.
-export const COLORS = {
+//
+// Brand-invariant colors (primary/accent/white/semantic) stay identical across
+// light and dark — only background/surface/text/border swap. See ThemeContext
+// for how a screen opts into DARK_COLORS/LIGHT_COLORS via the current theme;
+// screens that still statically `import { COLORS }` from here keep rendering
+// with DARK_COLORS unchanged (not yet migrated — see mobile theme rollout).
+export const DARK_COLORS = {
   // Near-black green used for dark text on the mint accent + darkest surfaces
   // (brand: never pure #000000).
   black: '#05100a',
@@ -30,6 +36,38 @@ export const COLORS = {
   info: '#2196f3',
   overlay: 'rgba(4,8,6,0.7)',
 };
+
+// Light counterpart — same brand-invariant accents, off-white surfaces (never
+// pure white per the brand kit's "no bright white backgrounds" rule).
+export const LIGHT_COLORS = {
+  black: '#0E1512',
+  background: '#FAFAFA',
+  surface: '#FFFFFF',
+  surfaceVariant: '#F5F7F6',
+  surfaceHigh: '#EFF3F1',
+  surfaceHigher: '#E7ECE9',
+  surfaceDark: '#F0F2F1',
+  primary: '#01351C',
+  primaryLight: '#004E37',
+  primaryDark: '#012513',
+  accent: '#0B6B4C',           // darker mint than the dark theme's #8BD6B4 — keeps CTA/link contrast on a white surface
+  accentBright: '#0F8560',
+  white: '#FFFFFF',
+  textPrimary: '#0E1512',
+  textSecondary: '#5B655F',
+  textMuted: 'rgba(91,101,95,0.65)',
+  border: 'rgba(15,23,20,0.10)',
+  borderLight: 'rgba(15,23,20,0.06)',
+  success: '#0B6B4C',
+  warning: '#ff9800',
+  error: '#f44336',
+  info: '#2196f3',
+  overlay: 'rgba(4,8,6,0.7)',
+};
+
+// Legacy default — unmigrated screens keep statically importing this and
+// stay pixel-identical (dark) until each one adopts useTheme() explicitly.
+export const COLORS = DARK_COLORS;
 
 export const SPACING = {
   xs: 4,
