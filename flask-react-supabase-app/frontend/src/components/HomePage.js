@@ -43,7 +43,7 @@ const marketplaceInsights = [
 const heroImage = '/hero.avif';
 const ctaImage = '/images/bottom-landing.avif';
 const primaryHeroButtonClass =
-  'group border-0 bg-gradient-to-r from-[#0b6b4c] via-[#0a5f47] to-[#004e37] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[#0b6b4c] hover:to-[#0a5f47]';
+  'group border-0 bg-gradient-to-r from-[color:var(--ex-primary)] via-[color:var(--ex-primary-strong)] to-[color:var(--ex-primary-strong)] text-white shadow-[0_18px_40px_rgba(0,78,55,0.34)] hover:from-[#0d7d58] hover:via-[color:var(--ex-primary)] hover:to-[color:var(--ex-primary-strong)]';
 const secondaryHeroButtonClass =
   'group border border-white/15 bg-[rgba(255,255,255,0.06)] text-white hover:bg-[rgba(255,255,255,0.12)] hover:text-white';
 
