@@ -12,9 +12,9 @@ export default function RequireAuth({ children, navigation, redirectRoute }) {
   const { colors } = useTheme();
   const [showPrompt, setShowPrompt] = useState(false);
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-    title: { fontSize: 20, fontWeight: '700', color: colors.white, marginTop: 16 },
+    title: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginTop: 16 },
     subtitle: { fontSize: FONT_SIZES.md, color: colors.textSecondary, marginTop: 8, textAlign: 'center' },
     loginBtn: { marginTop: 24, backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
     loginBtnText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },
@@ -22,7 +22,7 @@ export default function RequireAuth({ children, navigation, redirectRoute }) {
     signupBtnText: { color: colors.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
     modalCard: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 28, width: '100%', alignItems: 'center', gap: 12 },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 8 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginTop: 8 },
     modalSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', textAlign: 'center' },
     modalLoginBtn: { marginTop: 8, backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
     modalLoginBtnText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },
@@ -135,7 +135,7 @@ function AuthPromptModalView({ visible, onLogin, onCancel }) {
   const styles = useMemo(() => StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
     modalCard: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 28, width: '100%', alignItems: 'center', gap: 12 },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 8 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginTop: 8 },
     modalSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', textAlign: 'center' },
     modalLoginBtn: { marginTop: 8, backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
     modalLoginBtnText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },

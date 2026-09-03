@@ -80,7 +80,7 @@ const styles = useMemo(() => StyleSheet.create({
   title: {
     fontSize: FONT_SIZES.xxl,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.textPrimary,
     marginBottom: SPACING.sm,
   },
   subtitle: {
@@ -131,7 +131,7 @@ const styles = useMemo(() => StyleSheet.create({
   successTitle: {
     fontSize: FONT_SIZES.xxl,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.textPrimary,
     marginBottom: SPACING.md,
   },
   successMessage: {
@@ -214,7 +214,7 @@ const styles = useMemo(() => StyleSheet.create({
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back-outline" size={24} color={colors.white} />
+          <Ionicons name="arrow-back-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.header}>

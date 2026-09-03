@@ -25,7 +25,7 @@ export default function AdminDealersScreen({ navigation }) {
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
     },
     filterBar: {
       flexDirection: 'row',
@@ -76,7 +76,7 @@ export default function AdminDealersScreen({ navigation }) {
     companyName: {
       fontSize: FONT_SIZES.md,
       fontWeight: '700',
-      color: colors.white,
+      color: colors.textPrimary,
       marginBottom: 4,
     },
     userName: {
@@ -101,7 +101,7 @@ export default function AdminDealersScreen({ navigation }) {
     verificationText: {
       fontSize: FONT_SIZES.xs,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
     },
     actions: {
       flexDirection: 'row',

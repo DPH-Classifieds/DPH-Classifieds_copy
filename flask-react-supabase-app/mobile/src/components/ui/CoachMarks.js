@@ -32,7 +32,7 @@ export default function CoachMarks({ visible, steps, onDone }) {
       padding: SPACING.md,
     },
     step: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '700', marginBottom: 4, letterSpacing: 0.5 },
-    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6 },
+    title: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6 },
     text: { color: colors.textSecondary, fontSize: FONT_SIZES.md, lineHeight: 20 },
     actions: {
       flexDirection: 'row',

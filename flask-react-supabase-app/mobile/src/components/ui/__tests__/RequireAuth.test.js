@@ -59,7 +59,7 @@ test('RequireAuth renders DARK_COLORS values when theme is dark', () => {
   return findByText('Sign in Required').then(() => {
     const tree = flattenStyles(toJSON());
     expect(tree).toContain('8BD6B4');
-    expect(tree).toContain('05100a');
+    expect(tree).toContain('07110b');
     expect(tree).not.toContain('0B6B4C');
     expect(tree).not.toContain('0E1512');
   });

@@ -18,7 +18,7 @@ export default function RenewListingModal({ visible, listingType, listingId, onS
   const styles = useMemo(() => StyleSheet.create({
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
     sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, paddingBottom: 40 },
-    title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.white, marginBottom: SPACING.sm },
+    title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.textPrimary, marginBottom: SPACING.sm },
     body: { ...FONTS.regular, fontSize: FONT_SIZES.md, color: colors.textSecondary, lineHeight: 22, marginBottom: SPACING.lg },
     date: { ...FONTS.semibold, color: colors.accent },
     actions: { flexDirection: 'row', gap: SPACING.sm },

@@ -271,19 +271,19 @@ export default function CarDetailScreen({ route, navigation }) {
       backgroundColor: colors.accent,
     },
     content: { padding: SPACING.md },
-    price: { color: colors.white, fontSize: 26, fontWeight: '800', marginBottom: 8 },
+    price: { color: colors.textPrimary, fontSize: 26, fontWeight: '800', marginBottom: 8 },
     usdPrice: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
     badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 16 },
+    title: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 16 },
     specsGrid: {
       flexDirection: 'row', flexWrap: 'wrap', gap: 0, backgroundColor: colors.surface,
       borderRadius: BORDER_RADIUS.lg, marginBottom: 16,
     },
     specItem: { width: '50%', paddingVertical: 14, paddingHorizontal: 14, borderWidth: 0.5, borderColor: colors.border },
     specLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
-    specValue: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    specValue: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     section: { marginBottom: 16 },
-    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
+    sectionTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
     extrasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     extraPill: {
       backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 8,
@@ -303,22 +303,22 @@ export default function CarDetailScreen({ route, navigation }) {
       alignItems: 'center', justifyContent: 'center', marginRight: 12,
     },
     sellerInitial: { color: colors.accent, fontSize: 20, fontWeight: '700' },
-    sellerName: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    sellerName: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     sellerMember: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
     sellerActions: { flexDirection: 'row', gap: 10 },
     callButton: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors.primary, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
     },
-    callButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    callButtonText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     whatsappButton: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
     },
-    whatsappButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    whatsappButtonText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     vinSection: { backgroundColor: '#1c1c1e', borderRadius: 8, padding: 12, marginTop: 8 },
     vinLabel: { fontSize: 12, color: 'rgba(255,255,255,0.53)', textTransform: 'uppercase', marginBottom: 4 },
-    vinValue: { fontSize: 14, fontWeight: '600', color: colors.white, fontFamily: 'monospace' },
+    vinValue: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, fontFamily: 'monospace' },
     vinMasked: { fontSize: 14, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' },
     vinRevealBtn: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: 6 },
     lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
@@ -429,7 +429,7 @@ export default function CarDetailScreen({ route, navigation }) {
             accessibilityLabel="Share listing link"
             activeOpacity={0.7}
           >
-            <Ionicons name="share-outline" size={22} color={colors.white} />
+            <Ionicons name="share-outline" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.reportButtonWrap}>
             <ReportButton listingType="car" listingId={carId} />
@@ -549,11 +549,11 @@ export default function CarDetailScreen({ route, navigation }) {
             ) : (
               <View style={styles.sellerActions}>
                 <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
-                  <Ionicons name="call" size={18} color={colors.white} />
+                  <Ionicons name="call" size={18} color={colors.textPrimary} />
                   <Text style={styles.callButtonText}>Call Now</Text>
                 </PressableScale>
                 <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
-                  <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
+                  <Ionicons name="logo-whatsapp" size={18} color={colors.textPrimary} />
                   <Text style={styles.whatsappButtonText}>WhatsApp</Text>
                 </PressableScale>
               </View>

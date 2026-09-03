@@ -133,7 +133,7 @@ export default function AdminFeaturedListingsScreen() {
   }, [rows]);
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: SPACING.md, paddingTop: SPACING.sm,
@@ -154,7 +154,7 @@ export default function AdminFeaturedListingsScreen() {
     rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: colors.surfaceHigher },
     typeBadgeText: { ...FONTS.label, fontSize: 10, color: colors.textMuted },
-    rowTitle: { flex: 1, ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.white },
+    rowTitle: { flex: 1, ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.textPrimary },
     expiredBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: 'rgba(244,67,54,0.15)' },
     expiredBadgeText: { ...FONTS.semibold, fontSize: 10, color: colors.error },
     rowId: { ...FONTS.regular, fontSize: 11, color: colors.textMuted, marginBottom: 4 },
@@ -176,7 +176,7 @@ export default function AdminFeaturedListingsScreen() {
     tab: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
     tabActive: { borderBottomColor: colors.accent },
     tabText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
-    tabTextActive: { color: colors.white },
+    tabTextActive: { color: colors.textPrimary },
   }), [colors]);
 
   return (

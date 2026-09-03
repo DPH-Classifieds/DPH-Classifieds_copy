@@ -26,7 +26,7 @@ export default function SearchBar({
     },
     input: {
       flex: 1,
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: 15,
       borderWidth: 0,
       backgroundColor: 'transparent',

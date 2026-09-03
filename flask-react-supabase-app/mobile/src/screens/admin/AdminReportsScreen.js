@@ -157,7 +157,7 @@ export default function AdminReportsScreen() {
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
     },
     listContent: {
       padding: SPACING.md,
@@ -194,13 +194,13 @@ export default function AdminReportsScreen() {
     statusBadgeText: {
       fontSize: FONT_SIZES.xs,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
       textTransform: 'capitalize',
     },
     reason: {
       fontSize: FONT_SIZES.md,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
       marginBottom: 6,
     },
     details: {

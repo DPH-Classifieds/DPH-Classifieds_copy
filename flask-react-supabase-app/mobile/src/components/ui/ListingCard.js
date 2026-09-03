@@ -62,7 +62,7 @@ export default function ListingCard({ item, index, onPress, onSave, saved }) {
           paddingVertical: 3,
           borderRadius: BORDER_RADIUS.sm,
         },
-        cardCatText: { color: colors.white, fontSize: 10, fontWeight: '700' },
+        cardCatText: { color: colors.textPrimary, fontSize: 10, fontWeight: '700' },
         cardSaveBtn: {
           position: 'absolute',
           top: 8,

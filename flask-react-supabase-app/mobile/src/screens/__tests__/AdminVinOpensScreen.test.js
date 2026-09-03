@@ -55,7 +55,7 @@ test('AdminVinOpensScreen renders LIGHT_COLORS values when theme is light', asyn
   const { toJSON, findByText } = render(<AdminVinOpensScreen navigation={navigation} />);
   await findByText('24h');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('0E1512');
+  expect(tree).toContain('FAFAFA');
   expect(tree).toContain('FFFFFF');
   expect(tree).toContain('0B6B4C');
   expect(tree).not.toContain('05100a');
@@ -69,7 +69,7 @@ test('AdminVinOpensScreen renders DARK_COLORS values when theme is dark', async 
   const { toJSON, findByText } = render(<AdminVinOpensScreen navigation={navigation} />);
   await findByText('24h');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).toContain('0C1C13');
   expect(tree).toContain('8BD6B4');
   expect(tree).not.toContain('0E1512');

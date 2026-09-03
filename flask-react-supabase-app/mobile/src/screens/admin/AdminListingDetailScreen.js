@@ -157,23 +157,23 @@ export default function AdminListingDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { color: colors.textSecondary, fontSize: FONT_SIZES.md },
     content: { padding: SPACING.md, paddingBottom: SPACING.xxl, gap: SPACING.xs },
     image: { width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md },
-    title: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.xs },
+    title: { color: colors.textPrimary, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.xs },
     price: { color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
     statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
-    statusBadgeText: { color: colors.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
+    statusBadgeText: { color: colors.textPrimary, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
     detail: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
     scanCard: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
-    scanTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '700', marginBottom: SPACING.xs },
+    scanTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '700', marginBottom: SPACING.xs },
     actions: { gap: SPACING.sm, marginTop: SPACING.lg },
     approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, paddingHorizontal: SPACING.md, justifyContent: 'center' },
     approveBtnText: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
     editBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
-    editBtnText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    editBtnText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     soldBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(33,150,243,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
     soldBtnText: { color: '#2196F3', fontSize: FONT_SIZES.md, fontWeight: '600' },
     rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
@@ -191,11 +191,11 @@ export default function AdminListingDetailScreen({ route, navigation }) {
     connector:         { position: 'absolute', top: 4, left: '50%', right: 0, height: 2, backgroundColor: '#333' },
     connectorDone:     { backgroundColor: colors.accent },
     milestoneLabel:    { fontSize: 9, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
-    milestoneLabelDone:{ color: colors.white },
+    milestoneLabelDone:{ color: colors.textPrimary },
     milestoneDate:     { fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 2 },
     card:              { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.sm },
     cardTitle:         { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: SPACING.xs },
-    cardValue:         { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600', marginBottom: 4 },
+    cardValue:         { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600', marginBottom: 4 },
     cardSub:           { color: 'rgba(255,255,255,0.45)', fontSize: FONT_SIZES.xs, marginTop: 4 },
     badge:             { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: 4 },
     badgeText:         { fontSize: FONT_SIZES.sm, fontWeight: '600' },
@@ -204,7 +204,7 @@ export default function AdminListingDetailScreen({ route, navigation }) {
     emailRow:          { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
     emailStatus:       { fontSize: FONT_SIZES.sm },
     deletionRow:       { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2a2a2a' },
-    deletionRole:      { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    deletionRole:      { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     deletionReason:    { color: 'rgba(255,255,255,0.6)', fontSize: FONT_SIZES.xs, marginTop: 2 },
   }), [colors]);
 
@@ -414,16 +414,16 @@ export default function AdminListingDetailScreen({ route, navigation }) {
             </TouchableOpacity>
             {isActive && (
               <TouchableOpacity style={styles.soldBtn} onPress={handleMarkAsSold} activeOpacity={0.7}>
-                <Ionicons name="pricetag-outline" size={18} color={colors.white} />
+                <Ionicons name="pricetag-outline" size={18} color={colors.textPrimary} />
                 <Text style={styles.soldBtnText}>Mark as Sold</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.editBtn} onPress={handleEdit} activeOpacity={0.7}>
-              <Ionicons name="create-outline" size={18} color={colors.white} />
+              <Ionicons name="create-outline" size={18} color={colors.textPrimary} />
               <Text style={styles.editBtnText}>Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.editBtn} onPress={handleVinUnlock} activeOpacity={0.7}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={colors.white} />
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.textPrimary} />
               <Text style={styles.editBtnText}>VIN Unlock</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.7}>

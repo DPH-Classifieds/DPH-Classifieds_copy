@@ -34,13 +34,13 @@ function ErrorBoundaryView({ onReset }) {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
       alignItems: 'center',
       justifyContent: 'center',
       padding: SPACING.xl,
     },
     title: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.xl,
       fontWeight: '700',
       marginTop: SPACING.md,

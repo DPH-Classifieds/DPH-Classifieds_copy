@@ -26,14 +26,14 @@ export default function AdminDealerAuditLogScreen({ route }) {
   };
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     searchBar: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
       marginHorizontal: SPACING.md, marginTop: SPACING.sm,
       backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.md,
       paddingHorizontal: SPACING.md, paddingVertical: 10,
     },
-    searchInput: { flex: 1, color: colors.white, fontSize: FONT_SIZES.sm },
+    searchInput: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.sm },
     filterBar: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
     filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface },
     filterChipActive: { backgroundColor: colors.primary },
@@ -49,7 +49,7 @@ export default function AdminDealerAuditLogScreen({ route }) {
     timeText: { marginLeft: 'auto', color: colors.textMuted, fontSize: FONT_SIZES.xs },
     endpointText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontFamily: 'monospace', marginTop: 6 },
     rowBottom: { flexDirection: 'row', gap: SPACING.md, marginTop: 6, flexWrap: 'wrap' },
-    adminText: { color: colors.white, fontSize: FONT_SIZES.xs },
+    adminText: { color: colors.textPrimary, fontSize: FONT_SIZES.xs },
     dealershipText: { color: colors.accent, fontSize: FONT_SIZES.xs },
     ipText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, fontFamily: 'monospace' },
   }), [colors]);

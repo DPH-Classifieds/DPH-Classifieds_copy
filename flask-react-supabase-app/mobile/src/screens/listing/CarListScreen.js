@@ -570,7 +570,7 @@ export default function CarListScreen({ navigation }) {
     padding: SPACING.md,
   },
   cardTitle: {
-    color: colors.white,
+    color: colors.textPrimary,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     marginBottom: 4,
@@ -614,7 +614,7 @@ export default function CarListScreen({ navigation }) {
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    color: colors.white,
+    color: colors.textPrimary,
     fontSize: FONT_SIZES.lg,
     fontWeight: '600',
   },
@@ -633,7 +633,7 @@ export default function CarListScreen({ navigation }) {
   },
   modalSearchInput: {
     flex: 1,
-    color: colors.white,
+    color: colors.textPrimary,
     fontSize: FONT_SIZES.md,
     padding: 0,
   },
@@ -657,7 +657,7 @@ export default function CarListScreen({ navigation }) {
     backgroundColor: colors.primary,
   },
   modalOptionText: {
-    color: colors.white,
+    color: colors.textPrimary,
     fontSize: FONT_SIZES.md,
   },
   modalOptionTextSelected: {

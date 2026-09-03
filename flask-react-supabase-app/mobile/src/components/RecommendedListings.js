@@ -18,7 +18,7 @@ export default function RecommendedListings({ listingType, listingId, navigation
   const { colors } = useTheme();
   const styles = useMemo(() => StyleSheet.create({
     container: { marginTop: SPACING.lg },
-    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
+    sectionTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
     card: { width: 160, marginRight: 12, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
     image: { width: 160, height: 100, backgroundColor: colors.surfaceHigher },
     placeholder: { alignItems: 'center', justifyContent: 'center' },

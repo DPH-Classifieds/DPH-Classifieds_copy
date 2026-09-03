@@ -46,7 +46,7 @@ const styles = useMemo(() => StyleSheet.create({
   content: { flex: 1, padding: SPACING.md, justifyContent: 'center' },
   iconContainer: { alignItems: 'center', marginBottom: SPACING.lg },
   title: {
-    color: colors.white, fontSize: FONT_SIZES.xxl,
+    color: colors.textPrimary, fontSize: FONT_SIZES.xxl,
     fontWeight: '700', textAlign: 'center', marginBottom: SPACING.sm,
   },
   subtitle: {

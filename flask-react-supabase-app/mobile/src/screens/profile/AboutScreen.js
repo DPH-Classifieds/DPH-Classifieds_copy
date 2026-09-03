@@ -52,7 +52,7 @@ export default function AboutScreen() {
       marginBottom: SPACING.md,
     },
     appName: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.xxl,
       fontWeight: '800',
     },
@@ -90,7 +90,7 @@ export default function AboutScreen() {
       gap: SPACING.sm,
     },
     linkLabel: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.md,
       fontWeight: '500',
     },

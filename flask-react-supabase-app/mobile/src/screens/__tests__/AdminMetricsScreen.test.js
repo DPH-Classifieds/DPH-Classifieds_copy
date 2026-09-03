@@ -61,7 +61,7 @@ test('AdminMetricsScreen renders DARK_COLORS values when theme is dark', async (
   const { toJSON, findByText } = render(<AdminMetricsScreen />);
   await findByText('Last 7 days');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).toContain('8BD6B4');
   expect(tree).toContain('07110b');
   expect(tree).not.toContain('0E1512');

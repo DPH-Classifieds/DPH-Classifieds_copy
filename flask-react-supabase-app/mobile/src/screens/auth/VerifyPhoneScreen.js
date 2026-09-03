@@ -205,7 +205,7 @@ const styles = useMemo(() => StyleSheet.create({
     padding: SPACING.xs,
   },
   headerTitle: {
-    color: colors.white,
+    color: colors.textPrimary,
     fontSize: FONT_SIZES.lg,
     fontWeight: '600',
   },
@@ -244,7 +244,7 @@ const styles = useMemo(() => StyleSheet.create({
     marginTop: 24,
   },
   codePickerText: {
-    color: colors.white,
+    color: colors.textPrimary,
     fontSize: FONT_SIZES.md,
   },
   phoneInputContainer: {
@@ -284,7 +284,7 @@ const styles = useMemo(() => StyleSheet.create({
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color={colors.white} />
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {step === 'phone' ? 'Verify Phone Number' : 'Enter Code'}

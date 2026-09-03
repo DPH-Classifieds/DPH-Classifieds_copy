@@ -63,10 +63,10 @@ export default function AdminDashboardScreen({ navigation }) {
   const { width: windowWidth } = useWindowDimensions();
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { paddingBottom: 40 },
     header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
-    title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: colors.white },
+    title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: colors.textPrimary },
     inboxRow: {
       flexDirection: 'row',
       gap: 8,
@@ -87,7 +87,7 @@ export default function AdminDashboardScreen({ navigation }) {
       alignItems: 'center', justifyContent: 'center',
       marginBottom: 6,
     },
-    inboxValue: { fontSize: 22, fontWeight: '800', color: colors.white },
+    inboxValue: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
     inboxLabel: { fontSize: FONT_SIZES.xs, color: colors.textSecondary, marginTop: 4 },
     inboxSub: { fontSize: FONT_SIZES.xs, color: colors.textSecondary, fontWeight: '600' },
     expanderRow: {
@@ -101,7 +101,7 @@ export default function AdminDashboardScreen({ navigation }) {
       paddingVertical: 14, paddingHorizontal: SPACING.md,
       marginHorizontal: SPACING.md, marginTop: SPACING.sm,
     },
-    metricsLinkText: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '500' },
+    metricsLinkText: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '500' },
     timeRangeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
     timeRangePill: { flex: 1, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: colors.surface, minHeight: 44, justifyContent: 'center' },
     timeRangePillActive: { backgroundColor: colors.accent },
@@ -121,26 +121,26 @@ export default function AdminDashboardScreen({ navigation }) {
     },
     healthBannerText: {
       flex: 1,
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.xs,
       lineHeight: 16,
     },
     kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
     kpiCard: { width: '48%', backgroundColor: '#272729', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
     kpiIcon: { marginBottom: SPACING.sm },
-    kpiValue: { fontSize: 24, fontWeight: '700', color: colors.white, marginBottom: 4 },
+    kpiValue: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
     kpiLabel: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
     section: { paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
-    sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: colors.white, marginBottom: SPACING.sm },
+    sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: colors.textPrimary, marginBottom: SPACING.sm },
     surface: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md },
     barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
     barLabel: { width: 90, fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
     barTrack: { flex: 1, height: 8, backgroundColor: '#333', borderRadius: 4, marginHorizontal: 8 },
     barFill: { height: 8, backgroundColor: colors.accent, borderRadius: 4 },
-    barValue: { width: 40, fontSize: FONT_SIZES.sm, fontWeight: '600', color: colors.white, textAlign: 'right' },
+    barValue: { width: 40, fontSize: FONT_SIZES.sm, fontWeight: '600', color: colors.textPrimary, textAlign: 'right' },
     queueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333', gap: 8 },
     queueRowText: { flex: 1, minWidth: 0 },
-    queueLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: colors.white },
+    queueLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: colors.textPrimary },
     queueSub: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
     badge: { fontSize: FONT_SIZES.xs, fontWeight: '600', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, overflow: 'hidden' },
     badgeSuccess: { backgroundColor: 'rgba(76,175,80,0.2)', color: '#4CAF50' },
@@ -149,10 +149,10 @@ export default function AdminDashboardScreen({ navigation }) {
     actionCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
     actionCardDisabled: { opacity: 0.6 },
     actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
-    actionLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: colors.white },
+    actionLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: colors.textPrimary },
     actionSubtitle: { fontSize: FONT_SIZES.xs, color: colors.textMuted, marginTop: 2 },
     errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-    errorTitle: { fontSize: 20, fontWeight: '700', color: colors.white, marginTop: 16 },
+    errorTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginTop: 16 },
     errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
     retryBtn: { marginTop: 20, backgroundColor: colors.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
     retryText: { color: colors.background, fontWeight: '600', fontSize: FONT_SIZES.md },
@@ -379,9 +379,9 @@ export default function AdminDashboardScreen({ navigation }) {
 
   if (!user?.is_admin && !user?.is_super_admin) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.black, justifyContent: 'center', alignItems: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <Ionicons name="lock-closed" size={48} color={colors.textMuted} />
-        <Text style={{ color: colors.white, fontSize: 18, fontWeight: '600', marginTop: 16 }}>Access Denied</Text>
+        <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '600', marginTop: 16 }}>Access Denied</Text>
         <Text style={{ color: colors.textSecondary, marginTop: 8 }}>You don&apos;t have admin privileges.</Text>
       </SafeAreaView>
     );

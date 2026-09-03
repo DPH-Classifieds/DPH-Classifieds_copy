@@ -16,7 +16,7 @@ export default function AnimatedButton({ title, onPress, variant = 'primary', st
   const { colors } = useTheme();
   const styles = useMemo(() => StyleSheet.create({
     button: { borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-    text: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    text: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
   }), [colors]);
 
   const scale = useSharedValue(1);

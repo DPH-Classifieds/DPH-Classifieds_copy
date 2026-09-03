@@ -101,7 +101,7 @@ export default function AdminExpiredListingsScreen({ navigation }) {
   const [error, setError]             = useState('');
 
   const styles = useMemo(() => StyleSheet.create({
-    container:     { flex: 1, backgroundColor: colors.black },
+    container:     { flex: 1, backgroundColor: colors.background },
     tabRow:        { maxHeight: 44, flexGrow: 0 },
     chipRow:       { maxHeight: 40, flexGrow: 0 },
     tabRowContent: { paddingHorizontal: SPACING.sm, gap: 6, paddingVertical: 6 },
@@ -112,7 +112,7 @@ export default function AdminExpiredListingsScreen({ navigation }) {
     chip:          { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: '#1c1c1e', borderWidth: 1, borderColor: '#2a2a2a' },
     chipActive:    { backgroundColor: '#2a2a2a', borderColor: colors.accent },
     chipText:      { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
-    chipTextActive:{ color: colors.white, fontWeight: '700' },
+    chipTextActive:{ color: colors.textPrimary, fontWeight: '700' },
     dayRow:        { flexDirection: 'row', gap: 8, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
     dayBtn:        { flex: 1, paddingVertical: 6, borderRadius: 8, backgroundColor: '#1c1c1e', alignItems: 'center' },
     dayBtnActive:  { backgroundColor: colors.accent },
@@ -123,7 +123,7 @@ export default function AdminExpiredListingsScreen({ navigation }) {
     thumbnail:     { width: 60, height: 60, borderRadius: BORDER_RADIUS.md },
     thumbPlaceholder: { backgroundColor: '#2a2a2a', justifyContent: 'center', alignItems: 'center' },
     cardInfo:      { flex: 1, justifyContent: 'center' },
-    cardTitle:     { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    cardTitle:     { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     cardPrice:     { color: colors.accent, fontSize: FONT_SIZES.sm, marginTop: 2 },
     reasonRow:     { flexDirection: 'row', marginTop: 4 },
     reasonBadge:   { paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm },

@@ -137,7 +137,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
       marginBottom: 8,
     },
     title: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.lg,
       fontWeight: '700',
       paddingHorizontal: SPACING.md,
@@ -158,7 +158,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
       backgroundColor: colors.primary,
     },
     optionText: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.md,
       flex: 1,
     },
@@ -184,7 +184,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
     },
     searchInput: {
       flex: 1,
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.md,
       padding: 0,
     },
@@ -385,13 +385,13 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, on
               <TouchableOpacity activeOpacity={0.8} onPress={() => onEditImage(i)} style={styles.imageThumbImage}>
                 <Image source={{ uri }} style={styles.imageThumbImage} resizeMode="cover" />
                 <View style={styles.imageEditBadge}>
-                  <Ionicons name="create-outline" size={13} color={colors.white} />
+                  <Ionicons name="create-outline" size={13} color={colors.textPrimary} />
                   <Text style={styles.imageEditText}>Edit</Text>
                 </View>
               </TouchableOpacity>
               {i === 0 && (
                 <View style={styles.imageCoverBadge}>
-                  <Ionicons name="star" size={10} color={colors.white} />
+                  <Ionicons name="star" size={10} color={colors.textPrimary} />
                   <Text style={styles.imageCoverText}>Cover</Text>
                 </View>
               )}
@@ -400,12 +400,12 @@ function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, on
               </TouchableOpacity>
               {i > 0 && (
                 <TouchableOpacity style={styles.imageReorderLeft} onPress={() => onReorderImages(i, i - 1)}>
-                  <Ionicons name="chevron-back" size={14} color={colors.white} />
+                  <Ionicons name="chevron-back" size={14} color={colors.textPrimary} />
                 </TouchableOpacity>
               )}
               {i < images.length - 1 && (
                 <TouchableOpacity style={styles.imageReorderRight} onPress={() => onReorderImages(i, i + 1)}>
-                  <Ionicons name="chevron-forward" size={14} color={colors.white} />
+                  <Ionicons name="chevron-forward" size={14} color={colors.textPrimary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -440,9 +440,9 @@ export default function PostListingScreen({ navigation, route }) {
       gap: 12,
       zIndex: 20,
     },
-    moderatingText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    moderatingText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
-    headerTitle: { color: colors.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
+    headerTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
     headerSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginTop: 4 },
     categoryGrid: {
       flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
@@ -453,20 +453,20 @@ export default function PostListingScreen({ navigation, route }) {
       paddingVertical: 32, alignItems: 'center', justifyContent: 'center',
       borderWidth: 1, borderColor: colors.border,
     },
-    categoryLabel: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: 12 },
+    categoryLabel: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: 12 },
     wantedCard: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       marginHorizontal: SPACING.md, marginTop: 4, padding: SPACING.md,
       backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg,
       borderWidth: 1, borderColor: colors.border,
     },
-    wantedTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    wantedTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     wantedSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
     formHeader: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
     },
-    formHeaderTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    formHeaderTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600' },
     stepRow: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
@@ -487,7 +487,7 @@ export default function PostListingScreen({ navigation, route }) {
     wizardNavBtnSecondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
     wizardNavBtnDisabled: { opacity: 0.4 },
     wizardNavBtnPrimaryText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },
-    wizardNavBtnSecondaryText: { color: colors.white, fontWeight: '600', fontSize: FONT_SIZES.md },
+    wizardNavBtnSecondaryText: { color: colors.textPrimary, fontWeight: '600', fontSize: FONT_SIZES.md },
     formContent: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
     section: { marginBottom: 8 },
     sectionHeader: {
@@ -496,7 +496,7 @@ export default function PostListingScreen({ navigation, route }) {
       backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.md,
       marginBottom: 2,
     },
-    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    sectionTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600' },
     sectionContent: { paddingTop: 12 },
     fieldLabel: {
       color: colors.textSecondary, fontSize: FONT_SIZES.sm,
@@ -516,7 +516,7 @@ export default function PostListingScreen({ navigation, route }) {
       backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md,
       borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12,
     },
-    pickerText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+    pickerText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, flex: 1 },
     phoneRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
     codePickerContainer: { width: 100 },
     codePickerTrigger: {
@@ -529,7 +529,7 @@ export default function PostListingScreen({ navigation, route }) {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: colors.borderLight,
     },
-    toggleLabel: { color: colors.white, fontSize: FONT_SIZES.md },
+    toggleLabel: { color: colors.textPrimary, fontSize: FONT_SIZES.md },
     extrasCategory: { marginBottom: 16 },
     extrasCategoryTitle: {
       color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '700',
@@ -572,7 +572,7 @@ export default function PostListingScreen({ navigation, route }) {
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
     imageEditText: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: 9,
       fontWeight: '700',
     },
@@ -589,7 +589,7 @@ export default function PostListingScreen({ navigation, route }) {
       backgroundColor: 'rgba(76,175,80,0.95)',
     },
     imageCoverText: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: 9,
       fontWeight: '700',
     },
@@ -621,7 +621,7 @@ export default function PostListingScreen({ navigation, route }) {
       backgroundColor: 'rgba(76,175,80,0.06)',
     },
     emptyAddImageTitle: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.md,
       fontWeight: '700',
       marginTop: 8,
@@ -2658,12 +2658,12 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== MAP PICKER MODAL ====================
   const renderMapPickerModal = () => (
     <Modal visible={showMapPicker} animationType="slide" onRequestClose={() => setShowMapPicker(false)}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.black }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={styles.mapPickerHeader}>
           <TouchableOpacity onPress={() => setShowMapPicker(false)}>
             <Text style={{ color: colors.accent, fontSize: FONT_SIZES.md }}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={{ color: colors.white, fontWeight: '700', fontSize: FONT_SIZES.lg }}>Set Location</Text>
+          <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: FONT_SIZES.lg }}>Set Location</Text>
           <TouchableOpacity onPress={() => setShowMapPicker(false)}>
             <Text style={{ color: colors.accent, fontSize: FONT_SIZES.md }}>Confirm</Text>
           </TouchableOpacity>
@@ -2758,7 +2758,7 @@ export default function PostListingScreen({ navigation, route }) {
       >
         <View style={styles.formHeader}>
           <TouchableOpacity onPress={resetAndGoBack}>
-            <Ionicons name="arrow-back" size={24} color={colors.white} />
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.formHeaderTitle}>
             {isEditMode ? 'Edit' : 'Post'} {CATEGORIES.find(c => c.key === category)?.label}

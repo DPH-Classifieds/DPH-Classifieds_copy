@@ -67,7 +67,7 @@ test('AdminUserDetailScreen renders DARK_COLORS values when theme is dark', asyn
   const { toJSON, findByText } = render(<AdminUserDetailScreen route={route} navigation={navigation} />);
   await findByText('John Doe');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).toContain('0C1C13');
   expect(tree).toContain('8BD6B4');
   expect(tree).toContain('A8B4AC');

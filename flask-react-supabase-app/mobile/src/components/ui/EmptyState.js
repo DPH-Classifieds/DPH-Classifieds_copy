@@ -24,7 +24,7 @@ export default function EmptyState({
       marginBottom: 16,
     },
     title: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: 17,
       fontWeight: '700',
       marginBottom: 8,

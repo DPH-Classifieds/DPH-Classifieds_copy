@@ -97,7 +97,7 @@ export default function MyListingsScreen({ navigation }) {
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
     },
     tabBar: {
       flexDirection: 'row',
@@ -151,7 +151,7 @@ export default function MyListingsScreen({ navigation }) {
     cardTitle: {
       fontSize: FONT_SIZES.md,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
       marginBottom: 4,
     },
     cardPrice: {

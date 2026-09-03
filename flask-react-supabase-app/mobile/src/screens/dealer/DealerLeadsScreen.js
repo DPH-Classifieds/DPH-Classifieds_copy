@@ -59,7 +59,7 @@ export default function DealerLeadsScreen({ navigation }) {
     lost: colors.error,
   }), [colors]);
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     filterBar: { maxHeight: 56, flexGrow: 0 },
     filterContent: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
     chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface, marginRight: 8 },
@@ -78,7 +78,7 @@ export default function DealerLeadsScreen({ navigation }) {
       alignItems: 'center', justifyContent: 'center',
     },
     rowBody: { flex: 1, minWidth: 0 },
-    rowTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    rowTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     rowSub: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginTop: 2 },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     statusText: { fontSize: FONT_SIZES.xs, fontWeight: '700' },

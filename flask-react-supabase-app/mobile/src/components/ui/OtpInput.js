@@ -65,7 +65,7 @@ export default function OtpInput({
       backgroundColor: 'rgba(139,214,180,0.06)',
     },
     boxText: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: 26,
       fontWeight: '700',
     },

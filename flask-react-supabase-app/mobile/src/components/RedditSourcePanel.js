@@ -43,7 +43,7 @@ export default function RedditSourcePanel({ item }) {
       borderRadius: BORDER_RADIUS.md || 12,
       paddingVertical: 12,
     },
-    buttonText: { color: colors.white, fontWeight: '700', fontSize: FONT_SIZES.md || 15 },
+    buttonText: { color: colors.textPrimary, fontWeight: '700', fontSize: FONT_SIZES.md || 15 },
   }), [colors]);
 
   if (!isRedditSourced(item)) return null;
@@ -65,7 +65,7 @@ export default function RedditSourcePanel({ item }) {
         Listing details are supplied by the original Reddit post; see the linked post for full details.
       </Text>
       <PressableScale onPress={open} haptic="medium" style={styles.button}>
-        <Ionicons name="open-outline" size={18} color={colors.white} />
+        <Ionicons name="open-outline" size={18} color={colors.textPrimary} />
         <Text style={styles.buttonText}>View original Reddit post</Text>
       </PressableScale>
     </View>
