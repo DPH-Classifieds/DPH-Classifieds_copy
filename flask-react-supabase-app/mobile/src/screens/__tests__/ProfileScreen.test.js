@@ -20,7 +20,7 @@ jest.mock('../../context/ThemeContext', () => ({
 }));
 jest.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
-    user: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com', created_at: '2026-01-15' },
+    user: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com', created_at: '2026-01-15', phone_verified: true },
     signOut: jest.fn(),
     syncWithSupabase: jest.fn(),
   }),
@@ -63,8 +63,6 @@ test('ProfileScreen renders LIGHT_COLORS values when theme is light', async () =
   mockColors = LIGHT_COLORS;
   const { toJSON, findByText } = render(<ProfileScreen navigation={navigation} />);
   await findByText('Profile');
-  // LIGHT_COLORS.background = '#FAFAFA' — UNIQUE to LIGHT
-  // DARK_COLORS.background  = '#07110b' — UNIQUE to DARK
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('FAFAFA');
   expect(tree).not.toContain('07110b');
@@ -78,4 +76,34 @@ test('ProfileScreen renders DARK_COLORS values when theme is dark', async () => 
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('07110b');
   expect(tree).not.toContain('FAFAFA');
+});
+
+test('ProfileScreen exposes MyListings and EditListing links', async () => {
+  mockTheme = 'light';
+  mockColors = LIGHT_COLORS;
+  const { findByText } = render(<ProfileScreen navigation={navigation} />);
+  await findByText('My Listings');
+  await findByText('Edit Listing');
+});
+
+test('ProfileScreen does NOT render web-view-only rows (Privacy/Terms/About)', async () => {
+  mockTheme = 'light';
+  mockColors = LIGHT_COLORS;
+  const { queryByText } = render(<ProfileScreen navigation={navigation} />);
+  // Per the user's spec: "mobile should have all the app stuff in its profile
+  // section" — external web URLs (Privacy Policy, Terms of Service, About DPH
+  // web links) belong on the dedicated native screens, not in the profile
+  // link list as Linking.openURL web-view entries.
+  expect(queryByText('Privacy Policy')).toBeNull();
+  expect(queryByText('Terms of Service')).toBeNull();
+  expect(queryByText('About DPH')).toBeNull();
+});
+
+test('ProfileScreen still shows Contact Support as a mailto link (system, not web)', async () => {
+  mockTheme = 'light';
+  mockColors = LIGHT_COLORS;
+  const { findByText } = render(<ProfileScreen navigation={navigation} />);
+  // Contact Support stays because it opens the system mail client (mailto:),
+  // not a browser. It's not a web-view dropdown.
+  await findByText('Contact Support');
 });

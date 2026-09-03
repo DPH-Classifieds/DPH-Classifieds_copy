@@ -1,7 +1,4 @@
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
-jest.mock('react-native-webview', () => ({
-  WebView: 'WebView',
-}));
 
 let mockColors;
 let mockTheme;
@@ -48,4 +45,23 @@ test('TermsOfServiceScreen renders DARK_COLORS values when theme is dark', () =>
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('07110b');
   expect(tree).not.toContain('FAFAFA');
+});
+
+test('TermsOfServiceScreen renders native terms content (no WebView)', async () => {
+  mockTheme = 'light';
+  mockColors = LIGHT_COLORS;
+  const { findByText, findAllByText } = render(<TermsOfServiceScreen />);
+  await findByText(/^1\) Who we are/);
+  await findByText(/Annex A — Additional Terms: Motors/);
+  // legal@dphclassifieds.com appears in sections 1 and 18
+  const matches = await findAllByText(/legal@dphclassifieds\.com/);
+  expect(matches.length).toBeGreaterThanOrEqual(2);
+});
+
+test('TermsOfServiceScreen does not import or render react-native-webview', async () => {
+  mockTheme = 'light';
+  mockColors = LIGHT_COLORS;
+  const { findAllByText } = render(<TermsOfServiceScreen />);
+  const matches = await findAllByText(/DUBAIPETROLHEADS FOR INFORMATION TECHNOLOGY AND NETWORK SERVICES/);
+  expect(matches.length).toBeGreaterThan(0);
 });
