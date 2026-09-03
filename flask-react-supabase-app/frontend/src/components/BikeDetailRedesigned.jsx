@@ -8,6 +8,7 @@ import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import { isRedditSourced } from './RedditSourcePanel';
 import RedditListingDetail from './RedditListingDetail';
+import RecommendedListings from './RecommendedListings';
 import ImageLightbox from './ImageLightbox';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
@@ -646,6 +647,8 @@ const BikeDetailRedesigned = () => {
         </div>
 
         <ReportButton listingId={id} listingType="bike" />
+
+        <RecommendedListings listingType="bike" listingId={id} limit={6} />
       </div>
       {lightboxOpen && (
         <ImageLightbox images={getGalleryImages()} startIndex={activeImageIndex} onClose={() => setLightboxOpen(false)} />

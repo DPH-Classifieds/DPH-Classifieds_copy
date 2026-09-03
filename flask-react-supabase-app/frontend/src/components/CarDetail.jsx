@@ -13,6 +13,7 @@ import PhoneVerificationFlow from './PhoneVerificationFlow';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
 import RedditListingDetail from './RedditListingDetail';
+import RecommendedListings from './RecommendedListings';
 import SeoMeta from './SeoMeta';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
@@ -1066,6 +1067,8 @@ const CarDetail = () => {
         </div>
 
         <ReportButton listingId={car.id} listingType="car" />
+
+        <RecommendedListings listingType="car" listingId={car.id} limit={6} />
 
 	        {showPhoneVerifyModal && (
 	          <PhoneVerificationFlow

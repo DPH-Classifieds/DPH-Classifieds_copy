@@ -8,6 +8,7 @@ import ReportButton from './ReportButton';
 import SavedListingToggleButton from './SavedListingToggleButton';
 import RedditSourcePanel, { isRedditSourced } from './RedditSourcePanel';
 import RedditListingDetail from './RedditListingDetail';
+import RecommendedListings from './RecommendedListings';
 import SeoMeta from './SeoMeta';
 import './CarDetailRedesigned.css';
 import { buildListingSeo } from '../utils/seo';
@@ -496,6 +497,8 @@ const PlateDetailRedesigned = () => {
         </div>
 
         <ReportButton listingId={id} listingType="plate" />
+
+        <RecommendedListings listingType="plate" listingId={id} limit={6} />
       </div>
     </div>
   );
