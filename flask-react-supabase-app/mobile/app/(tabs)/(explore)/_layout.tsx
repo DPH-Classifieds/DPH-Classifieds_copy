@@ -13,6 +13,9 @@ export default function ExploreStackLayout() {
         headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.textPrimary,
         headerTitleStyle: { fontWeight: '600' },
+        // Chevron only, no previous-screen-name label (it showed "index") —
+        // matches the icon-only back button every custom ListHeader uses.
+        headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: colors.background },
         animation: 'slide_from_right',
         fullScreenGestureEnabled: true,
@@ -32,7 +35,9 @@ export default function ExploreStackLayout() {
       <Stack.Screen name="PlateDetail" options={{ title: 'Plate Listing' }} />
       <Stack.Screen name="PartDetail" options={{ title: 'Part Listing' }} />
       <Stack.Screen name="EditListing" options={{ title: 'Edit Listing' }} />
-      <Stack.Screen name="BuyingRequests" options={{ title: 'Buying Requests' }} />
+      {/* Renders its own back arrow + title + Post Request button, same as
+          the List screens above — hide the native header so it isn't doubled. */}
+      <Stack.Screen name="BuyingRequests" options={{ headerShown: false }} />
       <Stack.Screen name="BuyingRequestDetail" options={{ title: 'Request Detail' }} />
       <Stack.Screen name="PostBuyingRequest" options={{ title: 'Post Request' }} />
     </Stack>

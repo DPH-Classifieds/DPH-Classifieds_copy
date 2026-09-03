@@ -7,6 +7,7 @@ export default function SavedStackLayout() {
         headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.textPrimary,
         headerTitleStyle: { fontWeight: '600' },
+        headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: colors.background },
         animation: 'slide_from_right',
     }}>
