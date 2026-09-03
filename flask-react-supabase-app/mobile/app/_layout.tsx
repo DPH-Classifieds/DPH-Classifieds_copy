@@ -95,6 +95,60 @@ function AppShell() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
       </Stack>
+      <SidebarTrigger />
     </>
   );
 }
+
+// iOS doesn't expose a hamburger slot in the native tab bar, so we mount a
+// small floating trigger in the top-left that opens the sidebar. Android gets
+// the same trigger via AndroidTabBar's built-in hamburger. Cross-platform
+// coverage without iOS-specific navigation code.
+import { Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme as useSidebarTheme } from '../src/context/ThemeContext';
+import Sidebar from '../src/components/ui/Sidebar';
+import { BORDER_RADIUS } from '../src/constants/theme';
+
+function SidebarTrigger() {
+  const insets = useSafeAreaInsets();
+  const { colors } = useSidebarTheme();
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open navigation menu"
+        onPress={() => setOpen(true)}
+        style={({ pressed }) => [
+          triggerStyles.btn,
+          {
+            top: insets.top + 12,
+            backgroundColor: pressed ? colors.surfaceHigh : colors.surface,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+      </Pressable>
+      <Sidebar open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+const triggerStyles = {
+  btn: {
+    position: 'absolute',
+    left: 16,
+    width: 52,
+    height: 52,
+    borderRadius: BORDER_RADIUS.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    elevation: 8,
+  },
+};
