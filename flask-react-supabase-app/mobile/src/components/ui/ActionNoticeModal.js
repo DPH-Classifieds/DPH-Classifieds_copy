@@ -54,7 +54,7 @@ export default function ActionNoticeModal({
       marginBottom: SPACING.md,
     },
     title: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.xl,
       fontWeight: '700',
       textAlign: 'center',
@@ -77,7 +77,7 @@ export default function ActionNoticeModal({
       alignItems: 'center',
     },
     actionButtonText: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.md,
       fontWeight: '700',
     },

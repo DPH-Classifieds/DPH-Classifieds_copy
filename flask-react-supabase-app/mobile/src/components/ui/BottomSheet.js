@@ -54,7 +54,7 @@ export default function BottomSheet({ visible, onClose, title, children, maxHeig
       paddingBottom: SPACING.sm,
     },
     title: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.lg,
       fontWeight: '700',
     },

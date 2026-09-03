@@ -245,7 +245,7 @@ const pkStylesFor = (colors) => StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 12, borderRadius: BORDER_RADIUS.md,
   },
   optionSelected: { backgroundColor: colors.primary },
-  optionText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+  optionText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, flex: 1 },
   optionTextSelected: { color: colors.accent, fontWeight: '600' },
   separator: { height: 0.5, backgroundColor: colors.borderLight },
   searchWrap: {
@@ -253,7 +253,7 @@ const pkStylesFor = (colors) => StyleSheet.create({
     borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: colors.border,
     marginHorizontal: SPACING.md, marginBottom: SPACING.sm, paddingHorizontal: 12, paddingVertical: 10, gap: 8,
   },
-  searchInput: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md, padding: 0 },
+  searchInput: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.md, padding: 0 },
   empty: { color: colors.textMuted, fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: SPACING.lg },
 });
 
@@ -366,7 +366,7 @@ const frStylesFor = (colors) => StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
   },
-  label: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '500' },
+  label: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '500' },
   right: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   value: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, textAlign: 'right', maxWidth: 140 },
   valueMuted: { color: colors.textMuted },
@@ -404,7 +404,7 @@ const prStylesFor = (colors) => StyleSheet.create({
   fieldLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4, fontWeight: '500' },
   input: {
     backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: colors.border,
-    color: colors.white, fontSize: FONT_SIZES.sm, paddingHorizontal: 12, paddingVertical: 8,
+    color: colors.textPrimary, fontSize: FONT_SIZES.sm, paddingHorizontal: 12, paddingVertical: 8,
   },
   divider: { width: 1, height: 30, backgroundColor: colors.borderLight },
 });
@@ -415,7 +415,7 @@ const fcStylesFor = (colors) => StyleSheet.create({
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
   },
-  headerTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700' },
+  headerTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700' },
   resetText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
 });
 
@@ -511,7 +511,7 @@ export default function ExploreScreen({ navigation, route }) {
       marginBottom: 4,
     },
     heroTitle: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: 26,
       fontWeight: '800',
       letterSpacing: -0.5,
@@ -523,7 +523,7 @@ export default function ExploreScreen({ navigation, route }) {
       borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 16, paddingVertical: 11, gap: 10,
       borderWidth: 1, borderColor: colors.borderLight,
     },
-    searchInput: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md },
+    searchInput: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.md },
 
     catRowWrap: { marginBottom: SPACING.md },
     catRow: {
@@ -605,7 +605,7 @@ export default function ExploreScreen({ navigation, route }) {
       position: 'absolute', top: 8, left: 8,
       paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm,
     },
-    cardCatText: { color: colors.white, fontSize: 10, fontWeight: '700' },
+    cardCatText: { color: colors.textPrimary, fontSize: 10, fontWeight: '700' },
     cardSaveBtn: {
       position: 'absolute', top: 8, right: 8,
       width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.5)',
@@ -624,7 +624,7 @@ export default function ExploreScreen({ navigation, route }) {
     cardPrice: {
       color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6,
     },
-    cardTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 6 },
+    cardTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 6 },
     cardSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8, lineHeight: 18 },
     cardLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     cardLocation: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
@@ -640,12 +640,12 @@ export default function ExploreScreen({ navigation, route }) {
       padding: SPACING.md,
     },
     ctaLeft: { flex: 1 },
-    ctaTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 2 },
+    ctaTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 2 },
     ctaSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
     ctaIconWrap: { marginLeft: SPACING.md },
 
     emptyContainer: { alignItems: 'center', paddingTop: SPACING.xxl * 2, paddingHorizontal: SPACING.lg },
-    emptyTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: SPACING.md, marginBottom: SPACING.xs },
+    emptyTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginTop: SPACING.md, marginBottom: SPACING.xs },
     emptySubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.md, textAlign: 'center' },
     clearSearchBtn: {
       marginTop: SPACING.md, backgroundColor: colors.surface,
@@ -1324,6 +1324,6 @@ const sortStylesFor = (colors) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
   },
   optionActive: { backgroundColor: colors.primary },
-  optionText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+  optionText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, flex: 1 },
   optionTextActive: { color: colors.accent, fontWeight: '600' },
 });

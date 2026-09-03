@@ -132,18 +132,18 @@ export default function BikeDetailScreen({ route, navigation }) {
       position: 'absolute', top: 12, right: 60,
     },
     content: { padding: SPACING.md },
-    price: { color: colors.white, fontSize: 24, fontWeight: '700', marginBottom: 8 },
+    price: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: 8 },
     usdPrice: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
-    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 16 },
+    title: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 16 },
     specsGrid: {
       flexDirection: 'row', flexWrap: 'wrap', backgroundColor: colors.surface,
       borderRadius: BORDER_RADIUS.lg, marginBottom: 16,
     },
     specItem: { width: '50%', paddingVertical: 14, paddingHorizontal: 14, borderWidth: 0.5, borderColor: colors.border },
     specLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 4 },
-    specValue: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    specValue: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     section: { marginBottom: 16 },
-    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
+    sectionTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
     featuresRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     featurePill: { backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border },
     featurePillText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
@@ -159,18 +159,18 @@ export default function BikeDetailScreen({ route, navigation }) {
       alignItems: 'center', justifyContent: 'center', marginRight: 12,
     },
     sellerInitial: { color: colors.accent, fontSize: 20, fontWeight: '700' },
-    sellerName: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    sellerName: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     sellerActions: { flexDirection: 'row', gap: 10 },
     callButton: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors.primary, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
     },
-    callButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    callButtonText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     whatsappButton: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
     },
-    whatsappButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    whatsappButtonText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
     lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
     lightboxImage: { width: '92%', height: '82%' },
@@ -360,11 +360,11 @@ export default function BikeDetailScreen({ route, navigation }) {
             ) : (
               <View style={styles.sellerActions}>
                 <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
-                  <Ionicons name="call" size={18} color={colors.white} />
+                  <Ionicons name="call" size={18} color={colors.textPrimary} />
                   <Text style={styles.callButtonText}>Call Now</Text>
                 </PressableScale>
                 <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
-                  <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
+                  <Ionicons name="logo-whatsapp" size={18} color={colors.textPrimary} />
                   <Text style={styles.whatsappButtonText}>WhatsApp</Text>
                 </PressableScale>
               </View>

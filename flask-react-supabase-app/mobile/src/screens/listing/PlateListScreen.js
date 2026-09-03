@@ -295,14 +295,14 @@ export default function PlateListScreen({ navigation }) {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: colors.border,
     },
-    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    modalTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600' },
     modalOptions: { padding: SPACING.sm },
     modalOption: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingVertical: 14, paddingHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.md,
     },
     modalOptionSelected: { backgroundColor: colors.primary },
-    modalOptionText: { color: colors.white, fontSize: FONT_SIZES.md },
+    modalOptionText: { color: colors.textPrimary, fontSize: FONT_SIZES.md },
     modalOptionTextSelected: { color: colors.accent, fontWeight: '600' },
   }), [colors]);
 

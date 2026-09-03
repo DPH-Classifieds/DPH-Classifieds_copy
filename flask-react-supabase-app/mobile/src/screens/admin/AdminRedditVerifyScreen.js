@@ -39,14 +39,14 @@ export default function AdminRedditVerifyScreen({ navigation }) {
   const [onlyIncomplete, setOnlyIncomplete] = useState(false);
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     listContent: { padding: SPACING.md, paddingBottom: 40 },
     kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
     kpiCard: {
       flexBasis: '48%', flexGrow: 1, backgroundColor: colors.surface,
       borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
     },
-    kpiValue: { color: colors.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
+    kpiValue: { color: colors.textPrimary, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
     kpiLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 4 },
     filterPill: {
       alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8,
@@ -65,14 +65,14 @@ export default function AdminRedditVerifyScreen({ navigation }) {
       position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)',
       borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1,
     },
-    photoCountText: { color: colors.white, fontSize: 9 },
+    photoCountText: { color: colors.textPrimary, fontSize: 9 },
     cardInfo: { flex: 1, minWidth: 0 },
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
     typeBadge: { backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
     typeBadgeText: { color: colors.textSecondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
     statusBadge: { borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
     statusBadgeText: { fontSize: 9, fontWeight: '700' },
-    cardTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    cardTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     cardPrice: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '700', marginTop: 2 },
     fieldGrid: { marginTop: SPACING.sm, gap: 4 },
     fieldRow: {
@@ -81,7 +81,7 @@ export default function AdminRedditVerifyScreen({ navigation }) {
     },
     fieldLabel: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
     fieldValueWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    fieldValue: { color: colors.white, fontSize: FONT_SIZES.xs },
+    fieldValue: { color: colors.textPrimary, fontSize: FONT_SIZES.xs },
     fieldValueMissing: { color: colors.warning },
     fieldValueMuted: { color: colors.textMuted },
     sourceTag: { backgroundColor: colors.surfaceHigher, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },

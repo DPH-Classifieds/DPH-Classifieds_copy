@@ -85,7 +85,7 @@ test('AdminDealershipsHubScreen renders DARK_COLORS values when theme is dark', 
   const { toJSON, findByText } = render(<AdminDealershipsHubScreen navigation={navigation} />);
   await findByText('Dealers');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).toContain('8BD6B4');
   expect(tree).toContain('A8B4AC');
   expect(tree).not.toContain('0E1512');

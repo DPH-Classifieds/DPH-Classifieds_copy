@@ -35,7 +35,7 @@ export default function AdminDealershipsHubScreen({ navigation }) {
   useEffect(() => { refreshCounts(); }, [refreshCounts]);
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },
     tabBar: {
       flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.borderLight,
@@ -47,7 +47,7 @@ export default function AdminDealershipsHubScreen({ navigation }) {
     },
     tabActive: { borderBottomColor: colors.accent },
     tabText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.textSecondary },
-    tabTextActive: { color: colors.white },
+    tabTextActive: { color: colors.textPrimary },
     badge: { backgroundColor: 'rgba(255,152,0,0.2)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 6, paddingVertical: 1 },
     badgeText: { ...FONTS.bold, fontSize: 10, color: colors.warning },
   }), [colors]);

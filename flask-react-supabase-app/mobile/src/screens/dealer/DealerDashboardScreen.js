@@ -37,13 +37,13 @@ function AccessDenied({ message, colors, styles }) {
 export default function DealerDashboardScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
-    centered: { flex: 1, backgroundColor: colors.black, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-    deniedTitle: { color: colors.white, fontSize: 18, fontWeight: '700', marginTop: 16 },
+    container: { flex: 1, backgroundColor: colors.background },
+    centered: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
+    deniedTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 16 },
     deniedText: { color: colors.textSecondary, marginTop: 8, textAlign: 'center' },
     scrollContent: { paddingBottom: 40 },
     header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
-    title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: colors.white },
+    title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: colors.textPrimary },
     verifiedPill: {
       flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 6,
       backgroundColor: 'rgba(76,175,80,0.12)', borderColor: 'rgba(76,175,80,0.30)', borderWidth: 1,
@@ -57,7 +57,7 @@ export default function DealerDashboardScreen({ navigation }) {
     windowTextActive: { color: colors.background },
     kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
     kpiCard: { width: '48%', backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-    kpiValue: { fontSize: 24, fontWeight: '700', color: colors.white, marginBottom: 4 },
+    kpiValue: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
     kpiLabel: { fontSize: FONT_SIZES.sm, color: colors.textSecondary },
     kpiDelta: { fontSize: FONT_SIZES.xs, fontWeight: '700', marginTop: 4 },
     section: { paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
@@ -68,7 +68,7 @@ export default function DealerDashboardScreen({ navigation }) {
       paddingVertical: 14, paddingHorizontal: SPACING.md,
       marginHorizontal: SPACING.md,
     },
-    linkText: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    linkText: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     footNote: { color: colors.textMuted, fontSize: FONT_SIZES.xs, textAlign: 'center', paddingHorizontal: SPACING.lg, marginTop: SPACING.lg },
     errorText: { color: colors.error, fontSize: FONT_SIZES.sm, textAlign: 'center' },
     retryBtn: { marginTop: 12, alignSelf: 'center', backgroundColor: colors.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },

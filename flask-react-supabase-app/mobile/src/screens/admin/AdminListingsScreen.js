@@ -203,7 +203,7 @@ export default function AdminListingsScreen({ navigation }) {
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
     },
     typeTabBar: {
       flexDirection: 'row',
@@ -274,7 +274,7 @@ export default function AdminListingsScreen({ navigation }) {
     kpiValue: {
       fontSize: FONT_SIZES.lg,
       fontWeight: '700',
-      color: colors.white,
+      color: colors.textPrimary,
     },
     kpiLabel: {
       fontSize: FONT_SIZES.xs,
@@ -338,7 +338,7 @@ export default function AdminListingsScreen({ navigation }) {
       flexShrink: 1,
       fontSize: FONT_SIZES.md,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
     },
     requestPill: {
       paddingHorizontal: 6,
@@ -372,7 +372,7 @@ export default function AdminListingsScreen({ navigation }) {
     statusBadgeText: {
       fontSize: FONT_SIZES.xs,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
       textTransform: 'capitalize',
     },
     soldPill: {
@@ -500,18 +500,18 @@ export default function AdminListingsScreen({ navigation }) {
     bulkClearBtnText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: SPACING.md },
     modalContent: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
-    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: SPACING.sm },
+    modalTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: SPACING.sm },
     modalWarning: { color: colors.warning, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
     modalLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 6 },
     modalInput: {
       backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
-      color: colors.white, fontSize: FONT_SIZES.sm,
+      color: colors.textPrimary, fontSize: FONT_SIZES.sm,
     },
     modalBtnDisabled: { opacity: 0.4 },
     modalPrimaryBtn: { marginTop: SPACING.lg, backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
     modalPrimaryBtnText: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
     modalDangerBtn: { marginTop: SPACING.lg, backgroundColor: colors.error, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-    modalDangerBtnText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    modalDangerBtnText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
   }), [colors]);
 
   const fetchListings = async () => {

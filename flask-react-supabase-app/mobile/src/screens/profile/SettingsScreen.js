@@ -281,7 +281,7 @@ export default function SettingsScreen({ navigation }) {
     () => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: themeColors.black,
+    backgroundColor: themeColors.background,
   },
   scrollContent: {
     paddingBottom: 40,
@@ -348,7 +348,7 @@ export default function SettingsScreen({ navigation }) {
     marginBottom: 8,
   },
   completionLabel: {
-    color: themeColors.white,
+    color: themeColors.textPrimary,
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',
   },
@@ -382,7 +382,7 @@ export default function SettingsScreen({ navigation }) {
     borderColor: themeColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: themeColors.white,
+    color: themeColors.textPrimary,
     fontSize: FONT_SIZES.md,
     minHeight: 80,
     textAlignVertical: 'top',
@@ -400,7 +400,7 @@ export default function SettingsScreen({ navigation }) {
     backgroundColor: themeColors.border,
   },
   sectionDividerText: {
-    color: themeColors.white,
+    color: themeColors.textPrimary,
     fontSize: FONT_SIZES.md,
     fontWeight: '700',
   },
@@ -425,7 +425,7 @@ export default function SettingsScreen({ navigation }) {
   },
   pickerButtonText: {
     flex: 1,
-    color: themeColors.white,
+    color: themeColors.textPrimary,
     fontSize: FONT_SIZES.md,
   },
   modalOverlay: {
@@ -449,7 +449,7 @@ export default function SettingsScreen({ navigation }) {
     borderBottomColor: themeColors.border,
   },
   modalTitle: {
-    color: themeColors.white,
+    color: themeColors.textPrimary,
     fontSize: FONT_SIZES.lg,
     fontWeight: '700',
   },
@@ -517,7 +517,7 @@ export default function SettingsScreen({ navigation }) {
     flex: 1,
   },
   toggleLabel: {
-    color: themeColors.white,
+    color: themeColors.textPrimary,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
   },
@@ -813,7 +813,7 @@ export default function SettingsScreen({ navigation }) {
           <View style={styles.toggleCard}>
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="notifications-outline" size={20} color={themeColors.white} />
+                <Ionicons name="notifications-outline" size={20} color={themeColors.textPrimary} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>Push Notifications</Text>
                   <Text style={styles.toggleDesc}>Instant alerts for leads, saved cars, and expiring listings</Text>
@@ -829,7 +829,7 @@ export default function SettingsScreen({ navigation }) {
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="mail-outline" size={20} color={themeColors.white} />
+                <Ionicons name="mail-outline" size={20} color={themeColors.textPrimary} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>Email Notifications</Text>
                   <Text style={styles.toggleDesc}>Get notified about your listings via email</Text>
@@ -845,7 +845,7 @@ export default function SettingsScreen({ navigation }) {
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="chatbubble-outline" size={20} color={themeColors.white} />
+                <Ionicons name="chatbubble-outline" size={20} color={themeColors.textPrimary} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>SMS Notifications</Text>
                   <Text style={styles.toggleDesc}>Receive text messages for important updates</Text>
@@ -861,7 +861,7 @@ export default function SettingsScreen({ navigation }) {
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="megaphone-outline" size={20} color={themeColors.white} />
+                <Ionicons name="megaphone-outline" size={20} color={themeColors.textPrimary} />
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleLabel}>Marketing Emails</Text>
                   <Text style={styles.toggleDesc}>Receive tips, promotions, and news</Text>
@@ -910,7 +910,7 @@ export default function SettingsScreen({ navigation }) {
               <View style={styles.toggleCard}>
                 <View style={styles.toggleRow}>
                   <View style={styles.toggleInfo}>
-                    <Ionicons name="business-outline" size={20} color={themeColors.white} />
+                    <Ionicons name="business-outline" size={20} color={themeColors.textPrimary} />
                     <View style={styles.toggleTextWrap}>
                       <Text style={styles.toggleLabel}>Become a Dealer / Business Account</Text>
                       <Text style={styles.toggleDesc}>List vehicles as a business and reach more buyers</Text>
@@ -971,7 +971,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Emirate</Text>
               <TouchableOpacity onPress={() => setShowEmiratePicker(false)}>
-                <Ionicons name="close" size={24} color={themeColors.white} />
+                <Ionicons name="close" size={24} color={themeColors.textPrimary} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -1003,7 +1003,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Area ({emirate})</Text>
               <TouchableOpacity onPress={() => setShowAreaPicker(false)}>
-                <Ionicons name="close" size={24} color={themeColors.white} />
+                <Ionicons name="close" size={24} color={themeColors.textPrimary} />
               </TouchableOpacity>
             </View>
             <FlatList

@@ -19,7 +19,7 @@ export default function ListHeader({ title, onBack, columns, onToggleColumns, co
     },
     title: {
       flex: 1,
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.xl,
       fontWeight: '800',
       letterSpacing: -0.4,
@@ -45,7 +45,7 @@ export default function ListHeader({ title, onBack, columns, onToggleColumns, co
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         accessibilityLabel="Go back"
       >
-        <Ionicons name="chevron-back" size={22} color={colors.white} />
+        <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
       </TouchableOpacity>
       <Text style={styles.title} numberOfLines={1}>{title}</Text>
       {columns != null && onToggleColumns ? (

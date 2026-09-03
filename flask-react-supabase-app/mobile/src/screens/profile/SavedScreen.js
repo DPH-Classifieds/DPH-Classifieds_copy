@@ -133,7 +133,7 @@ export default function SavedScreen({ navigation }) {
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
     },
     header: {
       flexDirection: 'row',
@@ -146,7 +146,7 @@ export default function SavedScreen({ navigation }) {
     title: {
       fontSize: FONT_SIZES.hero,
       fontWeight: '700',
-      color: colors.white,
+      color: colors.textPrimary,
       letterSpacing: -0.5,
     },
     subtitle: {
@@ -259,7 +259,7 @@ export default function SavedScreen({ navigation }) {
     cardTitle: {
       fontSize: FONT_SIZES.sm,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.accent,
       marginBottom: 4,
     },
     cardPrice: {
@@ -287,7 +287,7 @@ export default function SavedScreen({ navigation }) {
     searchCardTitle: {
       fontSize: FONT_SIZES.md,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.accent,
       textTransform: 'capitalize',
     },
     searchCardSubtitle: {

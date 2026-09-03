@@ -103,7 +103,7 @@ const styles = useMemo(() => StyleSheet.create({
   title: {
     fontSize: FONT_SIZES.xl,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.textPrimary,
     marginBottom: SPACING.md,
     textAlign: 'center',
   },

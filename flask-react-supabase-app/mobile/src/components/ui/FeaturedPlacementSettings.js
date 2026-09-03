@@ -50,7 +50,7 @@ export default function FeaturedPlacementSettings() {
     typeBtnTextActive: { color: colors.black },
     countInput: {
       width: 44, textAlign: 'center', backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.sm,
-      paddingVertical: 6, color: colors.white, fontSize: FONT_SIZES.sm, borderWidth: 1, borderColor: colors.border,
+      paddingVertical: 6, color: colors.textPrimary, fontSize: FONT_SIZES.sm, borderWidth: 1, borderColor: colors.border,
     },
     addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: SPACING.md },
     addRowText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.accent },

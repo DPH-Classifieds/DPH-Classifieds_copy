@@ -26,9 +26,9 @@ export default function ReportButton({ listingType, listingId }) {
       borderTopRightRadius: BORDER_RADIUS.xl, maxHeight: '60%', paddingBottom: 30,
     },
     handle: { width: 40, height: 4, backgroundColor: colors.border, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 8 },
-    title: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
+    title: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
     option: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: SPACING.md },
-    optionText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+    optionText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, flex: 1 },
     separator: { height: 0.5, backgroundColor: colors.borderLight, marginHorizontal: SPACING.md },
   }), [colors]);
 

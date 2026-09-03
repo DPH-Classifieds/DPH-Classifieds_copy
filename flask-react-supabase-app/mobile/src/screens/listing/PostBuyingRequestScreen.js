@@ -31,9 +31,9 @@ export default function PostBuyingRequestScreen({ navigation }) {
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     scroll: { padding: SPACING.md, paddingBottom: 40 },
-    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xxl, color: colors.white, marginBottom: 4 },
+    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xxl, color: colors.textPrimary, marginBottom: 4 },
     subheading: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textMuted, marginBottom: SPACING.md },
-    input: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, color: colors.white, fontSize: FONT_SIZES.md, borderWidth: 1, borderColor: colors.borderLight },
+    input: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, color: colors.textPrimary, fontSize: FONT_SIZES.md, borderWidth: 1, borderColor: colors.borderLight },
     textArea: { height: 100, paddingTop: SPACING.md },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: 4 },
     chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },

@@ -159,13 +159,13 @@ export default function AdminToolsScreen() {
   }, []);
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     content: { padding: SPACING.md, paddingBottom: 40 },
     sectionLabel: { fontSize: FONT_SIZES.xs, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: SPACING.md, marginBottom: SPACING.sm },
     card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
     cardHeader: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
     cardHeaderText: { flex: 1 },
-    cardTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: colors.white },
+    cardTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: colors.textPrimary },
     cardDescription: { fontSize: FONT_SIZES.xs, color: colors.textSecondary, marginTop: 4, lineHeight: 16 },
     toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: SPACING.sm },
     toggleLabel: { fontSize: FONT_SIZES.sm, color: colors.textSecondary, fontWeight: '500' },

@@ -52,7 +52,7 @@ export default function ParallaxHeader({
       left: 0,
       right: 0,
       height: 56,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -60,7 +60,7 @@ export default function ParallaxHeader({
       zIndex: 10,
     },
     collapsedTitle: {
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: FONT_SIZES.md,
       fontWeight: '600',
       flex: 1,
@@ -129,7 +129,7 @@ export default function ParallaxHeader({
         <Text style={styles.collapsedTitle} numberOfLines={1}>{title}</Text>
         {rightAction && (
           <Animated.View style={headerOpacity}>
-            <Ionicons name={rightAction} size={22} color={colors.white} onPress={onRightActionPress} />
+            <Ionicons name={rightAction} size={22} color={colors.textPrimary} onPress={onRightActionPress} />
           </Animated.View>
         )}
       </Animated.View>

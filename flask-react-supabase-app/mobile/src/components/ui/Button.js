@@ -46,11 +46,11 @@ export default function Button({
           opacity: 0.5,
         },
         text: {
-          color: colors.white,
+          color: colors.textPrimary,
           fontWeight: '600',
         },
         ghostText: {
-          color: colors.white,
+          color: colors.textPrimary,
         },
         disabledText: {
           opacity: 0.5,
@@ -69,14 +69,14 @@ export default function Button({
   const content = (
     <>
       {loading ? (
-        <ActivityIndicator size="small" color={colors.white} />
+        <ActivityIndicator size="small" color={colors.textPrimary} />
       ) : (
         <>
           {icon && (
             <Ionicons
               name={icon}
               size={sizeConfig.fontSize}
-              color={colors.white}
+              color={colors.textPrimary}
               style={{ marginRight: title ? 8 : 0 }}
             />
           )}

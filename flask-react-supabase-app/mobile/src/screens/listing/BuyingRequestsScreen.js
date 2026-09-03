@@ -98,7 +98,7 @@ export default function BuyingRequestsScreen({ navigation }) {
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.md },
-    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.white },
+    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.textPrimary },
     postBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8 },
     postBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.black },
     card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md, borderWidth: 1, borderColor: colors.borderLight },
@@ -106,7 +106,7 @@ export default function BuyingRequestsScreen({ navigation }) {
     categoryBadge: { backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 10, paddingVertical: 3 },
     categoryText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.accent },
     date: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textMuted },
-    title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.white, marginBottom: SPACING.xs },
+    title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.textPrimary, marginBottom: SPACING.xs },
     budget: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.accent, marginBottom: 2 },
     detail: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
   }), [colors]);

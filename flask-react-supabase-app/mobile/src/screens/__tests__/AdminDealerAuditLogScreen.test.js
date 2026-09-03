@@ -78,7 +78,7 @@ test('AdminDealerAuditLogScreen renders DARK_COLORS values when theme is dark', 
     return tree.includes('No audit events');
   });
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).toContain('0C1C13');
   expect(tree).toContain('8BD6B4');
   expect(tree).not.toContain('0E1512');

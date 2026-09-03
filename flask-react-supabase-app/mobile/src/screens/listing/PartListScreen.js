@@ -292,7 +292,7 @@ export default function PartListScreen({ navigation }) {
     cardImagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceDark },
     cardBody: { padding: SPACING.md },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-    cardTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600', flex: 1, marginRight: 8 },
+    cardTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600', flex: 1, marginRight: 8 },
     cardSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8 },
     cardPrice: { color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '700' },
     loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -305,14 +305,14 @@ export default function PartListScreen({ navigation }) {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: colors.border,
     },
-    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    modalTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600' },
     modalOptions: { padding: SPACING.sm },
     modalOption: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingVertical: 14, paddingHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.md,
     },
     modalOptionSelected: { backgroundColor: colors.primary },
-    modalOptionText: { color: colors.white, fontSize: FONT_SIZES.md },
+    modalOptionText: { color: colors.textPrimary, fontSize: FONT_SIZES.md },
     modalOptionTextSelected: { color: colors.accent, fontWeight: '600' },
   }), [colors]);
 

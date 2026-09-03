@@ -19,7 +19,7 @@ export default function SplashIntro({ onFinish }) {
   const styles = useMemo(() => StyleSheet.create({
     container: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 999,
@@ -27,7 +27,7 @@ export default function SplashIntro({ onFinish }) {
     mark: { width: 120, height: 120, borderRadius: 28 },
     wordmark: {
       marginTop: 14,
-      color: colors.white,
+      color: colors.textPrimary,
       fontSize: 20,
       fontWeight: '600',
       letterSpacing: 4,

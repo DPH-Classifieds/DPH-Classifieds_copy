@@ -74,8 +74,9 @@ test('AdminUsersScreen renders LIGHT_COLORS values when theme is light', async (
   const { toJSON, findByPlaceholderText } = render(<AdminUsersScreen navigation={navigation} />);
   await findByPlaceholderText('Search users...');
   const tree = flattenStyles(toJSON());
-  // LIGHT_COLORS.black = '#0E1512' (container)
-  expect(tree).toContain('0E1512');
+  // LIGHT_COLORS.background = '#FAFAFA' (container, after fix)
+  // LIGHT_COLORS.textPrimary = '#0E1512' (text on page)
+  expect(tree).toContain('FAFAFA');
   expect(tree).not.toContain('05100a');
 });
 
@@ -85,6 +86,6 @@ test('AdminUsersScreen renders DARK_COLORS values when theme is dark', async () 
   const { toJSON, findByPlaceholderText } = render(<AdminUsersScreen navigation={navigation} />);
   await findByPlaceholderText('Search users...');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).not.toContain('0E1512');
 });

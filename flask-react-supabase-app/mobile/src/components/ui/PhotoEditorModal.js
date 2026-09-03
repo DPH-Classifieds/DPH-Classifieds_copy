@@ -75,7 +75,7 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
       paddingHorizontal: SPACING.md, paddingTop: SPACING.xl, paddingBottom: SPACING.sm,
     },
     headerBtn: { padding: 6 },
-    title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.white },
+    title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.textPrimary },
     cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: colors.textSecondary },
     saveBtn: { backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 18, paddingVertical: 8, minWidth: 64, alignItems: 'center' },
     saveText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.black },
@@ -104,10 +104,10 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
     chipTextActive: { color: colors.accent },
     actionRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.md },
     actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surface, paddingVertical: 12, borderRadius: BORDER_RADIUS.md },
-    actionText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    actionText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     sliderRow: { marginBottom: SPACING.md },
     sliderLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-    sliderLabel: { color: colors.white, fontSize: FONT_SIZES.sm },
+    sliderLabel: { color: colors.textPrimary, fontSize: FONT_SIZES.sm },
     sliderValue: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
     sliderTrack: { height: 28, justifyContent: 'center' },
     sliderBase: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: colors.surface },
@@ -303,11 +303,11 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
               </ScrollView>
               <View style={styles.actionRow}>
                 <PressableScale onPress={doRotate} style={styles.actionBtn}>
-<Ionicons name="refresh" size={20} color={colors.white} />
+<Ionicons name="refresh" size={20} color={colors.textPrimary} />
                 <Text style={styles.actionText}>Rotate</Text>
               </PressableScale>
               <PressableScale onPress={doFlip} style={styles.actionBtn}>
-                <Ionicons name="swap-horizontal" size={20} color={colors.white} />
+                <Ionicons name="swap-horizontal" size={20} color={colors.textPrimary} />
                   <Text style={styles.actionText}>Flip</Text>
                 </PressableScale>
               </View>

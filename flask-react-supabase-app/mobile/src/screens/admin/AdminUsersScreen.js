@@ -74,7 +74,7 @@ export default function AdminUsersScreen({ navigation }) {
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.black,
+      backgroundColor: colors.background,
     },
     searchSection: {
       paddingHorizontal: SPACING.md,
@@ -118,7 +118,7 @@ export default function AdminUsersScreen({ navigation }) {
     userName: {
       fontSize: FONT_SIZES.md,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
       flex: 1,
       marginRight: 8,
     },
@@ -155,7 +155,7 @@ export default function AdminUsersScreen({ navigation }) {
     badgeText: {
       fontSize: FONT_SIZES.xs,
       fontWeight: '600',
-      color: colors.white,
+      color: colors.textPrimary,
     },
     userEmail: {
       fontSize: FONT_SIZES.sm,

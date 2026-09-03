@@ -64,7 +64,7 @@ test('AdminListingDetailScreen renders DARK_COLORS values when theme is dark', a
   const { toJSON, findByText } = render(<AdminListingDetailScreen route={route} navigation={navigation} />);
   await findByText('Toyota Camry');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).toContain('0C1C13');
   expect(tree).toContain('8BD6B4');
   expect(tree).not.toContain('0E1512');

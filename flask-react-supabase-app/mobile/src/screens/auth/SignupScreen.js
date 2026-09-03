@@ -278,7 +278,7 @@ const styles = useMemo(() => StyleSheet.create({
   },
   logoSubtext: {
     fontSize: FONT_SIZES.lg,
-    color: colors.white,
+    color: colors.textPrimary,
     fontWeight: '400',
     marginTop: -2,
     letterSpacing: 4,
@@ -396,7 +396,7 @@ const styles = useMemo(() => StyleSheet.create({
     fontSize: 16,
   },
   phonePrefixText: {
-    color: colors.white,
+    color: colors.textPrimary,
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',
   },
@@ -428,7 +428,7 @@ const styles = useMemo(() => StyleSheet.create({
   pickerButtonText: {
     flex: 1,
     fontSize: FONT_SIZES.md,
-    color: colors.white,
+    color: colors.textPrimary,
   },
   pickerPlaceholder: {
     color: colors.textMuted,
@@ -460,7 +460,7 @@ const styles = useMemo(() => StyleSheet.create({
   pickerItemText: {
     flex: 1,
     fontSize: FONT_SIZES.md,
-    color: colors.white,
+    color: colors.textPrimary,
   },
   pickerItemCode: {
     fontSize: FONT_SIZES.sm,
@@ -572,7 +572,7 @@ const styles = useMemo(() => StyleSheet.create({
   },
   commsLabel: {
     fontSize: FONT_SIZES.md,
-    color: colors.white,
+    color: colors.textPrimary,
   },
   signUpButton: {
     width: '100%',

@@ -29,7 +29,7 @@ export default function AdminVinOpensScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     windowRow: { flexDirection: 'row', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
     windowPill: {
       flex: 1, paddingVertical: 10, alignItems: 'center',
@@ -42,7 +42,7 @@ export default function AdminVinOpensScreen({ navigation }) {
     countText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
     row: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
     rowTop: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.sm },
-    rowTitle: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    rowTitle: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     rowTime: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
     rowVin: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontFamily: 'monospace', marginTop: 4 },
     rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm },

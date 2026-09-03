@@ -9,6 +9,15 @@ import { Platform } from 'react-native';
 // for how a screen opts into DARK_COLORS/LIGHT_COLORS via the current theme;
 // screens that still statically `import { COLORS }` from here keep rendering
 // with DARK_COLORS unchanged (not yet migrated — see mobile theme rollout).
+//
+// SEMANTIC NOTE for `black` and `white` tokens:
+//   DARK_COLORS.black = '#05100a' (dark surface)     LIGHT_COLORS.black = '#0E1512' (DARK TEXT)
+//   DARK_COLORS.white = '#FFFFFF' (light text on dark) LIGHT_COLORS.white = '#FFFFFF' (button on-color)
+// These tokens have DIFFERENT semantic meanings across palettes. Use
+// `colors.background` (page bg), `colors.textPrimary` (page text), and
+// `colors.surface` (card bg) for theme-aware styling — they flip correctly
+// between palettes. Don't use `colors.black` as a page bg or `colors.white`
+// as page text in light mode; those will render incorrectly.
 export const DARK_COLORS = {
   // Near-black green used for dark text on the mint accent + darkest surfaces
   // (brand: never pure #000000).

@@ -10,9 +10,9 @@ import { useTheme } from '../../context/ThemeContext';
 export default function SignInRequired({ label, onSignIn }) {
   const { colors } = useTheme();
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     inner: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 12 },
-    title: { color: colors.white, fontSize: 22, fontWeight: '700', marginTop: 8 },
+    title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginTop: 8 },
     subtitle: { color: 'rgba(0,0,0,0.65)', fontSize: 15, textAlign: 'center' },
     btn: { backgroundColor: colors.accent, paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12, marginTop: 16 },
     btnText: { color: colors.background, fontSize: 16, fontWeight: '700' },

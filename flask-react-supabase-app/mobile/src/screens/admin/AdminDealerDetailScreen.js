@@ -76,16 +76,16 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
   const [actionLoading, setActionLoading] = useState(false);
 
   const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.black },
+    container: { flex: 1, backgroundColor: colors.background },
     content: { padding: SPACING.md, paddingBottom: 40 },
-    name: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.sm },
+    name: { color: colors.textPrimary, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.sm },
     verificationBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
-    verificationText: { color: colors.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
+    verificationText: { color: colors.textPrimary, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
     detail: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
     sectionTitle: { color: colors.textMuted, fontSize: FONT_SIZES.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: SPACING.lg, marginBottom: SPACING.sm },
     docCard: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
     docHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.sm },
-    docLabel: { flex: 1, color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    docLabel: { flex: 1, color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     docStatusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm },
     docStatusText: { color: colors.black, fontSize: 10, fontWeight: '700' },
     imagePreview: { width: '100%', height: 180, borderRadius: BORDER_RADIUS.md, backgroundColor: colors.surfaceHigher },
@@ -98,7 +98,7 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
     ocrConfidence: { color: colors.textMuted, fontSize: 10, marginTop: 2 },
     denialBox: { marginTop: SPACING.sm, backgroundColor: 'rgba(244,67,54,0.08)', borderRadius: BORDER_RADIUS.md, padding: SPACING.sm },
     denialTitle: { color: colors.error, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-    denialText: { color: colors.white, fontSize: FONT_SIZES.sm, marginTop: 2 },
+    denialText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, marginTop: 2 },
     denialFix: { color: colors.warning, fontSize: FONT_SIZES.xs, marginTop: 2 },
     notSubmittedText: { color: colors.textMuted, fontSize: FONT_SIZES.sm, fontStyle: 'italic' },
     docActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
@@ -118,15 +118,15 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: SPACING.md },
     modalContent: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    modalTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600' },
     modalLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 6, marginTop: SPACING.sm },
     modalInput: {
       backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
-      color: colors.white, fontSize: FONT_SIZES.sm,
+      color: colors.textPrimary, fontSize: FONT_SIZES.sm,
     },
     modalTextarea: { minHeight: 70, textAlignVertical: 'top' },
     modalDenyBtn: { marginTop: SPACING.lg, backgroundColor: colors.error, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-    modalDenyBtnText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    modalDenyBtnText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
   }), [colors]);
 
   const loadDealer = useCallback(async () => {

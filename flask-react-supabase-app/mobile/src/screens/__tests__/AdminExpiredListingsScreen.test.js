@@ -60,7 +60,7 @@ test('AdminExpiredListingsScreen renders DARK_COLORS values when theme is dark',
   const { toJSON, findByText } = render(<AdminExpiredListingsScreen navigation={navigation} />);
   await findByText('No expired listings match this filter.');
   const tree = flattenStyles(toJSON());
-  expect(tree).toContain('05100a');
+  expect(tree).toContain('07110b');
   expect(tree).toContain('8BD6B4');
   expect(tree).toContain('07110b');
   expect(tree).not.toContain('0E1512');

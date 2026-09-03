@@ -135,12 +135,12 @@ export default function PartDetailScreen({ route, navigation }) {
     },
     content: { padding: SPACING.md },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
-    partName: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '700', flex: 1, marginRight: 10 },
+    partName: { color: colors.textPrimary, fontSize: FONT_SIZES.xl, fontWeight: '700', flex: 1, marginRight: 10 },
     brandText: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 8 },
     price: { color: colors.accent, fontSize: 24, fontWeight: '700', marginBottom: 16 },
     usdPrice: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: -12, marginBottom: 16 },
     section: { marginTop: 16, marginBottom: 8 },
-    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
+    sectionTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: 10 },
     compatRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     compatPill: {
       backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 8,
@@ -159,18 +159,18 @@ export default function PartDetailScreen({ route, navigation }) {
       alignItems: 'center', justifyContent: 'center', marginRight: 12,
     },
     sellerInitial: { color: colors.accent, fontSize: 20, fontWeight: '700' },
-    sellerName: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    sellerName: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '600' },
     sellerActions: { flexDirection: 'row', gap: 10 },
     callButton: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors.primary, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
     },
-    callButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    callButtonText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     whatsappButton: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       backgroundColor: '#25D366', paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, gap: 6,
     },
-    whatsappButtonText: { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    whatsappButtonText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
     lightboxContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
     lightboxPage: { width: SCREEN_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' },
     lightboxImage: { width: '92%', height: '82%' },
@@ -315,11 +315,11 @@ export default function PartDetailScreen({ route, navigation }) {
             ) : (
               <View style={styles.sellerActions}>
                 <PressableScale onPress={handleCall} haptic="medium" style={styles.callButton}>
-                  <Ionicons name="call" size={18} color={colors.white} />
+                  <Ionicons name="call" size={18} color={colors.textPrimary} />
                   <Text style={styles.callButtonText}>Call Now</Text>
                 </PressableScale>
                 <PressableScale onPress={handleWhatsApp} haptic="medium" style={styles.whatsappButton}>
-                  <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
+                  <Ionicons name="logo-whatsapp" size={18} color={colors.textPrimary} />
                   <Text style={styles.whatsappButtonText}>WhatsApp</Text>
                 </PressableScale>
               </View>
