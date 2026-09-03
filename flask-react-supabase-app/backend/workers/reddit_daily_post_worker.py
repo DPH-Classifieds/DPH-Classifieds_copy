@@ -164,7 +164,10 @@ def build_posts(rows, first_day, last_day, site_url=SITE_URL, max_body_chars=390
         return []
     n = len(rows)
     date_label = _format_date_label(first_day, last_day)
-    heading = f"**{n} car{'' if n == 1 else 's'} listed on {date_label}**\n\n"
+    heading = (
+        f"**{n} car{'' if n == 1 else 's'} listed on {date_label}**\n\n"
+        "Here are the cars listed across r/DubaiPetrolHeads in the last 3 days:\n\n"
+    )
     header = "\n".join(["| " + " | ".join(_HEADERS) + " |", _ALIGN])
     chunks = []
     current_rows = []

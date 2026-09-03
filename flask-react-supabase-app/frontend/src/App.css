@@ -10,8 +10,8 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
   line-height: 1.47;
   letter-spacing: -0.374px;
-  color: #ffffff;
-  background-color: #000000;
+  color: var(--ex-text);
+  background-color: var(--ex-page-bg);
   width: 100%;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -312,7 +312,7 @@ button {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible {
-  outline: 2px solid #01351c;
+  outline: 2px solid var(--ex-brand-accent);
   outline-offset: 2px;
 }
 
@@ -323,22 +323,22 @@ input:focus-visible {
 }
 
 ::-webkit-scrollbar-track {
-  background: #000000;
+  background: var(--ex-surface-low);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #272729;
+  background: var(--ex-line-strong);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #353535;
+  background: var(--ex-text-muted);
 }
 
 /* Selection */
 ::selection {
-  background: #01351c;
-  color: #ffffff;
+  background: var(--ex-brand-accent);
+  color: var(--ex-shell-on-accent);
 }
 
 /* Deferred analytics - load after user interaction */

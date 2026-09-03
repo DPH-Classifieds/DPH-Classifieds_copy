@@ -36,8 +36,8 @@ const Footer = () => {
       // scrolled into view, so defer its rendering cost until then. Not
       // sticky, no off-screen a11y focus targets — a safe candidate.
       style={{
-        background: 'linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 92%, transparent) 0%, var(--ex-shell-bg) 100%)',
-        borderTop: '1px solid color-mix(in srgb, var(--ex-shell-accent) 8%, transparent)',
+        background: 'linear-gradient(180deg, color-mix(in srgb, var(--ex-surface) 92%, transparent) 0%, var(--ex-surface) 100%)',
+        borderTop: '1px solid color-mix(in srgb, var(--ex-brand-accent) 14%, transparent)',
         contentVisibility: 'auto',
         containIntrinsicSize: 'auto 500px',
       }}
@@ -47,7 +47,7 @@ const Footer = () => {
           to="/"
           aria-label="DPHClassifieds home"
           className="mx-auto block size-fit">
-          <span style={{ fontSize: '1.4rem', fontWeight: 700 }}><span style={{ color: 'var(--ex-shell-text)' }}>DPH</span><span style={{ color: 'var(--ex-shell-accent)' }}>Classifieds</span></span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 700 }}><span style={{ color: 'var(--ex-text)' }}>DPH</span><span style={{ color: 'var(--ex-brand-accent)' }}>Classifieds</span></span>
         </Link>
 
         <div className="my-8 flex flex-wrap justify-center gap-6 text-sm">
@@ -55,8 +55,8 @@ const Footer = () => {
             <Link
               key={index}
               to={link.href}
-              style={{ color: 'color-mix(in srgb, var(--ex-shell-text) 72%, transparent)' }}
-              className="hover:!text-[color:var(--ex-shell-accent)] block duration-150">
+              style={{ color: 'color-mix(in srgb, var(--ex-text) 72%, transparent)' }}
+              className="hover:!text-[color:var(--ex-brand-accent)] block duration-150">
               <span>{link.title}</span>
             </Link>
           ))}
@@ -75,8 +75,8 @@ const Footer = () => {
             label="Instagram"
           />
         </div>
-        <span style={{ color: 'color-mix(in srgb, var(--ex-shell-text) 45%, transparent)' }} className="block text-center text-sm">
-          © {currentYear} <span style={{ color: 'var(--ex-shell-text)' }}>DPH</span><span style={{ color: 'var(--ex-shell-accent)' }}>Classifieds</span>, All rights reserved
+        <span style={{ color: 'color-mix(in srgb, var(--ex-text) 50%, transparent)' }} className="block text-center text-sm">
+          © {currentYear} <span style={{ color: 'var(--ex-text)' }}>DPH</span><span style={{ color: 'var(--ex-brand-accent)' }}>Classifieds</span>, All rights reserved
         </span>
       </div>
     </footer>

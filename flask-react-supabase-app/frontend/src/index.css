@@ -73,8 +73,8 @@ html {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
-  background-color: var(--apple-black);
-  color: var(--apple-white);
+  background-color: var(--ex-page-bg);
+  color: var(--ex-text);
   line-height: 1.47;
   letter-spacing: -0.374px;
   overflow-x: hidden;
@@ -278,21 +278,21 @@ select option {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--apple-black);
+  background: var(--ex-surface-low);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--apple-gray-dark-4);
+  background: var(--ex-line-strong);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--apple-gray-dark);
+  background: var(--ex-text-muted);
 }
 
 ::selection {
-  background: var(--apple-blue);
-  color: white;
+  background: var(--ex-brand-accent);
+  color: #ffffff;
 }
 
 @media (prefers-reduced-motion: reduce) {

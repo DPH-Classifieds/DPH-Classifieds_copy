@@ -21,7 +21,7 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-test('header className uses theme tokens, not hardcoded rgba dark scrim', () => {
+test('header uses theme tokens, not hardcoded rgba dark scrim', () => {
   // Force scrollY > 10 so the header renders the "scrolled" branch.
   Object.defineProperty(window, 'scrollY', { value: 200, configurable: true });
 
@@ -33,10 +33,16 @@ test('header className uses theme tokens, not hardcoded rgba dark scrim', () => 
 
   const header = container.querySelector('header');
   const cls = header?.getAttribute('class') || '';
-  // The scrim is intentionally a dark brand surface in both themes; assert it
-  // reads from a token (--ex-surface-dark) instead of a hardcoded rgba.
+
+  // No hardcoded dark-rgba scrim should leak in (pre-light-mode-parity bug).
   expect(cls).not.toMatch(/rgba\(4,16,8/);
-  expect(cls).toMatch(/var\(--ex-surface-dark\)/);
+
+  // The header background now reads from --ex-surface (theme-aware: white in
+  // light, near-black in dark), applied via inline style with color-mix at 85%
+  // opacity so the existing backdrop-blur has something visible to blur
+  // through. jsdom does not serialize React inline styles to the style
+  // attribute, so we don't assert on the color-mix here — the contract is
+  // "no hardcoded dark scrim", which the assertion above covers.
 
   // Brand mark uses theme accent token.
   const brand = Array.from(container.querySelectorAll('header span')).find(

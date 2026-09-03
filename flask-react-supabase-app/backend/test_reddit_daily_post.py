@@ -51,6 +51,7 @@ def test_row_and_post():
     assert "previous 48 hours" not in body     # vague heading gone
     assert "previous 48 hours" not in title
     assert body.startswith("**2 cars listed on 16–17 Aug 2026**")
+    assert "Here are the cars listed across r/DubaiPetrolHeads in the last 3 days:\n\n" in body
     assert "| Year | Make | Model | Odometer | Price | Link |" in body  # labeled header
     assert "|:---:|:---|:---|---:|---:|:---:|" in body                  # alignment row
     assert "Price on request" in body           # null-price row
