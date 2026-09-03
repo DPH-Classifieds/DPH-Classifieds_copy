@@ -61,19 +61,19 @@ const Badge = ({ children, className = '' }) => (
 );
 
 const SectionLabel = ({ children }) => (
-  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">{children}</p>
+  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">{children}</p>
 );
 
 const InfoRow = ({ icon: Icon, label, value }) => {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-white/[0.05] last:border-0">
-      <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0 mt-0.5">
-        <Icon size={12} className="text-white/30" />
+    <div className="flex items-start gap-3 py-2.5 border-b border-[color:var(--ex-shell-line)] last:border-0">
+      <div className="w-7 h-7 rounded-lg bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] flex items-center justify-center flex-shrink-0 mt-0.5">
+        <Icon size={12} className="text-[color:var(--ex-shell-text-muted)]" />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-[0.12em] text-white/30 font-medium">{label}</p>
-        <p className="text-sm text-white/70 mt-0.5">{value}</p>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--ex-shell-text-muted)] font-medium">{label}</p>
+        <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-0.5">{value}</p>
       </div>
     </div>
   );
@@ -81,15 +81,15 @@ const InfoRow = ({ icon: Icon, label, value }) => {
 
 /* ── loading skeleton ─────────────────────────────────────────────────────── */
 const Skeleton = () => (
-  <div className="text-white space-y-5 animate-pulse">
-    <div className="h-4 w-32 bg-white/[0.06] rounded-lg" />
-    <div className="h-9 w-64 bg-white/[0.06] rounded-xl" />
+  <div className="text-[color:var(--ex-shell-text)] space-y-5 animate-pulse">
+    <div className="h-4 w-32 bg-[color:var(--ex-shell-surface-strong)] rounded-lg" />
+    <div className="h-9 w-64 bg-[color:var(--ex-shell-surface-strong)] rounded-xl" />
     <div className="grid grid-cols-3 gap-4">
-      {[1, 2, 3].map((i) => <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-28" />)}
+      {[1, 2, 3].map((i) => <div key={i} className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-2xl p-5 h-28" />)}
     </div>
     <div className="grid grid-cols-3 gap-5">
-      <div className="col-span-2 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-64" />
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-64" />
+      <div className="col-span-2 bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-2xl p-5 h-64" />
+      <div className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-2xl p-5 h-64" />
     </div>
   </div>
 );
@@ -123,7 +123,7 @@ const actionToneClass = (raw) => {
   if (raw === 'user_suspend') return 'bg-amber-500/10 border-amber-500/20 text-amber-300';
   if (raw === 'user_reactivate' || raw === 'user_unban') return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300';
   if (raw === 'user_make_admin') return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300';
-  if (raw === 'user_remove_admin') return 'bg-white/5 border-white/10 text-white/60';
+  if (raw === 'user_remove_admin') return 'bg-[color:var(--ex-shell-surface)] border-[color:var(--ex-shell-line)] text-[color:var(--ex-shell-text-muted)]';
   return 'bg-sky-500/10 border-sky-500/20 text-sky-300';
 };
 
@@ -352,13 +352,13 @@ const AdminUserDetail = () => {
 
   if (error && !data) {
     return (
-      <div className="text-white flex flex-col items-center justify-center py-24 gap-4">
-        <User size={48} className="text-white/20" />
-        <p className="text-lg font-semibold text-white/70">User not available</p>
-        <p className="text-sm text-white/40">{error}</p>
+      <div className="text-[color:var(--ex-shell-text)] flex flex-col items-center justify-center py-24 gap-4">
+        <User size={48} className="text-[color:var(--ex-shell-text-muted)]" />
+        <p className="text-lg font-semibold text-[color:var(--ex-shell-text-muted)]">User not available</p>
+        <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{error}</p>
         <button
           onClick={() => navigate('/admin/users')}
-          className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-emerald-400 transition-colors mt-2"
+          className="inline-flex items-center gap-2 text-sm text-[color:var(--ex-shell-text-muted)] hover:text-emerald-400 transition-colors mt-2"
         >
           <ArrowLeft size={14} /> Back to users
         </button>
@@ -371,13 +371,13 @@ const AdminUserDetail = () => {
     : '—';
 
   return (
-    <div className="text-white space-y-5">
+    <div className="text-[color:var(--ex-shell-text)] space-y-5">
 
       {/* Breadcrumb */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
         <Link
           to="/admin/users"
-          className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-emerald-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-[color:var(--ex-shell-text-muted)] hover:text-emerald-400 transition-colors"
         >
           <ArrowLeft size={14} /> Back to users
         </Link>
@@ -399,7 +399,7 @@ const AdminUserDetail = () => {
             {/* Identity */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h1 className="text-3xl font-semibold text-white">{displayName}</h1>
+                <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">{displayName}</h1>
                 <Badge className={statusBadgeClass(user.account_status)}>
                   {user.account_status || 'active'}
                 </Badge>
@@ -413,8 +413,8 @@ const AdminUserDetail = () => {
                   <Badge className="text-sky-300 bg-sky-500/10 border-sky-500/20">Dealer</Badge>
                 )}
               </div>
-              <p className="text-sm text-white/50">{user.email || 'No email'}</p>
-              <p className="text-xs text-white/30 mt-1">
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{user.email || 'No email'}</p>
+              <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-1">
                 Member since {memberSince}
                 {user.last_login_at && ` · Last login ${formatDateTime(user.last_login_at)}`}
               </p>
@@ -435,8 +435,8 @@ const AdminUserDetail = () => {
 
           {/* Destructive moderation actions */}
           {!isSuperAdmin && (
-            <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-wrap items-center gap-2">
-              <span className="text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium mr-1">
+            <div className="mt-4 pt-4 border-t border-[color:var(--ex-shell-line)] flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium mr-1">
                 Moderation
               </span>
               {(user.account_status === 'suspended' || user.account_status === 'banned') ? (
@@ -512,14 +512,14 @@ const AdminUserDetail = () => {
         {/* Left: tabbed content */}
         <div className="lg:col-span-2 space-y-4">
           {/* Tab switcher */}
-          <div className="flex gap-1 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1 w-fit">
+          <div className="flex gap-1 bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl p-1 w-fit">
             {USER_TABS.map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'
+                  activeTab === tab ? 'bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text)]' : 'text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text-muted)]'
                 }`}
               >
                 {tab}
@@ -536,8 +536,8 @@ const AdminUserDetail = () => {
                   {listingTypeCounts.map((bucket) => (
                     <GlassCard key={bucket.type}>
                       <SectionLabel>{bucket.type}</SectionLabel>
-                      <p className="text-3xl font-semibold text-white tabular-nums">{formatNumber(bucket.count)}</p>
-                      <p className="text-xs text-white/40 mt-2">
+                      <p className="text-3xl font-semibold text-[color:var(--ex-shell-text)] tabular-nums">{formatNumber(bucket.count)}</p>
+                      <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-2">
                         {formatNumber(bucket.views)} views · {formatNumber(bucket.approved)} approved · {formatNumber(bucket.pending)} pending
                       </p>
                     </GlassCard>
@@ -558,29 +558,29 @@ const AdminUserDetail = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-white/[0.06]">
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Listing</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Type</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Status</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Views</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Price</th>
-                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Created</th>
+                        <tr className="border-b border-[color:var(--ex-shell-line)]">
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Listing</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Type</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Status</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Views</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Price</th>
+                          <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Created</th>
                           <th className="pb-2" />
                         </tr>
                       </thead>
                       <tbody>
                         {recentListings.map((lst) => (
-                          <tr key={`${lst.type}-${lst.id}`} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition">
+                          <tr key={`${lst.type}-${lst.id}`} className="border-b border-[color:var(--ex-shell-line)] last:border-0 hover:bg-[color:var(--ex-shell-surface)] transition">
                             <td className="py-2.5">
-                              <span className="text-white/70 font-medium truncate max-w-[180px] block">{getListingTitle(lst)}</span>
+                              <span className="text-[color:var(--ex-shell-text-muted)] font-medium truncate max-w-[180px] block">{getListingTitle(lst)}</span>
                             </td>
-                            <td className="py-2.5 text-white/50 capitalize">{lst.type}</td>
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] capitalize">{lst.type}</td>
                             <td className="py-2.5">
                               <Badge className={statusBadgeClass(lst.status)}>{lst.status}</Badge>
                             </td>
-                            <td className="py-2.5 text-white/50 tabular-nums">{formatNumber(lst.view_count)}</td>
-                            <td className="py-2.5 text-white/50 tabular-nums">{formatCurrencyAED(lst.price)}</td>
-                            <td className="py-2.5 text-white/40 text-xs">{formatDate(lst.created_at)}</td>
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] tabular-nums">{formatNumber(lst.view_count)}</td>
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] tabular-nums">{formatCurrencyAED(lst.price)}</td>
+                            <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs">{formatDate(lst.created_at)}</td>
                             <td className="py-2.5">
                               <Link
                                 to={`/admin/listings/${lst.type}/${lst.id}`}
@@ -613,24 +613,24 @@ const AdminUserDetail = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-white/[0.06]">
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Actor</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Context</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Action</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Date</th>
+                      <tr className="border-b border-[color:var(--ex-shell-line)]">
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Actor</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Context</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Action</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Date</th>
                       </tr>
                     </thead>
                     <tbody>
                       {recentEvents.slice(0, 12).map((event) => (
-                        <tr key={event.id} className="border-b border-white/[0.04] last:border-0">
-                          <td className="py-2.5 text-white/70">{getEventActorLabel(event)}</td>
-                          <td className="py-2.5 text-white/50">{event.listing_type} · {event.listing_id}</td>
+                        <tr key={event.id} className="border-b border-[color:var(--ex-shell-line)] last:border-0">
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{getEventActorLabel(event)}</td>
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{event.listing_type} · {event.listing_id}</td>
                           <td className="py-2.5">
                             <span className="text-xs px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-300">
                               {event.action}
                             </span>
                           </td>
-                          <td className="py-2.5 text-white/40 text-xs">{formatDateTime(event.created_at)}</td>
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs">{formatDateTime(event.created_at)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -660,7 +660,7 @@ const AdminUserDetail = () => {
               {moderationLoading && moderationActions.length === 0 ? (
                 <div className="space-y-2 animate-pulse">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-14 bg-white/[0.03] border border-white/[0.05] rounded-xl" />
+                    <div key={i} className="h-14 bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl" />
                   ))}
                 </div>
               ) : moderationActions.length === 0 ? (
@@ -677,24 +677,24 @@ const AdminUserDetail = () => {
                     return (
                       <li
                         key={entry.id}
-                        className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
+                        className="rounded-xl border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] px-4 py-3"
                       >
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className={`text-[10px] font-semibold rounded-full border px-2.5 py-0.5 ${actionToneClass(entry.action)}`}>
                             {labelForAction(entry.action)}
                           </span>
-                          <span className="text-xs text-white/40">
+                          <span className="text-xs text-[color:var(--ex-shell-text-muted)]">
                             by {entry.admin_display_name || 'Unknown admin'}
                           </span>
-                          <span className="text-xs text-white/30 ml-auto">
+                          <span className="text-xs text-[color:var(--ex-shell-text-muted)] ml-auto">
                             {formatDateTime(entry.created_at)}
                           </span>
                         </div>
                         {entry.reason && (
-                          <p className="text-sm text-white/70 mt-1">{entry.reason}</p>
+                          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">{entry.reason}</p>
                         )}
                         {archiveLine && (
-                          <p className="text-xs text-white/40 mt-1">{archiveLine}</p>
+                          <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-1">{archiveLine}</p>
                         )}
                       </li>
                     );
@@ -723,17 +723,17 @@ const AdminUserDetail = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-white/[0.06]">
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Listing</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Reason</th>
-                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Status</th>
+                      <tr className="border-b border-[color:var(--ex-shell-line)]">
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Listing</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Reason</th>
+                        <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {recentReports.slice(0, 12).map((report) => (
-                        <tr key={report.id} className="border-b border-white/[0.04] last:border-0">
-                          <td className="py-2.5 text-white/70">{report.listing_type} · {report.listing_id}</td>
-                          <td className="py-2.5 text-white/60">{report.reason || 'N/A'}</td>
+                        <tr key={report.id} className="border-b border-[color:var(--ex-shell-line)] last:border-0">
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{report.listing_type} · {report.listing_id}</td>
+                          <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{report.reason || 'N/A'}</td>
                           <td className="py-2.5">
                             <Badge className={statusBadgeClass(report.status)}>{report.status || 'pending'}</Badge>
                           </td>
@@ -761,7 +761,7 @@ const AdminUserDetail = () => {
             {user.rejection_note && (
               <div className="mt-3 p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/20">
                 <p className="text-[10px] uppercase tracking-wide text-amber-300 font-medium mb-1">Internal note</p>
-                <p className="text-sm text-white/70">{user.rejection_note}</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{user.rejection_note}</p>
               </div>
             )}
           </GlassCard>
@@ -778,9 +778,9 @@ const AdminUserDetail = () => {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Account status</label>
+                <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Account status</label>
                 <select
-                  className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-emerald-500/40 transition"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-emerald-500/40 transition"
                   value={profileState.account_status}
                   disabled={isSuperAdmin}
                   onChange={(e) => setProfileState((c) => ({ ...c, account_status: e.target.value }))}
@@ -792,9 +792,9 @@ const AdminUserDetail = () => {
               </div>
 
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Admin access</label>
+                <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Admin access</label>
                 <select
-                  className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-emerald-500/40 transition"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-emerald-500/40 transition"
                   value={profileState.is_admin ? 'admin' : 'user'}
                   disabled={isSuperAdmin}
                   onChange={(e) => setProfileState((c) => ({ ...c, is_admin: e.target.value === 'admin' }))}
@@ -805,9 +805,9 @@ const AdminUserDetail = () => {
               </div>
 
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Account type</label>
+                <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Account type</label>
                 <select
-                  className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-emerald-500/40 transition"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-emerald-500/40 transition"
                   value={profileState.is_dealer ? 'dealer' : 'private'}
                   disabled={isSuperAdmin}
                   onChange={(e) =>
@@ -825,9 +825,9 @@ const AdminUserDetail = () => {
 
               {profileState.is_dealer && (
                 <div>
-                  <label className="block text-xs text-white/40 mb-1.5">Dealer verification</label>
+                  <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Dealer verification</label>
                   <select
-                    className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-emerald-500/40 transition"
+                    className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-emerald-500/40 transition"
                     value={profileState.dealer_verified ? 'verified' : 'pending'}
                     disabled={isSuperAdmin}
                     onChange={(e) => setProfileState((c) => ({ ...c, dealer_verified: e.target.value === 'verified' }))}
@@ -839,9 +839,9 @@ const AdminUserDetail = () => {
               )}
 
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Email verification</label>
+                <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Email verification</label>
                 <select
-                  className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-emerald-500/40 transition"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-emerald-500/40 transition"
                   value={profileState.email_verified ? 'verified' : 'unverified'}
                   disabled={isSuperAdmin}
                   onChange={(e) => setProfileState((c) => ({ ...c, email_verified: e.target.value === 'verified' }))}
@@ -852,9 +852,9 @@ const AdminUserDetail = () => {
               </div>
 
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Phone verification</label>
+                <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Phone verification</label>
                 <select
-                  className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-emerald-500/40 transition"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-emerald-500/40 transition"
                   value={profileState.phone_verified ? 'verified' : 'unverified'}
                   disabled={isSuperAdmin}
                   onChange={(e) => setProfileState((c) => ({ ...c, phone_verified: e.target.value === 'verified' }))}
@@ -865,10 +865,10 @@ const AdminUserDetail = () => {
               </div>
 
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">Reason / note</label>
+                <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Reason / note</label>
                 <textarea
                   rows={3}
-                  className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-white/70 placeholder-white/25 resize-none focus:outline-none focus:border-emerald-500/40 transition"
+                  className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text-muted)] placeholder:text-[color:var(--ex-shell-text-muted)] resize-none focus:outline-none focus:border-emerald-500/40 transition"
                   value={actionState.reason}
                   disabled={isSuperAdmin}
                   onChange={(e) => setActionState((c) => ({ ...c, reason: e.target.value }))}
@@ -890,7 +890,7 @@ const AdminUserDetail = () => {
               <button
                 type="button"
                 onClick={() => navigate('/admin/listings')}
-                className="w-full inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl px-4 py-3 text-sm transition"
+                className="w-full inline-flex items-center justify-center gap-2 bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] rounded-xl px-4 py-3 text-sm transition"
               >
                 Review listings
               </button>

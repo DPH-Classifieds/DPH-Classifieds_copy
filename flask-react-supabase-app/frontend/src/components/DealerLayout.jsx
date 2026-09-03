@@ -4,6 +4,7 @@ import DealerSidebar from './DealerSidebar';
 import ActingAsBanner from './ActingAsBanner';
 import { useDealer } from '../context/DealerContext';
 import '../styles/shell-tokens.css';
+import { shellSurface } from '../lib/themeClasses';
 
 const DealerLayout = () => {
   const { loading } = useDealer();
@@ -24,7 +25,7 @@ const DealerLayout = () => {
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className="animate-pulse bg-white/[0.04] rounded-2xl h-32"
+                    className={`animate-pulse ${shellSurface} rounded-2xl h-32`}
                   />
                 ))}
               </div>

@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useDealer } from '../context/DealerContext';
+import { shellLine, shellText, shellTextMuted } from '../lib/themeClasses';
 
 const NAV_ITEMS = [
   { to: '/dealer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -51,13 +52,13 @@ const DealerSidebar = () => {
       style={{ background: 'linear-gradient(180deg, var(--ex-shell-surface) 0%, var(--ex-shell-bg) 100%)' }}
     >
       {/* Brand */}
-      <div className="px-5 pt-6 pb-5 border-b border-white/[0.06]">
+      <div className={`px-5 pt-6 pb-5 border-b ${shellLine}`}>
         <div className="flex items-center gap-3">
           {dealership?.logo_url ? (
             <img
               src={dealership.logo_url}
               alt={dealership.name}
-              className="w-10 h-10 rounded-xl object-cover ring-1 ring-white/10"
+              className="w-10 h-10 rounded-xl object-cover ring-1 ring-[color:var(--ex-shell-line)]"
             />
           ) : (
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm">
@@ -65,7 +66,7 @@ const DealerSidebar = () => {
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate leading-tight">
+            <p className={`text-sm font-semibold ${shellText} truncate leading-tight`}>
               {dealership?.name || 'Dealership'}
             </p>
             <div className="mt-1">
@@ -86,14 +87,14 @@ const DealerSidebar = () => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border-l-2 ${
                   isActive
-                    ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-[0_0_12px_color-mix(in_srgb,var(--ex-shell-accent)_6%,transparent)]'
-                    : 'border-transparent text-white/60 hover:bg-white/[0.04] hover:text-white'
+                    ? `bg-emerald-500/10 border-emerald-400 ${shellText} shadow-[0_0_12px_color-mix(in_srgb,var(--ex-shell-accent)_6%,transparent)]`
+                    : `border-transparent ${shellTextMuted} hover:bg-[color:var(--ex-shell-surface)] hover:text-[color:var(--ex-shell-text)]`
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={16} className={isActive ? 'text-emerald-400' : 'text-white/40'} />
+                  <Icon size={16} className={isActive ? 'text-emerald-400' : 'text-[color:var(--ex-shell-text-muted)]'} />
                   {item.label}
                 </>
               )}
@@ -103,10 +104,10 @@ const DealerSidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 pb-5 pt-3 border-t border-white/[0.06]">
+      <div className={`px-3 pb-5 pt-3 border-t ${shellLine}`}>
         <Link
           to="/"
-          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/[0.04] transition-all duration-150"
+          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm ${shellTextMuted} hover:text-[color:var(--ex-shell-text)] hover:bg-[color:var(--ex-shell-surface)] transition-all duration-150`}
         >
           <ArrowLeft size={15} />
           Back to site

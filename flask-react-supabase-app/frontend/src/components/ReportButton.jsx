@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
+import { shellLine, shellSurfaceStrong } from '../lib/themeClasses';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -120,7 +121,7 @@ const ReportButton = ({ listingId, listingType }) => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="bg-[#0a1410] border border-white/10 rounded-2xl shadow-2xl max-w-md w-full p-6"
+              className={`${shellSurfaceStrong} border ${shellLine} rounded-2xl shadow-2xl max-w-md w-full p-6`}
               onClick={(e) => e.stopPropagation()}
             >
               {success ? (

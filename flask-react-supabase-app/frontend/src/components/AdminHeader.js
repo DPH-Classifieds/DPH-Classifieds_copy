@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, ExternalLink } from 'lucide-react';
+import { shellLine, shellText, shellTextMuted } from '../lib/themeClasses';
 
 const AdminHeader = ({ onToggleSidebar, sidebarOpen }) => (
-  <header className="sticky top-0 z-40 h-14 w-full flex items-center px-4 bg-[color:var(--ex-shell-bg)]/80 backdrop-blur-xl border-b border-white/[0.06]">
+  <header className={`sticky top-0 z-40 h-14 w-full flex items-center px-4 bg-[color:var(--ex-shell-bg)]/80 backdrop-blur-xl border-b ${shellLine}`}>
     {/* Left: hamburger + title */}
     <div className="flex items-center gap-3 flex-1 min-w-0">
       <button
@@ -16,9 +17,9 @@ const AdminHeader = ({ onToggleSidebar, sidebarOpen }) => (
       </button>
 
       <h1 className="text-sm font-semibold tracking-tight truncate">
-        <span className="text-white">DPH</span>{' '}
+        <span className={shellText}>DPH</span>{' '}
         <span className="text-emerald-400">Classifieds</span>{' '}
-        <span className="text-white/60">Admin</span>
+        <span className={shellTextMuted}>Admin</span>
       </h1>
     </div>
 

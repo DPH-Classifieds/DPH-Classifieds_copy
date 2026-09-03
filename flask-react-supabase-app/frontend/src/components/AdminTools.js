@@ -28,7 +28,7 @@ const initialToolState = () => ({
 // ─── sub-components ───────────────────────────────────────────────────────────
 
 const SectionLabel = ({ children }) => (
-  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">
+  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">
     {children}
   </p>
 );
@@ -63,7 +63,7 @@ const ErrorDetails = ({ details, show, onToggle }) => {
       <button
         type="button"
         onClick={onToggle}
-        className="text-[11px] text-white/40 hover:text-white/70 transition-colors underline underline-offset-2"
+        className="text-[11px] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text-muted)] transition-colors underline underline-offset-2"
       >
         {show ? 'Hide details' : 'Show details'}
       </button>
@@ -74,7 +74,7 @@ const ErrorDetails = ({ details, show, onToggle }) => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="mt-2 text-[10px] text-white/40 bg-white/[0.04] border border-white/[0.06] rounded-xl p-3 overflow-x-auto max-h-40"
+            className="mt-2 text-[10px] text-[color:var(--ex-shell-text-muted)] bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl p-3 overflow-x-auto max-h-40"
           >
             {details}
           </motion.pre>
@@ -92,10 +92,10 @@ const ToolCard = ({ icon: Icon, title, description, toolState, onRun, runLabel =
     <GlassCard className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <Icon size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+        <Icon size={24} className="text-[color:var(--ex-shell-text-muted)] flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-base font-semibold text-white leading-snug">{title}</p>
-          <p className="text-sm text-white/60 mt-1 leading-relaxed">{description}</p>
+          <p className="text-base font-semibold text-[color:var(--ex-shell-text)] leading-snug">{title}</p>
+          <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1 leading-relaxed">{description}</p>
         </div>
       </div>
 
@@ -396,8 +396,8 @@ const AdminTools = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        <h1 className="text-3xl font-semibold text-white">Operational tools</h1>
-        <p className="text-sm text-white/50 mt-1">
+        <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">Operational tools</h1>
+        <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">
           Internal utilities for the engineering and ops team.
         </p>
       </motion.div>
@@ -414,10 +414,10 @@ const AdminTools = () => {
           {/* Toggle card */}
           <GlassCard className="flex flex-col gap-4">
             <div className="flex items-start gap-3">
-              <Bot size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <Bot size={24} className="text-[color:var(--ex-shell-text-muted)] flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-white leading-snug">Auto-approve toggle</p>
-                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                <p className="text-base font-semibold text-[color:var(--ex-shell-text)] leading-snug">Auto-approve toggle</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1 leading-relaxed">
                   When on, new listings go to auto-review and approved instantly if they pass. When off, everything goes to the manual pending queue.
                   {arSource === 'env' && (
                     <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
@@ -433,18 +433,18 @@ const AdminTools = () => {
                 disabled={arEnabled === null || arToggleLoading}
                 aria-label={arEnabled ? 'Disable auto-review' : 'Enable auto-review'}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  arEnabled ? 'bg-emerald-500' : 'bg-white/20'
+                  arEnabled ? 'bg-emerald-500' : 'bg-[color:var(--ex-shell-line)]'
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                  className={`inline-block h-5 w-5 transform rounded-full bg-[color:var(--ex-shell-text)] shadow transition duration-200 ease-in-out ${
                     arEnabled ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
-              <span className="text-sm font-medium text-white/70">
+              <span className="text-sm font-medium text-[color:var(--ex-shell-text-muted)]">
                 {arEnabled === null ? 'Loading…' : arEnabled ? 'Enabled' : 'Disabled'}
-                {arToggleLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+                {arToggleLoading && <span className="ml-2 text-[color:var(--ex-shell-text-muted)] text-xs">Saving…</span>}
               </span>
             </div>
 
@@ -474,10 +474,10 @@ const AdminTools = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <GlassCard className="flex flex-col gap-4">
             <div className="flex items-start gap-3">
-              <Rss size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <Rss size={24} className="text-[color:var(--ex-shell-text-muted)] flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-white leading-snug">Show Reddit listings on site</p>
-                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                <p className="text-base font-semibold text-[color:var(--ex-shell-text)] leading-snug">Show Reddit listings on site</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1 leading-relaxed">
                   When off, every Reddit-imported listing is hidden from the public site (cars, bikes, plates, parts) — they stay in the database and the 4-hourly import keeps running in the background, just hidden. Turn on when you're ready to go live.
                   {redditSource === 'env' && (
                     <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
@@ -493,18 +493,18 @@ const AdminTools = () => {
                 disabled={redditEnabled === null || redditToggleLoading}
                 aria-label={redditEnabled ? 'Hide Reddit listings' : 'Show Reddit listings'}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  redditEnabled ? 'bg-emerald-500' : 'bg-white/20'
+                  redditEnabled ? 'bg-emerald-500' : 'bg-[color:var(--ex-shell-line)]'
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                  className={`inline-block h-5 w-5 transform rounded-full bg-[color:var(--ex-shell-text)] shadow transition duration-200 ease-in-out ${
                     redditEnabled ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
-              <span className="text-sm font-medium text-white/70">
+              <span className="text-sm font-medium text-[color:var(--ex-shell-text-muted)]">
                 {redditEnabled === null ? 'Loading…' : redditEnabled ? 'Shown on site' : 'Hidden'}
-                {redditToggleLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+                {redditToggleLoading && <span className="ml-2 text-[color:var(--ex-shell-text-muted)] text-xs">Saving…</span>}
               </span>
             </div>
 
@@ -513,10 +513,10 @@ const AdminTools = () => {
 
           <GlassCard className="flex flex-col gap-4">
             <div className="flex items-start gap-3">
-              <Rss size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <Rss size={24} className="text-[color:var(--ex-shell-text-muted)] flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-white leading-snug">Show Reddit listings on Explore</p>
-                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                <p className="text-base font-semibold text-[color:var(--ex-shell-text)] leading-snug">Show Reddit listings on Explore</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1 leading-relaxed">
                   When on, Reddit-imported listings are mixed into the main Explore feed alongside normal listings. When off, they stay in their own Reddit tab only. (Requires "Show Reddit listings on site" to also be on.)
                   {redditExploreSource === 'env' && (
                     <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
@@ -532,18 +532,18 @@ const AdminTools = () => {
                 disabled={redditOnExplore === null || redditExploreLoading}
                 aria-label={redditOnExplore ? 'Hide Reddit from Explore' : 'Show Reddit on Explore'}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  redditOnExplore ? 'bg-emerald-500' : 'bg-white/20'
+                  redditOnExplore ? 'bg-emerald-500' : 'bg-[color:var(--ex-shell-line)]'
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                  className={`inline-block h-5 w-5 transform rounded-full bg-[color:var(--ex-shell-text)] shadow transition duration-200 ease-in-out ${
                     redditOnExplore ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
-              <span className="text-sm font-medium text-white/70">
+              <span className="text-sm font-medium text-[color:var(--ex-shell-text-muted)]">
                 {redditOnExplore === null ? 'Loading…' : redditOnExplore ? 'On Explore feed' : 'Reddit tab only'}
-                {redditExploreLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+                {redditExploreLoading && <span className="ml-2 text-[color:var(--ex-shell-text-muted)] text-xs">Saving…</span>}
               </span>
             </div>
 
@@ -562,10 +562,10 @@ const AdminTools = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <GlassCard className="flex flex-col gap-4">
             <div className="flex items-start gap-3">
-              <ShieldCheck size={24} className="text-white/40 flex-shrink-0 mt-0.5" />
+              <ShieldCheck size={24} className="text-[color:var(--ex-shell-text-muted)] flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-white leading-snug">Google sign-in</p>
-                <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                <p className="text-base font-semibold text-[color:var(--ex-shell-text)] leading-snug">Google sign-in</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1 leading-relaxed">
                   When on, the "Continue with Google" button is shown on the login and signup pages. When off, only email/password sign-in is offered.
                   {googleSigninSource === 'env' && (
                     <span className="block mt-1 text-amber-400/80 text-xs">Stored in env var — toggle requires Redis to override.</span>
@@ -581,18 +581,18 @@ const AdminTools = () => {
                 disabled={googleSignin === null || googleSigninLoading}
                 aria-label={googleSignin ? 'Disable Google sign-in' : 'Enable Google sign-in'}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  googleSignin ? 'bg-emerald-500' : 'bg-white/20'
+                  googleSignin ? 'bg-emerald-500' : 'bg-[color:var(--ex-shell-line)]'
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                  className={`inline-block h-5 w-5 transform rounded-full bg-[color:var(--ex-shell-text)] shadow transition duration-200 ease-in-out ${
                     googleSignin ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
-              <span className="text-sm font-medium text-white/70">
+              <span className="text-sm font-medium text-[color:var(--ex-shell-text-muted)]">
                 {googleSignin === null ? 'Loading…' : googleSignin ? 'Enabled' : 'Disabled'}
-                {googleSigninLoading && <span className="ml-2 text-white/40 text-xs">Saving…</span>}
+                {googleSigninLoading && <span className="ml-2 text-[color:var(--ex-shell-text-muted)] text-xs">Saving…</span>}
               </span>
             </div>
 
@@ -640,19 +640,19 @@ const AdminTools = () => {
             extraContent={
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-white/40 w-14 flex-shrink-0 text-xs">ID</span>
-                  <span className="text-white/70 font-mono text-xs truncate">{user?.id || '—'}</span>
+                  <span className="text-[color:var(--ex-shell-text-muted)] w-14 flex-shrink-0 text-xs">ID</span>
+                  <span className="text-[color:var(--ex-shell-text-muted)] font-mono text-xs truncate">{user?.id || '—'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-white/40 w-14 flex-shrink-0 text-xs">Email</span>
-                  <span className="text-white/70 text-xs truncate">{user?.email || '—'}</span>
+                  <span className="text-[color:var(--ex-shell-text-muted)] w-14 flex-shrink-0 text-xs">Email</span>
+                  <span className="text-[color:var(--ex-shell-text-muted)] text-xs truncate">{user?.email || '—'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-white/40 w-14 flex-shrink-0 text-xs">Admin</span>
+                  <span className="text-[color:var(--ex-shell-text-muted)] w-14 flex-shrink-0 text-xs">Admin</span>
                   {user?.is_admin ? (
                     <span className="text-emerald-300 text-xs font-semibold">Yes</span>
                   ) : (
-                    <span className="text-white/50 text-xs">No</span>
+                    <span className="text-[color:var(--ex-shell-text-muted)] text-xs">No</span>
                   )}
                 </div>
               </div>
@@ -691,8 +691,8 @@ const AdminTools = () => {
                 <div className="flex items-start gap-3">
                   <ShieldCheck size={24} className="text-emerald-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-base font-semibold text-white">Admin access active</p>
-                    <p className="text-sm text-white/60 mt-1">
+                    <p className="text-base font-semibold text-[color:var(--ex-shell-text)]">Admin access active</p>
+                    <p className="text-sm text-[color:var(--ex-shell-text-muted)] mt-1">
                       You already have admin privileges and can manage the application.
                     </p>
                   </div>

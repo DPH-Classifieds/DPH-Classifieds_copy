@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import '../styles/shell-tokens.css';
+import { shellLine, shellTextMuted } from '../lib/themeClasses';
 import {
   LayoutDashboard,
   FileText,
@@ -75,7 +76,7 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
 
   // On mobile the sidebar slides in from left; on desktop it's always present if open.
   const sidebarBase =
-    'flex-shrink-0 w-[240px] min-h-screen flex flex-col border-r border-white/[0.06] transition-transform duration-200';
+    `flex-shrink-0 w-[240px] min-h-screen flex flex-col border-r ${shellLine} transition-transform duration-200`;
   const mobileClass = isMobile
     ? `fixed top-0 left-0 h-full z-30 ${open ? 'translate-x-0' : '-translate-x-full'}`
     : open
@@ -88,16 +89,16 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
       style={{ background: 'linear-gradient(180deg, var(--ex-shell-surface) 0%, var(--ex-shell-bg) 100%)' }}
     >
       {/* Brand */}
-      <div className="px-5 pt-6 pb-5 border-b border-white/[0.06]">
+      <div className={`px-5 pt-6 pb-5 border-b ${shellLine}`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm select-none">
             DPH
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate leading-tight">
+            <p className={`text-sm font-semibold text-[color:var(--ex-shell-text)] truncate leading-tight`}>
               DPH <span className="text-emerald-400">Admin</span>
             </p>
-            <p className="text-[10px] uppercase tracking-[0.12em] text-white/30 mt-0.5 font-medium">
+            <p className={`text-[10px] uppercase tracking-[0.12em] text-[color:var(--ex-shell-text-muted)] mt-0.5 font-medium`}>
               Control Panel
             </p>
           </div>
@@ -116,8 +117,8 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border-l-2 ${
                   isActive
-                    ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-[0_0_12px_color-mix(in_srgb,var(--ex-shell-accent)_6%,transparent)]'
-                    : 'border-transparent text-white/60 hover:bg-white/[0.04] hover:text-white'
+                    ? `bg-emerald-500/10 border-emerald-400 text-[color:var(--ex-shell-text)] shadow-[0_0_12px_color-mix(in_srgb,var(--ex-shell-accent)_6%,transparent)]`
+                    : `border-transparent ${shellTextMuted} hover:bg-white/[0.04] hover:text-[color:var(--ex-shell-text)]`
                 }`
               }
             >
@@ -136,17 +137,17 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
       </nav>
 
       {/* Profile / footer */}
-      <div className="px-3 pb-5 pt-3 border-t border-white/[0.06]" ref={menuRef}>
+      <div className={`px-3 pb-5 pt-3 border-t ${shellLine}`} ref={menuRef}>
         {/* Profile menu popup */}
         {profileMenuOpen && (
           <div
-            className="mb-2 rounded-xl overflow-hidden border border-white/[0.08] bg-[color:var(--ex-shell-surface)] shadow-2xl shadow-black/40"
+            className={`mb-2 rounded-xl overflow-hidden border ${shellLine} bg-[color:var(--ex-shell-surface)] shadow-2xl shadow-black/40`}
             role="menu"
             aria-label="Admin account menu"
           >
             <Link
               to="/"
-              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/[0.04] transition-all duration-150"
+              className={`flex items-center gap-2.5 px-4 py-2.5 text-sm ${shellTextMuted} hover:text-[color:var(--ex-shell-text)] hover:bg-white/[0.04] transition-all duration-150`}
               onClick={() => setProfileMenuOpen(false)}
               role="menuitem"
             >
@@ -178,11 +179,11 @@ const AdminSidebar = ({ open, user, onLogout, isMobile }) => {
             {avatarLabel}
           </span>
           <span className="flex flex-col min-w-0 text-left flex-1">
-            <span className="text-xs font-medium text-white truncate leading-tight">
+            <span className={`text-xs font-medium text-[color:var(--ex-shell-text)] truncate leading-tight`}>
               {displayName}
             </span>
             {user?.email && (
-              <span className="text-[10px] text-white/30 truncate leading-tight">
+              <span className={`text-[10px] text-white/30 truncate leading-tight`}>
                 {user.email}
               </span>
             )}

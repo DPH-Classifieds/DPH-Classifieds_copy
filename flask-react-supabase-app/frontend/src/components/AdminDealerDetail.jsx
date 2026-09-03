@@ -55,19 +55,19 @@ const Badge = ({ children, className = '' }) => (
 );
 
 const SectionLabel = ({ children }) => (
-  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-medium mb-3">{children}</p>
+  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ex-shell-text-muted)] font-medium mb-3">{children}</p>
 );
 
 const InfoRow = ({ icon: Icon, label, value, mono = false }) => {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-white/[0.05] last:border-0">
-      <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0 mt-0.5">
-        <Icon size={12} className="text-white/30" />
+    <div className="flex items-start gap-3 py-2.5 border-b border-[color:var(--ex-shell-line)] last:border-0">
+      <div className="w-7 h-7 rounded-lg bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] flex items-center justify-center flex-shrink-0 mt-0.5">
+        <Icon size={12} className="text-[color:var(--ex-shell-text-muted)]" />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-[0.12em] text-white/30 font-medium">{label}</p>
-        <p className={`text-sm text-white/70 mt-0.5 break-all${mono ? ' font-mono' : ''}`}>{value}</p>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--ex-shell-text-muted)] font-medium">{label}</p>
+        <p className={`text-sm text-[color:var(--ex-shell-text-muted)] mt-0.5 break-all${mono ? ' font-mono' : ''}`}>{value}</p>
       </div>
     </div>
   );
@@ -83,13 +83,13 @@ const INFO_REQUEST_STANDARD_DOCUMENTS = DOC_TYPES.map(({ key, label }) => ({ key
 
 /* ── loading skeleton ─────────────────────────────────────────────────────── */
 const Skeleton = () => (
-  <div className="text-white space-y-5 animate-pulse">
-    <div className="h-4 w-32 bg-white/[0.06] rounded-lg" />
-    <div className="h-9 w-64 bg-white/[0.06] rounded-xl" />
+  <div className="text-[color:var(--ex-shell-text)] space-y-5 animate-pulse">
+    <div className="h-4 w-32 bg-[color:var(--ex-shell-surface-strong)] rounded-lg" />
+    <div className="h-9 w-64 bg-[color:var(--ex-shell-surface-strong)] rounded-xl" />
     <div className="grid grid-cols-3 gap-4">
-      {[1, 2, 3].map((i) => <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-80" />)}
+      {[1, 2, 3].map((i) => <div key={i} className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-2xl p-5 h-80" />)}
     </div>
-    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 h-40" />
+    <div className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-2xl p-5 h-40" />
   </div>
 );
 
@@ -112,44 +112,44 @@ const DenyModal = ({ doc, docLabel, onClose, onConfirm, busy }) => {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 8 }}
           transition={{ duration: 0.2 }}
-          className="bg-[#0f1117] border border-white/10 rounded-2xl p-7 max-w-lg w-full shadow-2xl"
+          className="bg-[#0f1117] border border-[color:var(--ex-shell-line)] rounded-2xl p-7 max-w-lg w-full shadow-2xl"
         >
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-white">Deny {docLabel}</h2>
-            <button onClick={onClose} className="text-white/40 hover:text-white transition p-1"><X size={18} /></button>
+            <h2 className="text-lg font-semibold text-[color:var(--ex-shell-text)]">Deny {docLabel}</h2>
+            <button onClick={onClose} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition p-1"><X size={18} /></button>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs text-white/50 mb-1.5">Reason for denial *</label>
+              <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Reason for denial *</label>
               <input
                 type="text"
                 value={denyReason}
                 onChange={(e) => setDenyReason(e.target.value)}
                 placeholder="e.g. Document is expired or unclear"
-                className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 focus:outline-none focus:border-rose-500/40"
+                className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:border-rose-500/40"
               />
             </div>
             <div>
-              <label className="block text-xs text-white/50 mb-1.5">How to fix it *</label>
+              <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">How to fix it *</label>
               <textarea
                 rows={3}
                 value={denyFix}
                 onChange={(e) => setDenyFix(e.target.value)}
                 placeholder="e.g. Upload a clear photo of your current trade license"
-                className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-rose-500/40"
+                className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] resize-none focus:outline-none focus:border-rose-500/40"
               />
             </div>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                className="px-4 py-2 rounded-xl text-sm text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] transition"
               >
                 Cancel
               </button>
               <button
                 onClick={() => onConfirm(doc.id, 'deny', denyReason, denyFix)}
                 disabled={busy || !denyReason || !denyFix}
-                className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-[color:var(--ex-shell-text)] transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy ? 'Denying…' : 'Confirm Denial'}
               </button>
@@ -180,19 +180,19 @@ const RejectModal = ({ show, onClose, onConfirm, busy }) => {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 8 }}
           transition={{ duration: 0.2 }}
-          className="bg-[#0f1117] border border-white/10 rounded-2xl p-7 max-w-lg w-full shadow-2xl"
+          className="bg-[#0f1117] border border-[color:var(--ex-shell-line)] rounded-2xl p-7 max-w-lg w-full shadow-2xl"
         >
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-white">Reject Dealer Application</h2>
-            <button onClick={onClose} className="text-white/40 hover:text-white transition p-1"><X size={18} /></button>
+            <h2 className="text-lg font-semibold text-[color:var(--ex-shell-text)]">Reject Dealer Application</h2>
+            <button onClick={onClose} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition p-1"><X size={18} /></button>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs text-white/50 mb-1.5">Reason for rejection *</label>
+              <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Reason for rejection *</label>
               <select
                 value={rejectReasonIndex}
                 onChange={(e) => setRejectReasonIndex(e.target.value)}
-                className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/40"
+                className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] focus:outline-none focus:border-amber-500/40"
               >
                 <option value="">Select a reason…</option>
                 {DEALER_REJECTION_REASONS.map((item, idx) => (
@@ -203,30 +203,30 @@ const RejectModal = ({ show, onClose, onConfirm, busy }) => {
             {rejectReasonIndex !== '' && (
               <div className="p-3 rounded-xl bg-rose-500/[0.08] border border-rose-500/20">
                 <p className="text-[11px] text-rose-300 font-semibold uppercase tracking-wide mb-1">How to fix:</p>
-                <p className="text-sm text-white/70">{DEALER_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{DEALER_REJECTION_REASONS[Number(rejectReasonIndex)].fix}</p>
               </div>
             )}
             <div>
-              <label className="block text-xs text-white/50 mb-1.5">Additional notes (optional)</label>
+              <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Additional notes (optional)</label>
               <textarea
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Add any extra context…"
-                className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-amber-500/40"
+                className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] resize-none focus:outline-none focus:border-amber-500/40"
               />
             </div>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                className="px-4 py-2 rounded-xl text-sm text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] transition"
               >
                 Cancel
               </button>
               <button
                 onClick={() => onConfirm(rejectReasonIndex, note)}
                 disabled={busy || rejectReasonIndex === ''}
-                className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-400 text-[color:var(--ex-shell-text)] transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy ? 'Rejecting…' : 'Confirm Rejection'}
               </button>
@@ -276,21 +276,21 @@ const RequestMoreInfoModal = ({ show, onClose, onConfirm, busy }) => {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 8 }}
           transition={{ duration: 0.2 }}
-          className="bg-[#0f1117] border border-white/10 rounded-2xl p-7 max-w-lg w-full shadow-2xl"
+          className="bg-[#0f1117] border border-[color:var(--ex-shell-line)] rounded-2xl p-7 max-w-lg w-full shadow-2xl"
         >
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-lg font-semibold text-white">Request more information</h2>
-            <button onClick={onClose} className="text-white/40 hover:text-white transition p-1"><X size={18} /></button>
+            <h2 className="text-lg font-semibold text-[color:var(--ex-shell-text)]">Request more information</h2>
+            <button onClick={onClose} className="text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] transition p-1"><X size={18} /></button>
           </div>
-          <p className="text-xs text-white/45 mb-5">
+          <p className="text-xs text-[color:var(--ex-shell-text)]/45 mb-5">
             Select standard verification documents where possible. They return directly to the normal review queue. The dealer also receives a secure upload link.
           </p>
 
           <div className="space-y-3 mb-4">
-            <label className="block text-xs text-white/50">Documents required *</label>
+            <label className="block text-xs text-[color:var(--ex-shell-text-muted)]">Documents required *</label>
             <div className="grid grid-cols-1 gap-2">
               {INFO_REQUEST_STANDARD_DOCUMENTS.map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2.5 rounded-xl border border-white/[0.10] bg-white/[0.03] px-3 py-2.5 text-sm text-white/75 cursor-pointer hover:bg-white/[0.06]">
+                <label key={key} className="flex items-center gap-2.5 rounded-xl border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)]/75 cursor-pointer hover:bg-[color:var(--ex-shell-surface-strong)]">
                   <input
                     type="checkbox"
                     checked={selectedDocuments.includes(label)}
@@ -301,31 +301,31 @@ const RequestMoreInfoModal = ({ show, onClose, onConfirm, busy }) => {
                 </label>
               ))}
             </div>
-            <label className="block text-xs text-white/50 pt-1">Other document (optional)</label>
+            <label className="block text-xs text-[color:var(--ex-shell-text-muted)] pt-1">Other document (optional)</label>
             <textarea
               rows={2}
               value={otherDocument}
               onChange={(e) => setOtherDocument(e.target.value)}
               placeholder="One document per line, e.g. shareholder passport"
-              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-emerald-500/40"
+              className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] resize-none focus:outline-none focus:border-emerald-500/40"
             />
           </div>
 
           <div className="mb-5">
-            <label className="block text-xs text-white/50 mb-1.5">Note for the dealer (optional)</label>
+            <label className="block text-xs text-[color:var(--ex-shell-text-muted)] mb-1.5">Note for the dealer (optional)</label>
             <textarea
               rows={3}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Explain what you need or why, in plain language…"
-              className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-emerald-500/40"
+              className="w-full bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2.5 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] resize-none focus:outline-none focus:border-emerald-500/40"
             />
           </div>
 
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+              className="px-4 py-2 rounded-xl text-sm text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] transition"
             >
               Cancel
             </button>
@@ -553,13 +553,13 @@ const AdminDealerDetail = () => {
 
   if (error && !data) {
     return (
-      <div className="text-white flex flex-col items-center justify-center py-24 gap-4">
-        <Building2 size={48} className="text-white/20" />
-        <p className="text-lg font-semibold text-white/70">Dealer not available</p>
-        <p className="text-sm text-white/40">{error}</p>
+      <div className="text-[color:var(--ex-shell-text)] flex flex-col items-center justify-center py-24 gap-4">
+        <Building2 size={48} className="text-[color:var(--ex-shell-text)]/20" />
+        <p className="text-lg font-semibold text-[color:var(--ex-shell-text-muted)]">Dealer not available</p>
+        <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{error}</p>
         <button
           onClick={() => navigate('/admin/dealers')}
-          className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-emerald-400 transition-colors mt-2"
+          className="inline-flex items-center gap-2 text-sm text-[color:var(--ex-shell-text-muted)] hover:text-emerald-400 transition-colors mt-2"
         >
           <ArrowLeft size={14} /> Back to dealers
         </button>
@@ -568,13 +568,13 @@ const AdminDealerDetail = () => {
   }
 
   return (
-    <div className="text-white space-y-5">
+    <div className="text-[color:var(--ex-shell-text)] space-y-5">
 
       {/* Breadcrumb */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
         <Link
           to="/admin/dealers"
-          className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-emerald-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-[color:var(--ex-shell-text-muted)] hover:text-emerald-400 transition-colors"
         >
           <ArrowLeft size={14} /> Back to dealers
         </Link>
@@ -596,7 +596,7 @@ const AdminDealerDetail = () => {
             {/* Identity */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h1 className="text-3xl font-semibold text-white">
+                <h1 className="text-3xl font-semibold text-[color:var(--ex-shell-text)]">
                   {dealer.company_name || getDisplayName(dealer)}
                 </h1>
                 <Badge className={dealer.dealer_verified
@@ -608,8 +608,8 @@ const AdminDealerDetail = () => {
                   {dealer.account_status || 'active'}
                 </Badge>
               </div>
-              <p className="text-sm text-white/50">{dealer.email || 'No email'}</p>
-              <p className="text-xs text-white/30 mt-1">
+              <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{dealer.email || 'No email'}</p>
+              <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-1">
                 {dealer.phone || ''}{dealer.phone && dealer.emirate ? ' · ' : ''}{dealer.emirate || ''}
               </p>
             </div>
@@ -656,8 +656,8 @@ const AdminDealerDetail = () => {
           return (
             <GlassCard key={key}>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-                  <DocIcon size={14} className="text-white/40" />
+                <div className="w-8 h-8 rounded-xl bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] flex items-center justify-center">
+                  <DocIcon size={14} className="text-[color:var(--ex-shell-text-muted)]" />
                 </div>
                 <div>
                   <SectionLabel>{label}</SectionLabel>
@@ -669,10 +669,10 @@ const AdminDealerDetail = () => {
               {doc ? (
                 <div className="space-y-3">
                   {/* Preview */}
-                  <div className="rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02]" style={{ height: '300px' }}>
+                  <div className="rounded-xl overflow-hidden border border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)]" style={{ height: '300px' }}>
                     {isPdf(doc) ? (
                       <div className="flex flex-col items-center justify-center h-full gap-3">
-                        <FileText size={40} className="text-white/20" />
+                        <FileText size={40} className="text-[color:var(--ex-shell-text)]/20" />
                         <a
                           href={doc.download_url}
                           target="_blank"
@@ -681,7 +681,7 @@ const AdminDealerDetail = () => {
                         >
                           Download PDF
                         </a>
-                        <p className="text-xs text-white/30">{doc.filename}</p>
+                        <p className="text-xs text-[color:var(--ex-shell-text-muted)]">{doc.filename}</p>
                       </div>
                     ) : (
                       <a href={doc.download_url} target="_blank" rel="noopener noreferrer">
@@ -696,7 +696,7 @@ const AdminDealerDetail = () => {
                   </div>
 
                   {/* File info */}
-                  <div className="text-xs text-white/40 space-y-0.5">
+                  <div className="text-xs text-[color:var(--ex-shell-text-muted)] space-y-0.5">
                     <p className="truncate">{doc.filename}</p>
                     {doc.uploaded_at && <p>Uploaded {formatDateTime(doc.uploaded_at)}</p>}
                     {key === 'trade_license' && (
@@ -723,7 +723,7 @@ const AdminDealerDetail = () => {
                   {status === 'denied' && doc.denial_reason && (
                     <div className="p-3 rounded-xl bg-rose-500/[0.08] border border-rose-500/20">
                       <p className="text-[10px] text-rose-300 font-semibold uppercase tracking-wide mb-1">Denial reason</p>
-                      <p className="text-sm text-white/70">{doc.denial_reason}</p>
+                      <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{doc.denial_reason}</p>
                       {doc.denial_fix && (
                         <p className="text-xs text-amber-300 mt-1"><span className="font-medium">Fix:</span> {doc.denial_fix}</p>
                       )}
@@ -762,7 +762,7 @@ const AdminDealerDetail = () => {
                         type="button"
                         disabled={reviewingDocId === doc.id}
                         onClick={() => handleReviewDocument(doc.id, 'pending')}
-                        className="ml-auto text-[10px] text-white/40 hover:text-white border border-white/10 rounded-lg px-2 py-1 bg-white/[0.04] transition"
+                        className="ml-auto text-[10px] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] rounded-lg px-2 py-1 bg-[color:var(--ex-shell-surface)] transition"
                       >
                         Re-review
                       </button>
@@ -783,7 +783,7 @@ const AdminDealerDetail = () => {
                         type="button"
                         disabled={reviewingDocId === doc.id}
                         onClick={() => handleReviewDocument(doc.id, 'pending')}
-                        className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10 rounded-xl px-3 py-2 text-sm transition"
+                        className="inline-flex items-center gap-1.5 bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] rounded-xl px-3 py-2 text-sm transition"
                       >
                         <RotateCcw size={13} />
                         Re-review
@@ -815,7 +815,7 @@ const AdminDealerDetail = () => {
           {/* Final verification decision */}
           <GlassCard>
             <SectionLabel>Final Action</SectionLabel>
-            <p className="text-sm text-white/50 mb-5">
+            <p className="text-sm text-[color:var(--ex-shell-text-muted)] mb-5">
               Approve the dealer only when the Trade License and TRN certificate are verified. The applicant will receive an email on both outcomes.
             </p>
 
@@ -863,7 +863,7 @@ const AdminDealerDetail = () => {
               <button
                 type="button"
                 onClick={() => navigate(`/admin/users/${dealerId}`)}
-                className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl px-5 py-3 text-sm transition"
+                className="inline-flex items-center gap-2 bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] text-[color:var(--ex-shell-text-muted)] hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] rounded-xl px-5 py-3 text-sm transition"
               >
                 Open user profile
               </button>
@@ -878,10 +878,10 @@ const AdminDealerDetail = () => {
               <SectionLabel>Listing mix</SectionLabel>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {listingTotals.map(([type, bucket]) => (
-                  <div key={type} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-3">
-                    <p className="text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium mb-1">{type}</p>
-                    <p className="text-2xl font-semibold text-white tabular-nums">{formatNumber(bucket.count || 0)}</p>
-                    <p className="text-xs text-white/40 mt-1">{formatNumber(bucket.views || 0)} views · {formatNumber(bucket.approved || 0)} approved</p>
+                  <div key={type} className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium mb-1">{type}</p>
+                    <p className="text-2xl font-semibold text-[color:var(--ex-shell-text)] tabular-nums">{formatNumber(bucket.count || 0)}</p>
+                    <p className="text-xs text-[color:var(--ex-shell-text-muted)] mt-1">{formatNumber(bucket.views || 0)} views · {formatNumber(bucket.approved || 0)} approved</p>
                   </div>
                 ))}
               </div>
@@ -895,31 +895,31 @@ const AdminDealerDetail = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/[0.06]">
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Listing</th>
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Type</th>
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Status</th>
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Views</th>
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Created</th>
+                    <tr className="border-b border-[color:var(--ex-shell-line)]">
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Listing</th>
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Type</th>
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Status</th>
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Views</th>
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Created</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentListings.map((lst) => (
-                      <tr key={`${lst.type}-${lst.id}`} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition">
+                      <tr key={`${lst.type}-${lst.id}`} className="border-b border-[color:var(--ex-shell-line)] last:border-0 hover:bg-[color:var(--ex-shell-surface)] transition">
                         <td className="py-2.5">
                           <Link
                             to={`/admin/listings/${lst.type}/${lst.id}`}
-                            className="text-white/70 hover:text-emerald-400 transition"
+                            className="text-[color:var(--ex-shell-text-muted)] hover:text-emerald-400 transition"
                           >
                             {lst.title}
                           </Link>
                         </td>
-                        <td className="py-2.5 text-white/50 capitalize">{lst.type}</td>
+                        <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] capitalize">{lst.type}</td>
                         <td className="py-2.5">
                           <Badge className={statusBadgeClass(lst.status)}>{lst.status}</Badge>
                         </td>
-                        <td className="py-2.5 text-white/50 tabular-nums">{formatNumber(lst.view_count)}</td>
-                        <td className="py-2.5 text-white/40 text-xs">{formatDateTime(lst.created_at)}</td>
+                        <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] tabular-nums">{formatNumber(lst.view_count)}</td>
+                        <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs">{formatDateTime(lst.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -935,24 +935,24 @@ const AdminDealerDetail = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/[0.06]">
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Actor</th>
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Context</th>
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">Action</th>
-                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-white/30 font-medium pb-2">When</th>
+                    <tr className="border-b border-[color:var(--ex-shell-line)]">
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Actor</th>
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Context</th>
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">Action</th>
+                      <th className="text-left text-[11px] uppercase tracking-[0.14em] text-[color:var(--ex-shell-text-muted)] font-medium pb-2">When</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentEvents.slice(0, 12).map((event) => (
-                      <tr key={event.id} className="border-b border-white/[0.04] last:border-0">
-                        <td className="py-2.5 text-white/70">{getEventActorLabel(event)}</td>
-                        <td className="py-2.5 text-white/50">{event.listing_type} · {event.listing_id}</td>
+                      <tr key={event.id} className="border-b border-[color:var(--ex-shell-line)] last:border-0">
+                        <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{getEventActorLabel(event)}</td>
+                        <td className="py-2.5 text-[color:var(--ex-shell-text-muted)]">{event.listing_type} · {event.listing_id}</td>
                         <td className="py-2.5">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-300">
                             {event.action}
                           </span>
                         </td>
-                        <td className="py-2.5 text-white/40 text-xs">{formatDateTime(event.created_at)}</td>
+                        <td className="py-2.5 text-[color:var(--ex-shell-text-muted)] text-xs">{formatDateTime(event.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -983,7 +983,7 @@ const AdminDealerDetail = () => {
             {dealer.rejection_note && (
               <div className="mt-3 p-3 rounded-xl bg-rose-500/[0.07] border border-rose-500/20">
                 <p className="text-[10px] uppercase tracking-wide text-rose-300 font-medium mb-1">Rejection note</p>
-                <p className="text-sm text-white/70">{dealer.rejection_note}</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)]">{dealer.rejection_note}</p>
               </div>
             )}
           </GlassCard>
@@ -996,22 +996,22 @@ const AdminDealerDetail = () => {
               { label: 'Phone verified', value: dealer.phone_verified },
               { label: 'Dealer verified', value: dealer.dealer_verified },
             ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between py-2.5 border-b border-white/[0.04] last:border-0">
-                <span className="text-sm text-white/60">{label}</span>
+              <div key={label} className="flex items-center justify-between py-2.5 border-b border-[color:var(--ex-shell-line)] last:border-0">
+                <span className="text-sm text-[color:var(--ex-shell-text-muted)]">{label}</span>
                 {value
                   ? <span className="inline-flex items-center gap-1 text-xs text-emerald-300"><CheckCircle size={12} /> Yes</span>
-                  : <span className="inline-flex items-center gap-1 text-xs text-white/30"><XCircle size={12} /> No</span>
+                  : <span className="inline-flex items-center gap-1 text-xs text-[color:var(--ex-shell-text-muted)]"><XCircle size={12} /> No</span>
                 }
               </div>
             ))}
-            <div className="mt-3 pt-3 border-t border-white/[0.04]">
-              <p className="text-xs text-white/30 mb-2">Documents submitted</p>
+            <div className="mt-3 pt-3 border-t border-[color:var(--ex-shell-line)]">
+              <p className="text-xs text-[color:var(--ex-shell-text-muted)] mb-2">Documents submitted</p>
               {dealerDocs.length === 0 ? (
-                <p className="text-sm text-white/30 italic">None submitted</p>
+                <p className="text-sm text-[color:var(--ex-shell-text-muted)] italic">None submitted</p>
               ) : (
                 dealerDocs.map((doc) => (
                   <div key={doc.id} className="flex items-center justify-between py-1.5">
-                    <span className="text-xs text-white/50">
+                    <span className="text-xs text-[color:var(--ex-shell-text-muted)]">
                       {DOC_TYPES.find((t) => t.key === doc.document_type)?.label || doc.document_type}
                     </span>
                     <Badge className={docStatusClass(doc.status)}>{doc.status}</Badge>
@@ -1024,7 +1024,7 @@ const AdminDealerDetail = () => {
           {/* Ad limit */}
           <GlassCard className="mt-5">
             <SectionLabel>Ad limit</SectionLabel>
-            <p className="text-xs text-white/40 mb-3">
+            <p className="text-xs text-[color:var(--ex-shell-text-muted)] mb-3">
               Total active listings this dealer can post across cars, bikes, parts, and plates.
               Leave blank to use the platform default.
             </p>
@@ -1036,7 +1036,7 @@ const AdminDealerDetail = () => {
                 value={adLimitDraft}
                 onChange={(e) => setAdLimitDraft(e.target.value)}
                 placeholder="Default"
-                className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                className="flex-1 bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-lg px-3 py-2 text-sm text-[color:var(--ex-shell-text)] placeholder:text-[color:var(--ex-shell-text-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                 disabled={adLimitSaving}
               />
               <button
@@ -1052,7 +1052,7 @@ const AdminDealerDetail = () => {
               <p className="mt-2 text-[12px] text-emerald-300/80">{adLimitMessage}</p>
             )}
             {dealer.dealer_listing_limit != null && (
-              <p className="mt-2 text-[11px] text-white/40">
+              <p className="mt-2 text-[11px] text-[color:var(--ex-shell-text-muted)]">
                 Currently set to {dealer.dealer_listing_limit}. Takes effect on next post.
               </p>
             )}
@@ -1063,7 +1063,7 @@ const AdminDealerDetail = () => {
             <GlassCard className="mt-5">
               <div className="flex items-center justify-between mb-3">
                 <SectionLabel>Info requests</SectionLabel>
-                <span className="text-[11px] text-white/30">{infoRequests.length} total</span>
+                <span className="text-[11px] text-[color:var(--ex-shell-text-muted)]">{infoRequests.length} total</span>
               </div>
               {infoRequestNotice && (
                 <p className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
@@ -1078,19 +1078,19 @@ const AdminDealerDetail = () => {
                     ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
                     : req.status === 'pending'
                       ? 'text-amber-300 bg-amber-500/10 border-amber-500/20'
-                      : 'text-white/40 bg-white/[0.04] border-white/10';
+                      : 'text-[color:var(--ex-shell-text-muted)] bg-[color:var(--ex-shell-surface)] border-[color:var(--ex-shell-line)]';
                   return (
                     <div
                       key={req.id}
-                      className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-sm"
+                      className="bg-[color:var(--ex-shell-surface)] border border-[color:var(--ex-shell-line)] rounded-xl p-3 text-sm"
                     >
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="min-w-0">
-                          <p className="text-xs text-white/40 mb-0.5">
+                          <p className="text-xs text-[color:var(--ex-shell-text-muted)] mb-0.5">
                             <Clock size={11} className="inline mr-1" />
                             Sent {req.created_at ? new Date(req.created_at).toLocaleString() : '—'}
                           </p>
-                          <p className="text-white/70 text-xs">
+                          <p className="text-[color:var(--ex-shell-text-muted)] text-xs">
                             {uploads.length} of {requestedCount} uploaded
                             {req.submitted_at ? ` · submitted ${new Date(req.submitted_at).toLocaleDateString()}` : ''}
                           </p>
@@ -1104,7 +1104,7 @@ const AdminDealerDetail = () => {
                           const docUploads = uploads.filter((u) => u.document_label === label);
                           return (
                             <li key={label} className="flex items-start justify-between gap-2 text-xs">
-                              <span className={`min-w-0 truncate ${docUploads.length ? 'text-white/65' : 'text-white/45'}`}>
+                              <span className={`min-w-0 truncate ${docUploads.length ? 'text-[color:var(--ex-shell-text)]/65' : 'text-[color:var(--ex-shell-text)]/45'}`}>
                                 {docUploads.length ? '• ' : '◦ '}{label}
                               </span>
                               {docUploads.length > 0 && docUploads[docUploads.length - 1].download_url && (
@@ -1126,7 +1126,7 @@ const AdminDealerDetail = () => {
                           <button
                             type="button"
                             onClick={() => copyInfoRequestLink(req.token)}
-                            className="text-[11px] text-white/55 hover:text-white border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 rounded-lg px-2.5 py-1 transition"
+                            className="text-[11px] text-[color:var(--ex-shell-text)]/55 hover:text-[color:var(--ex-shell-text)] border border-[color:var(--ex-shell-line)] hover:border-[color:var(--ex-shell-line)] bg-[color:var(--ex-shell-surface)] hover:bg-[color:var(--ex-shell-surface-strong)] rounded-lg px-2.5 py-1 transition"
                           >
                             Copy link
                           </button>
