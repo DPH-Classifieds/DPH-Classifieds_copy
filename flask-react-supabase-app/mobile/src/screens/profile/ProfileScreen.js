@@ -13,11 +13,6 @@ import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import AnimatedCard from '../../components/ui/AnimatedCard';
 
-const WEBVIEW_URLS = {
-  privacy: 'https://dphclassifieds.com/privacy-policy',
-  terms: 'https://dphclassifieds.com/terms-of-use',
-};
-
 export default function ProfileScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = useMemo(() => StyleSheet.create({
@@ -127,6 +122,11 @@ export default function ProfileScreen({ navigation }) {
       onPress: () => navigation.navigate('MyListings'),
     },
     {
+      icon: 'create-outline',
+      label: 'Edit Listing',
+      onPress: () => navigation.navigate('EditListing'),
+    },
+    {
       icon: 'heart-outline',
       label: 'Saved Listings',
       onPress: () => router.push('/(saved)'),
@@ -136,6 +136,12 @@ export default function ProfileScreen({ navigation }) {
       label: 'Account Settings',
       onPress: () => navigation.navigate('Settings'),
     },
+    ...(!user?.phone_verified ? [{
+      icon: 'call-outline',
+      label: 'Verify Phone',
+      onPress: () => navigation.navigate('VerifyPhone'),
+      warning: true,
+    }] : []),
     ...(user?.is_dealer ? [{
       icon: 'business-outline',
       label: 'Dealer Dashboard',
@@ -149,21 +155,6 @@ export default function ProfileScreen({ navigation }) {
       accent: true,
     }] : []),
     { divider: true },
-    {
-      icon: 'document-text-outline',
-      label: 'Privacy Policy',
-      onPress: () => Linking.openURL(WEBVIEW_URLS.privacy),
-    },
-    {
-      icon: 'document-outline',
-      label: 'Terms of Service',
-      onPress: () => Linking.openURL(WEBVIEW_URLS.terms),
-    },
-    {
-      icon: 'information-circle-outline',
-      label: 'About DPH',
-      onPress: () => Linking.openURL('https://dphclassifieds.com/about'),
-    },
     {
       icon: 'chatbubble-outline',
       label: 'Contact Support',

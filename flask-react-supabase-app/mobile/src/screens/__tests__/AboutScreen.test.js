@@ -1,6 +1,7 @@
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+const mockOpenURL = jest.fn();
 jest.mock('react-native/Libraries/Linking/Linking', () => ({
-  openURL: jest.fn().mockResolvedValue(undefined),
+  openURL: (...args) => mockOpenURL(...args),
 }));
 
 let mockColors;
@@ -32,13 +33,31 @@ const flattenStyles = (node) => {
   return out;
 };
 
+const flattenText = (node) => {
+  if (!node) return '';
+  let out = '';
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (node.props && typeof node.props.children !== 'undefined') {
+    out += flattenText(node.props.children);
+  }
+  if (Array.isArray(node.children)) {
+    out += node.children.map(flattenText).join('');
+  } else if (node.children) {
+    out += flattenText(node.children);
+  }
+  return out;
+};
+
+beforeEach(() => {
+  mockOpenURL.mockClear();
+});
+
 test('AboutScreen renders LIGHT_COLORS values when theme is light', async () => {
   mockTheme = 'light';
   mockColors = LIGHT_COLORS;
   const { toJSON, findByText } = render(<AboutScreen />);
   await findByText('DPH Classifieds');
-  // LIGHT_COLORS.background = '#FAFAFA' — UNIQUE to LIGHT
-  // DARK_COLORS.background  = '#07110b' — UNIQUE to DARK
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('FAFAFA');
   expect(tree).not.toContain('07110b');
@@ -52,4 +71,25 @@ test('AboutScreen renders DARK_COLORS values when theme is dark', async () => {
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('07110b');
   expect(tree).not.toContain('FAFAFA');
+});
+
+test('AboutScreen has no Linking.openURL calls (no web view)', async () => {
+  mockTheme = 'light';
+  mockColors = LIGHT_COLORS;
+  const { findByText } = render(<AboutScreen />);
+  await findByText('DPH Classifieds');
+  expect(mockOpenURL).not.toHaveBeenCalled();
+});
+
+test('AboutScreen renders native About content (no WebView)', async () => {
+  mockTheme = 'light';
+  mockColors = LIGHT_COLORS;
+  const { findByText, queryByText } = render(<AboutScreen />);
+  // Native content from web About.js — check for distinctive phrases
+  await findByText(/UAE market/);
+  await findByText(/Raise listing quality/);
+  await findByText(/Open Reddit/);
+  await findByText(/Open Instagram/);
+  // No external dphclassifieds URLs exposed as visible text
+  expect(queryByText(/dphclassifieds\.com/)).toBeNull();
 });
