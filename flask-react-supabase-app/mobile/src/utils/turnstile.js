@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, View, StyleSheet, ActivityIndicator } from 'react-native';
 import Text from '../components/ui/AppText';
 import { WebView } from 'react-native-webview';
-import { COLORS } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const buildHtml = (siteKey) => `<!DOCTYPE html>
 <html>
@@ -24,6 +24,18 @@ const buildHtml = (siteKey) => `<!DOCTYPE html>
 </html>`;
 
 export function TurnstileModal({ visible, siteKey, onToken, onCancel }) {
+  const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+        sheet: { height: 220, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+        label: { color: colors.textMuted, fontSize: 13, textAlign: 'center', paddingTop: 16 },
+        webview: { flex: 1 },
+      }),
+    [colors]
+  );
+
   if (!siteKey) {
     if (visible) {
       // No site key — resolve immediately with empty string (graceful degradation)
@@ -52,7 +64,7 @@ export function TurnstileModal({ visible, siteKey, onToken, onCancel }) {
             originWhitelist={['*']}
             startInLoadingState
             renderLoading={() => (
-              <ActivityIndicator color={COLORS.accent} style={StyleSheet.absoluteFill} />
+              <ActivityIndicator color={colors.accent} style={StyleSheet.absoluteFill} />
             )}
           />
         </View>
@@ -60,10 +72,3 @@ export function TurnstileModal({ visible, siteKey, onToken, onCancel }) {
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  sheet: { height: 220, backgroundColor: COLORS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  label: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', paddingTop: 16 },
-  webview: { flex: 1 },
-});
