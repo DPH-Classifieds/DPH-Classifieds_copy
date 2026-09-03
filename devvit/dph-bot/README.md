@@ -15,8 +15,14 @@ The backend prepares the payload; this app is the only Reddit submitter.
 6. Use **DPH Bot: post roundup now** from the subreddit moderator menu to test.
 
 The scheduled job is daily at 12:00 PM Dubai time (08:00 UTC). It has an
-exactly-once daily guard; consecutive daily posts deliberately overlap by 24
-hours because each contains the preceding rolling 48-hour window.
+exactly-once daily guard; consecutive daily posts deliberately overlap by 48
+hours because each contains the preceding rolling 72-hour window. Titles use
+the format `[31 Aug - 2 Sept] Cars listed in the last 3 days`. Imported rows
+link to their original Reddit post.
+
+Set the subreddit `roundupFlairText` to the exact existing post flair text,
+normally `Selling`. The bot resolves that flair to its Reddit template ID and
+fails safely without posting if the flair does not exist.
 
 ## Fetch domain and data handling
 

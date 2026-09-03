@@ -57,6 +57,7 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   // familiar `r/name` form in settings, so normalize it before submitting.
   const configuredSubreddit = (await settings.get<string>('targetSubreddit'))?.trim()
   const targetSubreddit = (configuredSubreddit || context.subredditName || '').replace(/^r\//i, '')
+  const flairText = (await settings.get<string>('roundupFlairText'))?.trim() || 'Selling'
   if (!githubUrl) throw Error('roundupUrl is not set in app settings')
   if (!targetSubreddit) throw Error('no target subreddit')
   const url = new URL(githubUrl)
@@ -87,6 +88,8 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   if (!payload.count) return {count: 0, skipped: true}
   const posts = payload.posts
   if (!posts?.length || posts.some(post => !post.title || !post.body)) throw Error('GitHub bridge payload has no posts')
+  const flair = (await reddit.getPostFlairTemplates(targetSubreddit)).find(template => template.text.trim().toLowerCase() === flairText.toLowerCase())
+  if (!flair) throw Error(`post flair not found: ${flairText}`)
   const postedKeyPrefix = `roundup:posted:${targetSubreddit}:${payload.cycle_id}`
   const forceKey = `roundup:force:last:${targetSubreddit}`
   if (force) {
@@ -100,7 +103,7 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
   for (const [index, item] of posts.entries()) {
     const postedKey = `${postedKeyPrefix}:${index}`
     if (!force && await redis.get(postedKey)) continue
-    const post = await reddit.submitPost({subredditName: targetSubreddit, title: item.title!, text: item.body!})
+    const post = await reddit.submitPost({subredditName: targetSubreddit, title: item.title!, text: item.body!, flairId: flair.id})
     await redis.set(postedKey, post.id)
     firstUrl ??= post.url
   }

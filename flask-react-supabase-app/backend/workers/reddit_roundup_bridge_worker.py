@@ -66,7 +66,7 @@ def _sign_payload(payload, secret):
     return signed
 
 
-def _rolling_window(hours=48, now=None):
+def _rolling_window(hours=72, now=None):
     """A rolling Dubai-labelled window, ending at the current UTC instant.
 
     Returns (since_iso, until_iso, first_day, last_day, label) where first_day
@@ -86,13 +86,13 @@ def _rolling_window(hours=48, now=None):
     return since.isoformat(), until.isoformat(), first_day, last_day, label
 
 
-def _build_payload(hours=48, now=None):
+def _build_payload(hours=72, now=None):
     since_iso, until_iso, first_day, last_day, label = _rolling_window(hours, now)
     rows = _fetch_listings(since_iso, until_iso)
     posts = build_posts(rows, first_day, last_day, SITE_URL)
     # The daily Dubai date is stable across hourly bridge refreshes. Devvit
-    # uses it as its exactly-once key while the payload remains a rolling 48h
-    # window, intentionally overlapping the prior day's post.
+    # uses it as its exactly-once key while the payload remains a rolling 72h
+    # window, intentionally overlapping the prior two days' posts.
     dubai_date = datetime.fromisoformat(until_iso).astimezone(timezone(timedelta(hours=4))).date().isoformat()
     payload = {
         "schema": "dph-reddit-roundup/v2",
@@ -167,9 +167,9 @@ def run():
         logger.error("reddit_roundup_bridge: missing config %s", ", ".join(missing))
         return {"status": "failed", "error": "missing configuration"}
     try:
-        hours = max(1, min(int(os.getenv("REDDIT_ROUNDUP_BRIDGE_HOURS", "48")), 168))
+        hours = max(1, min(int(os.getenv("REDDIT_ROUNDUP_BRIDGE_HOURS", "72")), 168))
     except ValueError:
-        hours = 48
+        hours = 72
     try:
         payload = _build_payload(hours)
         payload = _sign_payload(payload, config["hmac_secret"])

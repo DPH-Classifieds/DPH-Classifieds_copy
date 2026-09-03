@@ -1,7 +1,7 @@
 """Daily Reddit roundup poster (backend worker only).
 
 Once a day, submits a self-post to r/DubaiPetrolHeads listing the cars that went
-live on DPH Classifieds during the previous full day. Each row shows year / make
+live on DPH Classifieds during the previous three full days. Each row shows year / make
 / model / price and a link: DPH listings link to the site, Reddit-imported
 listings link back to their original post.
 
@@ -115,6 +115,12 @@ def _format_date_label(first_day, last_day):
     return f"{first_day.strftime('%-d %b')}–{last_day.strftime('%-d %b %Y')}"
 
 
+def _format_roundup_title_date(first_day, last_day):
+    """Render the compact title range requested by the subreddit format."""
+    month = lambda value: value.strftime("%-d %b").replace(" Sep", " Sept")
+    return f"{month(first_day)} - {month(last_day)}"
+
+
 def _format_mileage(value) -> str:
     """Format numeric mileage and common Reddit shorthand (e.g. ``139k``)."""
     raw = str(value or "").strip().lower().replace(",", "")
@@ -152,7 +158,7 @@ def build_posts(rows, first_day, last_day, site_url=SITE_URL, max_body_chars=390
     necessary, split the table into continuation posts with a repeated header.
 
     The body heading and title both carry the explicit date range so the post
-    and its content stay in sync (e.g. "Cars listed on 16–17 Aug 2026").
+    and its content stay in sync.
     """
     if not rows:
         return []
@@ -175,7 +181,7 @@ def build_posts(rows, first_day, last_day, site_url=SITE_URL, max_body_chars=390
         chunks.append(current_rows)
 
     total = len(chunks)
-    title = f"Cars listed on {date_label}"
+    title = f"[{_format_roundup_title_date(first_day, last_day)}] Cars listed in the last 3 days"
     posts = []
     for index, lines in enumerate(chunks, start=1):
         suffix = f" — Part {index} of {total}" if total > 1 else ""

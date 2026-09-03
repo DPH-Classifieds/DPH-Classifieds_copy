@@ -35,8 +35,8 @@ def test_payload_uses_daily_cycle_and_all_rendered_posts(monkeypatch):
     assert payload['count'] == 1
     assert len(payload['posts']) == 1
     assert 'DPH Classifieds' not in payload['posts'][0]['title']
-    # The post title now uses the explicit date range from the rolling window
-    assert "16–18 Aug 2026" in payload['posts'][0]['title']
+    # The post title uses the requested compact date range format.
+    assert payload['posts'][0]['title'] == "[16 Aug - 18 Aug] Cars listed in the last 3 days"
 
 
 def test_hmac_signature_is_stable_and_excludes_refresh_timestamp(monkeypatch):

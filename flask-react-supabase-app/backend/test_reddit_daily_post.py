@@ -46,8 +46,8 @@ def test_row_and_post():
     first = date(2026, 8, 16)
     last = date(2026, 8, 17)
     title, body = build_post(rows, first, last, SITE)
-    assert "16–17 Aug 2026" in title
-    assert "16–17 Aug 2026" in body            # body heading matches title
+    assert title == "[16 Aug - 17 Aug] Cars listed in the last 3 days"
+    assert "16–17 Aug 2026" in body            # body heading remains explicit
     assert "previous 48 hours" not in body     # vague heading gone
     assert "previous 48 hours" not in title
     assert body.startswith("**2 cars listed on 16–17 Aug 2026**")
@@ -74,7 +74,7 @@ def test_post_title_and_heading_use_explicit_date_range():
     first = date(2026, 8, 16)
     last = date(2026, 8, 17)
     title, body = build_post(rows, first, last, SITE)
-    assert "16–17 Aug 2026" in title
+    assert title == "[16 Aug - 17 Aug] Cars listed in the last 3 days"
     assert "16–17 Aug 2026" in body
     assert "previous 48 hours" not in body
     assert "previous 48 hours" not in title
@@ -91,6 +91,11 @@ def test_cross_month_label():
     assert _format_date_label(date(2026, 8, 31), date(2026, 9, 1)) == "31 Aug–1 Sep 2026"
 
 
+def test_roundup_title_format():
+    from workers.reddit_daily_post_worker import _format_roundup_title_date
+    assert _format_roundup_title_date(date(2026, 8, 31), date(2026, 9, 2)) == "31 Aug - 2 Sept"
+
+
 def test_posts_split_without_losing_rows():
     from workers.reddit_daily_post_worker import build_posts
     rows = [{"id": str(index), "make_year": 2020, "car_manufacturer": "Make", "car_model": "Model", "expected_selling_price": 1} for index in range(12)]
@@ -98,7 +103,7 @@ def test_posts_split_without_losing_rows():
     last = date(2026, 8, 17)
     posts = build_posts(rows, first, last, SITE, max_body_chars=300)
     assert len(posts) > 1
-    assert all("Cars listed on 16–17 Aug 2026" in title for title, _ in posts)
+    assert all("[16 Aug - 17 Aug] Cars listed in the last 3 days" in title for title, _ in posts)
     assert sum(body.count("[View listing]") for _, body in posts) == len(rows)
 
 
