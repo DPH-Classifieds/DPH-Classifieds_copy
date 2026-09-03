@@ -5,15 +5,12 @@ jest.mock('../../utils/apiClient', () => ({
   default: {
     post: jest.fn().mockResolvedValue({
       recommendations: [
-        { id: 'r-1', images: ['http://example.com/x.jpg'], expected_selling_price: 50000, listing_title: 'Test Car' },
+        { id: 'r-1', image: 'http://example.com/x.jpg', priceLabel: 'AED 50,000', title: 'Test Car' },
       ],
     }),
   },
 }));
-jest.mock('../../utils/formatters', () => ({ formatPrice: (v) => `AED ${v}` }));
-jest.mock('../../utils/media', () => ({ resolveMediaUrl: (u) => u }));
 jest.mock('../../utils/listingCache', () => ({ prefetchListing: jest.fn() }));
-jest.mock('../../components/ui/UAEPlate', () => ({ __esModule: true, default: 'UAEPlate' }));
 
 let mockColors;
 let mockTheme;

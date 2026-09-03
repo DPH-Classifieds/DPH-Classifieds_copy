@@ -4,12 +4,9 @@ import Text from './ui/AppText';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../utils/apiClient';
-import { formatPrice } from '../utils/formatters';
 import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
-import { resolveMediaUrl } from '../utils/media';
 import { prefetchListing } from '../utils/listingCache';
-import UAEPlate from './ui/UAEPlate';
 
 // Detail screens cache by plural type; recommendations use the singular.
 const CACHE_TYPE = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
@@ -22,8 +19,6 @@ export default function RecommendedListings({ listingType, listingId, navigation
     card: { width: 160, marginRight: 12, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
     image: { width: 160, height: 100, backgroundColor: colors.surfaceHigher },
     placeholder: { alignItems: 'center', justifyContent: 'center' },
-    platePlaceholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-    recPlate: { width: '100%' },
     price: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '700', paddingHorizontal: 10, paddingTop: 8 },
     title: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingBottom: 8 },
   }), [colors]);
@@ -45,26 +40,13 @@ export default function RecommendedListings({ listingType, listingId, navigation
     const detailRoute = { car: 'CarDetail', bike: 'BikeDetail', plate: 'PlateDetail', parts: 'PartDetail' }[listingType];
     return (
       <TouchableOpacity style={styles.card} onPress={() => { prefetchListing(CACHE_TYPE[listingType], item); navigation.push(detailRoute, { listingId: item.id }); }}>
-        {listingType === 'plate' ? (
-          <View style={[styles.image, styles.platePlaceholder]}>
-            <UAEPlate city={item.city} code={item.code} number={item.number || item.digits} height={70} style={styles.recPlate} />
-          </View>
-        ) : item.images?.[0] ? (
-          <Image
-            source={{
-              uri: resolveMediaUrl(
-                typeof item.images[0] === 'string'
-                  ? item.images[0]
-                  : item.images[0].url || item.images[0].image_url || item.images[0].display_url
-              ),
-            }}
-            style={styles.image}
-          />
+        {item.image ? (
+          <Image source={{ uri: item.image }} style={styles.image} />
         ) : (
           <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={24} color={colors.textMuted} /></View>
         )}
-        <Text style={styles.price}>{formatPrice(item.expected_selling_price || item.price)}</Text>
-        <Text style={styles.title} numberOfLines={1}>{item.listing_title || item.name || 'Listing'}</Text>
+        <Text style={styles.price}>{item.priceLabel}</Text>
+        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
       </TouchableOpacity>
     );
   };
