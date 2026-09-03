@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { accentText, line, surfaceBg } from '../lib/themeClasses';
+import { accentText, line } from '../lib/themeClasses';
 import './ExplorePage.css';
 import ProfileMenu from './ProfileMenu';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
@@ -143,9 +143,20 @@ const Header = () => {
     }
   };
 
+  // Translucent surface so backdrop-blur has something visible to blur. The
+  // theme-aware surface tint comes from --ex-surface (white in light, near-
+  // black in dark); color-mix is used here because Tailwind's `/85` opacity
+  // modifier does not apply to bg-[color:var(--ex-surface)] — color-mix is
+  // the portable way to get theme-aware translucency. Inline style is
+  // required because Tailwind's arbitrary-value syntax does not accept
+  // color-mix() function expressions in the bg-[...] shorthand.
+  const headerSurfaceStyle = {
+    backgroundColor: 'color-mix(in srgb, var(--ex-surface) 85%, transparent)',
+  };
+
   const headerTone = scrolled
-    ? `border-b ${line} ${surfaceBg} shadow-[0_18px_48px_rgba(0,0,0,0.3)]`
-    : `border-b border-[color:var(--ex-line)] ${surfaceBg}`;
+    ? `border-b ${line} shadow-[0_18px_48px_rgba(0,0,0,0.3)]`
+    : `border-b border-[color:var(--ex-line)]`;
 
   return (
     <header
@@ -153,6 +164,7 @@ const Header = () => {
       // scrolls beneath this fixed header — a real per-frame cost on weaker
       // devices. Lighter on mobile, full blur restored from md: up.
       className={`fixed inset-x-0 top-0 z-50 backdrop-blur-sm md:backdrop-blur-xl backdrop-saturate-150 transition-all duration-300 ${headerTone}`}
+      style={headerSurfaceStyle}
     >
       <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
         {/* Logo */}
