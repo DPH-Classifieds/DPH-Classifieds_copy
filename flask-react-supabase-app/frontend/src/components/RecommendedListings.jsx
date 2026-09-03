@@ -5,17 +5,26 @@ import MarketplaceListingCard from './MarketplaceListingCard';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-const RecommendedListings = ({ limit = 8, className = '' }) => {
+// Two modes: pass listingType + listingId for "similar to this listing"
+// (used on every detail page); otherwise this is the personalized
+// viewed-history feed, falling back to newest-across-categories with no
+// history yet.
+const RecommendedListings = ({ limit = 8, className = '', listingType, listingId }) => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const isSimilar = Boolean(listingType && listingId);
 
   useEffect(() => {
-    const fetchRecommendations = async () => {
-      const profile = getBehaviorProfile();
-      const prefs = getPreferenceProfile();
+    let active = true;
 
-      try {
-        const body = prefs.totalViews > 0
+    const fetchRecommendations = async () => {
+      let body;
+      if (isSimilar) {
+        body = { listing_type: listingType, listing_id: listingId, limit };
+      } else {
+        const profile = getBehaviorProfile();
+        const prefs = getPreferenceProfile();
+        body = prefs.totalViews > 0
           ? {
               viewed: profile.viewed.map((v) => ({ type: v.type, id: v.id })),
               preferredTypes: prefs.preferredTypes,
@@ -23,22 +32,26 @@ const RecommendedListings = ({ limit = 8, className = '' }) => {
               limit,
             }
           : { limit };
+      }
 
+      try {
         const res = await fetch(`${API_URL}/api/recommendations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
         const data = await res.json();
-        setRecommendations(data.recommendations || []);
+        if (active) setRecommendations(data.recommendations || []);
       } catch (err) {
         console.warn('Failed to fetch recommendations:', err);
+        if (active) setRecommendations([]);
       }
-      setLoading(false);
+      if (active) setLoading(false);
     };
 
     fetchRecommendations();
-  }, [limit]);
+    return () => { active = false; };
+  }, [limit, isSimilar, listingType, listingId]);
 
   if (loading || recommendations.length === 0) return null;
 
@@ -48,21 +61,21 @@ const RecommendedListings = ({ limit = 8, className = '' }) => {
         <div className="cn-section-heading cn-section-heading-dark">
           <div>
             <span className="cn-kicker" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Sparkles size={14} /> Recommended for you
+              <Sparkles size={14} /> {isSimilar ? 'Similar Listings' : 'Recommended for you'}
             </span>
-            <h2>Based on what you have been looking at</h2>
+            <h2>{isSimilar ? 'You might also like' : 'Based on what you have been looking at'}</h2>
           </div>
         </div>
         <div className="cn-market-grid">
           {recommendations.map((item) => (
             <MarketplaceListingCard
-              key={`${item.type}-${item.id}`}
+              key={`${item.listingType || item.type}-${item.id}`}
               item={{
                 id: item.id,
-                categoryLabel: item.type,
+                categoryLabel: item.categoryLabel || item.type,
                 title: item.title,
                 subtitle: item.subtitle,
-                price: item.price,
+                priceLabel: item.priceLabel,
                 location: item.location,
                 image: item.image,
                 images: item.images,
