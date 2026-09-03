@@ -8,7 +8,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "backgroundColor": "#000000",
@@ -25,7 +24,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "backgroundColor": "#000000",
       "package": "com.dphclassifieds.app",
@@ -76,7 +74,10 @@
           "color": "#01351c"
         }
       ],
-      "expo-router"
+      "expo-router",
+      "expo-image",
+      "expo-localization",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

@@ -6,7 +6,7 @@
 // (post), (saved), (profile).
 import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import AndroidTabBar from '../../src/components/ui/AndroidTabBar';
 
 export default function TabsLayout() {
@@ -18,20 +18,20 @@ export default function TabsLayout() {
         minimizeBehavior="onScrollDown"
       >
         <NativeTabs.Trigger name="(explore)">
-          <Icon sf="safari.fill" />
-          <Label>Explore</Label>
+          <NativeTabs.Trigger.Icon sf="safari.fill" />
+          <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(post)">
-          <Icon sf="plus.circle.fill" />
-          <Label>Sell</Label>
+          <NativeTabs.Trigger.Icon sf="plus.circle.fill" />
+          <NativeTabs.Trigger.Label>Sell</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(saved)">
-          <Icon sf="heart.fill" />
-          <Label>Saved</Label>
+          <NativeTabs.Trigger.Icon sf="heart.fill" />
+          <NativeTabs.Trigger.Label>Saved</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(profile)">
-          <Icon sf="person.crop.circle.fill" />
-          <Label>Profile</Label>
+          <NativeTabs.Trigger.Icon sf="person.crop.circle.fill" />
+          <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );

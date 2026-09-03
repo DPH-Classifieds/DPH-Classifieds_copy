@@ -4,7 +4,7 @@
 // whatever content scrolls beneath it — no manual blur, no absolute positioning.
 // Constraint of the native layout: triggers accept SF Symbol icons + text labels
 // only, never arbitrary React components.
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 export default function TabsLayout() {
   return (
@@ -18,18 +18,18 @@ export default function TabsLayout() {
     >
       {/* `name` maps to the route/group folder under app/(tabs)/. */}
       <NativeTabs.Trigger name="(home)">
-        <Icon sf="house.fill" />
-        <Label>Home</Label>
+        <NativeTabs.Trigger.Icon sf="house.fill" />
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="explore">
-        <Icon sf="safari.fill" />
-        <Label>Explore</Label>
+        <NativeTabs.Trigger.Icon sf="safari.fill" />
+        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">
-        <Icon sf="person.crop.circle.fill" />
-        <Label>Profile</Label>
+        <NativeTabs.Trigger.Icon sf="person.crop.circle.fill" />
+        <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
