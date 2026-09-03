@@ -11,22 +11,22 @@
 
 .bikes-header h1 {
   font-size: 2.5rem;
-  color: #333;
+  color: var(--ex-text);
   margin-bottom: 10px;
 }
 
 .bikes-header p {
   font-size: 1.1rem;
-  color: #666;
+  color: var(--ex-text-muted);
 }
 
 .bikes-filters {
-  background: linear-gradient(135deg, var(--ex-shell-text) 0%, #f8f9fa 100%);
+  background: linear-gradient(135deg, var(--ex-shell-text) 0%, var(--ex-page-bg) 100%);
   padding: 24px;
   border-radius: 12px;
   margin-bottom: 30px;
   box-shadow: 0 4px 20px color-mix(in srgb, var(--ex-overlay-scrim) 8%, transparent);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--ex-line);
 }
 
 .filter-row {
@@ -49,7 +49,7 @@
 
 .filter-group label {
   font-size: 0.9rem;
-  color: #01351c;
+  color: var(--ex-primary-strong);
   margin-bottom: 8px;
   font-weight: 600;
 }
@@ -57,24 +57,24 @@
 .filter-group select,
 .filter-group input {
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--ex-line);
   border-radius: 8px;
   font-size: 0.95rem;
   transition: border-color 0.2s, box-shadow 0.2s;
   min-height: 48px;
-  background-color: white;
+  background-color: var(--ex-input-bg);
 }
 
 .filter-group select:hover,
 .filter-group input:hover {
-  border-color: #01351c;
+  border-color: var(--ex-primary-strong);
 }
 
 .filter-group select:focus,
 .filter-group input:focus {
   outline: none;
-  border-color: #01351c;
-  box-shadow: 0 0 0 3px rgba(1, 53, 28, 0.15);
+  border-color: var(--ex-primary-strong);
+  box-shadow: 0 0 0 3px var(--ex-brand-subtle-bg);
 }
 
 .bikes-results {
@@ -83,7 +83,7 @@
 
 .results-count {
   font-size: 0.95rem;
-  color: #666;
+  color: var(--ex-text-muted);
   margin-bottom: 15px;
 }
 
@@ -94,7 +94,7 @@
 }
 
 .bike-card {
-  background-color: white;
+  background-color: var(--ex-surface);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--ex-overlay-scrim) 5%, transparent);
@@ -140,7 +140,7 @@
   bottom: 10px;
   right: 10px;
   background-color: color-mix(in srgb, var(--ex-overlay-scrim) 70%, transparent);
-  color: white;
+  color: var(--ex-surface);
   padding: 5px 10px;
   border-radius: 4px;
   font-weight: 600;
@@ -158,7 +158,7 @@
   margin-top: 0;
   margin-bottom: 10px;
   font-size: 1.3rem;
-  color: #333;
+  color: var(--ex-text);
 }
 
 .bike-specs {
@@ -171,21 +171,21 @@
 .bike-engine,
 .bike-mileage {
   font-size: 0.9rem;
-  background-color: #f0f0f0;
+  background-color: var(--ex-surface-low);
   padding: 3px 8px;
   border-radius: 4px;
-  color: #555;
+  color: var(--ex-text-muted);
 }
 
 .bike-location {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--ex-text-muted);
   margin-bottom: 10px;
 }
 
 .bike-description {
   font-size: 0.95rem;
-  color: #555;
+  color: var(--ex-text-muted);
   line-height: 1.4;
   margin-bottom: 15px;
   flex: 1;
@@ -210,35 +210,35 @@
 }
 
 .view-details-btn {
-  background-color: #01351c;
-  color: white;
+  background-color: var(--ex-primary-strong);
+  color: var(--ex-surface);
   border: none;
 }
 
 .view-details-btn:hover {
-  background-color: #012513;
+  background-color: var(--ex-primary-strong);
 }
 
 .save-btn {
   background-color: transparent;
-  color: #01351c;
-  border: 1px solid #01351c;
+  color: var(--ex-primary-strong);
+  border: 1px solid var(--ex-primary-strong);
 }
 
 .save-btn:hover {
-  background-color: #f4f9fd;
+  background-color: var(--ex-brand-subtle-bg);
 }
 
 .no-bikes {
   text-align: center;
   padding: 40px;
-  background-color: #f8f9fa;
+  background-color: var(--ex-page-bg);
   border-radius: 8px;
-  color: #666;
+  color: var(--ex-text-muted);
 }
 
 .bike-sell-cta {
-  background-color: #f2f4f8;
+  background-color: var(--ex-surface-low);
   border-radius: 8px;
   overflow: hidden;
   position: relative;
@@ -251,13 +251,13 @@
 
 .cta-content h2 {
   font-size: 1.8rem;
-  color: #333;
+  color: var(--ex-text);
   margin-bottom: 15px;
 }
 
 .cta-content p {
   font-size: 1.1rem;
-  color: #666;
+  color: var(--ex-text-muted);
   margin-bottom: 20px;
   max-width: 600px;
   margin-left: auto;
@@ -267,8 +267,8 @@
 .sell-bike-btn {
   display: inline-block;
   padding: 12px 25px;
-  background-color: #01351c;
-  color: white;
+  background-color: var(--ex-primary-strong);
+  color: var(--ex-surface);
   border-radius: 4px;
   text-decoration: none;
   font-weight: 600;
@@ -276,7 +276,7 @@
 }
 
 .sell-bike-btn:hover {
-  background-color: #012513;
+  background-color: var(--ex-primary-strong);
 }
 
 .loading {
@@ -285,8 +285,8 @@
 }
 
 .loading-spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #01351c;
+  border: 4px solid var(--ex-surface-low);
+  border-top: 4px solid var(--ex-primary-strong);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -312,8 +312,8 @@
 
 .retry-button {
   padding: 10px 20px;
-  background-color: #01351c;
-  color: white;
+  background-color: var(--ex-primary-strong);
+  color: var(--ex-surface);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -322,7 +322,7 @@
 }
 
 .retry-button:hover {
-  background-color: #012513;
+  background-color: var(--ex-primary-strong);
 }
 
 @media (max-width: 768px) {

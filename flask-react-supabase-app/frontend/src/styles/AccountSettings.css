@@ -2,7 +2,7 @@
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
-  background-color: #f8f9fa;
+  background-color: var(--ex-page-bg);
   min-height: 100vh;
 }
 
@@ -10,19 +10,19 @@
   text-align: center;
   margin-bottom: 30px;
   padding: 20px;
-  background: white;
+  background: var(--ex-surface);
   border-radius: 12px;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--ex-overlay-scrim) 10%, transparent);
 }
 
 .settings-header h1 {
-  color: #01351c;
+  color: var(--ex-primary-strong);
   margin-bottom: 8px;
   font-size: 2rem;
 }
 
 .settings-header p {
-  color: #666;
+  color: var(--ex-text-muted);
   margin: 0;
 }
 
@@ -55,7 +55,7 @@
 /* Tabs */
 .settings-tabs {
   display: flex;
-  background: white;
+  background: var(--ex-surface);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--ex-overlay-scrim) 10%, transparent);
@@ -65,30 +65,30 @@
 .account-settings-container .tab-button {
   flex: 1;
   padding: 15px 20px;
-  background: white;
+  background: var(--ex-surface);
   border: none;
   cursor: pointer;
   font-size: 16px;
   font-weight: 500;
-  color: #666;
+  color: var(--ex-text-muted);
   transition: all 0.2s ease;
   border-bottom: 3px solid transparent;
 }
 
 .account-settings-container .tab-button:hover {
-  background-color: #f8f9fa;
-  color: #01351c;
+  background-color: var(--ex-page-bg);
+  color: var(--ex-primary-strong);
 }
 
 .account-settings-container .tab-button.active {
-  color: #01351c;
-  background-color: #f0fdf5;
-  border-bottom-color: #01351c;
+  color: var(--ex-primary-strong);
+  background-color: var(--ex-brand-subtle-bg);
+  border-bottom-color: var(--ex-primary-strong);
 }
 
 /* Content */
 .settings-content {
-  background: white;
+  background: var(--ex-surface);
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--ex-overlay-scrim) 10%, transparent);
@@ -108,7 +108,7 @@
 
 .favourites-subtitle {
   margin: 0;
-  color: #8a8a8a;
+  color: var(--ex-text-muted);
   font-size: 14px;
 }
 
@@ -117,8 +117,8 @@
   align-items: center;
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(1, 53, 28, 0.08);
-  color: #01351c;
+  background: var(--ex-brand-subtle-bg);
+  color: var(--ex-primary-strong);
   font-weight: 700;
 }
 
@@ -135,8 +135,8 @@
   min-height: 240px;
   padding: 32px;
   border-radius: 16px;
-  border: 1px dashed rgba(1, 53, 28, 0.25);
-  background: rgba(1, 53, 28, 0.04);
+  border: 1px dashed color-mix(in srgb, var(--ex-primary-strong) 25%, transparent);
+  background: color-mix(in srgb, var(--ex-primary-strong) 4%, transparent);
   text-align: center;
 }
 
@@ -144,19 +144,19 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #01351c;
+  color: var(--ex-primary-strong);
 }
 
 .favourites-empty span {
-  color: #666;
+  color: var(--ex-text-muted);
   font-size: 14px;
 }
 
 .tab-content h2 {
-  color: #01351c;
+  color: var(--ex-primary-strong);
   margin-bottom: 25px;
   font-size: 1.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--ex-line);
   padding-bottom: 10px;
 }
 
@@ -164,9 +164,9 @@
 .profile-photo-section {
   margin-bottom: 30px;
   padding: 20px;
-  background-color: #f8f9fa;
+  background-color: var(--ex-page-bg);
   border-radius: 8px;
-  border: 1px dashed #01351c;
+  border: 1px dashed var(--ex-primary-strong);
 }
 
 .photo-upload-area {
@@ -182,7 +182,7 @@
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid #01351c;
+  border: 3px solid var(--ex-primary-strong);
   display: flex;
   align-items: center;
   justify-content: center;

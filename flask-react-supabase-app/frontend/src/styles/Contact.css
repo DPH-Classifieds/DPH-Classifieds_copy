@@ -20,7 +20,7 @@
   font-size: clamp(2.7rem, 6vw, 4.8rem);
   line-height: 0.98;
   letter-spacing: -0.04em;
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .contact-subtitle {
@@ -89,7 +89,7 @@
 
 .contact-info-details h3,
 .contact-form-container h2 {
-  color: #ffffff;
+  color: var(--ex-shell-text);
   margin-bottom: 10px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   letter-spacing: -0.03em;
@@ -117,11 +117,18 @@
 
 .form-group label {
   margin-bottom: 8px;
-  color: rgba(238, 247, 239, 0.82);
+  color: color-mix(in srgb, var(--ex-shell-text) 82%, transparent);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--ex-shell-accent) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
 }
 
 .form-group input,
@@ -131,7 +138,7 @@
   border: 1px solid var(--ct-line-strong);
   border-radius: 16px;
   background: color-mix(in srgb, var(--ex-shell-text) 5%, transparent);
-  color: #ffffff;
+  color: var(--ex-shell-text);
   padding: 14px 16px;
   font-size: 0.96rem;
 }
@@ -158,8 +165,8 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #0b6b4c 0%, #004e37 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
+  color: var(--ex-shell-text);
   box-shadow: 0 14px 28px color-mix(in srgb, var(--ex-shell-on-accent) 22%, transparent);
 }
 

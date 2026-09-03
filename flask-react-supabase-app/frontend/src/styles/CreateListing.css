@@ -6,12 +6,12 @@
 
 .create-listing-container h1 {
   text-align: center;
-  color: #333;
+  color: var(--ex-text);
   margin-bottom: 30px;
 }
 
 .create-listing-form {
-  background-color: white;
+  background-color: var(--ex-surface);
   border-radius: 8px;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--ex-overlay-scrim) 10%, transparent);
   overflow: hidden;
@@ -20,16 +20,16 @@
 /* Form Sections */
 .form-section {
   padding: 25px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--ex-line);
 }
 
 .form-section h2 {
   font-size: 1.3rem;
-  color: #333;
+  color: var(--ex-text);
   margin-top: 0;
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--ex-line);
 }
 
 .form-row {
@@ -59,7 +59,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #555;
+  color: var(--ex-text-muted);
 }
 
 .form-group label::after {
@@ -81,7 +81,7 @@
 .form-group textarea {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--ex-line);
   border-radius: 4px;
   font-size: 16px;
   transition: border-color 0.3s ease;
@@ -90,14 +90,14 @@
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: #4a6fff;
+  border-color: var(--ex-primary);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(74, 111, 255, 0.2);
+  box-shadow: 0 0 0 2px var(--ex-brand-subtle-bg);
 }
 
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-  color: #aaa;
+  color: var(--ex-text-muted);
 }
 
 .form-group textarea {
@@ -111,7 +111,7 @@
   justify-content: flex-end;
   gap: 15px;
   padding: 25px;
-  background-color: #f8f9fa;
+  background-color: var(--ex-page-bg);
 }
 
 /* Phone Input Group */
@@ -125,38 +125,38 @@
 .country-code-select {
   flex: 0 0 140px;
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--ex-line);
   border-radius: 8px;
   font-size: 14px;
-  background-color: white;
+  background-color: var(--ex-input-bg);
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .country-code-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--ex-primary);
+  box-shadow: 0 0 0 3px var(--ex-brand-subtle-bg);
 }
 
 .phone-number-input {
   flex: 1;
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--ex-line);
   border-radius: 8px;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--ex-text-muted);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .phone-number-input::placeholder {
-  color: #9ca3af;
+  color: var(--ex-text-muted);
 }
 
 .phone-number-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--ex-primary);
+  box-shadow: 0 0 0 3px var(--ex-brand-subtle-bg);
 }
 
 .cancel-button,
@@ -171,25 +171,25 @@
 }
 
 .cancel-button {
-  background-color: #f1f1f1;
-  color: #333;
+  background-color: var(--ex-surface-low);
+  color: var(--ex-text);
 }
 
 .cancel-button:hover {
-  background-color: #e0e0e0;
+  background-color: var(--ex-line);
 }
 
 .submit-button {
-  background-color: #01351c;
-  color: white;
+  background-color: var(--ex-primary-strong);
+  color: var(--ex-surface);
 }
 
 .submit-button:hover {
-  background-color: #012513;
+  background-color: var(--ex-primary-strong);
 }
 
 .submit-button:disabled {
-  background-color: #99aeff;
+  background-color: var(--ex-brand-subtle-bg);
   cursor: not-allowed;
 }
 
@@ -211,11 +211,11 @@
 .description-word-counter {
   display: block;
   margin-top: 8px;
-  color: #6b7280;
+  color: var(--ex-text-muted);
 }
 
 .vin-help-text {
-  color: #6b7280;
+  color: var(--ex-text-muted);
 }
 
 /* Success Message */
@@ -224,18 +224,18 @@
   padding: 50px 20px;
   max-width: 600px;
   margin: 50px auto;
-  background-color: #f0fff4;
+  background-color: var(--ex-brand-subtle-bg);
   border-radius: 8px;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--ex-overlay-scrim) 10%, transparent);
 }
 
 .success-message h2 {
-  color: #38a169;
+  color: var(--ex-primary-strong);
   margin-bottom: 20px;
 }
 
 .success-message p {
-  color: #555;
+  color: var(--ex-text-muted);
   font-size: 1.1rem;
 }
 
@@ -328,7 +328,7 @@
 }
 
 .remove-image-btn:hover {
-  background-color: white;
+  background-color: var(--ex-surface);
 }
 
 .image-preview .frame-btn {
@@ -368,7 +368,7 @@
 .form-hint {
   display: block;
   margin-top: 8px;
-  color: #888;
+  color: var(--ex-text-muted);
   font-size: 0.85rem;
 }
 
@@ -381,16 +381,16 @@
 }
 
 .feature-item {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background-color: var(--ex-page-bg);
+  border: 1px solid var(--ex-line);
   border-radius: 6px;
   padding: 12px 16px;
   transition: all 0.2s ease;
 }
 
 .feature-item:hover {
-  background-color: #e9ecef;
-  border-color: #01351c;
+  background-color: var(--ex-surface-low);
+  border-color: var(--ex-primary-strong);
 }
 
 .feature-item label {
@@ -399,14 +399,14 @@
   margin: 0;
   cursor: pointer;
   font-weight: 500;
-  color: #333;
+  color: var(--ex-text);
 }
 
 .feature-item input[type="checkbox"] {
   margin-right: 10px;
   width: 18px;
   height: 18px;
-  accent-color: #01351c;
+  accent-color: var(--ex-primary-strong);
 }
 
 .feature-item span {
