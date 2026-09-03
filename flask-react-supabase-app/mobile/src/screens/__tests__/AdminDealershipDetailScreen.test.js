@@ -59,11 +59,11 @@ test('AdminDealershipDetailScreen renders LIGHT_COLORS values when theme is ligh
   // LIGHT_COLORS.black = '#0E1512' (container)
   // LIGHT_COLORS.surface = '#FFFFFF' (surface)
   // LIGHT_COLORS.accent = '#0B6B4C' (avatarText, primaryBtnText)
-  // LIGHT_COLORS.textMuted = '#5B655F' (sectionTitle)
+  // LIGHT_COLORS.textMuted = '#000000' (sectionTitle)
   expect(tree).toContain('0E1512');
   expect(tree).toContain('FFFFFF');
   expect(tree).toContain('0B6B4C');
-  expect(tree).toContain('91,101,95');
+  expect(tree).toContain('000000');
   expect(tree).not.toContain('05100a');
   expect(tree).not.toContain('0C1C13');
   expect(tree).not.toContain('8BD6B4');

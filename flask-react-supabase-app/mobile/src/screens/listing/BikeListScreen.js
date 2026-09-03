@@ -50,7 +50,7 @@ const getImageUri = (item) => {
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
-function BikeCard({ item, index, onPress, columns }) {
+function BikeCard({ item, index, onPress, columns, styles }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const imageUri = getImageUri(item);
   const grid = columns === 2;
@@ -210,7 +210,7 @@ export default function BikeListScreen({ navigation }) {
       onPress={() => setFilterModal(key)}
     >
       <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{label}</Text>
-      <Ionicons name="chevron-down" size={14} color={isActive ? colors.accent : colors.textMuted} />
+      <Ionicons name="chevron-down" size={14} color={isActive ? colors.chipActiveText : colors.textMuted} />
     </TouchableOpacity>
   );
 
@@ -283,6 +283,7 @@ export default function BikeListScreen({ navigation }) {
       item={item}
       index={index}
       columns={columns}
+      styles={styles}
       onPress={() => { prefetchListing('bikes', item); navigation.navigate('BikeDetail', { listingId: item.id }); }}
     />
   );
@@ -303,7 +304,7 @@ export default function BikeListScreen({ navigation }) {
     },
     filterChipActive: { backgroundColor: colors.primary },
     filterChipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
-    filterChipTextActive: { color: colors.accent },
+    filterChipTextActive: { color: colors.chipActiveText },
     clearFiltersChip: {
       flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76,175,80,0.1)',
       paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, gap: 4,
@@ -367,7 +368,7 @@ export default function BikeListScreen({ navigation }) {
               <Ionicons
                 name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
                 size={14}
-                color={activeFilters.hideReddit ? colors.accent : colors.textMuted}
+                color={activeFilters.hideReddit ? colors.chipActiveText : colors.textMuted}
               />
               <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
                 {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}

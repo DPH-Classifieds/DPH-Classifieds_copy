@@ -50,11 +50,11 @@ test('ResetPasswordScreen renders LIGHT_COLORS background and textSecondary when
   return findByText('Enter your new password below.').then(() => {
     const tree = flattenStyles(toJSON());
     // LIGHT_COLORS.background    = '#FAFAFA' (page base — unique to LIGHT)
-    // LIGHT_COLORS.textSecondary = '#5B655F' (subtitle color — unique to LIGHT)
+    // LIGHT_COLORS.textSecondary = '#000000' (subtitle color — unique to LIGHT)
     // DARK_COLORS.background     = '#07110b' (page base — unique to DARK)
     // DARK_COLORS.textSecondary  = '#A8B4AC' (subtitle color — unique to DARK)
     expect(tree).toContain('FAFAFA');
-    expect(tree).toContain('5B655F');
+    expect(tree).toContain('000000');
     expect(tree).not.toContain('07110b');
     expect(tree).not.toContain('A8B4AC');
   });

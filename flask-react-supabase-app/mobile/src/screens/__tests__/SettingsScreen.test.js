@@ -74,12 +74,12 @@ test('SettingsScreen renders LIGHT_COLORS values when theme is light', async () 
   const { toJSON, findByText } = render(<SettingsScreen navigation={navigation} />);
   await findByText('Appearance');
   // LIGHT_COLORS.accent = '#0B6B4C' (Appearance segmented active bg).
-  // LIGHT_COLORS.textMuted = 'rgba(91,101,95,0.65)' (description under "Appearance").
+  // LIGHT_COLORS.textMuted = '#000000' (description under "Appearance").
   // DARK_COLORS.accent = '#8BD6B4'.
   // DARK_COLORS.textMuted = 'rgba(168,180,172,0.6)'.
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('0B6B4C');
-  expect(tree).toContain('91,101,95,0.65');
+  expect(tree).toContain('000000');
   expect(tree).not.toContain('8BD6B4');
   expect(tree).not.toContain('168,180,172,0.6');
 });

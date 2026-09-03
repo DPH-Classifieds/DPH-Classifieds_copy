@@ -64,7 +64,7 @@ test('PlateListScreen renders LIGHT_COLORS values when theme is light', () => {
   return findByText('Browse Plates').then(() => {
     const tree = flattenStyles(toJSON());
     expect(tree).toContain('FAFAFA');
-    expect(tree).toContain('5B655F');
+    expect(tree).toContain('000000');
     expect(tree).not.toContain('07110b');
   });
 });

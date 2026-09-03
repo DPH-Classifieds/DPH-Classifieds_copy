@@ -47,11 +47,11 @@ test('AdminToolsScreen renders LIGHT_COLORS values when theme is light', async (
   // LIGHT_COLORS.surface = '#FFFFFF' (card)
   // LIGHT_COLORS.primary = '#01351C' (same in both themes)
   // LIGHT_COLORS.accent = '#0B6B4C' (runBtn)
-  // LIGHT_COLORS.textSecondary = '#5B655F' (toggleLabel)
+  // LIGHT_COLORS.textSecondary = '#000000' (toggleLabel)
   expect(tree).toContain('0E1512');
   expect(tree).toContain('FFFFFF');
   expect(tree).toContain('0B6B4C');
-  expect(tree).toContain('5B655F');
+  expect(tree).toContain('000000');
   expect(tree).not.toContain('05100a');
   expect(tree).not.toContain('8BD6B4');
   expect(tree).not.toContain('A8B4AC');

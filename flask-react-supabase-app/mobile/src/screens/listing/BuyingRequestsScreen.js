@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -12,13 +12,21 @@ import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
 import EmptyState from '../../components/ui/EmptyState';
 import ListingSkeleton from '../../components/ui/ListingSkeleton';
+import SearchBar from '../../components/ui/SearchBar';
 import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { formatPrice } from '../../utils/formatters';
 
 const PAGE_SIZE = 20;
 
-function RequestCard({ item, index, onPress }) {
+// Same category set as the Post Request form so list chips match what buyers pick.
+const CATEGORIES = ['All', 'Cars', 'Bikes', 'Plates', 'Parts', 'Other'];
+const SORTS = [
+  { key: 'newest', label: 'Newest' },
+  { key: 'oldest', label: 'Oldest' },
+];
+
+function RequestCard({ item, index, onPress, styles }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   return (
     <Animated.View style={animatedStyle}>
@@ -55,6 +63,9 @@ export default function BuyingRequestsScreen({ navigation }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
+  const [sort, setSort] = useState('newest');
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -88,23 +99,49 @@ export default function BuyingRequestsScreen({ navigation }) {
     }
   }, []);
 
-  useEffect(() => { fetchRequests(1); }, []);
+  useEffect(() => { fetchRequests(1); }, [fetchRequests]);
 
   const handleRefresh = useCallback(() => fetchRequests(1, true), [fetchRequests]);
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore) fetchRequests(page + 1);
   }, [loadingMore, hasMore, page, fetchRequests]);
 
+  const visibleRequests = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const ts = (d) => (d ? new Date(d).getTime() : 0);
+    const list = requests.filter((r) => {
+      if (category !== 'All' && (r.category || '').toLowerCase() !== category.toLowerCase()) return false;
+      if (q) {
+        const haystack = [r.title, r.description, r.make, r.model]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+    return [...list].sort((a, b) => (
+      sort === 'oldest' ? ts(a.created_at) - ts(b.created_at) : ts(b.created_at) - ts(a.created_at)
+    ));
+  }, [requests, search, category, sort]);
+
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.md },
-    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.textPrimary },
+    header: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+    backBtn: { width: 32, alignItems: 'flex-start' },
+    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.textPrimary, flex: 1 },
     postBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8 },
-    postBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.black },
+    postBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.onAccent },
+    searchContainer: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
+    filters: { flexGrow: 0, maxHeight: 52, marginBottom: SPACING.sm },
+    filtersContent: { paddingHorizontal: SPACING.md, gap: 8, alignItems: 'center' },
+    chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+    chipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    chipTextActive: { color: colors.onAccent },
+    divider: { width: 1, height: 22, backgroundColor: colors.border, marginHorizontal: 4 },
     card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md, borderWidth: 1, borderColor: colors.borderLight },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
     categoryBadge: { backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 10, paddingVertical: 3 },
-    categoryText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.accent },
+    categoryText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.chipActiveText },
     date: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textMuted },
     title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.textPrimary, marginBottom: SPACING.xs },
     budget: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.accent, marginBottom: 2 },
@@ -115,36 +152,58 @@ export default function BuyingRequestsScreen({ navigation }) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenEntrance>
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
           <Text style={styles.heading}>Buying Requests</Text>
           <PressableScale
             onPress={() => navigation.navigate('PostBuyingRequest')}
             haptic="medium"
             style={styles.postBtn}
           >
-            <Ionicons name="add" size={20} color={colors.black} />
+            <Ionicons name="add" size={20} color={colors.onAccent} />
             <Text style={styles.postBtnText}>Post Request</Text>
           </PressableScale>
         </View>
+
+        <View style={styles.searchContainer}>
+          <SearchBar value={search} onChangeText={setSearch} placeholder="Search requests..." />
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters} contentContainerStyle={styles.filtersContent}>
+          {CATEGORIES.map((c) => (
+            <TouchableOpacity key={c} onPress={() => setCategory(c)} style={[styles.chip, category === c && styles.chipActive]}>
+              <Text style={[styles.chipText, category === c && styles.chipTextActive]}>{c}</Text>
+            </TouchableOpacity>
+          ))}
+          <View style={styles.divider} />
+          {SORTS.map((s) => (
+            <TouchableOpacity key={s.key} onPress={() => setSort(s.key)} style={[styles.chip, sort === s.key && styles.chipActive]}>
+              <Text style={[styles.chipText, sort === s.key && styles.chipTextActive]}>{s.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {loading ? (
           <ListingSkeleton count={4} />
         ) : (
           <FlashList
-            data={requests}
-            keyExtractor={(item) => item.id}
+            data={visibleRequests}
+            keyExtractor={(item, idx) => String(item.id ?? idx)}
             estimatedItemSize={120}
             renderItem={({ item, index }) => (
               <RequestCard
                 item={item}
                 index={index}
+                styles={styles}
                 onPress={() => navigation.navigate('BuyingRequestDetail', { requestId: item.id })}
               />
             )}
             onEndReached={loadMore}
             onEndReachedThreshold={0.4}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
             ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.accent} style={{ padding: 20 }} /> : null}
-            ListEmptyComponent={<EmptyState icon="search" title="No buying requests yet" message="Be the first to post what you're looking for" />}
+            ListEmptyComponent={<EmptyState icon="search" title="No buying requests found" message="Try a different search or category — or post what you're looking for" />}
           />
         )}
       </ScreenEntrance>

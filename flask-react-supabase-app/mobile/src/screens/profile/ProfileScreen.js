@@ -14,8 +14,16 @@ import Badge from '../../components/ui/Badge';
 import AnimatedCard from '../../components/ui/AnimatedCard';
 
 export default function ProfileScreen({ navigation }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => StyleSheet.create({
+  const { colors, theme } = useTheme();
+  const styles = useMemo(() => {
+    // Card outlines per DESIGN.md §6 (ghost mint borders) — tinted green in
+    // both modes so the box edges read on dark AND light surfaces.
+    const boxBorder = theme === 'dark' ? 'rgba(139,214,180,0.16)' : 'rgba(11,107,76,0.35)';
+    const lineBorder = theme === 'dark' ? colors.borderLight : 'rgba(11,107,76,0.18)';
+    const boxShadow = theme === 'dark'
+      ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 }
+      : { shadowColor: '#0B1D13', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 };
+    return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
     headerTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
@@ -23,6 +31,8 @@ export default function ProfileScreen({ navigation }) {
       alignItems: 'center', paddingVertical: SPACING.lg, paddingHorizontal: SPACING.md,
       backgroundColor: colors.surface, marginHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.lg,
       marginBottom: SPACING.md,
+      borderWidth: 1, borderColor: boxBorder,
+      ...boxShadow,
     },
     userName: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', marginTop: SPACING.sm },
     userUsername: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
@@ -31,31 +41,40 @@ export default function ProfileScreen({ navigation }) {
     infoCard: {
       backgroundColor: colors.surface, marginHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.lg,
       paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, marginBottom: SPACING.md,
+      borderWidth: 1, borderColor: boxBorder,
+      ...boxShadow,
     },
     infoRow: {
       flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: lineBorder,
     },
     infoText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, flex: 1 },
     statsRow: {
       flexDirection: 'row', backgroundColor: colors.surface, marginHorizontal: SPACING.md,
       borderRadius: BORDER_RADIUS.lg, paddingVertical: SPACING.md, marginBottom: SPACING.md,
+      borderWidth: 1, borderColor: boxBorder,
+      ...boxShadow,
     },
     statItem: { flex: 1, alignItems: 'center' },
     statNumber: { color: colors.textPrimary, fontSize: FONT_SIZES.xl, fontWeight: '700' },
     statLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 2 },
-    statDivider: { width: 1, backgroundColor: colors.border, marginVertical: 4 },
-    menu: { marginHorizontal: SPACING.md, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
+    statDivider: { width: 1, backgroundColor: lineBorder, marginVertical: 4 },
+    menu: {
+      marginHorizontal: SPACING.md, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden',
+      borderWidth: 1, borderColor: boxBorder,
+      ...boxShadow,
+    },
     menuItem: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingVertical: 15, paddingHorizontal: SPACING.md,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: lineBorder,
     },
     menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     menuLabel: { color: colors.textPrimary, fontSize: FONT_SIZES.md },
-    menuDivider: { height: 1, backgroundColor: colors.border, marginVertical: SPACING.xs },
+    menuDivider: { height: 1, backgroundColor: lineBorder, marginVertical: SPACING.xs },
     version: { textAlign: 'center', color: colors.textMuted, fontSize: FONT_SIZES.xs, paddingVertical: SPACING.xl },
-  }), [colors]);
+    });
+  }, [colors, theme]);
 
   const { user, signOut, syncWithSupabase } = useAuth();
   const [stats, setStats] = useState(null);

@@ -137,7 +137,7 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature
                 {isBuyingRequest ? `Budget ${formatPrice(getDisplayPrice(item))}` : formatPrice(getDisplayPrice(item))}
               </Text>
               <View style={styles.cardMeta}>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus, colors) }]}>
                   <Text style={styles.statusBadgeText}>{displayStatus}</Text>
                 </View>
                 {item.sold_status && SOLD_STATUS_CONFIG[item.sold_status] && (
@@ -991,7 +991,7 @@ export default function AdminListingsScreen({ navigation }) {
   );
 }
 
-const getStatusColor = (status) => {
+const getStatusColor = (status, colors) => {
   switch (status) {
     case 'active': return colors.success;
     case 'approved': return colors.success;

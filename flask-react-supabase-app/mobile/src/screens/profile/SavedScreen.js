@@ -48,7 +48,7 @@ function SavedSearchCard({ search, index, onPress, onDelete, styles, colors }) {
       <PressableScale onPress={onPress}>
         <View style={styles.searchCard}>
           <View style={styles.searchCardIcon}>
-            <Ionicons name="search" size={18} color={colors.accent} />
+            <Ionicons name="search" size={18} color={colors.chipActiveText} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.searchCardTitle} numberOfLines={1}>{buildSearchTitle(search)}</Text>
@@ -109,7 +109,7 @@ function SegmentedTabs({ tabs, activeIndex, counts, onSelect, styles, colors }) 
             <Ionicons
               name={TAB_ICONS[index]}
               size={15}
-              color={active ? colors.accent : colors.textMuted}
+              color={active ? colors.chipActiveText : colors.textMuted}
             />
             <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
               {tab}
@@ -195,7 +195,7 @@ export default function SavedScreen({ navigation }) {
       color: colors.textMuted,
     },
     chipTextActive: {
-      color: colors.accent,
+      color: colors.chipActiveText,
     },
     segmentBadge: {
       minWidth: 16,
@@ -215,7 +215,7 @@ export default function SavedScreen({ navigation }) {
       color: colors.textSecondary,
     },
     segmentBadgeTextActive: {
-      color: colors.black,
+      color: colors.onAccent,
     },
     listContent: {
       padding: SPACING.md,

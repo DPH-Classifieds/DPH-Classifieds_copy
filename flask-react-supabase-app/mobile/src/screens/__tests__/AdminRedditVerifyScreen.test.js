@@ -63,10 +63,10 @@ test('AdminRedditVerifyScreen renders LIGHT_COLORS values when theme is light', 
   const tree = flattenStyles(toJSON());
   // LIGHT_COLORS.black = '#0E1512' (container)
   // LIGHT_COLORS.surface = '#FFFFFF' (kpiCard)
-  // LIGHT_COLORS.textSecondary = '#5B655F' (kpiLabel)
+  // LIGHT_COLORS.textSecondary = '#000000' (kpiLabel)
   expect(tree).toContain('0E1512');
   expect(tree).toContain('FFFFFF');
-  expect(tree).toContain('5B655F');
+  expect(tree).toContain('000000');
   expect(tree).not.toContain('05100a');
   expect(tree).not.toContain('0C1C13');
   expect(tree).not.toContain('A8B4AC');

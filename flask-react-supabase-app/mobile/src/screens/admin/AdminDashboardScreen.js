@@ -42,6 +42,67 @@ function LiveVisitorsSparkline({ points = [], width = 280, height = 60 }) {
 // only actions an operator clicks regularly (approvals, reports, dealer
 // reviews). View Metrics is exposed via the "Show all metrics" expander.
 
+// Actionable inbox card (pending approvals, open reports, ...). Receives the
+// screen's themed `styles` as a prop so it stays renderable in both modes.
+function InboxCard({ label, sub, value, color, icon, onPress, styles }) {
+  return (
+    <TouchableOpacity style={styles.inboxCard} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.inboxIconWrap, { backgroundColor: `${color}26` }]}>
+        <Ionicons name={icon} size={15} color={color} />
+      </View>
+      <Text style={styles.inboxValue}>{value}</Text>
+      <Text style={styles.inboxLabel}>{label}</Text>
+      <Text style={styles.inboxSub}>{sub}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// Headline KPI card. Same prop-threading contract as InboxCard.
+function KpiCard({ icon, label, value, color, styles }) {
+  return (
+    <View style={styles.kpiCard}>
+      <Ionicons name={icon} size={20} color={color} style={styles.kpiIcon} />
+      <Text style={styles.kpiValue}>{value}</Text>
+      <Text style={styles.kpiLabel}>{label}</Text>
+    </View>
+  );
+}
+
+// Link card that opens an external analytics dashboard. Same prop-threading
+// contract as InboxCard (styles + colors passed by the call site).
+function ExternalAnalyticsCard({ title, subtitle, icon, url, colors, styles }) {
+  return (
+    <TouchableOpacity
+      style={[styles.actionCard, { marginBottom: SPACING.sm }]}
+      onPress={() => { if (url) Linking.openURL(url); }}
+      activeOpacity={0.7}
+    >
+      <View style={styles.actionLeft}>
+        <Ionicons name={icon} size={20} color={colors.accent} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.actionLabel}>{title}</Text>
+          {!!subtitle && <Text style={styles.actionSubtitle}>{subtitle}</Text>}
+        </View>
+      </View>
+      <Ionicons name="open-outline" size={16} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
+}
+
+// Small Cloudflare edge stat. Self-themed via useTheme (call sites pass no
+// styles/colors).
+function EdgeStat({ label, value }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 8, padding: 8 }}>
+      <Text style={{ color: colors.textSecondary, fontSize: 10 }}>{label}</Text>
+      <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '700', marginTop: 2 }}>
+        {value ?? '—'}
+      </Text>
+    </View>
+  );
+}
+
 const TIME_RANGE_OPTIONS = [
   { label: '24h', days: 1 },
   { label: '7d', days: 7 },

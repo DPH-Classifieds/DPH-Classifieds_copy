@@ -266,7 +266,7 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
   );
 }
 
-function Picker({ label, value, options, onSelect, placeholder }) {
+function Picker({ label, value, options, onSelect, placeholder, styles, colors }) {
   const [visible, setVisible] = useState(false);
   const displayValue = typeof value === 'string' ? value : '';
   return (
@@ -290,7 +290,7 @@ function Picker({ label, value, options, onSelect, placeholder }) {
   );
 }
 
-function CountryCodePicker({ label, value, onSelect }) {
+function CountryCodePicker({ label, value, onSelect, styles, colors }) {
   const [visible, setVisible] = useState(false);
   return (
     <View style={styles.codePickerContainer}>
@@ -311,10 +311,10 @@ function CountryCodePicker({ label, value, onSelect }) {
   );
 }
 
-function PhoneInput({ countryCode, countryCodeLabel, onCountryCodeChange, phoneValue, onPhoneChange, required }) {
+function PhoneInput({ countryCode, countryCodeLabel, onCountryCodeChange, phoneValue, onPhoneChange, required, styles, colors }) {
   return (
     <View style={styles.phoneRow}>
-      <CountryCodePicker
+      <CountryCodePicker styles={styles} colors={colors}
         label={countryCodeLabel}
         value={countryCode}
         onSelect={onCountryCodeChange}
@@ -332,7 +332,7 @@ function PhoneInput({ countryCode, countryCodeLabel, onCountryCodeChange, phoneV
   );
 }
 
-function ToggleRow({ label, value, onValueChange }) {
+function ToggleRow({ label, value, onValueChange, styles, colors }) {
   return (
     <View style={styles.toggleRow}>
       <Text style={styles.toggleLabel}>{label}</Text>
@@ -346,7 +346,7 @@ function ToggleRow({ label, value, onValueChange }) {
   );
 }
 
-function CollapsibleSection({ title, expanded, onToggle, children, hidden }) {
+function CollapsibleSection({ title, expanded, onToggle, children, hidden, styles, colors }) {
   if (hidden) return null;
   return (
     <View style={styles.section}>
@@ -363,7 +363,7 @@ function CollapsibleSection({ title, expanded, onToggle, children, hidden }) {
   );
 }
 
-function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, onEditImage }) {
+function ImageSection({ images, onPickImages, onRemoveImage, onReorderImages, onEditImage, styles, colors }) {
   return (
     <View style={styles.section}>
       <View style={styles.imageHeader}>
@@ -1707,9 +1707,9 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== CAR FORM ====================
   const renderCarForm = () => (
     <View>
-      <CollapsibleSection title="Basic Details" expanded={expandedSections.car_basic} onToggle={() => toggleSection('car_basic')} hidden={!isSectionVisible('car_basic')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Basic Details" expanded={expandedSections.car_basic} onToggle={() => toggleSection('car_basic')} hidden={!isSectionVisible('car_basic')}>
         <Text style={styles.fieldLabel}>Emirate *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carEmirate}
           options={UAE_EMIRATES}
           onSelect={setCarEmirate}
@@ -1717,7 +1717,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         {carAreaOptions.length > 0 ? (
-          <Picker
+          <Picker styles={styles} colors={colors}
             label="Area *"
             value={carArea}
             options={carAreaOptions}
@@ -1734,7 +1734,7 @@ export default function PostListingScreen({ navigation, route }) {
         )}
 
         <Text style={styles.fieldLabel}>Make *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.car_manufacturer}
           options={['', ...CAR_MAKES]}
           onSelect={(v) => updateCarForm('car_manufacturer', v)}
@@ -1820,7 +1820,7 @@ export default function PostListingScreen({ navigation, route }) {
         )}
 
         <Text style={styles.fieldLabel}>Model *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.car_model}
           options={['', ...availableModels]}
           onSelect={(v) => updateCarForm('car_model', v)}
@@ -1835,7 +1835,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Regional Spec *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.regional_spec}
           options={REGIONAL_SPECS}
           onSelect={(v) => updateCarForm('regional_spec', v)}
@@ -1843,7 +1843,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Year *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.make_year}
           options={years}
           onSelect={(v) => updateCarForm('make_year', v)}
@@ -1859,7 +1859,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Body Type *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.body_type}
           options={['', ...BODY_TYPES]}
           onSelect={(v) => updateCarForm('body_type', v)}
@@ -1867,14 +1867,14 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Insured in UAE?</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.is_insured ? 'Yes' : 'No'}
           options={['No', 'Yes']}
           onSelect={(v) => updateCarForm('is_insured', v === 'Yes')}
         />
 
         <Text style={styles.fieldLabel}>Condition *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.vehicle_type}
           options={VEHICLE_CONDITIONS}
           onSelect={(v) => updateCarForm('vehicle_type', v)}
@@ -1882,7 +1882,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Ownership</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.ownership_status}
           options={['', ...OWNERSHIP_STATUS]}
           onSelect={(v) => updateCarForm('ownership_status', v)}
@@ -1897,7 +1897,7 @@ export default function PostListingScreen({ navigation, route }) {
           keyboardType="numeric"
         />
 
-        <PhoneInput
+        <PhoneInput styles={styles} colors={colors}
           countryCodeLabel="Country Code"
           countryCode={carForm.country_code}
           onCountryCodeChange={(v) => updateCarForm('country_code', v)}
@@ -1906,7 +1906,7 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="WhatsApp same as phone"
           value={carForm.same_as_phone}
           onValueChange={(v) => {
@@ -1915,7 +1915,7 @@ export default function PostListingScreen({ navigation, route }) {
           }}
         />
         {!carForm.same_as_phone && (
-          <PhoneInput
+          <PhoneInput styles={styles} colors={colors}
             countryCodeLabel="WhatsApp Code"
             countryCode={carForm.country_code}
             onCountryCodeChange={(v) => updateCarForm('country_code', v)}
@@ -1953,7 +1953,7 @@ export default function PostListingScreen({ navigation, route }) {
           />
         </View>
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="Dealer Listing"
           value={carForm.is_dealer}
           onValueChange={(v) => updateCarForm('is_dealer', v)}
@@ -1975,16 +1975,16 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Contact Preference</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.contact_preference}
           options={['phone', 'email', 'whatsapp']}
           onSelect={(v) => updateCarForm('contact_preference', v)}
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Specifications" expanded={expandedSections.car_specs} onToggle={() => toggleSection('car_specs')} hidden={!isSectionVisible('car_specs')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Specifications" expanded={expandedSections.car_specs} onToggle={() => toggleSection('car_specs')} hidden={!isSectionVisible('car_specs')}>
         <Text style={styles.fieldLabel}>Fuel Type *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.fuel_type}
           options={['', ...FUEL_TYPES]}
           onSelect={(v) => updateCarForm('fuel_type', v)}
@@ -1992,7 +1992,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Transmission *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.transmission_type}
           options={['', ...TRANSMISSION_TYPES]}
           onSelect={(v) => updateCarForm('transmission_type', v)}
@@ -2000,7 +2000,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Seating Capacity</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.seating_capacity}
           options={['', ...SEATING_CAPACITY]}
           onSelect={(v) => updateCarForm('seating_capacity', v)}
@@ -2008,7 +2008,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Horsepower *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.horsepower}
           options={['', ...HORSEPOWER_OPTIONS]}
           onSelect={(v) => updateCarForm('horsepower', v)}
@@ -2016,7 +2016,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Engine Capacity (cc)</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.engine_capacity}
           options={['', ...ENGINE_CAPACITY_OPTIONS]}
           onSelect={(v) => updateCarForm('engine_capacity', v)}
@@ -2024,7 +2024,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Steering Side *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.steering_side}
           options={['', ...STEERING_SIDES]}
           onSelect={(v) => updateCarForm('steering_side', v)}
@@ -2032,7 +2032,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Exterior Color *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.color}
           options={['', ...EXTERIOR_COLOR_OPTIONS]}
           onSelect={(v) => updateCarForm('color', v)}
@@ -2040,7 +2040,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Interior Color</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.interior_color}
           options={['', ...INTERIOR_COLOR_OPTIONS]}
           onSelect={(v) => updateCarForm('interior_color', v)}
@@ -2048,7 +2048,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Cylinders *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.cylinders}
           options={['', ...CYLINDER_OPTIONS]}
           onSelect={(v) => updateCarForm('cylinders', v)}
@@ -2056,7 +2056,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Doors *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.doors}
           options={['', ...DOOR_OPTIONS]}
           onSelect={(v) => updateCarForm('doors', v)}
@@ -2064,7 +2064,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Warranty *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.warranty}
           options={['', ...WARRANTY_OPTIONS]}
           onSelect={(v) => updateCarForm('warranty', v)}
@@ -2072,7 +2072,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Service History *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.service_history}
           options={['', ...SERVICE_HISTORY_OPTIONS]}
           onSelect={(v) => updateCarForm('service_history', v)}
@@ -2088,7 +2088,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Drivetrain</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={carForm.drivetrain}
           options={['', 'FWD', 'RWD', 'AWD', '4WD']}
           onSelect={(v) => updateCarForm('drivetrain', v)}
@@ -2128,12 +2128,12 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Extra Features" expanded={expandedSections.car_extras} onToggle={() => toggleSection('car_extras')} hidden={!isSectionVisible('car_extras')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Extra Features" expanded={expandedSections.car_extras} onToggle={() => toggleSection('car_extras')} hidden={!isSectionVisible('car_extras')}>
         {Object.entries(CAR_EXTRAS).map(([cat, extras]) => (
           <View key={cat} style={styles.extrasCategory}>
             <Text style={styles.extrasCategoryTitle}>{cat}</Text>
             {extras.map((extra) => (
-              <ToggleRow
+              <ToggleRow styles={styles} colors={colors}
                 key={extra}
                 label={extra}
                 value={carForm.extras.includes(extra)}
@@ -2144,7 +2144,7 @@ export default function PostListingScreen({ navigation, route }) {
         ))}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Location" expanded={expandedSections.car_location} onToggle={() => toggleSection('car_location')} hidden={!isSectionVisible('car_location')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Location" expanded={expandedSections.car_location} onToggle={() => toggleSection('car_location')} hidden={!isSectionVisible('car_location')}>
         <TouchableOpacity
           style={styles.locationPickerTrigger}
           onPress={() => setShowMapPicker(true)}
@@ -2172,8 +2172,8 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.car_images} onToggle={() => toggleSection('car_images')} hidden={!isSectionVisible('car_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
+      <CollapsibleSection styles={styles} colors={colors} title="Images" expanded={expandedSections.car_images} onToggle={() => toggleSection('car_images')} hidden={!isSectionVisible('car_images')}>
+        <ImageSection styles={styles} colors={colors} images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2181,9 +2181,9 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== BIKE FORM ====================
   const renderBikeForm = () => (
     <View>
-      <CollapsibleSection title="Bike Details" expanded={expandedSections.bike_details} onToggle={() => toggleSection('bike_details')} hidden={!isSectionVisible('bike_details')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Bike Details" expanded={expandedSections.bike_details} onToggle={() => toggleSection('bike_details')} hidden={!isSectionVisible('bike_details')}>
         <Text style={styles.fieldLabel}>Brand *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={bikeForm.bike_brand}
           options={['', ...BIKE_BRANDS]}
           onSelect={(v) => updateBikeForm('bike_brand', v)}
@@ -2198,7 +2198,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Type *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={bikeForm.bike_category}
           options={['', ...BIKE_TYPES]}
           onSelect={(v) => updateBikeForm('bike_category', v)}
@@ -2214,7 +2214,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Year *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={bikeForm.year}
           options={['', ...years]}
           onSelect={(v) => updateBikeForm('year', v)}
@@ -2237,7 +2237,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Condition</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={bikeForm.condition}
           options={['Good', 'Used', 'New', 'Like New', 'Project/Needs Work']}
           onSelect={(v) => updateBikeForm('condition', v)}
@@ -2281,7 +2281,7 @@ export default function PostListingScreen({ navigation, route }) {
         {bikeOcrStatus === 'service-error' && <Text style={styles.scanResultMeta}>Scan failed, try again.</Text>}
 
         <Text style={styles.fieldLabel}>Cylinders</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={bikeForm.cylinders}
           options={['', ...CYLINDER_OPTIONS]}
           onSelect={(v) => updateBikeForm('cylinders', v)}
@@ -2289,7 +2289,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Wheels</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={bikeForm.wheels}
           options={['', '2', '3']}
           onSelect={(v) => updateBikeForm('wheels', v)}
@@ -2297,9 +2297,9 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Contact & Location" expanded={expandedSections.bike_contact} onToggle={() => toggleSection('bike_contact')} hidden={!isSectionVisible('bike_contact')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Contact & Location" expanded={expandedSections.bike_contact} onToggle={() => toggleSection('bike_contact')} hidden={!isSectionVisible('bike_contact')}>
         <Text style={styles.fieldLabel}>Emirate *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={bikeEmirate}
           options={UAE_EMIRATES}
           onSelect={setBikeEmirate}
@@ -2307,7 +2307,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         {bikeAreaOptions.length > 0 ? (
-          <Picker
+          <Picker styles={styles} colors={colors}
             label="Area *"
             value={bikeArea}
             options={bikeAreaOptions}
@@ -2323,7 +2323,7 @@ export default function PostListingScreen({ navigation, route }) {
           />
         )}
 
-        <PhoneInput
+        <PhoneInput styles={styles} colors={colors}
           countryCodeLabel="Country Code"
           countryCode={bikeForm.country_code}
           onCountryCodeChange={(v) => updateBikeForm('country_code', v)}
@@ -2332,13 +2332,13 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="Dealer Listing"
           value={bikeForm.is_dealer}
           onValueChange={(v) => updateBikeForm('is_dealer', v)}
         />
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="WhatsApp same as phone"
           value={bikeForm.same_as_phone}
           onValueChange={(v) => {
@@ -2347,7 +2347,7 @@ export default function PostListingScreen({ navigation, route }) {
           }}
         />
         {!bikeForm.same_as_phone && (
-          <PhoneInput
+          <PhoneInput styles={styles} colors={colors}
             countryCodeLabel="WhatsApp Code"
             countryCode={bikeForm.country_code}
             onCountryCodeChange={(v) => updateBikeForm('country_code', v)}
@@ -2365,8 +2365,8 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.bike_images} onToggle={() => toggleSection('bike_images')} hidden={!isSectionVisible('bike_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
+      <CollapsibleSection styles={styles} colors={colors} title="Images" expanded={expandedSections.bike_images} onToggle={() => toggleSection('bike_images')} hidden={!isSectionVisible('bike_images')}>
+        <ImageSection styles={styles} colors={colors} images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2374,9 +2374,9 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== PLATE FORM ====================
   const renderPlateForm = () => (
     <View>
-      <CollapsibleSection title="Plate Details" expanded={expandedSections.plate_details} onToggle={() => toggleSection('plate_details')} hidden={!isSectionVisible('plate_details')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Plate Details" expanded={expandedSections.plate_details} onToggle={() => toggleSection('plate_details')} hidden={!isSectionVisible('plate_details')}>
         <Text style={styles.fieldLabel}>City *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={plateCity}
           options={PLATE_CITIES}
           onSelect={setPlateCity}
@@ -2384,7 +2384,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Code *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={plateForm.code}
           options={['', ...getCodeOptions(plateCityName)]}
           onSelect={(v) => updatePlateForm('code', v)}
@@ -2429,7 +2429,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Format</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={plateForm.plate_format}
           options={PLATE_FORMATS}
           onSelect={(v) => updatePlateForm('plate_format', v)}
@@ -2453,9 +2453,9 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Contact & Location" expanded={expandedSections.plate_contact} onToggle={() => toggleSection('plate_contact')} hidden={!isSectionVisible('plate_contact')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Contact & Location" expanded={expandedSections.plate_contact} onToggle={() => toggleSection('plate_contact')} hidden={!isSectionVisible('plate_contact')}>
         {plateAreaOptions.length > 0 ? (
-          <Picker
+          <Picker styles={styles} colors={colors}
             label="Area *"
             value={plateArea}
             options={plateAreaOptions}
@@ -2471,7 +2471,7 @@ export default function PostListingScreen({ navigation, route }) {
           />
         )}
 
-        <PhoneInput
+        <PhoneInput styles={styles} colors={colors}
           countryCodeLabel="Country Code"
           countryCode={plateForm.country_code}
           onCountryCodeChange={(v) => updatePlateForm('country_code', v)}
@@ -2480,13 +2480,13 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="Dealer Listing"
           value={plateForm.is_dealer}
           onValueChange={(v) => updatePlateForm('is_dealer', v)}
         />
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="WhatsApp same as phone"
           value={plateForm.same_as_phone}
           onValueChange={(v) => {
@@ -2495,7 +2495,7 @@ export default function PostListingScreen({ navigation, route }) {
           }}
         />
         {!plateForm.same_as_phone && (
-          <PhoneInput
+          <PhoneInput styles={styles} colors={colors}
             countryCodeLabel="WhatsApp Code"
             countryCode={plateForm.country_code}
             onCountryCodeChange={(v) => updatePlateForm('country_code', v)}
@@ -2505,8 +2505,8 @@ export default function PostListingScreen({ navigation, route }) {
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.plate_images} onToggle={() => toggleSection('plate_images')} hidden={!isSectionVisible('plate_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
+      <CollapsibleSection styles={styles} colors={colors} title="Images" expanded={expandedSections.plate_images} onToggle={() => toggleSection('plate_images')} hidden={!isSectionVisible('plate_images')}>
+        <ImageSection styles={styles} colors={colors} images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2514,7 +2514,7 @@ export default function PostListingScreen({ navigation, route }) {
   // ==================== PARTS FORM ====================
   const renderPartsForm = () => (
     <View>
-      <CollapsibleSection title="Part Details" expanded={expandedSections.parts_details} onToggle={() => toggleSection('parts_details')} hidden={!isSectionVisible('parts_details')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Part Details" expanded={expandedSections.parts_details} onToggle={() => toggleSection('parts_details')} hidden={!isSectionVisible('parts_details')}>
         <Input
           label="Part Name *"
           value={partsForm.name}
@@ -2523,7 +2523,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Part Type *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={partsForm.part_type}
           options={['', ...PART_TYPES]}
           onSelect={(v) => updatePartsForm('part_type', v)}
@@ -2531,7 +2531,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Condition</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={partsForm.condition}
           options={PART_CONDITIONS}
           onSelect={(v) => updatePartsForm('condition', v)}
@@ -2565,7 +2565,7 @@ export default function PostListingScreen({ navigation, route }) {
         </View>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Compatibility" expanded={expandedSections.parts_compatibility} onToggle={() => toggleSection('parts_compatibility')} hidden={!isSectionVisible('parts_compatibility')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Compatibility" expanded={expandedSections.parts_compatibility} onToggle={() => toggleSection('parts_compatibility')} hidden={!isSectionVisible('parts_compatibility')}>
         <Input
           label="Compatible Makes"
           value={partsForm.compatible_makes}
@@ -2581,7 +2581,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         <Text style={styles.fieldLabel}>Compatible Years</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={partsForm.compatible_years}
           options={['', ...years.slice(0, 20)]}
           onSelect={(v) => updatePartsForm('compatible_years', v)}
@@ -2589,9 +2589,9 @@ export default function PostListingScreen({ navigation, route }) {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Contact & Location" expanded={expandedSections.parts_contact} onToggle={() => toggleSection('parts_contact')} hidden={!isSectionVisible('parts_contact')}>
+      <CollapsibleSection styles={styles} colors={colors} title="Contact & Location" expanded={expandedSections.parts_contact} onToggle={() => toggleSection('parts_contact')} hidden={!isSectionVisible('parts_contact')}>
         <Text style={styles.fieldLabel}>Emirate *</Text>
-        <Picker
+        <Picker styles={styles} colors={colors}
           value={partsEmirate}
           options={UAE_EMIRATES}
           onSelect={setPartsEmirate}
@@ -2599,7 +2599,7 @@ export default function PostListingScreen({ navigation, route }) {
         />
 
         {partsAreaOptions.length > 0 ? (
-          <Picker
+          <Picker styles={styles} colors={colors}
             label="Area *"
             value={partsArea}
             options={partsAreaOptions}
@@ -2615,7 +2615,7 @@ export default function PostListingScreen({ navigation, route }) {
           />
         )}
 
-        <PhoneInput
+        <PhoneInput styles={styles} colors={colors}
           countryCodeLabel="Country Code"
           countryCode={partsForm.country_code}
           onCountryCodeChange={(v) => updatePartsForm('country_code', v)}
@@ -2624,13 +2624,13 @@ export default function PostListingScreen({ navigation, route }) {
           required
         />
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="Dealer Listing"
           value={partsForm.is_dealer}
           onValueChange={(v) => updatePartsForm('is_dealer', v)}
         />
 
-        <ToggleRow
+        <ToggleRow styles={styles} colors={colors}
           label="WhatsApp same as phone"
           value={partsForm.same_as_phone}
           onValueChange={(v) => {
@@ -2639,7 +2639,7 @@ export default function PostListingScreen({ navigation, route }) {
           }}
         />
         {!partsForm.same_as_phone && (
-          <PhoneInput
+          <PhoneInput styles={styles} colors={colors}
             countryCodeLabel="WhatsApp Code"
             countryCode={partsForm.country_code}
             onCountryCodeChange={(v) => updatePartsForm('country_code', v)}
@@ -2649,8 +2649,8 @@ export default function PostListingScreen({ navigation, route }) {
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Images" expanded={expandedSections.parts_images} onToggle={() => toggleSection('parts_images')} hidden={!isSectionVisible('parts_images')}>
-        <ImageSection images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
+      <CollapsibleSection styles={styles} colors={colors} title="Images" expanded={expandedSections.parts_images} onToggle={() => toggleSection('parts_images')} hidden={!isSectionVisible('parts_images')}>
+        <ImageSection styles={styles} colors={colors} images={images} onPickImages={pickImages} onRemoveImage={removeImage} onReorderImages={reorderImages} onEditImage={openEditor} />
       </CollapsibleSection>
     </View>
   );
@@ -2708,14 +2708,14 @@ export default function PostListingScreen({ navigation, route }) {
 
           <View style={{ marginTop: 12 }}>
             <Text style={styles.fieldLabel}>Emirate *</Text>
-            <Picker
+            <Picker styles={styles} colors={colors}
               value={carEmirate}
               options={UAE_EMIRATES}
               onSelect={setCarEmirate}
               placeholder="Select Emirate"
             />
             {carAreaOptions.length > 0 ? (
-              <Picker
+              <Picker styles={styles} colors={colors}
                 label="Area"
                 value={carArea}
                 options={carAreaOptions}

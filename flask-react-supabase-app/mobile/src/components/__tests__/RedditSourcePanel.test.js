@@ -50,7 +50,7 @@ test('RedditSourcePanel renders LIGHT_COLORS values when theme is light', () => 
   const { toJSON, findByText } = render(<RedditSourcePanel item={redditItem} />);
   return findByText('Reddit').then(() => {
     const tree = flattenStyles(toJSON());
-    expect(tree).toContain('5B655F');
+    expect(tree).toContain('000000');
     expect(tree).not.toContain('A8B4AC');
   });
 });

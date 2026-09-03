@@ -68,7 +68,7 @@ const getImageUri = (item) => {
   return resolveMediaUrl(item.image_url || item.display_url || null);
 };
 
-function CarCard({ item, index, onPress, columns }) {
+function CarCard({ item, index, onPress, columns, styles }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const uri = getImageUri(item);
   const title = item.listing_title || `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || 'Untitled Car';
@@ -283,7 +283,7 @@ export default function CarListScreen({ navigation }) {
       <Ionicons
         name="chevron-down"
         size={14}
-        color={isActive ? colors.accent : colors.textMuted}
+        color={isActive ? colors.chipActiveText : colors.textMuted}
       />
     </TouchableOpacity>
   );
@@ -461,9 +461,10 @@ export default function CarListScreen({ navigation }) {
       item={item}
       index={index}
       columns={columns}
+      styles={styles}
       onPress={() => { prefetchListing('cars', item); navigation.navigate('CarDetail', { listingId: item.id }); }}
     />
-  ), [navigation, columns]);
+  ), [navigation, columns, styles]);
 
   // Sliding window: preload the detail (freshest fields + images) for cards as
   // they scroll into view, so opening any of them feels instant. Fires for the
@@ -510,7 +511,7 @@ export default function CarListScreen({ navigation }) {
     fontWeight: '500',
   },
   filterChipTextActive: {
-    color: colors.accent,
+    color: colors.chipActiveText,
   },
   clearFiltersChip: {
     flexDirection: 'row',
@@ -704,7 +705,7 @@ export default function CarListScreen({ navigation }) {
               <Ionicons
                 name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
                 size={14}
-                color={activeFilters.hideReddit ? colors.accent : colors.textMuted}
+                color={activeFilters.hideReddit ? colors.chipActiveText : colors.textMuted}
               />
               <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
                 {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}

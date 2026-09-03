@@ -49,6 +49,12 @@ export default function Button({
           color: colors.textPrimary,
           fontWeight: '600',
         },
+        // Primary buttons sit on a dark-green gradient in BOTH modes, so the
+        // foreground is always white (onPrimary), never theme text.
+        primaryText: {
+          color: colors.onPrimary,
+          fontWeight: '600',
+        },
         ghostText: {
           color: colors.textPrimary,
         },
@@ -66,24 +72,27 @@ export default function Button({
     onPress?.();
   };
 
+  const isPrimary = variant === 'primary';
+  const foreground = isPrimary ? colors.onPrimary : colors.textPrimary;
+
   const content = (
     <>
       {loading ? (
-        <ActivityIndicator size="small" color={colors.textPrimary} />
+        <ActivityIndicator size="small" color={foreground} />
       ) : (
         <>
           {icon && (
             <Ionicons
               name={icon}
               size={sizeConfig.fontSize}
-              color={colors.textPrimary}
+              color={foreground}
               style={{ marginRight: title ? 8 : 0 }}
             />
           )}
           {title && (
             <Text
               style={[
-                styles.text,
+                isPrimary ? styles.primaryText : styles.text,
                 { fontSize: sizeConfig.fontSize },
                 variant === 'ghost' && styles.ghostText,
                 disabled && styles.disabledText,

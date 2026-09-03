@@ -67,13 +67,13 @@ test('AdminDealershipsHubScreen renders LIGHT_COLORS values when theme is light'
   const tree = flattenStyles(toJSON());
   // LIGHT_COLORS.black = '#0E1512' (container)
   // LIGHT_COLORS.accent = '#0B6B4C' (tabActive border)
-  // LIGHT_COLORS.textSecondary = '#5B655F' (inactive tab text)
+  // LIGHT_COLORS.textSecondary = '#000000' (inactive tab text)
   // DARK_COLORS.black = '#05100a'
   // DARK_COLORS.accent = '#8BD6B4'
   // DARK_COLORS.textSecondary = '#A8B4AC'
   expect(tree).toContain('0E1512');
   expect(tree).toContain('0B6B4C');
-  expect(tree).toContain('5B655F');
+  expect(tree).toContain('000000');
   expect(tree).not.toContain('05100a');
   expect(tree).not.toContain('8BD6B4');
   expect(tree).not.toContain('A8B4AC');

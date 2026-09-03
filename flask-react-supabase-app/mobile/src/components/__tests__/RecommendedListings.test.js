@@ -56,7 +56,7 @@ test('RecommendedListings renders LIGHT_COLORS values when theme is light', asyn
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('FFFFFF');
   expect(tree).toContain('0B6B4C');
-  expect(tree).toContain('5B655F');
+  expect(tree).toContain('000000');
   expect(tree).not.toContain('0C1C13');
   expect(tree).not.toContain('8BD6B4');
 });

@@ -34,6 +34,15 @@ export const DARK_COLORS = {
   accent: '#8BD6B4',            // Mint Green — Primary (CTAs, links, prices)
   accentBright: '#A6E4C6',
   white: '#FFFFFF',             // On Surface
+  // Text/icons on green primary fills (buttons, active chips). White in both
+  // modes — dark buttons already render white, so dark is pixel-identical.
+  onPrimary: '#FFFFFF',
+  // Text/icons on an ACTIVE green filter chip (bg = primary). Dark keeps the
+  // mint accent look; light switches to white for contrast on dark green.
+  chipActiveText: '#8BD6B4',
+  // Text on an accent fill (e.g. count badges). Dark = near-black on mint;
+  // light = white on the darker light-mode accent.
+  onAccent: '#05100a',
   textPrimary: '#FFFFFF',
   textSecondary: '#A8B4AC',     // Silver — secondary text, metadata
   textMuted: 'rgba(168,180,172,0.6)',
@@ -62,9 +71,16 @@ export const LIGHT_COLORS = {
   accent: '#0B6B4C',           // darker mint than the dark theme's #8BD6B4 — keeps CTA/link contrast on a white surface
   accentBright: '#0F8560',
   white: '#FFFFFF',
+  // Text/icons on green primary fills — always white so light-mode green
+  // buttons/chips stay readable. Dark mode renders identically.
+  onPrimary: '#FFFFFF',
+  chipActiveText: '#FFFFFF',
+  onAccent: '#FFFFFF',
   textPrimary: '#0E1512',
-  textSecondary: '#5B655F',
-  textMuted: 'rgba(91,101,95,0.65)',
+  // Ash secondary/muted text renders solid black in light mode (dark keeps
+  // its silver tones for contrast on dark surfaces).
+  textSecondary: '#000000',
+  textMuted: '#000000',
   border: 'rgba(15,23,20,0.10)',
   borderLight: 'rgba(15,23,20,0.06)',
   success: '#0B6B4C',

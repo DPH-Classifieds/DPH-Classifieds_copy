@@ -27,7 +27,7 @@ const NEUTRAL_COLOR = { brightness: 1, contrast: 1, saturation: 1, preset: 'None
 
 // Lightweight slider (drag delta based, no absolute measurement) so we avoid a
 // slider dependency for three controls.
-function AdjustSlider({ label, value, min, max, onChange }) {
+function AdjustSlider({ label, value, min, max, onChange, styles }) {
   const [w, setW] = useState(1);
   const valueRef = useRef(value); valueRef.current = value;
   const startRef = useRef(value);
@@ -78,7 +78,7 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
     title: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.textPrimary },
     cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: colors.textSecondary },
     saveBtn: { backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 18, paddingVertical: 8, minWidth: 64, alignItems: 'center' },
-    saveText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.black },
+    saveText: { ...FONTS.semibold, fontSize: FONT_SIZES.sm, color: colors.onAccent },
     previewArea: { flex: 1, margin: SPACING.md, alignItems: 'center', justifyContent: 'center' },
     cropBox: {
       position: 'absolute', borderWidth: 2, borderColor: colors.white,
@@ -101,7 +101,7 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
     chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface, marginRight: SPACING.sm },
     chipActive: { backgroundColor: colors.primary },
     chipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-    chipTextActive: { color: colors.accent },
+    chipTextActive: { color: colors.chipActiveText },
     actionRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.md },
     actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surface, paddingVertical: 12, borderRadius: BORDER_RADIUS.md },
     actionText: { color: colors.textPrimary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
@@ -243,7 +243,7 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
           </PressableScale>
           <Text style={styles.title}>Edit Photo</Text>
           <PressableScale onPress={handleSave} haptic="success" style={styles.saveBtn} disabled={busy}>
-            {busy ? <ActivityIndicator size="small" color={colors.black} /> : <Text style={styles.saveText}>Done</Text>}
+            {busy ? <ActivityIndicator size="small" color={colors.onAccent} /> : <Text style={styles.saveText}>Done</Text>}
           </PressableScale>
         </View>
 
@@ -316,9 +316,9 @@ export default function PhotoEditorModal({ visible, imageUri, onSave, onCancel }
 
           {mode === 'adjust' && (
             <>
-              <AdjustSlider label="Brightness" value={color.brightness} min={0.5} max={1.5} onChange={(v) => setColor((c) => ({ ...c, brightness: v }))} />
-              <AdjustSlider label="Contrast" value={color.contrast} min={0.5} max={1.5} onChange={(v) => setColor((c) => ({ ...c, contrast: v }))} />
-              <AdjustSlider label="Saturation" value={color.saturation} min={0} max={2} onChange={(v) => setColor((c) => ({ ...c, saturation: v }))} />
+              <AdjustSlider styles={styles} label="Brightness" value={color.brightness} min={0.5} max={1.5} onChange={(v) => setColor((c) => ({ ...c, brightness: v }))} />
+              <AdjustSlider styles={styles} label="Contrast" value={color.contrast} min={0.5} max={1.5} onChange={(v) => setColor((c) => ({ ...c, contrast: v }))} />
+              <AdjustSlider styles={styles} label="Saturation" value={color.saturation} min={0} max={2} onChange={(v) => setColor((c) => ({ ...c, saturation: v }))} />
               <PressableScale onPress={() => setColor((c) => ({ ...c, brightness: 1, contrast: 1, saturation: 1 }))} style={styles.resetBtn}>
                 <Text style={styles.resetText}>Reset adjustments</Text>
               </PressableScale>

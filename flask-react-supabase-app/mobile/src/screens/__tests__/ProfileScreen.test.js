@@ -66,6 +66,9 @@ test('ProfileScreen renders LIGHT_COLORS values when theme is light', async () =
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('FAFAFA');
   expect(tree).not.toContain('07110b');
+  // Profile boxes carry green-tinted outlines + soft shadows in light mode.
+  expect(tree).toContain('11,107,76');
+  expect(tree).toContain('"shadowOpacity":0.08');
 });
 
 test('ProfileScreen renders DARK_COLORS values when theme is dark', async () => {
@@ -76,6 +79,9 @@ test('ProfileScreen renders DARK_COLORS values when theme is dark', async () => 
   const tree = flattenStyles(toJSON());
   expect(tree).toContain('07110b');
   expect(tree).not.toContain('FAFAFA');
+  // Profile boxes carry ghost-mint outlines + shadows in dark mode.
+  expect(tree).toContain('139,214,180');
+  expect(tree).toContain('"shadowOpacity":0.3');
 });
 
 test('ProfileScreen exposes MyListings and EditListing links', async () => {

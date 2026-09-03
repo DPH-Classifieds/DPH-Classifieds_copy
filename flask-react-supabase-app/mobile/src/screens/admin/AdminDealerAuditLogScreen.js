@@ -38,7 +38,7 @@ export default function AdminDealerAuditLogScreen({ route }) {
     filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface },
     filterChipActive: { backgroundColor: colors.primary },
     filterChipText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: colors.textSecondary },
-    filterChipTextActive: { color: colors.accent },
+    filterChipTextActive: { color: colors.chipActiveText },
     listContent: { padding: SPACING.md, paddingBottom: 40 },
     countText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
     row: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },

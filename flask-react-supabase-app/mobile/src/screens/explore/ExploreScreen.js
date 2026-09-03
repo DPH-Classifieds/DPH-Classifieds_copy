@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput, Keyboard, Platform, UIManager, ActivityIndicator, ScrollView } from 'react-native';
+import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput, Keyboard, Platform, UIManager, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
@@ -263,8 +263,20 @@ const pkStylesFor = (colors) => StyleSheet.create({
   empty: { color: colors.textMuted, fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: SPACING.lg },
 });
 
-function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setBikeFilters,
-  plateFilters, setPlateFilters, partFilters, setPartFilters, onReset, openPicker, yearOptions, colors }) {
+// Categories selectable inside the sheet. `wanted` has no inline filter rows
+// (buying requests live on their own screen), so it navigates instead.
+const SHEET_CATEGORIES = [
+  { key: 'all', label: 'All', icon: 'grid-outline' },
+  { key: 'cars', label: 'Cars', icon: 'car-outline' },
+  { key: 'bikes', label: 'Bikes', icon: 'bicycle-outline' },
+  { key: 'plates', label: 'Plates', icon: 'key-outline' },
+  { key: 'parts', label: 'Parts', icon: 'construct-outline' },
+  { key: 'wanted', label: 'Wanted', icon: 'search-outline' },
+];
+
+function FilterContent({ activeTab, onSelectTab, carFilters, setCarFilters, bikeFilters, setBikeFilters,
+  plateFilters, setPlateFilters, partFilters, setPartFilters, hideReddit, setHideReddit,
+  onReset, openPicker, yearOptions, colors }) {
 
   const fcStyles = fcStylesFor(colors);
 
@@ -343,10 +355,45 @@ function FilterContent({ activeTab, carFilters, setCarFilters, bikeFilters, setB
           <Text style={fcStyles.resetText}>Reset</Text>
         </TouchableOpacity>
       </View>
+      <Text style={fcStyles.sectionLabel}>Category</Text>
+      <View style={fcStyles.catChipsRow}>
+        {SHEET_CATEGORIES.map((cat) => {
+          const selected = activeTab === cat.key;
+          return (
+            <TouchableOpacity
+              key={cat.key}
+              style={[fcStyles.catChip, selected && fcStyles.catChipActive]}
+              onPress={() => onSelectTab(cat.key)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={cat.icon}
+                size={14}
+                color={selected ? colors.chipActiveText : colors.textSecondary}
+              />
+              <Text style={[fcStyles.catChipText, selected && fcStyles.catChipTextActive]}>
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
       {(activeTab === 'cars' || activeTab === 'all') && renderCar()}
       {activeTab === 'bikes' && renderBike()}
       {activeTab === 'plates' && renderPlate()}
       {activeTab === 'parts' && renderPart()}
+      <View style={fcStyles.switchRow}>
+        <View style={fcStyles.switchTextWrap}>
+          <Text style={fcStyles.switchLabel}>Hide Reddit</Text>
+          <Text style={fcStyles.switchSub}>Hide Reddit-sourced listings</Text>
+        </View>
+        <Switch
+          value={hideReddit}
+          onValueChange={setHideReddit}
+          trackColor={{ false: colors.surfaceHigher, true: colors.primaryLight }}
+          thumbColor={hideReddit ? colors.accent : colors.textMuted}
+        />
+      </View>
     </View>
   );
 }
@@ -423,6 +470,31 @@ const fcStylesFor = (colors) => StyleSheet.create({
   },
   headerTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700' },
   resetText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  sectionLabel: {
+    color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '700',
+    letterSpacing: 0.5, textTransform: 'uppercase',
+    paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm,
+  },
+  catChipsRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
+  },
+  catChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  catChipActive: { backgroundColor: colors.primary, borderColor: colors.accent + '40' },
+  catChipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
+  catChipTextActive: { color: colors.chipActiveText },
+  switchRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 12, paddingHorizontal: SPACING.md,
+  },
+  switchTextWrap: { flex: 1, paddingRight: SPACING.sm },
+  switchLabel: { color: colors.textPrimary, fontSize: FONT_SIZES.md, fontWeight: '500' },
+  switchSub: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 2 },
 });
 
 function ExploreCard({ item, index, onPress, onSave, saved, columns, colors, styles }) {
@@ -542,7 +614,7 @@ export default function ExploreScreen({ navigation, route }) {
     },
     catPillActive: { backgroundColor: colors.primary, borderColor: colors.accent + '40' },
     catPillLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
-    catPillLabelActive: { color: colors.accent },
+    catPillLabelActive: { color: colors.chipActiveText },
     catPillCount: { color: colors.textMuted, fontSize: FONT_SIZES.xs, fontWeight: '600' },
 
     controlsRow: {
@@ -557,7 +629,7 @@ export default function ExploreScreen({ navigation, route }) {
     },
     filterBtnActive: { backgroundColor: colors.primary, borderColor: colors.accent + '40' },
     filterBtnText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-    filterBtnTextActive: { color: colors.accent },
+    filterBtnTextActive: { color: colors.chipActiveText },
     resultCount: { color: colors.textMuted, fontSize: FONT_SIZES.sm },
     sortBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -572,7 +644,7 @@ export default function ExploreScreen({ navigation, route }) {
       backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5,
       borderRadius: BORDER_RADIUS.pill,
     },
-    clearAllText: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+    clearAllText: { color: colors.chipActiveText, fontSize: FONT_SIZES.xs, fontWeight: '600' },
     saveSearchBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
       marginHorizontal: SPACING.md, marginBottom: SPACING.sm,
@@ -686,8 +758,8 @@ export default function ExploreScreen({ navigation, route }) {
   const [bikeFilters, setBikeFilters] = useState(INITIAL_BIKE_FILTERS);
   const [plateFilters, setPlateFilters] = useState(INITIAL_PLATE_FILTERS);
   const [partFilters, setPartFilters] = useState(INITIAL_PART_FILTERS);
-  // Mirrors the "Hide Reddit" chip already on Car/Bike/Plate/PartListScreen —
-  // this aggregated Explore tab was missing it entirely.
+  // "Hide Reddit" lives in the Filters sheet (switch row) and mirrors the
+  // per-category chip on Car/Bike/Plate/PartListScreen.
   const [hideReddit, setHideReddit] = useState(false);
 
   const [pickerState, setPickerState] = useState({ visible: false, title: '', options: [], onSelect: () => {}, selectedValue: '' });
@@ -1068,6 +1140,18 @@ export default function ExploreScreen({ navigation, route }) {
     }
   }, [navigation]);
 
+  // Category picked inside the Filters sheet: filter the Explore feed in
+  // place for the four vehicle categories; Wanted has no inline rows, so it
+  // jumps to its own screen (same destination as the main category row).
+  const handleSheetCategorySelect = useCallback((key) => {
+    if (key === 'wanted') {
+      setFilterSheetOpen(false);
+      navigation.navigate('BuyingRequests');
+    } else {
+      setActiveTab(key);
+    }
+  }, [navigation]);
+
   const renderItem = useCallback(({ item, index }) => {
     const detailScreen = DETAIL_SCREENS[item.category];
     const saved = isSaved(item.category, item.id);
@@ -1165,7 +1249,7 @@ export default function ExploreScreen({ navigation, route }) {
                 onPress={() => handleCategoryPress(cat.key)}
                 activeOpacity={0.7}
               >
-                <Ionicons name={cat.icon} size={14} color={isActive ? colors.accent : colors.textSecondary} />
+                <Ionicons name={cat.icon} size={14} color={isActive ? colors.chipActiveText : colors.textSecondary} />
                 <Text style={[styles.catPillLabel, isActive && styles.catPillLabelActive]}>
                   {cat.label}
                 </Text>
@@ -1177,20 +1261,6 @@ export default function ExploreScreen({ navigation, route }) {
               </TouchableOpacity>
             );
           })}
-          <TouchableOpacity
-            style={[styles.catPill, hideReddit && styles.catPillActive]}
-            onPress={() => setHideReddit((prev) => !prev)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={hideReddit ? 'eye-off' : 'logo-reddit'}
-              size={14}
-              color={hideReddit ? colors.accent : colors.textSecondary}
-            />
-            <Text style={[styles.catPillLabel, hideReddit && styles.catPillLabelActive]}>
-              {hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -1200,7 +1270,7 @@ export default function ExploreScreen({ navigation, route }) {
           onPress={() => setFilterSheetOpen(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? colors.accent : colors.textSecondary} />
+          <Ionicons name="filter" size={14} color={activeFilterCount > 0 ? colors.chipActiveText : colors.textSecondary} />
           <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>
             {activeFilterCount > 0 ? `${activeFilterCount} Active` : 'Filters'}
           </Text>
@@ -1224,7 +1294,7 @@ export default function ExploreScreen({ navigation, route }) {
       {activeFilterCount > 0 && activeTab !== 'all' && (
         <View style={styles.activeChips}>
           <TouchableOpacity style={styles.clearAllChip} onPress={resetFilters}>
-            <Ionicons name="close-circle" size={14} color={colors.accent} />
+            <Ionicons name="close-circle" size={14} color={colors.chipActiveText} />
             <Text style={styles.clearAllText}>Clear all</Text>
           </TouchableOpacity>
         </View>
@@ -1237,7 +1307,7 @@ export default function ExploreScreen({ navigation, route }) {
         </TouchableOpacity>
       )}
     </View>
-  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns, activeTotal, totalCounts, hideReddit]);
+  ), [activeTab, search, sortBy, normalizedItems.length, activeFilterCount, currentSort, handleCategoryPress, resetFilters, handleSaveSearch, columns, toggleColumns, activeTotal, totalCounts]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -1294,10 +1364,12 @@ export default function ExploreScreen({ navigation, route }) {
       <BottomSheet visible={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Filters">
         <FilterContent
           activeTab={activeTab}
+          onSelectTab={handleSheetCategorySelect}
           carFilters={carFilters} setCarFilters={setCarFilters}
           bikeFilters={bikeFilters} setBikeFilters={setBikeFilters}
           plateFilters={plateFilters} setPlateFilters={setPlateFilters}
           partFilters={partFilters} setPartFilters={setPartFilters}
+          hideReddit={hideReddit} setHideReddit={setHideReddit}
           onReset={resetFilters}
           openPicker={openPicker}
           yearOptions={yearOptions}
@@ -1313,11 +1385,11 @@ export default function ExploreScreen({ navigation, route }) {
             onPress={() => { setSortBy(opt.key); setSortSheetOpen(false); }}
             activeOpacity={0.7}
           >
-            <Ionicons name={opt.icon} size={18} color={sortBy === opt.key ? colors.accent : colors.textSecondary} />
+            <Ionicons name={opt.icon} size={18} color={sortBy === opt.key ? colors.chipActiveText : colors.textSecondary} />
             <Text style={[sortStyles.optionText, sortBy === opt.key && sortStyles.optionTextActive]}>
               {opt.label}
             </Text>
-            {sortBy === opt.key && <Ionicons name="checkmark" size={18} color={colors.accent} />}
+            {sortBy === opt.key && <Ionicons name="checkmark" size={18} color={colors.chipActiveText} />}
           </TouchableOpacity>
         ))}
       </BottomSheet>
@@ -1335,5 +1407,5 @@ const sortStylesFor = (colors) => StyleSheet.create({
   },
   optionActive: { backgroundColor: colors.primary },
   optionText: { color: colors.textPrimary, fontSize: FONT_SIZES.md, flex: 1 },
-  optionTextActive: { color: colors.accent, fontWeight: '600' },
+  optionTextActive: { color: colors.chipActiveText, fontWeight: '600' },
 });

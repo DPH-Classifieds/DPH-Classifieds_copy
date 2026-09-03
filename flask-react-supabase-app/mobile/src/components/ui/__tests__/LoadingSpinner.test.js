@@ -36,8 +36,8 @@ test('LoadingSpinner renders LIGHT_COLORS values when theme is light', () => {
   mockColors = LIGHT_COLORS;
   const { toJSON } = render(<LoadingSpinner message="Loading…" />);
   const tree = flattenStyles(toJSON());
-  // LIGHT_COLORS.textSecondary = '#5B655F'
-  expect(tree).toContain('5B655F');
+  // LIGHT_COLORS.textSecondary = '#000000'
+  expect(tree).toContain('000000');
 });
 
 test('LoadingSpinner renders DARK_COLORS values when theme is dark', () => {

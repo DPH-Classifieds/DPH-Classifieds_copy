@@ -23,7 +23,7 @@ export default function BuyingRequestDetailScreen({ route, navigation }) {
     scroll: { padding: SPACING.md, paddingBottom: 40 },
     categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
     badge: { backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 12, paddingVertical: 4 },
-    badgeText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.accent },
+    badgeText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.chipActiveText },
     date: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textMuted },
     title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.textPrimary, marginBottom: SPACING.sm },
     description: { ...FONTS.regular, fontSize: FONT_SIZES.md, color: colors.textSecondary, lineHeight: 22, marginBottom: SPACING.md },
@@ -101,13 +101,13 @@ export default function BuyingRequestDetailScreen({ route, navigation }) {
 
           <View style={styles.specsCard}>
             {request.make && (
-              <Row label="Make/Model" value={`${request.make}${request.model ? ` ${request.model}` : ''}`} />
+              <Row styles={styles} label="Make/Model" value={`${request.make}${request.model ? ` ${request.model}` : ''}`} />
             )}
             {(request.budget_min || request.budget_max) && (
-              <Row label="Budget" value={`${request.budget_min ? formatPrice(request.budget_min) : '—'} – ${request.budget_max ? formatPrice(request.budget_max) : 'Open'}`} />
+              <Row styles={styles} label="Budget" value={`${request.budget_min ? formatPrice(request.budget_min) : '—'} – ${request.budget_max ? formatPrice(request.budget_max) : 'Open'}`} />
             )}
             {request.year_from && (
-              <Row label="Year" value={`${request.year_from}${request.year_to ? ` – ${request.year_to}` : '+'}`} />
+              <Row styles={styles} label="Year" value={`${request.year_from}${request.year_to ? ` – ${request.year_to}` : '+'}`} />
             )}
           </View>
 
@@ -129,7 +129,7 @@ export default function BuyingRequestDetailScreen({ route, navigation }) {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, value, styles }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>

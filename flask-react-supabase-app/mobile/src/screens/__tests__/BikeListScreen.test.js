@@ -65,12 +65,12 @@ test('BikeListScreen renders LIGHT_COLORS values when theme is light', () => {
   return findByText('Browse Bikes').then(() => {
     const tree = flattenStyles(toJSON());
     // LIGHT_COLORS.background = '#FAFAFA' (page base — unique to LIGHT)
-    // LIGHT_COLORS.textSecondary = '#5B655F' (chip text — unique to LIGHT)
+    // LIGHT_COLORS.textSecondary = '#000000' (chip text — unique to LIGHT)
     // DARK_COLORS.background  = '#07110b' (page base — unique to DARK)
     // Note: 'FFFFFF' and '0C1C13' leak in from brand-invariant `white` and
     // non-migrated siblings (ListHeader / ScreenEntrance) — don't negative-assert.
     expect(tree).toContain('FAFAFA');
-    expect(tree).toContain('5B655F');
+    expect(tree).toContain('000000');
     expect(tree).not.toContain('07110b');
   });
 });

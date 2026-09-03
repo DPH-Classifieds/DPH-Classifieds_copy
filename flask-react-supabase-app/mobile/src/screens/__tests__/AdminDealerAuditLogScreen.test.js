@@ -60,10 +60,12 @@ test('AdminDealerAuditLogScreen renders LIGHT_COLORS values when theme is light'
   const tree = flattenStyles(toJSON());
   // LIGHT_COLORS.black = '#0E1512' (container)
   // LIGHT_COLORS.surface = '#FFFFFF' (searchBar)
-  // LIGHT_COLORS.accent = '#0B6B4C' (filterChipTextActive)
+  // LIGHT_COLORS.chipActiveText = '#FFFFFF' (filterChipTextActive — white text
+  // on the green active chip for light-mode contrast, not accent)
   expect(tree).toContain('0E1512');
   expect(tree).toContain('FFFFFF');
-  expect(tree).toContain('0B6B4C');
+  expect(tree).toContain('01351C'); // active chip keeps its green fill
+  expect(tree).not.toContain('0B6B4C'); // accent no longer used for chip text
   expect(tree).not.toContain('05100a');
   expect(tree).not.toContain('0C1C13');
   expect(tree).not.toContain('8BD6B4');

@@ -39,11 +39,11 @@ export default function PostBuyingRequestScreen({ navigation }) {
     chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
     chipActive: { backgroundColor: colors.primary, borderColor: colors.accent },
     chipText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
-    chipTextActive: { color: colors.accent },
+    chipTextActive: { color: colors.chipActiveText },
     row: { flexDirection: 'row' },
     submitBtn: { backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, alignItems: 'center', marginTop: SPACING.xl },
     submitBtnDisabled: { opacity: 0.6 },
-    submitBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: colors.black },
+    submitBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: colors.onAccent },
   }), [colors]);
 
   const handleSubmit = async () => {

@@ -43,7 +43,7 @@ test('ListingMap renders LIGHT_COLORS values when theme is light', () => {
   return findByText('Dubai, Marina, DXB').then(() => {
     const tree = flattenStyles(toJSON());
     expect(tree).toContain('FFFFFF');
-    expect(tree).toContain('5B655F');
+    expect(tree).toContain('000000');
     expect(tree).not.toContain('0C1C13');
     expect(tree).not.toContain('A8B4AC');
   });

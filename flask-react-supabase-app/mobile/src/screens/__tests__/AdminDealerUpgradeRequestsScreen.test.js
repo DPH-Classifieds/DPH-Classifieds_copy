@@ -58,10 +58,10 @@ test('AdminDealerUpgradeRequestsScreen renders LIGHT_COLORS values when theme is
   const tree = flattenStyles(toJSON());
   // LIGHT_COLORS.surface = '#FFFFFF' (filterChip)
   // LIGHT_COLORS.accent = '#0B6B4C' (active filterChip border)
-  // LIGHT_COLORS.textSecondary = '#5B655F' (filterChipText)
+  // LIGHT_COLORS.textSecondary = '#000000' (filterChipText)
   expect(tree).toContain('FFFFFF');
   expect(tree).toContain('0B6B4C');
-  expect(tree).toContain('5B655F');
+  expect(tree).toContain('000000');
   expect(tree).not.toContain('0C1C13');
   expect(tree).not.toContain('8BD6B4');
   expect(tree).not.toContain('A8B4AC');
