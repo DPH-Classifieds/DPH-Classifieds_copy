@@ -30,14 +30,6 @@ jest.mock('../../../context/ThemeContext', () => ({
   }),
 }));
 
-jest.mock('../../../components/ui/Sidebar', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return { __esModule: true, default: ({ open }) =>
-    React.createElement(View, { testID: 'sidebar', 'data-open': open ? 'yes' : 'no' })
-  };
-});
-
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -47,24 +39,24 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-const AndroidTabBar = require('../AndroidTabBar').default;
+import { render, queryByLabelText, queryByTestId } from '@testing-library/react-native';
 const { LIGHT_COLORS } = require('../../../constants/theme');
+const AndroidTabBar = require('../AndroidTabBar').default;
 
-describe('AndroidTabBar — sidebar integration', () => {
+describe('AndroidTabBar — no hamburger', () => {
   beforeEach(() => {
     mockColors = LIGHT_COLORS;
     mockTheme = 'light';
   });
 
-  test('renders a hamburger button that opens the sidebar', () => {
+  test('does NOT render a hamburger (Open navigation menu) button', () => {
+    // Per the user's request: the 3-line hamburger on Android is removed.
+    // The drawer is no longer reachable from AndroidTabBar.
     const state = { routes: [{ key: '1', name: '(explore)' }], routeNames: ['(explore)'] };
     const navigation = { emit: jest.fn(), navigate: jest.fn() };
-    const { getByLabelText, getByTestId } = render(
+    const { queryByLabelText } = render(
       <AndroidTabBar state={state} descriptors={{}} navigation={navigation} insets={{ bottom: 0 }} />
     );
-    expect(getByTestId('sidebar').props['data-open']).toBe('no');
-    fireEvent.press(getByLabelText('Open navigation menu'));
-    expect(getByTestId('sidebar').props['data-open']).toBe('yes');
+    expect(queryByLabelText(/Open navigation menu/)).toBeNull();
   });
 });
