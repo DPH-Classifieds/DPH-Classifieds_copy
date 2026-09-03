@@ -8,10 +8,12 @@ from app import (
     _api_cache_set,
     _build_api_cache_key,
     capture_posthog_event,
+    _contact_rate_limited,
     _create_listing_with_lifecycle_fallback,
     _invalidate_api_cache_prefixes,
     _invalidate_public_inventory_cache,
     _isoformat_utc,
+    _request_client_ip,
     _sync_listing_lifecycle,
     _utc_now,
     get_user_email,
@@ -181,6 +183,8 @@ def get_buying_request(request_id):
 @token_required
 def reveal_buying_request_whatsapp(current_user, request_id):
     """Reveal WhatsApp contact details only to phone-verified users."""
+    if _contact_rate_limited(_request_client_ip()):
+        return jsonify({"error": "Too many requests. Please try again later."}), 429
     try:
         user_rows, user_status = supabase_request(
             "get",
@@ -281,6 +285,8 @@ def reveal_buying_request_whatsapp(current_user, request_id):
 @buying_requests_bp.route("/api/buying-requests", methods=["POST"])
 @token_required
 def create_buying_request(current_user):
+    if _contact_rate_limited(_request_client_ip()):
+        return jsonify({"error": "Too many requests. Please try again later."}), 429
     payload = request.json or {}
 
     item_type = (payload.get("item_type") or "").strip().lower()

@@ -283,12 +283,14 @@ def _claim_source(source):
     return claimed_at if rows else None
 
 
-def _update_source(source_id, last_status, last_error=None, claimed_at=None):
+def _update_source(source_id, last_status, last_error=None, claimed_at=None, disable=False):
     body = {
         "last_pulled_at": datetime.now(timezone.utc).isoformat(),
         "last_status": last_status,
         "last_error": last_error,
     }
+    if disable:
+        body["enabled"] = False
     params = {"id": f"eq.{source_id}"}
     if claimed_at:
         params.update({"last_status": "eq.polling", "last_pulled_at": f"eq.{claimed_at}"})
@@ -358,7 +360,14 @@ def _process_source(source, claimed_at):
         final_status = "failed"
 
     error_msg = (f"{total_bad} row(s) failed to import" if total_bad else None)
-    _update_source(source_id, final_status, error_msg, claimed_at)
+    # A feed that returns zero usable rows twice in a row isn't a transient
+    # blip (the fetch succeeded — its own data is unparseable) and won't
+    # self-heal by retrying forever on the normal poll cadence. Disable it so
+    # a human has to fix the field mapping / feed before it resumes.
+    consecutive_full_failure = final_status == "failed" and source.get("last_status") == "failed"
+    if consecutive_full_failure:
+        error_msg = (error_msg or "row import failed") + " — auto-disabled after repeated full failures"
+    _update_source(source_id, final_status, error_msg, claimed_at, disable=consecutive_full_failure)
 
 
 def run():

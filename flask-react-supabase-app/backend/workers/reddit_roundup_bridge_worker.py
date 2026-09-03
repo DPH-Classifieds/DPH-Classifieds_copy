@@ -37,7 +37,6 @@ def _settings():
         "branch": os.getenv("REDDIT_ROUNDUP_GITHUB_BRANCH", "main").strip() or "main",
         "token": os.getenv("REDDIT_ROUNDUP_GITHUB_TOKEN", "").strip(),
         "hmac_secret": os.getenv("REDDIT_ROUNDUP_BRIDGE_HMAC_SECRET", "").strip(),
-        "hmac_required": _truthy(os.getenv("REDDIT_ROUNDUP_BRIDGE_HMAC_REQUIRED")),
     }
 
 
@@ -160,9 +159,10 @@ def run():
     if not _truthy(os.getenv("REDDIT_ROUNDUP_BRIDGE_ENABLED")):
         return {"status": "disabled"}
     config = _settings()
-    missing = [name for name in ("repo", "path", "branch", "token") if not config[name]]
-    if config["hmac_required"] and not config["hmac_secret"]:
-        missing.append("hmac_secret")
+    # hmac_secret is unconditionally required: without it the bridge would
+    # publish a payload the Devvit bot only checks by schema+count, which is
+    # not enough to prove the content actually came from this worker.
+    missing = [name for name in ("repo", "path", "branch", "token", "hmac_secret") if not config[name]]
     if missing:
         logger.error("reddit_roundup_bridge: missing config %s", ", ".join(missing))
         return {"status": "failed", "error": "missing configuration"}
@@ -172,8 +172,7 @@ def run():
         hours = 48
     try:
         payload = _build_payload(hours)
-        if config["hmac_secret"]:
-            payload = _sign_payload(payload, config["hmac_secret"])
+        payload = _sign_payload(payload, config["hmac_secret"])
         result = _publish(payload, config)
     except Exception as exc:
         logger.exception("reddit_roundup_bridge: publish failed")

@@ -292,6 +292,78 @@ class WorkerSignalTests(unittest.TestCase):
         self.assertIsInstance(signals["sync_gate"], SyncGateResult)
 
 
+class FetchImageBytesStreamCapTests(unittest.TestCase):
+    def _mock_response(self, chunks, content_length=None):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {"Content-Length": str(content_length)} if content_length is not None else {}
+        resp.iter_content.return_value = chunks
+        return resp
+
+    @patch("services.url_safety.assert_safe_outbound", side_effect=lambda u: u)
+    @patch("requests.get")
+    def test_normal_image_within_cap_is_returned(self, mock_get, _safe):
+        mock_get.return_value = self._mock_response([b"abc", b"def"])
+        blobs = worker._fetch_image_bytes(["https://example.com/a.jpg"])
+        self.assertEqual(blobs, [b"abcdef"])
+
+    @patch("services.url_safety.assert_safe_outbound", side_effect=lambda u: u)
+    @patch("requests.get")
+    def test_oversized_image_is_skipped_not_truncated(self, mock_get, _safe):
+        big_chunk = b"x" * (worker._MAX_IMAGE_BYTES + 1)
+        mock_get.return_value = self._mock_response([big_chunk])
+        blobs = worker._fetch_image_bytes(["https://example.com/big.jpg"])
+        self.assertEqual(blobs, [])  # skipped entirely, never materialized in full
+
+
+class DuplicateAndPriceOutlierSignalTests(unittest.TestCase):
+    @patch("workers.auto_review_worker._supabase_request")
+    def test_duplicate_vin_flags_other_live_listing(self, mock_factory):
+        mock_factory.return_value = lambda *a, **k: (
+            [{"id": "other-row"}], 200,
+        )
+        result = worker._duplicate_vin_signal("car", _row("this-row"), "1HGBH41JXMN109186")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.label, "duplicate_listing")
+        self.assertEqual(result.details["existing_id"], "other-row")
+
+    @patch("workers.auto_review_worker._supabase_request")
+    def test_duplicate_vin_ignores_self(self, mock_factory):
+        mock_factory.return_value = lambda *a, **k: (
+            [{"id": "this-row"}], 200,
+        )
+        result = worker._duplicate_vin_signal("car", _row("this-row"), "1HGBH41JXMN109186")
+        self.assertIsNone(result)
+
+    def test_duplicate_vin_skips_when_no_vin(self):
+        self.assertIsNone(worker._duplicate_vin_signal("car", _row(), ""))
+
+    @patch("workers.auto_review_worker._supabase_request")
+    def test_price_outlier_flags_far_below_comparable_median(self, mock_factory):
+        mock_factory.return_value = lambda *a, **k: (
+            [{"expected_selling_price": 100000}] * 5, 200,
+        )
+        result = worker._price_outlier_signal("car", "Honda", "Accord", 2020, 5000)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.label, "price_outlier")
+
+    @patch("workers.auto_review_worker._supabase_request")
+    def test_price_outlier_ignores_price_in_range(self, mock_factory):
+        mock_factory.return_value = lambda *a, **k: (
+            [{"expected_selling_price": 100000}] * 5, 200,
+        )
+        result = worker._price_outlier_signal("car", "Honda", "Accord", 2020, 95000)
+        self.assertIsNone(result)
+
+    @patch("workers.auto_review_worker._supabase_request")
+    def test_price_outlier_skips_with_too_few_comparables(self, mock_factory):
+        mock_factory.return_value = lambda *a, **k: (
+            [{"expected_selling_price": 100000}], 200,
+        )
+        result = worker._price_outlier_signal("car", "Honda", "Accord", 2020, 5000)
+        self.assertIsNone(result)
+
+
 class WorkerTrustContextTests(unittest.TestCase):
     @patch("workers.auto_review_worker._dealer_verified", return_value=False)
     @patch("workers.auto_review_worker._supabase_request")

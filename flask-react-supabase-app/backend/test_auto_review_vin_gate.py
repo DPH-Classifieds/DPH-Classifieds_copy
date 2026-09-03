@@ -98,6 +98,8 @@ class VinGateTests(unittest.TestCase):
         self.assertEqual(r.decoded, {})
 
     def test_make_mismatch(self):
+        # A VIN that decodes to a different make than the submitter typed is a
+        # fraud signal — this must force review, not silently auto-approve.
         decoder = FakeDecoder(
             decoded={"make": "Toyota", "model": "Accord", "model_year": 1991}
         )
@@ -108,7 +110,9 @@ class VinGateTests(unittest.TestCase):
             form_year=1991,
             decoder=decoder,
         )
-        self.assertTrue(r.ok, msg=r.reasons)
+        self.assertFalse(r.ok)
+        labels = [x.label for x in r.reasons]
+        self.assertIn("vin_decoded_mismatch", labels)
 
     def test_model_mismatch(self):
         decoder = FakeDecoder(
@@ -118,6 +122,22 @@ class VinGateTests(unittest.TestCase):
             GOOD_VIN,
             form_make="Honda",
             form_model="Accord",
+            form_year=1991,
+            decoder=decoder,
+        )
+        self.assertFalse(r.ok)
+        labels = [x.label for x in r.reasons]
+        self.assertIn("vin_decoded_mismatch", labels)
+
+    def test_model_trim_variant_is_not_a_mismatch(self):
+        # "Accord" (decoded) vs "Accord LE" (submitted trim) should not false-positive.
+        decoder = FakeDecoder(
+            decoded={"make": "Honda", "model": "Accord", "model_year": 1991}
+        )
+        r = evaluate_vin(
+            GOOD_VIN,
+            form_make="Honda",
+            form_model="Accord LE",
             form_year=1991,
             decoder=decoder,
         )
@@ -147,7 +167,9 @@ class VinGateTests(unittest.TestCase):
             form_year=1991,
             decoder=decoder,
         )
-        self.assertTrue(r.ok, msg=r.reasons)
+        self.assertFalse(r.ok)
+        labels = [x.label for x in r.reasons]
+        self.assertIn("vin_decoded_mismatch", labels)
 
 
 if __name__ == "__main__":

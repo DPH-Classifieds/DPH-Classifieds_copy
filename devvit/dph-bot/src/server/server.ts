@@ -79,7 +79,11 @@ async function postRoundup(force = false): Promise<{count: number; url?: string;
     throw Error('GitHub bridge payload is invalid')
   }
   if (!payload.cycle_id || !payload.content_hash) throw Error('GitHub bridge payload has no cycle_id/content_hash')
-  if (hmacSecret) verifyPayloadSignature(payload, hmacSecret)
+  // Schema + count checks alone don't prove this payload came from our own
+  // bridge worker — a compromised repo/PAT could otherwise post arbitrary
+  // content to Reddit under this app's identity. Require the signature.
+  if (!hmacSecret) throw Error('roundupHmacSecret is not set in app settings')
+  verifyPayloadSignature(payload, hmacSecret)
   if (!payload.count) return {count: 0, skipped: true}
   const posts = payload.posts
   if (!posts?.length || posts.some(post => !post.title || !post.body)) throw Error('GitHub bridge payload has no posts')

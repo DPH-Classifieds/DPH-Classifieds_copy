@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, SlidersHorizontal, X } from 'lucide-react';
+import { VirtuosoGrid } from 'react-virtuoso';
 import MarketplaceListingCard from './MarketplaceListingCard';
 import ListingSkeleton from './ListingSkeleton';
 import SeoMeta from './SeoMeta';
@@ -10,10 +11,11 @@ import { buildStaticSeo } from '../utils/seo';
 import { UAE_EMIRATES } from '../utils/listingConstants';
 import BrowseSellCta from './BrowseSellCta';
 import useFeaturedPattern from '../hooks/useFeaturedPattern';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import { applyFeaturedPlacement } from '../utils/featuredPlacement';
 import './ExplorePage.css';
 import { buildListingRouteState } from '../utils/listingRouteState';
-import { paginateRedditRows } from '../utils/redditPagination';
+import { mergeRedditRows } from '../utils/redditPagination';
 import { buildCarPath } from '../utils/listingUrl';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/apiClient';
@@ -21,10 +23,9 @@ import useListingCounts from '../hooks/useListingCounts';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const PAGE_SIZE = 24;
-// Keep the DOM and client-side inventory buffer bounded as feeds grow. The
-// explicit reveal preserves access to already-loaded results without mounting
-// hundreds of interactive cards at once.
-export const MAX_RENDERED_ITEMS = 48;
+// Keep the client-side inventory buffer bounded as feeds grow. DOM node count
+// no longer scales with this (VirtuosoGrid virtualizes the render), but this
+// still caps how many parsed listing objects stay resident in memory.
 const MAX_LOADED_ITEMS_PER_CATEGORY = 240;
 const INVENTORY_CACHE_TTL_MS = 60 * 1000;
 const inflightInventoryRequests = new Map();
@@ -112,7 +113,10 @@ const INIT_PAGES = {
   bikes: { offset: 0, hasMore: true },
   parts: { offset: 0, hasMore: true },
   plates: { offset: 0, hasMore: true },
-  reddit: { offset: 0, hasMore: true },
+  // Reddit merges 4 endpoints into one date-sorted feed; it pages by cursor
+  // (the created_at of the last merged row) instead of a numeric offset —
+  // see fetchPage's 'reddit' branch for why.
+  reddit: { cursor: null, hasMore: true },
   // /api/buying-requests has no pagination — it always returns the full
   // active list in one shot, so this mode never has a "next page".
   buying_requests: { offset: 0, hasMore: false },
@@ -267,6 +271,7 @@ const distinctValues = (items, getter) =>
 
 const getPrimaryImage = (item) => {
   const candidate =
+    item?.primary_image_url ||
     item?.images?.[0]?.display_url ||
     item?.images?.[0]?.image_url ||
     item?.images?.[0]?.url ||
@@ -625,7 +630,6 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const sentinelRef = useRef(null);
   const isFetchingRef = useRef(false);
   // Last-loaded count per category. Used as the tab-count placeholder so the
   // user never sees an em-dash while /api/listings/counts is in flight, and
@@ -667,7 +671,18 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [heroQuery, setHeroQuery] = useState('');
   const [savingSearch, setSavingSearch] = useState(false);
   const [savedSearchNotice, setSavedSearchNotice] = useState('');
-  const [renderLimit, setRenderLimit] = useState(MAX_RENDERED_ITEMS);
+
+  // Debounced views of every filter object: inputs stay instantly responsive
+  // (they're controlled by the raw state above), but the expensive filter+sort
+  // recompute below only re-runs once typing pauses for 300ms, instead of on
+  // every keystroke in a price/year/search field.
+  const debouncedGlobalQuery = useDebouncedValue(globalQuery, 300);
+  const debouncedCarFilters = useDebouncedValue(carFilters, 300);
+  const debouncedPartsFilters = useDebouncedValue(partsFilters, 300);
+  const debouncedPlateFilters = useDebouncedValue(plateFilters, 300);
+  const debouncedBikeFilters = useDebouncedValue(bikeFilters, 300);
+  const debouncedRedditFilters = useDebouncedValue(redditFilters, 300);
+  const debouncedBuyingRequestFilters = useDebouncedValue(buyingRequestFilters, 300);
 
   // ── one-way-ish read from the URL: applies on mount, and again if the URL
   // changes from outside this page (back/forward, a saved-search link) ─────
@@ -713,10 +728,6 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, forcedCategory]);
 
-  useEffect(() => {
-    setRenderLimit(MAX_RENDERED_ITEMS);
-  }, [activeMode]);
-
   const seoData = buildStaticSeo({
     title: activeMode === 'all'
       ? 'Explore UAE Cars, Bikes, Parts & Plates | DPH Classifieds'
@@ -737,18 +748,22 @@ const ExplorePage = ({ forcedCategory } = {}) => {
 
   // ── fetch one page for one API category ──────────────────────────────────
   const fetchPage = useCallback(async (apiKey, offset) => {
-    const ttl = offset === 0 ? INVENTORY_CACHE_TTL_MS : 30_000;
-    // Reddit tab aggregates every source_platform=reddit listing across all four
-    // types into one globally sorted feed. Fetch the prefix needed to produce
-    // the requested page, then deduplicate and slice after merging; applying
-    // the same offset independently to each type would skip rows and repeat
-    // page one when the category mix changes.
+    // Reddit's "offset" arg is a cursor string; null means page one there too.
+    const ttl = (offset === 0 || offset === null || offset === undefined) ? INVENTORY_CACHE_TTL_MS : 30_000;
+    // Reddit tab merges 4 endpoints into one date-sorted feed. `offset` here is
+    // actually a cursor string (or null for page one) — the created_at of the
+    // last row returned by the previous merged page. Each of the 4 endpoints is
+    // paged with that SAME cursor and a flat PAGE_SIZE limit (not a growing
+    // "offset+PAGE_SIZE+1" prefix that re-downloads more with every page), then
+    // merge-sorted and the top PAGE_SIZE kept — the standard k-way-merge
+    // pattern for paginating several independently-sorted sources as one feed.
     if (apiKey === 'reddit') {
+      const cursor = offset || null;
+      const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
       const types = [['cars', 'car'], ['bikes', 'bike'], ['parts', 'part'], ['plates', 'plate']];
-      const requiredRows = offset + PAGE_SIZE + 1;
       const chunks = await Promise.all(
         types.map(async ([ep, type]) => {
-          const url = `${API_URL}/api/${ep}?limit=${requiredRows}&offset=0&order=created_at.desc&source_platform=reddit`;
+          const url = `${API_URL}/api/${ep}?limit=${PAGE_SIZE}&order=created_at.desc&source_platform=reddit${cursorParam}`;
           const data = await fetchJsonWithCache(url, ttl);
           return extractInventoryCollection(data, FALLBACK_KEYS[ep] || ['data']).map((row) => ({
             ...row,
@@ -756,7 +771,15 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           }));
         })
       );
-      return paginateRedditRows(chunks, offset, PAGE_SIZE);
+      const merged = mergeRedditRows(chunks);
+      const items = merged.slice(0, PAGE_SIZE);
+      const lastItem = items[items.length - 1];
+      const nextCursor = lastItem ? (lastItem.created_at || lastItem.source_created_at || null) : cursor;
+      return {
+        items,
+        hasMore: chunks.some((chunk) => chunk.length === PAGE_SIZE),
+        nextCursor,
+      };
     }
     // /api/buying-requests ignores limit/offset — it always returns the full
     // active list, so fetch it once regardless of the requested offset.
@@ -837,10 +860,9 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           : { items: [], hasMore: false };
         const items = (page.items || []).slice(0, MAX_LOADED_ITEMS_PER_CATEGORY);
         nextInventory[apiKey] = items;
-        nextPages[apiKey] = {
-          offset: 0,
-          hasMore: page.hasMore === true,
-        };
+        nextPages[apiKey] = apiKey === 'reddit'
+          ? { cursor: page.nextCursor || null, hasMore: page.hasMore === true }
+          : { offset: 0, hasMore: page.hasMore === true };
         if (results[index].status === 'rejected') {
           failed.push(apiKey === 'parts' ? 'car parts' : apiKey);
         }
@@ -895,7 +917,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     setLoadingMore(true);
 
     const results = await Promise.allSettled(
-      toLoad.map((k) => fetchPage(k, pages[k].offset + PAGE_SIZE))
+      toLoad.map((k) => fetchPage(k, k === 'reddit' ? pages.reddit.cursor : pages[k].offset + PAGE_SIZE))
     );
 
     setInventory((prev) => {
@@ -915,7 +937,9 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         const page = results[i].status === 'fulfilled'
           ? results[i].value
           : { items: [], hasMore: false };
-        next[k] = { offset: prev[k].offset + PAGE_SIZE, hasMore: page.hasMore === true };
+        next[k] = k === 'reddit'
+          ? { cursor: page.nextCursor || prev.reddit.cursor, hasMore: page.hasMore === true }
+          : { offset: prev[k].offset + PAGE_SIZE, hasMore: page.hasMore === true };
       });
       return next;
     });
@@ -923,23 +947,6 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     isFetchingRef.current = false;
     setLoadingMore(false);
   }, [activeMode, fetchPage, loading, pages]);
-
-  // Keep a ref so the IntersectionObserver always calls the latest loadMore
-  const loadMoreRef = useRef(loadMore);
-  useEffect(() => { loadMoreRef.current = loadMore; });
-
-  // ── IntersectionObserver sentinel ─────────────────────────────────────────
-  useEffect(() => {
-    if (loading) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) loadMoreRef.current(); },
-      { rootMargin: '400px' }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [loading, activeMode]);
 
   // Escape closes the filter drawer regardless of where focus landed inside it.
   useEffect(() => {
@@ -1063,7 +1070,7 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     const matchesLocationAndSource = (item) => matchesLocation(item) && matchesSource(item);
 
     if (activeMode === 'all') {
-      const query = globalQuery.trim().toLowerCase();
+      const query = debouncedGlobalQuery.trim().toLowerCase();
       const ranked = allItems
         .filter(matchesLocationAndSource)
         .map((item) => ({
@@ -1084,10 +1091,10 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       return normalizedInventory.reddit
         .filter(matchesLocation)
         .filter((item) => {
-          const query = redditFilters.query.trim().toLowerCase();
-          const minPrice = toNumeric(redditFilters.priceMin);
-          const maxPrice = toNumeric(redditFilters.priceMax);
-          if (redditFilters.manufacturer && normalizeText(item.manufacturer || item.brand) !== redditFilters.manufacturer) {
+          const query = debouncedRedditFilters.query.trim().toLowerCase();
+          const minPrice = toNumeric(debouncedRedditFilters.priceMin);
+          const maxPrice = toNumeric(debouncedRedditFilters.priceMax);
+          if (debouncedRedditFilters.manufacturer && normalizeText(item.manufacturer || item.brand) !== debouncedRedditFilters.manufacturer) {
             return false;
           }
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -1101,21 +1108,21 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           }
           return true;
         })
-        .sort((left, right) => compareBySort(left, right, redditFilters.sortBy));
+        .sort((left, right) => compareBySort(left, right, debouncedRedditFilters.sortBy));
     }
 
     if (activeMode === 'cars') {
       return normalizedInventory.cars
         .filter(matchesLocationAndSource)
         .filter((item) => {
-          const query = carFilters.query.trim().toLowerCase();
-          const minPrice = toNumeric(carFilters.priceMin);
-          const maxPrice = toNumeric(carFilters.priceMax);
+          const query = debouncedCarFilters.query.trim().toLowerCase();
+          const minPrice = toNumeric(debouncedCarFilters.priceMin);
+          const maxPrice = toNumeric(debouncedCarFilters.priceMax);
 
-          if (carFilters.manufacturer && normalizeText(item.manufacturer) !== carFilters.manufacturer) {
+          if (debouncedCarFilters.manufacturer && normalizeText(item.manufacturer) !== debouncedCarFilters.manufacturer) {
             return false;
           }
-          if (carFilters.model && normalizeText(item.model) !== carFilters.model) {
+          if (debouncedCarFilters.model && normalizeText(item.model) !== debouncedCarFilters.model) {
             return false;
           }
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -1129,19 +1136,19 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           }
           return true;
         })
-        .sort((left, right) => compareBySort(left, right, carFilters.sortBy));
+        .sort((left, right) => compareBySort(left, right, debouncedCarFilters.sortBy));
     }
 
     if (activeMode === 'car-parts') {
       return normalizedInventory.parts
         .filter(matchesLocationAndSource)
         .filter((item) => {
-          const query = partsFilters.query.trim().toLowerCase();
-          const minPrice = toNumeric(partsFilters.priceMin);
-          const maxPrice = toNumeric(partsFilters.priceMax);
+          const query = debouncedPartsFilters.query.trim().toLowerCase();
+          const minPrice = toNumeric(debouncedPartsFilters.priceMin);
+          const maxPrice = toNumeric(debouncedPartsFilters.priceMax);
           const partCategory = normalizeText(item.partCategory);
 
-          if (partsFilters.category && partCategory !== partsFilters.category) {
+          if (debouncedPartsFilters.category && partCategory !== debouncedPartsFilters.category) {
             return false;
           }
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -1155,22 +1162,22 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           }
           return true;
         })
-        .sort((left, right) => compareBySort(left, right, partsFilters.sortBy));
+        .sort((left, right) => compareBySort(left, right, debouncedPartsFilters.sortBy));
     }
 
     if (activeMode === 'plates') {
       return normalizedInventory.plates
         .filter(matchesLocationAndSource)
         .filter((item) => {
-          const query = plateFilters.query.trim().toLowerCase();
-          const minPrice = toNumeric(plateFilters.priceMin);
-          const maxPrice = toNumeric(plateFilters.priceMax);
+          const query = debouncedPlateFilters.query.trim().toLowerCase();
+          const minPrice = toNumeric(debouncedPlateFilters.priceMin);
+          const maxPrice = toNumeric(debouncedPlateFilters.priceMax);
           const digits = normalizeText(item.digitsValue);
 
-          if (plateFilters.code && normalizeText(item.codeValue) !== plateFilters.code) {
+          if (debouncedPlateFilters.code && normalizeText(item.codeValue) !== debouncedPlateFilters.code) {
             return false;
           }
-          if (plateFilters.digits && digits !== plateFilters.digits) {
+          if (debouncedPlateFilters.digits && digits !== debouncedPlateFilters.digits) {
             return false;
           }
           if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -1184,14 +1191,14 @@ const ExplorePage = ({ forcedCategory } = {}) => {
           }
           return true;
         })
-        .sort((left, right) => compareBySort(left, right, plateFilters.sortBy));
+        .sort((left, right) => compareBySort(left, right, debouncedPlateFilters.sortBy));
     }
 
     if (activeMode === 'buying-requests') {
       return normalizedInventory.buying_requests
         .filter((item) => {
-          const query = buyingRequestFilters.query.trim().toLowerCase();
-          if (buyingRequestFilters.itemType !== 'all' && item.itemType !== buyingRequestFilters.itemType) {
+          const query = debouncedBuyingRequestFilters.query.trim().toLowerCase();
+          if (debouncedBuyingRequestFilters.itemType !== 'all' && item.itemType !== debouncedBuyingRequestFilters.itemType) {
             return false;
           }
           if (query && !item.searchableText.includes(query)) {
@@ -1205,19 +1212,19 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     return normalizedInventory.bikes
       .filter(matchesLocationAndSource)
       .filter((item) => {
-        const query = bikeFilters.query.trim().toLowerCase();
-        const minPrice = toNumeric(bikeFilters.priceMin);
-        const maxPrice = toNumeric(bikeFilters.priceMax);
-        const minYear = toNumeric(bikeFilters.yearMin);
-        const maxYear = toNumeric(bikeFilters.yearMax);
+        const query = debouncedBikeFilters.query.trim().toLowerCase();
+        const minPrice = toNumeric(debouncedBikeFilters.priceMin);
+        const maxPrice = toNumeric(debouncedBikeFilters.priceMax);
+        const minYear = toNumeric(debouncedBikeFilters.yearMin);
+        const maxYear = toNumeric(debouncedBikeFilters.yearMax);
         const bikeType = normalizeText(item.bikeType);
         const brand = normalizeText(item.brand);
         const year = item.yearValue;
 
-        if (bikeFilters.type && bikeType !== bikeFilters.type) {
+        if (debouncedBikeFilters.type && bikeType !== debouncedBikeFilters.type) {
           return false;
         }
-        if (bikeFilters.brand && brand !== bikeFilters.brand) {
+        if (debouncedBikeFilters.brand && brand !== debouncedBikeFilters.brand) {
           return false;
         }
         if (minPrice !== null && (item.numericPrice === null || item.numericPrice < minPrice)) {
@@ -1237,20 +1244,20 @@ const ExplorePage = ({ forcedCategory } = {}) => {
         }
         return true;
       })
-      .sort((left, right) => compareBySort(left, right, bikeFilters.sortBy));
+      .sort((left, right) => compareBySort(left, right, debouncedBikeFilters.sortBy));
   }, [
     activeMode,
     allItems,
     allSortBy,
-    bikeFilters,
-    buyingRequestFilters,
-    carFilters,
-    globalQuery,
+    debouncedBikeFilters,
+    debouncedBuyingRequestFilters,
+    debouncedCarFilters,
+    debouncedGlobalQuery,
     locationFilter,
     normalizedInventory,
-    partsFilters,
-    plateFilters,
-    redditFilters,
+    debouncedPartsFilters,
+    debouncedPlateFilters,
+    debouncedRedditFilters,
     sourceFilter,
   ]);
 
@@ -1273,26 +1280,26 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const isDefaultOrder = useMemo(() => {
     const sourceIsDefault = sourceFilter.private && sourceFilter.dealer && sourceFilter.reddit;
     if (!sourceIsDefault || locationFilter) return false;
-    if (activeMode === 'all') return !globalQuery.trim() && allSortBy === 'newest';
+    if (activeMode === 'all') return !debouncedGlobalQuery.trim() && allSortBy === 'newest';
     if (activeMode === 'cars') {
-      return !carFilters.query.trim() && carFilters.sortBy === 'newest' && !carFilters.manufacturer
-        && !carFilters.model && !carFilters.priceMin && !carFilters.priceMax;
+      return !debouncedCarFilters.query.trim() && debouncedCarFilters.sortBy === 'newest' && !debouncedCarFilters.manufacturer
+        && !debouncedCarFilters.model && !debouncedCarFilters.priceMin && !debouncedCarFilters.priceMax;
     }
     if (activeMode === 'car-parts') {
-      return !partsFilters.query.trim() && partsFilters.sortBy === 'newest' && !partsFilters.category
-        && !partsFilters.priceMin && !partsFilters.priceMax;
+      return !debouncedPartsFilters.query.trim() && debouncedPartsFilters.sortBy === 'newest' && !debouncedPartsFilters.category
+        && !debouncedPartsFilters.priceMin && !debouncedPartsFilters.priceMax;
     }
     if (activeMode === 'plates') {
-      return !plateFilters.query.trim() && plateFilters.sortBy === 'newest'
-        && !plateFilters.code && !plateFilters.digits && !plateFilters.priceMin && !plateFilters.priceMax;
+      return !debouncedPlateFilters.query.trim() && debouncedPlateFilters.sortBy === 'newest'
+        && !debouncedPlateFilters.code && !debouncedPlateFilters.digits && !debouncedPlateFilters.priceMin && !debouncedPlateFilters.priceMax;
     }
     if (activeMode === 'bikes') {
-      return !bikeFilters.query.trim() && bikeFilters.sortBy === 'newest' && !bikeFilters.type
-        && !bikeFilters.brand && !bikeFilters.priceMin && !bikeFilters.priceMax
-        && !bikeFilters.yearMin && !bikeFilters.yearMax;
+      return !debouncedBikeFilters.query.trim() && debouncedBikeFilters.sortBy === 'newest' && !debouncedBikeFilters.type
+        && !debouncedBikeFilters.brand && !debouncedBikeFilters.priceMin && !debouncedBikeFilters.priceMax
+        && !debouncedBikeFilters.yearMin && !debouncedBikeFilters.yearMax;
     }
     return false; // reddit, buying-requests: no featured placement
-  }, [activeMode, globalQuery, allSortBy, carFilters, partsFilters, plateFilters, bikeFilters, locationFilter, sourceFilter]);
+  }, [activeMode, debouncedGlobalQuery, allSortBy, debouncedCarFilters, debouncedPartsFilters, debouncedPlateFilters, debouncedBikeFilters, locationFilter, sourceFilter]);
 
   const displayedItems = useMemo(() => {
     if (!isDefaultOrder) return filteredItems;
@@ -1301,11 +1308,6 @@ const ExplorePage = ({ forcedCategory } = {}) => {
       : normalizedFeatured[EXPLORE_MODE_TO_API_KEY[activeMode]] || [];
     return applyFeaturedPlacement(filteredItems, featuredPool, featuredPattern, (item) => `${item.categoryKey}-${item.id}`);
   }, [filteredItems, normalizedFeatured, featuredPattern, isDefaultOrder, activeMode]);
-
-  const renderedItems = useMemo(
-    () => displayedItems.slice(0, renderLimit),
-    [displayedItems, renderLimit]
-  );
 
   const activeTotalKey = activeMode === 'all' ? 'all' : EXPLORE_MODE_TO_API_KEY[activeMode];
   const activeTotal = totalCounts && activeTotalKey && totalCounts[activeTotalKey] !== undefined
@@ -1693,40 +1695,37 @@ const ExplorePage = ({ forcedCategory } = {}) => {
               </button>
             </div>
           ) : (
-            <>
-              <div className="explore-v2-listing-grid">
-                {renderedItems.map((item) => (
-                  item.categoryKey === 'buying-requests'
-                    ? <BuyingRequestCard key={`${item.categoryKey}-${item.id}`} item={item} />
-                    : <MarketplaceListingCard key={`${item.categoryKey}-${item.id}`} item={item} />
-                ))}
-              </div>
-
-              {renderedItems.length < displayedItems.length ? (
-                <button
-                  type="button"
-                  className="explore-v2-button explore-v2-button-secondary explore-v2-show-more"
-                  onClick={() => setRenderLimit((current) => current + MAX_RENDERED_ITEMS)}
-                >
-                  Show more loaded listings ({displayedItems.length - renderedItems.length} remaining)
-                </button>
-              ) : null}
-
-              {/* Sentinel triggers loadMore via IntersectionObserver */}
-              {(() => {
+            <VirtuosoGrid
+              useWindowScroll
+              data={displayedItems}
+              listClassName="explore-v2-listing-grid"
+              computeItemKey={(_index, item) => `${item.categoryKey}-${item.id}`}
+              itemContent={(_index, item) => (
+                item.categoryKey === 'buying-requests'
+                  ? <BuyingRequestCard item={item} />
+                  : <MarketplaceListingCard item={item} />
+              )}
+              endReached={() => {
                 const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
                 const hasMore = modeKey
                   ? pages[modeKey]?.hasMore
                   : Object.values(pages).some((p) => p.hasMore);
-                return hasMore && renderedItems.length === displayedItems.length ? (
-                  <div ref={sentinelRef} className="explore-v2-sentinel">
-                    {loadingMore && <ListingSkeleton variant="grid" count={4} />}
-                  </div>
-                ) : filteredItems.length > 0 ? (
-                  <p className="explore-v2-end-label">You've seen all listings.</p>
-                ) : null;
-              })()}
-            </>
+                if (hasMore) loadMore();
+              }}
+              components={{
+                Footer: () => {
+                  const modeKey = EXPLORE_MODE_TO_API_KEY[activeMode];
+                  const hasMore = modeKey
+                    ? pages[modeKey]?.hasMore
+                    : Object.values(pages).some((p) => p.hasMore);
+                  if (loadingMore) return <ListingSkeleton variant="grid" count={4} />;
+                  if (!hasMore && filteredItems.length > 0) {
+                    return <p className="explore-v2-end-label">You've seen all listings.</p>;
+                  }
+                  return null;
+                },
+              }}
+            />
           )}
 
           {!loading && error ? <div className="explore-v2-inline-alert">{error}</div> : null}

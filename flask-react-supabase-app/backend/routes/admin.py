@@ -827,6 +827,29 @@ def delete_listing(listing_id):
                 timeout=5,
             )
 
+        # Clean up the other tables that reference a listing by
+        # (listing_type, listing_id) so deleting a listing doesn't leave
+        # orphaned rows behind in lead/report/history tables.
+        singular_listing_type = {
+            "cars": "car", "bikes": "bike", "plates": "plate", "parts": "part",
+        }.get(listing_type)
+        if singular_listing_type:
+            for related_table in (
+                "lead_events", "reports", "listing_price_history", "listing_verification_scans",
+            ):
+                try:
+                    requests.delete(
+                        f"{SUPABASE_URL}/rest/v1/{related_table}"
+                        f"?listing_type=eq.{singular_listing_type}&listing_id=eq.{listing_id}",
+                        headers=headers,
+                        timeout=5,
+                    )
+                except Exception as cleanup_err:
+                    logger.warning(
+                        "Failed to clean up %s for listing %s: %s",
+                        related_table, listing_id, cleanup_err,
+                    )
+
         # Delete the listing
         response = requests.delete(
             f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{listing_id}",

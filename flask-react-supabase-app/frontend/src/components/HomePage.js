@@ -193,7 +193,7 @@ const HomePage = () => {
 
       try {
         const [carsResponse, featuredResponse] = await Promise.all([
-          axios.get(`${API_URL}/api/cars?limit=8&order=created_at.desc`),
+          axios.get(`${API_URL}/api/homepage/preview`),
           axios.get(`${API_URL}/api/featured-listings?type=car`).catch(() => ({ data: [] })),
         ]);
         const payload = carsResponse.data || [];

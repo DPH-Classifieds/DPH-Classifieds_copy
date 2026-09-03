@@ -1,6 +1,19 @@
 from datetime import datetime, timedelta, timezone
 
+from workers import reddit_roundup_bridge_worker as bridge
 from workers.reddit_roundup_bridge_worker import _build_payload, _rolling_window, _sign_payload
+
+
+def test_run_fails_closed_when_hmac_secret_is_not_configured(monkeypatch):
+    """A payload the Devvit bot only checks by schema+count isn't proof it
+    came from this worker — refuse to publish unsigned rather than degrade."""
+    monkeypatch.setenv("REDDIT_ROUNDUP_BRIDGE_ENABLED", "true")
+    monkeypatch.setenv("REDDIT_ROUNDUP_GITHUB_REPO", "org/repo")
+    monkeypatch.setenv("REDDIT_ROUNDUP_GITHUB_TOKEN", "token")
+    monkeypatch.delenv("REDDIT_ROUNDUP_BRIDGE_HMAC_SECRET", raising=False)
+    result = bridge.run()
+    assert result["status"] == "failed"
+    assert "configuration" in result["error"]
 
 
 def test_rolling_window_is_exactly_48_hours_and_keeps_dubai_label():

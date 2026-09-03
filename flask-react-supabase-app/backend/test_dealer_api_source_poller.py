@@ -125,6 +125,56 @@ def test_credentials_unreadable_skips_fetch(mock_requests, mock_decrypt):
     assert patches[-1].kwargs["json"]["last_status"] == "credentials_unreadable"
 
 
+@patch("workers.dealer_api_source_poller.decrypt_credentials")
+@patch("workers.dealer_api_source_poller.requests")
+def test_repeated_full_row_failure_auto_disables_source(mock_requests, mock_decrypt):
+    """A feed whose rows are 100% unparseable two ticks in a row won't
+    self-heal by retrying forever on the normal poll cadence — disable it."""
+    mock_decrypt.return_value = None
+    mock_requests.get.side_effect = [
+        _resp(200, [{
+            "id": "s7", "dealership_id": "d1", "adapter": "generic_json",
+            "endpoint_url": "https://dms.test/x",
+            "auth_type": "none", "credentials_enc": None,
+            "field_mapping": {}, "poll_interval_min": 60,
+            "last_pulled_at": "2026-08-29T09:00:00+00:00",
+            "last_status": "failed",  # already failed last tick
+            "enabled": True,
+        }]),
+        _resp(200, [{"make": "Toyota"}]),  # missing required fields -> validate_row fails
+    ]
+    mock_requests.patch.return_value = _resp(200, [{"id": "claimed"}])
+    poll.run()
+    patches = [c for c in mock_requests.patch.call_args_list
+               if "dealer_api_sources" in c.args[0]]
+    final_patch = patches[-1]
+    assert final_patch.kwargs["json"]["last_status"] == "failed"
+    assert final_patch.kwargs["json"]["enabled"] is False
+
+
+@patch("workers.dealer_api_source_poller.decrypt_credentials")
+@patch("workers.dealer_api_source_poller.requests")
+def test_first_full_row_failure_does_not_disable_source(mock_requests, mock_decrypt):
+    mock_decrypt.return_value = None
+    mock_requests.get.side_effect = [
+        _resp(200, [{
+            "id": "s8", "dealership_id": "d1", "adapter": "generic_json",
+            "endpoint_url": "https://dms.test/x",
+            "auth_type": "none", "credentials_enc": None,
+            "field_mapping": {}, "poll_interval_min": 60,
+            "last_pulled_at": None, "last_status": None, "enabled": True,
+        }]),
+        _resp(200, [{"make": "Toyota"}]),
+    ]
+    mock_requests.patch.return_value = _resp(200, [{"id": "claimed"}])
+    poll.run()
+    patches = [c for c in mock_requests.patch.call_args_list
+               if "dealer_api_sources" in c.args[0]]
+    final_patch = patches[-1]
+    assert final_patch.kwargs["json"]["last_status"] == "failed"
+    assert "enabled" not in final_patch.kwargs["json"]
+
+
 def test_claim_source_is_conditional_and_schema_compatible():
     source = {"id": "s5", "last_pulled_at": "2026-08-29T10:00:00+00:00"}
     with patch.object(poll.requests, "patch", return_value=_resp(200, [{"id": "s5"}])) as patch_call:

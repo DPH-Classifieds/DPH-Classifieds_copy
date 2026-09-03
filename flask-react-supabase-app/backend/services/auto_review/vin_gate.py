@@ -19,6 +19,22 @@ def _norm(s):
     return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
 
 
+def _text_mismatch(form_value, decoded_value):
+    form_norm = _norm(form_value)
+    decoded_norm = _norm(decoded_value)
+    if not form_norm or not decoded_norm:
+        return False
+    # Substring match either direction tolerates trims/variants ("Camry" vs "Camry LE").
+    return form_norm not in decoded_norm and decoded_norm not in form_norm
+
+
+def _year_mismatch(form_year, decoded_year):
+    try:
+        return abs(int(form_year) - int(decoded_year)) > 1
+    except (TypeError, ValueError):
+        return False
+
+
 def evaluate_vin(vin, *, form_make, form_model, form_year, decoder):
     reasons = []
     vin_clean = re.sub(r"[^A-Z0-9]", "", str(vin or "").upper())
@@ -59,5 +75,19 @@ def evaluate_vin(vin, *, form_make, form_model, form_year, decoder):
             decoded = decode_result.get("decoded") or {}
         except Exception:
             decoded = {}
+
+    # A submitted make/model/year that contradicts what the VIN itself decodes
+    # to is a strong fraud signal — force a human look rather than trusting
+    # the submitter's tier.
+    mismatches = {}
+    if decoded.get("make") and _text_mismatch(form_make, decoded.get("make")):
+        mismatches["make"] = {"submitted": form_make, "decoded": decoded.get("make")}
+    if decoded.get("model") and _text_mismatch(form_model, decoded.get("model")):
+        mismatches["model"] = {"submitted": form_model, "decoded": decoded.get("model")}
+    decoded_year = decoded.get("year") or decoded.get("model_year")
+    if decoded_year and _year_mismatch(form_year, decoded_year):
+        mismatches["year"] = {"submitted": form_year, "decoded": decoded_year}
+    if mismatches:
+        reasons.append(FailReason("vin_decoded_mismatch", mismatches))
 
     return VinGateResult(ok=not reasons, reasons=reasons, decoded=decoded)

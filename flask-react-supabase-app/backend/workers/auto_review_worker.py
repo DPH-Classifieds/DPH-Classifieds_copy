@@ -181,16 +181,28 @@ def _fetch_image_urls(type_label, row):
     return [r.get("image_url") for r in rows if r.get("image_url")]
 
 
+_MAX_IMAGE_BYTES = 25 * 1024 * 1024
+
+
 def _fetch_image_bytes(urls):
     import requests
     from services.url_safety import assert_safe_outbound
+    from workers.dealer_api_source_poller import _read_bounded_response
+
     blobs = []
     for url in urls:
         try:
             safe_url = assert_safe_outbound(url)
             resp = requests.get(safe_url, timeout=8, stream=True)
-            if resp.status_code < 400 and resp.content:
-                blobs.append(resp.content[:25 * 1024 * 1024])
+            if resp.status_code >= 400:
+                continue
+            try:
+                body = _read_bounded_response(resp, max_bytes=_MAX_IMAGE_BYTES)
+            except ValueError:
+                logger.warning("auto-review image over size cap, skipped: %s", url)
+                continue
+            if body:
+                blobs.append(body)
         except requests.RequestException:
             logger.warning("auto-review image fetch failed: %s", url)
     return blobs
@@ -310,6 +322,99 @@ def _trust_context_for(user_id):
     )
 
 
+def _duplicate_vin_signal(listing_kind, row, vin):
+    """Flag a second live listing carrying the same VIN as a duplicate."""
+    from services.auto_review.sync_gate import normalize_vin
+
+    vin_clean = normalize_vin(vin)
+    if not vin_clean:
+        return None
+    table = ITEM_TYPE_TO_TABLE[listing_kind + "s"]
+    sb = _supabase_request()
+    try:
+        rows, status = sb(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "select": "id",
+                "vin_number": f"eq.{vin_clean}",
+                "status": "in.(approved,pending,pending_auto_review)",
+                "limit": "5",
+            },
+            use_service_role=True,
+        )
+    except Exception:
+        logger.exception("duplicate VIN lookup failed for row id=%s", row.get("id"))
+        return None
+    if status >= 400 or not rows:
+        return None
+    own_id = str(row.get("id") or "")
+    other = next((r for r in rows if str(r.get("id")) != own_id), None)
+    if not other:
+        return None
+    from services.auto_review.decision import FailReason
+
+    return FailReason("duplicate_listing", {"existing_id": other.get("id"), "vin": vin_clean})
+
+
+def _price_outlier_signal(listing_kind, form_make, form_model, form_year, price):
+    """Flag a price far outside the range of already-approved comparable
+    listings. This compares against listings already in our own database —
+    there is no external market-price feed in this codebase to check against."""
+    try:
+        price = float(price)
+    except (TypeError, ValueError):
+        return None
+    if price <= 0 or not form_make or not form_model:
+        return None
+
+    table = ITEM_TYPE_TO_TABLE[listing_kind + "s"]
+    if listing_kind == "car":
+        make_col, model_col, price_col = "car_manufacturer", "car_model", "expected_selling_price"
+    else:
+        make_col, model_col, price_col = "bike_brand", "bike_model", "price"
+
+    sb = _supabase_request()
+    try:
+        rows, status = sb(
+            "get",
+            f"/rest/v1/{table}",
+            params={
+                "select": price_col,
+                make_col: f"ilike.{form_make}",
+                model_col: f"ilike.{form_model}",
+                "make_year": f"eq.{int(form_year)}" if form_year else "not.is.null",
+                "status": "eq.approved",
+                "limit": "50",
+            },
+            use_service_role=True,
+        )
+    except Exception:
+        logger.exception("price outlier lookup failed for %s %s", form_make, form_model)
+        return None
+    if status >= 400 or not isinstance(rows, list):
+        return None
+
+    comparable_prices = sorted(
+        p for p in (r.get(price_col) for r in rows) if isinstance(p, (int, float)) and p > 0
+    )
+    # Too few comparables to trust a median off a handful of other listings.
+    if len(comparable_prices) < 3:
+        return None
+    median_price = comparable_prices[len(comparable_prices) // 2]
+    if median_price <= 0:
+        return None
+    ratio = price / median_price
+    if ratio < 0.3 or ratio > 3:
+        from services.auto_review.decision import FailReason
+
+        return FailReason(
+            "price_outlier",
+            {"submitted": price, "comparable_median": median_price, "sample_size": len(comparable_prices)},
+        )
+    return None
+
+
 def build_signals_for(listing_kind, row):
     import app as _backend
 
@@ -383,14 +488,42 @@ def build_signals_for(listing_kind, row):
 
     trust = evaluate_trust(_trust_context_for(row.get("user_id")))
 
+    duplicate_signal = None
+    price_outlier_signal = None
+    if listing_kind in ("car", "bike"):
+        if listing_kind == "car":
+            price_form_make = normalized_listing.get("make") or ""
+            price_form_model = normalized_listing.get("model") or ""
+            price = normalized_listing.get("expected_selling_price")
+        else:
+            price_form_make = normalized_listing.get("bike_brand") or ""
+            price_form_model = normalized_listing.get("bike_model") or ""
+            price = normalized_listing.get("price")
+        try:
+            duplicate_signal = _duplicate_vin_signal(
+                listing_kind, row, normalized_listing.get("vin") or ""
+            )
+        except Exception:
+            logger.exception("duplicate signal failed for row id=%s", row.get("id"))
+        try:
+            price_outlier_signal = _price_outlier_signal(
+                listing_kind,
+                price_form_make,
+                price_form_model,
+                normalized_listing.get("make_year"),
+                price,
+            )
+        except Exception:
+            logger.exception("price outlier signal failed for row id=%s", row.get("id"))
+
     return {
         "trust": trust,
         "image_analysis": image_analysis,
         "vin": vin_signal,
         "sync_gate": sync_gate,
         "profanity": profanity,
-        "duplicate": None,
-        "price_outlier": None,
+        "duplicate": duplicate_signal,
+        "price_outlier": price_outlier_signal,
         "user_under_review": False,
     }
 
