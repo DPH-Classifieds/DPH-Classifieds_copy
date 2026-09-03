@@ -3,11 +3,13 @@
 // had, then renders a headerless Stack whose only child is the (tabs) group —
 // Expo Router owns the NavigationContainer, so we must NOT add our own.
 import 'react-native-gesture-handler';
-import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AppState, Pressable } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import {
   useFonts,
   PlusJakartaSans_400Regular,
@@ -26,6 +28,8 @@ import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
 import ErrorBoundary from '../src/components/ui/ErrorBoundary';
 import { attachNotificationResponseHandler } from '../src/utils/pushNotifications';
 import { trackMobilePlatformEvent } from '../src/utils/platformTracker';
+import Sidebar from '../src/components/ui/Sidebar';
+import { BORDER_RADIUS } from '../src/constants/theme';
 
 // Anchor the root "/" match to the (tabs) group so cold start lands on the
 // (explore) tab, not (auth)/index's Redirect-to-Login. Route groups are URL-
@@ -104,17 +108,10 @@ function AppShell() {
 // small floating trigger in the top-left that opens the sidebar. Android gets
 // the same trigger via AndroidTabBar's built-in hamburger. Cross-platform
 // coverage without iOS-specific navigation code.
-import { Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme as useSidebarTheme } from '../src/context/ThemeContext';
-import Sidebar from '../src/components/ui/Sidebar';
-import { BORDER_RADIUS } from '../src/constants/theme';
-
 function SidebarTrigger() {
   const insets = useSafeAreaInsets();
-  const { colors } = useSidebarTheme();
-  const [open, setOpen] = React.useState(false);
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
 
   return (
     <>
