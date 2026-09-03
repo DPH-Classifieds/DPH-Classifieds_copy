@@ -74,7 +74,7 @@ export default function BuyingRequestDetailScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={[]}>
         <ActivityIndicator color={colors.accent} style={{ flex: 1 }} />
       </SafeAreaView>
     );
@@ -83,7 +83,7 @@ export default function BuyingRequestDetailScreen({ route, navigation }) {
   if (!request) return null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <ScreenEntrance>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.categoryRow}>

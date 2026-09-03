@@ -195,7 +195,7 @@ export default function PartDetailScreen({ route, navigation }) {
     : (typeof rawCompat === 'string' ? rawCompat.split(',').map((s) => s.trim()).filter(Boolean) : []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false}>
         <View style={styles.imageSection}>
           {images.length > 0 ? (
