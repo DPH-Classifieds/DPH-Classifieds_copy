@@ -77,7 +77,8 @@
       "expo-router",
       "expo-image",
       "expo-localization",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
