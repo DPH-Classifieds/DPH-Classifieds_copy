@@ -68,8 +68,9 @@ describe('JSX files are theme-aware (Item 3 web theming)', () => {
     const usesInlineToken = /var\(--ex-/.test(src);
     const importsShellTokens = /shell-tokens\.css/.test(src);
     const importsExploreTokens = /ExplorePage\.css/.test(src);
+    const importsLegalLayout = /legal\/LegalLayout/.test(src);
     const usesThemeClasses = /from\s+['"]\.\.\/lib\/themeClasses['"]/.test(src);
-    const isOk = usesInlineToken || importsShellTokens || importsExploreTokens || usesThemeClasses;
+    const isOk = usesInlineToken || importsShellTokens || importsExploreTokens || importsLegalLayout || usesThemeClasses;
     expect(isOk).toBe(true);
   });
 });

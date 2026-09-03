@@ -37,3 +37,5 @@ export const shellTextMuted = 'text-[color:var(--ex-shell-text-muted)]';
 export const shellAccent = 'text-[color:var(--ex-shell-accent)]';
 export const shellAccentBg = 'bg-[color:var(--ex-shell-accent)]';
 export const shellOnAccent = 'text-[color:var(--ex-shell-on-accent)]';
+export const brandAccent = 'text-[color:var(--ex-brand-accent)]';
+export const brandAccentBg = 'bg-[color:var(--ex-brand-accent)]';

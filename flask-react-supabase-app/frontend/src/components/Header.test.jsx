@@ -33,10 +33,11 @@ test('header className uses theme tokens, not hardcoded rgba dark scrim', () => 
 
   const header = container.querySelector('header');
   const cls = header?.getAttribute('class') || '';
-  // The scrim is intentionally a dark brand surface in both themes; assert it
-  // reads from a token (--ex-surface-dark) instead of a hardcoded rgba.
+  // The header background reads from a theme-aware token so it renders correctly
+  // in both light and dark modes (was --ex-surface-dark, locked to dark; now
+  // --ex-surface, which switches between white and near-black via .dark).
   expect(cls).not.toMatch(/rgba\(4,16,8/);
-  expect(cls).toMatch(/var\(--ex-surface-dark\)/);
+  expect(cls).toMatch(/var\(--ex-surface\)/);
 
   // Brand mark uses theme accent token.
   const brand = Array.from(container.querySelectorAll('header span')).find(

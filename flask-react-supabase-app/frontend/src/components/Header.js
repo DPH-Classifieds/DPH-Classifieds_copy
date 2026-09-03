@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { accentText, line, surfaceDark } from '../lib/themeClasses';
+import { accentText, line, surfaceBg } from '../lib/themeClasses';
 import './ExplorePage.css';
 import ProfileMenu from './ProfileMenu';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
@@ -144,8 +144,8 @@ const Header = () => {
   };
 
   const headerTone = scrolled
-    ? `border-b ${line} ${surfaceDark} shadow-[0_18px_48px_rgba(0,0,0,0.3)]`
-    : `border-b border-white/5 ${surfaceDark}`;
+    ? `border-b ${line} ${surfaceBg} shadow-[0_18px_48px_rgba(0,0,0,0.3)]`
+    : `border-b border-[color:var(--ex-line)] ${surfaceBg}`;
 
   return (
     <header
@@ -156,8 +156,8 @@ const Header = () => {
     >
       <div className="mx-auto flex max-w-[1480px] items-center justify-between px-5 py-3.5 sm:px-8">
         {/* Logo */}
-        <Link to="/" onClick={handleHomeNavigation} className="flex items-center text-white transition-opacity hover:opacity-80">
-          <span className="text-[1.3rem] font-bold tracking-[-0.03em] text-white">
+        <Link to="/" onClick={handleHomeNavigation} className="flex items-center text-[color:var(--ex-text)] transition-opacity hover:opacity-80">
+          <span className="text-[1.3rem] font-bold tracking-[-0.03em] text-[color:var(--ex-text)]">
             DPH<span className={accentText}>Classifieds</span>
           </span>
         </Link>
@@ -168,7 +168,7 @@ const Header = () => {
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isExploreActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isExploreActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 <Link to="/explore">Explore</Link>
               </NavigationMenuLink>
@@ -176,7 +176,7 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isBrowseActive ? 'bg-white/10 text-white' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isBrowseActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 Browse
               </NavigationMenuTrigger>
@@ -192,14 +192,14 @@ const Header = () => {
                       >
                         <Link
                           to={item.href}
-                          className="flex rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] p-4 transition-all duration-200 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)]"
+                          className="flex rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-surface)] p-4 transition-all duration-200 hover:border-[color:var(--ex-brand-accent)]/40 hover:bg-[color:var(--ex-surface-high)]"
                         >
-                          <div className="mr-3.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#8bd6b4]/15 text-[#8bd6b4]">
+                          <div className="mr-3.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-brand-accent)]">
                             <Icon className="h-4 w-4" />
                           </div>
                           <div>
-                            <p className="mb-0.5 text-[14px] font-semibold text-white">{item.title}</p>
-                            <p className="text-[13px] leading-5 text-white/55">{item.description}</p>
+                            <p className="mb-0.5 text-[14px] font-semibold text-[color:var(--ex-text)]">{item.title}</p>
+                            <p className="text-[13px] leading-5 text-[color:var(--ex-text-muted)]">{item.description}</p>
                           </div>
                         </Link>
                       </NavigationMenuLink>
@@ -211,7 +211,7 @@ const Header = () => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger
-                className={`${isPostActive ? 'bg-white/10 text-white' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isPostActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 Sell
               </NavigationMenuTrigger>
@@ -227,10 +227,10 @@ const Header = () => {
                     <NavigationMenuLink key={item.href} asChild className="rounded-xl p-0">
                       <Link
                         to={item.href}
-                        className={`flex items-center justify-between rounded-xl border border-white/5 bg-[rgba(6,24,12,0.92)] px-4 py-3 transition-all duration-200 ${
+                        className={`flex items-center justify-between rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-surface)] px-4 py-3 transition-all duration-200 ${
                           item.disabled
-                            ? 'cursor-not-allowed text-white/30 hover:border-white/5 hover:bg-[rgba(6,24,12,0.92)]'
-                            : 'text-white/75 hover:border-[#8bd6b4]/25 hover:bg-[rgba(11,35,18,0.96)] hover:text-white'
+                            ? 'cursor-not-allowed text-[color:var(--ex-text-muted)]/70 hover:border-[color:var(--ex-line)] hover:bg-[color:var(--ex-surface)]'
+                            : 'text-[color:var(--ex-text-muted)]/85 hover:border-[color:var(--ex-brand-accent)]/40 hover:bg-[color:var(--ex-surface-high)] hover:text-[color:var(--ex-text)]'
                         }`}
                       >
                         <span className="text-[14px] font-medium">{item.title}</span>
@@ -245,7 +245,7 @@ const Header = () => {
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={`${isResourcesActive ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                className={`${isResourcesActive ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
               >
                 <Link to="/about">About</Link>
               </NavigationMenuLink>
@@ -256,14 +256,14 @@ const Header = () => {
                 {user?.is_dealer && user?.dealer_verified ? (
                   <NavigationMenuLink
                     asChild
-                    className={`${location.pathname.startsWith('/dealer') ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                    className={`${location.pathname.startsWith('/dealer') ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
                   >
                     <Link to="/dealer/dashboard">Dealer Panel</Link>
                   </NavigationMenuLink>
                 ) : (
                   <NavigationMenuLink
                     asChild
-                    className={`${location.pathname === '/my-listings' ? 'bg-white/10 text-white' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-white/75 hover:bg-white/8 hover:text-white focus:bg-white/8`}
+                    className={`${location.pathname === '/my-listings' ? 'bg-[color:var(--ex-brand-accent)]/15 text-[color:var(--ex-text)]' : ''} ${navigationMenuTriggerStyle()} rounded-full bg-transparent px-4 py-2 text-[14px] text-[color:var(--ex-text-muted)]/85 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)] focus:bg-[color:var(--ex-brand-accent)]/10`}
                   >
                     <Link to="/my-listings">My Listings</Link>
                   </NavigationMenuLink>
@@ -279,7 +279,7 @@ const Header = () => {
             type="button"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-transparent text-white/80 transition-all duration-200 hover:border-white/20 hover:bg-white/8 hover:text-white"
+            className="flex size-9 items-center justify-center rounded-full border border-[color:var(--ex-line)] bg-transparent text-[color:var(--ex-text-muted)] transition-all duration-200 hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
@@ -293,13 +293,13 @@ const Header = () => {
               <Button
                 asChild
                 variant="ghost"
-                className="rounded-full border border-white/10 bg-transparent px-5 py-2 text-[14px] font-medium text-white/80 transition-all duration-200 hover:border-white/20 hover:bg-white/5 hover:text-white"
+                className="rounded-full border border-[color:var(--ex-line)] bg-transparent px-5 py-2 text-[14px] font-medium text-[color:var(--ex-text-muted)]/85 transition-all duration-200 hover:border-[color:var(--ex-line)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
               >
                 <Link to="/login">Log In</Link>
               </Button>
               <Button
                 asChild
-                className="rounded-full bg-gradient-to-r from-[#8bd6b4] to-[#004e37] px-5 py-2 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] transition-all duration-200 hover:from-[#9fe0c4] hover:to-[#005a41] hover:shadow-[0_6px_24px_rgba(139,214,180,0.3)]"
+                className="rounded-full bg-gradient-to-r from-[color:var(--ex-brand-accent)] to-[color:var(--ex-primary-strong)] px-5 py-2 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] transition-all duration-200 hover:from-[color:var(--ex-brand-accent)]/90 hover:to-[color:var(--ex-primary-strong)]/95 hover:shadow-[0_6px_24px_rgba(139,214,180,0.3)]"
               >
                 <Link to="/signup">Sign Up</Link>
               </Button>
@@ -314,19 +314,19 @@ const Header = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full border border-white/10 bg-transparent text-white hover:bg-white/8 hover:text-white"
+              className="rounded-full border border-[color:var(--ex-line)] bg-transparent text-[color:var(--ex-text)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]"
             >
               <MenuIcon className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent
             side="top"
-            className="max-h-screen overflow-auto border-b border-white/10 bg-[rgba(4,16,8,0.98)] text-white"
+            className="max-h-screen overflow-auto border-b border-[color:var(--ex-line)] bg-[color:var(--ex-page-bg)]/98 text-[color:var(--ex-text)]"
           >
             <SheetHeader>
               <SheetTitle>
-                <Link to="/" onClick={handleHomeNavigation} className="flex items-center gap-3 text-left text-white">
-                  <span className="text-[1.2rem] font-bold tracking-[-0.03em] text-white">
+                <Link to="/" onClick={handleHomeNavigation} className="flex items-center gap-3 text-left text-[color:var(--ex-text)]">
+                  <span className="text-[1.2rem] font-bold tracking-[-0.03em] text-[color:var(--ex-text)]">
             DPH<span className={accentText}>Classifieds</span>
                   </span>
                 </Link>
@@ -335,8 +335,8 @@ const Header = () => {
 
             <div className="flex flex-col gap-6 px-1 py-4">
               <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="browse" className="border-white/10">
-                  <AccordionTrigger className="text-base font-medium text-white hover:no-underline">
+                <AccordionItem value="browse" className="border-[color:var(--ex-line)]">
+                  <AccordionTrigger className="text-base font-medium text-[color:var(--ex-text)] hover:no-underline">
                     Browse listings
                   </AccordionTrigger>
                   <AccordionContent>
@@ -347,14 +347,14 @@ const Header = () => {
                           <Link
                             key={item.href}
                             to={item.href}
-                            className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/4 px-4 py-3 transition-colors hover:bg-white/8"
+                            className="flex items-start gap-3 rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-brand-accent)]/10 px-4 py-3 transition-colors hover:bg-[color:var(--ex-brand-accent)]/10"
                           >
-                            <div className="mt-0.5 rounded-lg bg-[#8bd6b4]/15 p-2 text-[#8bd6b4]">
+                            <div className="mt-0.5 rounded-lg bg-[color:var(--ex-brand-accent)]/15 p-2 text-[color:var(--ex-brand-accent)]">
                               <Icon className="h-4 w-4" />
                             </div>
                             <div>
-                              <p className="font-medium text-white">{item.title}</p>
-                              <p className="text-sm text-white/60">{item.description}</p>
+                              <p className="font-medium text-[color:var(--ex-text)]">{item.title}</p>
+                              <p className="text-sm text-[color:var(--ex-text-muted)]/70">{item.description}</p>
                             </div>
                           </Link>
                         );
@@ -363,8 +363,8 @@ const Header = () => {
                   </AccordionContent>
                 </AccordionItem>
 
-                <AccordionItem value="sell" className="border-white/10">
-                  <AccordionTrigger className="text-base font-medium text-white hover:no-underline">
+                <AccordionItem value="sell" className="border-[color:var(--ex-line)]">
+                  <AccordionTrigger className="text-base font-medium text-[color:var(--ex-text)] hover:no-underline">
                     Post a listing
                   </AccordionTrigger>
                   <AccordionContent>
@@ -379,10 +379,10 @@ const Header = () => {
                         <Link
                           key={item.href}
                           to={item.href}
-                          className={`flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-4 py-3 transition-colors ${
+                          className={`flex items-center justify-between rounded-xl border border-[color:var(--ex-line)] bg-[color:var(--ex-brand-accent)]/10 px-4 py-3 transition-colors ${
                             item.disabled
-                              ? 'cursor-not-allowed text-white/30 hover:bg-white/4'
-                              : 'text-white/80 hover:bg-white/8 hover:text-white'
+                              ? 'cursor-not-allowed text-[color:var(--ex-text-muted)]/70 hover:bg-[color:var(--ex-brand-accent)]/10'
+                              : 'text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]'
                           }`}
                         >
                           <span>{item.title}</span>
@@ -395,39 +395,39 @@ const Header = () => {
               </Accordion>
 
               <div className="flex flex-col gap-1">
-                <Link to="/" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                <Link to="/" className="rounded-xl px-3 py-2.5 text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                   Home
                 </Link>
-                <Link to="/explore" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                <Link to="/explore" className="rounded-xl px-3 py-2.5 text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                   Explore
                 </Link>
-                <Link to="/about" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                <Link to="/about" className="rounded-xl px-3 py-2.5 text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                   About
                 </Link>
                 {user && (
                   user?.is_dealer && user?.dealer_verified ? (
-                    <Link to="/dealer/dashboard" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                    <Link to="/dealer/dashboard" className="rounded-xl px-3 py-2.5 text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                       Dealer Panel
                     </Link>
                   ) : (
-                    <Link to="/my-listings" className="rounded-xl px-3 py-2.5 text-base font-medium text-white/80 transition-colors hover:bg-white/6 hover:text-white">
+                    <Link to="/my-listings" className="rounded-xl px-3 py-2.5 text-base font-medium text-[color:var(--ex-text-muted)] transition-colors hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                       My Listings
                     </Link>
                   )
                 )}
               </div>
 
-              <div className="flex flex-col gap-2.5 border-t border-white/10 pt-4">
+              <div className="flex flex-col gap-2.5 border-t border-[color:var(--ex-line)] pt-4">
                 {user ? (
                   <>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.15em] text-white/40">Signed in as</p>
-                      <p className="mt-1.5 truncate text-[14px] font-medium text-white">{user.email}</p>
+                    <div className="rounded-2xl border border-[color:var(--ex-line)] bg-[color:var(--ex-surface-high)] p-4">
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-[color:var(--ex-text-muted)]/70">Signed in as</p>
+                      <p className="mt-1.5 truncate text-[14px] font-medium text-[color:var(--ex-text)]">{user.email}</p>
                     </div>
-                    <Button asChild variant="ghost" className="w-full justify-start rounded-xl border border-white/10 bg-transparent px-4 py-3 text-white/80 hover:bg-white/8 hover:text-white">
+                    <Button asChild variant="ghost" className="w-full justify-start rounded-xl border border-[color:var(--ex-line)] bg-transparent px-4 py-3 text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                       <Link to="/profile">Profile</Link>
                     </Button>
-                    <Button asChild variant="ghost" className="w-full justify-start rounded-xl border border-white/10 bg-transparent px-4 py-3 text-white/80 hover:bg-white/8 hover:text-white">
+                    <Button asChild variant="ghost" className="w-full justify-start rounded-xl border border-[color:var(--ex-line)] bg-transparent px-4 py-3 text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                       <Link to="/settings">Settings</Link>
                     </Button>
                     <Button
@@ -440,12 +440,12 @@ const Header = () => {
                   </>
                 ) : (
                   <>
-                    <Button asChild variant="ghost" className="w-full justify-center rounded-full border border-white/10 bg-transparent py-3 text-white/80 hover:bg-white/8 hover:text-white">
+                    <Button asChild variant="ghost" className="w-full justify-center rounded-full border border-[color:var(--ex-line)] bg-transparent py-3 text-[color:var(--ex-text-muted)] hover:bg-[color:var(--ex-brand-accent)]/10 hover:text-[color:var(--ex-text)]">
                       <Link to="/login">Log In</Link>
                     </Button>
                     <Button
                       asChild
-                      className="w-full justify-center rounded-full bg-gradient-to-r from-[#8bd6b4] to-[#004e37] py-3 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] hover:from-[#9fe0c4] hover:to-[#005a41]"
+                      className="w-full justify-center rounded-full bg-gradient-to-r from-[color:var(--ex-brand-accent)] to-[color:var(--ex-primary-strong)] py-3 text-[14px] font-semibold text-white shadow-[0_4px_16px_rgba(139,214,180,0.2)] hover:from-[color:var(--ex-brand-accent)]/90 hover:to-[color:var(--ex-primary-strong)]/95"
                     >
                       <Link to="/signup">
                         <Plus className="mr-2 h-4 w-4" />

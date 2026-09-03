@@ -1,17 +1,15 @@
 .about-v2 {
-  --ab-bg: var(--ex-shell-on-accent);
-  --ab-surface: #0b1b12;
-  --ab-surface-soft: #eef5ef;
-  --ab-line: color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
-  --ab-text: var(--ex-shell-text);
-  --ab-text-muted: color-mix(in srgb, var(--ex-shell-text) 72%, transparent);
-  --ab-dark: #0c1d13;
-  --ab-dark-muted: rgba(12, 29, 19, 0.68);
+  --ab-bg: var(--ex-page-bg);
+  --ab-surface: var(--ex-surface);
+  --ab-surface-soft: var(--ex-surface-high);
+  --ab-line: color-mix(in srgb, var(--ex-brand-accent) 12%, transparent);
+  --ab-text: var(--ex-text);
+  --ab-text-muted: color-mix(in srgb, var(--ex-text) 72%, transparent);
+  --ab-dark: var(--ex-surface);
+  --ab-dark-muted: var(--ex-text-muted);
   min-height: 100vh;
   padding-bottom: 96px;
-  background:
-    radial-gradient(circle at top center, color-mix(in srgb, var(--ex-shell-accent) 14%, transparent), transparent 30%),
-    linear-gradient(180deg, #06130b 0%, #040907 100%);
+  background: var(--ex-page-bg);
   color: var(--ab-text);
   overflow-x: clip;
 }
@@ -24,7 +22,7 @@
 .about-v2-kicker {
   display: inline-block;
   margin-bottom: 14px;
-  color: var(--ex-shell-accent);
+  color: var(--ex-brand-accent);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.24em;
@@ -50,8 +48,8 @@
 .about-v2-hero .about-v2-shell {
   border: 1px solid var(--ab-line);
   border-radius: 20px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 94%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 98%, transparent) 100%);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-surface) 94%, transparent) 0%, color-mix(in srgb, var(--ex-surface) 98%, transparent) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-text) 3%, transparent);
   padding: 24px 20px;
 }
 
@@ -100,13 +98,13 @@
 
 .about-v2-button-primary {
   background: linear-gradient(135deg, var(--ex-primary) 0%, var(--ex-primary-strong) 100%);
-  color: var(--ex-shell-text);
-  box-shadow: 0 16px 28px color-mix(in srgb, var(--ex-shell-on-accent) 22%, transparent);
+  color: var(--ex-text);
+  box-shadow: 0 16px 28px color-mix(in srgb, var(--ex-brand-accent) 22%, transparent);
 }
 
 .about-v2-button-secondary {
   background: transparent;
-  border-color: color-mix(in srgb, var(--ex-shell-text) 18%, transparent);
+  border-color: color-mix(in srgb, var(--ex-text) 18%, transparent);
   color: var(--ab-text);
 }
 
@@ -125,8 +123,8 @@
 .about-v2-community-card {
   border: 1px solid var(--ab-line);
   border-radius: 18px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 92%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 96%, transparent) 100%);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-surface) 92%, transparent) 0%, color-mix(in srgb, var(--ex-surface) 96%, transparent) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-text) 3%, transparent);
 }
 
 .about-v2-stat-card {
@@ -137,7 +135,7 @@
   display: block;
   margin-bottom: 8px;
   font-size: 2rem;
-  color: var(--ex-shell-text);
+  color: var(--ex-text);
 }
 
 .about-v2-stat-card span {
@@ -245,7 +243,7 @@
 .about-v2-community-copy span {
   display: inline-block;
   margin-top: 14px;
-  color: var(--ex-shell-accent);
+  color: var(--ex-brand-accent);
   font-weight: 700;
 }
 
@@ -255,10 +253,10 @@
 
 .legal-v2-body {
   padding: 28px;
-  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ex-brand-accent) 12%, transparent);
   border-radius: 28px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-shell-bg) 92%, transparent) 0%, color-mix(in srgb, var(--ex-shell-bg) 96%, transparent) 100%);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ex-surface) 92%, transparent) 0%, color-mix(in srgb, var(--ex-surface) 96%, transparent) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ex-text) 3%, transparent);
 }
 
 .legal-v2-body h2 {
@@ -272,7 +270,7 @@
 .legal-v2-body li,
 .legal-v2-body td,
 .legal-v2-body th {
-  color: color-mix(in srgb, var(--ex-shell-text) 78%, transparent);
+  color: color-mix(in srgb, var(--ex-text) 78%, transparent);
   line-height: 1.8;
 }
 
@@ -281,7 +279,7 @@
 }
 
 .legal-v2-body a {
-  color: var(--ex-shell-accent);
+  color: var(--ex-brand-accent);
 }
 
 .legal-v2-body table {
@@ -290,7 +288,7 @@
   margin: 18px 0;
   overflow: hidden;
   border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--ex-shell-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ex-brand-accent) 12%, transparent);
 }
 
 .legal-v2-body th,
@@ -298,11 +296,11 @@
   padding: 14px;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ex-brand-accent) 8%, transparent);
 }
 
 .legal-v2-body thead {
-  background: color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
+  background: color-mix(in srgb, var(--ex-brand-accent) 8%, transparent);
 }
 
 @media (max-width: 1080px) {
