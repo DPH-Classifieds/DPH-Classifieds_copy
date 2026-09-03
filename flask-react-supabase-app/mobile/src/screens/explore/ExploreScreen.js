@@ -106,7 +106,7 @@ const normalizeItem = (category, item) => {
       id: item.id,
       category: 'cars',
       title: `${item.car_manufacturer || ''} ${item.car_model || ''}`.trim() || item.listing_title || 'Untitled Car',
-      subtitle: `${item.make_year || ''} ${item.kilometer_driven ? formatNumber(item.kilometer_driven) + ' km' : ''} ${item.fuel_type || ''}`.trim(),
+      specs: [item.make_year, item.fuel_type, item.kilometer_driven ? `${formatNumber(item.kilometer_driven)} km` : null].filter(Boolean),
       price: item.expected_selling_price,
       location: item.car_city || item.area || '',
       image: getImageUri(item),
@@ -120,7 +120,7 @@ const normalizeItem = (category, item) => {
       id: item.id,
       category: 'bikes',
       title: `${item.bike_brand || ''} ${item.bike_model || ''}`.trim() || 'Untitled Bike',
-      subtitle: `${item.make_year || ''} ${item.engine_capacity || ''} ${item.bike_category || ''}`.trim(),
+      specs: [item.make_year, item.engine_capacity, item.bike_category].filter(Boolean),
       // Bikes' real column is `price` — `expected_selling_price` is cars-only
       // and won't be present on a bike row (see _normalize_bike_record).
       price: item.price ?? item.expected_selling_price,
@@ -137,7 +137,7 @@ const normalizeItem = (category, item) => {
       id: item.id,
       category: 'plates',
       title: plateNum || 'Untitled Plate',
-      subtitle: item.plate_format || '',
+      specs: item.plate_format ? [item.plate_format] : [],
       price: item.price,
       location: item.city || '',
       image: getImageUri(item),
@@ -151,7 +151,7 @@ const normalizeItem = (category, item) => {
       id: item.id,
       category: 'parts',
       title: item.part_type || item.brand || 'Untitled Part',
-      subtitle: [item.condition, item.brand].filter(Boolean).join(' · '),
+      specs: [item.condition, item.brand].filter(Boolean),
       price: item.price,
       location: item.city || '',
       image: getImageUri(item),
@@ -160,7 +160,7 @@ const normalizeItem = (category, item) => {
       raw: item,
     };
   }
-  return { id: item.id, category, title: 'Unknown', subtitle: '', price: 0, location: '', image: null, raw: item };
+  return { id: item.id, category, title: 'Unknown', specs: [], price: 0, location: '', image: null, raw: item };
 };
 
 const DETAIL_SCREENS = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
@@ -554,8 +554,14 @@ function ExploreCard({ item, index, onPress, onSave, saved, columns, colors, sty
               {item.price ? formatPrice(item.price) : 'Price on request'}
             </Text>
             <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-            {item.subtitle ? (
-              <Text style={styles.cardSubtitle} numberOfLines={grid ? 1 : 2}>{item.subtitle}</Text>
+            {item.specs && item.specs.length > 0 ? (
+              <View style={styles.cardSpecsRow}>
+                {item.specs.map((spec, i) => (
+                  <Text key={i} style={styles.cardSubtitle} numberOfLines={1}>
+                    {spec}
+                  </Text>
+                ))}
+              </View>
             ) : null}
             {item.location ? (
               <View style={styles.cardLocationRow}>
@@ -703,7 +709,8 @@ export default function ExploreScreen({ navigation, route }) {
       color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '800', marginBottom: 6,
     },
     cardTitle: { color: colors.textPrimary, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: 6 },
-    cardSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginBottom: 8, lineHeight: 18 },
+    cardSpecsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, gap: 8 },
+    cardSubtitle: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, lineHeight: 18 },
     cardLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     cardLocation: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
 
@@ -1087,7 +1094,7 @@ export default function ExploreScreen({ navigation, route }) {
       const q = search.toLowerCase();
       items = items.filter(item =>
         item.title.toLowerCase().includes(q) ||
-        item.subtitle.toLowerCase().includes(q) ||
+        (item.specs || []).some(s => s.toLowerCase().includes(q)) ||
         item.location.toLowerCase().includes(q)
       );
     }
