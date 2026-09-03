@@ -1,12 +1,37 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Text from './AppText';
 import MapView, { Marker } from '../../utils/mapComponents';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const UAE_CENTER = { latitude: 25.2048, longitude: 55.2708 };
 
 export default function ListingMap({ latitude, longitude, title, city, emirate, area }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      borderRadius: BORDER_RADIUS.lg,
+      overflow: 'hidden',
+      marginTop: SPACING.md,
+    },
+    map: {
+      width: '100%',
+      height: 180,
+    },
+    placeholder: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      marginTop: SPACING.md,
+      alignItems: 'center',
+    },
+    placeholderText: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZES.sm,
+    },
+  }), [colors]);
+
   const lat = parseFloat(latitude);
   const lng = parseFloat(longitude);
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
@@ -41,26 +66,3 @@ export default function ListingMap({ latitude, longitude, title, city, emirate, 
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-    marginTop: SPACING.md,
-  },
-  map: {
-    width: '100%',
-    height: 180,
-  },
-  placeholder: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginTop: SPACING.md,
-    alignItems: 'center',
-  },
-  placeholderText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.sm,
-  },
-});

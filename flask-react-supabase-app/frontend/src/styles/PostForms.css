@@ -62,7 +62,7 @@
 
 .post-hero-title {
   margin: 0;
-  color: #ffffff;
+  color: var(--ex-shell-text);
   font-size: clamp(1.45rem, 2.7vw, 2.1rem);
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -125,7 +125,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #ffffff;
+  color: var(--ex-shell-text);
   font-size: 1.08rem;
   font-weight: 600;
 }
@@ -157,7 +157,7 @@
 
 .form-subsection-title {
   margin: 14px 0 6px;
-  color: #ffffff;
+  color: var(--ex-shell-text);
   font-size: 0.98rem;
   font-weight: 600;
 }
@@ -207,7 +207,7 @@
   border: 1px solid var(--pf-border);
   border-radius: var(--pf-radius-sm);
   background: var(--pf-input);
-  color: #ffffff;
+  color: var(--ex-shell-text);
   font-size: 0.92rem;
   padding: 0 12px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -343,7 +343,7 @@
 }
 
 .toggle-btn:not(.active):hover {
-  color: #ffffff;
+  color: var(--ex-shell-text);
 }
 
 .features-grid,
@@ -405,7 +405,7 @@
 .feature-item:has(input:checked),
 .form-check:has(.form-check-input:checked) {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: color-mix(in srgb, var(--ex-shell-text) 14%, transparent);
 }
 
 .extras-toggle {
@@ -507,7 +507,7 @@
 }
 
 .suggestion-main {
-  color: #ffffff;
+  color: var(--ex-shell-text);
   font-size: 0.84rem;
 }
 
@@ -644,7 +644,7 @@
   width: 20px;
   height: 20px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.62);
+  background: color-mix(in srgb, var(--ex-overlay-scrim) 62%, transparent);
   color: #fff;
   display: grid;
   place-items: center;
@@ -662,7 +662,7 @@
   height: 24px;
   min-height: 24px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-text) 14%, transparent);
   background: rgba(239, 68, 68, 0.82);
   color: #fff;
   padding: 0;
@@ -743,7 +743,7 @@
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.5);
+  background: color-mix(in srgb, var(--ex-overlay-scrim) 50%, transparent);
   color: #fff;
   display: grid;
   place-items: center;
@@ -802,7 +802,7 @@
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--ex-shell-text) 8%, transparent);
 }
 
 .submit-loading-bar-fill {
@@ -953,7 +953,7 @@
   background:
     radial-gradient(circle at top, rgba(74, 222, 128, 0.12), transparent 34%),
     linear-gradient(180deg, rgba(20, 24, 20, 0.98) 0%, rgba(11, 13, 11, 0.98) 100%);
-  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 28px 60px color-mix(in srgb, var(--ex-overlay-scrim) 55%, transparent);
   padding: 22px;
 }
 
@@ -963,9 +963,9 @@
   right: 16px;
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-text) 8%, transparent);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
   color: #fff;
   display: grid;
   place-items: center;
@@ -1014,8 +1014,8 @@
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-text) 9%, transparent);
+  background: color-mix(in srgb, var(--ex-shell-text) 4%, transparent);
   color: #d7e6db;
   display: inline-flex;
   align-items: center;

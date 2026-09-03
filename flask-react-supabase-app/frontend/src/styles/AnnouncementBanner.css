@@ -3,7 +3,7 @@
   top: 0;
   z-index: 60;
   width: 100%;
-  background: rgba(4, 16, 8, 0.92);
+  background: color-mix(in srgb, var(--ex-shell-bg) 92%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(74, 222, 128, 0.14);
@@ -27,7 +27,7 @@
 }
 
 .announcement-text {
-  color: rgba(255, 255, 255, 0.82);
+  color: color-mix(in srgb, var(--ex-shell-text) 82%, transparent);
   font-weight: 600;
   font-size: 14px;
 }
@@ -55,17 +55,17 @@
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid color-mix(in srgb, var(--ex-shell-text) 12%, transparent);
+  background: color-mix(in srgb, var(--ex-shell-text) 4%, transparent);
+  color: color-mix(in srgb, var(--ex-shell-text) 75%, transparent);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
 }
 
 .announcement-dismiss:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--ex-shell-text) 8%, transparent);
+  color: color-mix(in srgb, var(--ex-shell-text) 92%, transparent);
 }
 
 @media (max-width: 480px) {

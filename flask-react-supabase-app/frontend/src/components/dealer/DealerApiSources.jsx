@@ -123,7 +123,7 @@ function Modal({ title, isOpen, onClose, children }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="rounded-2xl border border-white/[0.06] bg-[#0a1410] p-6 max-w-[640px] w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="rounded-2xl border border-white/[0.06] bg-[color:var(--ex-shell-surface)] p-6 max-w-[640px] w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">{title}</h2>
           <button

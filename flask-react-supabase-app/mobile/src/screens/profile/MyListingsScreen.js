@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, TouchableOpacity, Alert, StyleSheet, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +18,8 @@ import AnimatedCard from '../../components/ui/AnimatedCard';
 import FadeInView from '../../components/ui/FadeInView';
 import FadeInImage from '../../components/ui/FadeInImage';
 import RenewListingModal from '../../components/ui/RenewListingModal';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { useSavedListings } from '../../context/SavedListingsContext';
 import { resolveMediaUrl } from '../../utils/media';
 import { toPluralType, toSingularType } from '../../utils/listingType';
@@ -49,9 +50,8 @@ const getDisplayStatus = (item, activeTabValue) => {
 
 const DETAIL_ROUTES = { cars: 'CarDetail', bikes: 'BikeDetail', plates: 'PlateDetail', parts: 'PartDetail' };
 
-function ListingCard({ item, index, onPress, actions, isSaved, activeTab, getDisplayStatus, getStatusVariant }) {
+function ListingCard({ item, index, onPress, actions, isSaved, activeTab, getDisplayStatus, getStatusVariant, styles, colors }) {
   const { animatedStyle } = useStaggeredEntrance(index);
-  const pluralType = toPluralType(item.listing_type);
   return (
     <Animated.View style={animatedStyle}>
       <PressableScale onPress={onPress}>
@@ -63,8 +63,8 @@ function ListingCard({ item, index, onPress, actions, isSaved, activeTab, getDis
             {getListingImage(item) ? (
               <FadeInImage source={{ uri: getListingImage(item) }} style={styles.thumbnail} resizeMode="cover" />
             ) : (
-              <View style={[styles.thumbnail, { backgroundColor: COLORS.surfaceDark, justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name="image-outline" size={24} color={COLORS.textMuted} />
+              <View style={[styles.thumbnail, { backgroundColor: colors.surfaceDark, justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="image-outline" size={24} color={colors.textMuted} />
               </View>
             )}
             <View style={styles.cardInfo}>
@@ -73,7 +73,7 @@ function ListingCard({ item, index, onPress, actions, isSaved, activeTab, getDis
               <View style={styles.cardMeta}>
                 <Text style={styles.cardDate}>{formatDate(item.created_at || item.date_posted)}</Text>
                 <View style={styles.viewsBadge}>
-                  <Ionicons name="eye-outline" size={12} color={COLORS.textMuted} />
+                  <Ionicons name="eye-outline" size={12} color={colors.textMuted} />
                   <Text style={styles.viewsText}>{formatNumber(item.views || item.view_count || 0)}</Text>
                 </View>
               </View>
@@ -93,6 +93,108 @@ function ListingCard({ item, index, onPress, actions, isSaved, activeTab, getDis
 }
 
 export default function MyListingsScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.black,
+    },
+    tabBar: {
+      flexDirection: 'row',
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      gap: 6,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: BORDER_RADIUS.pill,
+      backgroundColor: colors.surface,
+    },
+    activeTab: {
+      backgroundColor: colors.primary,
+    },
+    tabText: {
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    activeTabText: {
+      color: colors.accent,
+    },
+    listContent: {
+      padding: SPACING.md,
+      paddingBottom: 40,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      marginBottom: SPACING.md,
+      overflow: 'hidden',
+    },
+    cardContent: {
+      flexDirection: 'row',
+      padding: SPACING.md,
+    },
+    thumbnail: {
+      width: 80,
+      height: 80,
+      borderRadius: BORDER_RADIUS.md,
+      backgroundColor: colors.surfaceHigher,
+    },
+    cardInfo: {
+      flex: 1,
+      marginLeft: SPACING.md,
+      justifyContent: 'center',
+    },
+    cardTitle: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+      color: colors.white,
+      marginBottom: 4,
+    },
+    cardPrice: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '700',
+      color: colors.accent,
+      marginBottom: 4,
+    },
+    cardMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 6,
+    },
+    cardDate: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+    },
+    viewsBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    viewsText: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+    },
+    statusBadge: {
+      alignSelf: 'flex-start',
+    },
+    actions: {
+      flexDirection: 'row',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      gap: 16,
+    },
+    actionBtn: {
+      padding: 6,
+    },
+  }), [colors]);
+
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState('Active');
   const [loading, setLoading] = useState(true);
@@ -287,14 +389,14 @@ export default function MyListingsScreen({ navigation }) {
     const pluralType = toPluralType(item.listing_type);
     const singularType = toSingularType(item.listing_type);
     const isInSavedTab = activeTab === 'Saved';
-    const actions = (
+    const actionsNode = (
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={() => navigation.navigate('EditListing', { listingId: item.id, listingType: singularType, editMode: true })}
           activeOpacity={0.7}
         >
-          <Ionicons name="create-outline" size={18} color={COLORS.accent} />
+          <Ionicons name="create-outline" size={18} color={colors.accent} />
         </TouchableOpacity>
         {activeTab === 'Active' ? (
           <TouchableOpacity
@@ -302,7 +404,7 @@ export default function MyListingsScreen({ navigation }) {
             onPress={() => handleMarkSold(item)}
             activeOpacity={0.7}
           >
-            <Ionicons name="bag-check-outline" size={18} color={COLORS.warning} />
+            <Ionicons name="bag-check-outline" size={18} color={colors.warning} />
           </TouchableOpacity>
         ) : activeTab === 'Review' || item.status === 'expired' ? (
           <>
@@ -312,7 +414,7 @@ export default function MyListingsScreen({ navigation }) {
                 haptic="light"
                 style={styles.actionBtn}
               >
-                <Ionicons name="refresh" size={18} color={COLORS.accent} />
+                <Ionicons name="refresh" size={18} color={colors.accent} />
               </PressableScale>
             )}
             <TouchableOpacity
@@ -320,21 +422,21 @@ export default function MyListingsScreen({ navigation }) {
               onPress={() => handleExtend(item)}
               activeOpacity={0.7}
             >
-              <Ionicons name="refresh-outline" size={18} color={COLORS.warning} />
+              <Ionicons name="refresh-outline" size={18} color={colors.warning} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtn}
               onPress={() => handleMoveToDraft(item)}
               activeOpacity={0.7}
             >
-              <Ionicons name="folder-open-outline" size={18} color={COLORS.info} />
+              <Ionicons name="folder-open-outline" size={18} color={colors.info} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtn}
               onPress={() => handleOutcome(item)}
               activeOpacity={0.7}
             >
-              <Ionicons name="document-text-outline" size={18} color={COLORS.warning} />
+              <Ionicons name="document-text-outline" size={18} color={colors.warning} />
             </TouchableOpacity>
           </>
         ) : (
@@ -343,7 +445,7 @@ export default function MyListingsScreen({ navigation }) {
             onPress={() => handleExtend(item)}
             activeOpacity={0.7}
           >
-            <Ionicons name="time-outline" size={18} color={COLORS.info} />
+            <Ionicons name="time-outline" size={18} color={colors.info} />
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -351,7 +453,7 @@ export default function MyListingsScreen({ navigation }) {
           onPress={() => handleDelete(item)}
           activeOpacity={0.7}
         >
-          <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+          <Ionicons name="trash-outline" size={18} color={colors.error} />
         </TouchableOpacity>
       </View>
     );
@@ -360,11 +462,13 @@ export default function MyListingsScreen({ navigation }) {
         item={item}
         index={index}
         onPress={() => navigation.navigate(DETAIL_ROUTES[pluralType], { listingId: item.id })}
-        actions={actions}
+        actions={actionsNode}
         isSaved={isInSavedTab}
         activeTab={activeTab}
         getDisplayStatus={getDisplayStatus}
         getStatusVariant={getStatusVariant}
+        styles={styles}
+        colors={colors}
       />
     );
   };
@@ -398,7 +502,7 @@ export default function MyListingsScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
             }
             ListEmptyComponent={
               <EmptyState
@@ -423,104 +527,3 @@ export default function MyListingsScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: 6,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface,
-  },
-  activeTab: {
-    backgroundColor: COLORS.primary,
-  },
-  tabText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  activeTabText: {
-    color: COLORS.accent,
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
-    overflow: 'hidden',
-  },
-  cardContent: {
-    flexDirection: 'row',
-    padding: SPACING.md,
-  },
-  thumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surfaceHigher,
-  },
-  cardInfo: {
-    flex: 1,
-    marginLeft: SPACING.md,
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginBottom: 4,
-  },
-  cardPrice: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.accent,
-    marginBottom: 4,
-  },
-  cardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 6,
-  },
-  cardDate: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-  viewsBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  viewsText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-  },
-  actions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: 16,
-  },
-  actionBtn: {
-    padding: 6,
-  },
-});

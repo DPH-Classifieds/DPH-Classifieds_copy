@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../../styles/shell-tokens.css';
 
 export const EmptyState = ({ icon: Icon, title, description, action }) => (
   <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">

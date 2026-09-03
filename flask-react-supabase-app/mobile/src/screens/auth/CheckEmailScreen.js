@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../context/ThemeContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function CheckEmailScreen({ navigation, route }) {
+  const { colors } = useTheme();
   const email = route?.params?.email || '';
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
@@ -70,6 +72,110 @@ export default function CheckEmailScreen({ navigation, route }) {
     }
   };
 
+const styles = useMemo(() => StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xxl,
+    alignItems: 'center',
+  },
+  iconContainer: {
+    marginBottom: SPACING.xl,
+  },
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  title: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+  },
+  emailText: {
+    fontSize: FONT_SIZES.lg,
+    color: colors.accent,
+    fontWeight: '600',
+    marginBottom: SPACING.xl,
+    textAlign: 'center',
+  },
+  stepsContainer: {
+    width: '100%',
+    marginBottom: SPACING.xl,
+    gap: SPACING.md,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNumberText: {
+    color: colors.black,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '700',
+  },
+  stepText: {
+    flex: 1,
+    fontSize: FONT_SIZES.md,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  resendButton: {
+    width: '100%',
+    marginBottom: SPACING.md,
+  },
+  changeEmailToggle: {
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  changeEmailToggleText: {
+    color: colors.accent,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '500',
+  },
+  changeEmailForm: {
+    width: '100%',
+    marginBottom: SPACING.md,
+  },
+  updateButton: {
+    width: '100%',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.md,
+  },
+  backButtonText: {
+    color: colors.textSecondary,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+  },
+}), [colors]);
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -83,7 +189,7 @@ export default function CheckEmailScreen({ navigation, route }) {
         >
           <View style={styles.iconContainer}>
             <View style={styles.iconCircle}>
-              <Ionicons name="mail-open-outline" size={48} color={COLORS.accent} />
+              <Ionicons name="mail-open-outline" size={48} color={colors.accent} />
             </View>
           </View>
 
@@ -160,7 +266,7 @@ export default function CheckEmailScreen({ navigation, route }) {
             onPress={() => navigation.navigate('Login')}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back-outline" size={16} color={COLORS.textSecondary} />
+            <Ionicons name="arrow-back-outline" size={16} color={colors.textSecondary} />
             <Text style={styles.backButtonText}>Back to Login</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -168,108 +274,3 @@ export default function CheckEmailScreen({ navigation, route }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xxl,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    marginBottom: SPACING.xl,
-  },
-  iconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.accent,
-  },
-  title: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: SPACING.md,
-    textAlign: 'center',
-  },
-  emailText: {
-    fontSize: FONT_SIZES.lg,
-    color: COLORS.accent,
-    fontWeight: '600',
-    marginBottom: SPACING.xl,
-    textAlign: 'center',
-  },
-  stepsContainer: {
-    width: '100%',
-    marginBottom: SPACING.xl,
-    gap: SPACING.md,
-  },
-  step: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepNumberText: {
-    color: COLORS.black,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '700',
-  },
-  stepText: {
-    flex: 1,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-  },
-  resendButton: {
-    width: '100%',
-    marginBottom: SPACING.md,
-  },
-  changeEmailToggle: {
-    paddingVertical: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-  changeEmailToggleText: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
-  },
-  changeEmailForm: {
-    width: '100%',
-    marginBottom: SPACING.md,
-  },
-  updateButton: {
-    width: '100%',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  backButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
-  },
-});

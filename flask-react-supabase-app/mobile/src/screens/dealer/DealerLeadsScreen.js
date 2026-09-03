@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, ScrollView } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const PAGE_SIZE = 50;
 
@@ -20,21 +21,17 @@ const STATUS_FILTERS = [
   { key: 'lost', label: 'Lost' },
 ];
 
-const STATUS_COLORS = {
-  new: COLORS.info,
-  contacted: COLORS.warning,
-  quoted: '#9c27b0',
-  test_drive: '#00bcd4',
-  won: COLORS.success,
-  lost: COLORS.error,
-};
-
 const SOURCE_ICON = {
   call: 'call-outline',
   whatsapp: 'logo-whatsapp',
   vin_open: 'eye-outline',
   vin_reveal: 'eye-outline',
   form: 'document-text-outline',
+};
+
+const FIXED_STATUS_COLORS = {
+  quoted: '#9c27b0',
+  test_drive: '#00bcd4',
 };
 
 const relTime = (iso) => {
@@ -52,6 +49,46 @@ const relTime = (iso) => {
 };
 
 export default function DealerLeadsScreen({ navigation }) {
+  const { colors } = useTheme();
+  const STATUS_COLORS = useMemo(() => ({
+    new: colors.info,
+    contacted: colors.warning,
+    quoted: FIXED_STATUS_COLORS.quoted,
+    test_drive: FIXED_STATUS_COLORS.test_drive,
+    won: colors.success,
+    lost: colors.error,
+  }), [colors]);
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    filterBar: { maxHeight: 56, flexGrow: 0 },
+    filterContent: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
+    chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface, marginRight: 8 },
+    chipActive: { backgroundColor: colors.accent },
+    chipText: { fontSize: FONT_SIZES.sm, fontWeight: '600', color: colors.textSecondary },
+    chipTextActive: { color: colors.background },
+    listContent: { paddingHorizontal: SPACING.md, paddingBottom: 40 },
+    totalText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
+    row: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md, marginBottom: SPACING.sm,
+    },
+    sourceIcon: {
+      width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(76,175,80,0.12)',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    rowBody: { flex: 1, minWidth: 0 },
+    rowTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    rowSub: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginTop: 2 },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    statusText: { fontSize: FONT_SIZES.xs, fontWeight: '700' },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
+    errorText: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginTop: 12, textAlign: 'center' },
+    retryBtn: { marginTop: 16, backgroundColor: colors.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
+    retryText: { color: colors.background, fontWeight: '600' },
+    footerText: { color: colors.textMuted, textAlign: 'center', paddingVertical: 16 },
+  }), [colors]);
+
   const [leads, setLeads] = useState([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState('');
@@ -107,7 +144,7 @@ export default function DealerLeadsScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => {
-    const color = STATUS_COLORS[item.status] || COLORS.textMuted;
+    const color = STATUS_COLORS[item.status] || colors.textMuted;
     return (
       <TouchableOpacity
         style={styles.row}
@@ -115,7 +152,7 @@ export default function DealerLeadsScreen({ navigation }) {
         onPress={() => navigation.navigate('DealerLeadDetail', { leadId: item.id })}
       >
         <View style={styles.sourceIcon}>
-          <Ionicons name={SOURCE_ICON[item.source] || 'person-outline'} size={18} color={COLORS.accent} />
+          <Ionicons name={SOURCE_ICON[item.source] || 'person-outline'} size={18} color={colors.accent} />
         </View>
         <View style={styles.rowBody}>
           <Text style={styles.rowTitle} numberOfLines={1}>
@@ -159,7 +196,7 @@ export default function DealerLeadsScreen({ navigation }) {
         <LoadingSpinner message="Loading leads..." />
       ) : error && leads.length === 0 ? (
         <View style={styles.centered}>
-          <Ionicons name="alert-circle" size={40} color={COLORS.error} />
+          <Ionicons name="alert-circle" size={40} color={colors.error} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); fetchLeads(0, true); }}>
             <Text style={styles.retryText}>Retry</Text>
@@ -171,7 +208,7 @@ export default function DealerLeadsScreen({ navigation }) {
           renderItem={renderItem}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.4}
           ListHeaderComponent={
@@ -186,34 +223,3 @@ export default function DealerLeadsScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  filterBar: { maxHeight: 56, flexGrow: 0 },
-  filterContent: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surface, marginRight: 8 },
-  chipActive: { backgroundColor: COLORS.accent },
-  chipText: { fontSize: FONT_SIZES.sm, fontWeight: '600', color: COLORS.textSecondary },
-  chipTextActive: { color: COLORS.background },
-  listContent: { paddingHorizontal: SPACING.md, paddingBottom: 40 },
-  totalText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md, marginBottom: SPACING.sm,
-  },
-  sourceIcon: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(76,175,80,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowBody: { flex: 1, minWidth: 0 },
-  rowTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  rowSub: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  statusText: { fontSize: FONT_SIZES.xs, fontWeight: '700' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-  errorText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginTop: 12, textAlign: 'center' },
-  retryBtn: { marginTop: 16, backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: COLORS.background, fontWeight: '600' },
-  footerText: { color: COLORS.textMuted, textAlign: 'center', paddingVertical: 16 },
-});

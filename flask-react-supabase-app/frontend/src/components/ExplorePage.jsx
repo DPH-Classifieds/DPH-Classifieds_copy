@@ -47,6 +47,66 @@ const FALLBACK_KEYS = {
   buying_requests: ['data'],
 };
 
+// Per-category filter-param builders. Each one returns [urlParam, value]
+// pairs to append to the request URL. Keep these in sync with the
+// _collect_listing_filter_pairs() whitelist in backend/app.py for the
+// matching /api/<category> route — the data route ignores anything not
+// in its whitelist, so sending the wrong key just costs bandwidth.
+const CATEGORY_FILTER_PARAM_BUILDERS = {
+  cars: (filters) => {
+    const params = [];
+    if (filters.manufacturer) params.push(['car_manufacturer', filters.manufacturer]);
+    if (filters.model) params.push(['car_model', filters.model]);
+    if (filters.priceMin) params.push(['price_from', filters.priceMin]);
+    if (filters.priceMax) params.push(['price_to', filters.priceMax]);
+    return params;
+  },
+  bikes: (filters) => {
+    const params = [];
+    if (filters.brand) params.push(['bike_brand', filters.brand]);
+    if (filters.type) params.push(['bike_type', filters.type]);
+    if (filters.area) params.push(['area', filters.area]);
+    if (filters.engineSize) params.push(['engine_size', filters.engineSize]);
+    if (filters.condition) params.push(['condition', filters.condition]);
+    if (filters.priceMin) params.push(['price_from', filters.priceMin]);
+    if (filters.priceMax) params.push(['price_to', filters.priceMax]);
+    if (filters.yearMin) params.push(['year_from', filters.yearMin]);
+    if (filters.yearMax) params.push(['year_to', filters.yearMax]);
+    return params;
+  },
+  'car-parts': (filters) => {
+    const params = [];
+    if (filters.category) params.push(['part_type', filters.category]);
+    if (filters.area) params.push(['area', filters.area]);
+    if (filters.condition) params.push(['condition', filters.condition]);
+    if (filters.priceMin) params.push(['price_from', filters.priceMin]);
+    if (filters.priceMax) params.push(['price_to', filters.priceMax]);
+    return params;
+  },
+  plates: (filters) => {
+    const params = [];
+    if (filters.code) params.push(['code', filters.code]);
+    if (filters.digits) params.push(['digits', filters.digits]);
+    if (filters.area) params.push(['area', filters.area]);
+    if (filters.priceMin) params.push(['price_from', filters.priceMin]);
+    if (filters.priceMax) params.push(['price_to', filters.priceMax]);
+    return params;
+  },
+};
+
+const buildFilteredUrl = (baseUrl, params, locationFilter) => {
+  const search = new URLSearchParams();
+  params.forEach(([key, value]) => {
+    if (value !== '' && value !== null && value !== undefined) {
+      search.append(key, String(value));
+    }
+  });
+  if (locationFilter) search.append('area', locationFilter);
+  const qs = search.toString();
+  if (!qs) return baseUrl;
+  return baseUrl.includes('?') ? `${baseUrl}&${qs}` : `${baseUrl}?${qs}`;
+};
+
 const INIT_PAGES = {
   cars: { offset: 0, hasMore: true },
   bikes: { offset: 0, hasMore: true },
@@ -548,7 +608,6 @@ const BuyingRequestCard = ({ item }) => (
 const ExplorePage = ({ forcedCategory } = {}) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const totalCounts = useListingCounts();
   const featuredPattern = useFeaturedPattern();
   const [featuredByCategory, setFeaturedByCategory] = useState({ cars: [], bikes: [], parts: [], plates: [] });
   // forcedCategory lets a dedicated route (e.g. /reddit) pin the mode without a
@@ -588,6 +647,21 @@ const ExplorePage = ({ forcedCategory } = {}) => {
   const [locationFilter, setLocationFilter] = useState('');
   // All three default on. toggleSource() below refuses to leave all off.
   const [sourceFilter, setSourceFilter] = useState({ private: true, dealer: true, reddit: true });
+
+  // Counts are scoped to the active mode's filter spec; each /api/<category>
+  // route ignores params outside its whitelist, so passing the full bag is
+  // safe and keeps counts in lockstep with the data route the user is on.
+  // Strip query/sortBy — those aren't in any backend spec.
+  const activeFiltersByMode = {
+    cars: carFilters,
+    bikes: bikeFilters,
+    'car-parts': partsFilters,
+    plates: plateFilters,
+    reddit: redditFilters,
+  };
+  const activeFilterBase = activeFiltersByMode[activeMode] || {};
+  const { query: _q, sortBy: _s, ...activeFilterPayload } = activeFilterBase;
+  const totalCounts = useListingCounts(activeFilterPayload);
   const [allSortBy, setAllSortBy] = useState('newest');
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [heroQuery, setHeroQuery] = useState('');
@@ -708,10 +782,20 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     const baseUrl = `${API_URL}/api/${apiKey}?limit=${PAGE_SIZE}&offset=${offset}&order=created_at.desc`;
     const fallbackKeys = FALLBACK_KEYS[apiKey] || ['data'];
 
+    const filtersByMode = {
+      cars: carFilters,
+      bikes: bikeFilters,
+      parts: partsFilters,
+      plates: plateFilters,
+      reddit: redditFilters,
+    };
+    const builder = CATEGORY_FILTER_PARAM_BUILDERS[apiKey];
+    const filterParams = builder ? builder(filtersByMode[apiKey] || {}) : [];
+
     if (wantsDph && wantsReddit) {
       const [dphData, redditData] = await Promise.all([
-        fetchJsonWithCache(`${baseUrl}&exclude_reddit=true`, ttl),
-        fetchJsonWithCache(`${baseUrl}&source_platform=reddit`, ttl),
+        fetchJsonWithCache(buildFilteredUrl(`${baseUrl}&exclude_reddit=true`, filterParams, locationFilter), ttl),
+        fetchJsonWithCache(buildFilteredUrl(`${baseUrl}&source_platform=reddit`, filterParams, locationFilter), ttl),
       ]);
       const dphItems = extractInventoryCollection(dphData, fallbackKeys);
       const redditItems = extractInventoryCollection(redditData, fallbackKeys);
@@ -722,10 +806,13 @@ const ExplorePage = ({ forcedCategory } = {}) => {
     }
 
     const sourceParam = !wantsReddit ? '&exclude_reddit=true' : '&source_platform=reddit';
-    const data = await fetchJsonWithCache(`${baseUrl}${sourceParam}`, ttl);
+    const data = await fetchJsonWithCache(
+      buildFilteredUrl(`${baseUrl}${sourceParam}`, filterParams, locationFilter),
+      ttl
+    );
     const items = extractInventoryCollection(data, fallbackKeys);
     return { items, hasMore: items.length === PAGE_SIZE };
-  }, [sourceFilter]);
+  }, [sourceFilter, locationFilter, carFilters, bikeFilters, partsFilters, plateFilters, redditFilters]);
 
   // ── initial load: only the active category unless "all" is selected ─────
   useEffect(() => {

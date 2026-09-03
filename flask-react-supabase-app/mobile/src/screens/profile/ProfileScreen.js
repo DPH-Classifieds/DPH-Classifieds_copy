@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Linking, ActivityIndicator, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import apiClient from '../../utils/apiClient';
 import { formatDate } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, TAB_BAR_CLEARANCE } from '../../constants/theme';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import AnimatedCard from '../../components/ui/AnimatedCard';
@@ -18,6 +19,49 @@ const WEBVIEW_URLS = {
 };
 
 export default function ProfileScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
+    headerTitle: { color: colors.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
+    userCard: {
+      alignItems: 'center', paddingVertical: SPACING.lg, paddingHorizontal: SPACING.md,
+      backgroundColor: colors.surface, marginHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.lg,
+      marginBottom: SPACING.md,
+    },
+    userName: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginTop: SPACING.sm },
+    userUsername: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
+    badgesRow: { flexDirection: 'row', gap: 6, marginTop: SPACING.sm },
+    memberSince: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginTop: SPACING.sm },
+    infoCard: {
+      backgroundColor: colors.surface, marginHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.lg,
+      paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, marginBottom: SPACING.md,
+    },
+    infoRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
+    },
+    infoText: { color: colors.white, fontSize: FONT_SIZES.md, flex: 1 },
+    statsRow: {
+      flexDirection: 'row', backgroundColor: colors.surface, marginHorizontal: SPACING.md,
+      borderRadius: BORDER_RADIUS.lg, paddingVertical: SPACING.md, marginBottom: SPACING.md,
+    },
+    statItem: { flex: 1, alignItems: 'center' },
+    statNumber: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '700' },
+    statLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 2 },
+    statDivider: { width: 1, backgroundColor: colors.border, marginVertical: 4 },
+    menu: { marginHorizontal: SPACING.md, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
+    menuItem: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingVertical: 15, paddingHorizontal: SPACING.md,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight,
+    },
+    menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    menuLabel: { color: colors.white, fontSize: FONT_SIZES.md },
+    menuDivider: { height: 1, backgroundColor: colors.border, marginVertical: SPACING.xs },
+    version: { textAlign: 'center', color: colors.textMuted, fontSize: FONT_SIZES.xs, paddingVertical: SPACING.xl },
+  }), [colors]);
+
   const { user, signOut, syncWithSupabase } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +190,7 @@ export default function ProfileScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: TAB_BAR_CLEARANCE }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
         }
       >
         <View style={styles.header}>
@@ -175,19 +219,19 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.infoCard}>
             {user?.email ? (
               <View style={styles.infoRow}>
-                <Ionicons name="mail-outline" size={18} color={COLORS.textSecondary} />
+                <Ionicons name="mail-outline" size={18} color={colors.textSecondary} />
                 <Text style={styles.infoText} numberOfLines={1}>{user.email}</Text>
               </View>
             ) : null}
             {user?.phone ? (
               <View style={styles.infoRow}>
-                <Ionicons name="call-outline" size={18} color={COLORS.textSecondary} />
+                <Ionicons name="call-outline" size={18} color={colors.textSecondary} />
                 <Text style={styles.infoText}>{`${user.country_code || ''} ${user.phone}`.trim()}</Text>
               </View>
             ) : null}
             {user?.bio ? (
               <View style={styles.infoRow}>
-                <Ionicons name="information-circle-outline" size={18} color={COLORS.textSecondary} />
+                <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
                 <Text style={styles.infoText}>{user.bio}</Text>
               </View>
             ) : null}
@@ -229,19 +273,19 @@ export default function ProfileScreen({ navigation }) {
                   <Ionicons
                     name={item.icon}
                     size={22}
-                    color={item.danger ? COLORS.error : item.accent ? COLORS.accent : COLORS.textSecondary}
+                    color={item.danger ? colors.error : item.accent ? colors.accent : colors.textSecondary}
                   />
                   <Text
                     style={[
                       styles.menuLabel,
-                      item.danger && { color: COLORS.error },
-                      item.accent && { color: COLORS.accent },
+                      item.danger && { color: colors.error },
+                      item.accent && { color: colors.accent },
                     ]}
                   >
                     {item.label}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </AnimatedCard>
             );
           })}
@@ -252,45 +296,3 @@ export default function ProfileScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
-  headerTitle: { color: COLORS.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
-  userCard: {
-    alignItems: 'center', paddingVertical: SPACING.lg, paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.surface, marginHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
-  },
-  userName: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginTop: SPACING.sm },
-  userUsername: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, marginTop: 2 },
-  badgesRow: { flexDirection: 'row', gap: 6, marginTop: SPACING.sm },
-  memberSince: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginTop: SPACING.sm },
-  infoCard: {
-    backgroundColor: COLORS.surface, marginHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.lg,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, marginBottom: SPACING.md,
-  },
-  infoRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight,
-  },
-  infoText: { color: COLORS.white, fontSize: FONT_SIZES.md, flex: 1 },
-  statsRow: {
-    flexDirection: 'row', backgroundColor: COLORS.surface, marginHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg, paddingVertical: SPACING.md, marginBottom: SPACING.md,
-  },
-  statItem: { flex: 1, alignItems: 'center' },
-  statNumber: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '700' },
-  statLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 2 },
-  statDivider: { width: 1, backgroundColor: COLORS.border, marginVertical: 4 },
-  menu: { marginHorizontal: SPACING.md, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
-  menuItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 15, paddingHorizontal: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight,
-  },
-  menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  menuLabel: { color: COLORS.white, fontSize: FONT_SIZES.md },
-  menuDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.xs },
-  version: { textAlign: 'center', color: COLORS.textMuted, fontSize: FONT_SIZES.xs, paddingVertical: SPACING.xl },
-});

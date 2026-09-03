@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSavedListings } from '../context/SavedListingsContext';
 import { buildListingSaveData } from '../utils/listingRouteState';
 import '../styles/SavedListings.css';
+import '../styles/shell-tokens.css';
 
 const SavedListingToggleButton = ({
   listingType,

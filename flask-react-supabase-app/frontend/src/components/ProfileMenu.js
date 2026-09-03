@@ -4,6 +4,7 @@ import { LogOut, Settings, SquareUserRound, Shield, Heart, Store } from 'lucide-
 import { resolveMediaUrl } from '../utils/media';
 import apiClient from '../utils/apiClient';
 import '../styles/ProfileMenu.css';
+import '../styles/shell-tokens.css';
 
 const ProfileMenu = ({ user, onLogout, closeMenu }) => {
   const [isOpen, setIsOpen] = useState(false);

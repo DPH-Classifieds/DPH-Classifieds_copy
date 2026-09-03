@@ -6,6 +6,7 @@ import { useSavedListings } from '../context/SavedListingsContext';
 import LoadingSpinner from './LoadingSpinner';
 import UAELicensePlate from './UAELicensePlate';
 import '../styles/MyListings.css';
+import '../styles/shell-tokens.css';
 import './ExplorePage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';

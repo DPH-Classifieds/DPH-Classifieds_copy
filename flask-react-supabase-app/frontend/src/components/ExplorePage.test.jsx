@@ -31,6 +31,15 @@ const makeCar = (id, title = `Car ${id}`) => ({
   created_at: `2026-01-${String((id % 28) + 1).padStart(2, '0')}`,
 });
 
+const makeBike = (id, brand = 'Honda') => ({
+  id: `bike-${id}`,
+  bike_brand: brand,
+  bike_type: 'Sport',
+  bike_model: 'CBR',
+  price: 12000,
+  created_at: `2026-01-${String((id % 28) + 1).padStart(2, '0')}`,
+});
+
 const response = (data) => Promise.resolve({ ok: true, json: () => Promise.resolve(data) });
 
 beforeEach(() => {
@@ -42,6 +51,7 @@ beforeEach(() => {
   global.fetch = jest.fn((url) => {
     if (String(url).includes('/featured-listings')) return response([]);
     if (String(url).includes('/api/cars')) return response({ cars: Array.from({ length: 120 }, (_, index) => makeCar(index)) });
+    if (String(url).includes('/api/bikes')) return response({ bikes: [makeBike(1, 'Honda'), makeBike(2, 'Yamaha')] });
     return response([]);
   });
 });
@@ -79,5 +89,33 @@ describe('ExplorePage bounded feed rendering', () => {
     expect(screen.queryByText('Toyota Car 70')).toBeInTheDocument();
     const firstCard = screen.getAllByTestId('listing-card')[0];
     expect(within(firstCard).getByRole('link')).toHaveAttribute('href', expect.stringContaining('/cars/'));
+  });
+
+  it('sends bike filter params to /api/bikes when a bike brand is chosen', async () => {
+    sessionStorage.clear();
+    global.fetch.mockClear();
+    render(
+      <MemoryRouter initialEntries={['/explore?category=bikes']}>
+        <ExplorePage />
+      </MemoryRouter>
+    );
+
+    // Open the filter drawer so the bike-brand select is mounted.
+    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
+
+    // Wait for the bike drawer select to render (populated from the bike
+    // fixture above). The brand options only appear after /api/bikes loads.
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Honda' })).toBeInTheDocument());
+    fireEvent.change(screen.getByDisplayValue('All brands'), { target: { value: 'Honda' } });
+
+    // After selecting a brand, the next /api/bikes request must carry
+    // bike_brand=Honda in the URL — that's the server-side filter path
+    // this task introduces.
+    await waitFor(() => {
+      const bikeCalls = global.fetch.mock.calls
+        .map((call) => String(call[0]))
+        .filter((url) => url.includes('/api/bikes'));
+      expect(bikeCalls.some((url) => url.includes('bike_brand=Honda'))).toBe(true);
+    });
   });
 });

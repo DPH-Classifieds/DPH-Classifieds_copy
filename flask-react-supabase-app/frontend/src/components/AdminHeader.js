@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Menu, X, ExternalLink } from 'lucide-react';
 
 const AdminHeader = ({ onToggleSidebar, sidebarOpen }) => (
-  <header className="sticky top-0 z-40 h-14 w-full flex items-center px-4 bg-[#070d10]/80 backdrop-blur-xl border-b border-white/[0.06]">
+  <header className="sticky top-0 z-40 h-14 w-full flex items-center px-4 bg-[color:var(--ex-shell-bg)]/80 backdrop-blur-xl border-b border-white/[0.06]">
     {/* Left: hamburger + title */}
     <div className="flex items-center gap-3 flex-1 min-w-0">
       <button

@@ -23,6 +23,17 @@
   --ex-input-bg: #ffffff;
   --ex-overlay-scrim: rgba(0, 0, 0, 0.55);
   --ex-card-shadow: 0 1px 2px rgba(15, 23, 20, 0.05);
+  /* Admin/dealer portal — dark in both themes by design (the toggle does
+     not flatten the dealer/admin UX). Values are dark so the page background,
+     header, and sidebar read consistently regardless of <html class="dark">. */
+  --ex-shell-bg: #070d10;
+  --ex-shell-surface: #0b120e;
+  --ex-shell-surface-strong: #0f1a14;
+  --ex-shell-line: rgba(148, 218, 153, 0.12);
+  --ex-shell-text: #edf6ee;
+  --ex-shell-text-muted: #bfc9c4;
+  --ex-shell-accent: #8bd6b4;
+  --ex-shell-on-accent: #041008;
 }
 
 .dark {
@@ -44,6 +55,16 @@
   --ex-input-bg: rgba(255, 255, 255, 0.04);
   --ex-overlay-scrim: rgba(0, 0, 0, 0.62);
   --ex-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  /* --ex-shell-* tokens intentionally identical in both themes so the
+     portal chrome stays dark whether the toggle is light or dark. */
+  --ex-shell-bg: #070d10;
+  --ex-shell-surface: #0b120e;
+  --ex-shell-surface-strong: #0f1a14;
+  --ex-shell-line: rgba(148, 218, 153, 0.12);
+  --ex-shell-text: #edf6ee;
+  --ex-shell-text-muted: #bfc9c4;
+  --ex-shell-accent: #8bd6b4;
+  --ex-shell-on-accent: #041008;
 }
 
 .explore-v2 {

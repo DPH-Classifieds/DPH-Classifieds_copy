@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import SeoMeta from './SeoMeta';
 import { buildStaticSeo } from '../utils/seo';
 import '../styles/Contact.css';
+import '../styles/shell-tokens.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const contactChannels = [

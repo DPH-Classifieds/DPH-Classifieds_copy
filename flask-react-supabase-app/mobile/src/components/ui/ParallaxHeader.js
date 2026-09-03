@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Text from './AppText';
 import Animated, {
@@ -9,7 +9,8 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants/theme';
+import { SPACING, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const HEADER_HEIGHT = 280;
@@ -22,6 +23,51 @@ export default function ParallaxHeader({
   rightAction,
   onRightActionPress,
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    parallaxContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: HEADER_HEIGHT,
+      overflow: 'hidden',
+    },
+    parallaxImage: {
+      width: SCREEN_WIDTH,
+      height: HEADER_HEIGHT,
+    },
+    placeholder: {
+      backgroundColor: colors.surfaceHigher,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'black',
+    },
+    collapsedHeader: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 56,
+      backgroundColor: colors.black,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: SPACING.lg,
+      zIndex: 10,
+    },
+    collapsedTitle: {
+      color: colors.white,
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+      flex: 1,
+      textAlign: 'center',
+    },
+  }), [colors]);
+
   const imageStyle = useAnimatedStyle(() => {
     const translateY = interpolate(
       scrollY.value,
@@ -73,7 +119,7 @@ export default function ParallaxHeader({
           />
         ) : (
           <View style={[styles.parallaxImage, styles.placeholder]}>
-            <Ionicons name="image-outline" size={48} color={COLORS.textMuted} />
+            <Ionicons name="image-outline" size={48} color={colors.textMuted} />
           </View>
         )}
         <Animated.View style={[styles.overlay, overlayStyle]} />
@@ -83,7 +129,7 @@ export default function ParallaxHeader({
         <Text style={styles.collapsedTitle} numberOfLines={1}>{title}</Text>
         {rightAction && (
           <Animated.View style={headerOpacity}>
-            <Ionicons name={rightAction} size={22} color={COLORS.white} onPress={onRightActionPress} />
+            <Ionicons name={rightAction} size={22} color={colors.white} onPress={onRightActionPress} />
           </Animated.View>
         )}
       </Animated.View>
@@ -111,47 +157,3 @@ export function ParallaxScrollView({ children, scrollY, contentContainerStyle, o
     </Animated.ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  parallaxContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: HEADER_HEIGHT,
-    overflow: 'hidden',
-  },
-  parallaxImage: {
-    width: SCREEN_WIDTH,
-    height: HEADER_HEIGHT,
-  },
-  placeholder: {
-    backgroundColor: COLORS.surfaceHigher,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'black',
-  },
-  collapsedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 56,
-    backgroundColor: COLORS.black,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.lg,
-    zIndex: 10,
-  },
-  collapsedTitle: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'center',
-  },
-});

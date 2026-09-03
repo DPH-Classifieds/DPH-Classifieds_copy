@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import Text from './AppText';
 import Animated, {
@@ -7,11 +7,18 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function AnimatedButton({ title, onPress, variant = 'primary', style, textStyle, disabled = false }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    button: { borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+    text: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  }), [colors]);
+
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -29,7 +36,7 @@ export default function AnimatedButton({ title, onPress, variant = 'primary', st
     scale.value = withSpring(1, { damping: 15, stiffness: 400 });
   };
 
-  const bgColor = variant === 'primary' ? COLORS.accent : variant === 'destructive' ? COLORS.error : COLORS.surface;
+  const bgColor = variant === 'primary' ? colors.accent : variant === 'destructive' ? colors.error : colors.surface;
 
   return (
     <AnimatedTouchable
@@ -43,8 +50,3 @@ export default function AnimatedButton({ title, onPress, variant = 'primary', st
     </AnimatedTouchable>
   );
 }
-
-const styles = StyleSheet.create({
-  button: { borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  text: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-});

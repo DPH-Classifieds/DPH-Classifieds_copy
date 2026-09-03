@@ -3,12 +3,13 @@ import { Outlet } from 'react-router-dom';
 import DealerSidebar from './DealerSidebar';
 import ActingAsBanner from './ActingAsBanner';
 import { useDealer } from '../context/DealerContext';
+import '../styles/shell-tokens.css';
 
 const DealerLayout = () => {
   const { loading } = useDealer();
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#070d10' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--ex-shell-bg)' }}>
       <ActingAsBanner />
       <div className="flex flex-1">
         {/* Sidebar — hidden on small screens, icon-only on md, full on lg+ */}

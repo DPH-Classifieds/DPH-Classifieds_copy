@@ -9,16 +9,18 @@ import apiClient from '../../utils/apiClient';
 import { formatNumber } from '../../utils/formatters';
 import { swrGet, swrSet } from '../../utils/swrCache';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 // Tiny SVG sparkline. `points` is an array of { ts, value }; we map the
 // last N onto an inline polyline. Doesn't import a charting library — keeps
 // the bundle small and skips the perf cost of recharts/victory.
 function LiveVisitorsSparkline({ points = [], width = 280, height = 60 }) {
+  const { colors } = useTheme();
   if (!points.length) {
     return (
       <View style={{ height, width, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: COLORS.textMuted, fontSize: 11 }}>Collecting live samples…</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 11 }}>Collecting live samples…</Text>
       </View>
     );
   }
@@ -56,8 +58,119 @@ const clamp = (value) => {
 };
 
 export default function AdminDashboardScreen({ navigation }) {
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    scrollContent: { paddingBottom: 40 },
+    header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
+    title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: colors.white },
+    inboxRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: SPACING.md,
+      marginBottom: SPACING.lg,
+    },
+    inboxCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      paddingVertical: SPACING.md,
+      paddingHorizontal: SPACING.sm,
+      alignItems: 'flex-start',
+      minHeight: 92,
+    },
+    inboxIconWrap: {
+      width: 28, height: 28, borderRadius: 14,
+      alignItems: 'center', justifyContent: 'center',
+      marginBottom: 6,
+    },
+    inboxValue: { fontSize: 22, fontWeight: '800', color: colors.white },
+    inboxLabel: { fontSize: FONT_SIZES.xs, color: colors.textSecondary, marginTop: 4 },
+    inboxSub: { fontSize: FONT_SIZES.xs, color: colors.textSecondary, fontWeight: '600' },
+    expanderRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+      paddingVertical: 8, marginHorizontal: SPACING.md, marginBottom: SPACING.md,
+    },
+    expanderText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    metricsLinkRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg,
+      paddingVertical: 14, paddingHorizontal: SPACING.md,
+      marginHorizontal: SPACING.md, marginTop: SPACING.sm,
+    },
+    metricsLinkText: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '500' },
+    timeRangeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
+    timeRangePill: { flex: 1, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: colors.surface, minHeight: 44, justifyContent: 'center' },
+    timeRangePillActive: { backgroundColor: colors.accent },
+    timeRangeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: colors.textSecondary },
+    timeRangeTextActive: { color: colors.background },
+    healthBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginHorizontal: SPACING.md,
+      marginBottom: SPACING.md,
+      padding: SPACING.md,
+      backgroundColor: 'rgba(255,152,0,0.12)',
+      borderRadius: BORDER_RADIUS.md,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.warning,
+    },
+    healthBannerText: {
+      flex: 1,
+      color: colors.white,
+      fontSize: FONT_SIZES.xs,
+      lineHeight: 16,
+    },
+    kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
+    kpiCard: { width: '48%', backgroundColor: '#272729', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    kpiIcon: { marginBottom: SPACING.sm },
+    kpiValue: { fontSize: 24, fontWeight: '700', color: colors.white, marginBottom: 4 },
+    kpiLabel: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
+    section: { paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
+    sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: colors.white, marginBottom: SPACING.sm },
+    surface: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md },
+    barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    barLabel: { width: 90, fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
+    barTrack: { flex: 1, height: 8, backgroundColor: '#333', borderRadius: 4, marginHorizontal: 8 },
+    barFill: { height: 8, backgroundColor: colors.accent, borderRadius: 4 },
+    barValue: { width: 40, fontSize: FONT_SIZES.sm, fontWeight: '600', color: colors.white, textAlign: 'right' },
+    queueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333', gap: 8 },
+    queueRowText: { flex: 1, minWidth: 0 },
+    queueLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: colors.white },
+    queueSub: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+    badge: { fontSize: FONT_SIZES.xs, fontWeight: '600', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, overflow: 'hidden' },
+    badgeSuccess: { backgroundColor: 'rgba(76,175,80,0.2)', color: '#4CAF50' },
+    badgeWarning: { backgroundColor: 'rgba(255,152,0,0.2)', color: '#FF9800' },
+    emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: 12 },
+    actionCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    actionCardDisabled: { opacity: 0.6 },
+    actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+    actionLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: colors.white },
+    actionSubtitle: { fontSize: FONT_SIZES.xs, color: colors.textMuted, marginTop: 2 },
+    errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+    errorTitle: { fontSize: 20, fontWeight: '700', color: colors.white, marginTop: 16 },
+    errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
+    retryBtn: { marginTop: 20, backgroundColor: colors.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
+    retryText: { color: colors.background, fontWeight: '600', fontSize: FONT_SIZES.md },
+    liveVisitorsHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
+    },
+    liveVisitorsPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      backgroundColor: 'rgba(16,185,129,0.10)', borderColor: 'rgba(16,185,129,0.30)', borderWidth: 1,
+      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+    },
+    liveVisitorsPillText: {
+      color: '#a7f3d0', fontSize: 11, fontWeight: '700', letterSpacing: 0.2,
+    },
+    liveVisitorsCaption: {
+      color: 'rgba(255,255,255,0.30)', fontSize: 10, marginTop: 6,
+    },
+  }), [colors]);
   // Sparkline width = window minus section + surface paddings (16 + 16 on each side).
   const sparklineWidth = Math.max(200, windowWidth - SPACING.md * 2 - SPACING.md * 2);
   const [showAllMetrics, setShowAllMetrics] = useState(false);
@@ -266,10 +379,10 @@ export default function AdminDashboardScreen({ navigation }) {
 
   if (!user?.is_admin && !user?.is_super_admin) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
-        <Ionicons name="lock-closed" size={48} color={COLORS.textMuted} />
-        <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: '600', marginTop: 16 }}>Access Denied</Text>
-        <Text style={{ color: COLORS.textSecondary, marginTop: 8 }}>You don&apos;t have admin privileges.</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.black, justifyContent: 'center', alignItems: 'center' }}>
+        <Ionicons name="lock-closed" size={48} color={colors.textMuted} />
+        <Text style={{ color: colors.white, fontSize: 18, fontWeight: '600', marginTop: 16 }}>Access Denied</Text>
+        <Text style={{ color: colors.textSecondary, marginTop: 8 }}>You don&apos;t have admin privileges.</Text>
       </SafeAreaView>
     );
   }
@@ -286,7 +399,7 @@ export default function AdminDashboardScreen({ navigation }) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorWrap}>
-          <Ionicons name="alert-circle" size={40} color={COLORS.error} />
+          <Ionicons name="alert-circle" size={40} color={colors.error} />
           <Text style={styles.errorTitle}>Dashboard Unavailable</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={loadDashboard}>
@@ -302,7 +415,7 @@ export default function AdminDashboardScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
         <View style={styles.header}>
           <Text style={styles.title}>Operator Console</Text>
@@ -315,25 +428,28 @@ export default function AdminDashboardScreen({ navigation }) {
             label="Pending"
             sub="Approvals"
             value={pendingApprovals}
-            color={COLORS.warning}
+            color={colors.warning}
             icon="time-outline"
             onPress={() => navigation.navigate('AdminListings', { initialFilter: 'pending' })}
+            styles={styles}
           />
           <InboxCard
             label="Open"
             sub="Reports"
             value={totalReports}
-            color={COLORS.error}
+            color={colors.error}
             icon="flag-outline"
             onPress={() => navigation.navigate('AdminReports')}
+            styles={styles}
           />
           <InboxCard
             label="Dealer"
             sub="Reviews"
             value={Math.max(0, totalDealers - verifiedDealers)}
-            color={COLORS.info || COLORS.accent}
+            color={colors.info || colors.accent}
             icon="business-outline"
             onPress={() => navigation.navigate('AdminDealers')}
+            styles={styles}
           />
           <InboxCard
             label="Expired"
@@ -342,6 +458,7 @@ export default function AdminDashboardScreen({ navigation }) {
             color="#FF6F00"
             icon="time-outline"
             onPress={() => navigation.navigate('AdminExpiredListings')}
+            styles={styles}
           />
         </View>
 
@@ -379,7 +496,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
         {platformEventsMissing && (
           <View style={styles.healthBanner}>
-            <Ionicons name="warning-outline" size={18} color={COLORS.warning} />
+            <Ionicons name="warning-outline" size={18} color={colors.warning} />
             <Text style={styles.healthBannerText}>
               Site Visitors falls back to lead events + signups because the
               `platform_events` table is missing. Apply
@@ -391,7 +508,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
         {/* Headline KPIs — 4 cards visible by default, rest behind a tap. */}
         <View style={styles.kpiGrid}>
-          <KpiCard icon="people" label="Total Users" value={formatNumber(totalUsers)} color={COLORS.accent} />
+          <KpiCard icon="people" label="Total Users" value={formatNumber(totalUsers)} color={colors.accent} styles={styles} />
           <KpiCard
             icon="albums-outline"
             label="Total Listings"
@@ -399,10 +516,11 @@ export default function AdminDashboardScreen({ navigation }) {
               clamp(stats.cars_total) + clamp(stats.bikes_total) +
               clamp(stats.parts_total) + clamp(stats.plates_total)
             )}
-            color={COLORS.accent}
+            color={colors.accent}
+            styles={styles}
           />
-          <KpiCard icon="call" label="Total Leads" value={formatNumber(totalLeads)} color={COLORS.accent} />
-          <KpiCard icon="eye" label="Total Views" value={formatNumber(totalViews)} color={COLORS.accent} />
+          <KpiCard icon="call" label="Total Leads" value={formatNumber(totalLeads)} color={colors.accent} styles={styles} />
+          <KpiCard icon="eye" label="Total Views" value={formatNumber(totalViews)} color={colors.accent} styles={styles} />
         </View>
 
         <TouchableOpacity
@@ -416,22 +534,22 @@ export default function AdminDashboardScreen({ navigation }) {
           <Ionicons
             name={showAllMetrics ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={COLORS.textSecondary}
+            color={colors.textSecondary}
           />
         </TouchableOpacity>
 
         {showAllMetrics && (
           <>
             <View style={styles.kpiGrid}>
-              <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" />
-              <KpiCard icon="car" label="Total Cars" value={formatNumber(clamp(stats.cars_total))} color={COLORS.accent} />
-              <KpiCard icon="bicycle" label="Total Bikes" value={formatNumber(clamp(stats.bikes_total))} color={COLORS.accent} />
-              <KpiCard icon="construct" label="Total Parts" value={formatNumber(clamp(stats.parts_total))} color={COLORS.accent} />
-              <KpiCard icon="key" label="Total Plates" value={formatNumber(clamp(stats.plates_total))} color={COLORS.accent} />
-              <KpiCard icon="logo-whatsapp" label={`WhatsApp (${selectedRangeLabel})`} value={formatNumber(totalWhatsapp)} color={COLORS.accent} />
-              <KpiCard icon="phone-portrait" label={`Callers (${selectedRangeLabel})`} value={formatNumber(totalCalls)} color={COLORS.accent} />
-              <KpiCard icon="globe-outline" label={`Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={COLORS.accent} />
-              <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={COLORS.accent} />
+              <KpiCard icon="calendar" label="Days Since Launch" value={formatNumber(daysSinceLaunch)} color="#4CAF50" styles={styles} />
+              <KpiCard icon="car" label="Total Cars" value={formatNumber(clamp(stats.cars_total))} color={colors.accent} styles={styles} />
+              <KpiCard icon="bicycle" label="Total Bikes" value={formatNumber(clamp(stats.bikes_total))} color={colors.accent} styles={styles} />
+              <KpiCard icon="construct" label="Total Parts" value={formatNumber(clamp(stats.parts_total))} color={colors.accent} styles={styles} />
+              <KpiCard icon="key" label="Total Plates" value={formatNumber(clamp(stats.plates_total))} color={colors.accent} styles={styles} />
+              <KpiCard icon="logo-whatsapp" label={`WhatsApp (${selectedRangeLabel})`} value={formatNumber(totalWhatsapp)} color={colors.accent} styles={styles} />
+              <KpiCard icon="phone-portrait" label={`Callers (${selectedRangeLabel})`} value={formatNumber(totalCalls)} color={colors.accent} styles={styles} />
+              <KpiCard icon="globe-outline" label={`Visitors (${selectedRangeLabel})`} value={formatNumber(uniqueVisitors)} color={colors.accent} styles={styles} />
+              <KpiCard icon="business" label="Verified Dealers" value={`${formatNumber(verifiedDealers)}/${formatNumber(totalDealers)}`} color={colors.accent} styles={styles} />
             </View>
             <View style={{ paddingHorizontal: SPACING.md, marginTop: -SPACING.sm, marginBottom: SPACING.md }}>
               <CfSourceBadge dataSource={stats?.data_source} uniqueVisitorsSource={stats?.unique_visitors_source} />
@@ -544,6 +662,8 @@ export default function AdminDashboardScreen({ navigation }) {
                 subtitle="Active users, sessions, conversions"
                 icon="stats-chart-outline"
                 url="https://analytics.google.com/analytics/web/"
+                colors={colors}
+                styles={styles}
               />
             )}
             {process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID && (
@@ -552,6 +672,8 @@ export default function AdminDashboardScreen({ navigation }) {
                 subtitle="Heatmaps and session recordings"
                 icon="eye-outline"
                 url={`https://clarity.microsoft.com/projects/view/${process.env.EXPO_PUBLIC_CLARITY_PROJECT_ID}/dashboard`}
+                colors={colors}
+                styles={styles}
               />
             )}
           </View>
@@ -562,9 +684,9 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress={() => navigation.navigate('AdminMetrics')}
           activeOpacity={0.7}
         >
-          <Ionicons name="stats-chart-outline" size={18} color={COLORS.textSecondary} />
+          <Ionicons name="stats-chart-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.metricsLinkText}>View full metrics</Text>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -572,9 +694,9 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress={() => navigation.navigate('AdminFeaturedListings')}
           activeOpacity={0.7}
         >
-          <Ionicons name="star-outline" size={18} color={COLORS.textSecondary} />
+          <Ionicons name="star-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.metricsLinkText}>Featured listings</Text>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -582,9 +704,9 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress={() => navigation.navigate('AdminTools')}
           activeOpacity={0.7}
         >
-          <Ionicons name="construct-outline" size={18} color={COLORS.textSecondary} />
+          <Ionicons name="construct-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.metricsLinkText}>Operational tools</Text>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -592,9 +714,9 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress={() => navigation.navigate('AdminRedditVerify')}
           activeOpacity={0.7}
         >
-          <Ionicons name="logo-reddit" size={18} color={COLORS.textSecondary} />
+          <Ionicons name="logo-reddit" size={18} color={colors.textSecondary} />
           <Text style={styles.metricsLinkText}>Reddit import verification</Text>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -602,9 +724,9 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress={() => navigation.navigate('AdminDealershipsHub')}
           activeOpacity={0.7}
         >
-          <Ionicons name="business-outline" size={18} color={COLORS.textSecondary} />
+          <Ionicons name="business-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.metricsLinkText}>Dealerships hub</Text>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -612,9 +734,9 @@ export default function AdminDashboardScreen({ navigation }) {
           onPress={() => navigation.navigate('AdminVinOpens')}
           activeOpacity={0.7}
         >
-          <Ionicons name="key-outline" size={18} color={COLORS.textSecondary} />
+          <Ionicons name="key-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.metricsLinkText}>VIN reveal activity</Text>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -641,165 +763,3 @@ const cfBadgeStyles = StyleSheet.create({
   grey:   { fontSize: 10, color: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 4 },
 });
 
-function EdgeStat({ label, value }) {
-  return (
-    <View style={{ flex: 1, backgroundColor: '#272729', borderRadius: 8, padding: 10, alignItems: 'center' }}>
-      <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>{value?.toLocaleString() ?? '—'}</Text>
-      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{label}</Text>
-    </View>
-  );
-}
-
-function InboxCard({ label, sub, value, color, icon, onPress }) {
-  return (
-    <TouchableOpacity style={styles.inboxCard} onPress={onPress} activeOpacity={0.8}>
-      <View style={[styles.inboxIconWrap, { backgroundColor: `${color}26` }]}>
-        <Ionicons name={icon} size={18} color={color} />
-      </View>
-      <Text style={styles.inboxValue}>{formatNumber(value || 0)}</Text>
-      <Text style={styles.inboxLabel}>{label}</Text>
-      <Text style={styles.inboxSub}>{sub}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function ExternalAnalyticsCard({ title, subtitle, icon, url }) {
-  const handlePress = () => {
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Could not open', 'No browser available to open the dashboard.');
-    });
-  };
-
-  return (
-    <TouchableOpacity style={styles.actionCard} onPress={handlePress} activeOpacity={0.7}>
-      <View style={styles.actionLeft}>
-        <Ionicons name={icon} size={20} color={COLORS.accent} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.actionLabel}>{title}</Text>
-          <Text style={styles.actionSubtitle}>{subtitle}</Text>
-        </View>
-      </View>
-      <Ionicons name="open-outline" size={18} color={COLORS.textSecondary} />
-    </TouchableOpacity>
-  );
-}
-
-function KpiCard({ icon, label, value, color }) {
-  return (
-    <View style={styles.kpiCard}>
-      <Ionicons name={icon} size={22} color={color} style={styles.kpiIcon} />
-      <Text style={styles.kpiValue}>{value}</Text>
-      <Text style={styles.kpiLabel}>{label}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  scrollContent: { paddingBottom: 40 },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
-  title: { fontSize: FONT_SIZES.hero, fontWeight: '700', color: COLORS.white },
-  inboxRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  inboxCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.sm,
-    alignItems: 'flex-start',
-    minHeight: 92,
-  },
-  inboxIconWrap: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 6,
-  },
-  inboxValue: { fontSize: 22, fontWeight: '800', color: COLORS.white },
-  inboxLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 4 },
-  inboxSub: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontWeight: '600' },
-  expanderRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 8, marginHorizontal: SPACING.md, marginBottom: SPACING.md,
-  },
-  expanderText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  metricsLinkRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,
-    paddingVertical: 14, paddingHorizontal: SPACING.md,
-    marginHorizontal: SPACING.md, marginTop: SPACING.sm,
-  },
-  metricsLinkText: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '500' },
-  timeRangeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
-  timeRangePill: { flex: 1, paddingVertical: 12, borderRadius: BORDER_RADIUS.pill, alignItems: 'center', backgroundColor: COLORS.surface, minHeight: 44, justifyContent: 'center' },
-  timeRangePillActive: { backgroundColor: COLORS.accent },
-  timeRangeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.textSecondary },
-  timeRangeTextActive: { color: COLORS.background },
-  healthBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    padding: SPACING.md,
-    backgroundColor: 'rgba(255,152,0,0.12)',
-    borderRadius: BORDER_RADIUS.md,
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.warning,
-  },
-  healthBannerText: {
-    flex: 1,
-    color: COLORS.white,
-    fontSize: FONT_SIZES.xs,
-    lineHeight: 16,
-  },
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
-  kpiCard: { width: '48%', backgroundColor: '#272729', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  kpiIcon: { marginBottom: SPACING.sm },
-  kpiValue: { fontSize: 24, fontWeight: '700', color: COLORS.white, marginBottom: 4 },
-  kpiLabel: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
-  section: { paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
-  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.white, marginBottom: SPACING.sm },
-  surface: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md },
-  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  barLabel: { width: 90, fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)' },
-  barTrack: { flex: 1, height: 8, backgroundColor: '#333', borderRadius: 4, marginHorizontal: 8 },
-  barFill: { height: 8, backgroundColor: COLORS.accent, borderRadius: 4 },
-  barValue: { width: 40, fontSize: FONT_SIZES.sm, fontWeight: '600', color: COLORS.white, textAlign: 'right' },
-  queueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333', gap: 8 },
-  queueRowText: { flex: 1, minWidth: 0 },
-  queueLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.white },
-  queueSub: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  badge: { fontSize: FONT_SIZES.xs, fontWeight: '600', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, overflow: 'hidden' },
-  badgeSuccess: { backgroundColor: 'rgba(76,175,80,0.2)', color: '#4CAF50' },
-  badgeWarning: { backgroundColor: 'rgba(255,152,0,0.2)', color: '#FF9800' },
-  emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: 12 },
-  actionCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  actionCardDisabled: { opacity: 0.6 },
-  actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
-  actionLabel: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.white },
-  actionSubtitle: { fontSize: FONT_SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
-  errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  errorTitle: { fontSize: 20, fontWeight: '700', color: COLORS.white, marginTop: 16 },
-  errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
-  retryBtn: { marginTop: 20, backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: COLORS.background, fontWeight: '600', fontSize: FONT_SIZES.md },
-  liveVisitorsHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
-  },
-  liveVisitorsPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(16,185,129,0.10)', borderColor: 'rgba(16,185,129,0.30)', borderWidth: 1,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
-  },
-  liveVisitorsPillText: {
-    color: '#a7f3d0', fontSize: 11, fontWeight: '700', letterSpacing: 0.2,
-  },
-  liveVisitorsCaption: {
-    color: 'rgba(255,255,255,0.30)', fontSize: 10, marginTop: 6,
-  },
-});

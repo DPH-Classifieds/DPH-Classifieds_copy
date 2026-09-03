@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import Text from './ui/AppText';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../utils/apiClient';
 import { formatPrice } from '../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { resolveMediaUrl } from '../utils/media';
 import { prefetchListing } from '../utils/listingCache';
 import UAEPlate from './ui/UAEPlate';
@@ -14,6 +15,19 @@ import UAEPlate from './ui/UAEPlate';
 const CACHE_TYPE = { car: 'cars', bike: 'bikes', plate: 'plates', parts: 'parts' };
 
 export default function RecommendedListings({ listingType, listingId, navigation }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { marginTop: SPACING.lg },
+    sectionTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
+    card: { width: 160, marginRight: 12, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
+    image: { width: 160, height: 100, backgroundColor: colors.surfaceHigher },
+    placeholder: { alignItems: 'center', justifyContent: 'center' },
+    platePlaceholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+    recPlate: { width: '100%' },
+    price: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '700', paddingHorizontal: 10, paddingTop: 8 },
+    title: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingBottom: 8 },
+  }), [colors]);
+
   const [items, setItems] = useState([]);
 
   useEffect(() => { loadRecommendations(); }, [listingType, listingId]);
@@ -47,7 +61,7 @@ export default function RecommendedListings({ listingType, listingId, navigation
             style={styles.image}
           />
         ) : (
-          <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={24} color={COLORS.textMuted} /></View>
+          <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={24} color={colors.textMuted} /></View>
         )}
         <Text style={styles.price}>{formatPrice(item.expected_selling_price || item.price)}</Text>
         <Text style={styles.title} numberOfLines={1}>{item.listing_title || item.name || 'Listing'}</Text>
@@ -62,15 +76,3 @@ export default function RecommendedListings({ listingType, listingId, navigation
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { marginTop: SPACING.lg },
-  sectionTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
-  card: { width: 160, marginRight: 12, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
-  image: { width: 160, height: 100, backgroundColor: COLORS.surfaceHigher },
-  placeholder: { alignItems: 'center', justifyContent: 'center' },
-  platePlaceholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  recPlate: { width: '100%' },
-  price: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '700', paddingHorizontal: 10, paddingTop: 8 },
-  title: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, paddingHorizontal: 10, paddingBottom: 8 },
-});

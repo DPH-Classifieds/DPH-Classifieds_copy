@@ -1,18 +1,20 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import apiClient from '../../utils/apiClient';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import { TurnstileModal } from '../../utils/turnstile';
 import { TURNSTILE_SITE_KEY } from '../../constants/config';
 import { toastApiError } from '../../utils/toast';
 
 export default function LoginScreen({ navigation, route }) {
+  const { colors } = useTheme();
   const { signIn, signInWithGoogle } = useAuth();
   const redirect = route?.params?.redirect;
   const [email, setEmail] = useState('');
@@ -99,6 +101,109 @@ export default function LoginScreen({ navigation, route }) {
       setLoading(false);
     }
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.xxl,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: SPACING.xl,
+    },
+    logoText: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: colors.accent,
+      letterSpacing: 1,
+    },
+    subtitle: {
+      fontSize: FONT_SIZES.md,
+      color: colors.textSecondary,
+      marginTop: SPACING.sm,
+    },
+    form: {
+      marginBottom: SPACING.lg,
+    },
+    passwordContainer: {
+      position: 'relative',
+    },
+    eyeButton: {
+      position: 'absolute',
+      right: 14,
+      top: 38,
+      zIndex: 1,
+    },
+    forgotButton: {
+      alignSelf: 'flex-end',
+      marginBottom: SPACING.lg,
+      marginTop: -SPACING.xs,
+    },
+    forgotText: {
+      color: colors.accent,
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '500',
+    },
+    signInButton: {
+      width: '100%',
+    },
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: SPACING.md,
+      gap: 10,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    dividerLabel: {
+      color: 'rgba(255,255,255,0.4)',
+      fontSize: FONT_SIZES.xs,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    googleButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      backgroundColor: colors.white,
+      borderRadius: BORDER_RADIUS.md,
+      paddingVertical: 14,
+      width: '100%',
+    },
+    googleButtonDisabled: {
+      opacity: 0.7,
+    },
+    googleButtonText: {
+      color: '#1f2937',
+      fontWeight: '600',
+      fontSize: FONT_SIZES.md,
+    },
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: SPACING.lg,
+    },
+    footerText: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZES.md,
+    },
+    footerLink: {
+      color: colors.accent,
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+    },
+  }), [colors]);
 
   return (
     <KeyboardAvoidingView
@@ -214,105 +319,3 @@ export default function LoginScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xxl,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-  },
-  logoText: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: COLORS.accent,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-  },
-  form: {
-    marginBottom: SPACING.lg,
-  },
-  passwordContainer: {
-    position: 'relative',
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: 14,
-    top: 38,
-    zIndex: 1,
-  },
-  forgotButton: {
-    alignSelf: 'flex-end',
-    marginBottom: SPACING.lg,
-    marginTop: -SPACING.xs,
-  },
-  forgotText: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
-  },
-  signInButton: {
-    width: '100%',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SPACING.md,
-    gap: 10,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  dividerLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: FONT_SIZES.xs,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: 14,
-    width: '100%',
-  },
-  googleButtonDisabled: {
-    opacity: 0.7,
-  },
-  googleButtonText: {
-    color: '#1f2937',
-    fontWeight: '600',
-    fontSize: FONT_SIZES.md,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  footerText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-  },
-  footerLink: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-});

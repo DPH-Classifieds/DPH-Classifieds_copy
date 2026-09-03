@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, Switch, ActivityIndicator } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
-function ToolCard({ icon, title, description, running, onRun, runLabel = 'Run', toast, children }) {
+function ToolCard({ icon, title, description, running, onRun, runLabel = 'Run', toast, children, colors, styles }) {
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Ionicons name={icon} size={22} color={COLORS.textMuted} />
+        <Ionicons name={icon} size={22} color={colors.textMuted} />
         <View style={styles.cardHeaderText}>
           <Text style={styles.cardTitle}>{title}</Text>
           <Text style={styles.cardDescription}>{description}</Text>
@@ -22,7 +23,7 @@ function ToolCard({ icon, title, description, running, onRun, runLabel = 'Run', 
       )}
       {onRun && (
         <TouchableOpacity style={styles.runBtn} onPress={onRun} disabled={running} activeOpacity={0.7}>
-          {running ? <ActivityIndicator size="small" color={COLORS.black} /> : <Text style={styles.runBtnText}>{runLabel}</Text>}
+          {running ? <ActivityIndicator size="small" color={colors.black} /> : <Text style={styles.runBtnText}>{runLabel}</Text>}
         </TouchableOpacity>
       )}
     </View>
@@ -30,6 +31,7 @@ function ToolCard({ icon, title, description, running, onRun, runLabel = 'Run', 
 }
 
 export default function AdminToolsScreen() {
+  const { colors } = useTheme();
   const [arEnabled, setArEnabled] = useState(null);
   const [arToggleLoading, setArToggleLoading] = useState(false);
   const [autoReviewRunning, setAutoReviewRunning] = useState(false);
@@ -156,6 +158,23 @@ export default function AdminToolsScreen() {
     }
   }, []);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    content: { padding: SPACING.md, paddingBottom: 40 },
+    sectionLabel: { fontSize: FONT_SIZES.xs, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: SPACING.md, marginBottom: SPACING.sm },
+    card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    cardHeader: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+    cardHeaderText: { flex: 1 },
+    cardTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: colors.white },
+    cardDescription: { fontSize: FONT_SIZES.xs, color: colors.textSecondary, marginTop: 4, lineHeight: 16 },
+    toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: SPACING.sm },
+    toggleLabel: { fontSize: FONT_SIZES.sm, color: colors.textSecondary, fontWeight: '500' },
+    toast: { fontSize: FONT_SIZES.xs, color: '#4CAF50', marginTop: SPACING.sm },
+    toastError: { color: colors.error },
+    runBtn: { marginTop: SPACING.sm, alignSelf: 'flex-start', backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 18, paddingVertical: 10 },
+    runBtnText: { color: colors.black, fontWeight: '700', fontSize: FONT_SIZES.sm },
+  }), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -163,7 +182,7 @@ export default function AdminToolsScreen() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="hardware-chip-outline" size={22} color={COLORS.textMuted} />
+            <Ionicons name="hardware-chip-outline" size={22} color={colors.textMuted} />
             <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Auto-approve toggle</Text>
               <Text style={styles.cardDescription}>
@@ -192,12 +211,14 @@ export default function AdminToolsScreen() {
           onRun={runAutoReview}
           runLabel="Run now"
           toast={autoReviewToast}
+          colors={colors}
+          styles={styles}
         />
 
         <Text style={styles.sectionLabel}>Reddit imported listings</Text>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="logo-reddit" size={22} color={COLORS.textMuted} />
+            <Ionicons name="logo-reddit" size={22} color={colors.textMuted} />
             <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Show Reddit listings on site</Text>
               <Text style={styles.cardDescription}>
@@ -223,7 +244,7 @@ export default function AdminToolsScreen() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="logo-reddit" size={22} color={COLORS.textMuted} />
+            <Ionicons name="logo-reddit" size={22} color={colors.textMuted} />
             <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Show Reddit on Explore</Text>
               <Text style={styles.cardDescription}>
@@ -250,7 +271,7 @@ export default function AdminToolsScreen() {
         <Text style={styles.sectionLabel}>Sign-in methods</Text>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="logo-google" size={22} color={COLORS.textMuted} />
+            <Ionicons name="logo-google" size={22} color={colors.textMuted} />
             <View style={styles.cardHeaderText}>
               <Text style={styles.cardTitle}>Google sign-in</Text>
               <Text style={styles.cardDescription}>
@@ -283,25 +304,11 @@ export default function AdminToolsScreen() {
           onRun={flushCache}
           runLabel="Flush cache"
           toast={flushToast}
+          colors={colors}
+          styles={styles}
         />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  content: { padding: SPACING.md, paddingBottom: 40 },
-  sectionLabel: { fontSize: FONT_SIZES.xs, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: SPACING.md, marginBottom: SPACING.sm },
-  card: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  cardHeader: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  cardHeaderText: { flex: 1 },
-  cardTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.white },
-  cardDescription: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 4, lineHeight: 16 },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: SPACING.sm },
-  toggleLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, fontWeight: '500' },
-  toast: { fontSize: FONT_SIZES.xs, color: '#4CAF50', marginTop: SPACING.sm },
-  toastError: { color: COLORS.error },
-  runBtn: { marginTop: SPACING.sm, alignSelf: 'flex-start', backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 18, paddingVertical: 10 },
-  runBtnText: { color: COLORS.black, fontWeight: '700', fontSize: FONT_SIZES.sm },
-});

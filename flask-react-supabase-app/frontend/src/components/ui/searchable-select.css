@@ -29,5 +29,5 @@
 }
 
 .searchable-select__menu-notice {
-  color: #8a8a8a;
+  color: var(--ex-text-muted);
 }

@@ -14,6 +14,7 @@ import { clearListingDraft, loadListingDraft, saveListingDraft } from '../utils/
 import { moderateImage } from '../utils/imageModeration';
 import { uploadRegistrationDocument, ensureUploadableImage } from '../utils/directUpload';
 import '../styles/PostForms.css';
+import '../styles/shell-tokens.css';
 import '../styles/UAELicensePlate.css';
 import UAELicensePlate from './UAELicensePlate';
 import { fieldLabel, firstMissingRequiredField, revealListingFieldError } from '../utils/listingFormValidation';

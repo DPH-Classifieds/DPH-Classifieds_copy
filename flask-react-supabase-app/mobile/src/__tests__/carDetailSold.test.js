@@ -9,6 +9,12 @@ jest.mock('../context/SavedListingsContext', () => ({
   useSavedListings: () => ({ toggleSaveListing: jest.fn(), isSaved: () => false }),
 }));
 jest.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+jest.mock('../context/ThemeContext', () => {
+  const { COLORS } = require('../constants/theme');
+  return {
+    useTheme: () => ({ theme: 'light', colors: COLORS, setTheme: jest.fn(), toggleTheme: jest.fn() }),
+  };
+});
 jest.mock('../components/ui/RequireAuth', () => ({
   useAuthPrompt: () => ({ requireAuth: (f) => f && f(), AuthPromptModal: () => null }),
 }));

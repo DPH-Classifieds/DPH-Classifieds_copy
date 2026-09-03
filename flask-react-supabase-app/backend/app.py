@@ -6556,6 +6556,63 @@ _LISTING_COUNT_TABLES = {
 }
 
 
+# Mirror of the filter pairs each data route accepts. Kept in sync with the
+# _collect_listing_filter_pairs() call inside get_bikes / get_plates /
+# get_parts / get_cars — chip counts must reflect the active selection, so
+# both code paths read the same whitelist. Reddit + buying_requests counts
+# keep their existing behavior (those don't use the per-category spec).
+_LISTING_FILTER_SPECS = {
+    "cars": (
+        {
+            "car_manufacturer": "car_manufacturer",
+            "car_model": "car_model",
+            "car_city": "car_city",
+            "body_type": "body_type",
+            "fuel_type": "fuel_type",
+            "transmission_type": "transmission_type",
+            "regional_spec": "regional_spec",
+            "steering_side": "steering_side",
+            "seating_capacity": "seating_capacity",
+            "horsepower": "horsepower",
+            "engine_capacity": "engine_capacity",
+            "source_platform": "source_platform",
+        },
+        {
+            "expected_selling_price": "expected_selling_price",
+            "make_year": "make_year",
+            "kilometer_driven": "kilometer_driven",
+        },
+    ),
+    "bikes": (
+        {
+            "bike_brand": "bike_brand",
+            "bike_type": "bike_type",
+            "area": "area",
+            "engine_size": "engine_size",
+            "condition": "condition",
+        },
+        {"price": "price", "year": "year"},
+    ),
+    "parts": (
+        {
+            "condition": "condition",
+            "part_type": "part_type",
+            "area": "area",
+        },
+        {"price": "price"},
+    ),
+    "plates": (
+        {
+            "city": "city",
+            "digits": "digits",
+            "code": "code",
+            "area": "area",
+        },
+        {"price": "price"},
+    ),
+}
+
+
 def _table_count(table, filters):
     """HEAD-style count via PostgREST's Prefer: count=exact, read off the
     Content-Range response header. Doesn't fetch any rows, so it's cheap
@@ -6584,6 +6641,22 @@ def _approved_table_count(table):
     return _table_count(table, {"status": "eq.approved", "is_approved": "eq.true"})
 
 
+def _filtered_count(table, category, args):
+    """Apply the category's filter spec to a count query. The caller passes
+    request.args explicitly so the helper is hermetic and testable in
+    isolation (test_request_context establishes the args)."""
+    eq_fields, range_fields = _LISTING_FILTER_SPECS[category]
+    pairs = _collect_listing_filter_pairs(eq_fields, range_fields)
+    params = {"status": "eq.approved", "is_approved": "eq.true"}
+    for db_col, postgrest_val in pairs:
+        params[db_col] = postgrest_val
+    # `args` is currently unused directly — _collect_listing_filter_pairs
+    # reads the live request.args. Kept in the signature for explicit
+    # testability and for any future expansion (e.g. min-clamping).
+    _ = args
+    return _table_count(table, params)
+
+
 def _approved_reddit_table_count(table):
     return _table_count(
         table,
@@ -6593,7 +6666,8 @@ def _approved_reddit_table_count(table):
 
 # Total live listing counts per category (public) — headline numbers for the
 # Explore/browse pages. Doesn't affect pagination/loading on those pages,
-# it's a separate cheap count-only call.
+# it's a separate cheap count-only call. Honors the same per-category filter
+# spec as the data routes so the tab badge reflects the user's active search.
 @app.route("/api/listings/counts", methods=["GET"])
 def get_listing_counts():
     cache_key = _build_api_cache_key()
@@ -6601,7 +6675,7 @@ def get_listing_counts():
     if cached_payload is not None:
         return jsonify(cached_payload), 200
 
-    counts = {key: _approved_table_count(table) for key, table in _LISTING_COUNT_TABLES.items()}
+    counts = {key: _filtered_count(table, key, request.args) for key, table in _LISTING_COUNT_TABLES.items()}
     counts["all"] = sum(counts.values())
     # Reddit isn't a separate table — it's a source_platform on rows already
     # counted above — so this is informational (a filtered view), not added
@@ -15048,11 +15122,20 @@ def get_bikes():
         elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
-        # Bikes table columns are bike_brand / bike_type / price — matches the
-        # url param names the mobile/web browse screens already send.
+        # bikes table columns (verified against migrations/00_COMPLETE_SCHEMA.sql:108-145):
+        # bike_brand / bike_type / engine_size (text) / condition / year / price / area.
+        # area + engine_size + condition + year_range close the gap vs /api/cars so
+        # the Explore drawer can move server-side. car_city / horsepower /
+        # engine_capacity are CARS-ONLY — no column exists on bikes.
         filter_pairs = _collect_listing_filter_pairs(
-            {"bike_brand": "bike_brand", "bike_type": "bike_type"},
-            {"price": "price"},
+            {
+                "bike_brand": "bike_brand",
+                "bike_type": "bike_type",
+                "area": "area",
+                "engine_size": "engine_size",
+                "condition": "condition",
+            },
+            {"price": "price", "year": "year"},
         )
 
         logger.info(f"Fetching bikes with params: {params} filters: {filter_pairs}")
@@ -16876,9 +16959,20 @@ def get_plates():
         else:
             approved_clause = "status=eq.approved&is_approved=eq.true"
             source_clause = "" if not _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()) else "&or=(source_platform.is.null,source_platform.neq.reddit)"
-        # license_plates table columns are city / digits — matches the url param
-        # names the mobile/web browse screens already send.
-        filter_pairs = _collect_listing_filter_pairs({"city": "city", "digits": "digits"})
+        # license_plates table columns (verified against
+        # migrations/00_COMPLETE_SCHEMA.sql:209-242): city / digits / code /
+        # price / area. Adds code + area + price_range so the Explore drawer
+        # can move server-side. car_city is NOT a column on license_plates —
+        # plates use `city`.
+        filter_pairs = _collect_listing_filter_pairs(
+            {
+                "city": "city",
+                "digits": "digits",
+                "code": "code",
+                "area": "area",
+            },
+            {"price": "price"},
+        )
         filter_clause = "".join(f"&{k}={v}" for k, v in filter_pairs)
         # plate_images join omitted: no FK relationship declared in schema (plates use UAELicensePlate component)
         url = (
@@ -17179,11 +17273,16 @@ def get_parts():
         elif _should_hide_reddit(False, exclude_reddit, _reddit_on_explore()):
             params["or"] = "(source_platform.is.null,source_platform.neq.reddit)"
 
-        # car_parts table columns are condition / part_type — matches the url
-        # param names the mobile/web browse screens already send. No range
-        # filter in either UI today, so plain eq pairs are enough.
+        # car_parts table columns (verified against migrations/00_COMPLETE_SCHEMA.sql:161-193):
+        # condition / part_type / price / area. Adds area + price_range so the
+        # Explore drawer can move server-side. car_city is NOT a column on this table.
         filter_pairs = _collect_listing_filter_pairs(
-            {"condition": "condition", "part_type": "part_type"}
+            {
+                "condition": "condition",
+                "part_type": "part_type",
+                "area": "area",
+            },
+            {"price": "price"},
         )
 
         logger.info(f"Fetching parts with params: {params} filters: {filter_pairs}")

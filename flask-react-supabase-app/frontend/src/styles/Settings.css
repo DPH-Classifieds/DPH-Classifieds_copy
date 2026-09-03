@@ -2,9 +2,9 @@
   --settings-bg: #06110b;
   --settings-surface: rgba(10, 24, 16, 0.92);
   --settings-surface-strong: rgba(13, 31, 21, 0.98);
-  --settings-line: rgba(177, 228, 182, 0.14);
-  --settings-text: #eef7ef;
-  --settings-text-muted: rgba(226, 239, 229, 0.72);
+  --settings-line: color-mix(in srgb, var(--ex-shell-accent) 14%, transparent);
+  --settings-text: var(--ex-shell-text);
+  --settings-text-muted: color-mix(in srgb, var(--ex-shell-text) 72%, transparent);
   --settings-accent: #8fe694;
   max-width: 600px;
   margin: 0 auto;
@@ -47,7 +47,7 @@
   border: 1px solid var(--settings-line);
   border-radius: 14px;
   min-height: 50px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--ex-shell-text) 4%, transparent);
   color: var(--settings-text);
   caret-color: var(--settings-accent);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -58,17 +58,17 @@
 .settings-form input::placeholder,
 .settings-form select::placeholder,
 .settings-form textarea::placeholder {
-  color: rgba(226, 239, 229, 0.44);
-  -webkit-text-fill-color: rgba(226, 239, 229, 0.44);
+  color: color-mix(in srgb, var(--ex-shell-text) 44%, transparent);
+  -webkit-text-fill-color: color-mix(in srgb, var(--ex-shell-text) 44%, transparent);
 }
 
 .settings-form input:focus,
 .settings-form select:focus,
 .settings-form textarea:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: color-mix(in srgb, var(--ex-shell-text) 20%, transparent);
   box-shadow: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--ex-shell-text) 6%, transparent);
 }
 
 .settings-form input:-webkit-autofill,
@@ -90,17 +90,17 @@
 .settings-form input:disabled,
 .settings-form select:disabled,
 .settings-form textarea:disabled {
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(226, 239, 229, 0.42);
+  background: color-mix(in srgb, var(--ex-shell-text) 3%, transparent);
+  color: color-mix(in srgb, var(--ex-shell-text) 42%, transparent);
   cursor: not-allowed;
-  -webkit-text-fill-color: rgba(226, 239, 229, 0.42);
+  -webkit-text-fill-color: color-mix(in srgb, var(--ex-shell-text) 42%, transparent);
 }
 
 .settings-card {
   background: linear-gradient(180deg, var(--settings-surface-strong) 0%, var(--settings-surface) 100%);
   border: 1px solid var(--settings-line);
   border-radius: 24px;
-  box-shadow: inset 0 1px 0 rgba(236, 249, 237, 0.04), 0 30px 70px rgba(0, 0, 0, 0.34);
+  box-shadow: inset 0 1px 0 rgba(236, 249, 237, 0.04), 0 30px 70px color-mix(in srgb, var(--ex-overlay-scrim) 34%, transparent);
   padding: 30px;
   margin-bottom: 30px;
 }
@@ -111,7 +111,7 @@
   margin-bottom: 20px;
   color: var(--settings-text);
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(177, 228, 182, 0.08);
+  border-bottom: 1px solid color-mix(in srgb, var(--ex-shell-accent) 8%, transparent);
 }
 
 .settings-card form {

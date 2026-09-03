@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { animate, useMotionValue } from 'motion/react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { GlassCard } from './GlassCard';
+import '../../../styles/shell-tokens.css';
 
 const useAnimatedNumber = (target) => {
   const mv = useMotionValue(0);

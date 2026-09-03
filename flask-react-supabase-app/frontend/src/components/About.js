@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import SeoMeta from './SeoMeta';
 import { buildStaticSeo } from '../utils/seo';
 import '../styles/About.css';
+import '../styles/shell-tokens.css';
 
 const whoWeAreImg = '/images/About-page-removebg-preview.png';
 const ourMissionImg = '/images/Our Mission.avif';
@@ -50,7 +51,7 @@ const About = () => {
       <div className="about-v2">
       <section className="about-v2-hero">
         <div className="about-v2-shell">
-          <span className="about-v2-kicker">About <span style={{ color: '#ffffff' }}>DPH</span> <span style={{ color: '#8bd6b4' }}>Classifieds</span></span>
+          <span className="about-v2-kicker">About <span style={{ color: 'var(--ex-shell-text)' }}>DPH</span> <span style={{ color: 'var(--ex-shell-accent)' }}>Classifieds</span></span>
           <h1>A classifieds platform built by the same people who care about the cars.</h1>
           <p>
             DPH Classifieds exists to make browsing, listing, and buying feel more transparent for the

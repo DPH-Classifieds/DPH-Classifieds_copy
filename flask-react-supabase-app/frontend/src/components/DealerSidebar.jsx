@@ -48,7 +48,7 @@ const DealerSidebar = () => {
   return (
     <aside
       className="flex-shrink-0 w-[240px] min-h-screen flex flex-col"
-      style={{ background: 'linear-gradient(180deg, #0a1410 0%, #070d10 100%)' }}
+      style={{ background: 'linear-gradient(180deg, var(--ex-shell-surface) 0%, var(--ex-shell-bg) 100%)' }}
     >
       {/* Brand */}
       <div className="px-5 pt-6 pb-5 border-b border-white/[0.06]">
@@ -86,7 +86,7 @@ const DealerSidebar = () => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border-l-2 ${
                   isActive
-                    ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.06)]'
+                    ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-[0_0_12px_color-mix(in_srgb,var(--ex-shell-accent)_6%,transparent)]'
                     : 'border-transparent text-white/60 hover:bg-white/[0.04] hover:text-white'
                 }`
               }

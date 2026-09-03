@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 import apiClient from '../../utils/apiClient';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants/theme';
+import { SPACING, FONT_SIZES } from '../../constants/theme';
 
 export default function ResetPasswordScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { email } = route.params || {};
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -39,6 +41,20 @@ export default function ResetPasswordScreen({ route, navigation }) {
     }
   };
 
+const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { flex: 1, padding: SPACING.md, justifyContent: 'center' },
+  iconContainer: { alignItems: 'center', marginBottom: SPACING.lg },
+  title: {
+    color: colors.white, fontSize: FONT_SIZES.xxl,
+    fontWeight: '700', textAlign: 'center', marginBottom: SPACING.sm,
+  },
+  subtitle: {
+    color: colors.textSecondary, fontSize: FONT_SIZES.md,
+    textAlign: 'center', marginBottom: SPACING.lg, lineHeight: 22,
+  },
+  button: { marginTop: SPACING.sm },
+}), [colors]);
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -47,7 +63,7 @@ export default function ResetPasswordScreen({ route, navigation }) {
       >
         <View style={styles.content}>
           <View style={styles.iconContainer}>
-            <Ionicons name="lock-closed-outline" size={48} color={COLORS.accent} />
+            <Ionicons name="lock-closed-outline" size={48} color={colors.accent} />
           </View>
           <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>Enter your new password below.</Text>
@@ -78,18 +94,3 @@ export default function ResetPasswordScreen({ route, navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { flex: 1, padding: SPACING.md, justifyContent: 'center' },
-  iconContainer: { alignItems: 'center', marginBottom: SPACING.lg },
-  title: {
-    color: COLORS.white, fontSize: FONT_SIZES.xxl,
-    fontWeight: '700', textAlign: 'center', marginBottom: SPACING.sm,
-  },
-  subtitle: {
-    color: COLORS.textSecondary, fontSize: FONT_SIZES.md,
-    textAlign: 'center', marginBottom: SPACING.lg, lineHeight: 22,
-  },
-  button: { marginTop: SPACING.sm },
-});

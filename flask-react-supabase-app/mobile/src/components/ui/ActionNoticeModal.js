@@ -1,26 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
-const TYPE_CONFIG = {
-  error: {
-    icon: 'alert-circle',
-    color: COLORS.error,
-  },
-  success: {
-    icon: 'checkmark-circle',
-    color: COLORS.success,
-  },
-  warning: {
-    icon: 'warning',
-    color: COLORS.warning,
-  },
-  info: {
-    icon: 'information-circle',
-    color: COLORS.info,
-  },
+const TYPE_ICONS = {
+  error: 'alert-circle',
+  success: 'checkmark-circle',
+  warning: 'warning',
+  info: 'information-circle',
+};
+
+const getTypeColor = (colors, type) => {
+  if (type === 'error') return colors.error;
+  if (type === 'success') return colors.success;
+  if (type === 'warning') return colors.warning;
+  return colors.info;
 };
 
 export default function ActionNoticeModal({
@@ -32,7 +28,80 @@ export default function ActionNoticeModal({
   actionLabel,
   onAction,
 }) {
-  const config = TYPE_CONFIG[type] || TYPE_CONFIG.info;
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: SPACING.lg,
+    },
+    card: {
+      backgroundColor: colors.surfaceHigher,
+      borderRadius: BORDER_RADIUS.xl,
+      padding: SPACING.lg,
+      width: '100%',
+      maxWidth: 340,
+      alignItems: 'center',
+    },
+    iconContainer: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: SPACING.md,
+    },
+    title: {
+      color: colors.white,
+      fontSize: FONT_SIZES.xl,
+      fontWeight: '700',
+      textAlign: 'center',
+      marginBottom: SPACING.sm,
+    },
+    message: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZES.md,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: SPACING.lg,
+    },
+    actions: {
+      width: '100%',
+      gap: SPACING.sm,
+    },
+    actionButton: {
+      paddingVertical: 14,
+      borderRadius: BORDER_RADIUS.pill,
+      alignItems: 'center',
+    },
+    actionButtonText: {
+      color: colors.white,
+      fontSize: FONT_SIZES.md,
+      fontWeight: '700',
+    },
+    dismissButton: {
+      paddingVertical: 14,
+      borderRadius: BORDER_RADIUS.pill,
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    dismissButtonSecondary: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+    },
+    dismissButtonText: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+    },
+  }), [colors]);
+
+  const configIcon = TYPE_ICONS[type] || TYPE_ICONS.info;
+  const configColor = getTypeColor(colors, type);
 
   return (
     <Modal
@@ -43,8 +112,8 @@ export default function ActionNoticeModal({
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <View style={[styles.iconContainer, { backgroundColor: `${config.color}20` }]}>
-            <Ionicons name={config.icon} size={40} color={config.color} />
+          <View style={[styles.iconContainer, { backgroundColor: `${configColor}20` }]}>
+            <Ionicons name={configIcon} size={40} color={configColor} />
           </View>
 
           <Text style={styles.title}>{title}</Text>
@@ -53,7 +122,7 @@ export default function ActionNoticeModal({
           <View style={styles.actions}>
             {actionLabel && onAction && (
               <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: config.color }]}
+                style={[styles.actionButton, { backgroundColor: configColor }]}
                 onPress={onAction}
                 activeOpacity={0.8}
               >
@@ -73,74 +142,3 @@ export default function ActionNoticeModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-  },
-  card: {
-    backgroundColor: COLORS.surfaceHigher,
-    borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.lg,
-    width: '100%',
-    maxWidth: 340,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  title: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
-  },
-  message: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: SPACING.lg,
-  },
-  actions: {
-    width: '100%',
-    gap: SPACING.sm,
-  },
-  actionButton: {
-    paddingVertical: 14,
-    borderRadius: BORDER_RADIUS.pill,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-  },
-  dismissButton: {
-    paddingVertical: 14,
-    borderRadius: BORDER_RADIUS.pill,
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  dismissButtonSecondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-  },
-  dismissButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-});

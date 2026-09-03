@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const FIELD_LABELS = {
   car_manufacturer: 'Make', car_model: 'Model', make_year: 'Year',
@@ -31,10 +32,68 @@ const fmtValue = (key, value) => {
 };
 
 export default function AdminRedditVerifyScreen({ navigation }) {
+  const { colors } = useTheme();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [onlyIncomplete, setOnlyIncomplete] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    listContent: { padding: SPACING.md, paddingBottom: 40 },
+    kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
+    kpiCard: {
+      flexBasis: '48%', flexGrow: 1, backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
+    },
+    kpiValue: { color: colors.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
+    kpiLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 4 },
+    filterPill: {
+      alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8,
+      borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface,
+      borderWidth: 1, borderColor: colors.borderLight, marginBottom: SPACING.md,
+    },
+    filterPillActive: { backgroundColor: 'rgba(255,152,0,0.15)', borderColor: 'rgba(255,152,0,0.3)' },
+    filterPillText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+    filterPillTextActive: { color: colors.warning },
+    card: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    cardTop: { flexDirection: 'row', gap: SPACING.sm },
+    thumbWrap: { width: 96, height: 72 },
+    thumb: { width: 96, height: 72, borderRadius: BORDER_RADIUS.md },
+    thumbEmpty: { backgroundColor: colors.surfaceHigher, alignItems: 'center', justifyContent: 'center' },
+    photoCountBadge: {
+      position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)',
+      borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1,
+    },
+    photoCountText: { color: colors.white, fontSize: 9 },
+    cardInfo: { flex: 1, minWidth: 0 },
+    badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
+    typeBadge: { backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
+    typeBadgeText: { color: colors.textSecondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
+    statusBadge: { borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
+    statusBadgeText: { fontSize: 9, fontWeight: '700' },
+    cardTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    cardPrice: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '700', marginTop: 2 },
+    fieldGrid: { marginTop: SPACING.sm, gap: 4 },
+    fieldRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      borderBottomWidth: 1, borderBottomColor: colors.borderLight, paddingBottom: 4,
+    },
+    fieldLabel: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
+    fieldValueWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    fieldValue: { color: colors.white, fontSize: FONT_SIZES.xs },
+    fieldValueMissing: { color: colors.warning },
+    fieldValueMuted: { color: colors.textMuted },
+    sourceTag: { backgroundColor: colors.surfaceHigher, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
+    sourceTagText: { color: colors.textMuted, fontSize: 8, fontWeight: '600' },
+    cardActions: {
+      flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginTop: SPACING.sm,
+      paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: colors.borderLight,
+    },
+    linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    linkBtnText: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+    authorText: { marginLeft: 'auto', color: colors.textMuted, fontSize: FONT_SIZES.xs },
+  }), [colors]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -94,18 +153,18 @@ export default function AdminRedditVerifyScreen({ navigation }) {
               <View style={styles.typeBadge}>
                 <Text style={styles.typeBadgeText}>{TYPE_LABEL[l.listing_type] || l.listing_type}</Text>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: l.is_approved ? COLORS.success : COLORS.surfaceHigher }]}>
-                <Text style={[styles.statusBadgeText, { color: l.is_approved ? COLORS.black : COLORS.textSecondary }]}>
+              <View style={[styles.statusBadge, { backgroundColor: l.is_approved ? colors.success : colors.surfaceHigher }]}>
+                <Text style={[styles.statusBadgeText, { color: l.is_approved ? colors.black : colors.textSecondary }]}>
                   {l.is_approved ? 'Shown' : 'Hidden'}
                 </Text>
               </View>
               {missing.size > 0 ? (
                 <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,152,0,0.15)' }]}>
-                  <Text style={[styles.statusBadgeText, { color: COLORS.warning }]}>{missing.size} missing</Text>
+                  <Text style={[styles.statusBadgeText, { color: colors.warning }]}>{missing.size} missing</Text>
                 </View>
               ) : (
                 <View style={[styles.statusBadge, { backgroundColor: 'rgba(139,214,180,0.15)' }]}>
-                  <Text style={[styles.statusBadgeText, { color: COLORS.accent }]}>Complete</Text>
+                  <Text style={[styles.statusBadgeText, { color: colors.accent }]}>Complete</Text>
                 </View>
               )}
             </View>
@@ -143,7 +202,7 @@ export default function AdminRedditVerifyScreen({ navigation }) {
         <View style={styles.cardActions}>
           {l.source_url && (
             <TouchableOpacity onPress={() => Linking.openURL(l.source_url)} style={styles.linkBtn}>
-              <Ionicons name="logo-reddit" size={14} color={COLORS.accent} />
+              <Ionicons name="logo-reddit" size={14} color={colors.accent} />
               <Text style={styles.linkBtnText}>Reddit post</Text>
             </TouchableOpacity>
           )}
@@ -151,8 +210,8 @@ export default function AdminRedditVerifyScreen({ navigation }) {
             onPress={() => navigation.navigate('AdminListingDetail', { itemType: `${l.listing_type}s`, itemId: l.id })}
             style={styles.linkBtn}
           >
-            <Ionicons name="open-outline" size={14} color={COLORS.textSecondary} />
-            <Text style={[styles.linkBtnText, { color: COLORS.textSecondary }]}>Admin detail</Text>
+            <Ionicons name="open-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.linkBtnText, { color: colors.textSecondary }]}>Admin detail</Text>
           </TouchableOpacity>
           {l.source_author && <Text style={styles.authorText}>u/{l.source_author}</Text>}
         </View>
@@ -171,7 +230,7 @@ export default function AdminRedditVerifyScreen({ navigation }) {
           keyExtractor={(item) => `${item.listing_type}-${item.id}`}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           ListHeaderComponent={
             <View>
               <View style={styles.kpiGrid}>
@@ -202,59 +261,3 @@ export default function AdminRedditVerifyScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  listContent: { padding: SPACING.md, paddingBottom: 40 },
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
-  kpiCard: {
-    flexBasis: '48%', flexGrow: 1, backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
-  },
-  kpiValue: { color: COLORS.white, fontSize: FONT_SIZES.xxl, fontWeight: '700' },
-  kpiLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 4 },
-  filterPill: {
-    alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surface,
-    borderWidth: 1, borderColor: COLORS.borderLight, marginBottom: SPACING.md,
-  },
-  filterPillActive: { backgroundColor: 'rgba(255,152,0,0.15)', borderColor: 'rgba(255,152,0,0.3)' },
-  filterPillText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-  filterPillTextActive: { color: COLORS.warning },
-  card: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  cardTop: { flexDirection: 'row', gap: SPACING.sm },
-  thumbWrap: { width: 96, height: 72 },
-  thumb: { width: 96, height: 72, borderRadius: BORDER_RADIUS.md },
-  thumbEmpty: { backgroundColor: COLORS.surfaceHigher, alignItems: 'center', justifyContent: 'center' },
-  photoCountBadge: {
-    position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1,
-  },
-  photoCountText: { color: COLORS.white, fontSize: 9 },
-  cardInfo: { flex: 1, minWidth: 0 },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
-  typeBadge: { backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
-  typeBadgeText: { color: COLORS.textSecondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
-  statusBadge: { borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
-  statusBadgeText: { fontSize: 9, fontWeight: '700' },
-  cardTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  cardPrice: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '700', marginTop: 2 },
-  fieldGrid: { marginTop: SPACING.sm, gap: 4 },
-  fieldRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: COLORS.borderLight, paddingBottom: 4,
-  },
-  fieldLabel: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs },
-  fieldValueWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  fieldValue: { color: COLORS.white, fontSize: FONT_SIZES.xs },
-  fieldValueMissing: { color: COLORS.warning },
-  fieldValueMuted: { color: COLORS.textMuted },
-  sourceTag: { backgroundColor: COLORS.surfaceHigher, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
-  sourceTagText: { color: COLORS.textMuted, fontSize: 8, fontWeight: '600' },
-  cardActions: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginTop: SPACING.sm,
-    paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.borderLight,
-  },
-  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  linkBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-  authorText: { marginLeft: 'auto', color: COLORS.textMuted, fontSize: FONT_SIZES.xs },
-});

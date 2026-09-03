@@ -4,6 +4,9 @@
   align-items: center;
   min-height: 80vh;
   padding: 2rem;
+  background: var(--ex-page-bg);
+  color: var(--ex-text);
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 .not-found-content {
@@ -11,8 +14,9 @@
   text-align: center;
   padding: 2rem;
   border-radius: 8px;
-  background-color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: var(--ex-surface);
+  border: 1px solid var(--ex-line);
+  box-shadow: var(--ex-card-shadow);
 }
 
 .not-found-title {
@@ -27,13 +31,13 @@
   font-size: 2rem;
   font-weight: 600;
   margin-bottom: 1.5rem;
-  color: #2f3542;
+  color: var(--ex-text);
 }
 
 .not-found-message {
   font-size: 1.1rem;
   margin-bottom: 2rem;
-  color: #57606f;
+  color: var(--ex-text-muted);
 }
 
 .not-found-button {
@@ -57,4 +61,4 @@
   .not-found-message {
     font-size: 1rem;
   }
-} 
+}

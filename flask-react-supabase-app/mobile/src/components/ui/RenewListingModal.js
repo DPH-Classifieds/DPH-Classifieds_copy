@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Modal, StyleSheet, ActivityIndicator } from 'react-native';
 import Text from './AppText';
 import apiClient from '../../utils/apiClient';
 import { toastApiError, showSuccess } from '../../utils/toast';
 import PressableScale from './PressableScale';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 function addDays(days) {
   const d = new Date();
@@ -13,6 +14,20 @@ function addDays(days) {
 }
 
 export default function RenewListingModal({ visible, listingType, listingId, onSuccess, onCancel }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+    sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, paddingBottom: 40 },
+    title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.white, marginBottom: SPACING.sm },
+    body: { ...FONTS.regular, fontSize: FONT_SIZES.md, color: colors.textSecondary, lineHeight: 22, marginBottom: SPACING.lg },
+    date: { ...FONTS.semibold, color: colors.accent },
+    actions: { flexDirection: 'row', gap: SPACING.sm },
+    cancelBtn: { flex: 1, padding: SPACING.md, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+    cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: colors.textSecondary },
+    renewBtn: { flex: 1, padding: SPACING.md, borderRadius: BORDER_RADIUS.lg, backgroundColor: colors.accent, alignItems: 'center' },
+    renewText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: colors.black },
+  }), [colors]);
+
   const [loading, setLoading] = useState(false);
 
   const handleRenew = async () => {
@@ -44,7 +59,7 @@ export default function RenewListingModal({ visible, listingType, listingId, onS
             </PressableScale>
             <PressableScale onPress={handleRenew} haptic="success" style={styles.renewBtn} disabled={loading}>
               {loading
-                ? <ActivityIndicator size="small" color={COLORS.black} />
+                ? <ActivityIndicator size="small" color={colors.black} />
                 : <Text style={styles.renewText}>Renew</Text>}
             </PressableScale>
           </View>
@@ -53,16 +68,3 @@ export default function RenewListingModal({ visible, listingType, listingId, onS
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, paddingBottom: 40 },
-  title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: COLORS.white, marginBottom: SPACING.sm },
-  body: { ...FONTS.regular, fontSize: FONT_SIZES.md, color: COLORS.textSecondary, lineHeight: 22, marginBottom: SPACING.lg },
-  date: { ...FONTS.semibold, color: COLORS.accent },
-  actions: { flexDirection: 'row', gap: SPACING.sm },
-  cancelBtn: { flex: 1, padding: SPACING.md, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
-  cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  renewBtn: { flex: 1, padding: SPACING.md, borderRadius: BORDER_RADIUS.lg, backgroundColor: COLORS.accent, alignItems: 'center' },
-  renewText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: COLORS.black },
-});

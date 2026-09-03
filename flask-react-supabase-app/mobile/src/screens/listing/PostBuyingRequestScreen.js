@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, TextInput, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,11 +6,13 @@ import apiClient from '../../utils/apiClient';
 import { toastApiError, showSuccess, showError } from '../../utils/toast';
 import ScreenEntrance from '../../components/ui/ScreenEntrance';
 import PressableScale from '../../components/ui/PressableScale';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const CATEGORIES = ['Cars', 'Bikes', 'Plates', 'Parts', 'Other'];
 
 export default function PostBuyingRequestScreen({ navigation }) {
+  const { colors } = useTheme();
   const [form, setForm] = useState({
     category: '',
     title: '',
@@ -25,6 +27,24 @@ export default function PostBuyingRequestScreen({ navigation }) {
   const [submitting, setSubmitting] = useState(false);
 
   const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scroll: { padding: SPACING.md, paddingBottom: 40 },
+    heading: { ...FONTS.bold, fontSize: FONT_SIZES.xxl, color: colors.white, marginBottom: 4 },
+    subheading: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textMuted, marginBottom: SPACING.md },
+    input: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, color: colors.white, fontSize: FONT_SIZES.md, borderWidth: 1, borderColor: colors.borderLight },
+    textArea: { height: 100, paddingTop: SPACING.md },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: 4 },
+    chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    chipActive: { backgroundColor: colors.primary, borderColor: colors.accent },
+    chipText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
+    chipTextActive: { color: colors.accent },
+    row: { flexDirection: 'row' },
+    submitBtn: { backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, alignItems: 'center', marginTop: SPACING.xl },
+    submitBtnDisabled: { opacity: 0.6 },
+    submitBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: colors.black },
+  }), [colors]);
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
@@ -60,7 +80,7 @@ export default function PostBuyingRequestScreen({ navigation }) {
             <Text style={styles.heading}>Post a Buying Request</Text>
             <Text style={styles.subheading}>Tell sellers what you&apos;re looking for</Text>
 
-            <Label>Category</Label>
+            <Label colors={colors}>Category</Label>
             <View style={styles.chipRow}>
               {CATEGORIES.map((cat) => (
                 <PressableScale
@@ -74,20 +94,20 @@ export default function PostBuyingRequestScreen({ navigation }) {
               ))}
             </View>
 
-            <Label>What are you looking for? *</Label>
+            <Label colors={colors}>What are you looking for? *</Label>
             <TextInput
               style={styles.input}
               placeholder="e.g. Toyota Camry 2020-2022 GCC spec"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={form.title}
               onChangeText={(v) => update('title', v)}
             />
 
-            <Label>Description</Label>
+            <Label colors={colors}>Description</Label>
             <TextInput
               style={[styles.input, styles.textArea]}
               placeholder="Any specific requirements, colour preferences, mileage range..."
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={form.description}
               onChangeText={(v) => update('description', v)}
               multiline
@@ -97,33 +117,33 @@ export default function PostBuyingRequestScreen({ navigation }) {
 
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Label>Make</Label>
-                <TextInput style={styles.input} placeholder="Toyota" placeholderTextColor={COLORS.textMuted} value={form.make} onChangeText={(v) => update('make', v)} />
+                <Label colors={colors}>Make</Label>
+                <TextInput style={styles.input} placeholder="Toyota" placeholderTextColor={colors.textMuted} value={form.make} onChangeText={(v) => update('make', v)} />
               </View>
               <View style={{ width: SPACING.sm }} />
               <View style={{ flex: 1 }}>
-                <Label>Model</Label>
-                <TextInput style={styles.input} placeholder="Camry" placeholderTextColor={COLORS.textMuted} value={form.model} onChangeText={(v) => update('model', v)} />
+                <Label colors={colors}>Model</Label>
+                <TextInput style={styles.input} placeholder="Camry" placeholderTextColor={colors.textMuted} value={form.model} onChangeText={(v) => update('model', v)} />
               </View>
             </View>
 
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Label>Budget Min (AED)</Label>
-                <TextInput style={styles.input} placeholder="0" placeholderTextColor={COLORS.textMuted} value={form.budget_min} onChangeText={(v) => update('budget_min', v)} keyboardType="numeric" />
+                <Label colors={colors}>Budget Min (AED)</Label>
+                <TextInput style={styles.input} placeholder="0" placeholderTextColor={colors.textMuted} value={form.budget_min} onChangeText={(v) => update('budget_min', v)} keyboardType="numeric" />
               </View>
               <View style={{ width: SPACING.sm }} />
               <View style={{ flex: 1 }}>
-                <Label>Budget Max (AED)</Label>
-                <TextInput style={styles.input} placeholder="Any" placeholderTextColor={COLORS.textMuted} value={form.budget_max} onChangeText={(v) => update('budget_max', v)} keyboardType="numeric" />
+                <Label colors={colors}>Budget Max (AED)</Label>
+                <TextInput style={styles.input} placeholder="Any" placeholderTextColor={colors.textMuted} value={form.budget_max} onChangeText={(v) => update('budget_max', v)} keyboardType="numeric" />
               </View>
             </View>
 
-            <Label>Contact Phone *</Label>
+            <Label colors={colors}>Contact Phone *</Label>
             <TextInput
               style={styles.input}
               placeholder="+971 50 000 0000"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={form.contact_phone}
               onChangeText={(v) => update('contact_phone', v)}
               keyboardType="phone-pad"
@@ -144,28 +164,10 @@ export default function PostBuyingRequestScreen({ navigation }) {
   );
 }
 
-function Label({ children }) {
+function Label({ children, colors }) {
   return (
-    <Text style={{ ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: 6, marginTop: SPACING.md }}>
+    <Text style={{ ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textSecondary, marginBottom: 6, marginTop: SPACING.md }}>
       {children}
     </Text>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.md, paddingBottom: 40 },
-  heading: { ...FONTS.bold, fontSize: FONT_SIZES.xxl, color: COLORS.white, marginBottom: 4 },
-  subheading: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: COLORS.textMuted, marginBottom: SPACING.md },
-  input: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, color: COLORS.white, fontSize: FONT_SIZES.md, borderWidth: 1, borderColor: COLORS.borderLight },
-  textArea: { height: 100, paddingTop: SPACING.md },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: 4 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
-  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.accent },
-  chipText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-  chipTextActive: { color: COLORS.accent },
-  row: { flexDirection: 'row' },
-  submitBtn: { backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, alignItems: 'center', marginTop: SPACING.xl },
-  submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: COLORS.black },
-});

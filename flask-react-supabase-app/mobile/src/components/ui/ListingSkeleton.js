@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -8,7 +8,8 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const SHIMMER_DARK  = '#242426';
 const SHIMMER_MID   = '#2e2e30';
@@ -42,7 +43,51 @@ function ShimmerBox({ style }) {
   );
 }
 
-function SkeletonCard() {
+export default function ListingSkeleton({ count = 4 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { paddingTop: SPACING.sm },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.xl,
+      overflow: 'hidden',
+      marginHorizontal: SPACING.md,
+      marginBottom: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+    },
+    imagePlaceholder: { height: 210, backgroundColor: SHIMMER_DARK },
+    body: { padding: 14 },
+    lineTitle: { height: 14, borderRadius: 6, width: '84%', marginBottom: 10, backgroundColor: SHIMMER_DARK },
+    linePrice: { height: 16, borderRadius: 7, width: '54%', marginBottom: 8, backgroundColor: SHIMMER_DARK },
+    lineDate:  { height: 12, borderRadius: 5, width: '42%', backgroundColor: SHIMMER_DARK },
+    profileContainer: { padding: SPACING.md },
+    avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: SHIMMER_DARK, marginBottom: SPACING.md },
+    statsRow: { flexDirection: 'row', gap: SPACING.sm },
+    statTile: { flex: 1, height: 64, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, padding: SPACING.md },
+    adminStatTile: { width: '47%', height: 72, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+    detailContainer: { flex: 1, backgroundColor: colors.background },
+    detailHero: { width: '100%', height: 320, backgroundColor: SHIMMER_DARK },
+    detailBody: { padding: SPACING.md },
+    detailPrice: { height: 26, borderRadius: 8, width: '45%', marginBottom: 12, backgroundColor: SHIMMER_DARK },
+    detailTitle: { height: 18, borderRadius: 7, width: '75%', marginBottom: 20, backgroundColor: SHIMMER_DARK },
+    detailSpecGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: 20 },
+    detailSpecTile: { width: '47%', height: 56, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+    detailLine: { height: 14, borderRadius: 6, width: '100%', marginBottom: 10, backgroundColor: SHIMMER_DARK },
+    detailLineShort: { height: 14, borderRadius: 6, width: '60%', backgroundColor: SHIMMER_DARK },
+  }), [colors]);
+
+  return (
+    <View style={styles.container}>
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonCard key={i} styles={styles} />
+      ))}
+    </View>
+  );
+}
+
+function SkeletonCard({ styles }) {
   return (
     <View style={styles.card}>
       <ShimmerBox style={styles.imagePlaceholder} />
@@ -56,6 +101,14 @@ function SkeletonCard() {
 }
 
 export function ProfileSkeleton() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    profileContainer: { padding: SPACING.md },
+    avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: SHIMMER_DARK, marginBottom: SPACING.md },
+    statsRow: { flexDirection: 'row', gap: SPACING.sm },
+    statTile: { flex: 1, height: 64, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+  }), [colors]);
+
   return (
     <View style={styles.profileContainer}>
       <ShimmerBox style={styles.avatar} />
@@ -69,6 +122,11 @@ export function ProfileSkeleton() {
 }
 
 export function AdminStatsSkeleton() {
+  const styles = useMemo(() => StyleSheet.create({
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, padding: SPACING.md },
+    adminStatTile: { width: '47%', height: 72, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+  }), []);
+
   return (
     <View style={styles.statsGrid}>
       {[0, 1, 2, 3].map((i) => (
@@ -81,6 +139,19 @@ export function AdminStatsSkeleton() {
 // Matches the listing detail layout (hero image, price, title, spec grid) so
 // the deep-link / recommended-tap load path shows structure, not a spinner.
 export function ListingDetailSkeleton() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    detailContainer: { flex: 1, backgroundColor: colors.background },
+    detailHero: { width: '100%', height: 320, backgroundColor: SHIMMER_DARK },
+    detailBody: { padding: SPACING.md },
+    detailPrice: { height: 26, borderRadius: 8, width: '45%', marginBottom: 12, backgroundColor: SHIMMER_DARK },
+    detailTitle: { height: 18, borderRadius: 7, width: '75%', marginBottom: 20, backgroundColor: SHIMMER_DARK },
+    detailSpecGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: 20 },
+    detailSpecTile: { width: '47%', height: 56, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
+    detailLine: { height: 14, borderRadius: 6, width: '100%', marginBottom: 10, backgroundColor: SHIMMER_DARK },
+    detailLineShort: { height: 14, borderRadius: 6, width: '60%', backgroundColor: SHIMMER_DARK },
+  }), [colors]);
+
   return (
     <View style={styles.detailContainer}>
       <ShimmerBox style={styles.detailHero} />
@@ -98,46 +169,3 @@ export function ListingDetailSkeleton() {
     </View>
   );
 }
-
-export default function ListingSkeleton({ count = 4 }) {
-  return (
-    <View style={styles.container}>
-      {Array.from({ length: count }).map((_, i) => (
-        <SkeletonCard key={i} />
-      ))}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { paddingTop: SPACING.sm },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.xl,
-    overflow: 'hidden',
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-  },
-  imagePlaceholder: { height: 210, backgroundColor: SHIMMER_DARK },
-  body: { padding: 14 },
-  lineTitle: { height: 14, borderRadius: 6, width: '84%', marginBottom: 10, backgroundColor: SHIMMER_DARK },
-  linePrice: { height: 16, borderRadius: 7, width: '54%', marginBottom: 8, backgroundColor: SHIMMER_DARK },
-  lineDate:  { height: 12, borderRadius: 5, width: '42%', backgroundColor: SHIMMER_DARK },
-  profileContainer: { padding: SPACING.md },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: SHIMMER_DARK, marginBottom: SPACING.md },
-  statsRow: { flexDirection: 'row', gap: SPACING.sm },
-  statTile: { flex: 1, height: 64, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, padding: SPACING.md },
-  adminStatTile: { width: '47%', height: 72, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
-  detailContainer: { flex: 1, backgroundColor: COLORS.background },
-  detailHero: { width: '100%', height: 320, backgroundColor: SHIMMER_DARK },
-  detailBody: { padding: SPACING.md },
-  detailPrice: { height: 26, borderRadius: 8, width: '45%', marginBottom: 12, backgroundColor: SHIMMER_DARK },
-  detailTitle: { height: 18, borderRadius: 7, width: '75%', marginBottom: 20, backgroundColor: SHIMMER_DARK },
-  detailSpecGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: 20 },
-  detailSpecTile: { width: '47%', height: 56, borderRadius: BORDER_RADIUS.lg, backgroundColor: SHIMMER_DARK },
-  detailLine: { height: 14, borderRadius: 6, width: '100%', marginBottom: 10, backgroundColor: SHIMMER_DARK },
-  detailLineShort: { height: 14, borderRadius: 6, width: '60%', backgroundColor: SHIMMER_DARK },
-});

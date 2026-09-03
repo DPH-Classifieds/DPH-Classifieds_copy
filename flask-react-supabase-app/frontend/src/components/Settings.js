@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../utils/authService';
 import '../styles/Settings.css';
+import '../styles/shell-tokens.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 

@@ -94,7 +94,7 @@ const ReasonModal = ({ open, onClose, action, userLabel, onConfirm, busy = false
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ duration: 0.18 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md rounded-2xl bg-[#0c1015] border border-white/10 shadow-2xl overflow-hidden"
+          className="w-full max-w-md rounded-2xl bg-[color:var(--ex-shell-surface)] border border-white/10 shadow-2xl overflow-hidden"
         >
           <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
             <div className="flex items-start gap-3">

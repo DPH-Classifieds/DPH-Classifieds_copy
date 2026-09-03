@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, TouchableOpacity, Alert, StyleSheet, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,9 +14,10 @@ import { formatDate } from '../../utils/formatters';
 import SearchBar from '../../components/ui/SearchBar';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
-function AdminUserCard({ item, index, onPress }) {
+function AdminUserCard({ item, index, onPress, colors, styles }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const getInitials = (user) => {
     const first = user.first_name?.[0] || '';
@@ -54,7 +55,7 @@ function AdminUserCard({ item, index, onPress }) {
             </View>
             <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </View>
       </PressableScale>
     </Animated.View>
@@ -62,12 +63,125 @@ function AdminUserCard({ item, index, onPress }) {
 }
 
 export default function AdminUsersScreen({ navigation }) {
+  const { colors } = useTheme();
   const [users, setUsers] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.black,
+    },
+    searchSection: {
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+    },
+    listContent: {
+      padding: SPACING.md,
+      paddingBottom: 40,
+    },
+    userCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      marginBottom: SPACING.sm,
+    },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+    userInfo: {
+      flex: 1,
+      marginLeft: SPACING.md,
+    },
+    userRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    },
+    userName: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+      color: colors.white,
+      flex: 1,
+      marginRight: 8,
+    },
+    badges: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    badge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: BORDER_RADIUS.sm,
+    },
+    adminBadge: {
+      backgroundColor: colors.primary,
+    },
+    dealerBadge: {
+      backgroundColor: colors.info,
+    },
+    bannedBadge: {
+      backgroundColor: colors.error,
+    },
+    verifiedBadge: {
+      backgroundColor: colors.success || '#4CAF50',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+    },
+    phoneVerifiedBadge: {
+      backgroundColor: colors.info || '#2196F3',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+    },
+    badgeText: {
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '600',
+      color: colors.white,
+    },
+    userEmail: {
+      fontSize: FONT_SIZES.sm,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    userPhone: {
+      fontSize: FONT_SIZES.sm,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap',
+    },
+    userMeta: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+    },
+    lastLogin: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+    },
+  }), [colors]);
 
   useEffect(() => {
     fetchUsers(true);
@@ -198,6 +312,8 @@ export default function AdminUsersScreen({ navigation }) {
       item={item}
       index={index}
       onPress={() => navigation.navigate('AdminUserDetail', { userId: item.id })}
+      colors={colors}
+      styles={styles}
     />
   );
 
@@ -223,7 +339,7 @@ export default function AdminUsersScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
             }
             onEndReached={loadMore}
             onEndReachedThreshold={0.5}
@@ -237,114 +353,3 @@ export default function AdminUsersScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  searchSection: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '700',
-    color: COLORS.accent,
-  },
-  userInfo: {
-    flex: 1,
-    marginLeft: SPACING.md,
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  userName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
-    flex: 1,
-    marginRight: 8,
-  },
-  badges: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  adminBadge: {
-    backgroundColor: COLORS.primary,
-  },
-  dealerBadge: {
-    backgroundColor: COLORS.info,
-  },
-  bannedBadge: {
-    backgroundColor: COLORS.error,
-  },
-  verifiedBadge: {
-    backgroundColor: COLORS.success || '#4CAF50',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  phoneVerifiedBadge: {
-    backgroundColor: COLORS.info || '#2196F3',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  badgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  userEmail: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  userPhone: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  userMeta: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-  lastLogin: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-});

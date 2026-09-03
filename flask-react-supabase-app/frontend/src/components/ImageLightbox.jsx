@@ -3,17 +3,17 @@ import useSwipe from '../hooks/useSwipe';
 
 const closeBtn = {
   position: 'absolute', top: -6, right: -6, width: 38, height: 38, borderRadius: 999,
-  border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(10,10,10,0.7)',
-  color: '#fff', fontSize: 24, lineHeight: '34px', cursor: 'pointer', zIndex: 2,
+  border: '1px solid color-mix(in srgb, var(--ex-shell-text) 18%, transparent)', background: 'var(--ex-shell-surface-strong)',
+  color: 'var(--ex-shell-text)', fontSize: 24, lineHeight: '34px', cursor: 'pointer', zIndex: 2,
 };
 const navBtn = {
   position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: 44, height: 44,
-  borderRadius: 999, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(10,10,10,0.7)',
-  color: '#fff', fontSize: 24, lineHeight: '40px', cursor: 'pointer', zIndex: 2,
+  borderRadius: 999, border: '1px solid color-mix(in srgb, var(--ex-shell-text) 18%, transparent)', background: 'var(--ex-shell-surface-strong)',
+  color: 'var(--ex-shell-text)', fontSize: 24, lineHeight: '40px', cursor: 'pointer', zIndex: 2,
 };
 const counter = {
   position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
-  background: 'rgba(10,10,10,0.7)', color: '#fff', fontSize: 13, padding: '4px 12px', borderRadius: 999,
+  background: 'var(--ex-shell-surface-strong)', color: 'var(--ex-shell-text)', fontSize: 13, padding: '4px 12px', borderRadius: 999,
 };
 
 // Fullscreen image viewer: click a listing photo to expand. Esc / arrows / swipe
@@ -51,7 +51,7 @@ export default function ImageLightbox({ images = [], startIndex = 0, onClose }) 
       aria-label="Image viewer"
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.9)',
+        position: 'fixed', inset: 0, zIndex: 99999, background: 'var(--ex-overlay-scrim)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18,
       }}
     >

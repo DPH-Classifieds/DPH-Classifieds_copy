@@ -1,14 +1,36 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function RequireAuth({ children, navigation, redirectRoute }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [showPrompt, setShowPrompt] = useState(false);
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+    title: { fontSize: 20, fontWeight: '700', color: colors.white, marginTop: 16 },
+    subtitle: { fontSize: FONT_SIZES.md, color: colors.textSecondary, marginTop: 8, textAlign: 'center' },
+    loginBtn: { marginTop: 24, backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
+    loginBtnText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },
+    signupBtn: { marginTop: 12, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
+    signupBtnText: { color: colors.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    modalCard: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 28, width: '100%', alignItems: 'center', gap: 12 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 8 },
+    modalSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', textAlign: 'center' },
+    modalLoginBtn: { marginTop: 8, backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
+    modalLoginBtnText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },
+    modalSignupBtn: { paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
+    modalSignupBtnText: { color: colors.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
+    modalCancelBtn: { marginTop: 4, paddingVertical: 8 },
+    modalCancelText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm },
+  }), [colors]);
 
   if (user) return children;
 
@@ -27,7 +49,7 @@ export default function RequireAuth({ children, navigation, redirectRoute }) {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Ionicons name="lock-closed-outline" size={48} color={COLORS.textMuted} />
+        <Ionicons name="lock-closed-outline" size={48} color={colors.textMuted} />
         <Text style={styles.title}>Sign in Required</Text>
         <Text style={styles.subtitle}>You need to be logged in to access this feature.</Text>
         <TouchableOpacity style={styles.loginBtn} onPress={() => setShowPrompt(true)} activeOpacity={0.8}>
@@ -41,7 +63,7 @@ export default function RequireAuth({ children, navigation, redirectRoute }) {
       <Modal visible={showPrompt} transparent animationType="fade" onRequestClose={() => setShowPrompt(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Ionicons name="log-in-outline" size={36} color={COLORS.accent} />
+            <Ionicons name="log-in-outline" size={36} color={colors.accent} />
             <Text style={styles.modalTitle}>Log In to Continue</Text>
             <Text style={styles.modalSubtitle}>
               {redirectRoute === 'Post' && 'Log in to post a listing.'}
@@ -109,11 +131,25 @@ export function useAuthPrompt(navigation) {
 }
 
 function AuthPromptModalView({ visible, onLogin, onCancel }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    modalCard: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 28, width: '100%', alignItems: 'center', gap: 12 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 8 },
+    modalSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', textAlign: 'center' },
+    modalLoginBtn: { marginTop: 8, backgroundColor: colors.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
+    modalLoginBtnText: { color: colors.background, fontWeight: '700', fontSize: FONT_SIZES.md },
+    modalSignupBtn: { paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
+    modalSignupBtnText: { color: colors.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
+    modalCancelBtn: { marginTop: 4, paddingVertical: 8 },
+    modalCancelText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm },
+  }), [colors]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Ionicons name="log-in-outline" size={36} color={COLORS.accent} />
+          <Ionicons name="log-in-outline" size={36} color={colors.accent} />
           <Text style={styles.modalTitle}>Log In Required</Text>
           <Text style={styles.modalSubtitle}>You need to be logged in to do this.</Text>
           <TouchableOpacity style={styles.modalLoginBtn} onPress={onLogin} activeOpacity={0.8}>
@@ -128,23 +164,3 @@ function AuthPromptModalView({ visible, onLogin, onCancel }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  title: { fontSize: 20, fontWeight: '700', color: COLORS.white, marginTop: 16 },
-  subtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, marginTop: 8, textAlign: 'center' },
-  loginBtn: { marginTop: 24, backgroundColor: COLORS.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
-  loginBtnText: { color: COLORS.background, fontWeight: '700', fontSize: FONT_SIZES.md },
-  signupBtn: { marginTop: 12, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
-  signupBtnText: { color: COLORS.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 28, width: '100%', alignItems: 'center', gap: 12 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.white, marginTop: 8 },
-  modalSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', textAlign: 'center' },
-  modalLoginBtn: { marginTop: 8, backgroundColor: COLORS.accent, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
-  modalLoginBtnText: { color: COLORS.background, fontWeight: '700', fontSize: FONT_SIZES.md },
-  modalSignupBtn: { paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
-  modalSignupBtnText: { color: COLORS.accent, fontWeight: '600', fontSize: FONT_SIZES.md },
-  modalCancelBtn: { marginTop: 4, paddingVertical: 8 },
-  modalCancelText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm },
-});

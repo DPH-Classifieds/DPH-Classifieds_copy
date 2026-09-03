@@ -7,6 +7,7 @@ import { countryCodes, defaultCountryCode } from '../utils/countryCodes';
 import { getYearOptions } from '../utils/listingConstants';
 import { isVinValid } from '../utils/vinValidation';
 import '../styles/CreateListing.css';
+import '../styles/shell-tokens.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const MAX_DESCRIPTION_WORDS = 300;

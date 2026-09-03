@@ -122,7 +122,7 @@ const WebhookForm = ({ initial, onSave, onCancel, saving, error }) => {
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg mx-4 bg-[#0a1410] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/40"
+        className="w-full max-w-lg mx-4 bg-[color:var(--ex-shell-surface)] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/40"
       >
         <div className="px-6 pt-6 pb-4 border-b border-white/[0.06]">
           <h2 className="text-base font-semibold text-white">

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Modal, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, StyleSheet } from 'react-native';
 import Text from './AppText';
 import apiClient from '../../utils/apiClient';
 import { toastApiError, showSuccess } from '../../utils/toast';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const TYPE_LABELS = { car: 'Car', bike: 'Bike', plate: 'Plate', part: 'Part' };
 
@@ -21,6 +22,36 @@ const DURATION_PRESETS = [
 // is already known (picked via ListingPickerModal, or the row an admin is
 // already looking at) — this only collects duration + an optional note.
 export default function FeatureListingModal({ visible, listingType, listingId, title, onClose, onCreated }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center' },
+    sheetWrap: { flexGrow: 1, justifyContent: 'center', padding: SPACING.lg },
+    sheet: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: colors.border },
+    title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: colors.white, marginBottom: SPACING.md },
+    listingCard: { backgroundColor: colors.surfaceVariant, borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginBottom: SPACING.md, borderWidth: 1, borderColor: colors.border },
+    listingType: { ...FONTS.label, fontSize: 10, color: colors.textMuted, textTransform: 'uppercase' },
+    listingTitle: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: colors.white, marginTop: 2 },
+    listingId: { ...FONTS.regular, fontSize: 11, color: colors.textMuted, marginTop: 2 },
+    label: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textSecondary, marginBottom: 6 },
+    presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
+    presetChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surfaceHigher, borderWidth: 1, borderColor: colors.border },
+    presetChipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+    presetChipText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.textSecondary },
+    presetChipTextActive: { color: colors.black },
+    input: {
+      backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
+      color: colors.white, fontSize: FONT_SIZES.sm, marginBottom: SPACING.md, borderWidth: 1, borderColor: colors.border,
+    },
+    highlightRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
+    highlightTextWrap: { flex: 1 },
+    highlightHint: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textMuted, marginTop: 2 },
+    actions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
+    cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+    cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: colors.textSecondary },
+    submitBtn: { flex: 1.4, paddingVertical: 14, borderRadius: BORDER_RADIUS.lg, backgroundColor: colors.accent, alignItems: 'center' },
+    submitText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: colors.black },
+  }), [colors]);
+
   const [duration, setDuration] = useState(7);
   // ponytail: plain "YYYY-MM-DD HH:mm" text field instead of a native date
   // picker dependency — duration presets cover the common case, this is the
@@ -101,7 +132,7 @@ export default function FeatureListingModal({ visible, listingType, listingId, t
               value={customDate}
               onChangeText={setCustomDate}
               placeholder="2026-09-01 12:00"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -113,7 +144,7 @@ export default function FeatureListingModal({ visible, listingType, listingId, t
               onChangeText={setNote}
               maxLength={200}
               placeholder="e.g. homepage spotlight for launch week"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
             />
 
             <View style={styles.highlightRow}>
@@ -134,7 +165,7 @@ export default function FeatureListingModal({ visible, listingType, listingId, t
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitBtn} onPress={submit} disabled={submitting}>
                 {submitting
-                  ? <ActivityIndicator size="small" color={COLORS.black} />
+                  ? <ActivityIndicator size="small" color={colors.black} />
                   : <Text style={styles.submitText}>Feature listing</Text>}
               </TouchableOpacity>
             </View>
@@ -144,32 +175,3 @@ export default function FeatureListingModal({ visible, listingType, listingId, t
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center' },
-  sheetWrap: { flexGrow: 1, justifyContent: 'center', padding: SPACING.lg },
-  sheet: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border },
-  title: { ...FONTS.bold, fontSize: FONT_SIZES.xl, color: COLORS.white, marginBottom: SPACING.md },
-  listingCard: { backgroundColor: COLORS.surfaceVariant, borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border },
-  listingType: { ...FONTS.label, fontSize: 10, color: COLORS.textMuted, textTransform: 'uppercase' },
-  listingTitle: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: COLORS.white, marginTop: 2 },
-  listingId: { ...FONTS.regular, fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
-  label: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: 6 },
-  presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
-  presetChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surfaceHigher, borderWidth: 1, borderColor: COLORS.border },
-  presetChipActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  presetChipText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  presetChipTextActive: { color: COLORS.black },
-  input: {
-    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
-    color: COLORS.white, fontSize: FONT_SIZES.sm, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  highlightRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
-  highlightTextWrap: { flex: 1 },
-  highlightHint: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
-  actions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
-  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
-  cancelText: { ...FONTS.medium, fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  submitBtn: { flex: 1.4, paddingVertical: 14, borderRadius: BORDER_RADIUS.lg, backgroundColor: COLORS.accent, alignItems: 'center' },
-  submitText: { ...FONTS.bold, fontSize: FONT_SIZES.md, color: COLORS.black },
-});

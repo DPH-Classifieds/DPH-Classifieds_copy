@@ -44,7 +44,7 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d10] text-white">
+    <div className="min-h-screen bg-[color:var(--ex-shell-bg)] text-white">
       <AdminHeader
         onToggleSidebar={() => setSidebarOpen((current) => !current)}
         sidebarOpen={sidebarOpen}

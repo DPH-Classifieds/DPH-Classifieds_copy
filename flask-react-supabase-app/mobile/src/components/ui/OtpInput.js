@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, TextInput, Pressable, StyleSheet } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -9,12 +9,13 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import Text from './AppText';
-import { COLORS, BORDER_RADIUS } from '../../constants/theme';
+import { BORDER_RADIUS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 // Animated per-digit OTP entry. A single hidden TextInput captures input (keeps iOS
 // SMS autofill via textContentType="oneTimeCode"); the boxes are presentational.
 // Shake fires whenever `errorNonce` changes. Matches the web OTP box styling.
-function Box({ char, active, filled, index }) {
+function Box({ char, active, filled, index, styles }) {
   const scale = useSharedValue(active ? 1.05 : 1);
   useEffect(() => {
     scale.value = withSpring(active ? 1.06 : 1, { stiffness: 300, damping: 18 });
@@ -42,6 +43,43 @@ export default function OtpInput({
   errorNonce = 0,
   autoFocus = true,
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    box: {
+      width: 56,
+      height: 64,
+      borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: 'rgba(255,255,255,0.03)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    boxActive: {
+      borderColor: colors.accent,
+      backgroundColor: 'rgba(139,214,180,0.06)',
+    },
+    boxText: {
+      color: colors.white,
+      fontSize: 26,
+      fontWeight: '700',
+    },
+    // Covers the row but invisible — taps focus it, keystrokes drive the boxes.
+    hiddenInput: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      opacity: 0,
+    },
+  }), [colors]);
+
   const inputRef = useRef(null);
   const shakeX = useSharedValue(0);
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }] }));
@@ -70,6 +108,7 @@ export default function OtpInput({
             char={char}
             filled={Boolean(char)}
             active={i === value.length}
+            styles={styles}
           />
         ))}
       </Animated.View>
@@ -88,39 +127,3 @@ export default function OtpInput({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  box: {
-    width: 56,
-    height: 64,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  boxActive: {
-    borderColor: COLORS.accent,
-    backgroundColor: 'rgba(139,214,180,0.06)',
-  },
-  boxText: {
-    color: COLORS.white,
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  // Covers the row but invisible — taps focus it, keystrokes drive the boxes.
-  hiddenInput: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0,
-  },
-});

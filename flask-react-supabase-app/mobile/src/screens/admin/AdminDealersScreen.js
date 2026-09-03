@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, Alert, StyleSheet, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,7 +7,8 @@ import apiClient from '../../utils/apiClient';
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 // Values match what fetchDealers sends as ?status= — display label is
 // separate so the tab can read "Approved" without changing the API contract.
@@ -15,10 +16,117 @@ const FILTER_TABS = ['Pending', 'Verified', 'All'];
 const FILTER_TAB_LABELS = { Verified: 'Approved' };
 
 export default function AdminDealersScreen({ navigation }) {
+  const { colors } = useTheme();
   const [dealers, setDealers] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.black,
+    },
+    filterBar: {
+      flexDirection: 'row',
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      gap: 8,
+    },
+    filterTab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: BORDER_RADIUS.pill,
+      backgroundColor: colors.surface,
+    },
+    activeFilterTab: {
+      backgroundColor: colors.primary,
+    },
+    filterTabText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    activeFilterTabText: {
+      color: colors.accent,
+    },
+    listContent: {
+      padding: SPACING.md,
+      paddingBottom: 40,
+    },
+    dealerCard: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      marginBottom: SPACING.sm,
+    },
+    dealerTouchable: {
+      flex: 1,
+    },
+    dealerHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    dealerInfo: {
+      flex: 1,
+      marginRight: SPACING.sm,
+    },
+    companyName: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '700',
+      color: colors.white,
+      marginBottom: 4,
+    },
+    userName: {
+      fontSize: FONT_SIZES.sm,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    userEmail: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+      marginBottom: 2,
+    },
+    joinDate: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+    },
+    verificationBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: BORDER_RADIUS.sm,
+    },
+    verificationText: {
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '600',
+      color: colors.white,
+    },
+    actions: {
+      flexDirection: 'row',
+      marginTop: SPACING.sm,
+      paddingTop: SPACING.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      gap: 20,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    verifyText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.accent,
+    },
+    rejectText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.error,
+    },
+  }), [colors]);
 
   useEffect(() => {
     fetchDealers();
@@ -111,7 +219,7 @@ export default function AdminDealersScreen({ navigation }) {
         <View
           style={[
             styles.verificationBadge,
-            { backgroundColor: item.dealer_verified ? COLORS.success : COLORS.warning },
+            { backgroundColor: item.dealer_verified ? colors.success : colors.warning },
           ]}
         >
           <Text style={styles.verificationText}>
@@ -129,7 +237,7 @@ export default function AdminDealersScreen({ navigation }) {
               onPress={() => handleVerify(item)}
               activeOpacity={0.7}
             >
-              <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
+              <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
               <Text style={styles.verifyText}>Verify</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -137,7 +245,7 @@ export default function AdminDealersScreen({ navigation }) {
               onPress={() => handleReject(item)}
               activeOpacity={0.7}
             >
-              <Ionicons name="close-circle" size={18} color={COLORS.error} />
+              <Ionicons name="close-circle" size={18} color={colors.error} />
               <Text style={styles.rejectText}>Reject</Text>
             </TouchableOpacity>
           </>
@@ -173,7 +281,7 @@ export default function AdminDealersScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
           }
           ListEmptyComponent={
             <EmptyState icon="business-outline" title="No dealers found" message="No dealers match the filter." />
@@ -184,108 +292,3 @@ export default function AdminDealersScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  filterBar: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: 8,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface,
-  },
-  activeFilterTab: {
-    backgroundColor: COLORS.primary,
-  },
-  filterTabText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  activeFilterTabText: {
-    color: COLORS.accent,
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-  dealerCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  dealerTouchable: {
-    flex: 1,
-  },
-  dealerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  dealerInfo: {
-    flex: 1,
-    marginRight: SPACING.sm,
-  },
-  companyName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 4,
-  },
-  userName: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  userEmail: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-    marginBottom: 2,
-  },
-  joinDate: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-  verificationBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  verificationText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  actions: {
-    flexDirection: 'row',
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    gap: 20,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  verifyText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.accent,
-  },
-  rejectText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-});

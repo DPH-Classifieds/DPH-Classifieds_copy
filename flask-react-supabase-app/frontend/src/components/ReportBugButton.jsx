@@ -3,6 +3,7 @@ import SearchableSelect from './ui/searchable-select';
 import axios from 'axios';
 import { getAccessToken } from '../utils/authService';
 import '../styles/ReportButton.css';
+import '../styles/shell-tokens.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 

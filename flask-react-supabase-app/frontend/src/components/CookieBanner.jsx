@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import '../styles/shell-tokens.css';
 import './CookieBanner.css';
 
 const COOKIE_CONSENT_KEY = 'cookie_consent';

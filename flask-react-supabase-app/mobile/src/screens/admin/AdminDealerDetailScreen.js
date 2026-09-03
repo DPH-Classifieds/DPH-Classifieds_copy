@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Image, Linking, Modal, TextInput } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 // Mirrors frontend/src/components/AdminDealerDetail.jsx DOC_TYPES.
 const DOC_TYPES = [
@@ -15,11 +16,10 @@ const DOC_TYPES = [
 ];
 
 const STATUS_LABEL = { approved: 'Approved', denied: 'Denied', pending: 'Pending', missing: 'Missing' };
-const STATUS_COLOR = { approved: COLORS.success, denied: COLORS.error, pending: COLORS.warning, missing: COLORS.textMuted };
 
 const isPdf = (doc) => doc?.file_type === 'application/pdf' || doc?.filename?.toLowerCase().endsWith('.pdf');
 
-function DenyModal({ doc, docLabel, onClose, onConfirm, busy }) {
+function DenyModal({ doc, docLabel, onClose, onConfirm, busy, colors, styles }) {
   const [reason, setReason] = useState(doc?.denial_reason || '');
   const [fix, setFix] = useState(doc?.denial_fix || '');
   if (!doc) return null;
@@ -30,7 +30,7 @@ function DenyModal({ doc, docLabel, onClose, onConfirm, busy }) {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Deny {docLabel}</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <Text style={styles.modalLabel}>Reason for denial *</Text>
@@ -39,7 +39,7 @@ function DenyModal({ doc, docLabel, onClose, onConfirm, busy }) {
             value={reason}
             onChangeText={setReason}
             placeholder="e.g. Document is expired or unclear"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
           />
           <Text style={styles.modalLabel}>How to fix it *</Text>
           <TextInput
@@ -47,7 +47,7 @@ function DenyModal({ doc, docLabel, onClose, onConfirm, busy }) {
             value={fix}
             onChangeText={setFix}
             placeholder="e.g. Upload a clear photo of your current trade license"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={3}
           />
@@ -65,6 +65,8 @@ function DenyModal({ doc, docLabel, onClose, onConfirm, busy }) {
 }
 
 export default function AdminDealerDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
+  const STATUS_COLOR = { approved: colors.success, denied: colors.error, pending: colors.warning, missing: colors.textMuted };
   const { dealerId } = route.params;
   const [dealer, setDealer] = useState(null);
   const [docs, setDocs] = useState([]);
@@ -72,6 +74,60 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
   const [reviewingDocId, setReviewingDocId] = useState(null);
   const [denyModalDoc, setDenyModalDoc] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    content: { padding: SPACING.md, paddingBottom: 40 },
+    name: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.sm },
+    verificationBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
+    verificationText: { color: colors.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
+    detail: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
+    sectionTitle: { color: colors.textMuted, fontSize: FONT_SIZES.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+    docCard: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    docHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.sm },
+    docLabel: { flex: 1, color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    docStatusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm },
+    docStatusText: { color: colors.black, fontSize: 10, fontWeight: '700' },
+    imagePreview: { width: '100%', height: 180, borderRadius: BORDER_RADIUS.md, backgroundColor: colors.surfaceHigher },
+    pdfPreview: { height: 140, borderRadius: BORDER_RADIUS.md, backgroundColor: colors.surfaceHigher, alignItems: 'center', justifyContent: 'center', gap: 4 },
+    pdfLinkText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    filenameText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, maxWidth: '80%' },
+    ocrBox: { marginTop: SPACING.sm, backgroundColor: 'rgba(33,150,243,0.08)', borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, borderWidth: 1, borderColor: 'rgba(33,150,243,0.2)' },
+    ocrTitle: { color: colors.info, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+    ocrText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 2 },
+    ocrConfidence: { color: colors.textMuted, fontSize: 10, marginTop: 2 },
+    denialBox: { marginTop: SPACING.sm, backgroundColor: 'rgba(244,67,54,0.08)', borderRadius: BORDER_RADIUS.md, padding: SPACING.sm },
+    denialTitle: { color: colors.error, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+    denialText: { color: colors.white, fontSize: FONT_SIZES.sm, marginTop: 2 },
+    denialFix: { color: colors.warning, fontSize: FONT_SIZES.xs, marginTop: 2 },
+    notSubmittedText: { color: colors.textMuted, fontSize: FONT_SIZES.sm, fontStyle: 'italic' },
+    docActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
+    docApproveBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center' },
+    docApproveBtnText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    docDenyBtn: { flex: 1, backgroundColor: 'rgba(244,67,54,0.1)', borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center' },
+    docDenyBtnText: { color: colors.error, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    reReviewBtn: { marginTop: SPACING.sm, backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center', flex: 1 },
+    reReviewBtnText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    gateWarning: { color: colors.warning, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
+    actions: { gap: SPACING.sm, marginTop: SPACING.lg },
+    approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+    approveBtnText: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+    rejectBtnText: { color: colors.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    modalBtnDisabled: { opacity: 0.4 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: SPACING.md },
+    modalContent: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    modalLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 6, marginTop: SPACING.sm },
+    modalInput: {
+      backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
+      color: colors.white, fontSize: FONT_SIZES.sm,
+    },
+    modalTextarea: { minHeight: 70, textAlignVertical: 'top' },
+    modalDenyBtn: { marginTop: SPACING.lg, backgroundColor: colors.error, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+    modalDenyBtnText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  }), [colors]);
 
   const loadDealer = useCallback(async () => {
     try {
@@ -186,7 +242,7 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.name}>{dealer?.company_name || dealer?.business_name || 'Dealer'}</Text>
-        <View style={[styles.verificationBadge, { backgroundColor: isVerified ? COLORS.success : COLORS.warning }]}>
+        <View style={[styles.verificationBadge, { backgroundColor: isVerified ? colors.success : colors.warning }]}>
           <Text style={styles.verificationText}>{isVerified ? 'verified' : (dealer?.verification_status || 'pending')}</Text>
         </View>
         <Text style={styles.detail}>User: {dealer?.user_email || dealer?.email || 'N/A'}</Text>
@@ -200,7 +256,7 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
           return (
             <View key={type.key} style={styles.docCard}>
               <View style={styles.docHeader}>
-                <Ionicons name={type.icon} size={16} color={COLORS.textMuted} />
+                <Ionicons name={type.icon} size={16} color={colors.textMuted} />
                 <Text style={styles.docLabel}>{type.label}</Text>
                 <View style={[styles.docStatusBadge, { backgroundColor: STATUS_COLOR[status] }]}>
                   <Text style={styles.docStatusText}>{STATUS_LABEL[status]}</Text>
@@ -211,7 +267,7 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
                 <View>
                   {isPdf(doc) ? (
                     <TouchableOpacity style={styles.pdfPreview} onPress={() => Linking.openURL(doc.download_url)}>
-                      <Ionicons name="document-text" size={32} color={COLORS.textMuted} />
+                      <Ionicons name="document-text" size={32} color={colors.textMuted} />
                       <Text style={styles.pdfLinkText}>Open PDF</Text>
                       <Text style={styles.filenameText} numberOfLines={1}>{doc.filename}</Text>
                     </TouchableOpacity>
@@ -299,11 +355,11 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
               disabled={!allDocsApproved || actionLoading}
               activeOpacity={0.7}
             >
-              <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
+              <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
               <Text style={styles.approveBtnText}>{actionLoading ? 'Working…' : 'Force approve (OCR override)'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} disabled={actionLoading} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={18} color={COLORS.error} />
+              <Ionicons name="close-circle" size={18} color={colors.error} />
               <Text style={styles.rejectBtnText}>Reject</Text>
             </TouchableOpacity>
           </View>
@@ -316,61 +372,10 @@ export default function AdminDealerDetailScreen({ route, navigation }) {
         onClose={() => setDenyModalDoc(null)}
         onConfirm={handleReviewDocument}
         busy={reviewingDocId === denyModalDoc?.id}
+        colors={colors}
+        styles={styles}
       />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  content: { padding: SPACING.md, paddingBottom: 40 },
-  name: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.sm },
-  verificationBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
-  verificationText: { color: COLORS.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
-  detail: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
-  sectionTitle: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: SPACING.lg, marginBottom: SPACING.sm },
-  docCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  docHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.sm },
-  docLabel: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  docStatusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm },
-  docStatusText: { color: COLORS.black, fontSize: 10, fontWeight: '700' },
-  imagePreview: { width: '100%', height: 180, borderRadius: BORDER_RADIUS.md, backgroundColor: COLORS.surfaceHigher },
-  pdfPreview: { height: 140, borderRadius: BORDER_RADIUS.md, backgroundColor: COLORS.surfaceHigher, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  pdfLinkText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  filenameText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, maxWidth: '80%' },
-  ocrBox: { marginTop: SPACING.sm, backgroundColor: 'rgba(33,150,243,0.08)', borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, borderWidth: 1, borderColor: 'rgba(33,150,243,0.2)' },
-  ocrTitle: { color: COLORS.info, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  ocrText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginTop: 2 },
-  ocrConfidence: { color: COLORS.textMuted, fontSize: 10, marginTop: 2 },
-  denialBox: { marginTop: SPACING.sm, backgroundColor: 'rgba(244,67,54,0.08)', borderRadius: BORDER_RADIUS.md, padding: SPACING.sm },
-  denialTitle: { color: COLORS.error, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  denialText: { color: COLORS.white, fontSize: FONT_SIZES.sm, marginTop: 2 },
-  denialFix: { color: COLORS.warning, fontSize: FONT_SIZES.xs, marginTop: 2 },
-  notSubmittedText: { color: COLORS.textMuted, fontSize: FONT_SIZES.sm, fontStyle: 'italic' },
-  docActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  docApproveBtn: { flex: 1, backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center' },
-  docApproveBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  docDenyBtn: { flex: 1, backgroundColor: 'rgba(244,67,54,0.1)', borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center' },
-  docDenyBtnText: { color: COLORS.error, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  reReviewBtn: { marginTop: SPACING.sm, backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center', flex: 1 },
-  reReviewBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  gateWarning: { color: COLORS.warning, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
-  actions: { gap: SPACING.sm, marginTop: SPACING.lg },
-  approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
-  approveBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
-  rejectBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  modalBtnDisabled: { opacity: 0.4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: SPACING.md },
-  modalContent: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  modalTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
-  modalLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 6, marginTop: SPACING.sm },
-  modalInput: {
-    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
-    color: COLORS.white, fontSize: FONT_SIZES.sm,
-  },
-  modalTextarea: { minHeight: 70, textAlignVertical: 'top' },
-  modalDenyBtn: { marginTop: SPACING.lg, backgroundColor: COLORS.error, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-  modalDenyBtnText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-});

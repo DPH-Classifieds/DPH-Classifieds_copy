@@ -116,7 +116,7 @@ const RenewListing = () => {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.brand}>
-          DPH<span style={{ color: '#ffffff' }}>CLASSIFIEDS</span>
+          DPH<span style={{ color: 'var(--ex-shell-text)' }}>CLASSIFIEDS</span>
         </div>
 
         {loading && <p style={styles.muted}>Loading your listing…</p>}
@@ -209,23 +209,23 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    background: '#041008',
+    background: 'var(--ex-shell-on-accent)',
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    color: '#f0fdf4',
+    color: 'var(--ex-shell-text)',
   },
   card: {
     width: '100%',
     maxWidth: 520,
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
+    background: 'color-mix(in srgb, var(--ex-shell-text) 3%, transparent)',
+    border: '1px solid color-mix(in srgb, var(--ex-shell-text) 6%, transparent)',
     borderRadius: 24,
     padding: 32,
-    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.35)',
+    boxShadow: '0 24px 60px color-mix(in srgb, var(--ex-overlay-scrim) 35%, transparent)',
   },
   brand: {
     fontWeight: 800,
     fontSize: 24,
-    color: '#8bd6b4',
+    color: 'var(--ex-shell-accent)',
     letterSpacing: '-0.02em',
     marginBottom: 24,
     textAlign: 'center',
@@ -234,36 +234,36 @@ const styles = {
     margin: '0 0 12px',
     fontSize: 22,
     fontWeight: 700,
-    color: '#ffffff',
+    color: 'var(--ex-shell-text)',
   },
   body: {
-    color: '#cbd5e1',
+    color: 'var(--ex-shell-text-muted)',
     fontSize: 15,
     lineHeight: 1.55,
     margin: '0 0 20px',
   },
   muted: {
-    color: '#94a3b8',
+    color: 'var(--ex-shell-text-muted)',
     fontSize: 13,
     margin: '0 0 16px',
   },
   summary: {
-    background: 'rgba(139, 214, 180, 0.04)',
-    border: '1px dashed rgba(139, 214, 180, 0.18)',
+    background: 'color-mix(in srgb, var(--ex-shell-accent) 4%, transparent)',
+    border: '1px dashed color-mix(in srgb, var(--ex-shell-accent) 18%, transparent)',
     borderRadius: 14,
     padding: '14px 16px',
     margin: '0 0 20px',
   },
   summaryLabel: {
     fontSize: 11,
-    color: '#8bd6b4',
+    color: 'var(--ex-shell-accent)',
     textTransform: 'uppercase',
     letterSpacing: '0.12em',
     margin: '0 0 6px',
   },
   summaryTitle: {
     fontSize: 16,
-    color: '#f0fdf4',
+    color: 'var(--ex-shell-text)',
     fontWeight: 600,
     margin: '0 0 4px',
   },
@@ -274,8 +274,8 @@ const styles = {
     marginTop: 8,
   },
   primaryBtn: {
-    background: '#8bd6b4',
-    color: '#041008',
+    background: 'var(--ex-shell-accent)',
+    color: 'var(--ex-shell-on-accent)',
     border: 'none',
     borderRadius: 12,
     padding: '12px 18px',
@@ -284,9 +284,9 @@ const styles = {
     cursor: 'pointer',
   },
   secondaryBtn: {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#f0fdf4',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: 'color-mix(in srgb, var(--ex-shell-text) 6%, transparent)',
+    color: 'var(--ex-shell-text)',
+    border: '1px solid color-mix(in srgb, var(--ex-shell-text) 12%, transparent)',
     borderRadius: 12,
     padding: '12px 18px',
     fontWeight: 600,
@@ -296,11 +296,11 @@ const styles = {
   footnote: {
     marginTop: 18,
     fontSize: 13,
-    color: '#94a3b8',
+    color: 'var(--ex-shell-text-muted)',
     textAlign: 'center',
   },
   link: {
-    color: '#8bd6b4',
+    color: 'var(--ex-shell-accent)',
     textDecoration: 'none',
   },
 };

@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import { formatPrice } from '../../utils/formatters';
 import { PLATE_CITIES } from '../../utils/listingConstants';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
 import { resolveMediaUrl } from '../../utils/media';
@@ -71,6 +72,7 @@ function PlateCard({ item, index, onPress, columns }) {
 }
 
 export default function PlateListScreen({ navigation }) {
+  const { colors } = useTheme();
   const [plates, setPlates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -183,7 +185,7 @@ export default function PlateListScreen({ navigation }) {
       onPress={() => setFilterModal(key)}
     >
       <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{label}</Text>
-      <Ionicons name="chevron-down" size={14} color={isActive ? COLORS.accent : COLORS.textMuted} />
+      <Ionicons name="chevron-down" size={14} color={isActive ? colors.accent : colors.textMuted} />
     </TouchableOpacity>
   );
 
@@ -210,7 +212,7 @@ export default function PlateListScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{title}</Text>
               <TouchableOpacity onPress={() => setFilterModal(null)}>
-                <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalOptions}>
@@ -230,7 +232,7 @@ export default function PlateListScreen({ navigation }) {
                     }}
                   >
                     <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>{opt}</Text>
-                    {isSelected && <Ionicons name="checkmark" size={18} color={COLORS.accent} />}
+                    {isSelected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
                   </TouchableOpacity>
                 );
               })}
@@ -254,6 +256,55 @@ export default function PlateListScreen({ navigation }) {
     prefetchListingWindow('plates', viewableItems.map((v) => v.item).filter(Boolean));
   }).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    searchContainer: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
+    filtersRow: { marginBottom: SPACING.sm },
+    filtersContent: { paddingHorizontal: SPACING.md, gap: SPACING.sm },
+    filterChip: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, marginRight: SPACING.sm, gap: 4,
+    },
+    filterChipActive: { backgroundColor: colors.primary },
+    filterChipText: { color: colors.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
+    filterChipTextActive: { color: colors.accent },
+    clearFiltersChip: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76,175,80,0.1)',
+      paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, gap: 4,
+    },
+    clearFiltersText: { color: colors.accent, fontSize: FONT_SIZES.sm, fontWeight: '500' },
+    listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xxl },
+    listContentGrid: { paddingHorizontal: SPACING.md - SPACING.xs, paddingBottom: SPACING.xxl },
+    card: {
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, padding: SPACING.md, overflow: 'hidden',
+    },
+    cardGrid: { flex: 1, marginHorizontal: SPACING.xs },
+    plateVisual: { alignItems: 'center', marginBottom: SPACING.md },
+    plateFill: { width: '100%' },
+    cardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    cardCity: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    cardPrice: { color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '700' },
+    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    footerLoader: { paddingVertical: SPACING.lg, alignItems: 'center' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+    modalContent: {
+      backgroundColor: colors.surface, borderTopLeftRadius: BORDER_RADIUS.xl, borderTopRightRadius: BORDER_RADIUS.xl, maxHeight: '60%',
+    },
+    modalHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    modalOptions: { padding: SPACING.sm },
+    modalOption: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingVertical: 14, paddingHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.md,
+    },
+    modalOptionSelected: { backgroundColor: colors.primary },
+    modalOptionText: { color: colors.white, fontSize: FONT_SIZES.md },
+    modalOptionTextSelected: { color: colors.accent, fontWeight: '600' },
+  }), [colors]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -279,7 +330,7 @@ export default function PlateListScreen({ navigation }) {
               <Ionicons
                 name={activeFilters.hideReddit ? 'eye-off' : 'logo-reddit'}
                 size={14}
-                color={activeFilters.hideReddit ? COLORS.accent : COLORS.textMuted}
+                color={activeFilters.hideReddit ? colors.accent : colors.textMuted}
               />
               <Text style={[styles.filterChipText, activeFilters.hideReddit && styles.filterChipTextActive]}>
                 {activeFilters.hideReddit ? 'Reddit hidden' : 'Hide Reddit'}
@@ -287,14 +338,14 @@ export default function PlateListScreen({ navigation }) {
             </TouchableOpacity>
             {hasActiveFilters && (
               <TouchableOpacity style={styles.clearFiltersChip} onPress={clearFilters}>
-                <Ionicons name="close-circle" size={14} color={COLORS.accent} />
+                <Ionicons name="close-circle" size={14} color={colors.accent} />
                 <Text style={styles.clearFiltersText}>Clear</Text>
               </TouchableOpacity>
             )}
           </ScrollView>
         </View>
         {loading ? (
-          <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.accent} /></View>
+          <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.accent} /></View>
         ) : (
           <FlashList
             key={`cols-${columns}`}
@@ -305,12 +356,12 @@ export default function PlateListScreen({ navigation }) {
             keyExtractor={(item, idx) => String(item.id || idx)}
             contentContainerStyle={columns === 2 ? styles.listContentGrid : styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.3}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
-            ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={COLORS.accent} /></View> : null}
+            ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={colors.accent} /></View> : null}
             ListEmptyComponent={
               <EmptyState icon="key-outline" title="No plates found" message="Try adjusting your filters" actionLabel="Clear Filters" onAction={clearFilters} />
             }
@@ -321,52 +372,3 @@ export default function PlateListScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  searchContainer: { paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
-  filtersRow: { marginBottom: SPACING.sm },
-  filtersContent: { paddingHorizontal: SPACING.md, gap: SPACING.sm },
-  filterChip: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, marginRight: SPACING.sm, gap: 4,
-  },
-  filterChipActive: { backgroundColor: COLORS.primary },
-  filterChipText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm, fontWeight: '500' },
-  filterChipTextActive: { color: COLORS.accent },
-  clearFiltersChip: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76,175,80,0.1)',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill, gap: 4,
-  },
-  clearFiltersText: { color: COLORS.accent, fontSize: FONT_SIZES.sm, fontWeight: '500' },
-  listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xxl },
-  listContentGrid: { paddingHorizontal: SPACING.md - SPACING.xs, paddingBottom: SPACING.xxl },
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, padding: SPACING.md, overflow: 'hidden',
-  },
-  cardGrid: { flex: 1, marginHorizontal: SPACING.xs },
-  plateVisual: { alignItems: 'center', marginBottom: SPACING.md },
-  plateFill: { width: '100%' },
-  cardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardCity: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  cardPrice: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700' },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  footerLoader: { paddingVertical: SPACING.lg, alignItems: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalContent: {
-    backgroundColor: COLORS.surface, borderTopLeftRadius: BORDER_RADIUS.xl, borderTopRightRadius: BORDER_RADIUS.xl, maxHeight: '60%',
-  },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  modalTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
-  modalOptions: { padding: SPACING.sm },
-  modalOption: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 14, paddingHorizontal: SPACING.md, borderRadius: BORDER_RADIUS.md,
-  },
-  modalOptionSelected: { backgroundColor: COLORS.primary },
-  modalOptionText: { color: COLORS.white, fontSize: FONT_SIZES.md },
-  modalOptionTextSelected: { color: COLORS.accent, fontWeight: '600' },
-});
