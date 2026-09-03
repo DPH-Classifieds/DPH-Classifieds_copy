@@ -11,7 +11,8 @@ import EmptyState from '../../components/ui/EmptyState';
 import ListingPickerModal from '../../components/ui/ListingPickerModal';
 import FeatureListingModal from '../../components/ui/FeatureListingModal';
 import FeaturedPlacementSettings from '../../components/ui/FeaturedPlacementSettings';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const TABS = [
   { key: 'listings', label: 'Listings' },
@@ -22,7 +23,7 @@ const TYPE_LABELS = { car: 'Car', bike: 'Bike', plate: 'Plate', part: 'Part' };
 
 const isExpired = (until) => !!until && new Date(until).getTime() <= Date.now();
 
-function FeaturedRow({ row, onRemoved, onUpdated }) {
+function FeaturedRow({ row, onRemoved, onUpdated, colors, styles }) {
   const [busy, setBusy] = useState(false);
   const expired = isExpired(row.featured_until);
 
@@ -79,14 +80,14 @@ function FeaturedRow({ row, onRemoved, onUpdated }) {
           disabled={busy}
           activeOpacity={0.7}
         >
-          <Ionicons name={row.highlight ? 'star' : 'star-outline'} size={14} color={row.highlight ? COLORS.warning : COLORS.textSecondary} />
-          <Text style={[styles.highlightBtnText, row.highlight && { color: COLORS.warning }]}>
+          <Ionicons name={row.highlight ? 'star' : 'star-outline'} size={14} color={row.highlight ? colors.warning : colors.textSecondary} />
+          <Text style={[styles.highlightBtnText, row.highlight && { color: colors.warning }]}>
             {row.highlight ? 'Highlighted' : 'Silent boost'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.removeBtn} onPress={remove} disabled={busy} activeOpacity={0.7}>
-          <Ionicons name="close-circle-outline" size={16} color={busy ? COLORS.textMuted : COLORS.error} />
-          <Text style={[styles.removeText, busy && { color: COLORS.textMuted }]}>{busy ? 'Removing…' : 'Remove'}</Text>
+          <Ionicons name="close-circle-outline" size={16} color={busy ? colors.textMuted : colors.error} />
+          <Text style={[styles.removeText, busy && { color: colors.textMuted }]}>{busy ? 'Removing…' : 'Remove'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -94,6 +95,7 @@ function FeaturedRow({ row, onRemoved, onUpdated }) {
 }
 
 export default function AdminFeaturedListingsScreen() {
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState('listings');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +132,53 @@ export default function AdminFeaturedListingsScreen() {
     return { active: active.length, total: rows.length };
   }, [rows]);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.md, paddingTop: SPACING.sm,
+    },
+    headerCount: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
+    addBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accent,
+      borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+    },
+    addBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.xs, color: colors.black },
+    toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+    toggleText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
+    listContent: { padding: SPACING.md, paddingBottom: 40 },
+    row: {
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
+      marginBottom: SPACING.sm, borderWidth: 1, borderColor: colors.border,
+    },
+    rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+    typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: colors.surfaceHigher },
+    typeBadgeText: { ...FONTS.label, fontSize: 10, color: colors.textMuted },
+    rowTitle: { flex: 1, ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.white },
+    expiredBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: 'rgba(244,67,54,0.15)' },
+    expiredBadgeText: { ...FONTS.semibold, fontSize: 10, color: colors.error },
+    rowId: { ...FONTS.regular, fontSize: 11, color: colors.textMuted, marginBottom: 4 },
+    rowMeta: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textSecondary, marginBottom: 8 },
+    notApproved: { ...FONTS.medium, fontSize: 10, color: colors.warning, marginBottom: 8 },
+    rowActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+    highlightBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 8,
+      borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border,
+    },
+    highlightBtnActive: { backgroundColor: 'rgba(255,152,0,0.12)', borderColor: 'rgba(255,152,0,0.4)' },
+    highlightBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: colors.textSecondary },
+    removeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    removeText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: colors.error },
+    tabBar: {
+      flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+      paddingHorizontal: SPACING.md, marginTop: SPACING.sm,
+    },
+    tab: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+    tabActive: { borderBottomColor: colors.accent },
+    tabText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: colors.textSecondary },
+    tabTextActive: { color: colors.white },
+  }), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -137,7 +186,7 @@ export default function AdminFeaturedListingsScreen() {
           <Text style={styles.headerCount}>{stats.active} active · {stats.total - stats.active} expired</Text>
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
-          <Ionicons name="star" size={14} color={COLORS.black} />
+          <Ionicons name="star" size={14} color={colors.black} />
           <Text style={styles.addBtnText}>Feature a listing</Text>
         </TouchableOpacity>
       </View>
@@ -160,7 +209,7 @@ export default function AdminFeaturedListingsScreen() {
       {activeTab === 'listings' && (
         <>
       <TouchableOpacity style={styles.toggleRow} onPress={() => setShowInactive((s) => !s)} activeOpacity={0.7}>
-        <Ionicons name={showInactive ? 'checkbox' : 'square-outline'} size={18} color={showInactive ? COLORS.accent : COLORS.textMuted} />
+        <Ionicons name={showInactive ? 'checkbox' : 'square-outline'} size={18} color={showInactive ? colors.accent : colors.textMuted} />
         <Text style={styles.toggleText}>Show expired</Text>
       </TouchableOpacity>
 
@@ -171,12 +220,14 @@ export default function AdminFeaturedListingsScreen() {
           data={rows}
           keyExtractor={(r) => String(r.id)}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           renderItem={({ item }) => (
             <FeaturedRow
               row={item}
               onRemoved={(id) => setRows((prev) => prev.filter((r) => r.id !== id))}
               onUpdated={load}
+              colors={colors}
+              styles={styles}
             />
           )}
           ListEmptyComponent={
@@ -213,49 +264,3 @@ export default function AdminFeaturedListingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md, paddingTop: SPACING.sm,
-  },
-  headerCount: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.accent,
-    borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
-  },
-  addBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.xs, color: COLORS.black },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
-  toggleText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-  listContent: { padding: SPACING.md, paddingBottom: 40 },
-  row: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
-    marginBottom: SPACING.sm, borderWidth: 1, borderColor: COLORS.border,
-  },
-  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: COLORS.surfaceHigher },
-  typeBadgeText: { ...FONTS.label, fontSize: 10, color: COLORS.textMuted },
-  rowTitle: { flex: 1, ...FONTS.semibold, fontSize: FONT_SIZES.md, color: COLORS.white },
-  expiredBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, backgroundColor: 'rgba(244,67,54,0.15)' },
-  expiredBadgeText: { ...FONTS.semibold, fontSize: 10, color: COLORS.error },
-  rowId: { ...FONTS.regular, fontSize: 11, color: COLORS.textMuted, marginBottom: 4 },
-  rowMeta: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 8 },
-  notApproved: { ...FONTS.medium, fontSize: 10, color: COLORS.warning, marginBottom: 8 },
-  rowActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  highlightBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 8,
-    borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border,
-  },
-  highlightBtnActive: { backgroundColor: 'rgba(255,152,0,0.12)', borderColor: 'rgba(255,152,0,0.4)' },
-  highlightBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  removeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  removeText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: COLORS.error },
-  tabBar: {
-    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
-    paddingHorizontal: SPACING.md, marginTop: SPACING.sm,
-  },
-  tab: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: COLORS.accent },
-  tabText: { ...FONTS.medium, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-  tabTextActive: { color: COLORS.white },
-});

@@ -7,21 +7,53 @@ import apiClient from '../../utils/apiClient';
 import { timeAgo } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const METHOD_CHIPS = ['All', 'GET', 'POST', 'PATCH', 'DELETE'];
-const METHOD_COLOR = { GET: COLORS.info, POST: COLORS.success, PATCH: COLORS.warning, DELETE: COLORS.error };
-
-const statusColor = (code) => {
-  const n = Number(code);
-  if (!n) return COLORS.textMuted;
-  if (n >= 500) return COLORS.error;
-  if (n >= 400) return COLORS.warning;
-  if (n >= 200) return COLORS.success;
-  return COLORS.textSecondary;
-};
 
 export default function AdminDealerAuditLogScreen({ route }) {
+  const { colors } = useTheme();
+  const METHOD_COLOR = { GET: colors.info, POST: colors.success, PATCH: colors.warning, DELETE: colors.error };
+
+  const statusColor = (code) => {
+    const n = Number(code);
+    if (!n) return colors.textMuted;
+    if (n >= 500) return colors.error;
+    if (n >= 400) return colors.warning;
+    if (n >= 200) return colors.success;
+    return colors.textSecondary;
+  };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    searchBar: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      marginHorizontal: SPACING.md, marginTop: SPACING.sm,
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.md,
+      paddingHorizontal: SPACING.md, paddingVertical: 10,
+    },
+    searchInput: { flex: 1, color: colors.white, fontSize: FONT_SIZES.sm },
+    filterBar: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
+    filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface },
+    filterChipActive: { backgroundColor: colors.primary },
+    filterChipText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: colors.textSecondary },
+    filterChipTextActive: { color: colors.accent },
+    listContent: { padding: SPACING.md, paddingBottom: 40 },
+    countText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
+    row: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    rowTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    methodBadge: { borderWidth: 1, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
+    methodBadgeText: { fontSize: 9, fontWeight: '700' },
+    statusText: { fontSize: FONT_SIZES.xs, fontFamily: 'monospace' },
+    timeText: { marginLeft: 'auto', color: colors.textMuted, fontSize: FONT_SIZES.xs },
+    endpointText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontFamily: 'monospace', marginTop: 6 },
+    rowBottom: { flexDirection: 'row', gap: SPACING.md, marginTop: 6, flexWrap: 'wrap' },
+    adminText: { color: colors.white, fontSize: FONT_SIZES.xs },
+    dealershipText: { color: colors.accent, fontSize: FONT_SIZES.xs },
+    ipText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, fontFamily: 'monospace' },
+  }), [colors]);
+
   const dealershipId = route?.params?.dealershipId || null;
   const [rows, setRows] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -67,8 +99,8 @@ export default function AdminDealerAuditLogScreen({ route }) {
   const renderRow = ({ item: r }) => (
     <View style={styles.row}>
       <View style={styles.rowTop}>
-        <View style={[styles.methodBadge, { borderColor: METHOD_COLOR[r.http_method] || COLORS.borderLight }]}>
-          <Text style={[styles.methodBadgeText, { color: METHOD_COLOR[r.http_method] || COLORS.textMuted }]}>
+        <View style={[styles.methodBadge, { borderColor: METHOD_COLOR[r.http_method] || colors.borderLight }]}>
+          <Text style={[styles.methodBadgeText, { color: METHOD_COLOR[r.http_method] || colors.textMuted }]}>
             {r.http_method || '—'}
           </Text>
         </View>
@@ -89,11 +121,11 @@ export default function AdminDealerAuditLogScreen({ route }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.searchBar}>
-        <Ionicons name="search" size={16} color={COLORS.textMuted} />
+        <Ionicons name="search" size={16} color={colors.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search endpoint, admin email..."
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={search}
           onChangeText={setSearch}
         />
@@ -120,7 +152,7 @@ export default function AdminDealerAuditLogScreen({ route }) {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           ListHeaderComponent={
             rows ? (
               <Text style={styles.countText}>
@@ -138,31 +170,3 @@ export default function AdminDealerAuditLogScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: SPACING.md, marginTop: SPACING.sm,
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md, paddingVertical: 10,
-  },
-  searchInput: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.sm },
-  filterBar: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surface },
-  filterChipActive: { backgroundColor: COLORS.primary },
-  filterChipText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.textSecondary },
-  filterChipTextActive: { color: COLORS.accent },
-  listContent: { padding: SPACING.md, paddingBottom: 40 },
-  countText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
-  row: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  rowTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  methodBadge: { borderWidth: 1, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
-  methodBadgeText: { fontSize: 9, fontWeight: '700' },
-  statusText: { fontSize: FONT_SIZES.xs, fontFamily: 'monospace' },
-  timeText: { marginLeft: 'auto', color: COLORS.textMuted, fontSize: FONT_SIZES.xs },
-  endpointText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontFamily: 'monospace', marginTop: 6 },
-  rowBottom: { flexDirection: 'row', gap: SPACING.md, marginTop: 6, flexWrap: 'wrap' },
-  adminText: { color: COLORS.white, fontSize: FONT_SIZES.xs },
-  dealershipText: { color: COLORS.accent, fontSize: FONT_SIZES.xs },
-  ipText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, fontFamily: 'monospace' },
-});

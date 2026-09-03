@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import apiClient from '../../utils/apiClient';
@@ -6,7 +6,8 @@ import { toastApiError } from '../../utils/toast';
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const FILTERS = ['pending', 'approved', 'rejected', 'cancelled'];
 
@@ -20,11 +21,42 @@ const dealerLabel = (dealer) => {
 // entirely missing (dealers had no way to be approved for a higher listing
 // cap from the app).
 export default function AdminDealerUpgradeRequestsScreen({ onResolved }) {
+  const { colors } = useTheme();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('pending');
   const [busyId, setBusyId] = useState(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1 },
+    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+    filterChip: {
+      paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill,
+      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    },
+    filterChipActive: { backgroundColor: 'rgba(139,214,180,0.16)', borderColor: colors.accent },
+    filterChipText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.textSecondary, textTransform: 'capitalize' },
+    filterChipTextActive: { color: colors.accent },
+    listContent: { padding: SPACING.md, paddingBottom: 40 },
+    card: {
+      backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
+      marginBottom: SPACING.sm, borderWidth: 1, borderColor: colors.border,
+    },
+    dealerLabel: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: colors.white },
+    dealerSub: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: colors.textMuted, marginTop: 2 },
+    limitLine: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textSecondary, marginTop: 8 },
+    limitValue: { ...FONTS.semibold, color: colors.white },
+    reason: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: colors.textSecondary, marginTop: 6 },
+    meta: { ...FONTS.regular, fontSize: 11, color: colors.textMuted, marginTop: 8 },
+    actions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
+    approveBtn: { flex: 1, paddingVertical: 10, borderRadius: BORDER_RADIUS.md, backgroundColor: colors.accent, alignItems: 'center' },
+    approveBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.xs, color: colors.black },
+    rejectBtn: { flex: 1, paddingVertical: 10, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+    rejectBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: colors.textSecondary },
+    statusPill: { alignSelf: 'flex-start', marginTop: SPACING.sm, paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: colors.border },
+    statusPillText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.textSecondary, textTransform: 'capitalize' },
+  }), [colors]);
 
   const load = useCallback(async () => {
     try {
@@ -87,7 +119,7 @@ export default function AdminDealerUpgradeRequestsScreen({ onResolved }) {
           data={rows}
           keyExtractor={(r) => String(r.id)}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           ListEmptyComponent={<EmptyState icon="trending-up-outline" title={`No ${filter} requests`} />}
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -135,32 +167,3 @@ export default function AdminDealerUpgradeRequestsScreen({ onResolved }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
-  filterChip: {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
-  },
-  filterChipActive: { backgroundColor: 'rgba(139,214,180,0.16)', borderColor: COLORS.accent },
-  filterChipText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, textTransform: 'capitalize' },
-  filterChipTextActive: { color: COLORS.accent },
-  listContent: { padding: SPACING.md, paddingBottom: 40 },
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
-    marginBottom: SPACING.sm, borderWidth: 1, borderColor: COLORS.border,
-  },
-  dealerLabel: { ...FONTS.semibold, fontSize: FONT_SIZES.md, color: COLORS.white },
-  dealerSub: { ...FONTS.regular, fontSize: FONT_SIZES.xs, color: COLORS.textMuted, marginTop: 2 },
-  limitLine: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginTop: 8 },
-  limitValue: { ...FONTS.semibold, color: COLORS.white },
-  reason: { ...FONTS.regular, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginTop: 6 },
-  meta: { ...FONTS.regular, fontSize: 11, color: COLORS.textMuted, marginTop: 8 },
-  actions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
-  approveBtn: { flex: 1, paddingVertical: 10, borderRadius: BORDER_RADIUS.md, backgroundColor: COLORS.accent, alignItems: 'center' },
-  approveBtnText: { ...FONTS.bold, fontSize: FONT_SIZES.xs, color: COLORS.black },
-  rejectBtn: { flex: 1, paddingVertical: 10, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
-  rejectBtnText: { ...FONTS.semibold, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  statusPill: { alignSelf: 'flex-start', marginTop: SPACING.sm, paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.pill, borderWidth: 1, borderColor: COLORS.border },
-  statusPillText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, textTransform: 'capitalize' },
-});

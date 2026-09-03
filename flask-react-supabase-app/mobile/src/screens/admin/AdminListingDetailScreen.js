@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, Image, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import { formatPrice, formatDate } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const REJECTION_REASONS = [
   'Inappropriate content', 'Wrong category', 'Spam',
@@ -30,7 +31,7 @@ function formatDateShort(iso) {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function LifecycleTimeline({ listing }) {
+function LifecycleTimeline({ listing, lcStyles }) {
   const now = new Date();
   const expires  = listing?.expires_at   ? new Date(listing.expires_at)   : null;
   const retEnd   = listing?.retention_expires_at ? new Date(listing.retention_expires_at) : null;
@@ -58,7 +59,7 @@ function LifecycleTimeline({ listing }) {
   );
 }
 
-function SoldStatusCard({ listing }) {
+function SoldStatusCard({ listing, lcStyles }) {
   const hasExpired = Boolean(listing?.expired_at);
   const soldStatus = listing?.sold_status;
   if (!hasExpired && !soldStatus) return null;
@@ -93,7 +94,7 @@ function SoldStatusCard({ listing }) {
   );
 }
 
-function RenewalNudgeCard({ listing, renewalEmails }) {
+function RenewalNudgeCard({ listing, renewalEmails, lcStyles }) {
   const count = parseInt(listing?.renewal_nudge_count || 0, 10);
   if (count === 0) return null;
 
@@ -130,7 +131,7 @@ function RenewalNudgeCard({ listing, renewalEmails }) {
   );
 }
 
-function DeletionTimeline({ deletionEvents }) {
+function DeletionTimeline({ deletionEvents, lcStyles }) {
   if (!deletionEvents || deletionEvents.length === 0) return null;
   return (
     <View style={lcStyles.card}>
@@ -150,9 +151,62 @@ function DeletionTimeline({ deletionEvents }) {
 }
 
 export default function AdminListingDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { itemType, itemId } = route.params;
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingText: { color: colors.textSecondary, fontSize: FONT_SIZES.md },
+    content: { padding: SPACING.md, paddingBottom: SPACING.xxl, gap: SPACING.xs },
+    image: { width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md },
+    title: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.xs },
+    price: { color: colors.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
+    statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
+    statusBadgeText: { color: colors.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
+    detail: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
+    scanCard: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
+    scanTitle: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '700', marginBottom: SPACING.xs },
+    actions: { gap: SPACING.sm, marginTop: SPACING.lg },
+    approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, paddingHorizontal: SPACING.md, justifyContent: 'center' },
+    approveBtnText: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    editBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+    editBtnText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    soldBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(33,150,243,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+    soldBtnText: { color: '#2196F3', fontSize: FONT_SIZES.md, fontWeight: '600' },
+    rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+    rejectBtnText: { color: colors.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
+    deleteBtnText: { color: colors.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  }), [colors]);
+
+  const lcStyles = useMemo(() => StyleSheet.create({
+    timelineRow:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm, paddingHorizontal: 4 },
+    milestone:         { alignItems: 'center', flex: 1, position: 'relative' },
+    dot:               { width: 10, height: 10, borderRadius: 5, backgroundColor: '#333', marginBottom: 4 },
+    dotDone:           { backgroundColor: colors.accent },
+    dotDeleted:        { backgroundColor: '#F44336' },
+    connector:         { position: 'absolute', top: 4, left: '50%', right: 0, height: 2, backgroundColor: '#333' },
+    connectorDone:     { backgroundColor: colors.accent },
+    milestoneLabel:    { fontSize: 9, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
+    milestoneLabelDone:{ color: colors.white },
+    milestoneDate:     { fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 2 },
+    card:              { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.sm },
+    cardTitle:         { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: SPACING.xs },
+    cardValue:         { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600', marginBottom: 4 },
+    cardSub:           { color: 'rgba(255,255,255,0.45)', fontSize: FONT_SIZES.xs, marginTop: 4 },
+    badge:             { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: 4 },
+    badgeText:         { fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    channelRow:        { flexDirection: 'row', gap: 8, marginVertical: 4 },
+    channelPill:       { fontSize: FONT_SIZES.sm },
+    emailRow:          { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+    emailStatus:       { fontSize: FONT_SIZES.sm },
+    deletionRow:       { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2a2a2a' },
+    deletionRole:      { color: colors.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
+    deletionReason:    { color: 'rgba(255,255,255,0.6)', fontSize: FONT_SIZES.xs, marginTop: 2 },
+  }), [colors]);
 
   useEffect(() => { loadListing(); }, []);
 
@@ -308,7 +362,7 @@ export default function AdminListingDetailScreen({ route, navigation }) {
         <Text style={styles.price}>
           {isBuyingRequest ? `Budget ${formatPrice(getPrice())}` : formatPrice(getPrice())}
         </Text>
-        <View style={[styles.statusBadge, { backgroundColor: listing?.status === 'active' ? COLORS.success : COLORS.warning }]}>
+        <View style={[styles.statusBadge, { backgroundColor: listing?.status === 'active' ? colors.success : colors.warning }]}>
           <Text style={styles.statusBadgeText}>{listing?.status || 'pending'}</Text>
         </View>
         <Text style={styles.detail}>Type: {isBuyingRequest ? 'Buying request' : itemType}</Text>
@@ -344,40 +398,40 @@ export default function AdminListingDetailScreen({ route, navigation }) {
         {!isBuyingRequest && (
           <View style={lcStyles.card}>
             <Text style={lcStyles.cardTitle}>Lifecycle</Text>
-            <LifecycleTimeline listing={listing} />
+            <LifecycleTimeline listing={listing} lcStyles={lcStyles} />
           </View>
         )}
 
-        <SoldStatusCard listing={listing} />
-        <RenewalNudgeCard listing={listing} renewalEmails={detail?.renewal_emails || []} />
-        <DeletionTimeline deletionEvents={detail?.deletion_events || []} />
+        <SoldStatusCard listing={listing} lcStyles={lcStyles} />
+        <RenewalNudgeCard listing={listing} renewalEmails={detail?.renewal_emails || []} lcStyles={lcStyles} />
+        <DeletionTimeline deletionEvents={detail?.deletion_events || []} lcStyles={lcStyles} />
 
         {!isBuyingRequest && (
           <View style={styles.actions}>
             <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.7}>
-              <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
+              <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
               <Text style={styles.approveBtnText}>Approve</Text>
             </TouchableOpacity>
             {isActive && (
               <TouchableOpacity style={styles.soldBtn} onPress={handleMarkAsSold} activeOpacity={0.7}>
-                <Ionicons name="pricetag-outline" size={18} color={COLORS.white} />
+                <Ionicons name="pricetag-outline" size={18} color={colors.white} />
                 <Text style={styles.soldBtnText}>Mark as Sold</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.editBtn} onPress={handleEdit} activeOpacity={0.7}>
-              <Ionicons name="create-outline" size={18} color={COLORS.white} />
+              <Ionicons name="create-outline" size={18} color={colors.white} />
               <Text style={styles.editBtnText}>Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.editBtn} onPress={handleVinUnlock} activeOpacity={0.7}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.white} />
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.white} />
               <Text style={styles.editBtnText}>VIN Unlock</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={18} color={COLORS.error} />
+              <Ionicons name="close-circle" size={18} color={colors.error} />
               <Text style={styles.rejectBtnText}>Reject</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
               <Text style={styles.deleteBtnText}>Delete</Text>
             </TouchableOpacity>
           </View>
@@ -387,54 +441,3 @@ export default function AdminListingDetailScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
-  content: { padding: SPACING.md, paddingBottom: SPACING.xxl, gap: SPACING.xs },
-  image: { width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md },
-  title: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '700', marginBottom: SPACING.xs },
-  price: { color: COLORS.accent, fontSize: FONT_SIZES.lg, fontWeight: '700', marginBottom: SPACING.sm },
-  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: SPACING.sm },
-  statusBadgeText: { color: COLORS.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
-  detail: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginBottom: 4 },
-  scanCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
-  scanTitle: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '700', marginBottom: SPACING.xs },
-  actions: { gap: SPACING.sm, marginTop: SPACING.lg },
-  approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(76,175,80,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, paddingHorizontal: SPACING.md, justifyContent: 'center' },
-  approveBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
-  editBtnText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  soldBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(33,150,243,0.15)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
-  soldBtnText: { color: '#2196F3', fontSize: FONT_SIZES.md, fontWeight: '600' },
-  rejectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
-  rejectBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, justifyContent: 'center' },
-  deleteBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
-});
-
-const lcStyles = StyleSheet.create({
-  timelineRow:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm, paddingHorizontal: 4 },
-  milestone:         { alignItems: 'center', flex: 1, position: 'relative' },
-  dot:               { width: 10, height: 10, borderRadius: 5, backgroundColor: '#333', marginBottom: 4 },
-  dotDone:           { backgroundColor: COLORS.accent },
-  dotDeleted:        { backgroundColor: '#F44336' },
-  connector:         { position: 'absolute', top: 4, left: '50%', right: 0, height: 2, backgroundColor: '#333' },
-  connectorDone:     { backgroundColor: COLORS.accent },
-  milestoneLabel:    { fontSize: 9, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
-  milestoneLabelDone:{ color: COLORS.white },
-  milestoneDate:     { fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 2 },
-  card:              { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.sm },
-  cardTitle:         { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: SPACING.xs },
-  cardValue:         { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600', marginBottom: 4 },
-  cardSub:           { color: 'rgba(255,255,255,0.45)', fontSize: FONT_SIZES.xs, marginTop: 4 },
-  badge:             { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm, marginBottom: 4 },
-  badgeText:         { fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  channelRow:        { flexDirection: 'row', gap: 8, marginVertical: 4 },
-  channelPill:       { fontSize: FONT_SIZES.sm },
-  emailRow:          { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  emailStatus:       { fontSize: FONT_SIZES.sm },
-  deletionRow:       { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2a2a2a' },
-  deletionRole:      { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: '600' },
-  deletionReason:    { color: 'rgba(255,255,255,0.6)', fontSize: FONT_SIZES.xs, marginTop: 2 },
-});

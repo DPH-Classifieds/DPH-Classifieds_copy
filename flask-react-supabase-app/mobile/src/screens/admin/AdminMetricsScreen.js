@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../utils/apiClient';
 import { formatNumber } from '../../utils/formatters';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const WINDOW_OPTIONS = [7, 30, 90];
 
@@ -36,6 +37,7 @@ const formatBytes = (value) => {
 };
 
 function MetricRow({ label, value, note }) {
+  const styles = useMetricsStyles();
   return (
     <View style={styles.metricRow}>
       <View style={styles.metricLeft}>
@@ -48,6 +50,7 @@ function MetricRow({ label, value, note }) {
 }
 
 function SectionHeader({ label, title, subtitle }) {
+  const styles = useMetricsStyles();
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionLabel}>{label}</Text>
@@ -58,6 +61,7 @@ function SectionHeader({ label, title, subtitle }) {
 }
 
 function BarChart({ items, labelKey = 'segment', valueKey = 'views' }) {
+  const styles = useMetricsStyles();
   if (!items || items.length === 0) {
     return <Text style={styles.emptyText}>No data yet</Text>;
   }
@@ -98,6 +102,7 @@ const cfBadgeStyles = StyleSheet.create({
 });
 
 export default function AdminMetricsScreen() {
+  const { colors } = useTheme();
   const [metrics, setMetrics] = useState(null);
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -107,6 +112,38 @@ export default function AdminMetricsScreen() {
 
   useEffect(() => { loadMetrics(); loadEmailMetrics(); }, [days]);
   useEffect(() => { loadHealth(); }, []);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingText: { color: colors.textSecondary, fontSize: FONT_SIZES.md },
+    content: { padding: SPACING.md },
+    errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+    errorTitle: { fontSize: 20, fontWeight: '700', color: colors.white, marginTop: 16 },
+    errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
+    retryBtn: { marginTop: 20, backgroundColor: colors.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
+    retryText: { color: colors.background, fontWeight: '600', fontSize: FONT_SIZES.md },
+    windowRow: { flexDirection: 'row', gap: 8, marginBottom: SPACING.md },
+    windowBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: '#272729', alignItems: 'center' },
+    windowBtnActive: { backgroundColor: colors.accent },
+    windowBtnText: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', fontWeight: '500' },
+    windowBtnTextActive: { color: colors.background, fontWeight: '700' },
+    sectionHeader: { marginBottom: SPACING.sm, marginTop: SPACING.md },
+    sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: colors.white },
+    sectionSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.53)', marginTop: 2 },
+    subSectionTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: colors.white, marginTop: SPACING.md, marginBottom: 4, paddingHorizontal: 4 },
+    healthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.sm },
+    healthCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 12, borderLeftWidth: 3, gap: 10, minWidth: '47%', flex: 1 },
+    healthInfo: { flex: 1 },
+    healthLabel: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.53)' },
+    healthSub: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+    summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.sm },
+    sourceBadgeRow: { flexDirection: 'row', marginBottom: 8 },
+    sourceBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
+    sourceBadgeInternal: { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.12)' },
+    sourceBadgeCloudflare: { backgroundColor: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.4)' },
+    sourceBadgeText: { fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
+  }), [colors]);
 
   const loadMetrics = async () => {
     try {
@@ -177,7 +214,7 @@ export default function AdminMetricsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorWrap}>
-          <Ionicons name="alert-circle" size={40} color={COLORS.error} />
+          <Ionicons name="alert-circle" size={40} color={colors.error} />
           <Text style={styles.errorTitle}>Metrics Unavailable</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={loadMetrics}>
@@ -491,6 +528,7 @@ export default function AdminMetricsScreen() {
 }
 
 function SummaryCard({ label, value }) {
+  const styles = useMetricsStyles();
   return (
     <View style={styles.summaryCard}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -499,52 +537,31 @@ function SummaryCard({ label, value }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
-  content: { padding: SPACING.md },
-  errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  errorTitle: { fontSize: 20, fontWeight: '700', color: COLORS.white, marginTop: 16 },
-  errorText: { fontSize: FONT_SIZES.md, color: 'rgba(255,255,255,0.63)', marginTop: 8, textAlign: 'center' },
-  retryBtn: { marginTop: 20, backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: COLORS.background, fontWeight: '600', fontSize: FONT_SIZES.md },
-  windowRow: { flexDirection: 'row', gap: 8, marginBottom: SPACING.md },
-  windowBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: '#272729', alignItems: 'center' },
-  windowBtnActive: { backgroundColor: COLORS.accent },
-  windowBtnText: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.63)', fontWeight: '500' },
-  windowBtnTextActive: { color: COLORS.background, fontWeight: '700' },
-  sectionHeader: { marginBottom: SPACING.sm, marginTop: SPACING.md },
-  sectionLabel: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
-  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.white },
-  sectionSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.53)', marginTop: 2 },
-  subSectionTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.white, marginTop: SPACING.md, marginBottom: 4, paddingHorizontal: 4 },
-  surface: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  healthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.sm },
-  healthCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 12, borderLeftWidth: 3, gap: 10, minWidth: '47%', flex: 1 },
-  healthInfo: { flex: 1 },
-  healthLabel: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.53)' },
-  healthValue: { fontSize: 16, fontWeight: '700', color: COLORS.white, marginTop: 2 },
-  healthSub: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.sm },
-  summaryCard: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 12, width: '30%', minWidth: 90 },
-  summaryLabel: { fontSize: 10, color: 'rgba(255,255,255,0.53)', textTransform: 'uppercase', letterSpacing: 0.5 },
-  summaryValue: { fontSize: 16, fontWeight: '700', color: COLORS.white, marginTop: 4 },
-  metricRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333' },
-  metricLeft: { flex: 1, marginRight: 12 },
-  metricLabel: { fontSize: FONT_SIZES.md, color: COLORS.white },
-  metricNote: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  metricValue: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.white },
-  barChart: { gap: 6 },
-  chartRow: { flexDirection: 'row', alignItems: 'center' },
-  chartLabel: { width: 90, fontSize: 10, color: 'rgba(255,255,255,0.63)' },
-  chartTrack: { flex: 1, height: 6, backgroundColor: '#333', borderRadius: 3, marginHorizontal: 6 },
-  chartFill: { height: 6, backgroundColor: COLORS.accent, borderRadius: 3 },
-  chartValue: { width: 36, fontSize: 10, fontWeight: '600', color: COLORS.white, textAlign: 'right' },
-  emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: 12 },
-  sourceBadgeRow: { flexDirection: 'row', marginBottom: 8 },
-  sourceBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
-  sourceBadgeInternal: { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.12)' },
-  sourceBadgeCloudflare: { backgroundColor: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.4)' },
-  sourceBadgeText: { fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
-});
+function useMetricsStyles() {
+  const { colors } = useTheme();
+  return useMemo(() => StyleSheet.create({
+    metricRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333' },
+    metricLeft: { flex: 1, marginRight: 12 },
+    metricLabel: { fontSize: FONT_SIZES.md, color: colors.white },
+    metricNote: { fontSize: FONT_SIZES.xs, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+    metricValue: { fontSize: FONT_SIZES.md, fontWeight: '600', color: colors.white },
+    sectionHeader: { marginBottom: SPACING.sm, marginTop: SPACING.md },
+    sectionLabel: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: colors.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
+    sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: colors.white },
+    sectionSubtitle: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.53)', marginTop: 2 },
+    surface: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    healthValue: { fontSize: 16, fontWeight: '700', color: colors.white, marginTop: 2 },
+    barChart: { gap: 6 },
+    chartRow: { flexDirection: 'row', alignItems: 'center' },
+    chartLabel: { width: 90, fontSize: 10, color: 'rgba(255,255,255,0.63)' },
+    chartTrack: { flex: 1, height: 6, backgroundColor: '#333', borderRadius: 3, marginHorizontal: 6 },
+    chartFill: { height: 6, backgroundColor: colors.accent, borderRadius: 3 },
+    chartValue: { width: 36, fontSize: 10, fontWeight: '600', color: colors.white, textAlign: 'right' },
+    emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: 12 },
+    summaryCard: { backgroundColor: '#1c1c1e', borderRadius: BORDER_RADIUS.lg, padding: 12, width: '30%', minWidth: 90 },
+    summaryLabel: { fontSize: 10, color: 'rgba(255,255,255,0.53)', textTransform: 'uppercase', letterSpacing: 0.5 },
+    summaryValue: { fontSize: 16, fontWeight: '700', color: colors.white, marginTop: 4 },
+  }), [colors]);
+}
+
+

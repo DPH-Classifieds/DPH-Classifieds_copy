@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import AdminDealersScreen from './AdminDealersScreen';
 import AdminDealerUpgradeRequestsScreen from './AdminDealerUpgradeRequestsScreen';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES, FONTS } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const TABS = [
   { key: 'dealers', label: 'Dealers' },
@@ -18,6 +19,7 @@ const TABS = [
 // all) plus limit requests. Featured listings has its own top-level nav
 // entry and isn't duplicated here.
 export default function AdminDealershipsHubScreen({ navigation }) {
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState('dealers');
   const [pendingLimits, setPendingLimits] = useState(null);
 
@@ -31,6 +33,24 @@ export default function AdminDealershipsHubScreen({ navigation }) {
   }, []);
 
   useEffect(() => { refreshCounts(); }, [refreshCounts]);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    flex: { flex: 1 },
+    tabBar: {
+      flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+      paddingHorizontal: SPACING.sm,
+    },
+    tab: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 10,
+      borderBottomWidth: 2, borderBottomColor: 'transparent',
+    },
+    tabActive: { borderBottomColor: colors.accent },
+    tabText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: colors.textSecondary },
+    tabTextActive: { color: colors.white },
+    badge: { backgroundColor: 'rgba(255,152,0,0.2)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 6, paddingVertical: 1 },
+    badgeText: { ...FONTS.bold, fontSize: 10, color: colors.warning },
+  }), [colors]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -68,20 +88,4 @@ export default function AdminDealershipsHubScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  flex: { flex: 1 },
-  tabBar: {
-    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
-    paddingHorizontal: SPACING.sm,
-  },
-  tab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 10,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
-  },
-  tabActive: { borderBottomColor: COLORS.accent },
-  tabText: { ...FONTS.medium, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  tabTextActive: { color: COLORS.white },
-  badge: { backgroundColor: 'rgba(255,152,0,0.2)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 6, paddingVertical: 1 },
-  badgeText: { ...FONTS.bold, fontSize: 10, color: COLORS.warning },
-});
+const styles = StyleSheet.create({});

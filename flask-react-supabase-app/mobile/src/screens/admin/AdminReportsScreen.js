@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, Alert, StyleSheet, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,9 +7,11 @@ import apiClient from '../../utils/apiClient';
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function AdminReportsScreen() {
+  const { colors } = useTheme();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,10 +82,10 @@ export default function AdminReportsScreen() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return COLORS.warning;
-      case 'resolved': return COLORS.success;
-      case 'dismissed': return COLORS.textMuted;
-      default: return COLORS.textMuted;
+      case 'pending': return colors.warning;
+      case 'resolved': return colors.success;
+      case 'dismissed': return colors.textMuted;
+      default: return colors.textMuted;
     }
   };
 
@@ -105,7 +107,7 @@ export default function AdminReportsScreen() {
     <View style={styles.reportCard}>
       <View style={styles.reportHeader}>
         <View style={styles.typeBadge}>
-          <Ionicons name={getTypeIcon(item.listing_type)} size={16} color={COLORS.accent} />
+          <Ionicons name={getTypeIcon(item.listing_type)} size={16} color={colors.accent} />
           <Text style={styles.typeText}>{item.listing_type || 'Unknown'}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
@@ -136,7 +138,7 @@ export default function AdminReportsScreen() {
             onPress={() => handleDismiss(item)}
             activeOpacity={0.7}
           >
-            <Ionicons name="close-circle" size={18} color={COLORS.textSecondary} />
+            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             <Text style={styles.dismissText}>Dismiss</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -144,13 +146,106 @@ export default function AdminReportsScreen() {
             onPress={() => handleRemoveListing(item)}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash" size={18} color={COLORS.error} />
+            <Ionicons name="trash" size={18} color={colors.error} />
             <Text style={styles.removeText}>Remove Listing</Text>
           </TouchableOpacity>
         </View>
       )}
     </View>
   );
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.black,
+    },
+    listContent: {
+      padding: SPACING.md,
+      paddingBottom: 40,
+    },
+    reportCard: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      marginBottom: SPACING.sm,
+    },
+    reportHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: SPACING.sm,
+    },
+    typeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    typeText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.accent,
+      textTransform: 'capitalize',
+    },
+    statusBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: BORDER_RADIUS.sm,
+    },
+    statusBadgeText: {
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '600',
+      color: colors.white,
+      textTransform: 'capitalize',
+    },
+    reason: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+      color: colors.white,
+      marginBottom: 6,
+    },
+    details: {
+      fontSize: FONT_SIZES.sm,
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
+    reportMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: SPACING.sm,
+    },
+    metaItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    metaText: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+    },
+    actions: {
+      flexDirection: 'row',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingTop: SPACING.sm,
+      gap: 20,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    dismissText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    removeText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.error,
+    },
+  }), [colors]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -164,7 +259,7 @@ export default function AdminReportsScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
           }
           ListEmptyComponent={
             <EmptyState icon="flag-outline" title="No reports" message="No reports to review." />
@@ -175,95 +270,3 @@ export default function AdminReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-  reportCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  reportHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  typeText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.accent,
-    textTransform: 'capitalize',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  statusBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.white,
-    textTransform: 'capitalize',
-  },
-  reason: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginBottom: 6,
-  },
-  details: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-  },
-  reportMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: SPACING.sm,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-  actions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    paddingTop: SPACING.sm,
-    gap: 20,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dismissText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  removeText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-});

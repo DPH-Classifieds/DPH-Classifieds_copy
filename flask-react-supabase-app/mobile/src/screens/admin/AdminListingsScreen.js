@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, TouchableOpacity, Image, Alert, StyleSheet, RefreshControl, ScrollView, Modal, TextInput } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +14,8 @@ import { formatPrice, formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import FeatureListingModal from '../../components/ui/FeatureListingModal';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const FEATURABLE_TYPES = ['cars', 'bikes', 'plates', 'parts'];
 const PLURAL_TO_SINGULAR = { cars: 'car', bikes: 'bike', plates: 'plate', parts: 'part' };
@@ -82,7 +83,7 @@ const getDisplayPrice = (item) => {
   return item.price || item.expected_selling_price || 0;
 };
 
-function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature, selectionMode, selected, onToggleSelect }) {
+function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature, selectionMode, selected, onToggleSelect, colors, styles }) {
   const { animatedStyle } = useStaggeredEntrance(index);
   const imageUri = getImageUri(item);
   const title = getTitle(item);
@@ -103,7 +104,7 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature
               hitSlop={8}
               activeOpacity={0.7}
             >
-              <Ionicons name="star-outline" size={16} color={COLORS.warning} />
+              <Ionicons name="star-outline" size={16} color={colors.warning} />
             </TouchableOpacity>
           )}
           <View style={styles.cardContent}>
@@ -112,7 +113,7 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature
                 <Ionicons
                   name={selected ? 'checkmark-circle' : 'ellipse-outline'}
                   size={24}
-                  color={selected ? COLORS.accent : COLORS.textMuted}
+                  color={selected ? colors.accent : colors.textMuted}
                 />
               </TouchableOpacity>
             )}
@@ -120,7 +121,7 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature
               <Image source={{ uri: imageUri }} style={styles.thumbnail} />
             ) : (
               <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-                <Ionicons name={placeholderIcon} size={28} color={COLORS.textMuted} />
+                <Ionicons name={placeholderIcon} size={28} color={colors.textMuted} />
               </View>
             )}
             <View style={styles.cardInfo}>
@@ -159,7 +160,7 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature
                 onPress={onApprove}
                 activeOpacity={0.7}
               >
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.accent} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
                 <Text style={styles.approveText}>Approve</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -167,7 +168,7 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature
                 onPress={onReject}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close-circle" size={18} color={COLORS.error} />
+                <Ionicons name="close-circle" size={18} color={colors.error} />
                 <Text style={styles.rejectText}>Reject</Text>
               </TouchableOpacity>
             </View>
@@ -179,6 +180,7 @@ function AdminListingCard({ item, index, onPress, onApprove, onReject, onFeature
 }
 
 export default function AdminListingsScreen({ navigation }) {
+  const { colors } = useTheme();
   const [listings, setListings] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState(['All']);
   const [selectedStatuses, setSelectedStatuses] = useState(['All']);
@@ -197,6 +199,320 @@ export default function AdminListingsScreen({ navigation }) {
   useEffect(() => {
     fetchListings();
   }, [selectedTypes, selectedStatuses]);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.black,
+    },
+    typeTabBar: {
+      flexDirection: 'row',
+      paddingHorizontal: SPACING.md,
+      paddingTop: SPACING.sm,
+      gap: 8,
+    },
+    typeTab: {
+      flexDirection: 'row',
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: BORDER_RADIUS.pill,
+      backgroundColor: colors.surface,
+    },
+    activeTypeTab: {
+      backgroundColor: colors.accent,
+    },
+    typeTabText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    activeTypeTabText: {
+      color: colors.background,
+    },
+    statusTabBar: {
+      flexDirection: 'row',
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      gap: 6,
+    },
+    statusTab: {
+      flexDirection: 'row',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: BORDER_RADIUS.pill,
+      backgroundColor: colors.surface,
+    },
+    activeStatusTab: {
+      backgroundColor: colors.accent,
+    },
+    statusTabText: {
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    activeStatusTabText: {
+      color: colors.background,
+    },
+    kpiRow: {
+      flexDirection: 'row',
+      marginHorizontal: SPACING.md,
+      marginTop: SPACING.sm,
+      paddingVertical: SPACING.sm,
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    kpiItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    kpiValue: {
+      fontSize: FONT_SIZES.lg,
+      fontWeight: '700',
+      color: colors.white,
+    },
+    kpiLabel: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+    kpiDivider: {
+      width: 1,
+      height: 28,
+      backgroundColor: colors.borderLight,
+    },
+    listContent: {
+      padding: SPACING.md,
+      paddingBottom: 40,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      marginBottom: SPACING.sm,
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    featureBtn: {
+      position: 'absolute',
+      top: SPACING.sm,
+      right: SPACING.sm,
+      zIndex: 1,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,152,0,0.15)',
+    },
+    cardContent: {
+      flexDirection: 'row',
+      padding: SPACING.md,
+    },
+    thumbnail: {
+      width: 80,
+      height: 80,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceHigher,
+    },
+    thumbnailPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardInfo: {
+      flex: 1,
+      marginLeft: SPACING.md,
+      justifyContent: 'center',
+    },
+    cardTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 4,
+    },
+    cardTitle: {
+      flexShrink: 1,
+      fontSize: FONT_SIZES.md,
+      fontWeight: '600',
+      color: colors.white,
+    },
+    requestPill: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: BORDER_RADIUS.sm,
+      backgroundColor: 'rgba(76,175,80,0.18)',
+    },
+    requestPillText: {
+      color: colors.accent,
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    cardPrice: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: '700',
+      color: colors.accent,
+      marginBottom: 6,
+    },
+    cardMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 4,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: BORDER_RADIUS.sm,
+    },
+    statusBadgeText: {
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '600',
+      color: colors.white,
+      textTransform: 'capitalize',
+    },
+    soldPill: {
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: BORDER_RADIUS.sm,
+    },
+    soldPillText: {
+      fontSize: FONT_SIZES.xs,
+      fontWeight: '600',
+    },
+    cardDate: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+    },
+    sellerName: {
+      fontSize: FONT_SIZES.xs,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+    actions: {
+      flexDirection: 'row',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      gap: 20,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 4,
+    },
+    approveBtn: {},
+    rejectBtn: {},
+    approveText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.accent,
+    },
+    rejectText: {
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+      color: colors.error,
+    },
+    selectRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingHorizontal: SPACING.md,
+      paddingTop: SPACING.sm,
+    },
+    selectToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    selectToggleText: {
+      color: colors.accent,
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+    },
+    checkboxWrap: {
+      justifyContent: 'center',
+      paddingRight: SPACING.sm,
+    },
+    bulkBar: {
+      position: 'absolute',
+      bottom: SPACING.md,
+      left: SPACING.md,
+      right: SPACING.md,
+      backgroundColor: '#0a0f14',
+      borderRadius: BORDER_RADIUS.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: SPACING.sm,
+      paddingHorizontal: SPACING.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.sm,
+      shadowColor: '#000',
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 8,
+    },
+    bulkBarCount: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZES.sm,
+      fontWeight: '600',
+    },
+    bulkBarActions: {
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'center',
+    },
+    bulkApproveBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: colors.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+    },
+    bulkApproveBtnText: { color: colors.black, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+    bulkRenewBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: 'rgba(139,214,180,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+      borderWidth: 1, borderColor: 'rgba(139,214,180,0.3)',
+    },
+    bulkRenewBtnText: { color: colors.accent, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+    bulkRestoreBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: 'rgba(33,150,243,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+      borderWidth: 1, borderColor: 'rgba(33,150,243,0.3)',
+    },
+    bulkRestoreBtnText: { color: colors.info, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+    bulkDeleteBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: 'rgba(244,67,54,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
+      borderWidth: 1, borderColor: 'rgba(244,67,54,0.3)',
+    },
+    bulkDeleteBtnText: { color: colors.error, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+    bulkClearBtn: {
+      backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 12, paddingVertical: 8,
+    },
+    bulkClearBtnText: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: SPACING.md },
+    modalContent: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
+    modalTitle: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: SPACING.sm },
+    modalWarning: { color: colors.warning, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
+    modalLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 6 },
+    modalInput: {
+      backgroundColor: colors.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
+      color: colors.white, fontSize: FONT_SIZES.sm,
+    },
+    modalBtnDisabled: { opacity: 0.4 },
+    modalPrimaryBtn: { marginTop: SPACING.lg, backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+    modalPrimaryBtnText: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    modalDangerBtn: { marginTop: SPACING.lg, backgroundColor: colors.error, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+    modalDangerBtnText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  }), [colors]);
 
   const fetchListings = async () => {
     try {
@@ -474,6 +790,8 @@ export default function AdminListingsScreen({ navigation }) {
       selectionMode={selectionMode}
       selected={selectedIds.has(rowKey(item))}
       onToggleSelect={() => toggleRowSelected(item)}
+      colors={colors}
+      styles={styles}
     />
   );
 
@@ -482,7 +800,7 @@ export default function AdminListingsScreen({ navigation }) {
       <ScreenEntrance>
         <View style={styles.selectRow}>
           <TouchableOpacity onPress={toggleSelectionMode} style={styles.selectToggle} activeOpacity={0.7}>
-            <Ionicons name={selectionMode ? 'close' : 'checkbox-outline'} size={16} color={COLORS.accent} />
+            <Ionicons name={selectionMode ? 'close' : 'checkbox-outline'} size={16} color={colors.accent} />
             <Text style={styles.selectToggleText}>{selectionMode ? 'Cancel' : 'Select'}</Text>
           </TouchableOpacity>
         </View>
@@ -503,7 +821,7 @@ export default function AdminListingsScreen({ navigation }) {
                 <Ionicons
                   name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
                   size={14}
-                  color={active ? COLORS.background : COLORS.textSecondary}
+                  color={active ? colors.background : colors.textSecondary}
                   style={{ marginRight: 4 }}
                 />
                 <Text style={[styles.typeTabText, active && styles.activeTypeTabText]}>
@@ -531,7 +849,7 @@ export default function AdminListingsScreen({ navigation }) {
                 <Ionicons
                   name={active ? 'checkmark-circle-outline' : 'add-circle-outline'}
                   size={14}
-                  color={active ? COLORS.background : COLORS.textSecondary}
+                  color={active ? colors.background : colors.textSecondary}
                   style={{ marginRight: 4 }}
                 />
                 <Text style={[styles.statusTabText, active && styles.activeStatusTabText]}>
@@ -550,12 +868,12 @@ export default function AdminListingsScreen({ navigation }) {
             </View>
             <View style={styles.kpiDivider} />
             <View style={styles.kpiItem}>
-              <Text style={[styles.kpiValue, { color: COLORS.warning }]}>{kpi.pending}</Text>
+              <Text style={[styles.kpiValue, { color: colors.warning }]}>{kpi.pending}</Text>
               <Text style={styles.kpiLabel}>Pending</Text>
             </View>
             <View style={styles.kpiDivider} />
             <View style={styles.kpiItem}>
-              <Text style={[styles.kpiValue, { color: COLORS.success }]}>{kpi.active}</Text>
+              <Text style={[styles.kpiValue, { color: colors.success }]}>{kpi.active}</Text>
               <Text style={styles.kpiLabel}>Active</Text>
             </View>
           </View>
@@ -572,7 +890,7 @@ export default function AdminListingsScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
             }
             ListEmptyComponent={
               <EmptyState
@@ -590,24 +908,24 @@ export default function AdminListingsScreen({ navigation }) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bulkBarActions}>
               {bulkHasPending && (
                 <TouchableOpacity style={styles.bulkApproveBtn} onPress={handleBulkApprove} disabled={bulkBusy}>
-                  <Ionicons name="checkmark-circle" size={14} color={COLORS.black} />
+                  <Ionicons name="checkmark-circle" size={14} color={colors.black} />
                   <Text style={styles.bulkApproveBtnText}>Approve</Text>
                 </TouchableOpacity>
               )}
               {bulkHasRenewable && (
                 <TouchableOpacity style={styles.bulkRenewBtn} onPress={() => setBulkRenewModal(true)} disabled={bulkBusy}>
-                  <Ionicons name="refresh" size={14} color={COLORS.accent} />
+                  <Ionicons name="refresh" size={14} color={colors.accent} />
                   <Text style={styles.bulkRenewBtnText}>Renew</Text>
                 </TouchableOpacity>
               )}
               {bulkHasRestorable && (
                 <TouchableOpacity style={styles.bulkRestoreBtn} onPress={handleBulkRestore} disabled={bulkBusy}>
-                  <Ionicons name="arrow-undo" size={14} color={COLORS.info} />
+                  <Ionicons name="arrow-undo" size={14} color={colors.info} />
                   <Text style={styles.bulkRestoreBtnText}>Restore</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.bulkDeleteBtn} onPress={() => setBulkDeleteModal(true)} disabled={bulkBusy}>
-                <Ionicons name="trash" size={14} color={COLORS.error} />
+                <Ionicons name="trash" size={14} color={colors.error} />
                 <Text style={styles.bulkDeleteBtnText}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.bulkClearBtn} onPress={clearSelection}>
@@ -628,7 +946,7 @@ export default function AdminListingsScreen({ navigation }) {
               value={bulkRenewReason}
               onChangeText={setBulkRenewReason}
               placeholder="e.g. Requested by seller"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
             />
             <TouchableOpacity style={[styles.modalPrimaryBtn, bulkBusy && styles.modalBtnDisabled]} disabled={bulkBusy} onPress={handleBulkRenew}>
               <Text style={styles.modalPrimaryBtnText}>{bulkBusy ? 'Working…' : `Confirm renew (${selectedIds.size})`}</Text>
@@ -648,7 +966,7 @@ export default function AdminListingsScreen({ navigation }) {
               value={bulkDeleteReason}
               onChangeText={setBulkDeleteReason}
               placeholder="e.g. Spam / policy violation"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
             />
             <TouchableOpacity
               style={[styles.modalDangerBtn, (!bulkDeleteReason.trim() || bulkBusy) && styles.modalBtnDisabled]}
@@ -675,328 +993,15 @@ export default function AdminListingsScreen({ navigation }) {
 
 const getStatusColor = (status) => {
   switch (status) {
-    case 'active': return COLORS.success;
-    case 'approved': return COLORS.success;
-    case 'pending': return COLORS.warning;
-    case 'expired': return COLORS.warning;
-    case 'archived': return COLORS.textMuted;
-    case 'sold': return COLORS.info;
-    case 'deleted': return COLORS.textMuted;
-    case 'rejected': return COLORS.error;
-    default: return COLORS.textMuted;
+    case 'active': return colors.success;
+    case 'approved': return colors.success;
+    case 'pending': return colors.warning;
+    case 'expired': return colors.warning;
+    case 'archived': return colors.textMuted;
+    case 'sold': return colors.info;
+    case 'deleted': return colors.textMuted;
+    case 'rejected': return colors.error;
+    default: return colors.textMuted;
   }
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  typeTabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    gap: 8,
-  },
-  typeTab: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface,
-  },
-  activeTypeTab: {
-    backgroundColor: COLORS.accent,
-  },
-  typeTabText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  activeTypeTabText: {
-    color: COLORS.background,
-  },
-  statusTabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: 6,
-  },
-  statusTab: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.surface,
-  },
-  activeStatusTab: {
-    backgroundColor: COLORS.accent,
-  },
-  statusTabText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  activeStatusTabText: {
-    color: COLORS.background,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kpiItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  kpiValue: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  kpiLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  kpiDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: COLORS.borderLight,
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.sm,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  featureBtn: {
-    position: 'absolute',
-    top: SPACING.sm,
-    right: SPACING.sm,
-    zIndex: 1,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,152,0,0.15)',
-  },
-  cardContent: {
-    flexDirection: 'row',
-    padding: SPACING.md,
-  },
-  thumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: COLORS.surfaceHigher,
-  },
-  thumbnailPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardInfo: {
-    flex: 1,
-    marginLeft: SPACING.md,
-    justifyContent: 'center',
-  },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  cardTitle: {
-    flexShrink: 1,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  requestPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: 'rgba(76,175,80,0.18)',
-  },
-  requestPillText: {
-    color: COLORS.accent,
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  cardPrice: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.accent,
-    marginBottom: 6,
-  },
-  cardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  statusBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.white,
-    textTransform: 'capitalize',
-  },
-  soldPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  soldPillText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-  },
-  cardDate: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-  sellerName: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  actions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: 20,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-  },
-  approveBtn: {},
-  rejectBtn: {},
-  approveText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.accent,
-  },
-  rejectText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-  selectRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-  },
-  selectToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  selectToggleText: {
-    color: COLORS.accent,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  checkboxWrap: {
-    justifyContent: 'center',
-    paddingRight: SPACING.sm,
-  },
-  bulkBar: {
-    position: 'absolute',
-    bottom: SPACING.md,
-    left: SPACING.md,
-    right: SPACING.md,
-    backgroundColor: '#0a0f14',
-    borderRadius: BORDER_RADIUS.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  bulkBarCount: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  bulkBarActions: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  bulkApproveBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
-  },
-  bulkApproveBtnText: { color: COLORS.black, fontSize: FONT_SIZES.xs, fontWeight: '700' },
-  bulkRenewBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(139,214,180,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: 'rgba(139,214,180,0.3)',
-  },
-  bulkRenewBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.xs, fontWeight: '700' },
-  bulkRestoreBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(33,150,243,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: 'rgba(33,150,243,0.3)',
-  },
-  bulkRestoreBtnText: { color: COLORS.info, fontSize: FONT_SIZES.xs, fontWeight: '700' },
-  bulkDeleteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(244,67,54,0.15)', borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: 'rgba(244,67,54,0.3)',
-  },
-  bulkDeleteBtnText: { color: COLORS.error, fontSize: FONT_SIZES.xs, fontWeight: '700' },
-  bulkClearBtn: {
-    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.pill, paddingHorizontal: 12, paddingVertical: 8,
-  },
-  bulkClearBtnText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: SPACING.md },
-  modalContent: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
-  modalTitle: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600', marginBottom: SPACING.sm },
-  modalWarning: { color: COLORS.warning, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
-  modalLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, marginBottom: 6 },
-  modalInput: {
-    backgroundColor: COLORS.surfaceHigher, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
-    color: COLORS.white, fontSize: FONT_SIZES.sm,
-  },
-  modalBtnDisabled: { opacity: 0.4 },
-  modalPrimaryBtn: { marginTop: SPACING.lg, backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-  modalPrimaryBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  modalDangerBtn: { marginTop: SPACING.lg, backgroundColor: COLORS.error, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-  modalDangerBtnText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-});

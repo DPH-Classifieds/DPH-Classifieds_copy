@@ -1,14 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function AdminUserDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { userId } = route.params;
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingText: { color: colors.textSecondary, fontSize: FONT_SIZES.md },
+    content: { padding: SPACING.md },
+    header: { alignItems: 'center', marginBottom: SPACING.lg },
+    avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.sm },
+    avatarText: { fontSize: 24, fontWeight: '700', color: colors.accent },
+    name: { color: colors.white, fontSize: FONT_SIZES.xl, fontWeight: '700' },
+    email: { color: colors.textSecondary, fontSize: FONT_SIZES.md, marginTop: 4 },
+    badges: { flexDirection: 'row', gap: 8, marginTop: SPACING.sm },
+    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm },
+    adminBadge: { backgroundColor: colors.primary },
+    dealerBadge: { backgroundColor: colors.info },
+    bannedBadge: { backgroundColor: colors.error },
+    badgeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: colors.white },
+    actions: { gap: SPACING.sm, marginBottom: SPACING.lg },
+    primaryBtn: { backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+    primaryBtnText: { color: colors.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    secondaryBtn: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+    secondaryBtnText: { color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    dangerBtn: { backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
+    dangerBtnText: { color: colors.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    stats: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, gap: 8 },
+    statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    statLabel: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    statValue: { color: colors.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
+    statDivider: { height: 1, backgroundColor: colors.borderLight },
+  }), [colors]);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -134,32 +166,3 @@ export default function AdminUserDetailScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
-  content: { padding: SPACING.md },
-  header: { alignItems: 'center', marginBottom: SPACING.lg },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.sm },
-  avatarText: { fontSize: 24, fontWeight: '700', color: COLORS.accent },
-  name: { color: COLORS.white, fontSize: FONT_SIZES.xl, fontWeight: '700' },
-  email: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md, marginTop: 4 },
-  badges: { flexDirection: 'row', gap: 8, marginTop: SPACING.sm },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: BORDER_RADIUS.sm },
-  adminBadge: { backgroundColor: COLORS.primary },
-  dealerBadge: { backgroundColor: COLORS.info },
-  bannedBadge: { backgroundColor: COLORS.error },
-  badgeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', color: COLORS.white },
-  actions: { gap: SPACING.sm, marginBottom: SPACING.lg },
-  primaryBtn: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-  primaryBtnText: { color: COLORS.accent, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  secondaryBtn: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-  secondaryBtnText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  dangerBtn: { backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: BORDER_RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
-  dangerBtnText: { color: COLORS.error, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  stats: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, gap: 8 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  statValue: { color: COLORS.white, fontSize: FONT_SIZES.lg, fontWeight: '600' },
-  statDivider: { height: 1, backgroundColor: COLORS.borderLight },
-});

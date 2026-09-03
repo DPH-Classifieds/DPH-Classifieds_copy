@@ -1,11 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import Text from '../../components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const WINDOW_OPTIONS = [
   { label: '24h', days: 1 },
@@ -21,10 +22,35 @@ const getEventActorLabel = (ev) =>
 const ROUTE_TYPE = { car: 'cars', cars: 'cars', bike: 'bikes', bikes: 'bikes', part: 'parts', parts: 'parts', plate: 'plates', plates: 'plates' };
 
 export default function AdminVinOpensScreen({ navigation }) {
+  const { colors } = useTheme();
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.black },
+    windowRow: { flexDirection: 'row', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
+    windowPill: {
+      flex: 1, paddingVertical: 10, alignItems: 'center',
+      borderRadius: BORDER_RADIUS.pill, backgroundColor: colors.surface,
+    },
+    windowPillActive: { backgroundColor: colors.primary },
+    windowPillText: { fontSize: FONT_SIZES.sm, fontWeight: '600', color: colors.textSecondary },
+    windowPillTextActive: { color: colors.accent },
+    listContent: { padding: SPACING.md, paddingBottom: 40 },
+    countText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
+    row: { backgroundColor: colors.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+    rowTop: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.sm },
+    rowTitle: { flex: 1, color: colors.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
+    rowTime: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
+    rowVin: { color: colors.textSecondary, fontSize: FONT_SIZES.xs, fontFamily: 'monospace', marginTop: 4 },
+    rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm },
+    actorWrap: { flex: 1 },
+    actorName: { color: colors.textSecondary, fontSize: FONT_SIZES.sm },
+    actorEmail: { color: colors.textMuted, fontSize: FONT_SIZES.xs },
+    platformText: { color: colors.textMuted, fontSize: FONT_SIZES.xs, textTransform: 'capitalize' },
+  }), [colors]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -100,7 +126,7 @@ export default function AdminVinOpensScreen({ navigation }) {
           keyExtractor={(item, idx) => String(item.id || idx)}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           ListHeaderComponent={
             data ? <Text style={styles.countText}>{data.count ?? events.length} events</Text> : null
           }
@@ -113,26 +139,3 @@ export default function AdminVinOpensScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.black },
-  windowRow: { flexDirection: 'row', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
-  windowPill: {
-    flex: 1, paddingVertical: 10, alignItems: 'center',
-    borderRadius: BORDER_RADIUS.pill, backgroundColor: COLORS.surface,
-  },
-  windowPillActive: { backgroundColor: COLORS.primary },
-  windowPillText: { fontSize: FONT_SIZES.sm, fontWeight: '600', color: COLORS.textSecondary },
-  windowPillTextActive: { color: COLORS.accent },
-  listContent: { padding: SPACING.md, paddingBottom: 40 },
-  countText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.sm },
-  row: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
-  rowTop: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.sm },
-  rowTitle: { flex: 1, color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  rowTime: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs },
-  rowVin: { color: COLORS.textSecondary, fontSize: FONT_SIZES.xs, fontFamily: 'monospace', marginTop: 4 },
-  rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm },
-  actorWrap: { flex: 1 },
-  actorName: { color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
-  actorEmail: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs },
-  platformText: { color: COLORS.textMuted, fontSize: FONT_SIZES.xs, textTransform: 'capitalize' },
-});
